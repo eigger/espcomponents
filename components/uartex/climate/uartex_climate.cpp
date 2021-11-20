@@ -50,48 +50,50 @@ void UartExClimate::setup()
 void UartExClimate::publish(const uint8_t *data, const num_t len)
 {
     bool changed = false;
+    climate::ClimateCall mcall = make_call();
     // turn off
     if (this->state_off_.has_value() && compare(&data[0], len, &state_off_.value()))
     {
-        if (this->mode != climate::CLIMATE_MODE_OFF)
+        if (mcall.get_mode() != climate::CLIMATE_MODE_OFF)
         {
-            this->mode = climate::CLIMATE_MODE_OFF;
+            mcall.set_mode(climate::CLIMATE_MODE_OFF);
             changed = true;
         }
     }
     // heat mode
     else if (this->state_heat_.has_value() && compare(&data[0], len, &state_heat_.value()))
     {
-        if (this->mode != climate::CLIMATE_MODE_HEAT)
+        if (mcall.get_mode() != climate::CLIMATE_MODE_HEAT)
         {
-            this->mode = climate::CLIMATE_MODE_HEAT;
+            mcall.set_mode(climate::CLIMATE_MODE_HEAT);
             changed = true;
         }
     }
     // cool mode
     else if (this->state_cool_.has_value() && compare(&data[0], len, &state_cool_.value()))
     {
-        if (this->mode != climate::CLIMATE_MODE_COOL)
+        if (mcall.get_mode() != climate::CLIMATE_MODE_COOL)
         {
-            this->mode = climate::CLIMATE_MODE_COOL;
+            mcall.set_mode(climate::CLIMATE_MODE_COOL);
             changed = true;
         }
     }
     // auto mode
     else if (this->state_auto_.has_value() && compare(&data[0], len, &state_auto_.value()))
     {
-        if (this->mode != climate::CLIMATE_MODE_AUTO)
+        if (mcall.get_mode() != climate::CLIMATE_MODE_AUTO)
         {
-            this->mode = climate::CLIMATE_MODE_AUTO;
+            mcall.set_mode(climate::CLIMATE_MODE_AUTO);
             changed = true;
         }
     }
     // away
     if (this->state_away_.has_value())
     {
-        if (this->away != compare(&data[0], len, &state_away_.value()))
+        bool is_away = mcall.get_preset() == climate::CLIMATE_PRESET_AWAY ? true : false;
+        if (is_away != compare(&data[0], len, &state_away_.value()))
         {
-            this->away = !this->away;
+            mcall.set_preset(is_away == true ? climate::CLIMATE_PRESET_HOME : climate::CLIMATE_PRESET_AWAY);
             changed = true;
         }
     }
@@ -193,10 +195,10 @@ void UartExClimate::control(const climate::ClimateCall &call)
     }
 
     // Set away
-    if (this->command_away_.has_value() && call.get_away().has_value() && mcall.get_away() != *call.get_away())
+    if (this->command_away_.has_value() && call.get_away().has_value() && mcall.get_preset() != *call.get_preset())
     {
-        mcall.set_away(*call.get_away());
-        if (mcall.get_away())
+        mcall.set_preset(*call.get_preset());
+        if (mcall.get_preset() == climate::CLIMATE_PRESET_AWAY)
         {
             write_with_header(&this->command_away_.value());
         }
@@ -204,19 +206,19 @@ void UartExClimate::control(const climate::ClimateCall &call)
         {
             write_with_header(&this->command_home_.value());
         }
-        else if (get_mode() == climate::CLIMATE_MODE_OFF)
+        else if (mcall.get_mode() == climate::CLIMATE_MODE_OFF)
         {
             write_with_header(this->get_command_off());
         }
-        else if (get_mode() == climate::CLIMATE_MODE_HEAT && this->command_heat_.has_value())
+        else if (mcall.get_mode() == climate::CLIMATE_MODE_HEAT && this->command_heat_.has_value())
         {
             write_with_header(&this->command_heat_.value());
         }
-        else if (get_mode() == climate::CLIMATE_MODE_COOL && this->command_cool_.has_value())
+        else if (mcall.get_mode() == climate::CLIMATE_MODE_COOL && this->command_cool_.has_value())
         {
             write_with_header(&this->command_cool_.value());
         }
-        else if (get_mode() == climate::CLIMATE_MODE_AUTO && this->command_auto_.has_value())
+        else if (mcall.get_mode() == climate::CLIMATE_MODE_AUTO && this->command_auto_.has_value())
         {
             write_with_header(&this->command_auto_.value());
         }
