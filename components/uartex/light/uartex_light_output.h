@@ -26,7 +26,7 @@ public:
     light::LightTraits get_traits() override
     {
         auto traits = light::LightTraits();
-        traits.get_supports_brightness();
+        traits.supports_color_capability(ColorCapability::BRIGHTNESS);
         return traits;
     }
 
