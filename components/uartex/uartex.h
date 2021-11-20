@@ -277,7 +277,6 @@ class SerialMonitor : public UartExListener {
     protected:
         std::vector<hex_t> filters_;
 
-
 };
 
 }  // namespace uartex
