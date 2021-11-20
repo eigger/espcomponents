@@ -23,12 +23,12 @@ public:
         light_ = light;
     }
 
-    light::LightTraits get_traits() override
-    {
-        auto traits = light::LightTraits();
-        traits.set_supports_brightness(false);
-        return traits;
-    }
+    // light::LightTraits get_traits() override
+    // {
+    //     auto traits = light::LightTraits();
+    //     traits.set_supports_brightness(false);
+    //     return traits;
+    // }
 
     void write_state(light::LightState *state) override
     {
