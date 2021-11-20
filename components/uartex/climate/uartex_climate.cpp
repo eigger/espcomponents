@@ -145,22 +145,23 @@ void UartExClimate::publish(const uint8_t *data, const num_t len)
 void UartExClimate::control(const climate::ClimateCall &call)
 {
     // Set mode
-    if (call.get_mode().has_value() && get_mode() != *call.get_mode())
+    climate::ClimateCall mcall = make_call();
+    if (call.get_mode().has_value() && mcall.get_mode() != *call.get_mode())
     {
-        set_mode(*call.get_mode());
-        if (get_mode() == climate::CLIMATE_MODE_OFF)
+        mcall.set_mode(*call.get_mode());
+        if (mcall.get_mode() == climate::CLIMATE_MODE_OFF)
         {
             write_with_header(this->get_command_off());
         }
-        else if (get_mode() == climate::CLIMATE_MODE_HEAT && this->command_heat_.has_value())
+        else if (mcall.get_mode() == climate::CLIMATE_MODE_HEAT && this->command_heat_.has_value())
         {
             write_with_header(&this->command_heat_.value());
         }
-        else if (get_mode() == climate::CLIMATE_MODE_COOL && this->command_cool_.has_value())
+        else if (mcall.get_mode() == climate::CLIMATE_MODE_COOL && this->command_cool_.has_value())
         {
             write_with_header(&this->command_cool_.value());
         }
-        else if (get_mode() == climate::CLIMATE_MODE_AUTO)
+        else if (mcall.get_mode() == climate::CLIMATE_MODE_AUTO)
         {
             if (this->command_auto_.has_value())
             {
@@ -173,12 +174,12 @@ void UartExClimate::control(const climate::ClimateCall &call)
             else if (this->command_heat_.has_value())
             {
                 write_with_header(&this->command_heat_.value());
-                set_mode(climate::CLIMATE_MODE_HEAT);
+                mcall.set_mode(climate::CLIMATE_MODE_HEAT);
             }
             else if (this->command_cool_.has_value())
             {
                 write_with_header(&this->command_cool_.value());
-                set_mode(climate::CLIMATE_MODE_COOL);
+                mcall.set_mode(climate::CLIMATE_MODE_COOL);
             }
         }
     }
@@ -192,10 +193,10 @@ void UartExClimate::control(const climate::ClimateCall &call)
     }
 
     // Set away
-    if (this->command_away_.has_value() && call.get_away().has_value() && get_away() != *call.get_away())
+    if (this->command_away_.has_value() && call.get_away().has_value() && mcall.get_away() != *call.get_away())
     {
-        set_away(call.get_away());
-        if (get_away())
+        mcall.set_away(*call.get_away());
+        if (mcall.get_away())
         {
             write_with_header(&this->command_away_.value());
         }
