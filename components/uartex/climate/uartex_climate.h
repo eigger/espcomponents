@@ -8,8 +8,9 @@
 namespace esphome {
 namespace uartex {
 
-class UartExClimate : public climate::Climate, public UartExDevice {
-  public:
+class UartExClimate : public climate::Climate, public UartExDevice
+{
+public:
     UartExClimate() { this->device_name_ = &this->name_; }
     void dump_config() override;
     void setup() override;
@@ -21,19 +22,51 @@ class UartExClimate : public climate::Climate, public UartExDevice {
     void set_state_current(state_num_t state_current) { state_current_ = state_current; }
     void set_state_target(std::function<optional<float>(const uint8_t *data, const num_t len)> f) { state_target_func_ = f; }
     void set_state_target(state_num_t state_target) { state_target_ = state_target; }
-    void set_state_auto(hex_t state) { state_auto_ = state; supports_auto_ = true; }
-    void set_state_cool(hex_t state) { state_cool_ = state; supports_cool_ = true; }
-    void set_state_heat(hex_t state) { state_heat_ = state; supports_heat_ = true; }
-    void set_state_away(hex_t state) { state_away_ = state; supports_away_ = true; }
+    void set_state_auto(hex_t state)
+    {
+        state_auto_ = state;
+        supports_auto_ = true;
+    }
+    void set_state_cool(hex_t state)
+    {
+        state_cool_ = state;
+        supports_cool_ = true;
+    }
+    void set_state_heat(hex_t state)
+    {
+        state_heat_ = state;
+        supports_heat_ = true;
+    }
+    void set_state_away(hex_t state)
+    {
+        state_away_ = state;
+        supports_away_ = true;
+    }
 
     void set_command_temperature(std::function<cmd_hex_t(const float x)> f) { command_temperature_func_ = f; }
-    void set_command_auto(cmd_hex_t cmd) { command_auto_ = cmd; supports_auto_ = true; }
-    void set_command_cool(cmd_hex_t cmd) { command_cool_ = cmd; supports_cool_ = true; }
-    void set_command_heat(cmd_hex_t cmd) { command_heat_ = cmd; supports_heat_ = true; }
-    void set_command_away(cmd_hex_t cmd) { command_away_ = cmd; supports_away_ = true; }
+    void set_command_auto(cmd_hex_t cmd)
+    {
+        command_auto_ = cmd;
+        supports_auto_ = true;
+    }
+    void set_command_cool(cmd_hex_t cmd)
+    {
+        command_cool_ = cmd;
+        supports_cool_ = true;
+    }
+    void set_command_heat(cmd_hex_t cmd)
+    {
+        command_heat_ = cmd;
+        supports_heat_ = true;
+    }
+    void set_command_away(cmd_hex_t cmd)
+    {
+        command_away_ = cmd;
+        supports_away_ = true;
+    }
     void set_command_home(cmd_hex_t cmd) { command_home_ = cmd; }
 
-  protected:
+protected:
     /// Override control to change settings of the climate device.
     void control(const climate::ClimateCall &call) override;
     /// Return the traits of this controller.
@@ -59,7 +92,7 @@ class UartExClimate : public climate::Climate, public UartExDevice {
     optional<hex_t> state_auto_{};
     optional<hex_t> state_cool_{};
     optional<hex_t> state_heat_{};
-    
+
     std::function<cmd_hex_t(const float x)> command_temperature_func_{};
     cmd_hex_t command_temperature_{};
     optional<cmd_hex_t> command_away_{};
@@ -67,7 +100,6 @@ class UartExClimate : public climate::Climate, public UartExDevice {
     optional<cmd_hex_t> command_auto_{};
     optional<cmd_hex_t> command_cool_{};
     optional<cmd_hex_t> command_heat_{};
-    
 };
 
 }  // namespace uartex

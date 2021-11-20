@@ -7,8 +7,9 @@
 namespace esphome {
 namespace uartex {
 
-class UartExSensor : public sensor::Sensor, public UartExDevice {
-  public:
+class UartExSensor : public sensor::Sensor, public UartExDevice
+{
+public:
     UartExSensor() { device_name_ = &this->name_; }
     void dump_config() override;
     void publish(const uint8_t *data, const num_t len) override;
@@ -18,10 +19,9 @@ class UartExSensor : public sensor::Sensor, public UartExDevice {
     void set_template(std::function<optional<float>(const uint8_t *data, const num_t len)> &&f) { this->f_ = f; }
     float get_setup_priority() const override { return setup_priority::DATA; }
 
-  protected:
+protected:
     optional<std::function<optional<float>(const uint8_t *data, const num_t len)>> f_{};
     optional<state_num_t> conf_state_num_{};
-    
 };
 
 }  // namespace uartex

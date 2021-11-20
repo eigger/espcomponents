@@ -8,7 +8,7 @@ from ..const import CONF_COMMAND_ON, CONF_COMMAND_OFF
 
 DEPENDENCIES = ['uartex']
 UartExBinarySensor = uartex_ns.class_('UartExBinarySensor', binary_sensor.BinarySensor,
-                                    cg.Component)
+                                      cg.Component)
 
 CONFIG_SCHEMA = binary_sensor.BINARY_SENSOR_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UartExBinarySensor),

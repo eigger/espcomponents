@@ -3,13 +3,14 @@ import esphome.config_validation as cv
 from esphome import automation
 from esphome.components import sensor, uartex
 from esphome.const import CONF_ID, CONF_DEVICE, CONF_LAMBDA, CONF_DATA, CONF_UPDATE_INTERVAL, \
-                          UNIT_EMPTY, ICON_EMPTY, CONF_OFFSET, CONF_ACCURACY_DECIMALS
+    UNIT_EMPTY, ICON_EMPTY, CONF_OFFSET, CONF_ACCURACY_DECIMALS
 from .. import uartex_ns, UartExComponent, uint8_ptr_const, num_t_const, \
-               state_hex_schema, command_hex_schema, STATE_NUM_SCHEMA
+    state_hex_schema, command_hex_schema, STATE_NUM_SCHEMA
 from ..const import CONF_UARTEX_ID, CONF_SUB_DEVICE, CONF_COMMAND_STATE, CONF_LENGTH, CONF_PRECISION
 
 DEPENDENCIES = ['uartex']
-UartExSensor = uartex_ns.class_('UartExSensor', sensor.Sensor, cg.PollingComponent)
+UartExSensor = uartex_ns.class_(
+    'UartExSensor', sensor.Sensor, cg.PollingComponent)
 
 CONFIG_SCHEMA = cv.All(sensor.sensor_schema(UNIT_EMPTY, ICON_EMPTY, 1).extend({
     cv.GenerateID(): cv.declare_id(UartExSensor),
@@ -20,6 +21,7 @@ CONFIG_SCHEMA = cv.All(sensor.sensor_schema(UNIT_EMPTY, ICON_EMPTY, 1).extend({
     cv.Optional(CONF_LAMBDA): cv.returning_lambda,
     cv.Optional(CONF_DATA): STATE_NUM_SCHEMA
 }).extend(cv.polling_component_schema('60s')), cv.has_exactly_one_key(CONF_LAMBDA, CONF_DATA))
+
 
 def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])

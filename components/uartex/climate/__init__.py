@@ -3,18 +3,19 @@ import esphome.config_validation as cv
 from esphome.components import climate, uartex, sensor
 from esphome.const import CONF_ID, CONF_SENSOR, CONF_OFFSET
 from .. import uartex_ns, command_hex_schema, STATE_NUM_SCHEMA, cmd_hex_t, uint8_ptr_const, num_t_const, \
-               command_hex_expression, state_hex_schema, state_hex_expression
+    command_hex_expression, state_hex_schema, state_hex_expression
 from ..const import CONF_STATE_CURRENT, CONF_STATE_TARGET, \
-                    CONF_STATE_AUTO, CONF_STATE_HEAT, CONF_STATE_COOL, CONF_STATE_AWAY, \
-                    CONF_COMMAND_AUTO, CONF_COMMAND_HEAT, CONF_COMMAND_COOL, CONF_COMMAND_AWAY, \
-                    CONF_COMMAND_TEMPERATURE, CONF_LENGTH, CONF_PRECISION, \
-                    CONF_COMMAND_ON, CONF_STATE_ON, CONF_COMMAND_HOME
-                    
+    CONF_STATE_AUTO, CONF_STATE_HEAT, CONF_STATE_COOL, CONF_STATE_AWAY, \
+    CONF_COMMAND_AUTO, CONF_COMMAND_HEAT, CONF_COMMAND_COOL, CONF_COMMAND_AWAY, \
+    CONF_COMMAND_TEMPERATURE, CONF_LENGTH, CONF_PRECISION, \
+    CONF_COMMAND_ON, CONF_STATE_ON, CONF_COMMAND_HOME
+
 
 AUTO_LOAD = ['sensor']
 DEPENDENCIES = ['uartex']
 
-uartexClimate = uartex_ns.class_('UartExClimate', climate.Climate, cg.Component)
+uartexClimate = uartex_ns.class_(
+    'UartExClimate', climate.Climate, cg.Component)
 
 CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(uartexClimate),
@@ -34,9 +35,7 @@ CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
 }).extend(uartex.UartEx_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UartEx Climate do not support command_on!"),
     cv.Optional(CONF_STATE_ON): cv.invalid("UartEx Climate do not support state_on!")
-}).extend(cv.COMPONENT_SCHEMA)
-, cv.has_exactly_one_key(CONF_SENSOR, CONF_STATE_CURRENT)
-, cv.has_at_least_one_key(CONF_COMMAND_HEAT, CONF_COMMAND_COOL, CONF_COMMAND_AUTO)
+}).extend(cv.COMPONENT_SCHEMA), cv.has_exactly_one_key(CONF_SENSOR, CONF_STATE_CURRENT), cv.has_at_least_one_key(CONF_COMMAND_HEAT, CONF_COMMAND_COOL, CONF_COMMAND_AUTO)
 )
 
 
@@ -56,11 +55,11 @@ def to_code(config):
     else:
         args = yield state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION]
         cg.add(var.set_state_target(args))
-    
+
     if CONF_SENSOR in config:
         sens = yield cg.get_variable(config[CONF_SENSOR])
         cg.add(var.set_sensor(sens))
-    
+
     if CONF_STATE_CURRENT in config:
         state = config[CONF_STATE_CURRENT]
         if cg.is_template(state):
@@ -70,11 +69,10 @@ def to_code(config):
             args = yield state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION]
             cg.add(var.set_state_current(args))
 
-
     if CONF_STATE_AUTO in config:
         args = yield state_hex_expression(config[CONF_STATE_AUTO])
         cg.add(var.set_state_auto(args))
-    
+
     if CONF_STATE_HEAT in config:
         args = yield state_hex_expression(config[CONF_STATE_HEAT])
         cg.add(var.set_state_heat(args))
@@ -86,7 +84,6 @@ def to_code(config):
     if CONF_STATE_AWAY in config:
         args = yield state_hex_expression(config[CONF_STATE_AWAY])
         cg.add(var.set_state_away(args))
-
 
     if CONF_COMMAND_AUTO in config:
         args = yield command_hex_expression(config[CONF_COMMAND_AUTO])
@@ -103,4 +100,3 @@ def to_code(config):
     if CONF_COMMAND_AWAY in config:
         args = yield command_hex_expression(config[CONF_COMMAND_AWAY])
         cg.add(var.set_command_away(args))
-

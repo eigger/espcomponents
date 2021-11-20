@@ -2,9 +2,9 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import fan, uartex
 from esphome.const import CONF_OUTPUT_ID, CONF_SPEED, CONF_LOW, CONF_MEDIUM, CONF_HIGH, \
-                          CONF_STATE, CONF_COMMAND, CONF_UPDATE_INTERVAL
+    CONF_STATE, CONF_COMMAND, CONF_UPDATE_INTERVAL
 from .. import uartex_ns, state_hex_schema, command_hex_schema, state_hex_expression, \
-               command_hex_expression
+    command_hex_expression
 
 DEPENDENCIES = ['uartex']
 UartExFan = uartex_ns.class_('UartExFan', cg.Component)

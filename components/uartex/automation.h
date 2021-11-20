@@ -6,27 +6,35 @@
 namespace esphome {
 namespace uartex {
 
-template<typename... Ts> class UartExWriteAction : public Action<Ts...>, public Parented<UartExComponent> {
-  public:
-    void set_data_template(std::function<cmd_hex_t(Ts...)> func) {
-      this->data_func_ = func;
-      this->static_ = false;
+template <typename... Ts>
+class UartExWriteAction : public Action<Ts...>, public Parented<UartExComponent>
+{
+public:
+    void set_data_template(std::function<cmd_hex_t(Ts...)> func)
+    {
+        this->data_func_ = func;
+        this->static_ = false;
     }
-    void set_data_static(const cmd_hex_t &data) {
-      this->data_static_ = data;
-      this->static_ = true;
-    }
-
-    void play(Ts... x) override {
-      if (this->static_) {
-        this->parent_->write_next({nullptr, &this->data_static_});
-      } else {
-        data_static_ = this->data_func_(x...);
-        this->parent_->write_next({nullptr, &this->data_static_});
-      }
+    void set_data_static(const cmd_hex_t &data)
+    {
+        this->data_static_ = data;
+        this->static_ = true;
     }
 
-  protected:
+    void play(Ts... x) override
+    {
+        if (this->static_)
+        {
+            this->parent_->write_next({nullptr, &this->data_static_});
+        }
+        else
+        {
+            data_static_ = this->data_func_(x...);
+            this->parent_->write_next({nullptr, &this->data_static_});
+        }
+    }
+
+protected:
     bool static_{false};
     std::function<cmd_hex_t(Ts...)> data_func_{};
     cmd_hex_t data_static_{};

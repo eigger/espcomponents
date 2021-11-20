@@ -5,7 +5,8 @@ from esphome.const import CONF_ID, CONF_NAME, CONF_OUTPUT_ID, CONF_DEVICE, CONF_
 from .. import uartex_ns
 
 DEPENDENCIES = ['uartex']
-UartExLightOutput = uartex_ns.class_('UartExLightOutput', light.LightOutput, cg.Component)
+UartExLightOutput = uartex_ns.class_(
+    'UartExLightOutput', light.LightOutput, cg.Component)
 
 CONFIG_SCHEMA = light.BINARY_LIGHT_SCHEMA.extend({
     cv.GenerateID(CONF_OUTPUT_ID): cv.declare_id(UartExLightOutput),

@@ -3,16 +3,16 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome import automation, pins
 from esphome.const import CONF_ID, CONF_BAUD_RATE, CONF_OFFSET, CONF_DATA, \
-                          CONF_UPDATE_INTERVAL, CONF_DEVICE, CONF_INVERTED
+    CONF_UPDATE_INTERVAL, CONF_DEVICE, CONF_INVERTED
 from esphome.core import CORE, coroutine
 from esphome.util import SimpleRegistry
 from .const import CONF_DATA_BITS, CONF_PARITY, CONF_STOP_BITS, CONF_PREFIX, CONF_SUFFIX, \
-                   CONF_CHECKSUM, CONF_CHECKSUM_LAMBDA, CONF_ACK, CONF_UARTEX_ID, \
-                   CONF_PACKET_MONITOR, CONF_PACKET_MONITOR_ID, CONF_SUB_DEVICE, \
-                   CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
-                   CONF_COMMAND_STATE, CONF_RX_WAIT, CONF_TX_WAIT, CONF_TX_RETRY_CNT, \
-                   CONF_STATE_RESPONSE, CONF_LENGTH, CONF_PRECISION, CONF_AND_OPERATOR, \
-                   CONF_CHECKSUM2, CONF_CTRL_PIN, CONF_TX_INTERVAL
+    CONF_CHECKSUM, CONF_CHECKSUM_LAMBDA, CONF_ACK, CONF_UARTEX_ID, \
+    CONF_PACKET_MONITOR, CONF_PACKET_MONITOR_ID, CONF_SUB_DEVICE, \
+    CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
+    CONF_COMMAND_STATE, CONF_RX_WAIT, CONF_TX_WAIT, CONF_TX_RETRY_CNT, \
+    CONF_STATE_RESPONSE, CONF_LENGTH, CONF_PRECISION, CONF_AND_OPERATOR, \
+    CONF_CHECKSUM2, CONF_CTRL_PIN, CONF_TX_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,10 +28,13 @@ uint8_ptr_const = uint8_const.operator('ptr')
 MULTI_CONF = False
 
 # Validate HEX: uint8_t[]
+
+
 def validate_hex_data(value):
     if isinstance(value, list):
         return cv.Schema([cv.hex_uint8_t])(value)
     raise cv.Invalid("data must either be a list of bytes")
+
 
 # State HEX (hex_t): int offset, uint8_t[] data
 STATE_HEX_SCHEMA = cv.Schema({
@@ -40,22 +43,31 @@ STATE_HEX_SCHEMA = cv.Schema({
     cv.Optional(CONF_AND_OPERATOR, default=False): cv.boolean,
     cv.Optional(CONF_INVERTED, default=False): cv.boolean
 })
+
+
 def shorthand_state_hex(value):
     value = validate_hex_data(value)
     return STATE_HEX_SCHEMA({CONF_DATA: value})
+
+
 def state_hex_schema(value):
     if isinstance(value, dict):
         return STATE_HEX_SCHEMA(value)
     return shorthand_state_hex(value)
+
 
 # Command HEX: uint8_t[] data, uint8_t[] ack
 COMMAND_HEX_SCHEMA = cv.Schema({
     cv.Required(CONF_DATA): validate_hex_data,
     cv.Optional(CONF_ACK, default=[]): validate_hex_data
 })
+
+
 def shorthand_command_hex(value):
     value = validate_hex_data(value)
     return COMMAND_HEX_SCHEMA({CONF_DATA: value, CONF_ACK: []})
+
+
 def command_hex_schema(value):
     if isinstance(value, dict):
         return COMMAND_HEX_SCHEMA(value)
@@ -68,7 +80,8 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.GenerateID(CONF_PACKET_MONITOR_ID): cv.declare_id(SerialMonitor),
     cv.Required(CONF_BAUD_RATE): cv.int_range(min=1, max=115200),
     cv.Optional(CONF_DATA_BITS, default=8): cv.int_range(min=1, max=32),
-    cv.Optional(CONF_PARITY, default=0): cv.int_range(min=0, max=3), # 0:No parity, 2:Even, 3:Odd
+    # 0:No parity, 2:Even, 3:Odd
+    cv.Optional(CONF_PARITY, default=0): cv.int_range(min=0, max=3),
     cv.Optional(CONF_STOP_BITS, default=1): cv.int_range(min=0, max=1),
     cv.Optional(CONF_RX_WAIT, default=10): cv.int_range(min=1, max=2000),
     cv.Optional(CONF_TX_INTERVAL): cv.int_range(min=1, max=2000),
@@ -110,18 +123,21 @@ def to_code(config):
         cg.add(var.set_prefix(config[CONF_PREFIX]))
     if CONF_SUFFIX in config:
         cg.add(var.set_suffix(config[CONF_SUFFIX]))
-    
+
     if CONF_CHECKSUM_LAMBDA in config:
-        _LOGGER.warning(CONF_CHECKSUM_LAMBDA + " is deprecated and will be removed in a future version.");
+        _LOGGER.warning(CONF_CHECKSUM_LAMBDA +
+                        " is deprecated and will be removed in a future version.")
         template_ = yield cg.process_lambda(config[CONF_CHECKSUM_LAMBDA],
-                                            [(uint8_ptr_const, 'data'), (num_t_const, 'len')],
+                                            [(uint8_ptr_const, 'data'),
+                                             (num_t_const, 'len')],
                                             return_type=cg.uint8)
         cg.add(var.set_checksum_lambda(template_))
     if CONF_CHECKSUM in config:
         data = config[CONF_CHECKSUM]
         if cg.is_template(data):
             template_ = yield cg.process_lambda(data,
-                                                [(uint8_ptr_const, 'data'), (num_t_const, 'len')],
+                                                [(uint8_ptr_const, 'data'),
+                                                 (num_t_const, 'len')],
                                                 return_type=cg.uint8)
             cg.add(var.set_checksum_lambda(template_))
         else:
@@ -131,7 +147,8 @@ def to_code(config):
         data = config[CONF_CHECKSUM2]
         if cg.is_template(data):
             template_ = yield cg.process_lambda(data,
-                                                [(uint8_ptr_const, 'data'), (num_t_const, 'len'), (uint8_const, 'checksum1')],
+                                                [(uint8_ptr_const, 'data'), (num_t_const,
+                                                                             'len'), (uint8_const, 'checksum1')],
                                                 return_type=cg.uint8)
             cg.add(var.set_checksum2_lambda(template_))
         else:
@@ -173,6 +190,7 @@ STATE_NUM_SCHEMA = cv.Schema({
 
 
 HEX_SCHEMA_REGISTRY = SimpleRegistry()
+
 
 @coroutine
 def register_uartex_device(var, config):
@@ -218,7 +236,6 @@ def register_uartex_device(var, config):
         cg.add(var.set_command_state(command_state))
 
 
-
 @coroutine
 def state_hex_expression(conf):
     if conf is None:
@@ -228,6 +245,7 @@ def state_hex_expression(conf):
     inverted = conf[CONF_INVERTED]
     offset = conf[CONF_OFFSET]
     yield offset, and_operator, inverted, data
+
 
 @coroutine
 def command_hex_expression(conf):
@@ -239,6 +257,7 @@ def command_hex_expression(conf):
         yield data, ack
     else:
         yield data
+
 
 @automation.register_action('uartex.write', UartExWriteAction, cv.maybe_simple_value({
     cv.GenerateID(): cv.use_id(UartExComponent),
