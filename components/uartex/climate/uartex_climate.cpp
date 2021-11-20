@@ -16,11 +16,15 @@ climate::ClimateTraits UartExClimate::traits()
 {
     auto traits = climate::ClimateTraits();
     traits.set_supports_current_temperature(true);
-    traits.set_supports_auto_mode(this->supports_auto_);
-    traits.set_supports_cool_mode(this->supports_cool_);
-    traits.set_supports_heat_mode(this->supports_heat_);
+    if (this->supports_auto_) traits.add_supported_mode(climate::CLIMATE_MODE_AUTO);
+    if (this->supports_cool_) traits.add_supported_mode(climate::CLIMATE_MODE_COOL);
+    if (this->supports_heat_) traits.add_supported_mode(climate::CLIMATE_MODE_HEAT);
     traits.set_supports_two_point_target_temperature(false);
-    traits.set_supports_away(this->supports_away_);
+    if (this->supports_away_)
+    {
+        traits.add_supported_preset(climate::CLIMATE_PRESET_AWAY);
+        traits.add_supported_preset(climate::CLIMATE_PRESET_HOME);
+    }
     traits.set_visual_min_temperature(5);
     traits.set_visual_max_temperature(40);
     traits.set_visual_temperature_step(1);
@@ -141,22 +145,22 @@ void UartExClimate::publish(const uint8_t *data, const num_t len)
 void UartExClimate::control(const climate::ClimateCall &call)
 {
     // Set mode
-    if (call.get_mode().has_value() && this->mode != *call.get_mode())
+    if (call.get_mode().has_value() && get_mode() != *call.get_mode())
     {
-        this->mode = *call.get_mode();
-        if (this->mode == climate::CLIMATE_MODE_OFF)
+        set_mode(*call.get_mode());
+        if (get_mode() == climate::CLIMATE_MODE_OFF)
         {
             write_with_header(this->get_command_off());
         }
-        else if (this->mode == climate::CLIMATE_MODE_HEAT && this->command_heat_.has_value())
+        else if (get_mode() == climate::CLIMATE_MODE_HEAT && this->command_heat_.has_value())
         {
             write_with_header(&this->command_heat_.value());
         }
-        else if (this->mode == climate::CLIMATE_MODE_COOL && this->command_cool_.has_value())
+        else if (get_mode() == climate::CLIMATE_MODE_COOL && this->command_cool_.has_value())
         {
             write_with_header(&this->command_cool_.value());
         }
-        else if (this->mode == climate::CLIMATE_MODE_AUTO)
+        else if (get_mode() == climate::CLIMATE_MODE_AUTO)
         {
             if (this->command_auto_.has_value())
             {
@@ -169,12 +173,12 @@ void UartExClimate::control(const climate::ClimateCall &call)
             else if (this->command_heat_.has_value())
             {
                 write_with_header(&this->command_heat_.value());
-                this->mode = climate::CLIMATE_MODE_HEAT;
+                set_mode(climate::CLIMATE_MODE_HEAT);
             }
             else if (this->command_cool_.has_value())
             {
                 write_with_header(&this->command_cool_.value());
-                this->mode = climate::CLIMATE_MODE_COOL;
+                set_mode(climate::CLIMATE_MODE_COOL);
             }
         }
     }
@@ -188,10 +192,10 @@ void UartExClimate::control(const climate::ClimateCall &call)
     }
 
     // Set away
-    if (this->command_away_.has_value() && call.get_away().has_value() && this->away != *call.get_away())
+    if (this->command_away_.has_value() && call.get_away().has_value() && get_away() != *call.get_away())
     {
-        this->away = *call.get_away();
-        if (this->away)
+        set_away(call.get_away());
+        if (get_away())
         {
             write_with_header(&this->command_away_.value());
         }
@@ -199,19 +203,19 @@ void UartExClimate::control(const climate::ClimateCall &call)
         {
             write_with_header(&this->command_home_.value());
         }
-        else if (this->mode == climate::CLIMATE_MODE_OFF)
+        else if (get_mode() == climate::CLIMATE_MODE_OFF)
         {
             write_with_header(this->get_command_off());
         }
-        else if (this->mode == climate::CLIMATE_MODE_HEAT && this->command_heat_.has_value())
+        else if (get_mode() == climate::CLIMATE_MODE_HEAT && this->command_heat_.has_value())
         {
             write_with_header(&this->command_heat_.value());
         }
-        else if (this->mode == climate::CLIMATE_MODE_COOL && this->command_cool_.has_value())
+        else if (get_mode() == climate::CLIMATE_MODE_COOL && this->command_cool_.has_value())
         {
             write_with_header(&this->command_cool_.value());
         }
-        else if (this->mode == climate::CLIMATE_MODE_AUTO && this->command_auto_.has_value())
+        else if (get_mode() == climate::CLIMATE_MODE_AUTO && this->command_auto_.has_value())
         {
             write_with_header(&this->command_auto_.value());
         }
