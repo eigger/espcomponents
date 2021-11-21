@@ -221,6 +221,9 @@ public:
     /** Response Packet Pattern */
     void set_state_response(hex_t state_response) { state_response_ = state_response; }
 
+    void set_tx_pin(GPIOPin *tx_pin) { tx_pin_ = tx_pin; }
+    void set_rx_pin(GPIOPin *rx_pin) { rx_pin_ = rx_pin; }
+
 protected:
     HardwareSerial *hw_serial_{nullptr};
     std::vector<UartExListener *> listeners_{};
@@ -275,6 +278,8 @@ protected:
     bool tx_ack_wait_{false};
     num_t tx_retry_cnt_{0};
     GPIOPin *ctrl_pin_{nullptr};
+    GPIOPin *tx_pin_{nullptr};
+    GPIOPin *rx_pin_{nullptr};
 };
 
 /** uint8_t[] to hex string  */

@@ -3,7 +3,7 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome import automation, pins
 from esphome.const import CONF_ID, CONF_BAUD_RATE, CONF_OFFSET, CONF_DATA, \
-    CONF_UPDATE_INTERVAL, CONF_DEVICE, CONF_INVERTED
+    CONF_UPDATE_INTERVAL, CONF_DEVICE, CONF_INVERTED, CONF_NUMBER, CONF_RX_PIN, CONF_TX_PIN
 from esphome.core import CORE, coroutine
 from esphome.util import SimpleRegistry
 from .const import CONF_DATA_BITS, CONF_PARITY, CONF_STOP_BITS, CONF_PREFIX, CONF_SUFFIX, \
@@ -73,12 +73,28 @@ def command_hex_schema(value):
         return COMMAND_HEX_SCHEMA(value)
     return shorthand_command_hex(value)
 
+def validate_tx_pin(value):
+    value = pins.internal_gpio_output_pin_schema(value)
+
+    #  - esp8266: UART0 (TX: GPIO1, RX: GPIO3)
+    #  - esp32: UART2 (TX: GPIO17, RX: GPIO16)
+    if CORE.is_esp8266 and value[CONF_NUMBER] != 1:
+        raise cv.Invalid("RX pin have to use GPIO1 on ESP8266.")
+    return value
+
+def validate_rx_pin(value):
+    value = pins.internal_gpio_input_pin_schema(value)
+    if CORE.is_esp8266 and value[CONF_NUMBER] != 3:
+        raise cv.Invalid("TX pin have to use GPIO3 on ESP8266.")
+    return value
 
 # UartEx Schema
 CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.GenerateID(): cv.declare_id(UartExComponent),
     cv.GenerateID(CONF_PACKET_MONITOR_ID): cv.declare_id(SerialMonitor),
     cv.Required(CONF_BAUD_RATE): cv.int_range(min=1, max=115200),
+    cv.Optional(CONF_TX_PIN, default=1 if CORE.is_esp8266 else 17): validate_tx_pin,
+    cv.Optional(CONF_RX_PIN, default=3 if CORE.is_esp8266 else 16): validate_rx_pin,
     cv.Optional(CONF_DATA_BITS, default=8): cv.int_range(min=1, max=32),
     # 0:No parity, 2:Even, 3:Odd
     cv.Optional(CONF_PARITY, default=0): cv.int_range(min=0, max=3),
@@ -95,10 +111,11 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_CHECKSUM2): cv.templatable(cv.boolean),
     cv.Optional(CONF_PACKET_MONITOR): cv.ensure_list(state_hex_schema),
     cv.Optional(CONF_STATE_RESPONSE): state_hex_schema,
-}).extend(cv.COMPONENT_SCHEMA))
+}).extend(cv.COMPONENT_SCHEMA),
+cv.has_at_least_one_key(CONF_TX_PIN, CONF_RX_PIN),
+)
 
-
-def to_code(config):
+async def to_code(config):
     cg.add_global(uartex_ns.using)
     var = cg.new_Pvariable(config[CONF_ID],
                            config[CONF_BAUD_RATE],
@@ -106,7 +123,7 @@ def to_code(config):
                            config[CONF_PARITY],
                            config[CONF_STOP_BITS],
                            config[CONF_RX_WAIT])
-    yield cg.register_component(var, config)
+    await cg.register_component(var, config)
 
     if CONF_TX_INTERVAL in config:
         cg.add(var.set_tx_interval(config[CONF_TX_INTERVAL]))
@@ -115,9 +132,17 @@ def to_code(config):
     if CONF_TX_RETRY_CNT in config:
         cg.add(var.set_tx_retry_cnt(config[CONF_TX_RETRY_CNT]))
 
+    if CONF_TX_PIN in config:
+        tx_pin = await cg.gpio_pin_expression(config[CONF_TX_PIN])
+        cg.add(var.set_tx_pin(tx_pin))
+
+    if CONF_RX_PIN in config:
+        rx_pin = await cg.gpio_pin_expression(config[CONF_RX_PIN])
+        cg.add(var.set_rx_pin(rx_pin))
+        
     if CONF_CTRL_PIN in config:
-        pin = yield cg.gpio_pin_expression(config[CONF_CTRL_PIN])
-        cg.add(var.set_ctrl_pin(pin))
+        ctrl_pin = await cg.gpio_pin_expression(config[CONF_CTRL_PIN])
+        cg.add(var.set_ctrl_pin(ctrl_pin))
 
     if CONF_PREFIX in config:
         cg.add(var.set_prefix(config[CONF_PREFIX]))
@@ -127,7 +152,7 @@ def to_code(config):
     if CONF_CHECKSUM_LAMBDA in config:
         _LOGGER.warning(CONF_CHECKSUM_LAMBDA +
                         " is deprecated and will be removed in a future version.")
-        template_ = yield cg.process_lambda(config[CONF_CHECKSUM_LAMBDA],
+        template_ = await cg.process_lambda(config[CONF_CHECKSUM_LAMBDA],
                                             [(uint8_ptr_const, 'data'),
                                              (num_t_const, 'len')],
                                             return_type=cg.uint8)
@@ -135,7 +160,7 @@ def to_code(config):
     if CONF_CHECKSUM in config:
         data = config[CONF_CHECKSUM]
         if cg.is_template(data):
-            template_ = yield cg.process_lambda(data,
+            template_ = await cg.process_lambda(data,
                                                 [(uint8_ptr_const, 'data'),
                                                  (num_t_const, 'len')],
                                                 return_type=cg.uint8)
@@ -146,7 +171,7 @@ def to_code(config):
     if CONF_CHECKSUM2 in config:
         data = config[CONF_CHECKSUM2]
         if cg.is_template(data):
-            template_ = yield cg.process_lambda(data,
+            template_ = await cg.process_lambda(data,
                                                 [(uint8_ptr_const, 'data'), (num_t_const,
                                                                              'len'), (uint8_const, 'checksum1')],
                                                 return_type=cg.uint8)
@@ -155,12 +180,12 @@ def to_code(config):
             cg.add(var.set_checksum2(data))
 
     if CONF_STATE_RESPONSE in config:
-        state_response = yield state_hex_expression(config[CONF_STATE_RESPONSE])
+        state_response = await state_hex_expression(config[CONF_STATE_RESPONSE])
         cg.add(var.set_state_response(state_response))
 
     if CONF_PACKET_MONITOR in config:
         sm = cg.new_Pvariable(config[CONF_PACKET_MONITOR_ID])
-        yield sm
+        await sm
         for conf in config[CONF_PACKET_MONITOR]:
             data = conf[CONF_DATA]
             and_operator = conf[CONF_AND_OPERATOR]

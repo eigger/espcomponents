@@ -17,6 +17,8 @@ void UartExComponent::dump_config()
     ESP_LOGCONFIG(TAG, "  RX Receive Timeout: %d", conf_rx_wait_);
     ESP_LOGCONFIG(TAG, "  TX Transmission Timeout: %d", conf_tx_wait_);
     ESP_LOGCONFIG(TAG, "  TX Retry Count: %d", conf_tx_retry_cnt_);
+    LOG_PIN("  RX Pin: ", rx_pin_);
+    LOG_PIN("  TX Pin: ", tx_pin_);
     if (ctrl_pin_) LOG_PIN("  Ctrl Pin: ", ctrl_pin_);
     if (prefix_.has_value()) ESP_LOGCONFIG(TAG, "  Data prefix: %s", hexencode(&prefix_.value()[0], prefix_len_).c_str());
     if (suffix_.has_value()) ESP_LOGCONFIG(TAG, "  Data suffix: %s", hexencode(&suffix_.value()[0], suffix_len_).c_str());
@@ -42,8 +44,10 @@ void UartExComponent::setup()
     this->hw_serial_->begin(conf_baud_, (SerialConfig)serialconfig);
 #endif
 #ifdef ARDUINO_ARCH_ESP32
+    int8_t tx = this->tx_pin_ != nullptr ? this->tx_pin_->get_pin() : -1;
+    int8_t rx = this->rx_pin_ != nullptr ? this->rx_pin_->get_pin() : -1;
     this->hw_serial_ = &Serial2;
-    this->hw_serial_->begin(conf_baud_, serialconfig);
+    this->hw_serial_->begin(conf_baud_, serialconfig, rx, tx);
 #endif
 
     if (this->ctrl_pin_)
