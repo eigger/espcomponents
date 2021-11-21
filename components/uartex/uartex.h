@@ -216,13 +216,13 @@ public:
     void set_tx_retry_cnt(num_t tx_retry_cnt) { conf_tx_retry_cnt_ = tx_retry_cnt; }
 
     /** RX,TX Control pin */
-    void set_ctrl_pin(GPIOPin *pin) { ctrl_pin_ = pin; }
+    void set_ctrl_pin(InternalGPIOPin *pin) { ctrl_pin_ = pin; }
 
     /** Response Packet Pattern */
     void set_state_response(hex_t state_response) { state_response_ = state_response; }
 
-    void set_tx_pin(GPIOPin *tx_pin) { tx_pin_ = tx_pin; }
-    void set_rx_pin(GPIOPin *rx_pin) { rx_pin_ = rx_pin; }
+    void set_tx_pin(InternalGPIOPin *tx_pin) { tx_pin_ = tx_pin; }
+    void set_rx_pin(InternalGPIOPin *rx_pin) { rx_pin_ = rx_pin; }
 
 protected:
     HardwareSerial *hw_serial_{nullptr};
@@ -277,9 +277,9 @@ protected:
     unsigned long tx_start_time_{0};
     bool tx_ack_wait_{false};
     num_t tx_retry_cnt_{0};
-    GPIOPin *ctrl_pin_{nullptr};
-    GPIOPin *tx_pin_{nullptr};
-    GPIOPin *rx_pin_{nullptr};
+    InternalGPIOPin *ctrl_pin_{nullptr};
+    InternalGPIOPin *tx_pin_{nullptr};
+    InternalGPIOPin *rx_pin_{nullptr};
 };
 
 /** uint8_t[] to hex string  */
