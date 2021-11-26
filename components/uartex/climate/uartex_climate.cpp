@@ -195,7 +195,7 @@ void UartExClimate::control(const climate::ClimateCall &call)
     }
 
     // Set away
-    if (this->command_away_.has_value() && call.get_away().has_value() && mcall.get_preset() != *call.get_preset())
+    if (this->command_away_.has_value() && call.get_preset().has_value() && mcall.get_preset() != *call.get_preset())
     {
         mcall.set_preset(*call.get_preset());
         if (mcall.get_preset() == climate::CLIMATE_PRESET_AWAY)
