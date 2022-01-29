@@ -252,12 +252,12 @@ async def to_code(config):
 # A schema to use for all WallPad devices, all WallPad integrations must extend this!
 WallPad_DEVICE_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_WALLPAD_ID): cv.use_id(WallPadComponent),
-    cv.Required(CONF_DEVICE): state_hex_schema,
+    cv.Optional(CONF_DEVICE): state_hex_schema,
     cv.Optional(CONF_SUB_DEVICE): state_hex_schema,
-    cv.Required(CONF_STATE_ON): state_hex_schema,
-    cv.Required(CONF_STATE_OFF): state_hex_schema,
+    cv.Optional(CONF_STATE_ON): state_hex_schema,
+    cv.Optional(CONF_STATE_OFF): state_hex_schema,
     cv.Required(CONF_COMMAND_ON): cv.templatable(command_hex_schema),
-    cv.Required(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_STATE): command_hex_schema,
 }).extend(cv.polling_component_schema('60s'))
 
