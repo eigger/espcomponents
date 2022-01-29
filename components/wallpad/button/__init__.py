@@ -16,7 +16,7 @@ CONFIG_SCHEMA = button.BUTTON_SCHEMA.extend({
     cv.Optional(CONF_STATE_ON): cv.invalid("WallPad buttons do not support state on!"),
     cv.Optional(CONF_STATE_OFF): cv.invalid("WallPad buttons do not support state off!"),
     cv.Optional(CONF_COMMAND_OFF): cv.invalid("WallPad buttons do not support command off!"),
-    cv.Optional(CONF_COMMAND_STATE): cv.invalid("WallPad buttons do not support commad state!"),
+    cv.Optional(CONF_COMMAND_STATE): cv.invalid("WallPad buttons do not support commad state!")
 }).extend(wallpad.WallPad_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
 
 
