@@ -6,7 +6,7 @@
 namespace esphome {
 namespace wallpad {
 
-class WallPadButton : public button_::Button, public WallPadDevice 
+class WallPadButton : public button::Button, public WallPadDevice 
 {
   public:
         WallPadButton() { device_name_ = &this->name_; }
