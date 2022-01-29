@@ -277,9 +277,9 @@ def register_wallpad_device(var, config):
     cg.add(paren.register_listener(var))
     yield var
 
-    model = paren.get_model()
-    device = yield state_hex_expression(config[CONF_DEVICE])
-    cg.add(var.set_device(device))
+    if CONF_DEVICE in config:
+        device = yield state_hex_expression(config[CONF_DEVICE])
+        cg.add(var.set_device(device))
 
     if CONF_SUB_DEVICE in config:
         sub_device = yield state_hex_expression(config[CONF_SUB_DEVICE])
