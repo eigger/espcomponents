@@ -12,10 +12,10 @@ void WallPadButton::dump_config()
     dump_wallpad_device_config(TAG);
 }
 
-// void WallPadButton::publish(const uint8_t *data, const num_t len)
-// {
-//     ESP_LOGW(TAG, "'%s' State not found: %s", device_name_->c_str(), hexencode(&data[0], len).c_str());
-// }
+void WallPadButton::publish(const uint8_t *data, const num_t len)
+{
+    ESP_LOGW(TAG, "'%s' State not found: %s", device_name_->c_str(), hexencode(&data[0], len).c_str());
+}
 
 }  // namespace wallpad
 }  // namespace esphome
