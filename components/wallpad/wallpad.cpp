@@ -89,7 +89,7 @@ void WallPadComponent::loop()
         // Patket type
         if (state_response_.has_value())
         {
-            if (compare(&rx_buffer_[prefix_len_], rx_bytesRead_ - prefix_len_, &state_response_.value()))
+            if (compare(&rx_buffer_[rx_prefix_len_], rx_bytesRead_ - rx_prefix_len_, &state_response_.value()))
             {
                 response_wait_ = false;
             }
@@ -103,7 +103,7 @@ void WallPadComponent::loop()
         // for Ack
         if (tx_ack_wait_ && tx_current_cmd_)
         {
-            if (compare(&rx_buffer_[prefix_len_], rx_bytesRead_ - prefix_len_, &tx_current_cmd_->ack[0], tx_current_cmd_->ack.size(), 0))
+            if (compare(&rx_buffer_[rx_prefix_len_], rx_bytesRead_ - rx_prefix_len_, &tx_current_cmd_->ack[0], tx_current_cmd_->ack.size(), 0))
             {
                 tx_current_cmd_ = nullptr;
                 tx_ack_wait_ = false;
@@ -334,13 +334,13 @@ bool WallPadComponent::validate(const uint8_t *data, const num_t len)
         ESP_LOGW(TAG, "[Read] Suffix not match: %s", hexencode(&data[0], len).c_str());
         return false;
     }
-    uint8_t crc = rx_checksum_ ? make_rx_checksum(&data[rx_prefix_len_], len - rx_prefix_len_ - rx_suffix_len_ - checksum_len_) : 0;
+    uint8_t crc = rx_checksum_ ? make_rx_checksum(&data[rx_prefix_len_], len - rx_prefix_len_ - rx_suffix_len_ - rx_checksum_len_) : 0;
     if (rx_checksum_ && crc != data[len - rx_suffix_len_ - rx_checksum_len_])
     {
         ESP_LOGW(TAG, "[Read] Checksum error: %s", hexencode(&data[0], len).c_str());
         return false;
     }
-    if (checksum2_ && make_rx_checksum2(&data[rx_prefix_len_], len - rx_prefix_len_ - rx_suffix_len_ - checksum_len_, crc) != data[len - rx_suffix_len_ - 1])
+    if (rx_checksum2_ && make_rx_checksum2(&data[rx_prefix_len_], len - rx_prefix_len_ - rx_suffix_len_ - rx_checksum_len_, crc) != data[len - rx_suffix_len_ - 1])
     {
         ESP_LOGW(TAG, "[Read] Checksum2 error: %s", hexencode(&data[0], len).c_str());
         return false;
