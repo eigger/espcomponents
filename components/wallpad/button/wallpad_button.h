@@ -12,7 +12,7 @@ class WallPadButton : public button::Button, public WallPadDevice
         WallPadButton() { device_name_ = &this->name_; }
         void dump_config() override;
         void publish(const uint8_t *data, const num_t len) override;
-        bool publish(bool state) override { publish_state(state); return true; }
+        bool publish(bool state) override { return true; }
         void press_action() override
         {
             write_with_header(this->get_command_on());
