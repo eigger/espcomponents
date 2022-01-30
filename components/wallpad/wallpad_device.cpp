@@ -2,6 +2,7 @@
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/application.h"
+#include "wallpad_component.h"
 
 namespace esphome {
 namespace wallpad {
@@ -12,7 +13,7 @@ void WallPadDevice::update()
 {
     if (!command_state_.has_value()) return;
     ESP_LOGD(TAG, "'%s' update(): Request current state...", device_name_->c_str());
-    parent_->write_next_late(&command_state_.value());
+    ((WallPadComponent*)parent_)->write_next_late(&command_state_.value());
 }
 
 void WallPadDevice::dump_wallpad_device_config(const char *TAG)
@@ -58,7 +59,7 @@ bool WallPadDevice::parse_data(const uint8_t *data, const num_t len)
 void WallPadDevice::write_with_header(const cmd_hex_t *cmd)
 {
     tx_pending_ = true;
-    parent_->write_next({this, cmd});
+    ((WallPadComponent*)parent_)->write_next({this, cmd});
 }
 
 
