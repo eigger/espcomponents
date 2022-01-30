@@ -1,6 +1,6 @@
 #pragma once
 
-#include "wallpad.h"
+#include "wallpad_component.h"
 #include "esphome/core/automation.h"
 
 namespace esphome {
