@@ -15,8 +15,6 @@
 namespace esphome {
 namespace wallpad {
 
-static const char *TAG = "wallpad";
-
 enum Model {
     MODEL_CUSTOM = 0,
     MODEL_KOCOM,

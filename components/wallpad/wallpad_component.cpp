@@ -5,7 +5,6 @@
 
 namespace esphome {
 namespace wallpad {
-
 static const char *TAG = "wallpad";
 
 void WallPadComponent::dump_config()

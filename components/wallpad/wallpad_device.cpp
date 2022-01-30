@@ -6,6 +6,7 @@
 namespace esphome {
 namespace wallpad {
 
+static const char *TAG = "wallpad";
 
 void WallPadDevice::update()
 {
