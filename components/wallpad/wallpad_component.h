@@ -7,6 +7,7 @@
 namespace esphome {
 namespace wallpad {
 
+class WallPadDevice;
 
 /** Send HEX Struct */
 struct send_hex_t
