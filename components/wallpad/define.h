@@ -1,5 +1,6 @@
 #pragma once
-
+#ifndef __DEFINE_H__
+#define __DEFINE_H__
 #include <HardwareSerial.h>
 #include <vector>
 #include <queue>
@@ -49,3 +50,4 @@ struct cmd_hex_t
 
 }
 }
+#endif
