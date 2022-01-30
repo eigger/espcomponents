@@ -1,6 +1,5 @@
 #pragma once
 #include "define.h"
-#include "wallpad_component.h"
 
 /**
  * WallPad Listener
@@ -12,13 +11,13 @@ class WallPadListener
 {
 public:
     virtual bool parse_data(const uint8_t *data, const num_t len) = 0;
-    void set_parent(WallPadComponent *parent) { parent_ = parent; }
+    void set_parent(void *parent) { parent_ = parent; }
 
     void set_monitor(bool monitor) { monitor_ = monitor; }
     bool is_monitor() { return monitor_; }
 
 protected:
-    WallPadComponent *parent_{nullptr};
+    void *parent_{nullptr};
     bool monitor_{false};
 };
 }

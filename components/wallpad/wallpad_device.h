@@ -1,7 +1,6 @@
 #pragma once
 #include "define.h"
 #include "wallpad_listener.h"
-#include "esphome/core/component.h"
 
 namespace esphome {
 namespace wallpad {
@@ -66,6 +65,7 @@ protected:
     optional<std::function<cmd_hex_t()>> command_off_func_{};
     optional<cmd_hex_t> command_state_;
     bool tx_pending_{false};
+    WallPadListener listener;
 };
 
 
