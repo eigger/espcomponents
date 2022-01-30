@@ -1,6 +1,6 @@
 #pragma once
 
-#include "esphome/components/wallpad/wallpad_device.h"
+#include "esphome/components/wallpad/wallpad.h"
 #include "esphome/components/light/light_output.h"
 
 namespace esphome {
