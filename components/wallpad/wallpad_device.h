@@ -1,6 +1,7 @@
 #pragma once
 #include "define.h"
 #include "wallpad_listener.h"
+#include "esphome/core/component.h"
 
 namespace esphome {
 namespace wallpad {
