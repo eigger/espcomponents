@@ -66,6 +66,7 @@ void WallPadComponent::setup()
 
     ESP_LOGI(TAG, "HW Serial Initaialize.");
     rx_lastTime_ = set_time();
+    tx_start_time_ = set_time();
 }
 
 void WallPadComponent::loop()
@@ -73,21 +74,15 @@ void WallPadComponent::loop()
     if (!init_ && elapsed_time(rx_lastTime_) < 20000) return;
     else if (!init_) init_ = true;
 
-    // Ack Timeout
-    if (tx_ack_wait_ && elapsed_time(tx_start_time_) > conf_tx_wait_) tx_ack_wait_ = false;
-
     // Receive Process
     rx_proc();
 
     // Publish Receive Packet
-    if (publish_proc()) return;
+    publish_proc();
     
     // queue Process
-    if (!response_wait_ && elapsed_time(rx_lastTime_) > conf_tx_interval_ && (!tx_queue_.empty() || !tx_queue_late_.empty() || (tx_current_cmd_ && !tx_ack_wait_)) && rx_bytesRead_ == 0)
-    {
-        tx_proc();
-        rx_lastTime_ = set_time();
-    }
+    tx_proc();
+
 }
 
 void WallPadComponent::rx_proc()
@@ -96,14 +91,24 @@ void WallPadComponent::rx_proc()
     rx_timeOut_ = conf_rx_wait_;
     rx_bytesRead_ = 0;
     num_t offset = 0;
+    num_t length = 0;
+    uint8_t buffer_byte = 0;
     while (rx_timeOut_ > 0)
     {
         while (this->hw_serial_->available())
         {
+            buffer_byte = this->hw_serial_->read();
             if (rx_bytesRead_ < BUFFER_SIZE)
             {
-                rx_buffer_[rx_bytesRead_] = this->hw_serial_->read();
-                rx_bytesRead_++;
+                rx_buffer_[rx_bytesRead_++] = buffer_byte;
+                if (rx_prefix_.has_value())
+                {
+                    length = rx_prefix_len_ > rx_bytesRead_ ? rx_bytesRead_ : rx_prefix_len_;
+                    if (!compare(&rx_buffer_[0], rx_bytesRead_, &rx_prefix_.value()[0], length, 0))
+                    {
+                        rx_bytesRead_ = 0;
+                    }
+                }
                 if (rx_suffix_.has_value() && rx_bytesRead_ > rx_prefix_len_ + rx_suffix_len_)
                 {
                     offset = rx_bytesRead_ - rx_suffix_len_;
@@ -112,11 +117,13 @@ void WallPadComponent::rx_proc()
                         return;
                     }
                 }
-
-            }
-            else
-            {
-                this->hw_serial_->read(); // when the buffer is full, just read remaining input, but do not store...
+                if (!rx_suffix_.has_value())
+                {
+                    if (validate(&rx_buffer_[0], rx_bytesRead_) == ERR_NONE)
+                    {
+                        return;
+                    }
+                }
             }
             rx_timeOut_ = conf_rx_wait_;  // if serial received, reset timeout counter
         }
@@ -131,7 +138,9 @@ bool WallPadComponent::publish_proc()
 
     rx_buffer_[rx_bytesRead_] = 0; // before logging as a char array, zero terminate the last position to be safe.
 
-    if (!validate(&rx_buffer_[0], rx_bytesRead_)) return true;
+    ValidateCode code = validate(&rx_buffer_[0], rx_bytesRead_);
+    log_errcode(code, &rx_buffer_[0], rx_bytesRead_);
+    if (code != ERR_NONE) return false;
 
     // Patket type
     if (state_response_.has_value())
@@ -146,6 +155,9 @@ bool WallPadComponent::publish_proc()
         }
             
     }
+
+    // Ack Timeout
+    if (tx_ack_wait_ && elapsed_time(tx_start_time_) > conf_tx_wait_) tx_ack_wait_ = false;
 
     // for Ack
     if (tx_ack_wait_ && tx_current_cmd_)
@@ -163,7 +175,7 @@ bool WallPadComponent::publish_proc()
             }
             ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", hexencode(rx_buffer_, rx_bytesRead_).c_str(), elapsed_time(tx_start_time_));
             rx_lastTime_ = set_time();
-            return true;
+            return false;
         }
     }
 
@@ -190,12 +202,16 @@ bool WallPadComponent::publish_proc()
 #endif
     rx_lastTime_ = set_time();
 
-    return false;
+    return true;
 }
 
 void WallPadComponent::tx_proc()
 {
-
+    if (rx_bytesRead_ > 0) return;
+    if (response_wait_) return;
+    if (elapsed_time(rx_lastTime_) < conf_tx_interval_) return;
+    if (elapsed_time(tx_start_time_) < conf_tx_interval_) return;
+    
     // Command retry
     if (!tx_ack_wait_ && tx_current_cmd_)
     {
@@ -226,7 +242,6 @@ void WallPadComponent::tx_proc()
     if (tx_queue_.empty() && !tx_queue_late_.empty())
     {
         write_with_header(tx_queue_late_.front()->data);
-
         if (tx_queue_late_.front()->ack.size() > 0)
         {
             tx_current_cmd_ = tx_queue_late_.front();
@@ -248,7 +263,6 @@ void WallPadComponent::tx_proc()
     else if (!tx_queue_.empty())
     {
         write_with_header(tx_queue_.front().cmd->data);
-
         // Pending Ack
         if (tx_queue_.front().cmd->ack.size() > 0)
         {
@@ -355,30 +369,49 @@ void WallPadComponent::flush()
     ESP_LOGD(TAG, "Flushing... (%lums)", elapsed_time(tx_start_time_));
 }
 
-bool WallPadComponent::validate(const uint8_t *data, const num_t len)
+ValidateCode WallPadComponent::validate(const uint8_t *data, const num_t len)
 {
     if (rx_prefix_.has_value() && !compare(&data[0], len, &rx_prefix_.value()[0], rx_prefix_len_, 0))
     {
-        ESP_LOGW(TAG, "[Read] Prefix not match: %s", hexencode(&data[0], len).c_str());
-        return false;
+        //ESP_LOGW(TAG, "[Read] Prefix not match: %s", hexencode(&data[0], len).c_str());
+        return ERR_PREFIX;
     }
     if (rx_suffix_.has_value() && !compare(&data[0], len, &rx_suffix_.value()[0], rx_suffix_len_, len - rx_suffix_len_))
     {
-        ESP_LOGW(TAG, "[Read] Suffix not match: %s", hexencode(&data[0], len).c_str());
-        return false;
+        //ESP_LOGW(TAG, "[Read] Suffix not match: %s", hexencode(&data[0], len).c_str());
+        return ERR_SUFFIX;
     }
     uint8_t crc = rx_checksum_ ? make_rx_checksum(&data[rx_prefix_len_], len - rx_prefix_len_ - rx_suffix_len_ - rx_checksum_len_) : 0;
     if (rx_checksum_ && crc != data[len - rx_suffix_len_ - rx_checksum_len_])
     {
-        ESP_LOGW(TAG, "[Read] Checksum error: %s", hexencode(&data[0], len).c_str());
-        return false;
+        //ESP_LOGW(TAG, "[Read] Checksum error: %s", hexencode(&data[0], len).c_str());
+        return ERR_CHECKSUM;
     }
     if (rx_checksum2_ && make_rx_checksum2(&data[rx_prefix_len_], len - rx_prefix_len_ - rx_suffix_len_ - rx_checksum_len_, crc) != data[len - rx_suffix_len_ - 1])
     {
-        ESP_LOGW(TAG, "[Read] Checksum2 error: %s", hexencode(&data[0], len).c_str());
-        return false;
+        //ESP_LOGW(TAG, "[Read] Checksum2 error: %s", hexencode(&data[0], len).c_str());
+        return ERR_CHECKSUM2;
     }
-    return true;
+    return ERR_NONE;
+}
+
+void WallPadComponent::log_errcode(ValidateCode code, const uint8_t *data, const num_t len)
+{
+    switch(code)
+    {
+    case ERR_PREFIX:
+        ESP_LOGW(TAG, "[Read] Prefix not match: %s", hexencode(&data[0], len).c_str());
+        break;
+    case ERR_SUFFIX:
+        ESP_LOGW(TAG, "[Read] Suffix not match: %s", hexencode(&data[0], len).c_str());
+        break;
+    case ERR_CHECKSUM:
+        ESP_LOGW(TAG, "[Read] Checksum error: %s", hexencode(&data[0], len).c_str());
+        break;
+    case ERR_CHECKSUM2:
+        ESP_LOGW(TAG, "[Read] Checksum2 error: %s", hexencode(&data[0], len).c_str());
+        break;
+    }
 }
 
 uint8_t WallPadComponent::make_rx_checksum(const uint8_t *data, const num_t len) const

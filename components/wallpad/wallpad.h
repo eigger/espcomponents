@@ -19,6 +19,14 @@ enum Model {
     MODEL_SDS,
 };
 
+enum ValidateCode {
+    ERR_NONE,
+    ERR_PREFIX,
+    ERR_SUFFIX,
+    ERR_CHECKSUM,
+    ERR_CHECKSUM2
+}
+
 typedef unsigned short num_t;
 class WallPadComponent;
 class WallPadDevice;
@@ -299,7 +307,8 @@ protected:
     optional<std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum1)>> tx_checksum2_f_{};
 
     /** 수신데이터 검증 */
-    bool validate(const uint8_t *data, const num_t len);
+    ValidateCode validate(const uint8_t *data, const num_t len);
+    void log_errcode(ValidateCode code, const uint8_t *data, const num_t len);
     /** 수신처리 */
     void rx_proc();
 
