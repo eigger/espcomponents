@@ -1,8 +1,7 @@
 #pragma once
-
-#include <HardwareSerial.h>
 #include <vector>
 #include <queue>
+#include <HardwareSerial.h>
 #include "esphome/core/automation.h"
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
@@ -303,6 +302,8 @@ protected:
     bool validate(const uint8_t *data, const num_t len);
     /** 수신처리 */
     void rx_proc();
+
+    bool publish_proc();
     /** 전송처리 */
     void tx_proc();
 
@@ -342,6 +343,9 @@ bool compare(const uint8_t *data1, const num_t len1, const hex_t *data2);
 
 /** uint8_t[] to decimal(float) */
 float hex_to_float(const uint8_t *data, const num_t len, const num_t precision);
+
+unsigned long elapsed_time(const unsigned long timer);
+unsigned long set_time();
 
 /** 패킷 캡쳐용 리스너 */
 class SerialMonitor : public WallPadListener

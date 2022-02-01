@@ -65,90 +65,28 @@ void WallPadComponent::setup()
     if (tx_checksum2_) this->tx_checksum_len_++;
 
     ESP_LOGI(TAG, "HW Serial Initaialize.");
-    rx_lastTime_ = millis();
+    rx_lastTime_ = set_time();
 }
 
 void WallPadComponent::loop()
 {
-    if (!init_ && millis() - rx_lastTime_ < 20000) return;
+    if (!init_ && elapsed_time(rx_lastTime_) < 20000) return;
     else if (!init_) init_ = true;
 
     // Ack Timeout
-    if (tx_ack_wait_ && millis() - tx_start_time_ > conf_tx_wait_) tx_ack_wait_ = false;
+    if (tx_ack_wait_ && elapsed_time(tx_start_time_) > conf_tx_wait_) tx_ack_wait_ = false;
 
     // Receive Process
     rx_proc();
 
     // Publish Receive Packet
-    if (rx_bytesRead_ > 0)
-    {
-        rx_buffer_[rx_bytesRead_] = 0; // before logging as a char array, zero terminate the last position to be safe.
-
-        if (!validate(&rx_buffer_[0], rx_bytesRead_)) return;
-
-        // Patket type
-        if (state_response_.has_value())
-        {
-            if (compare(&rx_buffer_[rx_prefix_len_], rx_bytesRead_ - rx_prefix_len_, &state_response_.value()))
-            {
-                response_wait_ = false;
-            }
-            else
-            {
-                response_wait_ = true;
-            }
-                
-        }
-
-        // for Ack
-        if (tx_ack_wait_ && tx_current_cmd_)
-        {
-            if (compare(&rx_buffer_[rx_prefix_len_], rx_bytesRead_ - rx_prefix_len_, &tx_current_cmd_->ack[0], tx_current_cmd_->ack.size(), 0))
-            {
-                tx_current_cmd_ = nullptr;
-                tx_ack_wait_ = false;
-                tx_retry_cnt_ = 0;
-
-                if (tx_current_device_)
-                {
-                    tx_current_device_->callback();
-                    tx_current_device_ = nullptr;
-                }
-                ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", hexencode(rx_buffer_, rx_bytesRead_).c_str(), millis() - tx_start_time_);
-                rx_lastTime_ = millis();
-                return;
-            }
-        }
-
-        // Publish State
-        bool found = false;
-        for (auto *listener : this->listeners_)
-        {
-            if (listener->parse_data(&rx_buffer_[rx_prefix_len_], rx_bytesRead_ - rx_prefix_len_ - rx_suffix_len_))
-            {
-                found = true;
-                //if(!listener->is_monitor()) break;
-            }
-        }
-
-#ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
-        ESP_LOGVV(TAG, "Receive data-> %s, Gap Time: %lums", hexencode(&rx_buffer_[0], rx_bytesRead_).c_str(), millis() - rx_lastTime_);
-#else
-#ifdef ESPHOME_LOG_HAS_VERBOSE
-        if (!found)
-        {
-            ESP_LOGV(TAG, "Notfound data-> %s", hexencode(&rx_buffer_[0], rx_bytesRead_).c_str());
-        }
-#endif
-#endif
-        rx_lastTime_ = millis();
-    }
-
+    if (publish_proc()) return;
+    
     // queue Process
-    if (!response_wait_ && millis() - rx_lastTime_ > conf_tx_interval_ && (!tx_queue_.empty() || !tx_queue_late_.empty() || (tx_current_cmd_ && !tx_ack_wait_)) && rx_bytesRead_ == 0)
+    if (!response_wait_ && elapsed_time(rx_lastTime_) > conf_tx_interval_ && (!tx_queue_.empty() || !tx_queue_late_.empty() || (tx_current_cmd_ && !tx_ack_wait_)) && rx_bytesRead_ == 0)
     {
         tx_proc();
-        rx_lastTime_ = millis();
+        rx_lastTime_ = set_time();
     }
 }
 
@@ -157,6 +95,7 @@ void WallPadComponent::rx_proc()
     memset(&rx_buffer_, 0, BUFFER_SIZE);
     rx_timeOut_ = conf_rx_wait_;
     rx_bytesRead_ = 0;
+    num_t offset = 0;
     while (rx_timeOut_ > 0)
     {
         while (this->hw_serial_->available())
@@ -165,11 +104,15 @@ void WallPadComponent::rx_proc()
             {
                 rx_buffer_[rx_bytesRead_] = this->hw_serial_->read();
                 rx_bytesRead_++;
-
-                if (rx_suffix_.has_value() && rx_bytesRead_ > rx_prefix_len_ + rx_suffix_len_ && compare(&rx_buffer_[0], rx_bytesRead_, &rx_suffix_.value()[0], rx_suffix_len_, rx_bytesRead_ - rx_suffix_len_))
+                if (rx_suffix_.has_value() && rx_bytesRead_ > rx_prefix_len_ + rx_suffix_len_)
                 {
-                    return;
+                    offset = rx_bytesRead_ - rx_suffix_len_;
+                    if (compare(&rx_buffer_[0], rx_bytesRead_, &rx_suffix_.value()[0], rx_suffix_len_, offset))
+                    {
+                        return;
+                    }
                 }
+
             }
             else
             {
@@ -180,6 +123,74 @@ void WallPadComponent::rx_proc()
         delay(1);
         rx_timeOut_--;
     }
+}
+
+bool WallPadComponent::publish_proc()
+{
+    if (rx_bytesRead_ == 0) return false;
+
+    rx_buffer_[rx_bytesRead_] = 0; // before logging as a char array, zero terminate the last position to be safe.
+
+    if (!validate(&rx_buffer_[0], rx_bytesRead_)) return true;
+
+    // Patket type
+    if (state_response_.has_value())
+    {
+        if (compare(&rx_buffer_[rx_prefix_len_], rx_bytesRead_ - rx_prefix_len_, &state_response_.value()))
+        {
+            response_wait_ = false;
+        }
+        else
+        {
+            response_wait_ = true;
+        }
+            
+    }
+
+    // for Ack
+    if (tx_ack_wait_ && tx_current_cmd_)
+    {
+        if (compare(&rx_buffer_[rx_prefix_len_], rx_bytesRead_ - rx_prefix_len_, &tx_current_cmd_->ack[0], tx_current_cmd_->ack.size(), 0))
+        {
+            tx_current_cmd_ = nullptr;
+            tx_ack_wait_ = false;
+            tx_retry_cnt_ = 0;
+
+            if (tx_current_device_)
+            {
+                tx_current_device_->callback();
+                tx_current_device_ = nullptr;
+            }
+            ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", hexencode(rx_buffer_, rx_bytesRead_).c_str(), elapsed_time(tx_start_time_));
+            rx_lastTime_ = set_time();
+            return true;
+        }
+    }
+
+    // Publish State
+    bool found = false;
+    for (auto *listener : this->listeners_)
+    {
+        if (listener->parse_data(&rx_buffer_[rx_prefix_len_], rx_bytesRead_ - rx_prefix_len_ - rx_suffix_len_))
+        {
+            found = true;
+            //if(!listener->is_monitor()) break;
+        }
+    }
+
+#ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
+    ESP_LOGVV(TAG, "Receive data-> %s, Gap Time: %lums", hexencode(&rx_buffer_[0], rx_bytesRead_).c_str(), elapsed_time(rx_lastTime_));
+#else
+#ifdef ESPHOME_LOG_HAS_VERBOSE
+    if (!found)
+    {
+        ESP_LOGV(TAG, "Notfound data-> %s", hexencode(&rx_buffer_[0], rx_bytesRead_).c_str());
+    }
+#endif
+#endif
+    rx_lastTime_ = set_time();
+
+    return false;
 }
 
 void WallPadComponent::tx_proc()
@@ -261,31 +272,53 @@ void WallPadComponent::tx_proc()
 
 void WallPadComponent::write_with_header(const std::vector<uint8_t> &data)
 {
-    tx_start_time_ = millis();
+    tx_start_time_ = set_time();
     if (ctrl_pin_) ctrl_pin_->digital_write(TX_ENABLE);
+    if (true)
+    {
+        std::vector<uint8_t> buffer;
+        if (tx_prefix_.has_value()) buffer.insert(buffer.end(), tx_prefix_.value().begin(), tx_prefix_.value().end());
+        buffer.insert(buffer.end(), data.begin(), data.end());
+        uint8_t crc = 0;
+        if (tx_checksum_)
+        {
+            crc = make_tx_checksum(&(data[0]), data.size());
+            buffer.push_back(crc);
+        }
 
-    // Header
-    if (tx_prefix_.has_value()) write_array(tx_prefix_.value());
+        if (tx_checksum2_)
+        {
+            crc = make_tx_checksum2(&(data[0]), data.size(), crc);
+            buffer.push_back(crc);
+        }
+        if (tx_suffix_.has_value()) buffer.insert(buffer.end(), tx_suffix_.value().begin(), tx_suffix_.value().end());
+        write_array(buffer);
+    }
+    else
+    {
+        // Header
+        if (tx_prefix_.has_value()) write_array(tx_prefix_.value());
 
-    // Data part
-    write_array(data);
+        // Data part
+        write_array(data);
 
-    // XOR Checksum
-    uint8_t crc = 0;
-    if (tx_checksum_) write_byte(crc = make_tx_checksum(&(data[0]), data.size()));
+        // XOR Checksum
+        uint8_t crc = 0;
+        if (tx_checksum_) write_byte(crc = make_tx_checksum(&(data[0]), data.size()));
 
-    // ADD Checksum
-    if (tx_checksum2_) write_byte(make_tx_checksum2(&(data[0]), data.size(), crc));
+        // ADD Checksum
+        if (tx_checksum2_) write_byte(make_tx_checksum2(&(data[0]), data.size(), crc));
 
-    // Footer
-    if (tx_suffix_.has_value()) write_array(tx_suffix_.value());
+        // Footer
+        if (tx_suffix_.has_value()) write_array(tx_suffix_.value());
+    }
 
     // wait for send
     flush();
     if (ctrl_pin_) ctrl_pin_->digital_write(RX_ENABLE);
 
     // for Ack wait
-    tx_start_time_ = millis();
+    tx_start_time_ = set_time();
 }
 
 void WallPadComponent::write_byte(uint8_t data)
@@ -319,7 +352,7 @@ void WallPadComponent::write_next_late(const cmd_hex_t *cmd)
 void WallPadComponent::flush()
 {
     this->hw_serial_->flush();
-    ESP_LOGD(TAG, "Flushing... (%lums)", millis() - tx_start_time_);
+    ESP_LOGD(TAG, "Flushing... (%lums)", elapsed_time(tx_start_time_));
 }
 
 bool WallPadComponent::validate(const uint8_t *data, const num_t len)
@@ -576,6 +609,15 @@ float hex_to_float(const uint8_t *data, const num_t len, const num_t precision)
         val = (val << 8) | data[i];
     }
     return val / powf(10, precision);
+}
+
+unsigned long elapsed_time(const unsigned long timer)
+{
+    return millis() - timer; 
+}
+unsigned long set_time()
+{
+    return millis();
 }
 
 }  // namespace wallpad
