@@ -14,7 +14,7 @@ void WallPadButton::dump_config()
 
 void WallPadButton::publish(const uint8_t *data, const num_t len)
 {
-    ESP_LOGW(TAG, "'%s' State not found: %s", device_name_->c_str(), hexencode(&data[0], len).c_str());
+    //ESP_LOGW(TAG, "'%s' State not found: %s", device_name_->c_str(), hexencode(&data[0], len).c_str());
 }
 
 }  // namespace wallpad
