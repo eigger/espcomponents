@@ -134,6 +134,8 @@ void WallPadComponent::rx_proc()
 
 bool WallPadComponent::publish_proc()
 {
+     // Ack Timeout
+    if (tx_ack_wait_ && elapsed_time(tx_start_time_) > conf_tx_wait_) tx_ack_wait_ = false;
     if (rx_bytesRead_ == 0) return false;
 
     rx_buffer_[rx_bytesRead_] = 0; // before logging as a char array, zero terminate the last position to be safe.
@@ -155,9 +157,6 @@ bool WallPadComponent::publish_proc()
         }
             
     }
-
-    // Ack Timeout
-    if (tx_ack_wait_ && elapsed_time(tx_start_time_) > conf_tx_wait_) tx_ack_wait_ = false;
 
     // for Ack
     if (tx_ack_wait_ && tx_current_cmd_)
@@ -399,6 +398,8 @@ void WallPadComponent::log_errcode(ValidateCode code, const uint8_t *data, const
 {
     switch(code)
     {
+    case ERR_NONE:
+        break;
     case ERR_PREFIX:
         ESP_LOGW(TAG, "[Read] Prefix not match: %s", hexencode(&data[0], len).c_str());
         break;
