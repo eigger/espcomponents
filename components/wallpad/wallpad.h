@@ -24,8 +24,8 @@ enum ValidateCode {
     ERR_PREFIX,
     ERR_SUFFIX,
     ERR_CHECKSUM,
-    ERR_CHECKSUM2
-}
+    ERR_CHECKSUM2,
+};
 
 typedef unsigned short num_t;
 class WallPadComponent;
