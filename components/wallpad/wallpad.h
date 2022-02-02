@@ -71,14 +71,23 @@ class WallPadListener
 {
 public:
     virtual bool parse_data(const uint8_t *data, const num_t len) = 0;
-    void set_parent(WallPadComponent *parent) { parent_ = parent; }
+    //void set_parent(WallPadComponent *parent) { parent_ = parent; }
 
     void set_monitor(bool monitor) { monitor_ = monitor; }
     bool is_monitor() { return monitor_; }
-
+    void add_on_write_next_callback(std::function<void(const send_hex_t)> &&callback)
+    {
+        this->write_next_callback_.add(std::move(callback));
+    }
+    void add_on_write_next_late_callback(std::function<void(const cmd_hex_t*)> &&callback)
+    {
+        this->write_next_late_callback_.add(std::move(callback));
+    }
 protected:
-    WallPadComponent *parent_{nullptr};
+    //WallPadComponent *parent_{nullptr};
     bool monitor_{false};
+    CallbackManager<void(const send_hex_t)> write_next_callback_{};
+    CallbackManager<void(const cmd_hex_t*)> write_next_late_callback_{};
 };
 
 /**
@@ -114,7 +123,8 @@ public:
     void set_command_state(cmd_hex_t command_state) { command_state_ = command_state; }
 
     void write_with_header(const cmd_hex_t *cmd);
-    void callback() { tx_pending_ = false; }
+
+    void set_tx_pending(bool pending) { tx_pending_ = pending; }
 
     /** WallPad raw message parse */
     bool parse_data(const uint8_t *data, const num_t len) override;
@@ -246,7 +256,9 @@ public:
 
     void register_listener(WallPadListener *listener)
     {
-        listener->set_parent(this);
+        //listener->set_parent(this);
+        listener->add_on_write_next_callback(write_next);
+        listener->add_on_write_next_late_callback(write_next_late);
         this->listeners_.push_back(listener);
     }
 
