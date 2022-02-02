@@ -272,7 +272,7 @@ void WallPadComponent::tx_proc()
         }
         else if (tx_queue_.front().device)
         {
-            (*tx_queue_.front().device).set_tx_pending(false);
+            (tx_queue_.front().device)->set_tx_pending(false);
             tx_ack_wait_ = true;
         }
         else
@@ -350,7 +350,7 @@ void WallPadComponent::write_next(const send_hex_t send)
 {
     if (!init_)
     {
-        if (send.device) (*send.device).set_tx_pending(false);
+        if (send.device) (send.device)->set_tx_pending(false);
         return;
     }
     tx_queue_.push(send);
@@ -525,8 +525,7 @@ void WallPadDevice::update()
 {
     if (!command_state_.has_value()) return;
     ESP_LOGD(TAG, "'%s' update(): Request current state...", device_name_->c_str());
-    write_next_late_callback_.call(&command_state_.value());
-    //parent_->write_next_late(&command_state_.value());
+    write_next_late(&command_state_.value());
 }
 
 void WallPadDevice::dump_wallpad_device_config(const char *TAG)
@@ -572,8 +571,7 @@ bool WallPadDevice::parse_data(const uint8_t *data, const num_t len)
 void WallPadDevice::write_with_header(const cmd_hex_t *cmd)
 {
     set_tx_pending(true);
-    write_next_callback_.call({this, cmd});
-    //parent_->write_next({this, cmd});
+    write_next({this, cmd});
 }
 
 bool SerialMonitor::parse_data(const uint8_t *data, const num_t len)

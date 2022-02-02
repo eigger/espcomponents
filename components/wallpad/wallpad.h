@@ -72,22 +72,15 @@ class WallPadListener
 public:
     virtual bool parse_data(const uint8_t *data, const num_t len) = 0;
     //void set_parent(WallPadComponent *parent) { parent_ = parent; }
+    virtual void write_next(const send_hex_t send) = 0;
+    virtual void write_next_late(const cmd_hex_t* cmd) = 0;
 
     void set_monitor(bool monitor) { monitor_ = monitor; }
     bool is_monitor() { return monitor_; }
-    void add_on_write_next_callback(std::function<void(const send_hex_t)> &&callback)
-    {
-        this->write_next_callback_.add(std::move(callback));
-    }
-    void add_on_write_next_late_callback(std::function<void(const cmd_hex_t*)> &&callback)
-    {
-        this->write_next_late_callback_.add(std::move(callback));
-    }
 protected:
     //WallPadComponent *parent_{nullptr};
     bool monitor_{false};
-    CallbackManager<void(const send_hex_t)> write_next_callback_{};
-    CallbackManager<void(const cmd_hex_t*)> write_next_late_callback_{};
+
 };
 
 /**
@@ -138,6 +131,17 @@ public:
     /** priority of setup(). higher -> executed earlier */
     float get_setup_priority() const override { return setup_priority::DATA; }
 
+    void add_on_write_next_callback(std::function<void(const send_hex_t)> &&callback)
+    {
+        write_next_callback_.add(std::move(callback));
+    }
+    void add_on_write_next_late_callback(std::function<void(const cmd_hex_t*)> &&callback)
+    {
+        write_next_late_callback_.add(std::move(callback));
+    }
+    void write_next(const send_hex_t send) { write_next_callback_.call({this, send}); }
+    void write_next_late(const cmd_hex_t* cmd) { write_next_late_callback_.call(cmd); }
+
 protected:
     const std::string *device_name_;
     hex_t device_{};
@@ -150,6 +154,8 @@ protected:
     optional<std::function<cmd_hex_t()>> command_off_func_{};
     optional<cmd_hex_t> command_state_;
     bool tx_pending_{false};
+    CallbackManager<void(const send_hex_t)> write_next_callback_{};
+    CallbackManager<void(const cmd_hex_t*)> write_next_late_callback_{};
 };
 
 /** 
@@ -379,6 +385,8 @@ public:
     }
     void add_filter(hex_t filter) { filters_.push_back(filter); }
     bool parse_data(const uint8_t *data, const num_t len) override;
+    void write_next(const send_hex_t send) { }
+    void write_next_late(const cmd_hex_t* cmd) { }
 
 protected:
     std::vector<hex_t> filters_;
