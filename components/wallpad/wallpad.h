@@ -257,8 +257,8 @@ public:
     void register_listener(WallPadListener *listener)
     {
         //listener->set_parent(this);
-        listener->add_on_write_next_callback(write_next);
-        listener->add_on_write_next_late_callback(write_next_late);
+        listener->add_on_write_next_callback(std::bind(&WallPadComponent::write_next, this, std::placeholders::_1));
+        listener->add_on_write_next_late_callback(std::bind(&WallPadComponent::write_next_late, this, std::placeholders::_1));
         this->listeners_.push_back(listener);
     }
 
