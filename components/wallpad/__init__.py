@@ -275,6 +275,7 @@ HEX_SCHEMA_REGISTRY = SimpleRegistry()
 def register_wallpad_device(var, config):
     paren = yield cg.get_variable(config[CONF_WALLPAD_ID])
     cg.add(paren.register_listener(var))
+    cg.add(paren.register_device(var))
     yield var
 
     if CONF_DEVICE in config:
