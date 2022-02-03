@@ -139,7 +139,7 @@ public:
     {
         write_next_late_callback_.add(std::move(callback));
     }
-    void write_next(const send_hex_t send) { write_next_callback_.call({this, send}); }
+    void write_next(const send_hex_t send) { write_next_callback_.call(send); }
     void write_next_late(const cmd_hex_t* cmd) { write_next_late_callback_.call(cmd); }
 
 protected:
