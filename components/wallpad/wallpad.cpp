@@ -607,7 +607,7 @@ std::string hexencode(const uint8_t *raw_data, num_t len)
 bool compare(const uint8_t *data1, const num_t len1, const uint8_t *data2, const num_t len2, const num_t offset)
 {
     if (len1 - offset < len2) return false;
-    //ESP_LOGD(TAG, "compare(0x%02X, 0x%02X, %d)=> %d", data1[offset], data2[0], len2, memcmp(&data1[offset], &data2[0], len2));
+    ESP_LOGD(TAG, "compare(0x%02X, 0x%02X, %d)=> %d", data1[offset], data2[0], len2, memcmp(&data1[offset], &data2[0], len2));
     return memcmp(&data1[offset], &data2[0], len2) == 0;
 }
 

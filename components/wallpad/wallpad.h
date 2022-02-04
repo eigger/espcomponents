@@ -232,8 +232,8 @@ public:
     }
 
     /** CheckSum8 Add 사용 여부 (발신시 Append) */
-    void set_checksum2(bool checksum2) { tx_checksum2_ = checksum2; } // add sum
-    void set_checksum2_lambda(std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum1)> &&f)
+    void set_tx_checksum2(bool checksum2) { tx_checksum2_ = checksum2; } // add sum
+    void set_tx_checksum2_lambda(std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum1)> &&f)
     {
         tx_checksum2_f_ = f;
         tx_checksum2_ = true;
