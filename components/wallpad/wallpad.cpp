@@ -71,11 +71,11 @@ void WallPadComponent::setup()
 
 void WallPadComponent::loop()
 {
-    if (!init_ && elapsed_time(rx_lastTime_) < 20000) return;
-    else if (!init_) init_ = true;
-
     // Receive Process
     rx_proc();
+
+    if (!init_ && elapsed_time(rx_lastTime_) < 10000) return;
+    else if (!init_) init_ = true;
 
     // Publish Receive Packet
     publish_proc();
@@ -287,7 +287,7 @@ void WallPadComponent::write_with_header(const std::vector<uint8_t> &data)
 {
     tx_start_time_ = set_time();
     if (ctrl_pin_) ctrl_pin_->digital_write(TX_ENABLE);
-    if (true)
+    if (false)
     {
         std::vector<uint8_t> buffer;
         if (tx_prefix_.has_value()) buffer.insert(buffer.end(), tx_prefix_.value().begin(), tx_prefix_.value().end());
