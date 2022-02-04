@@ -53,51 +53,45 @@ void WallPadClimate::publish(const uint8_t *data, const num_t len)
     // turn off
     if (this->state_off_.has_value() && compare(&data[0], len, &state_off_.value()))
     {
-        ESP_LOGD(TAG, "Turn OFF %d->%d", get_mode(), climate::CLIMATE_MODE_OFF);
-        if (get_mode() != climate::CLIMATE_MODE_OFF)
+        if (mode != climate::CLIMATE_MODE_OFF)
         {
-            set_mode(climate::CLIMATE_MODE_OFF);
+            mode = climate::CLIMATE_MODE_OFF;
             changed = true;
         }
     }
     // heat mode
     else if (this->state_heat_.has_value() && compare(&data[0], len, &state_heat_.value()))
     {
-        ESP_LOGD(TAG, "heat mode %d->%d", get_mode(), climate::CLIMATE_MODE_HEAT);
-        if (get_mode() != climate::CLIMATE_MODE_HEAT)
+        if (mode != climate::CLIMATE_MODE_HEAT)
         {
-            set_mode(climate::CLIMATE_MODE_HEAT);
+            mode = climate::CLIMATE_MODE_HEAT;
             changed = true;
         }
     }
     // cool mode
     else if (this->state_cool_.has_value() && compare(&data[0], len, &state_cool_.value()))
     {
-        ESP_LOGD(TAG, "cool mode %d->%d", get_mode(), climate::CLIMATE_MODE_COOL);
-        if (get_mode() != climate::CLIMATE_MODE_COOL)
+        if (mode != climate::CLIMATE_MODE_COOL)
         {
-            set_mode(climate::CLIMATE_MODE_COOL);
+            mode = climate::CLIMATE_MODE_COOL;
             changed = true;
         }
     }
     // auto mode
     else if (this->state_auto_.has_value() && compare(&data[0], len, &state_auto_.value()))
     {
-        ESP_LOGD(TAG, "auto mode %d->%d", get_mode(), climate::CLIMATE_MODE_AUTO);
-        if (get_mode() != climate::CLIMATE_MODE_AUTO)
+        if (mode != climate::CLIMATE_MODE_AUTO)
         {
-            set_mode(climate::CLIMATE_MODE_AUTO);
+            mode = climate::CLIMATE_MODE_AUTO;
             changed = true;
         }
     }
     // away
     if (this->state_away_.has_value())
     {
-        ESP_LOGD(TAG, "away mode %d->%d", get_mode(), climate::CLIMATE_PRESET_AWAY);
-        bool is_away = get_preset() == climate::CLIMATE_PRESET_AWAY ? true : false;
-        if (is_away != compare(&data[0], len, &state_away_.value()))
+        if (away != compare(&data[0], len, &state_away_.value()))
         {
-            set_preset(is_away == true ? climate::CLIMATE_PRESET_HOME : climate::CLIMATE_PRESET_AWAY);
+            away = true;
             changed = true;
         }
     }
@@ -151,23 +145,22 @@ void WallPadClimate::publish(const uint8_t *data, const num_t len)
 void WallPadClimate::control(const climate::ClimateCall &call)
 {
     // Set mode
-    climate::ClimateCall mcall = make_call();
-    if (call.get_mode().has_value() && mcall.get_mode() != *call.get_mode())
+    if (call.mode.has_value() && mode != *call.mode)
     {
-        mcall.set_mode(*call.get_mode());
-        if (mcall.get_mode() == climate::CLIMATE_MODE_OFF)
+        mode = *call.mode;
+        if (mode == climate::CLIMATE_MODE_OFF)
         {
             write_with_header(this->get_command_off());
         }
-        else if (mcall.get_mode() == climate::CLIMATE_MODE_HEAT && this->command_heat_.has_value())
+        else if (mode == climate::CLIMATE_MODE_HEAT && this->command_heat_.has_value())
         {
             write_with_header(&this->command_heat_.value());
         }
-        else if (mcall.get_mode() == climate::CLIMATE_MODE_COOL && this->command_cool_.has_value())
+        else if (mode == climate::CLIMATE_MODE_COOL && this->command_cool_.has_value())
         {
             write_with_header(&this->command_cool_.value());
         }
-        else if (mcall.get_mode() == climate::CLIMATE_MODE_AUTO)
+        else if (mode == climate::CLIMATE_MODE_AUTO)
         {
             if (this->command_auto_.has_value())
             {
@@ -180,12 +173,12 @@ void WallPadClimate::control(const climate::ClimateCall &call)
             else if (this->command_heat_.has_value())
             {
                 write_with_header(&this->command_heat_.value());
-                mcall.set_mode(climate::CLIMATE_MODE_HEAT);
+                mode = climate::CLIMATE_MODE_HEAT;
             }
             else if (this->command_cool_.has_value())
             {
                 write_with_header(&this->command_cool_.value());
-                mcall.set_mode(climate::CLIMATE_MODE_COOL);
+                mode = climate::CLIMATE_MODE_COOL;
             }
         }
     }
@@ -199,10 +192,10 @@ void WallPadClimate::control(const climate::ClimateCall &call)
     }
 
     // Set away
-    if (this->command_away_.has_value() && call.get_preset().has_value() && mcall.get_preset() != *call.get_preset())
+    if (this->command_away_.has_value() && call.get_away().has_value() && away != *call.get_away())
     {
-        mcall.set_preset(*call.get_preset());
-        if (mcall.get_preset() == climate::CLIMATE_PRESET_AWAY)
+        away = call.get_away().value();
+        if (away == true)
         {
             write_with_header(&this->command_away_.value());
         }
@@ -210,19 +203,19 @@ void WallPadClimate::control(const climate::ClimateCall &call)
         {
             write_with_header(&this->command_home_.value());
         }
-        else if (mcall.get_mode() == climate::CLIMATE_MODE_OFF)
+        else if (mode == climate::CLIMATE_MODE_OFF)
         {
             write_with_header(this->get_command_off());
         }
-        else if (mcall.get_mode() == climate::CLIMATE_MODE_HEAT && this->command_heat_.has_value())
+        else if (mode == climate::CLIMATE_MODE_HEAT && this->command_heat_.has_value())
         {
             write_with_header(&this->command_heat_.value());
         }
-        else if (mcall.get_mode() == climate::CLIMATE_MODE_COOL && this->command_cool_.has_value())
+        else if (mode == climate::CLIMATE_MODE_COOL && this->command_cool_.has_value())
         {
             write_with_header(&this->command_cool_.value());
         }
-        else if (mcall.get_mode() == climate::CLIMATE_MODE_AUTO && this->command_auto_.has_value())
+        else if (mode == climate::CLIMATE_MODE_AUTO && this->command_auto_.has_value())
         {
             write_with_header(&this->command_auto_.value());
         }
