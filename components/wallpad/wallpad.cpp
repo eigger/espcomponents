@@ -287,7 +287,7 @@ void WallPadComponent::write_with_header(const std::vector<uint8_t> &data)
 {
     tx_start_time_ = set_time();
     if (ctrl_pin_) ctrl_pin_->digital_write(TX_ENABLE);
-    if (false)
+    if (true)
     {
         std::vector<uint8_t> buffer;
         if (tx_prefix_.has_value()) buffer.insert(buffer.end(), tx_prefix_.value().begin(), tx_prefix_.value().end());
