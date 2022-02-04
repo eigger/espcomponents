@@ -89,9 +89,10 @@ void WallPadClimate::publish(const uint8_t *data, const num_t len)
     // away
     if (this->state_away_.has_value())
     {
-        if (away != compare(&data[0], len, &state_away_.value()))
+        bool is_away = *preset == climate::CLIMATE_PRESET_AWAY ? true : false;
+        if (is_away != compare(&data[0], len, &state_away_.value()))
         {
-            away = true;
+            *preset = is_away == true ? climate::CLIMATE_PRESET_HOME : climate::CLIMATE_PRESET_AWAY;
             changed = true;
         }
     }
@@ -192,10 +193,10 @@ void WallPadClimate::control(const climate::ClimateCall &call)
     }
 
     // Set away
-    if (this->command_away_.has_value() && call.get_away().has_value() && away != *call.get_away())
+    if (this->command_away_.has_value() && call.get_preset().has_value() && *preset != *call.get_preset())
     {
-        away = call.get_away().value();
-        if (away == true)
+        *preset = *call.get_preset();
+        if (*preset == climate::CLIMATE_PRESET_AWAY)
         {
             write_with_header(&this->command_away_.value());
         }
