@@ -145,9 +145,9 @@ void WallPadClimate::publish(const uint8_t *data, const num_t len)
 void WallPadClimate::control(const climate::ClimateCall &call)
 {
     // Set mode
-    if (call.mode.has_value() && mode != *call.mode)
+    if (call.get_mode().has_value() && mode != *call.get_mode())
     {
-        mode = *call.mode;
+        mode = *call.get_mode();
         if (mode == climate::CLIMATE_MODE_OFF)
         {
             write_with_header(this->get_command_off());
