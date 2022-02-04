@@ -50,55 +50,54 @@ void WallPadClimate::setup()
 void WallPadClimate::publish(const uint8_t *data, const num_t len)
 {
     bool changed = false;
-    climate::ClimateCall mcall = make_call();
     // turn off
     if (this->state_off_.has_value() && compare(&data[0], len, &state_off_.value()))
     {
-        ESP_LOGD(TAG, "Turn OFF %d->%d", mcall.get_mode(), climate::CLIMATE_MODE_OFF);
-        if (mcall.get_mode() != climate::CLIMATE_MODE_OFF)
+        ESP_LOGD(TAG, "Turn OFF %d->%d", get_mode(), climate::CLIMATE_MODE_OFF);
+        if (get_mode() != climate::CLIMATE_MODE_OFF)
         {
-            mcall.set_mode(climate::CLIMATE_MODE_OFF);
+            set_mode(climate::CLIMATE_MODE_OFF);
             changed = true;
         }
     }
     // heat mode
     else if (this->state_heat_.has_value() && compare(&data[0], len, &state_heat_.value()))
     {
-        ESP_LOGD(TAG, "heat mode %d->%d", mcall.get_mode(), climate::CLIMATE_MODE_HEAT);
-        if (mcall.get_mode() != climate::CLIMATE_MODE_HEAT)
+        ESP_LOGD(TAG, "heat mode %d->%d", get_mode(), climate::CLIMATE_MODE_HEAT);
+        if (get_mode() != climate::CLIMATE_MODE_HEAT)
         {
-            mcall.set_mode(climate::CLIMATE_MODE_HEAT);
+            set_mode(climate::CLIMATE_MODE_HEAT);
             changed = true;
         }
     }
     // cool mode
     else if (this->state_cool_.has_value() && compare(&data[0], len, &state_cool_.value()))
     {
-        ESP_LOGD(TAG, "cool mode %d->%d", mcall.get_mode(), climate::CLIMATE_MODE_COOL);
-        if (mcall.get_mode() != climate::CLIMATE_MODE_COOL)
+        ESP_LOGD(TAG, "cool mode %d->%d", get_mode(), climate::CLIMATE_MODE_COOL);
+        if (get_mode() != climate::CLIMATE_MODE_COOL)
         {
-            mcall.set_mode(climate::CLIMATE_MODE_COOL);
+            set_mode(climate::CLIMATE_MODE_COOL);
             changed = true;
         }
     }
     // auto mode
     else if (this->state_auto_.has_value() && compare(&data[0], len, &state_auto_.value()))
     {
-        ESP_LOGD(TAG, "auto mode %d->%d", mcall.get_mode(), climate::CLIMATE_MODE_AUTO);
-        if (mcall.get_mode() != climate::CLIMATE_MODE_AUTO)
+        ESP_LOGD(TAG, "auto mode %d->%d", get_mode(), climate::CLIMATE_MODE_AUTO);
+        if (get_mode() != climate::CLIMATE_MODE_AUTO)
         {
-            mcall.set_mode(climate::CLIMATE_MODE_AUTO);
+            set_mode(climate::CLIMATE_MODE_AUTO);
             changed = true;
         }
     }
     // away
     if (this->state_away_.has_value())
     {
-        ESP_LOGD(TAG, "away mode %d->%d", mcall.get_mode(), climate::CLIMATE_PRESET_AWAY);
-        bool is_away = mcall.get_preset() == climate::CLIMATE_PRESET_AWAY ? true : false;
+        ESP_LOGD(TAG, "away mode %d->%d", get_mode(), climate::CLIMATE_PRESET_AWAY);
+        bool is_away = get_preset() == climate::CLIMATE_PRESET_AWAY ? true : false;
         if (is_away != compare(&data[0], len, &state_away_.value()))
         {
-            mcall.set_preset(is_away == true ? climate::CLIMATE_PRESET_HOME : climate::CLIMATE_PRESET_AWAY);
+            set_preset(is_away == true ? climate::CLIMATE_PRESET_HOME : climate::CLIMATE_PRESET_AWAY);
             changed = true;
         }
     }
