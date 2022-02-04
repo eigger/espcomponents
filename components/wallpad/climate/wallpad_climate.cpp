@@ -54,6 +54,7 @@ void WallPadClimate::publish(const uint8_t *data, const num_t len)
     // turn off
     if (this->state_off_.has_value() && compare(&data[0], len, &state_off_.value()))
     {
+        ESP_LOGD(TAG, "Turn OFF %d->%d", mcall.get_mode(), climate::CLIMATE_MODE_OFF);
         if (mcall.get_mode() != climate::CLIMATE_MODE_OFF)
         {
             mcall.set_mode(climate::CLIMATE_MODE_OFF);
@@ -63,6 +64,7 @@ void WallPadClimate::publish(const uint8_t *data, const num_t len)
     // heat mode
     else if (this->state_heat_.has_value() && compare(&data[0], len, &state_heat_.value()))
     {
+        ESP_LOGD(TAG, "heat mode %d->%d", mcall.get_mode(), climate::CLIMATE_MODE_HEAT);
         if (mcall.get_mode() != climate::CLIMATE_MODE_HEAT)
         {
             mcall.set_mode(climate::CLIMATE_MODE_HEAT);
@@ -72,6 +74,7 @@ void WallPadClimate::publish(const uint8_t *data, const num_t len)
     // cool mode
     else if (this->state_cool_.has_value() && compare(&data[0], len, &state_cool_.value()))
     {
+        ESP_LOGD(TAG, "cool mode %d->%d", mcall.get_mode(), climate::CLIMATE_MODE_COOL);
         if (mcall.get_mode() != climate::CLIMATE_MODE_COOL)
         {
             mcall.set_mode(climate::CLIMATE_MODE_COOL);
@@ -81,6 +84,7 @@ void WallPadClimate::publish(const uint8_t *data, const num_t len)
     // auto mode
     else if (this->state_auto_.has_value() && compare(&data[0], len, &state_auto_.value()))
     {
+        ESP_LOGD(TAG, "auto mode %d->%d", mcall.get_mode(), climate::CLIMATE_MODE_AUTO);
         if (mcall.get_mode() != climate::CLIMATE_MODE_AUTO)
         {
             mcall.set_mode(climate::CLIMATE_MODE_AUTO);
@@ -90,6 +94,7 @@ void WallPadClimate::publish(const uint8_t *data, const num_t len)
     // away
     if (this->state_away_.has_value())
     {
+        ESP_LOGD(TAG, "away mode %d->%d", mcall.get_mode(), climate::CLIMATE_PRESET_AWAY);
         bool is_away = mcall.get_preset() == climate::CLIMATE_PRESET_AWAY ? true : false;
         if (is_away != compare(&data[0], len, &state_away_.value()))
         {
