@@ -24,8 +24,8 @@ void WallPadComponent::dump_config()
     if (rx_suffix_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_suffix: %s", hexencode(&rx_suffix_.value()[0], rx_suffix_len_).c_str());
     if (tx_prefix_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_prefix: %s", hexencode(&tx_prefix_.value()[0], tx_prefix_len_).c_str());
     if (tx_suffix_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_suffix: %s", hexencode(&tx_suffix_.value()[0], tx_suffix_len_).c_str());
-    ESP_LOGCONFIG(TAG, "  Data checksum: %s", YESNO(rx_checksum_));
-    ESP_LOGCONFIG(TAG, "  Data checksum: %s", YESNO(tx_checksum_));
+    ESP_LOGCONFIG(TAG, "  Data rx_checksum: %s", YESNO(rx_checksum_));
+    ESP_LOGCONFIG(TAG, "  Data tx_checksum: %s", YESNO(tx_checksum_));
     if (state_response_.has_value()) ESP_LOGCONFIG(TAG, "  Data response: %s, offset: %d", hexencode(&state_response_.value().data[0], state_response_.value().data.size()).c_str(), state_response_.value().offset);
     ESP_LOGCONFIG(TAG, "  Listener count: %d", listeners_.size());
 }
@@ -52,7 +52,7 @@ void WallPadComponent::setup()
     this->hw_serial_ = &Serial2;
     this->hw_serial_->begin(conf_baud_, serialconfig, rx, tx);
 #endif
-
+    this->wifi_ = &WiFi;
     if (this->ctrl_pin_)
     {
         this->ctrl_pin_->setup();

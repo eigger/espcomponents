@@ -2,6 +2,7 @@
 #include <vector>
 #include <queue>
 #include <HardwareSerial.h>
+#include <WiFi.h>
 #include "esphome/core/automation.h"
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
@@ -293,6 +294,7 @@ public:
 
 protected:
     HardwareSerial *hw_serial_{nullptr};
+    WiFiClass *wifi_{nullptr};
     std::vector<WallPadListener *> listeners_{};
     Model conf_model_;
     int conf_baud_;
