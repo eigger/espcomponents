@@ -211,7 +211,6 @@ void WallPadComponent::tx_proc()
     if (response_wait_) return;
     if (elapsed_time(rx_lastTime_) < conf_tx_interval_) return;
     if (elapsed_time(tx_start_time_) < conf_tx_interval_) return;
-    if (!this->hw_serial_->availableForWrite()) return;
     // Command retry
     if (!tx_ack_wait_ && tx_current_cmd_)
     {
@@ -344,7 +343,7 @@ void WallPadComponent::write_byte(uint8_t data)
 void WallPadComponent::write_array(const uint8_t *data, const num_t len)
 {
     this->hw_serial_->write(data, len);
-    ESP_LOGD(TAG, "Write array-> %s", hexencode(&data[0], len).c_str());
+    ESP_LOGD(TAG, "Write array-> %s, %d", hexencode(&data[0], len).c_str(), this->hw_serial_->availableForWrite());
 }
 
 void WallPadComponent::write_next(const send_hex_t send)
