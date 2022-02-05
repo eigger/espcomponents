@@ -67,6 +67,7 @@ void WallPadComponent::setup()
     ESP_LOGI(TAG, "HW Serial Initaialize.");
     rx_lastTime_ = set_time();
     tx_start_time_ = set_time();
+    init_ = true;
 }
 
 void WallPadComponent::loop()
