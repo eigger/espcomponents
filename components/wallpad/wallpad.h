@@ -334,7 +334,7 @@ protected:
     /** 수신처리 */
     void rx_proc();
 
-    bool publish_proc();
+    void publish_proc();
     /** 전송처리 */
     void tx_proc();
 

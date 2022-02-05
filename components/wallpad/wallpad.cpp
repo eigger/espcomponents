@@ -75,9 +75,6 @@ void WallPadComponent::loop()
     // Receive Process
     rx_proc();
 
-    // if (!init_ && elapsed_time(rx_lastTime_) < 10000) return;
-    // else if (!init_) init_ = true;
-
     // Publish Receive Packet
     publish_proc();
     
@@ -134,17 +131,17 @@ void WallPadComponent::rx_proc()
     }
 }
 
-bool WallPadComponent::publish_proc()
+void WallPadComponent::publish_proc()
 {
      // Ack Timeout
     if (tx_ack_wait_ && elapsed_time(tx_start_time_) > conf_tx_wait_) tx_ack_wait_ = false;
-    if (rx_bytesRead_ == 0) return false;
+    if (rx_bytesRead_ == 0) return;
 
     rx_buffer_[rx_bytesRead_] = 0; // before logging as a char array, zero terminate the last position to be safe.
 
     ValidateCode code = validate(&rx_buffer_[0], rx_bytesRead_);
     log_errcode(code, &rx_buffer_[0], rx_bytesRead_);
-    if (code != ERR_NONE) return false;
+    if (code != ERR_NONE) return;
 
     // Patket type
     if (state_response_.has_value())
@@ -176,14 +173,19 @@ bool WallPadComponent::publish_proc()
             }
             ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", hexencode(rx_buffer_, rx_bytesRead_).c_str(), elapsed_time(tx_start_time_));
             rx_lastTime_ = set_time();
-            return false;
+            return;
         }
     }
+
+#ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
+    ESP_LOGVV(TAG, "Receive data-> %s, Gap Time: %lums", hexencode(&rx_buffer_[0], rx_bytesRead_).c_str(), elapsed_time(rx_lastTime_));
+#endif
 
     // Publish State
     bool found = false;
     for (auto *listener : this->listeners_)
     {
+        if (this->wifi_->status() != WL_CONNECTED) break;
         if (listener->parse_data(&rx_buffer_[rx_prefix_len_], rx_bytesRead_ - rx_prefix_len_ - rx_suffix_len_))
         {
             found = true;
@@ -191,19 +193,14 @@ bool WallPadComponent::publish_proc()
         }
     }
 
-#ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
-    ESP_LOGVV(TAG, "Receive data-> %s, Gap Time: %lums", hexencode(&rx_buffer_[0], rx_bytesRead_).c_str(), elapsed_time(rx_lastTime_));
-#else
+
 #ifdef ESPHOME_LOG_HAS_VERBOSE
     if (!found)
     {
         ESP_LOGV(TAG, "Notfound data-> %s", hexencode(&rx_buffer_[0], rx_bytesRead_).c_str());
     }
 #endif
-#endif
     rx_lastTime_ = set_time();
-
-    return true;
 }
 
 void WallPadComponent::tx_proc()
