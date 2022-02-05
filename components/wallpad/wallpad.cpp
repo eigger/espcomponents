@@ -74,8 +74,8 @@ void WallPadComponent::loop()
     // Receive Process
     rx_proc();
 
-    if (!init_ && elapsed_time(rx_lastTime_) < 10000) return;
-    else if (!init_) init_ = true;
+    // if (!init_ && elapsed_time(rx_lastTime_) < 10000) return;
+    // else if (!init_) init_ = true;
 
     // Publish Receive Packet
     publish_proc();
@@ -83,6 +83,7 @@ void WallPadComponent::loop()
     // queue Process
     tx_proc();
 
+    delay(0);
 }
 
 void WallPadComponent::rx_proc()
@@ -210,7 +211,7 @@ void WallPadComponent::tx_proc()
     if (response_wait_) return;
     if (elapsed_time(rx_lastTime_) < conf_tx_interval_) return;
     if (elapsed_time(tx_start_time_) < conf_tx_interval_) return;
-    
+    if (!this->hw_serial_->availableForWrite()) return;
     // Command retry
     if (!tx_ack_wait_ && tx_current_cmd_)
     {
