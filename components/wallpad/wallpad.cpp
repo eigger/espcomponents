@@ -80,8 +80,6 @@ void WallPadComponent::loop()
     
     // queue Process
     tx_proc();
-
-    delay(0);
 }
 
 void WallPadComponent::rx_proc()
