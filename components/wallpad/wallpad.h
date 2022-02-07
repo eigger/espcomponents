@@ -2,7 +2,12 @@
 #include <vector>
 #include <queue>
 #include <HardwareSerial.h>
+#ifdef ARDUINO_ARCH_ESP8266
+#include <ESP8266WiFi.h>
+#endif
+#ifdef ARDUINO_ARCH_ESP32
 #include <WiFi.h>
+#endif
 #include "esphome/core/automation.h"
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
