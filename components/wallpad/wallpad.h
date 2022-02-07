@@ -2,6 +2,12 @@
 #include <vector>
 #include <queue>
 #include <HardwareSerial.h>
+#ifdef ARDUINO_ARCH_ESP8266
+#include <ESP8266WiFi.h>
+#endif
+#ifdef ARDUINO_ARCH_ESP32
+#include <WiFi.h>
+#endif
 #include "esphome/core/automation.h"
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
@@ -293,6 +299,13 @@ public:
 
 protected:
     HardwareSerial *hw_serial_{nullptr};
+#ifdef ARDUINO_ARCH_ESP8266
+    ESP8266WiFiClass *wifi_{nullptr};
+#endif
+#ifdef ARDUINO_ARCH_ESP32
+    WiFiClass *wifi_{nullptr};
+#endif
+    
     std::vector<WallPadListener *> listeners_{};
     Model conf_model_;
     int conf_baud_;
@@ -332,7 +345,7 @@ protected:
     /** 수신처리 */
     void rx_proc();
 
-    bool publish_proc();
+    void publish_proc();
     /** 전송처리 */
     void tx_proc();
 
