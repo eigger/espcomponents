@@ -299,7 +299,13 @@ public:
 
 protected:
     HardwareSerial *hw_serial_{nullptr};
+#ifdef ARDUINO_ARCH_ESP8266
+    ESP8266WiFiClass *wifi_{nullptr};
+#endif
+#ifdef ARDUINO_ARCH_ESP32
     WiFiClass *wifi_{nullptr};
+#endif
+    
     std::vector<WallPadListener *> listeners_{};
     Model conf_model_;
     int conf_baud_;
