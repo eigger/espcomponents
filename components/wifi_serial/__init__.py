@@ -16,7 +16,7 @@ CONF_WIFI_SERIAL_ID = 'wifi_serial'
 CONF_STOP_BITS = 'stop_bits'
 
 def validate_rx_pin(value):
-    value = pins.input_pin(value)
+    value = pins.internal_gpio_input_pin_schema(value)
     if CORE.is_esp8266 and value >= 16:
         raise cv.Invalid("Pins GPIO16 and GPIO17 cannot be used as RX pins on ESP8266.")
     return value
@@ -26,7 +26,7 @@ CONFIG_SCHEMA = cv.Schema({
     cv.Optional(CONF_PORT, default=80): cv.port,
     cv.Required('usart'): cv.Schema({
         cv.Required(CONF_BAUD_RATE): cv.int_range(min=1),
-        cv.Required(CONF_TX_PIN): pins.output_pin,
+        cv.Required(CONF_TX_PIN): pins.internal_gpio_output_pin_schema,
         cv.Required(CONF_RX_PIN): validate_rx_pin,
         cv.Optional(CONF_STOP_BITS, default=1): cv.one_of(1, 2, int=True),
     }),
