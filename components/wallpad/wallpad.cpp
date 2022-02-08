@@ -183,7 +183,7 @@ void WallPadComponent::publish_proc()
     bool found = false;
     for (auto *listener : this->listeners_)
     {
-        if (this->wifi_->status() != WL_CONNECTED) break;
+        //if (this->wifi_->status() != WL_CONNECTED) break;
         if (listener->parse_data(&rx_buffer_[rx_prefix_len_], rx_bytesRead_ - rx_prefix_len_ - rx_suffix_len_))
         {
             found = true;
