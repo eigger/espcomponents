@@ -118,7 +118,7 @@ void WallPadComponent::rx_proc()
                 {
                     length = 0;
                     if (rx_prefix_.has_value()) length += rx_prefix_len_;
-                    if (rx_checksum_.has_value() || rx_checksum2_.has_value()) length += rx_checksum_len_;
+                    if (rx_checksum_ || rx_checksum2_) length += rx_checksum_len_;
                     if (rx_bytesRead_ >= length && validate(&rx_buffer_[0], rx_bytesRead_) == ERR_NONE)
                     {
                         return;
