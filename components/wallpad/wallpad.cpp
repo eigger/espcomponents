@@ -52,7 +52,6 @@ void WallPadComponent::setup()
     this->hw_serial_ = &Serial2;
     this->hw_serial_->begin(conf_baud_, serialconfig, rx, tx);
 #endif
-    this->wifi_ = &WiFi;
     if (this->ctrl_pin_)
     {
         this->ctrl_pin_->setup();
