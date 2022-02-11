@@ -325,11 +325,8 @@ void WallPadComponent::write_with_header(const std::vector<uint8_t> &data)
     }
 
     // wait for send
-    if (ctrl_pin_)
-    {
-        flush();
-        ctrl_pin_->digital_write(RX_ENABLE);
-    } 
+    flush();
+    if (ctrl_pin_) ctrl_pin_->digital_write(RX_ENABLE);
 
     // for Ack wait
     tx_start_time_ = set_time();
@@ -365,7 +362,7 @@ void WallPadComponent::write_next_late(const cmd_hex_t *cmd)
 
 void WallPadComponent::flush()
 {
-    this->hw_serial_->flush();
+    this->hw_serial_->flush(true);
     ESP_LOGD(TAG, "Flushing... (%lums)", elapsed_time(tx_start_time_));
 }
 
