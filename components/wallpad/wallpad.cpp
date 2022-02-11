@@ -285,7 +285,7 @@ void WallPadComponent::write_with_header(const std::vector<uint8_t> &data)
 {
     tx_start_time_ = set_time();
     if (ctrl_pin_) ctrl_pin_->digital_write(TX_ENABLE);
-    if (true)
+    if (false)
     {
         std::vector<uint8_t> buffer;
         if (tx_prefix_.has_value()) buffer.insert(buffer.end(), tx_prefix_.value().begin(), tx_prefix_.value().end());
@@ -325,8 +325,11 @@ void WallPadComponent::write_with_header(const std::vector<uint8_t> &data)
     }
 
     // wait for send
-    flush();
-    if (ctrl_pin_) ctrl_pin_->digital_write(RX_ENABLE);
+    if (ctrl_pin_)
+    {
+        flush();
+        ctrl_pin_->digital_write(RX_ENABLE);
+    } 
 
     // for Ack wait
     tx_start_time_ = set_time();
