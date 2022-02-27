@@ -13,7 +13,7 @@ class WallPadButton : public button::Button, public WallPadDevice
         void dump_config() override;
         void publish(const uint8_t *data, const num_t len) override;
         bool publish(bool state) override { return true; }
-        void press_action() override { send_command(this->get_command_on()); }
+        void press_action() override { push_command(this->get_command_on()); }
 
   protected:
 

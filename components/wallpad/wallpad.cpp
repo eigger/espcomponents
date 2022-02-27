@@ -74,8 +74,6 @@ void WallPadComponent::loop()
     // Publish Receive Packet
     publish_proc();
     
-    pop_tx_command();
-
     // queue Process
     tx_proc();
 }
@@ -157,19 +155,12 @@ void WallPadComponent::publish_proc()
     }
 
     // for Ack
-    if (tx_ack_wait_ && tx_current_cmd_)
+    if (tx_ack_wait_ && is_send_cmd())
     {
-        if (compare(&rx_buffer_[rx_prefix_len_], rx_bytesRead_ - rx_prefix_len_, &tx_current_cmd_->ack[0], tx_current_cmd_->ack.size(), 0))
+        if (compare(&rx_buffer_[rx_prefix_len_], rx_bytesRead_ - rx_prefix_len_, &get_send_cmd()->ack[0], get_send_cmd()->ack.size(), 0))
         {
-            tx_current_cmd_ = nullptr;
-            tx_ack_wait_ = false;
-            tx_retry_cnt_ = 0;
-
-            if (tx_current_device_)
-            {
-                tx_current_device_->ack_ok();
-                tx_current_device_ = nullptr;
-            }
+            get_send_device()->ack_ok();
+            clear_send_cmd();
             ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", hexencode(rx_buffer_, rx_bytesRead_).c_str(), elapsed_time(tx_start_time_));
             rx_lastTime_ = set_time();
             return;
@@ -205,9 +196,9 @@ void WallPadComponent::pop_tx_command()
     {
         while(device->is_have_command())
         {
-            const cmd_hex_t* cmd = device->get_command();
+            const cmd_hex_t* cmd = device->pop_command();
             if (cmd == nullptr) continue;
-            if (cmd->ack.size() == 0)   write_next_late(cmd);
+            if (cmd->ack.size() == 0)   write_next_late({device, cmd});
             else                        write_next({device, cmd});
         }
     }
@@ -218,75 +209,49 @@ void WallPadComponent::tx_proc()
     if (response_wait_) return;
     if (elapsed_time(rx_lastTime_) < conf_tx_interval_) return;
     if (elapsed_time(tx_start_time_) < conf_tx_interval_) return;
+    if (tx_ack_wait_) return;
     // Command retry
-    if (!tx_ack_wait_ && tx_current_cmd_)
+    if (is_send_cmd())
     {
         if (conf_tx_retry_cnt_ > tx_retry_cnt_)
         {
             ESP_LOGD(TAG, "Retry count: %d", tx_retry_cnt_);
-            write_with_header(tx_current_cmd_->data);
+            write_with_header(get_send_cmd()->data);
             tx_ack_wait_ = true;
             tx_retry_cnt_++;
             return;
         }
         else
         {
-            tx_current_cmd_ = nullptr;
-            tx_ack_wait_ = false;
-            tx_retry_cnt_ = 0;
-
-            if (tx_current_device_)
-            {
-                tx_current_device_->ack_ng();
-                tx_current_device_ = nullptr;
-            }
+            get_send_device()->ack_ng();
+            clear_send_cmd();
             ESP_LOGD(TAG, "Retry fail.");
         }
     }
-
-    // for State request
-    if (tx_queue_.empty() && !tx_queue_late_.empty())
+    pop_tx_command();
+    if (!tx_queue_.empty() || !tx_queue_late_.empty())
     {
-        write_with_header(tx_queue_late_.front()->data);
-        if (tx_queue_late_.front()->ack.size() > 0)
+        if (!tx_queue_.empty())
         {
-            tx_current_cmd_ = tx_queue_late_.front();
-            tx_current_device_ = nullptr;
+            tx_send_cmd_ = tx_queue_.front();
+            tx_queue_.pop();
+        }
+        else
+        {
+            tx_send_cmd_ = tx_queue_late_.front();
+            tx_queue_late_.pop();
+        }
+        write_with_header(tx_send_cmd_.cmd->data);
+        if (tx_send_cmd_.cmd->ack.size() > 0)
+        {
             tx_ack_wait_ = true;
             tx_retry_cnt_ = 1;
         }
         else
         {
-            tx_current_cmd_ = nullptr;
-            tx_current_device_ = nullptr;
-            tx_ack_wait_ = false;
-            tx_retry_cnt_ = 1;
+            get_send_device()->ack_ok();
+            clear_send_cmd();
         }
-        tx_queue_late_.pop();
-    }
-
-    // for Command
-    else if (!tx_queue_.empty())
-    {
-        write_with_header(tx_queue_.front().cmd->data);
-        // Pending Ack
-        if (tx_queue_.front().cmd->ack.size() > 0)
-        {
-            tx_current_cmd_ = tx_queue_.front().cmd;
-            tx_current_device_ = tx_queue_.front().device;
-            tx_ack_wait_ = true;
-            tx_retry_cnt_ = 1;
-        }
-        else if (tx_queue_.front().device)
-        {
-            (tx_queue_.front().device)->ack_ok();
-            tx_ack_wait_ = false;
-        }
-        else
-        {
-            tx_ack_wait_ = false;
-        }
-        tx_queue_.pop();
     }
 }
 
@@ -358,9 +323,9 @@ void WallPadComponent::write_next(const send_hex_t send)
     tx_queue_.push(send);
 }
 
-void WallPadComponent::write_next_late(const cmd_hex_t *cmd)
+void WallPadComponent::write_next_late(const send_hex_t send)
 {
-    tx_queue_late_.push(cmd);
+    tx_queue_late_.push(send);
 }
 
 void WallPadComponent::flush()

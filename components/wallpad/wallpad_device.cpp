@@ -10,7 +10,7 @@ void WallPadDevice::update()
 {
     if (!command_state_.has_value()) return;
     ESP_LOGD(TAG, "'%s' update(): Request current state...", device_name_->c_str());
-    send_command(&command_state_.value());
+    push_command(&command_state_.value());
 }
 
 void WallPadDevice::dump_wallpad_device_config(const char *TAG)
@@ -53,7 +53,7 @@ bool WallPadDevice::parse_data(const uint8_t *data, const num_t len)
     return true;
 }
 
-void WallPadDevice::send_command(const cmd_hex_t *cmd)
+void WallPadDevice::push_command(const cmd_hex_t *cmd)
 {
     set_tx_pending(true);
     tx_cmd_queue_.push(cmd);

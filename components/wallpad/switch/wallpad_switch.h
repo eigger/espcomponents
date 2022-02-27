@@ -17,7 +17,7 @@ class WallPadSwitch : public switch_::Switch, public WallPadDevice
         void write_state(bool state) override 
         {
             if(state == this->state) return;
-            send_command(state ? this->get_command_on() : this->get_command_off());
+            push_command(state ? this->get_command_on() : this->get_command_off());
             publish_state(state);
         }
 

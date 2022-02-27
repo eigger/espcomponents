@@ -65,9 +65,9 @@ public:
 
     void set_command_state(cmd_hex_t command_state) { command_state_ = command_state; }
 
-    void send_command(const cmd_hex_t *cmd);
+    void push_command(const cmd_hex_t *cmd);
     bool is_have_command() { return tx_cmd_queue_.size() > 0 ? true : false; }
-    const cmd_hex_t* get_command()
+    const cmd_hex_t* pop_command()
     {
         if (tx_cmd_queue_.size() == 0) return nullptr;
         const cmd_hex_t* cmd = tx_cmd_queue_.front();

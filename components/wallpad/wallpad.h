@@ -135,7 +135,7 @@ public:
     /** write for Command */
     void write_next(const send_hex_t send);
     /** write for State request */
-    void write_next_late(const cmd_hex_t *cmd);
+    void write_next_late(const send_hex_t send);
     void flush();
 
     void register_device(WallPadDevice *device) { devices_.push_back(device); }
@@ -161,6 +161,10 @@ public:
     void set_model(Model model) { conf_model_ = model;}
     Model get_model() { return conf_model_; }
 
+    bool is_send_cmd() { tx_send_cmd_.device ? true : false; }
+    void clear_send_cmd() { tx_send_cmd_.device = nulltpr; tx_ack_wait_ = false; tx_retry_cnt_ = 0; }
+    const cmd_hex_t* get_send_cmd() { return tx_send_cmd_.cmd; }
+    WallPadDevice* get_send_device() { return tx_send_cmd_.device; }
 protected:
     HardwareSerial *hw_serial_{nullptr};
     std::vector<WallPadDevice *> devices_{};
@@ -220,11 +224,10 @@ protected:
     /** queue for Command */
     std::queue<send_hex_t> tx_queue_{};
     /** queue for State request */
-    std::queue<const cmd_hex_t *> tx_queue_late_{};
+    std::queue<send_hex_t> tx_queue_late_{};
 
     //////// 전송처리 관련 변수  ////////
-    const cmd_hex_t *tx_current_cmd_{nullptr};
-    WallPadDevice *tx_current_device_{nullptr};
+    send_hex_t tx_send_cmd_{};
     unsigned long tx_start_time_{0};
     bool tx_ack_wait_{false};
     num_t tx_retry_cnt_{0};

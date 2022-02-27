@@ -122,7 +122,6 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_TX_CHECKSUM): cv.templatable(cv.boolean),
     cv.Optional(CONF_TX_CHECKSUM_LAMBDA): cv.returning_lambda,
     cv.Optional(CONF_TX_CHECKSUM2): cv.templatable(cv.boolean),
-    #cv.Optional(CONF_PACKET_MONITOR): cv.ensure_list(state_hex_schema),
     cv.Optional(CONF_STATE_RESPONSE): state_hex_schema,
 }).extend(cv.COMPONENT_SCHEMA),
 cv.has_at_least_one_key(CONF_TX_PIN, CONF_RX_PIN),
@@ -160,17 +159,6 @@ async def to_code(config):
     if CONF_STATE_RESPONSE in config:
         state_response = await state_hex_expression(config[CONF_STATE_RESPONSE])
         cg.add(var.set_state_response(state_response))
-
-    # if CONF_PACKET_MONITOR in config:
-    #     sm = cg.new_Pvariable(config[CONF_PACKET_MONITOR_ID])
-    #     await sm
-    #     for conf in config[CONF_PACKET_MONITOR]:
-    #         data = conf[CONF_DATA]
-    #         and_operator = conf[CONF_AND_OPERATOR]
-    #         inverted = conf[CONF_INVERTED]
-    #         offset = conf[CONF_OFFSET]
-    #         cg.add(sm.add_filter([offset, and_operator, inverted, data]))
-    #     cg.add(var.register_listener(sm))
     
     if CONF_MODEL in config:
         cg.add(var.set_model(config[CONF_MODEL]))
