@@ -99,7 +99,7 @@ public:
     void set_tx_pending(bool pending) { tx_pending_ = pending; }
 
     /** WallPad raw message parse */
-    bool parse_data(const uint8_t *data, const num_t len) override;
+    bool parse_data(const uint8_t *data, const num_t len);
 
     /** Publish other message from parse_date() */
     virtual void publish(const uint8_t *data, const num_t len) = 0;
