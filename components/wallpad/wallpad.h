@@ -94,8 +94,16 @@ public:
 
     void set_command_state(cmd_hex_t command_state) { command_state_ = command_state; }
 
-    void write_with_header(const cmd_hex_t *cmd);
-
+    void send_command(const cmd_hex_t *cmd);
+    bool is_have_command() { return tx_cmd_queue_.size() > 0 ? true : false; }
+    cmd_hex_t* get_command()
+    {
+        if (tx_cmd_queue_.size() == 0) return nullptr;
+        cmd_hex_t* cmd = tx_cmd_queue_.front();
+        tx_cmd_queue_.pop();
+        return cmd;
+    }
+    void ack_ok() { tx_cmd_queue_.size() == 0 ? set_tx_pending(false) : set_tx_pending(true); }
     void set_tx_pending(bool pending) { tx_pending_ = pending; }
 
     /** WallPad raw message parse */
@@ -109,17 +117,6 @@ public:
 
     /** priority of setup(). higher -> executed earlier */
     float get_setup_priority() const override { return setup_priority::DATA; }
-
-    void add_on_write_next_callback(std::function<void(const send_hex_t)> &&callback)
-    {
-        write_next_callback_.add(std::move(callback));
-    }
-    void add_on_write_next_late_callback(std::function<void(const cmd_hex_t*)> &&callback)
-    {
-        write_next_late_callback_.add(std::move(callback));
-    }
-    void write_next(const send_hex_t send) { write_next_callback_.call(send); }
-    void write_next_late(const cmd_hex_t* cmd) { write_next_late_callback_.call(cmd); }
 
 protected:
     const std::string *device_name_;
@@ -135,6 +132,7 @@ protected:
     bool tx_pending_{false};
     CallbackManager<void(const send_hex_t)> write_next_callback_{};
     CallbackManager<void(const cmd_hex_t*)> write_next_late_callback_{};
+    std::queue<const cmd_hex_t*> tx_cmd_queue_{};
 };
 
 /** 
@@ -239,12 +237,7 @@ public:
     void write_next_late(const cmd_hex_t *cmd);
     void flush();
 
-    void register_device(WallPadDevice *device)
-    {
-        device->add_on_write_next_callback(std::bind(&WallPadComponent::write_next, this, std::placeholders::_1));
-        device->add_on_write_next_late_callback(std::bind(&WallPadComponent::write_next_late, this, std::placeholders::_1));
-        devices_.push_back(device);
-    }
+    void register_device(WallPadDevice *device) { devices_.push_back(device); }
 
     /** TX interval time */
     void set_tx_interval(num_t tx_interval) { conf_tx_interval_ = tx_interval; }
@@ -309,6 +302,8 @@ protected:
     void rx_proc();
 
     void publish_proc();
+    
+    void pop_tx_command();
     /** 전송처리 */
     void tx_proc();
 

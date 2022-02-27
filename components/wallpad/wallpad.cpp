@@ -77,6 +77,8 @@ void WallPadComponent::loop()
     // Publish Receive Packet
     publish_proc();
     
+    pop_tx_command();
+    
     // queue Process
     tx_proc();
 }
@@ -200,7 +202,18 @@ void WallPadComponent::publish_proc()
 #endif
     rx_lastTime_ = set_time();
 }
-
+void WallPadComponent::pop_tx_command()
+{
+    for (auto *device : this->devices_)
+    {
+        while(device->is_have_command())
+        {
+            cmd_hex_t* cmd = device->get_command();
+            if (cmd->ack.size() == 0)   write_next_late(cmd);
+            else                        write_next({device, cmd});
+        }
+    }
+}
 void WallPadComponent::tx_proc()
 {
     if (rx_bytesRead_ > 0) return;
@@ -521,7 +534,7 @@ void WallPadDevice::update()
 {
     if (!command_state_.has_value()) return;
     ESP_LOGD(TAG, "'%s' update(): Request current state...", device_name_->c_str());
-    write_next_late(&command_state_.value());
+    send_command(&command_state_.value());
 }
 
 void WallPadDevice::dump_wallpad_device_config(const char *TAG)
@@ -564,10 +577,10 @@ bool WallPadDevice::parse_data(const uint8_t *data, const num_t len)
     return true;
 }
 
-void WallPadDevice::write_with_header(const cmd_hex_t *cmd)
+void WallPadDevice::send_command(const cmd_hex_t *cmd)
 {
     set_tx_pending(true);
-    write_next({this, cmd});
+    tx_cmd_queue_.push_back(cmd);
 }
 
 std::string hexencode(const uint8_t *raw_data, num_t len)

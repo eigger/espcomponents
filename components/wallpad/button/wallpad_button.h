@@ -15,7 +15,7 @@ class WallPadButton : public button::Button, public WallPadDevice
         bool publish(bool state) override { return true; }
         void press_action() override
         {
-            write_with_header(this->get_command_on());
+            send_command(this->get_command_on());
         }
 
   protected:
