@@ -161,8 +161,8 @@ public:
     void set_model(Model model) { conf_model_ = model;}
     Model get_model() { return conf_model_; }
 
-    bool is_send_cmd() { tx_send_cmd_.device ? true : false; }
-    void clear_send_cmd() { tx_send_cmd_.device = nulltpr; tx_ack_wait_ = false; tx_retry_cnt_ = 0; }
+    bool is_send_cmd() { if (tx_send_cmd_.device) return true; return false; }
+    void clear_send_cmd() { tx_send_cmd_.device = nullptr; tx_ack_wait_ = false; tx_retry_cnt_ = 0; }
     const cmd_hex_t* get_send_cmd() { return tx_send_cmd_.cmd; }
     WallPadDevice* get_send_device() { return tx_send_cmd_.device; }
 protected:
