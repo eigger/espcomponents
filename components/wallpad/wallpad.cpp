@@ -6,8 +6,6 @@
 namespace esphome {
 namespace wallpad {
 
-static const char *TAG = "wallpad";
-
 void WallPadComponent::dump_config()
 {
     ESP_LOGCONFIG(TAG, "  Baud Rate: %d", conf_baud_);
