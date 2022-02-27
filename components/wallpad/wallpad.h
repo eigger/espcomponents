@@ -96,10 +96,10 @@ public:
 
     void send_command(const cmd_hex_t *cmd);
     bool is_have_command() { return tx_cmd_queue_.size() > 0 ? true : false; }
-    cmd_hex_t* get_command()
+    const cmd_hex_t* get_command()
     {
         if (tx_cmd_queue_.size() == 0) return nullptr;
-        cmd_hex_t* cmd = tx_cmd_queue_.front();
+        const cmd_hex_t* cmd = tx_cmd_queue_.front();
         tx_cmd_queue_.pop();
         return cmd;
     }
@@ -302,7 +302,7 @@ protected:
     void rx_proc();
 
     void publish_proc();
-    
+
     void pop_tx_command();
     /** 전송처리 */
     void tx_proc();

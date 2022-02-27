@@ -78,7 +78,7 @@ void WallPadComponent::loop()
     publish_proc();
     
     pop_tx_command();
-    
+
     // queue Process
     tx_proc();
 }
@@ -208,7 +208,7 @@ void WallPadComponent::pop_tx_command()
     {
         while(device->is_have_command())
         {
-            cmd_hex_t* cmd = device->get_command();
+            const cmd_hex_t* cmd = device->get_command();
             if (cmd->ack.size() == 0)   write_next_late(cmd);
             else                        write_next({device, cmd});
         }
