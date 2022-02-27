@@ -7,7 +7,6 @@
 namespace esphome {
 namespace wallpad {
 
-static const char *TAG = "wallpad";
 typedef unsigned short num_t;
 
 /** State HEX Struct */
