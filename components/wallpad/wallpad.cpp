@@ -27,7 +27,7 @@ void WallPadComponent::dump_config()
     ESP_LOGCONFIG(TAG, "  Data rx_checksum: %s", YESNO(rx_checksum_));
     ESP_LOGCONFIG(TAG, "  Data tx_checksum: %s", YESNO(tx_checksum_));
     if (state_response_.has_value()) ESP_LOGCONFIG(TAG, "  Data response: %s, offset: %d", hexencode(&state_response_.value().data[0], state_response_.value().data.size()).c_str(), state_response_.value().offset);
-    ESP_LOGCONFIG(TAG, "  Listener count: %d", listeners_.size());
+    ESP_LOGCONFIG(TAG, "  Device count: %d", devices_.size());
 }
 
 void WallPadComponent::setup()
@@ -183,13 +183,11 @@ void WallPadComponent::publish_proc()
 
     // Publish State
     bool found = false;
-    for (auto *listener : this->listeners_)
+    for (auto *device : this->devices_)
     {
-        //if (this->wifi_->status() != WL_CONNECTED) break;
-        if (listener->parse_data(&rx_buffer_[rx_prefix_len_], rx_bytesRead_ - rx_prefix_len_ - rx_suffix_len_))
+        if (device->parse_data(&rx_buffer_[rx_prefix_len_], rx_bytesRead_ - rx_prefix_len_ - rx_suffix_len_))
         {
             found = true;
-            //if(!listener->is_monitor()) break;
         }
     }
 
@@ -570,22 +568,6 @@ void WallPadDevice::write_with_header(const cmd_hex_t *cmd)
 {
     set_tx_pending(true);
     write_next({this, cmd});
-}
-
-bool SerialMonitor::parse_data(const uint8_t *data, const num_t len)
-{
-    bool found = false;
-    if (filters_.size() == 0) found = true;
-    else
-    {
-        for (hex_t filter : filters_)
-        {
-            found = compare(&data[0], len, &filter);
-            if (found) break;
-        }
-    }
-    if (found) ESP_LOGI(TAG, "Serial Monitor: %s", hexencode(&data[0], len).c_str());
-    return found;
 }
 
 std::string hexencode(const uint8_t *raw_data, num_t len)

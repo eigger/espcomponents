@@ -30,7 +30,6 @@ enum ValidateCode {
 typedef unsigned short num_t;
 class WallPadComponent;
 class WallPadDevice;
-class WallPadListener;
 
 /** State HEX Struct */
 struct hex_t
@@ -64,29 +63,9 @@ struct send_hex_t
 };
 
 /**
- * WallPad Listener
- * @desc 각 컴포넌트에 수신 메시지 전달
- */
-class WallPadListener
-{
-public:
-    virtual bool parse_data(const uint8_t *data, const num_t len) = 0;
-    //void set_parent(WallPadComponent *parent) { parent_ = parent; }
-    virtual void write_next(const send_hex_t send) = 0;
-    virtual void write_next_late(const cmd_hex_t* cmd) = 0;
-
-    void set_monitor(bool monitor) { monitor_ = monitor; }
-    bool is_monitor() { return monitor_; }
-protected:
-    //WallPadComponent *parent_{nullptr};
-    bool monitor_{false};
-
-};
-
-/**
  * WallPad Device
  */
-class WallPadDevice : public WallPadListener, public PollingComponent
+class WallPadDevice : public PollingComponent
 {
 public:
     void update() override;
@@ -260,14 +239,11 @@ public:
     void write_next_late(const cmd_hex_t *cmd);
     void flush();
 
-    void register_listener(WallPadListener *listener)
-    {
-        this->listeners_.push_back(listener);
-    }
     void register_device(WallPadDevice *device)
     {
         device->add_on_write_next_callback(std::bind(&WallPadComponent::write_next, this, std::placeholders::_1));
         device->add_on_write_next_late_callback(std::bind(&WallPadComponent::write_next_late, this, std::placeholders::_1));
+        devices_.push_back(device);
     }
 
     /** TX interval time */
@@ -293,7 +269,7 @@ public:
 
 protected:
     HardwareSerial *hw_serial_{nullptr};
-    std::vector<WallPadListener *> listeners_{};
+    std::vector<WallPadDevice *> devices_{};
     Model conf_model_;
     int conf_baud_;
     num_t conf_data_;
@@ -375,24 +351,6 @@ float hex_to_float(const uint8_t *data, const num_t len, const num_t precision);
 
 unsigned long elapsed_time(const unsigned long timer);
 unsigned long set_time();
-
-/** 패킷 캡쳐용 리스너 */
-class SerialMonitor : public WallPadListener
-{
-public:
-    SerialMonitor(hex_t filter = {})
-    {
-        if (!filter.data.empty()) filters_.push_back(filter);
-        set_monitor(true);
-    }
-    void add_filter(hex_t filter) { filters_.push_back(filter); }
-    bool parse_data(const uint8_t *data, const num_t len) override;
-    void write_next(const send_hex_t send) { }
-    void write_next_late(const cmd_hex_t* cmd) { }
-
-protected:
-    std::vector<hex_t> filters_;
-};
 
 } // namespace wallpad
 } // namespace esphome

@@ -11,7 +11,7 @@ from .const import CONF_DATA_BITS, CONF_PARITY, CONF_STOP_BITS, \
     CONF_RX_CHECKSUM, CONF_RX_CHECKSUM2, CONF_RX_CHECKSUM_LAMBDA, \
     CONF_TX_CHECKSUM, CONF_TX_CHECKSUM2, CONF_TX_CHECKSUM_LAMBDA, \
     CONF_ACK, CONF_WALLPAD_ID, CONF_MODEL, \
-    CONF_PACKET_MONITOR, CONF_PACKET_MONITOR_ID, CONF_SUB_DEVICE, \
+    CONF_SUB_DEVICE, \
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
     CONF_COMMAND_STATE, CONF_RX_WAIT, CONF_TX_WAIT, CONF_TX_RETRY_CNT, \
     CONF_STATE_RESPONSE, CONF_LENGTH, CONF_PRECISION, CONF_AND_OPERATOR, \
@@ -22,7 +22,6 @@ _LOGGER = logging.getLogger(__name__)
 wallpad_ns = cg.esphome_ns.namespace('wallpad')
 WallPadComponent = wallpad_ns.class_('WallPadComponent', cg.Component)
 WallPadWriteAction = wallpad_ns.class_('WallPadWriteAction', automation.Action)
-SerialMonitor = wallpad_ns.class_('SerialMonitor')
 cmd_hex_t = wallpad_ns.class_('cmd_hex_t')
 num_t_const = wallpad_ns.class_('num_t').operator('const')
 uint8_const = cg.uint8.operator('const')
@@ -100,7 +99,6 @@ def validate_rx_pin(value):
 # WallPad Schema
 CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.GenerateID(): cv.declare_id(WallPadComponent),
-    cv.GenerateID(CONF_PACKET_MONITOR_ID): cv.declare_id(SerialMonitor),
     cv.Required(CONF_BAUD_RATE): cv.int_range(min=1, max=115200),
     cv.Optional(CONF_TX_PIN, default=1 if CORE.is_esp8266 else 17): validate_tx_pin,
     cv.Optional(CONF_RX_PIN, default=3 if CORE.is_esp8266 else 16): validate_rx_pin,
@@ -124,7 +122,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_TX_CHECKSUM): cv.templatable(cv.boolean),
     cv.Optional(CONF_TX_CHECKSUM_LAMBDA): cv.returning_lambda,
     cv.Optional(CONF_TX_CHECKSUM2): cv.templatable(cv.boolean),
-    cv.Optional(CONF_PACKET_MONITOR): cv.ensure_list(state_hex_schema),
+    #cv.Optional(CONF_PACKET_MONITOR): cv.ensure_list(state_hex_schema),
     cv.Optional(CONF_STATE_RESPONSE): state_hex_schema,
 }).extend(cv.COMPONENT_SCHEMA),
 cv.has_at_least_one_key(CONF_TX_PIN, CONF_RX_PIN),
@@ -163,16 +161,16 @@ async def to_code(config):
         state_response = await state_hex_expression(config[CONF_STATE_RESPONSE])
         cg.add(var.set_state_response(state_response))
 
-    if CONF_PACKET_MONITOR in config:
-        sm = cg.new_Pvariable(config[CONF_PACKET_MONITOR_ID])
-        await sm
-        for conf in config[CONF_PACKET_MONITOR]:
-            data = conf[CONF_DATA]
-            and_operator = conf[CONF_AND_OPERATOR]
-            inverted = conf[CONF_INVERTED]
-            offset = conf[CONF_OFFSET]
-            cg.add(sm.add_filter([offset, and_operator, inverted, data]))
-        cg.add(var.register_listener(sm))
+    # if CONF_PACKET_MONITOR in config:
+    #     sm = cg.new_Pvariable(config[CONF_PACKET_MONITOR_ID])
+    #     await sm
+    #     for conf in config[CONF_PACKET_MONITOR]:
+    #         data = conf[CONF_DATA]
+    #         and_operator = conf[CONF_AND_OPERATOR]
+    #         inverted = conf[CONF_INVERTED]
+    #         offset = conf[CONF_OFFSET]
+    #         cg.add(sm.add_filter([offset, and_operator, inverted, data]))
+    #     cg.add(var.register_listener(sm))
     
     if CONF_MODEL in config:
         cg.add(var.set_model(config[CONF_MODEL]))
@@ -274,7 +272,6 @@ HEX_SCHEMA_REGISTRY = SimpleRegistry()
 @coroutine
 def register_wallpad_device(var, config):
     paren = yield cg.get_variable(config[CONF_WALLPAD_ID])
-    cg.add(paren.register_listener(var))
     cg.add(paren.register_device(var))
     yield var
 

@@ -43,10 +43,6 @@ CONF_COMMAND_HEAT = 'command_heat'
 CONF_COMMAND_COOL = 'command_cool'
 CONF_COMMAND_AWAY = 'command_away'
 CONF_COMMAND_HOME = 'command_home'
-
 CONF_ACK = 'ack'
-CONF_PACKET_MONITOR_ID = 'packet_monitor_id'
-CONF_PACKET_MONITOR = 'packet_monitor'
-
 CONF_LENGTH = 'length'
 CONF_PRECISION = 'precision'
