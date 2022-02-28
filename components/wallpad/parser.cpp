@@ -13,95 +13,72 @@ Parser::~Parser()
 
 bool Parser::add_header(const unsigned char header)
 {
-	headers.push_back(header);
+	header_.push_back(header);
 	return true;
 }
 
+bool Parser::add_headers(const std::vector<unsigned char>& header)
+{
+	header_.insert(header_.end(), header.begin(), header.end());
+	return true;
+}
 
 bool Parser::add_footer(const unsigned char footer)
 {
-	footers.push_back(footer);
+	footer_.push_back(footer);
 	return true;
 }
 
-int Parser::get_header_count(void)
+bool Parser::add_footers(const std::vector<unsigned char>& footer)
 {
-	return headers.size();
-}
-
-unsigned char Parser::get_header(const int index)
-{
-	if (index < 0 || index >= headers.size()) return 0;
-	return headers.at(index);
-}
-
-int Parser::get_footer_count(void)
-{
-	return footers.size();
-}
-
-unsigned char Parser::get_footer(const int index)
-{
-	if (index < 0 || index >= footers.size()) return 0;
-	return footers.at(index);
+	footer_.insert(footer_.end(), footer.begin(), footer.end());
+	return true;
 }
 
 bool Parser::parse_byte(const unsigned char byte)
 {
-	if (header_index < headers.size())
+	buffer_.push_back(byte);
+	if (parse_header() == false)
 	{
-		if (headers[header_index] == byte)
-		{
-			buffers.push_back(byte);
-			header_index++;
-		}
+		buffer_.clear();
+		return false;
 	}
-	else if (footers.size() == 0)
-	{
-		buffers.push_back(byte);
-		datas.push_back(byte);
-	}
-	else
-	{
-		buffers.push_back(byte);
-		if (parse_footer() == true) return true;
-	}
+	if (parse_footer() == true) return true;
 	return false;
 }
 
-bool Parser::validate_data(std::vector<unsigned char> checksums)
+bool Parser::validate_data(const std::vector<unsigned char>& checksum)
 {
-	//if (headers.size() > 0)
-	//{
-	//	if (std::equal(datas.begin(), datas.begin() + headers.size(), headers.begin()) == false) return false;
-	//}
-	//if (footers.size() > 0)
-	//{
-	//	std::equal(datas.end() - footers.size(), datas.end(), footers.begin());
-	//}
-	if (datas.size() < checksums.size()) return false;
-	return std::equal(datas.end() - checksums.size(), datas.end(), checksums.begin());
+	if (buffer_.size() < checksum.size()) return false;
+	return std::equal(buffer_.end() - checksum.size() - footer_.size(), buffer_.end() - footer_.size(), checksum.begin());
 }
 
 void Parser::clear_buffer(void)
 {
-	buffers.clear();
-	datas.clear();
-	header_index = 0;
+	buffer_.clear();
+}
+
+bool Parser::parse_header(void)
+{
+	if (header_.size() == 0) return true;
+	size_t size = buffer_.size() < header_.size() ? buffer_.size() : header_.size();
+	return std::equal(buffer_.begin(), buffer_.begin() + size, header_.begin());
 }
 
 bool Parser::parse_footer(void)
 {
-	if (buffers.size() < footers.size()) return false;
-	return std::equal(buffers.end() - footers.size(), buffers.end(), footers.begin());
+	if (footer_.size() == 0) return false;
+	if (buffer_.size() < footer_.size()) return false;
+	return std::equal(buffer_.end() - footer_.size(), buffer_.end(), footer_.begin());
 }
 
-bool Parser::get_datas_from_buffer(void)
+const std::vector<unsigned char> Parser::get_data(void)
 {
-	unsigned int data_count = buffers.size() - headers.size() - footers.size();
-	for (unsigned int i = headers.size(); i < headers.size() + data_count; i++)
-	{
-		datas.push_back(buffers.at(i));
-	}
-	return true;
+	if (buffer_.size() < header_.size() + footer_.size()) return std::vector<unsigned char>();
+	return std::vector<unsigned char>(buffer_.begin() + header_.size(), buffer_.end() - footer_.size());
+}
+
+const std::vector<unsigned char> Parser::get_buffer(void)
+{
+	return buffer_;
 }

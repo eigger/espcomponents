@@ -6,6 +6,7 @@
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
 #include "wallpad_device.h"
+#include "parser.h"
 
 #define BUFFER_SIZE 128
 #define RX_ENABLE false
@@ -22,10 +23,11 @@ enum Model {
 
 enum ValidateCode {
     ERR_NONE,
+    ERR_SIZE,
     ERR_PREFIX,
     ERR_SUFFIX,
     ERR_CHECKSUM,
-    ERR_CHECKSUM2,
+    ERR_CHECKSUM2
 };
 
 
@@ -201,8 +203,8 @@ protected:
     optional<std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum1)>> tx_checksum2_f_{};
 
     /** 수신데이터 검증 */
-    ValidateCode validate(const uint8_t *data, const num_t len);
-    void log_errcode(ValidateCode code, const uint8_t *data, const num_t len);
+    ValidateCode validate(bool log = false);
+
     /** 수신처리 */
     void rx_proc();
 
@@ -216,9 +218,7 @@ protected:
     bool response_wait_{false};
 
     //////// 수신처리 관련 변수  ////////
-    uint8_t rx_buffer_[BUFFER_SIZE]{};
     int rx_timeOut_{conf_rx_wait_};
-    num_t rx_bytesRead_{0};
     unsigned long rx_lastTime_{0};
 
     /** queue for Command */
@@ -234,6 +234,7 @@ protected:
     InternalGPIOPin *ctrl_pin_{nullptr};
     InternalGPIOPin *tx_pin_{nullptr};
     InternalGPIOPin *rx_pin_{nullptr};
+    Parser parser_{};
 };
 
 } // namespace wallpad

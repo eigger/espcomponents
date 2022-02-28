@@ -12,27 +12,26 @@ public:
 	Parser();
 	~Parser();
 	bool add_header(const unsigned char header);
+	bool add_headers(const std::vector<unsigned char>& header);
 	bool add_footer(const unsigned char footer);
-	int get_header_count(void);
-	unsigned char get_header(const int index);
-	int get_footer_count(void);
-	unsigned char get_footer(const int index);
+	bool add_footers(const std::vector<unsigned char>& footer);
 
 	bool parse_byte(const unsigned char byte);
-	bool validate_data(std::vector<unsigned char> checksums);
-private:
-
+	bool validate_data(const std::vector<unsigned char>& checksums);
 	void clear_buffer(void);
+	const std::vector<unsigned char> get_data(void);
+	const std::vector<unsigned char> get_buffer(void);
+	bool parse_header(void);
 	bool parse_footer(void);
-	bool get_datas_from_buffer(void);
+private:
+
+	
+
 
 private:
-	std::vector<unsigned char> headers;
-	std::vector<unsigned char> footers;
+	std::vector<unsigned char> header_;
+	std::vector<unsigned char> footer_;
 
-	std::vector<unsigned char> buffers;
-	std::vector<unsigned char> datas;
-
-	int header_index;
+	std::vector<unsigned char> buffer_;
 };
 
