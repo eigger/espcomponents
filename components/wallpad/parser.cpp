@@ -69,6 +69,20 @@ bool Parser::parse_byte(const unsigned char byte)
 	return false;
 }
 
+bool Parser::validate_data(std::vector<unsigned char> checksums)
+{
+	//if (headers.size() > 0)
+	//{
+	//	if (std::equal(datas.begin(), datas.begin() + headers.size(), headers.begin()) == false) return false;
+	//}
+	//if (footers.size() > 0)
+	//{
+	//	std::equal(datas.end() - footers.size(), datas.end(), footers.begin());
+	//}
+	if (datas.size() < checksums.size()) return false;
+	return std::equal(datas.end() - checksums.size(), datas.end(), checksums.begin());
+}
+
 void Parser::clear_buffer(void)
 {
 	buffers.clear();
@@ -79,13 +93,7 @@ void Parser::clear_buffer(void)
 bool Parser::parse_footer(void)
 {
 	if (buffers.size() < footers.size()) return false;
-	for (int i = 0; i < footers.size(); i++)
-	{
-		unsigned char footer = footers[footers.size() - i - 1];
-		unsigned char buffer = buffers[buffers.size() - i - 1];
-		if (footer != buffer) return false;
-	}
-	return true;
+	return std::equal(buffers.end() - footers.size(), buffers.end(), footers.begin());
 }
 
 bool Parser::get_datas_from_buffer(void)

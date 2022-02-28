@@ -19,7 +19,7 @@ public:
 	unsigned char get_footer(const int index);
 
 	bool parse_byte(const unsigned char byte);
-	
+	bool validate_data(std::vector<unsigned char> checksums);
 private:
 
 	void clear_buffer(void);
