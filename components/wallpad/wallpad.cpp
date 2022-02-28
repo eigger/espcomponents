@@ -89,7 +89,7 @@ void WallPadComponent::rx_proc()
         while (this->hw_serial_->available())
         {
             if (parser_.parse_byte(this->hw_serial_->read())) return;
-            if (validate() == ERR_NONE) return;
+            if (validate(true) == ERR_NONE) return;
             rx_timeOut_ = conf_rx_wait_;  // if serial received, reset timeout counter
         }
         delay(1);
