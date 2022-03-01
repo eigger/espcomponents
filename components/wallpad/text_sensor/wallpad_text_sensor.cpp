@@ -6,13 +6,13 @@ namespace wallpad {
 
 static const char *TAG = "wallpad.text_sensor";
 
-void WallPadSensor::dump_config() 
+void WallPadTextSensor::dump_config() 
 {
     ESP_LOGCONFIG(TAG, "WallPad Text Sensor '%s':", device_name_->c_str());
     dump_wallpad_device_config(TAG);
 }
 
-void WallPadSensor::publish(const std::vector<uint8_t>& data) 
+void WallPadTextSensor::publish(const std::vector<uint8_t>& data) 
 {
     if (this->f_.has_value())
     {

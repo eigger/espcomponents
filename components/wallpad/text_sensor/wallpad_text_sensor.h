@@ -7,10 +7,10 @@
 namespace esphome {
 namespace wallpad {
 
-class WallPadSensor : public text_sensor::TextSensor, public WallPadDevice
+class WallPadTextSensor : public text_sensor::TextSensor, public WallPadDevice
 {
 public:
-    WallPadSensor() { device_name_ = &this->name_; }
+    WallPadTextSensor() { device_name_ = &this->name_; }
     void dump_config() override;
     void publish(const std::vector<uint8_t>& data) override;
     bool publish(bool state) override { return false; }
