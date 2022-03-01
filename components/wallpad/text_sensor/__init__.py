@@ -1,7 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome import automation
-from esphome.components import sensor, wallpad
+from esphome.components import text_sensor, wallpad
 from esphome.const import CONF_ID, CONF_DEVICE, CONF_LAMBDA, CONF_DATA, CONF_UPDATE_INTERVAL, \
     UNIT_EMPTY, ICON_EMPTY, CONF_OFFSET, CONF_ACCURACY_DECIMALS
 from .. import wallpad_ns, WallPadComponent, uint8_ptr_const, num_t_const, \
@@ -10,9 +10,9 @@ from ..const import CONF_WALLPAD_ID, CONF_SUB_DEVICE, CONF_COMMAND_STATE
 
 DEPENDENCIES = ['wallpad']
 WallPadTextSensor = wallpad_ns.class_(
-    'WallPadTextSensor', sensor.Sensor, cg.PollingComponent)
+    'WallPadTextSensor', text_sensor.TextSensor, cg.PollingComponent)
 
-CONFIG_SCHEMA = cv.All(sensor.sensor_schema(UNIT_EMPTY, ICON_EMPTY, 1).extend({
+CONFIG_SCHEMA = cv.All(text_sensor.TEXT_SENSOR_SCHEMA(UNIT_EMPTY, ICON_EMPTY, 1).extend({
     cv.GenerateID(): cv.declare_id(WallPadTextSensor),
     cv.GenerateID(CONF_WALLPAD_ID): cv.use_id(WallPadComponent),
     cv.Required(CONF_DEVICE): state_hex_schema,
@@ -33,4 +33,4 @@ def to_code(config):
                                             return_type=cg.optional.template(cg.std_string))
         cg.add(var.set_template(template_))
 
-    yield sensor.register_text_sensor(var, config)
+    yield text_sensor.register_text_sensor(var, config)
