@@ -12,9 +12,9 @@ void WallPadBinarySensor::dump_config()
     dump_wallpad_device_config(TAG);
 }
 
-void WallPadBinarySensor::publish(const uint8_t *data, const num_t len)
+void WallPadBinarySensor::publish(const std::vector<uint8_t>& data)
 {
-    ESP_LOGW(TAG, "'%s' State not found: %s", device_name_->c_str(), hexencode(&data[0], len).c_str());
+    ESP_LOGW(TAG, "'%s' State not found: %s", device_name_->c_str(), hexencode(data).c_str());
 }
 
 }  // namespace wallpad

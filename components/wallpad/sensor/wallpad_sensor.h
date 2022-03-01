@@ -12,7 +12,7 @@ class WallPadSensor : public sensor::Sensor, public WallPadDevice
 public:
     WallPadSensor() { device_name_ = &this->name_; }
     void dump_config() override;
-    void publish(const uint8_t *data, const num_t len) override;
+    void publish(const std::vector<uint8_t>& data) override;
     bool publish(bool state) override { return false; }
 
     void set_state_num(state_num_t state_num) { this->conf_state_num_ = state_num; }

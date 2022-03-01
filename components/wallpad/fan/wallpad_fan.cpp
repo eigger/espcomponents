@@ -77,27 +77,27 @@ void WallPadFan::perform()
     }
 }
 
-void WallPadFan::publish(const uint8_t *data, const num_t len)
+void WallPadFan::publish(const std::vector<uint8_t>& data)
 {
     // Speed high
-    if (compare(&data[0], len, &state_speed_high_))
+    if (validate(data, &state_speed_high_))
     {
         publish_state(3);
         return;
     }
     // Speed medium
-    else if (compare(&data[0], len, &state_speed_medium_))
+    else if (validate(data, &state_speed_medium_))
     {
         publish_state(2);
         return;
     }
     // Speed low
-    else if (compare(&data[0], len, &state_speed_low_))
+    else if (validate(data, &state_speed_low_))
     {
         publish_state(1);
         return;
     }
-    ESP_LOGW(TAG, "'%s' State not found: %s", device_name_->c_str(), hexencode(&data[0], len).c_str());
+    ESP_LOGW(TAG, "'%s' State not found: %s", device_name_->c_str(), hexencode(data).c_str());
 }
 
 void WallPadFan::publish_state(bool state)

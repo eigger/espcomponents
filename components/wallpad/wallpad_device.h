@@ -77,12 +77,14 @@ public:
     void ack_ok() { tx_cmd_queue_.size() == 0 ? set_tx_pending(false) : set_tx_pending(true); }
     void ack_ng() { ack_ok(); }
     void set_tx_pending(bool pending) { tx_pending_ = pending; }
-
+    bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,  const num_t offset);
+    bool validate(const std::vector<uint8_t>& data, const hex_t *cmd);
+    float hex_to_float(const uint8_t *data, const num_t len, const num_t precision);
     /** WallPad raw message parse */
-    bool parse_data(const uint8_t *data, const num_t len);
+    bool parse_data(const std::vector<uint8_t>& data);
 
     /** Publish other message from parse_date() */
-    virtual void publish(const uint8_t *data, const num_t len) = 0;
+    virtual void publish(const std::vector<uint8_t>& data) = 0;
 
     /** Publish on/off state message from parse_date() */
     virtual bool publish(bool state) = 0;
@@ -107,17 +109,13 @@ protected:
 
 
 /** uint8_t[] to hex string  */
+std::string hexencode(const std::vector<uint8_t>& raw_data);
 std::string hexencode(const uint8_t *raw_data, const num_t len);
 
-/** uint8_t[] compare */
-bool compare(const uint8_t *data1, const num_t len1, const uint8_t *data2, const num_t len2, const num_t offset);
-bool compare(const uint8_t *data1, const num_t len1, const hex_t *data2);
-
 /** uint8_t[] to decimal(float) */
-float hex_to_float(const uint8_t *data, const num_t len, const num_t precision);
 
-unsigned long elapsed_time(const unsigned long timer);
-unsigned long set_time();
+
+
 
 } // namespace wallpad
 } // namespace esphome

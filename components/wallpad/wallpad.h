@@ -167,6 +167,8 @@ public:
     void clear_send_cmd() { tx_send_cmd_.device = nullptr; tx_ack_wait_ = false; tx_retry_cnt_ = 0; }
     const cmd_hex_t* get_send_cmd() { return tx_send_cmd_.cmd; }
     WallPadDevice* get_send_device() { return tx_send_cmd_.device; }
+    unsigned long elapsed_time(const unsigned long timer) { return millis() - timer; }
+    unsigned long set_time() { return millis(); }
 protected:
     HardwareSerial *hw_serial_{nullptr};
     std::vector<WallPadDevice *> devices_{};
@@ -179,7 +181,6 @@ protected:
     num_t conf_tx_interval_{50};
     num_t conf_tx_wait_{50};
     num_t conf_tx_retry_cnt_{3};
-    optional<hex_t> state_response_{};
 
     optional<std::vector<uint8_t>> rx_prefix_{};
     num_t rx_prefix_len_{0};
@@ -213,9 +214,6 @@ protected:
     void pop_tx_command();
     /** 전송처리 */
     void tx_proc();
-
-    /** 응답 대기 상태 여부 */
-    bool response_wait_{false};
 
     //////// 수신처리 관련 변수  ////////
     int rx_timeOut_{conf_rx_wait_};

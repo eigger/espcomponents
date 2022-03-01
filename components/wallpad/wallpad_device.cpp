@@ -28,28 +28,28 @@ void WallPadDevice::dump_wallpad_device_config(const char *TAG)
     LOG_UPDATE_INTERVAL(this);
 }
 
-bool WallPadDevice::parse_data(const uint8_t *data, const num_t len)
+bool WallPadDevice::parse_data(const std::vector<uint8_t>& data)
 {
     if (tx_pending_) return false;
 
-    if (!compare(&data[0], len, &device_)) return false;
-    else if (sub_device_.has_value() && !compare(&data[0], len, &sub_device_.value())) return false;
+    if (!validate(data, &device_)) return false;
+    else if (sub_device_.has_value() && !validate(data, &sub_device_.value())) return false;
 
     // Turn OFF Message
-    if (state_off_.has_value() && compare(&data[0], len, &state_off_.value()))
+    if (state_off_.has_value() && validate(data, &state_off_.value()))
     {
-        if (!publish(false)) publish(data, len);
+        if (!publish(false)) publish(data);
         return true;
     }
     // Turn ON Message
-    else if (state_on_.has_value() && compare(&data[0], len, &state_on_.value()))
+    else if (state_on_.has_value() && validate(data, &state_on_.value()))
     {
-        if (!publish(true)) publish(data, len);
+        if (!publish(true)) publish(data);
         return true;
     }
 
     // Other Message
-    publish(data, len);
+    publish(data);
     return true;
 }
 
@@ -59,6 +59,50 @@ void WallPadDevice::push_command(const cmd_hex_t *cmd)
     tx_cmd_queue_.push(cmd);
 }
 
+bool WallPadDevice::equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,  const num_t offset)
+{
+    if (data1.size() - offset < data2.size()) return false;
+    return std::equal(data1.begin() + offset, data1.begin() + offset + data2.size(), data2.begin());
+}
+
+bool WallPadDevice::validate(const std::vector<uint8_t>& data, const hex_t *cmd)
+{
+    if (!cmd->and_operator) return equal(data, cmd->data, cmd->offset) ? !cmd->inverted : cmd->inverted;
+    else if (data.size() - cmd->offset > 0 && cmd->data.size() > 0)
+    {
+        uint8_t val = data[cmd->offset] & (cmd->data[0]);
+        if (cmd->data.size() == 1) return val ? !cmd->inverted : cmd->inverted;
+        else
+        {
+            bool ret = false;
+            for (num_t i = 1; i < cmd->data.size(); i++)
+            {
+                if (val == cmd->data[i])
+                {
+                    ret = true;
+                    break;
+                }
+            }
+            return ret ? !cmd->inverted : cmd->inverted;
+        }
+    }
+    else return false;
+}
+
+float WallPadDevice::hex_to_float(const uint8_t *data, const num_t len, const num_t precision)
+{
+    unsigned int val = 0;
+    for (num_t i = 0; i < len; i++)
+    {
+        val = (val << 8) | data[i];
+    }
+    return val / powf(10, precision);
+}
+
+std::string hexencode(const std::vector<uint8_t>& raw_data)
+{
+    return hexencode(&raw_data[0], raw_data.size());
+}
 std::string hexencode(const uint8_t *raw_data, num_t len)
 {
     char buf[20];
@@ -73,55 +117,7 @@ std::string hexencode(const uint8_t *raw_data, num_t len)
     return res;
 }
 
-bool compare(const uint8_t *data1, const num_t len1, const uint8_t *data2, const num_t len2, const num_t offset)
-{
-    if (len1 - offset < len2) return false;
-    //ESP_LOGD(TAG, "compare(0x%02X, 0x%02X, %d)=> %d", data1[offset], data2[0], len2, memcmp(&data1[offset], &data2[0], len2));
-    return memcmp(&data1[offset], &data2[0], len2) == 0;
-}
 
-bool compare(const uint8_t *data1, const num_t len1, const hex_t *data2)
-{
-    if (!data2->and_operator) return compare(data1, len1, &data2->data[0], data2->data.size(), data2->offset) ? !data2->inverted : data2->inverted;
-    else if (len1 - data2->offset > 0 && data2->data.size() > 0)
-    {
-        uint8_t val = data1[data2->offset] & (data2->data[0]);
-        if (data2->data.size() == 1) return val ? !data2->inverted : data2->inverted;
-        else
-        {
-            bool ret = false;
-            for (num_t i = 1; i < data2->data.size(); i++)
-            {
-                if (val == data2->data[i])
-                {
-                    ret = true;
-                    break;
-                }
-            }
-            return ret ? !data2->inverted : data2->inverted;
-        }
-    }
-    else return false;
-}
-
-float hex_to_float(const uint8_t *data, const num_t len, const num_t precision)
-{
-    unsigned int val = 0;
-    for (num_t i = 0; i < len; i++)
-    {
-        val = (val << 8) | data[i];
-    }
-    return val / powf(10, precision);
-}
-
-unsigned long elapsed_time(const unsigned long timer)
-{
-    return millis() - timer; 
-}
-unsigned long set_time()
-{
-    return millis();
-}
 
 }  // namespace wallpad
 }  // namespace esphome

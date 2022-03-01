@@ -47,11 +47,11 @@ void WallPadClimate::setup()
     else this->current_temperature = NAN;
 }
 
-void WallPadClimate::publish(const uint8_t *data, const num_t len)
+void WallPadClimate::publish(const std::vector<uint8_t>& data)
 {
     bool changed = false;
     // turn off
-    if (this->state_off_.has_value() && compare(&data[0], len, &state_off_.value()))
+    if (this->state_off_.has_value() && validate(data, &state_off_.value()))
     {
         if (mode != climate::CLIMATE_MODE_OFF)
         {
@@ -60,7 +60,7 @@ void WallPadClimate::publish(const uint8_t *data, const num_t len)
         }
     }
     // heat mode
-    else if (this->state_heat_.has_value() && compare(&data[0], len, &state_heat_.value()))
+    else if (this->state_heat_.has_value() && validate(data, &state_heat_.value()))
     {
         if (mode != climate::CLIMATE_MODE_HEAT)
         {
@@ -69,7 +69,7 @@ void WallPadClimate::publish(const uint8_t *data, const num_t len)
         }
     }
     // cool mode
-    else if (this->state_cool_.has_value() && compare(&data[0], len, &state_cool_.value()))
+    else if (this->state_cool_.has_value() && validate(data, &state_cool_.value()))
     {
         if (mode != climate::CLIMATE_MODE_COOL)
         {
@@ -78,7 +78,7 @@ void WallPadClimate::publish(const uint8_t *data, const num_t len)
         }
     }
     // auto mode
-    else if (this->state_auto_.has_value() && compare(&data[0], len, &state_auto_.value()))
+    else if (this->state_auto_.has_value() && validate(data, &state_auto_.value()))
     {
         if (mode != climate::CLIMATE_MODE_AUTO)
         {
@@ -90,7 +90,7 @@ void WallPadClimate::publish(const uint8_t *data, const num_t len)
     if (this->state_away_.has_value())
     {
         bool is_away = *preset == climate::CLIMATE_PRESET_AWAY ? true : false;
-        if (is_away != compare(&data[0], len, &state_away_.value()))
+        if (is_away != validate(data, &state_away_.value()))
         {
             *preset = is_away == true ? climate::CLIMATE_PRESET_HOME : climate::CLIMATE_PRESET_AWAY;
             changed = true;

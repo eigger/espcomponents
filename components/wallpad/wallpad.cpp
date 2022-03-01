@@ -104,55 +104,43 @@ void WallPadComponent::publish_proc()
     if (parser_.get_buffer().size() == 0) return;
     if (validate(true) != ERR_NONE) return;
 
-    // Patket type
-    if (state_response_.has_value())
-    {
-        if (compare(&parser_.get_data()[0], parser_.get_data().size(), &state_response_.value()))
-        {
-            response_wait_ = false;
-        }
-        else
-        {
-            response_wait_ = true;
-        }     
-    }
-
     // for Ack
     if (tx_ack_wait_ && is_send_cmd())
     {
-        if (compare(&parser_.get_data()[0], parser_.get_data().size(), &get_send_cmd()->ack[0], get_send_cmd()->ack.size(), 0))
+        auto *device = get_send_device();
+        if (device->equal(parser_.get_data(), get_send_cmd()->ack, 0))
         {
-            get_send_device()->ack_ok();
+            device->ack_ok();
             clear_send_cmd();
-            ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", hexencode(&parser_.get_buffer()[0], parser_.get_buffer().size()).c_str(), elapsed_time(tx_start_time_));
+            ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", hexencode(parser_.get_buffer()).c_str(), elapsed_time(tx_start_time_));
             rx_lastTime_ = set_time();
             return;
         }
     }
 
 #ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
-    ESP_LOGVV(TAG, "Receive data-> %s, Gap Time: %lums", hexencode(&parser_.get_buffer()[0], parser_.get_buffer().size()).c_str(), elapsed_time(rx_lastTime_));
+    ESP_LOGVV(TAG, "Receive data-> %s, Gap Time: %lums", hexencode(parser_.get_buffer()).c_str(), elapsed_time(rx_lastTime_));
 #endif
 
     // Publish State
     bool found = false;
     for (auto *device : this->devices_)
     {
-        if (device->parse_data(&parser_.get_data()[0], parser_.get_data().size()))
+        if (device->parse_data(parser_.get_data()))
         {
             found = true;
         }
     }
 
-
 #ifdef ESPHOME_LOG_HAS_VERBOSE
     if (!found)
     {
-        ESP_LOGV(TAG, "Notfound data-> %s", hexencode(&parser_.get_buffer()[0], parser_.get_buffer().size()).c_str());
+        ESP_LOGV(TAG, "Notfound data-> %s", hexencode(parser_.get_buffer()).c_str());
     }
 #endif
     rx_lastTime_ = set_time();
 }
+
 void WallPadComponent::pop_tx_command()
 {
     for (auto *device : this->devices_)
@@ -168,7 +156,6 @@ void WallPadComponent::pop_tx_command()
 }
 void WallPadComponent::tx_proc()
 {
-    if (response_wait_) return;
     if (parser_.get_buffer().size() > 0) return;
     if (elapsed_time(rx_lastTime_) < conf_tx_interval_) return;
     if (elapsed_time(tx_start_time_) < conf_tx_interval_) return;
@@ -222,7 +209,7 @@ void WallPadComponent::write_with_header(const std::vector<uint8_t> &data)
 {
     tx_start_time_ = set_time();
     if (ctrl_pin_) ctrl_pin_->digital_write(TX_ENABLE);
-    if (false)
+    if (true)
     {
         std::vector<uint8_t> buffer;
         if (tx_prefix_.has_value()) buffer.insert(buffer.end(), tx_prefix_.value().begin(), tx_prefix_.value().end());
@@ -260,10 +247,12 @@ void WallPadComponent::write_with_header(const std::vector<uint8_t> &data)
         // Footer
         if (tx_suffix_.has_value()) write_array(tx_suffix_.value());
     }
-
     // wait for send
-    flush();
-    if (ctrl_pin_) ctrl_pin_->digital_write(RX_ENABLE);
+    if (ctrl_pin_)
+    {
+        flush();
+        ctrl_pin_->digital_write(RX_ENABLE);
+    }
 
     // for Ack wait
     tx_start_time_ = set_time();
@@ -278,7 +267,7 @@ void WallPadComponent::write_byte(uint8_t data)
 void WallPadComponent::write_array(const uint8_t *data, const num_t len)
 {
     this->hw_serial_->write(data, len);
-    ESP_LOGD(TAG, "Write array-> %s, %d", hexencode(&data[0], len).c_str(), this->hw_serial_->availableForWrite());
+    ESP_LOGD(TAG, "Write array-> %s", hexencode(&data[0], len).c_str());
 }
 
 void WallPadComponent::write_next(const send_hex_t send)
@@ -301,28 +290,28 @@ ValidateCode WallPadComponent::validate(bool log)
 {
     if (parser_.get_data().size() < rx_checksum_len_)
     {
-        if (log) ESP_LOGW(TAG, "[Read] Size error: %s", hexencode(&parser_.get_buffer()[0], parser_.get_buffer().size()).c_str());
+        if (log) ESP_LOGW(TAG, "[Read] Size error: %s", hexencode(parser_.get_buffer()).c_str());
         return ERR_SIZE;
     }
     if (rx_prefix_.has_value() && parser_.parse_header() == false)
     {
-        if (log) ESP_LOGW(TAG, "[Read] Prefix error: %s", hexencode(&parser_.get_buffer()[0], parser_.get_buffer().size()).c_str());
+        if (log) ESP_LOGW(TAG, "[Read] Prefix error: %s", hexencode(parser_.get_buffer()).c_str());
         return ERR_PREFIX;
     }
     if (rx_suffix_.has_value() && parser_.parse_footer() == false)
     {
-        if (log) ESP_LOGW(TAG, "[Read] Suffix error: %s", hexencode(&parser_.get_buffer()[0], parser_.get_buffer().size()).c_str());
+        if (log) ESP_LOGW(TAG, "[Read] Suffix error: %s", hexencode(parser_.get_buffer()).c_str());
         return ERR_SUFFIX;
     }
     uint8_t crc = rx_checksum_ ? make_rx_checksum(&parser_.get_data()[0], parser_.get_data().size() - rx_checksum_len_) : 0;
     if (rx_checksum_ && crc != parser_.get_data()[parser_.get_data().size() - rx_checksum_len_])
     {
-        if (log) ESP_LOGW(TAG, "[Read] Checksum error: %s", hexencode(&parser_.get_buffer()[0], parser_.get_buffer().size()).c_str());
+        if (log) ESP_LOGW(TAG, "[Read] Checksum error: %s", hexencode(parser_.get_buffer()).c_str());
         return ERR_CHECKSUM;
     }
     if (rx_checksum2_ && make_rx_checksum2(&parser_.get_data()[0], parser_.get_data().size() - rx_checksum_len_, crc) != parser_.get_data()[parser_.get_data().size() - rx_checksum_len_ - 1])
     {
-        if (log) ESP_LOGW(TAG, "[Read] Checksum2 error: %s", hexencode(&parser_.get_buffer()[0], parser_.get_buffer().size()).c_str());
+        if (log) ESP_LOGW(TAG, "[Read] Checksum2 error: %s", hexencode(parser_.get_buffer()).c_str());
         return ERR_CHECKSUM2;
     }
     return ERR_NONE;
