@@ -5,10 +5,13 @@
 
 namespace esphome {
 namespace wallpad {
+
 static const char *TAG = "wallpad";
+
 void WallPadDevice::update()
 {
-    if (!command_state_.has_value()) return;
+    if (!command_state_.has_value())
+        return;
     ESP_LOGD(TAG, "'%s' update(): Request current state...", device_name_->c_str());
     push_command(&command_state_.value());
 }
@@ -16,21 +19,31 @@ void WallPadDevice::update()
 void WallPadDevice::dump_wallpad_device_config(const char *TAG)
 {
     ESP_LOGCONFIG(TAG, "  Device: %s, offset: %d", to_hex_string(device_.data).c_str(), device_.offset);
-    if (sub_device_.has_value()) ESP_LOGCONFIG(TAG, "  Sub device: %s, offset: %d", to_hex_string(sub_device_.value().data).c_str(), sub_device_.value().offset);
-    if (state_on_.has_value()) ESP_LOGCONFIG(TAG, "  State ON: %s, offset: %d, and_operator: %s, inverted: %s", to_hex_string(state_on_.value().data).c_str(), state_on_.value().offset, YESNO(state_on_.value().and_operator), YESNO(state_on_.value().inverted));
-    if (state_off_.has_value()) ESP_LOGCONFIG(TAG, "  State OFF: %s, offset: %d, and_operator: %s, inverted: %s", to_hex_string(state_off_.value().data).c_str(), state_off_.value().offset, YESNO(state_off_.value().and_operator), YESNO(state_off_.value().inverted));
-    if (command_on_.has_value()) ESP_LOGCONFIG(TAG, "  Command ON: %s", to_hex_string(command_on_.value().data).c_str());
-    if (command_on_.has_value() && command_on_.value().ack.size() > 0) ESP_LOGCONFIG(TAG, "  Command ON Ack: %s", to_hex_string(command_on_.value().ack).c_str());
-    if (command_off_.has_value()) ESP_LOGCONFIG(TAG, "  Command OFF: %s", to_hex_string(command_off_.value().data).c_str());
-    if (command_off_.has_value() && command_off_.value().ack.size() > 0) ESP_LOGCONFIG(TAG, "  Command OFF Ack: %s", to_hex_string(command_off_.value().ack).c_str());
-    if (command_state_.has_value()) ESP_LOGCONFIG(TAG, "  Command State: %s", to_hex_string(command_state_.value().data).c_str());
-    if (command_state_.has_value() && command_state_.value().ack.size() > 0) ESP_LOGCONFIG(TAG, "  Command State Ack: %s", to_hex_string(command_state_.value().ack).c_str());
-    if (state_response_.has_value()) ESP_LOGCONFIG(TAG, "  Data response: %s, offset: %d", to_hex_string(state_response_.value().data).c_str(), state_response_.value().offset);
+    if (sub_device_.has_value())
+        ESP_LOGCONFIG(TAG, "  Sub device: %s, offset: %d", to_hex_string(sub_device_.value().data).c_str(), sub_device_.value().offset);
+    if (state_on_.has_value())
+        ESP_LOGCONFIG(TAG, "  State ON: %s, offset: %d, and_operator: %s, inverted: %s", to_hex_string(state_on_.value().data).c_str(), state_on_.value().offset, YESNO(state_on_.value().and_operator), YESNO(state_on_.value().inverted));
+    if (state_off_.has_value())
+        ESP_LOGCONFIG(TAG, "  State OFF: %s, offset: %d, and_operator: %s, inverted: %s", to_hex_string(state_off_.value().data).c_str(), state_off_.value().offset, YESNO(state_off_.value().and_operator), YESNO(state_off_.value().inverted));
+    if (command_on_.has_value())
+        ESP_LOGCONFIG(TAG, "  Command ON: %s", to_hex_string(command_on_.value().data).c_str());
+    if (command_on_.has_value() && command_on_.value().ack.size() > 0)
+        ESP_LOGCONFIG(TAG, "  Command ON Ack: %s", to_hex_string(command_on_.value().ack).c_str());
+    if (command_off_.has_value())
+        ESP_LOGCONFIG(TAG, "  Command OFF: %s", to_hex_string(command_off_.value().data).c_str());
+    if (command_off_.has_value() && command_off_.value().ack.size() > 0)
+        ESP_LOGCONFIG(TAG, "  Command OFF Ack: %s", to_hex_string(command_off_.value().ack).c_str());
+    if (command_state_.has_value())
+        ESP_LOGCONFIG(TAG, "  Command State: %s", to_hex_string(command_state_.value().data).c_str());
+    if (command_state_.has_value() && command_state_.value().ack.size() > 0)
+        ESP_LOGCONFIG(TAG, "  Command State Ack: %s", to_hex_string(command_state_.value().ack).c_str());
+    if (state_response_.has_value())
+        ESP_LOGCONFIG(TAG, "  Data response: %s, offset: %d", to_hex_string(state_response_.value().data).c_str(), state_response_.value().offset);
     LOG_UPDATE_INTERVAL(this);
 }
 
 void WallPadDevice::set_device(hex_t device)
-{ 
+{
     device_ = device;
 }
 
@@ -40,7 +53,7 @@ void WallPadDevice::set_sub_device(hex_t sub_device)
 }
 
 void WallPadDevice::set_state_on(hex_t state_on)
-{ 
+{
     state_on_ = state_on;
 }
 
@@ -87,7 +100,7 @@ void WallPadDevice::set_command_state(cmd_hex_t command_state)
 {
     command_state_ = command_state;
 }
-/** Response Packet Pattern */
+
 void WallPadDevice::set_state_response(hex_t state_response)
 {
     state_response_ = state_response;
@@ -112,7 +125,15 @@ const cmd_hex_t *WallPadDevice::pop_command()
 
 void WallPadDevice::ack_ok()
 {
-    tx_cmd_queue_.size() == 0 ? set_tx_pending(false) : set_tx_pending(true);
+    for (auto cmd : tx_cmd_queue_)
+    {
+        if (cmd->ack.size() > 0)
+        {
+            set_tx_pending(true);
+            return;
+        }
+    }
+    set_tx_pending(false);
 }
 
 void WallPadDevice::ack_ng()
@@ -125,26 +146,32 @@ void WallPadDevice::set_tx_pending(bool pending)
     tx_pending_ = pending;
 }
 
-bool WallPadDevice::parse_data(const std::vector<uint8_t>& data)
+bool WallPadDevice::parse_data(const std::vector<uint8_t> &data)
 {
-    if (tx_pending_) return false;
-    if (state_response_.has_value() && validate(data, &state_response_.value()))    rx_response_ = true;
-    else                                                                            rx_response_ = false;
-    
-    if (!validate(data, &device_)) return false;
-    else if (sub_device_.has_value() && !validate(data, &sub_device_.value())) return false;
+    if (tx_pending_)
+        return false;
+    if (state_response_.has_value() && validate(data, &state_response_.value()))
+        rx_response_ = true;
+    else
+        rx_response_ = false;
+
+    if (!validate(data, &device_))
+        return false;
+    else if (sub_device_.has_value() && !validate(data, &sub_device_.value()))
+        return false;
+
     if (state_off_.has_value() && validate(data, &state_off_.value()))
     {
-        if (!publish(false)) publish(data);
+        if (!publish(false))
+            publish(data);
         return true;
     }
     else if (state_on_.has_value() && validate(data, &state_on_.value()))
     {
-        if (!publish(true)) publish(data);
+        if (!publish(true))
+            publish(data);
         return true;
     }
-
-    // Other Message
     publish(data);
     return true;
 }
@@ -155,19 +182,22 @@ void WallPadDevice::push_command(const cmd_hex_t *cmd)
     tx_cmd_queue_.push(cmd);
 }
 
-bool WallPadDevice::equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,  const num_t offset)
+bool WallPadDevice::equal(const std::vector<uint8_t> &data1, const std::vector<uint8_t> &data2, const num_t offset)
 {
-    if (data1.size() - offset < data2.size()) return false;
+    if (data1.size() - offset < data2.size())
+        return false;
     return std::equal(data1.begin() + offset, data1.begin() + offset + data2.size(), data2.begin());
 }
 
-bool WallPadDevice::validate(const std::vector<uint8_t>& data, const hex_t *cmd)
+bool WallPadDevice::validate(const std::vector<uint8_t> &data, const hex_t *cmd)
 {
-    if (!cmd->and_operator) return equal(data, cmd->data, cmd->offset) ? !cmd->inverted : cmd->inverted;
+    if (!cmd->and_operator)
+        return equal(data, cmd->data, cmd->offset) ? !cmd->inverted : cmd->inverted;
     else if (data.size() - cmd->offset > 0 && cmd->data.size() > 0)
     {
         uint8_t val = data[cmd->offset] & (cmd->data[0]);
-        if (cmd->data.size() == 1) return val ? !cmd->inverted : cmd->inverted;
+        if (cmd->data.size() == 1)
+            return val ? !cmd->inverted : cmd->inverted;
         else
         {
             bool ret = false;
@@ -182,7 +212,8 @@ bool WallPadDevice::validate(const std::vector<uint8_t>& data, const hex_t *cmd)
             return ret ? !cmd->inverted : cmd->inverted;
         }
     }
-    else return false;
+    else
+        return false;
 }
 
 float WallPadDevice::hex_to_float(const uint8_t *data, const num_t len, const num_t precision)
@@ -195,7 +226,7 @@ float WallPadDevice::hex_to_float(const uint8_t *data, const num_t len, const nu
     return val / powf(10, precision);
 }
 
-std::string to_hex_string(const std::vector<unsigned char>& data)
+std::string to_hex_string(const std::vector<unsigned char> &data)
 {
     char buf[20];
     std::string res;
