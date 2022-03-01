@@ -19,7 +19,7 @@ CONFIG_SCHEMA = cv.All(sensor.sensor_schema(UNIT_EMPTY, ICON_EMPTY, 1).extend({
     cv.Optional(CONF_SUB_DEVICE): state_hex_schema,
     cv.Optional(CONF_COMMAND_STATE): command_hex_schema,
     cv.Optional(CONF_LAMBDA): cv.returning_lambda,
-}).extend(cv.polling_component_schema('60s')), cv.has_exactly_one_key(CONF_LAMBDA, CONF_DATA))
+}).extend(cv.polling_component_schema('60s'))
 
 
 def to_code(config):
