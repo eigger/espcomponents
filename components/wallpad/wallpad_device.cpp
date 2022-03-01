@@ -125,7 +125,7 @@ const cmd_hex_t *WallPadDevice::pop_command()
 
 void WallPadDevice::ack_ok()
 {
-    for (auto* cmd : tx_cmd_queue_)
+    for (cmd_hex_t* cmd : tx_cmd_queue_)
     {
         if (cmd->ack.size() > 0)
         {
