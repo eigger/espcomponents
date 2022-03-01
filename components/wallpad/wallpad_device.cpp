@@ -195,5 +195,19 @@ float WallPadDevice::hex_to_float(const uint8_t *data, const num_t len, const nu
     return val / powf(10, precision);
 }
 
+std::string to_hex_string(const std::vector<unsigned char>& data)
+{
+    char buf[20];
+    std::string res;
+    for (num_t i = 0; i < data.size(); i++)
+    {
+        sprintf(buf, "0x%02X ", data[i]);
+        res += buf;
+    }
+    sprintf(buf, "(%d byte)", data.size());
+    res += buf;
+    return res;
+}
+
 }  // namespace wallpad
 }  // namespace esphome

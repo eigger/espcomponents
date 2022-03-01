@@ -92,19 +92,7 @@ protected:
     std::queue<const cmd_hex_t*> tx_cmd_queue_{};
 };
 
-std::string to_hex_string(const std::vector<unsigned char>& data)
-{
-    char buf[20];
-    std::string res;
-    for (num_t i = 0; i < data.size(); i++)
-    {
-        sprintf(buf, "0x%02X ", data[i]);
-        res += buf;
-    }
-    sprintf(buf, "(%d byte)", data.size());
-    res += buf;
-    return res;
-}
+std::string to_hex_string(const std::vector<unsigned char>& data);
 
 } // namespace wallpad
 } // namespace esphome
