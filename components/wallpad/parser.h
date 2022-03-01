@@ -23,7 +23,7 @@ public:
 	const std::vector<unsigned char> buffer(void);
 	bool parse_header(void);
 	bool parse_footer(void);
-	static std::string to_hex_string(const std::vector<unsigned char>& data);
+	
 private:
 	std::vector<unsigned char> header_;
 	std::vector<unsigned char> footer_;

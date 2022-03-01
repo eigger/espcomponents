@@ -3,6 +3,7 @@
 #include <queue>
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
+#include "encoder.h"
 
 namespace esphome {
 namespace wallpad {

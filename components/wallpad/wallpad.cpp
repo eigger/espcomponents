@@ -18,10 +18,10 @@ void WallPadComponent::dump_config()
     LOG_PIN("  RX Pin: ", rx_pin_);
     LOG_PIN("  TX Pin: ", tx_pin_);
     if (ctrl_pin_) LOG_PIN("  Ctrl Pin: ", ctrl_pin_);
-    if (rx_prefix_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_prefix: %s", Parser::to_hex_string(rx_prefix_.value()).c_str());
-    if (rx_suffix_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_suffix: %s", Parser::to_hex_string(rx_suffix_.value()).c_str());
-    if (tx_prefix_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_prefix: %s", Parser::to_hex_string(tx_prefix_.value()).c_str());
-    if (tx_suffix_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_suffix: %s", Parser::to_hex_string(tx_suffix_.value()).c_str());
+    if (rx_prefix_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_prefix: %s", to_hex_string(rx_prefix_.value()).c_str());
+    if (rx_suffix_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_suffix: %s", to_hex_string(rx_suffix_.value()).c_str());
+    if (tx_prefix_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_prefix: %s", to_hex_string(tx_prefix_.value()).c_str());
+    if (tx_suffix_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_suffix: %s", to_hex_string(tx_suffix_.value()).c_str());
     ESP_LOGCONFIG(TAG, "  Data rx_checksum: %s", YESNO(rx_checksum_));
     ESP_LOGCONFIG(TAG, "  Data tx_checksum: %s", YESNO(tx_checksum_));
     ESP_LOGCONFIG(TAG, "  Device count: %d", devices_.size());
@@ -108,7 +108,7 @@ bool WallPadComponent::validate_ack()
     if (!device->equal(parser_.data(), get_send_cmd()->ack, 0)) return false;
     device->ack_ok();
     clear_send_cmd();
-    ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", Parser::to_hex_string(parser_.buffer()).c_str(), elapsed_time(tx_start_time_));
+    ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", to_hex_string(parser_.buffer()).c_str(), elapsed_time(tx_start_time_));
     rx_lastTime_ = get_time();
     return true;
 }
@@ -116,7 +116,7 @@ bool WallPadComponent::validate_ack()
 void WallPadComponent::publish_data()
 {
 #ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
-    ESP_LOGVV(TAG, "Receive data-> %s, Gap Time: %lums", Parser::to_hex_string(parser_.buffer()).c_str(), elapsed_time(rx_lastTime_));
+    ESP_LOGVV(TAG, "Receive data-> %s, Gap Time: %lums", to_hex_string(parser_.buffer()).c_str(), elapsed_time(rx_lastTime_));
 #endif
 
     bool found = false;
@@ -131,7 +131,7 @@ void WallPadComponent::publish_data()
 #ifdef ESPHOME_LOG_HAS_VERBOSE
     if (!found)
     {
-        ESP_LOGV(TAG, "Notfound data-> %s", Parser::to_hex_string(parser_.buffer()).c_str());
+        ESP_LOGV(TAG, "Notfound data-> %s", to_hex_string(parser_.buffer()).c_str());
     }
 #endif
     rx_lastTime_ = get_time();
@@ -268,7 +268,7 @@ void WallPadComponent::write_byte(uint8_t data)
 void WallPadComponent::write_array(const std::vector<uint8_t> &data)
 {
     this->hw_serial_->write(&data[0], data.size());
-    ESP_LOGD(TAG, "Write array-> %s", Parser::to_hex_string(data).c_str());
+    ESP_LOGD(TAG, "Write array-> %s", to_hex_string(data).c_str());
 }
 
 void WallPadComponent::write_next(const send_hex_t send)
@@ -291,28 +291,28 @@ ValidateCode WallPadComponent::validate_data(bool log)
 {
     if (parser_.data().size() < rx_checksum_len_)
     {
-        if (log) ESP_LOGW(TAG, "[Read] Size error: %s", Parser::to_hex_string(parser_.buffer()).c_str());
+        if (log) ESP_LOGW(TAG, "[Read] Size error: %s", to_hex_string(parser_.buffer()).c_str());
         return ERR_SIZE;
     }
     if (rx_prefix_.has_value() && parser_.parse_header() == false)
     {
-        if (log) ESP_LOGW(TAG, "[Read] Prefix error: %s", Parser::to_hex_string(parser_.buffer()).c_str());
+        if (log) ESP_LOGW(TAG, "[Read] Prefix error: %s", to_hex_string(parser_.buffer()).c_str());
         return ERR_PREFIX;
     }
     if (rx_suffix_.has_value() && parser_.parse_footer() == false)
     {
-        if (log) ESP_LOGW(TAG, "[Read] Suffix error: %s", Parser::to_hex_string(parser_.buffer()).c_str());
+        if (log) ESP_LOGW(TAG, "[Read] Suffix error: %s", to_hex_string(parser_.buffer()).c_str());
         return ERR_SUFFIX;
     }
     uint8_t crc = rx_checksum_ ? make_rx_checksum(&parser_.data()[0], parser_.data().size() - rx_checksum_len_) : 0;
     if (rx_checksum_ && crc != parser_.data()[parser_.data().size() - rx_checksum_len_])
     {
-        if (log) ESP_LOGW(TAG, "[Read] Checksum error: %s", Parser::to_hex_string(parser_.buffer()).c_str());
+        if (log) ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(parser_.buffer()).c_str());
         return ERR_CHECKSUM;
     }
     if (rx_checksum2_ && make_rx_checksum2(&parser_.data()[0], parser_.data().size() - rx_checksum_len_, crc) != parser_.data()[parser_.data().size() - rx_checksum_len_ - 1])
     {
-        if (log) ESP_LOGW(TAG, "[Read] Checksum2 error: %s", Parser::to_hex_string(parser_.buffer()).c_str());
+        if (log) ESP_LOGW(TAG, "[Read] Checksum2 error: %s", to_hex_string(parser_.buffer()).c_str());
         return ERR_CHECKSUM2;
     }
     return ERR_NONE;
