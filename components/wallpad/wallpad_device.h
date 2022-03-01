@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <queue>
+#include <string>
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
 
