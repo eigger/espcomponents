@@ -1,9 +1,6 @@
 #pragma once
 #include <vector>
 #include <queue>
-#include <memory>
-#include <string>
-#include <stdexcept>
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
 
@@ -94,27 +91,18 @@ protected:
     std::queue<const cmd_hex_t*> tx_cmd_queue_{};
 };
 
-
-template<typename ... Args>
-std::string string_format( const std::string& format, Args ... args )
-{
-    int size_s = std::snprintf( nullptr, 0, format.c_str(), args ... ) + 1; // Extra space for '\0'
-    if( size_s <= 0 ){ throw std::runtime_error( "Error during formatting." ); }
-    auto size = static_cast<size_t>( size_s );
-    auto buf = std::make_unique<char[]>( size );
-    std::snprintf( buf.get(), size, format.c_str(), args ... );
-    return std::string( buf.get(), buf.get() + size - 1 ); // We don't want the '\0' inside
-}
-
 std::string to_hex_string(const std::vector<unsigned char>& data)
 {
-    std::string str;
-	for (unsigned char hex : data)
+    char buf[20];
+    std::string res;
+    for (num_t i = 0; i < data.size(); i++)
     {
-        str += std::string_format("0x%02X ", hex);
+        sprintf(buf, "0x%02X ", data[i]);
+        res += buf;
     }
-	str += std::string_format("(%d byte)", data.size());
-	return str;
+    sprintf(buf, "(%d byte)", data.size());
+    res += buf;
+    return res;
 }
 
 } // namespace wallpad
