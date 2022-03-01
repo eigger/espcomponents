@@ -125,15 +125,14 @@ const cmd_hex_t *WallPadDevice::pop_command()
 
 void WallPadDevice::ack_ok()
 {
-    for (cmd_hex_t* cmd : tx_cmd_queue_)
+    if (tx_cmd_queue_.size() == 0)
     {
-        if (cmd->ack.size() > 0)
-        {
-            set_tx_pending(true);
-            return;
-        }
+        set_tx_pending(false);
     }
-    set_tx_pending(false);
+    else
+    {
+        set_tx_pending(true);
+    }    
 }
 
 void WallPadDevice::ack_ng()
