@@ -30,7 +30,7 @@ def to_code(config):
     if CONF_LAMBDA in config:
         template_ = yield cg.process_lambda(config[CONF_LAMBDA], [(uint8_ptr_const, 'data'),
                                                                   (num_t_const, 'len')],
-                                            return_type=cg.optional.template(complex))
+                                            return_type=cg.optional.template(cg.std_string))
         cg.add(var.set_template(template_))
 
     yield sensor.register_text_sensor(var, config)
