@@ -2,8 +2,7 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome import automation
 from esphome.components import text_sensor, wallpad
-from esphome.const import CONF_ID, CONF_DEVICE, CONF_LAMBDA, CONF_DATA, CONF_UPDATE_INTERVAL, \
-    UNIT_EMPTY, ICON_EMPTY, CONF_OFFSET, CONF_ACCURACY_DECIMALS
+from esphome.const import CONF_ID, CONF_DEVICE, CONF_LAMBDA
 from .. import wallpad_ns, WallPadComponent, uint8_ptr_const, num_t_const, \
     state_hex_schema, command_hex_schema
 from ..const import CONF_WALLPAD_ID, CONF_SUB_DEVICE, CONF_COMMAND_STATE
@@ -20,7 +19,6 @@ CONFIG_SCHEMA = cv.All(text_sensor.TEXT_SENSOR_SCHEMA.extend({
     cv.Optional(CONF_COMMAND_STATE): command_hex_schema,
     cv.Optional(CONF_LAMBDA): cv.returning_lambda,
 }).extend(cv.polling_component_schema('60s')))
-
 
 def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])

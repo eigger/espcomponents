@@ -10,8 +10,7 @@ static const char *TAG = "wallpad";
 
 void WallPadDevice::update()
 {
-    if (!command_state_.has_value())
-        return;
+    if (!command_state_.has_value()) return;
     ESP_LOGD(TAG, "'%s' update(): Request current state...", device_name_->c_str());
     push_command(&command_state_.value());
 }
@@ -124,15 +123,7 @@ const cmd_hex_t *WallPadDevice::pop_command()
 }
 
 void WallPadDevice::ack_ok()
-{
-    if (tx_cmd_queue_.size() == 0)
-    {
-        set_tx_pending(false);
-    }
-    else
-    {
-        set_tx_pending(true);
-    }    
+{   
 }
 
 void WallPadDevice::ack_ng()
@@ -140,15 +131,8 @@ void WallPadDevice::ack_ng()
     ack_ok();
 }
 
-void WallPadDevice::set_tx_pending(bool pending)
-{
-    tx_pending_ = pending;
-}
-
 bool WallPadDevice::parse_data(const std::vector<uint8_t> &data)
 {
-    if (tx_pending_)
-        return false;
     if (state_response_.has_value() && validate(data, &state_response_.value()))
         rx_response_ = true;
     else
@@ -177,7 +161,6 @@ bool WallPadDevice::parse_data(const std::vector<uint8_t> &data)
 
 void WallPadDevice::push_command(const cmd_hex_t *cmd)
 {
-    set_tx_pending(true);
     tx_cmd_queue_.push(cmd);
 }
 

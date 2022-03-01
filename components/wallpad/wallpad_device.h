@@ -59,7 +59,6 @@ public:
     const cmd_hex_t* pop_command();
     void ack_ok();
     void ack_ng();
-    void set_tx_pending(bool pending);
     bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,  const num_t offset);
     bool validate(const std::vector<uint8_t>& data, const hex_t *cmd);
     float hex_to_float(const uint8_t *data, const num_t len, const num_t precision);
@@ -87,7 +86,6 @@ protected:
     optional<std::function<cmd_hex_t()>> command_off_func_{};
     optional<cmd_hex_t> command_state_;
     optional<hex_t> state_response_{};
-    bool tx_pending_{false};
     bool rx_response_{false};
     std::queue<const cmd_hex_t*> tx_cmd_queue_{};
 };
