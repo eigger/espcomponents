@@ -54,7 +54,7 @@ public:
     void set_command_state(cmd_hex_t command_state);
     void set_state_response(hex_t state_response);
     void push_command(const cmd_hex_t *cmd);
-    bool is_have_command(;
+    bool is_have_command();
     const cmd_hex_t* pop_command();
     void ack_ok();
     void ack_ng();
