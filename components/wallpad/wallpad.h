@@ -131,8 +131,7 @@ public:
     float get_setup_priority() const override { return setup_priority::BUS; }
 
     void write_byte(uint8_t data);
-    void write_array(const uint8_t *data, const num_t len);
-    void write_array(const std::vector<uint8_t> &data) { this->write_array(&data[0], data.size()); }
+    void write_array(const std::vector<uint8_t> &data);
     void write_with_header(const std::vector<uint8_t> &data);
     /** write for Command */
     void write_next(const send_hex_t send);

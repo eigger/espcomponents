@@ -15,17 +15,17 @@ void WallPadDevice::update()
 
 void WallPadDevice::dump_wallpad_device_config(const char *TAG)
 {
-    ESP_LOGCONFIG(TAG, "  Device: %s, offset: %d", hexencode(&device_.data[0], device_.data.size()).c_str(), device_.offset);
-    if (sub_device_.has_value()) ESP_LOGCONFIG(TAG, "  Sub device: %s, offset: %d", hexencode(&sub_device_.value().data[0], sub_device_.value().data.size()).c_str(), sub_device_.value().offset);
-    if (state_on_.has_value()) ESP_LOGCONFIG(TAG, "  State ON: %s, offset: %d, and_operator: %s, inverted: %s", hexencode(&state_on_.value().data[0], state_on_.value().data.size()).c_str(), state_on_.value().offset, YESNO(state_on_.value().and_operator), YESNO(state_on_.value().inverted));
-    if (state_off_.has_value()) ESP_LOGCONFIG(TAG, "  State OFF: %s, offset: %d, and_operator: %s, inverted: %s", hexencode(&state_off_.value().data[0], state_off_.value().data.size()).c_str(), state_off_.value().offset, YESNO(state_off_.value().and_operator), YESNO(state_off_.value().inverted));
-    if (command_on_.has_value()) ESP_LOGCONFIG(TAG, "  Command ON: %s", hexencode(&command_on_.value().data[0], command_on_.value().data.size()).c_str());
-    if (command_on_.has_value() && command_on_.value().ack.size() > 0) ESP_LOGCONFIG(TAG, "  Command ON Ack: %s", hexencode(&command_on_.value().ack[0], command_on_.value().ack.size()).c_str());
-    if (command_off_.has_value()) ESP_LOGCONFIG(TAG, "  Command OFF: %s", hexencode(&command_off_.value().data[0], command_off_.value().data.size()).c_str());
-    if (command_off_.has_value() && command_off_.value().ack.size() > 0) ESP_LOGCONFIG(TAG, "  Command OFF Ack: %s", hexencode(&command_off_.value().ack[0], command_off_.value().ack.size()).c_str());
-    if (command_state_.has_value()) ESP_LOGCONFIG(TAG, "  Command State: %s", hexencode(&command_state_.value().data[0], command_state_.value().data.size()).c_str());
-    if (command_state_.has_value() && command_state_.value().ack.size() > 0) ESP_LOGCONFIG(TAG, "  Command State Ack: %s", hexencode(&command_state_.value().ack[0], command_state_.value().ack.size()).c_str());
-    if (state_response_.has_value()) ESP_LOGCONFIG(TAG, "  Data response: %s, offset: %d", hexencode(&state_response_.value().data[0], state_response_.value().data.size()).c_str(), state_response_.value().offset);
+    ESP_LOGCONFIG(TAG, "  Device: %s, offset: %d", Parser::to_hex_string(device_.data).c_str(), device_.offset);
+    if (sub_device_.has_value()) ESP_LOGCONFIG(TAG, "  Sub device: %s, offset: %d", Parser::to_hex_string(sub_device_.value().data).c_str(), sub_device_.value().offset);
+    if (state_on_.has_value()) ESP_LOGCONFIG(TAG, "  State ON: %s, offset: %d, and_operator: %s, inverted: %s", Parser::to_hex_string(state_on_.value().data).c_str(), state_on_.value().offset, YESNO(state_on_.value().and_operator), YESNO(state_on_.value().inverted));
+    if (state_off_.has_value()) ESP_LOGCONFIG(TAG, "  State OFF: %s, offset: %d, and_operator: %s, inverted: %s", Parser::to_hex_string(state_off_.value().data).c_str(), state_off_.value().offset, YESNO(state_off_.value().and_operator), YESNO(state_off_.value().inverted));
+    if (command_on_.has_value()) ESP_LOGCONFIG(TAG, "  Command ON: %s", Parser::to_hex_string(command_on_.value().data).c_str());
+    if (command_on_.has_value() && command_on_.value().ack.size() > 0) ESP_LOGCONFIG(TAG, "  Command ON Ack: %s", Parser::to_hex_string(command_on_.value().ack).c_str());
+    if (command_off_.has_value()) ESP_LOGCONFIG(TAG, "  Command OFF: %s", Parser::to_hex_string(command_off_.value().data).c_str());
+    if (command_off_.has_value() && command_off_.value().ack.size() > 0) ESP_LOGCONFIG(TAG, "  Command OFF Ack: %s", Parser::to_hex_string(command_off_.value().ack).c_str());
+    if (command_state_.has_value()) ESP_LOGCONFIG(TAG, "  Command State: %s", Parser::to_hex_string(command_state_.value().data).c_str());
+    if (command_state_.has_value() && command_state_.value().ack.size() > 0) ESP_LOGCONFIG(TAG, "  Command State Ack: %s", Parser::to_hex_string(command_state_.value().ack).c_str());
+    if (state_response_.has_value()) ESP_LOGCONFIG(TAG, "  Data response: %s, offset: %d", Parser::to_hex_string(state_response_.value().data).c_str(), state_response_.value().offset);
     LOG_UPDATE_INTERVAL(this);
 }
 
@@ -194,26 +194,6 @@ float WallPadDevice::hex_to_float(const uint8_t *data, const num_t len, const nu
     }
     return val / powf(10, precision);
 }
-
-std::string hexencode(const std::vector<uint8_t>& raw_data)
-{
-    return hexencode(&raw_data[0], raw_data.size());
-}
-std::string hexencode(const uint8_t *raw_data, num_t len)
-{
-    char buf[20];
-    std::string res;
-    for (num_t i = 0; i < len; i++)
-    {
-        sprintf(buf, "0x%02X ", raw_data[i]);
-        res += buf;
-    }
-    sprintf(buf, "(%d byte)", len);
-    res += buf;
-    return res;
-}
-
-
 
 }  // namespace wallpad
 }  // namespace esphome

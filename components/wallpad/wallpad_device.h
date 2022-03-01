@@ -91,10 +91,5 @@ protected:
     std::queue<const cmd_hex_t*> tx_cmd_queue_{};
 };
 
-
-/** uint8_t[] to hex string  */
-std::string hexencode(const std::vector<uint8_t>& raw_data);
-std::string hexencode(const uint8_t *raw_data, const num_t len);
-
 } // namespace wallpad
 } // namespace esphome

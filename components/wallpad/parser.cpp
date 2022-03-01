@@ -1,4 +1,5 @@
 #include "parser.h"
+#include <format>
 
 Parser::Parser()
 {
@@ -71,13 +72,24 @@ bool Parser::parse_footer(void)
 	return std::equal(buffer_.end() - footer_.size(), buffer_.end(), footer_.begin());
 }
 
-const std::vector<unsigned char> Parser::get_data(void)
+const std::vector<unsigned char> Parser::data(void)
 {
 	if (buffer_.size() < header_.size() + footer_.size()) return std::vector<unsigned char>();
 	return std::vector<unsigned char>(buffer_.begin() + header_.size(), buffer_.end() - footer_.size());
 }
 
-const std::vector<unsigned char> Parser::get_buffer(void)
+const std::vector<unsigned char> Parser::buffer(void)
 {
 	return buffer_;
+}
+
+std::string Parser::to_hex_string(const std::vector<unsigned char>& data)
+{
+	std::string str;
+	for (unsigned char hex : data)
+    {
+        str += std::format("0x%02X ", hex);
+    }
+	str += std::format("(%d byte)", data.size());
+	return str;
 }

@@ -19,19 +19,14 @@ public:
 	bool parse_byte(const unsigned char byte);
 	bool validate_data(const std::vector<unsigned char>& checksums);
 	void clear(void);
-	const std::vector<unsigned char> get_data(void);
-	const std::vector<unsigned char> get_buffer(void);
+	const std::vector<unsigned char> data(void);
+	const std::vector<unsigned char> buffer(void);
 	bool parse_header(void);
 	bool parse_footer(void);
-private:
-
-	
-
-
+	static std::string to_hex_string(const std::vector<unsigned char>& data);
 private:
 	std::vector<unsigned char> header_;
 	std::vector<unsigned char> footer_;
-
 	std::vector<unsigned char> buffer_;
 };
 

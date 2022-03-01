@@ -14,7 +14,7 @@ void WallPadSwitch::dump_config()
 
 void WallPadSwitch::publish(const std::vector<uint8_t>& data)
 {
-    ESP_LOGW(TAG, "'%s' State not found: %s", device_name_->c_str(), hexencode(data).c_str());
+    ESP_LOGW(TAG, "'%s' State not found: %s", device_name_->c_str(), Parser::to_hex_string(data).c_str());
 }
 
 }  // namespace wallpad
