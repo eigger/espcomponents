@@ -24,7 +24,6 @@ void WallPadComponent::dump_config()
     if (tx_suffix_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_suffix: %s", hexencode(&tx_suffix_.value()[0], tx_suffix_len_).c_str());
     ESP_LOGCONFIG(TAG, "  Data rx_checksum: %s", YESNO(rx_checksum_));
     ESP_LOGCONFIG(TAG, "  Data tx_checksum: %s", YESNO(tx_checksum_));
-    if (state_response_.has_value()) ESP_LOGCONFIG(TAG, "  Data response: %s, offset: %d", hexencode(&state_response_.value().data[0], state_response_.value().data.size()).c_str(), state_response_.value().offset);
     ESP_LOGCONFIG(TAG, "  Device count: %d", devices_.size());
 }
 
@@ -62,67 +61,64 @@ void WallPadComponent::setup()
     if (tx_checksum2_) this->tx_checksum_len_++;
 
     ESP_LOGI(TAG, "HW Serial Initaialize.");
-    rx_lastTime_ = set_time();
-    tx_start_time_ = set_time();
+    rx_lastTime_ = get_time();
+    tx_start_time_ = get_time();
     if (rx_prefix_.has_value()) parser_.add_headers(rx_prefix_.value());
     if (rx_suffix_.has_value()) parser_.add_footers(rx_suffix_.value());
 }
 
 void WallPadComponent::loop()
 {
-    // Receive Process
-    rx_proc();
+    recive_from_serial();
 
-    // Publish Receive Packet
-    publish_proc();
+    treat_recived_data();
     
-    // queue Process
-    tx_proc();
+    send_to_serial();
 }
 
-void WallPadComponent::rx_proc()
+void WallPadComponent::recive_from_serial()
 {
-    parser_.clear_buffer();
-    rx_timeOut_ = conf_rx_wait_;
-    while (rx_timeOut_ > 0)
+    parser_.clear();
+    unsigned long timer = get_time(); 
+    while (elapsed_time(timer) < conf_rx_wait_)
     {
         while (this->hw_serial_->available())
         {
             if (parser_.parse_byte(this->hw_serial_->read())) return;
-            if (validate() == ERR_NONE) return;
-            rx_timeOut_ = conf_rx_wait_;  // if serial received, reset timeout counter
+            if (validate_data() == ERR_NONE) return;
+            timer = get_time();
         }
         delay(1);
-        rx_timeOut_--;
     }
 }
 
-void WallPadComponent::publish_proc()
+void WallPadComponent::treat_recived_data()
 {
-     // Ack Timeout
-    if (tx_ack_wait_ && elapsed_time(tx_start_time_) > conf_tx_wait_) tx_ack_wait_ = false;
     if (parser_.get_buffer().size() == 0) return;
-    if (validate(true) != ERR_NONE) return;
+    if (validate_data(true) != ERR_NONE) return;
+    if (validate_ack()) return;
+    publish_data();
+}
 
-    // for Ack
-    if (tx_ack_wait_ && is_send_cmd())
-    {
-        auto *device = get_send_device();
-        if (device->equal(parser_.get_data(), get_send_cmd()->ack, 0))
-        {
-            device->ack_ok();
-            clear_send_cmd();
-            ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", hexencode(parser_.get_buffer()).c_str(), elapsed_time(tx_start_time_));
-            rx_lastTime_ = set_time();
-            return;
-        }
-    }
+bool WallPadComponent::validate_ack()
+{
+    if (!tx_ack_wait_) return false;
+    if (!is_send_cmd()) return false;
+    auto *device = get_send_device();
+    if (!device->equal(parser_.get_data(), get_send_cmd()->ack, 0)) return false;
+    device->ack_ok();
+    clear_send_cmd();
+    ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", hexencode(parser_.get_buffer()).c_str(), elapsed_time(tx_start_time_));
+    rx_lastTime_ = get_time();
+    return true;
+}
 
+void WallPadComponent::publish_data()
+{
 #ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
     ESP_LOGVV(TAG, "Receive data-> %s, Gap Time: %lums", hexencode(parser_.get_buffer()).c_str(), elapsed_time(rx_lastTime_));
 #endif
 
-    // Publish State
     bool found = false;
     for (auto *device : this->devices_)
     {
@@ -138,7 +134,7 @@ void WallPadComponent::publish_proc()
         ESP_LOGV(TAG, "Notfound data-> %s", hexencode(parser_.get_buffer()).c_str());
     }
 #endif
-    rx_lastTime_ = set_time();
+    rx_lastTime_ = get_time();
 }
 
 void WallPadComponent::pop_tx_command()
@@ -154,30 +150,35 @@ void WallPadComponent::pop_tx_command()
         }
     }
 }
-void WallPadComponent::tx_proc()
+void WallPadComponent::send_to_serial()
 {
-    if (parser_.get_buffer().size() > 0) return;
+    if (tx_ack_wait_ && elapsed_time(tx_start_time_) > conf_tx_wait_) tx_ack_wait_ = false;
     if (elapsed_time(rx_lastTime_) < conf_tx_interval_) return;
     if (elapsed_time(tx_start_time_) < conf_tx_interval_) return;
     if (tx_ack_wait_) return;
-    // Command retry
-    if (is_send_cmd())
+    if (send_retry()) return;
+    send_command();
+}
+
+bool WallPadComponent::send_retry()
+{
+    if (!is_send_cmd()) return false;
+    if (conf_tx_retry_cnt_ <= tx_retry_cnt_)
     {
-        if (conf_tx_retry_cnt_ > tx_retry_cnt_)
-        {
-            ESP_LOGD(TAG, "Retry count: %d", tx_retry_cnt_);
-            write_with_header(get_send_cmd()->data);
-            tx_ack_wait_ = true;
-            tx_retry_cnt_++;
-            return;
-        }
-        else
-        {
-            get_send_device()->ack_ng();
-            clear_send_cmd();
-            ESP_LOGD(TAG, "Retry fail.");
-        }
+        get_send_device()->ack_ng();
+        clear_send_cmd();
+        ESP_LOGD(TAG, "Retry fail.");
+        return false;
     }
+    ESP_LOGD(TAG, "Retry count: %d", tx_retry_cnt_);
+    write_with_header(get_send_cmd()->data);
+    tx_ack_wait_ = true;
+    tx_retry_cnt_++;
+    return true;
+}
+
+void WallPadComponent::send_command()
+{
     pop_tx_command();
     if (!tx_queue_.empty() || !tx_queue_late_.empty())
     {
@@ -207,7 +208,7 @@ void WallPadComponent::tx_proc()
 
 void WallPadComponent::write_with_header(const std::vector<uint8_t> &data)
 {
-    tx_start_time_ = set_time();
+    tx_start_time_ = get_time();
     if (ctrl_pin_) ctrl_pin_->digital_write(TX_ENABLE);
     if (true)
     {
@@ -255,7 +256,7 @@ void WallPadComponent::write_with_header(const std::vector<uint8_t> &data)
     }
 
     // for Ack wait
-    tx_start_time_ = set_time();
+    tx_start_time_ = get_time();
 }
 
 void WallPadComponent::write_byte(uint8_t data)
@@ -286,7 +287,7 @@ void WallPadComponent::flush()
     ESP_LOGD(TAG, "Flushing... (%lums)", elapsed_time(tx_start_time_));
 }
 
-ValidateCode WallPadComponent::validate(bool log)
+ValidateCode WallPadComponent::validate_data(bool log)
 {
     if (parser_.get_data().size() < rx_checksum_len_)
     {

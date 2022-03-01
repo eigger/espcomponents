@@ -25,23 +25,119 @@ void WallPadDevice::dump_wallpad_device_config(const char *TAG)
     if (command_off_.has_value() && command_off_.value().ack.size() > 0) ESP_LOGCONFIG(TAG, "  Command OFF Ack: %s", hexencode(&command_off_.value().ack[0], command_off_.value().ack.size()).c_str());
     if (command_state_.has_value()) ESP_LOGCONFIG(TAG, "  Command State: %s", hexencode(&command_state_.value().data[0], command_state_.value().data.size()).c_str());
     if (command_state_.has_value() && command_state_.value().ack.size() > 0) ESP_LOGCONFIG(TAG, "  Command State Ack: %s", hexencode(&command_state_.value().ack[0], command_state_.value().ack.size()).c_str());
+    if (state_response_.has_value()) ESP_LOGCONFIG(TAG, "  Data response: %s, offset: %d", hexencode(&state_response_.value().data[0], state_response_.value().data.size()).c_str(), state_response_.value().offset);
     LOG_UPDATE_INTERVAL(this);
+}
+
+void WallPadDevice::set_device(hex_t device)
+{ 
+    device_ = device;
+}
+
+void WallPadDevice::set_sub_device(hex_t sub_device)
+{
+    sub_device_ = sub_device;
+}
+
+void WallPadDevice::set_state_on(hex_t state_on)
+{ 
+    state_on_ = state_on;
+}
+
+void WallPadDevice::set_state_off(hex_t state_off)
+{
+    state_off_ = state_off;
+}
+
+void WallPadDevice::set_command_on(cmd_hex_t command_on)
+{
+    command_on_ = command_on;
+}
+
+void WallPadDevice::set_command_on(std::function<cmd_hex_t()> command_on_func)
+{
+    command_on_func_ = command_on_func;
+}
+
+const cmd_hex_t *WallPadDevice::get_command_on()
+{
+    if (command_on_func_.has_value())
+        command_on_ = (*command_on_func_)();
+    return &command_on_.value();
+}
+
+void WallPadDevice::set_command_off(cmd_hex_t command_off)
+{
+    command_off_ = command_off;
+}
+
+void WallPadDevice::set_command_off(std::function<cmd_hex_t()> command_off_func)
+{
+    command_off_func_ = command_off_func;
+}
+
+const cmd_hex_t *WallPadDevice::get_command_off()
+{
+    if (command_off_func_.has_value())
+        command_off_ = (*command_off_func_)();
+    return &command_off_.value();
+}
+
+void WallPadDevice::set_command_state(cmd_hex_t command_state)
+{
+    command_state_ = command_state;
+}
+/** Response Packet Pattern */
+void WallPadDevice::set_state_response(hex_t state_response)
+{
+    state_response_ = state_response;
+}
+
+bool WallPadDevice::is_have_command()
+{
+    return tx_cmd_queue_.size() > 0 ? true : false;
+}
+
+const cmd_hex_t *WallPadDevice::pop_command()
+{
+    if (state_response_.has_value() && !rx_response_)
+        return nullptr;
+    rx_response_ = false;
+    if (tx_cmd_queue_.size() == 0)
+        return nullptr;
+    const cmd_hex_t *cmd = tx_cmd_queue_.front();
+    tx_cmd_queue_.pop();
+    return cmd;
+}
+
+void WallPadDevice::ack_ok()
+{
+    tx_cmd_queue_.size() == 0 ? set_tx_pending(false) : set_tx_pending(true);
+}
+
+void WallPadDevice::ack_ng()
+{
+    ack_ok();
+}
+
+void WallPadDevice::set_tx_pending(bool pending)
+{
+    tx_pending_ = pending;
 }
 
 bool WallPadDevice::parse_data(const std::vector<uint8_t>& data)
 {
     if (tx_pending_) return false;
-
+    if (state_response_.has_value() && validate(data, &state_response_.value()))    rx_response_ = true;
+    else                                                                            rx_response_ = false;
+    
     if (!validate(data, &device_)) return false;
     else if (sub_device_.has_value() && !validate(data, &sub_device_.value())) return false;
-
-    // Turn OFF Message
     if (state_off_.has_value() && validate(data, &state_off_.value()))
     {
         if (!publish(false)) publish(data);
         return true;
     }
-    // Turn ON Message
     else if (state_on_.has_value() && validate(data, &state_on_.value()))
     {
         if (!publish(true)) publish(data);

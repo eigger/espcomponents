@@ -2,7 +2,6 @@
 
 Parser::Parser()
 {
-	clear_buffer();
 }
 
 
@@ -53,7 +52,7 @@ bool Parser::validate_data(const std::vector<unsigned char>& checksum)
 	return std::equal(buffer_.end() - checksum.size() - footer_.size(), buffer_.end() - footer_.size(), checksum.begin());
 }
 
-void Parser::clear_buffer(void)
+void Parser::clear(void)
 {
 	buffer_.clear();
 }

@@ -18,7 +18,7 @@ public:
 
 	bool parse_byte(const unsigned char byte);
 	bool validate_data(const std::vector<unsigned char>& checksums);
-	void clear_buffer(void);
+	void clear(void);
 	const std::vector<unsigned char> get_data(void);
 	const std::vector<unsigned char> get_buffer(void);
 	bool parse_header(void);

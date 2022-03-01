@@ -122,7 +122,6 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_TX_CHECKSUM): cv.templatable(cv.boolean),
     cv.Optional(CONF_TX_CHECKSUM_LAMBDA): cv.returning_lambda,
     cv.Optional(CONF_TX_CHECKSUM2): cv.templatable(cv.boolean),
-    cv.Optional(CONF_STATE_RESPONSE): state_hex_schema,
 }).extend(cv.COMPONENT_SCHEMA),
 cv.has_at_least_one_key(CONF_TX_PIN, CONF_RX_PIN),
 )
@@ -155,10 +154,6 @@ async def to_code(config):
     if CONF_CTRL_PIN in config:
         ctrl_pin = await cg.gpio_pin_expression(config[CONF_CTRL_PIN])
         cg.add(var.set_ctrl_pin(ctrl_pin))
-
-    if CONF_STATE_RESPONSE in config:
-        state_response = await state_hex_expression(config[CONF_STATE_RESPONSE])
-        cg.add(var.set_state_response(state_response))
     
     if CONF_MODEL in config:
         cg.add(var.set_model(config[CONF_MODEL]))
@@ -245,6 +240,7 @@ WallPad_DEVICE_SCHEMA = cv.Schema({
     cv.Required(CONF_COMMAND_ON): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_STATE): command_hex_schema,
+    cv.Optional(CONF_STATE_RESPONSE): state_hex_schema,
 }).extend(cv.polling_component_schema('60s'))
 
 STATE_NUM_SCHEMA = cv.Schema({
@@ -300,6 +296,10 @@ def register_wallpad_device(var, config):
     if CONF_COMMAND_STATE in config:
         command_state = yield command_hex_expression(config[CONF_COMMAND_STATE])
         cg.add(var.set_command_state(command_state))
+    
+    if CONF_STATE_RESPONSE in config:
+        state_response = yield state_hex_expression(config[CONF_STATE_RESPONSE])
+        cg.add(var.set_state_response(state_response))
 
 
 @coroutine

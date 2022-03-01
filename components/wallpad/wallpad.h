@@ -154,9 +154,6 @@ public:
     /** RX,TX Control pin */
     void set_ctrl_pin(InternalGPIOPin *pin) { ctrl_pin_ = pin; }
 
-    /** Response Packet Pattern */
-    void set_state_response(hex_t state_response) { state_response_ = state_response; }
-
     void set_tx_pin(InternalGPIOPin *tx_pin) { tx_pin_ = tx_pin; }
     void set_rx_pin(InternalGPIOPin *rx_pin) { rx_pin_ = rx_pin; }
 
@@ -168,7 +165,7 @@ public:
     const cmd_hex_t* get_send_cmd() { return tx_send_cmd_.cmd; }
     WallPadDevice* get_send_device() { return tx_send_cmd_.device; }
     unsigned long elapsed_time(const unsigned long timer) { return millis() - timer; }
-    unsigned long set_time() { return millis(); }
+    unsigned long get_time() { return millis(); }
 protected:
     HardwareSerial *hw_serial_{nullptr};
     std::vector<WallPadDevice *> devices_{};
@@ -203,20 +200,18 @@ protected:
     optional<std::function<uint8_t(const uint8_t *data, const num_t len)>> tx_checksum_f_{};
     optional<std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum1)>> tx_checksum2_f_{};
 
-    /** 수신데이터 검증 */
-    ValidateCode validate(bool log = false);
+    ValidateCode validate_data(bool log = false);
 
-    /** 수신처리 */
-    void rx_proc();
+    void recive_from_serial();
+    void treat_recived_data();
+    bool validate_ack();
+    void publish_data();
 
-    void publish_proc();
-
+    void send_to_serial();
+    bool send_retry();
+    void send_command();
     void pop_tx_command();
-    /** 전송처리 */
-    void tx_proc();
 
-    //////// 수신처리 관련 변수  ////////
-    int rx_timeOut_{conf_rx_wait_};
     unsigned long rx_lastTime_{0};
 
     /** queue for Command */
@@ -224,7 +219,6 @@ protected:
     /** queue for State request */
     std::queue<send_hex_t> tx_queue_late_{};
 
-    //////// 전송처리 관련 변수  ////////
     send_hex_t tx_send_cmd_{};
     unsigned long tx_start_time_{0};
     bool tx_ack_wait_{false};

@@ -41,42 +41,24 @@ class WallPadDevice : public PollingComponent
 public:
     void update() override;
     void dump_wallpad_device_config(const char *TAG);
-
-    void set_device(hex_t device) { device_ = device; }
-    void set_sub_device(hex_t sub_device) { sub_device_ = sub_device; }
-    void set_state_on(hex_t state_on) { state_on_ = state_on; }
-    void set_state_off(hex_t state_off) { state_off_ = state_off; }
-
-    void set_command_on(cmd_hex_t command_on) { command_on_ = command_on; }
-    void set_command_on(std::function<cmd_hex_t()> command_on_func) { command_on_func_ = command_on_func; }
-    const cmd_hex_t *get_command_on()
-    {
-        if (command_on_func_.has_value()) command_on_ = (*command_on_func_)();
-        return &command_on_.value();
-    }
-
-    void set_command_off(cmd_hex_t command_off) { command_off_ = command_off; }
-    void set_command_off(std::function<cmd_hex_t()> command_off_func) { command_off_func_ = command_off_func; }
-    const cmd_hex_t *get_command_off()
-    {
-        if (command_off_func_.has_value()) command_off_ = (*command_off_func_)();
-        return &command_off_.value();
-    }
-
-    void set_command_state(cmd_hex_t command_state) { command_state_ = command_state; }
-
+    void set_device(hex_t device);
+    void set_sub_device(hex_t sub_device);
+    void set_state_on(hex_t state_on);
+    void set_state_off(hex_t state_off);
+    void set_command_on(cmd_hex_t command_on);
+    void set_command_on(std::function<cmd_hex_t()> command_on_func);
+    const cmd_hex_t* get_command_on();
+    void set_command_off(cmd_hex_t command_off);
+    void set_command_off(std::function<cmd_hex_t()> command_off_func);
+    const cmd_hex_t* get_command_off();
+    void set_command_state(cmd_hex_t command_state);
+    void set_state_response(hex_t state_response);
     void push_command(const cmd_hex_t *cmd);
-    bool is_have_command() { return tx_cmd_queue_.size() > 0 ? true : false; }
-    const cmd_hex_t* pop_command()
-    {
-        if (tx_cmd_queue_.size() == 0) return nullptr;
-        const cmd_hex_t* cmd = tx_cmd_queue_.front();
-        tx_cmd_queue_.pop();
-        return cmd;
-    }
-    void ack_ok() { tx_cmd_queue_.size() == 0 ? set_tx_pending(false) : set_tx_pending(true); }
-    void ack_ng() { ack_ok(); }
-    void set_tx_pending(bool pending) { tx_pending_ = pending; }
+    bool is_have_command(;
+    const cmd_hex_t* pop_command();
+    void ack_ok();
+    void ack_ng();
+    void set_tx_pending(bool pending);
     bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,  const num_t offset);
     bool validate(const std::vector<uint8_t>& data, const hex_t *cmd);
     float hex_to_float(const uint8_t *data, const num_t len, const num_t precision);
@@ -103,7 +85,9 @@ protected:
     optional<cmd_hex_t> command_off_{};
     optional<std::function<cmd_hex_t()>> command_off_func_{};
     optional<cmd_hex_t> command_state_;
+    optional<hex_t> state_response_{};
     bool tx_pending_{false};
+    bool rx_response_{false};
     std::queue<const cmd_hex_t*> tx_cmd_queue_{};
 };
 
@@ -111,11 +95,6 @@ protected:
 /** uint8_t[] to hex string  */
 std::string hexencode(const std::vector<uint8_t>& raw_data);
 std::string hexencode(const uint8_t *raw_data, const num_t len);
-
-/** uint8_t[] to decimal(float) */
-
-
-
 
 } // namespace wallpad
 } // namespace esphome
