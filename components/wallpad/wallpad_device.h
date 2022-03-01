@@ -3,7 +3,6 @@
 #include <queue>
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
-#include "encoder.h"
 
 namespace esphome {
 namespace wallpad {
@@ -91,6 +90,17 @@ protected:
     bool rx_response_{false};
     std::queue<const cmd_hex_t*> tx_cmd_queue_{};
 };
+
+std::string to_hex_string(const std::vector<unsigned char>& data)
+{
+    std::string str;
+	for (unsigned char hex : data)
+    {
+        str += std::format("0x%02X ", hex);
+    }
+	str += std::format("(%d byte)", data.size());
+	return str;
+}
 
 } // namespace wallpad
 } // namespace esphome
