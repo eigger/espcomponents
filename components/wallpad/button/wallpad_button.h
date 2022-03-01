@@ -1,5 +1,5 @@
 #pragma once
-
+#include "esphome/components/wallpad/encoder.h"
 #include "esphome/components/wallpad/wallpad_device.h"
 #include "esphome/components/button/button.h"
 
