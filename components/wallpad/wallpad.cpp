@@ -413,12 +413,10 @@ uint8_t WallPadComponent::make_tx_checksum2(const uint8_t *data, const num_t len
                 crc += this->tx_prefix_.value()[i];
             }
         }
-
         for (num_t i = 0; i < len; i++)
         {
             crc += data[i];
         }
-            
         if (this->tx_checksum_) crc += checksum1;
         return crc;
     }
