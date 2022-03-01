@@ -7,7 +7,7 @@
 namespace esphome {
 namespace wallpad {
 
-class WallPadSensor : public sensor::TextSensor, public WallPadDevice
+class WallPadSensor : public text_sensor::TextSensor, public WallPadDevice
 {
 public:
     WallPadSensor() { device_name_ = &this->name_; }
