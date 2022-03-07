@@ -112,11 +112,9 @@ bool WallPadDevice::is_have_command()
 
 const cmd_hex_t *WallPadDevice::pop_command()
 {
-    if (state_response_.has_value() && !rx_response_)
-        return nullptr;
+    if (state_response_.has_value() && !rx_response_) return nullptr;
     rx_response_ = false;
-    if (tx_cmd_queue_.size() == 0)
-        return nullptr;
+    if (tx_cmd_queue_.size() == 0) return nullptr;
     const cmd_hex_t *cmd = tx_cmd_queue_.front();
     tx_cmd_queue_.pop();
     return cmd;
@@ -138,21 +136,17 @@ bool WallPadDevice::parse_data(const std::vector<uint8_t> &data)
     else
         rx_response_ = false;
 
-    if (!validate(data, &device_))
-        return false;
-    else if (sub_device_.has_value() && !validate(data, &sub_device_.value()))
-        return false;
+    if (!validate(data, &device_)) return false;
+    else if (sub_device_.has_value() && !validate(data, &sub_device_.value())) return false;
 
     if (state_off_.has_value() && validate(data, &state_off_.value()))
     {
-        if (!publish(false))
-            publish(data);
+        if (!publish(false)) publish(data);
         return true;
     }
     else if (state_on_.has_value() && validate(data, &state_on_.value()))
     {
-        if (!publish(true))
-            publish(data);
+        if (!publish(true)) publish(data);
         return true;
     }
     publish(data);
@@ -166,20 +160,17 @@ void WallPadDevice::push_command(const cmd_hex_t *cmd)
 
 bool WallPadDevice::equal(const std::vector<uint8_t> &data1, const std::vector<uint8_t> &data2, const num_t offset)
 {
-    if (data1.size() - offset < data2.size())
-        return false;
+    if (data1.size() - offset < data2.size()) return false;
     return std::equal(data1.begin() + offset, data1.begin() + offset + data2.size(), data2.begin());
 }
 
 bool WallPadDevice::validate(const std::vector<uint8_t> &data, const hex_t *cmd)
 {
-    if (!cmd->and_operator)
-        return equal(data, cmd->data, cmd->offset) ? !cmd->inverted : cmd->inverted;
+    if (!cmd->and_operator) return equal(data, cmd->data, cmd->offset) ? !cmd->inverted : cmd->inverted;
     else if (data.size() - cmd->offset > 0 && cmd->data.size() > 0)
     {
         uint8_t val = data[cmd->offset] & (cmd->data[0]);
-        if (cmd->data.size() == 1)
-            return val ? !cmd->inverted : cmd->inverted;
+        if (cmd->data.size() == 1) return val ? !cmd->inverted : cmd->inverted;
         else
         {
             bool ret = false;
@@ -194,8 +185,7 @@ bool WallPadDevice::validate(const std::vector<uint8_t> &data, const hex_t *cmd)
             return ret ? !cmd->inverted : cmd->inverted;
         }
     }
-    else
-        return false;
+    return false;
 }
 
 float WallPadDevice::hex_to_float(const uint8_t *data, const num_t len, const num_t precision)

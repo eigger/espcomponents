@@ -32,7 +32,7 @@ enum ValidateCode {
 
 
 /** Send HEX Struct */
-struct send_hex_t
+struct write_data
 {
     WallPadDevice *device;
     const cmd_hex_t *cmd;
@@ -74,22 +74,23 @@ public:
     void write_byte(uint8_t data);
     void write_array(const std::vector<uint8_t> &data);
     void write_with_header(const std::vector<uint8_t> &data);
-    void write_next(const send_hex_t send);
-    void write_next_late(const send_hex_t send);
+    void write_next(const write_data data);
+    void write_next_late(const write_data data);
     void flush();
     void register_device(WallPadDevice *device);
     void set_tx_interval(num_t tx_interval);
     void set_tx_wait(num_t tx_wait);
     void set_tx_retry_cnt(num_t tx_retry_cnt);
     void set_ctrl_pin(InternalGPIOPin *pin);
+    void set_status_pin(InternalGPIOPin *pin);
     void set_tx_pin(InternalGPIOPin *tx_pin);
     void set_rx_pin(InternalGPIOPin *rx_pin);
     void set_model(Model model);
     Model get_model();
-    bool is_send_cmd();
-    void clear_send_cmd();
-    const cmd_hex_t* get_send_cmd();
-    WallPadDevice* get_send_device();
+    bool is_have_writing_data();
+    void clear_writing_data();
+    const cmd_hex_t* get_writing_cmd();
+    WallPadDevice* get_writing_device();
     unsigned long elapsed_time(const unsigned long timer);
     unsigned long get_time();
 protected:
@@ -128,26 +129,26 @@ protected:
 
     ValidateCode validate_data(bool log = false);
 
-    void recive_from_serial();
+    void read_from_serial();
     void treat_recived_data();
     bool validate_ack();
     void publish_data();
 
-    void send_to_serial();
-    bool send_retry();
-    void send_command();
-    void pop_tx_command();
+    void write_to_serial();
+    bool retry_write();
+    void write_command();
+    void pop_command_to_write();
 
     unsigned long rx_lastTime_{0};
+    std::queue<write_data> tx_queue_{};
+    std::queue<write_data> tx_queue_late_{};
 
-    std::queue<send_hex_t> tx_queue_{};
-    std::queue<send_hex_t> tx_queue_late_{};
-
-    send_hex_t tx_send_cmd_{};
+    write_data writing_data_{};
     unsigned long tx_start_time_{0};
     bool tx_ack_wait_{false};
     num_t tx_retry_cnt_{0};
     InternalGPIOPin *ctrl_pin_{nullptr};
+    InternalGPIOPin *status_pin_{nullptr};
     InternalGPIOPin *tx_pin_{nullptr};
     InternalGPIOPin *rx_pin_{nullptr};
     Parser parser_{};
