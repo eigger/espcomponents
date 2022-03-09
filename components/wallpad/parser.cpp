@@ -71,10 +71,10 @@ bool Parser::parse_footer(void)
 	return std::equal(buffer_.end() - footer_.size(), buffer_.end(), footer_.begin());
 }
 
-const std::vector<unsigned char> Parser::data(void)
+const std::vector<unsigned char> Parser::data(size_t offset)
 {
-	if (buffer_.size() < header_.size() + footer_.size()) return std::vector<unsigned char>();
-	return std::vector<unsigned char>(buffer_.begin() + header_.size(), buffer_.end() - footer_.size());
+	if (buffer_.size() < header_.size() + footer_.size() + offset) return std::vector<unsigned char>();
+	return std::vector<unsigned char>(buffer_.begin() + header_.size(), buffer_.end() - footer_.size() - offset);
 }
 
 const std::vector<unsigned char> Parser::buffer(void)

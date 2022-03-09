@@ -19,7 +19,7 @@ public:
 	bool parse_byte(const unsigned char byte);
 	bool validate_data(const std::vector<unsigned char>& checksums);
 	void clear(void);
-	const std::vector<unsigned char> data(void);
+	const std::vector<unsigned char> data(size_t offset = 0);
 	const std::vector<unsigned char> buffer(void);
 	bool parse_header(void);
 	bool parse_footer(void);

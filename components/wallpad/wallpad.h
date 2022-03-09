@@ -26,10 +26,15 @@ enum ValidateCode {
     ERR_SIZE,
     ERR_PREFIX,
     ERR_SUFFIX,
-    ERR_CHECKSUM,
-    ERR_CHECKSUM2
+    ERR_CHECKSUM
 };
 
+enum CheckSum {
+    CHECKSUM_NONE,
+    CHECKSUM_CUSTOM,
+    CHECKSUM_XOR,
+    CHECKSUM_ADD
+}
 
 /** Send HEX Struct */
 struct write_data
@@ -55,18 +60,12 @@ public:
     void set_rx_suffix(std::vector<uint8_t> suffix);
     void set_tx_prefix(std::vector<uint8_t> prefix);
     void set_tx_suffix(std::vector<uint8_t> suffix);
-    void set_rx_checksum(bool checksum);
+    void set_rx_checksum(CheckSum checksum);
     void set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f);
-    void set_rx_checksum2(bool checksum2);
-    void set_rx_checksum2_lambda(std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum1)> &&f);
-    void set_tx_checksum(bool checksum);
+    void set_tx_checksum(CheckSum checksum);
     void set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f);
-    void set_tx_checksum2(bool checksum2);
-    void set_tx_checksum2_lambda(std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum1)> &&f);
-    uint8_t make_rx_checksum(const uint8_t *data, const num_t len) const;
-    uint8_t make_rx_checksum2(const uint8_t *data, const num_t len, const uint8_t checksum1) const;
-    uint8_t make_tx_checksum(const uint8_t *data, const num_t len) const;
-    uint8_t make_tx_checksum2(const uint8_t *data, const num_t len, const uint8_t checksum1) const;
+    uint8_t make_rx_checksum(const std::vector<uint8_t> &data) const;
+    uint8_t make_tx_checksum(const std::vector<uint8_t> &data) const;
     void dump_config() override;
     void setup() override;
     void loop() override;
@@ -107,25 +106,16 @@ protected:
     num_t conf_tx_retry_cnt_{3};
 
     optional<std::vector<uint8_t>> rx_prefix_{};
-    num_t rx_prefix_len_{0};
     optional<std::vector<uint8_t>> rx_suffix_{};
-    num_t rx_suffix_len_{0};
     optional<std::vector<uint8_t>> tx_prefix_{};
-    num_t tx_prefix_len_{0};
     optional<std::vector<uint8_t>> tx_suffix_{};
-    num_t tx_suffix_len_{0};
 
     num_t rx_checksum_len_{0};
-    bool rx_checksum_{false};
-    bool rx_checksum2_{false};
+    CheckSum rx_checksum_{CHECKSUM_NONE};
     optional<std::function<uint8_t(const uint8_t *data, const num_t len)>> rx_checksum_f_{};
-    optional<std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum1)>> rx_checksum2_f_{};
-
-    num_t tx_checksum_len_{0};
-    bool tx_checksum_{false};
-    bool tx_checksum2_{false};
+ 
+    CheckSum tx_checksum_{CHECKSUM_NONE};
     optional<std::function<uint8_t(const uint8_t *data, const num_t len)>> tx_checksum_f_{};
-    optional<std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum1)>> tx_checksum2_f_{};
 
     ValidateCode validate_data(bool log = false);
 

@@ -8,8 +8,8 @@ from esphome.core import CORE, coroutine
 from esphome.util import SimpleRegistry
 from .const import CONF_DATA_BITS, CONF_PARITY, CONF_STOP_BITS, \
     CONF_RX_PREFIX, CONF_RX_SUFFIX, CONF_TX_PREFIX, CONF_TX_SUFFIX, \
-    CONF_RX_CHECKSUM, CONF_RX_CHECKSUM2, CONF_RX_CHECKSUM_LAMBDA, \
-    CONF_TX_CHECKSUM, CONF_TX_CHECKSUM2, CONF_TX_CHECKSUM_LAMBDA, \
+    CONF_RX_CHECKSUM, CONF_RX_CHECKSUM_LAMBDA, \
+    CONF_TX_CHECKSUM, CONF_TX_CHECKSUM_LAMBDA, \
     CONF_ACK, CONF_WALLPAD_ID, CONF_MODEL, \
     CONF_SUB_DEVICE, \
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
@@ -35,6 +35,13 @@ MODELS = {
     "CUSTOM": Model.MODEL_CUSTOM,
     "KOCOM": Model.MODEL_KOCOM,
     "SDS": Model.MODEL_SDS,
+}
+
+Checksum = wallpad_ns.enum("CheckSum")
+CHECKSUMS = {
+    "NONE": Checksum.CHECKSUM_NONE,
+    "XOR": Checksum.CHECKSUM_XOR,
+    "ADD": Checksum.CHECKSUM_ADD,
 }
 
 
@@ -117,12 +124,10 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_RX_SUFFIX): validate_hex_data,
     cv.Optional(CONF_TX_PREFIX): validate_hex_data,
     cv.Optional(CONF_TX_SUFFIX): validate_hex_data,
-    cv.Optional(CONF_RX_CHECKSUM): cv.templatable(cv.boolean),
+    cv.Optional(CONF_RX_CHECKSUM, default="none"): cv.enum(CHECKSUMS, upper=True),
     cv.Optional(CONF_RX_CHECKSUM_LAMBDA): cv.returning_lambda,
-    cv.Optional(CONF_RX_CHECKSUM2): cv.templatable(cv.boolean),
-    cv.Optional(CONF_TX_CHECKSUM): cv.templatable(cv.boolean),
+    cv.Optional(CONF_TX_CHECKSUM, default="none"): cv.enum(CHECKSUMS, upper=True),
     cv.Optional(CONF_TX_CHECKSUM_LAMBDA): cv.returning_lambda,
-    cv.Optional(CONF_TX_CHECKSUM2): cv.templatable(cv.boolean),
 }).extend(cv.COMPONENT_SCHEMA),
 cv.has_at_least_one_key(CONF_TX_PIN, CONF_RX_PIN),
 )
@@ -192,17 +197,6 @@ async def to_code(config):
         else:
             cg.add(var.set_rx_checksum(data))
 
-    if CONF_RX_CHECKSUM2 in config:
-        data = config[CONF_RX_CHECKSUM2]
-        if cg.is_template(data):
-            template_ = await cg.process_lambda(data,
-                                                [(uint8_ptr_const, 'data'), (num_t_const,
-                                                                             'len'), (uint8_const, 'checksum1')],
-                                                return_type=cg.uint8)
-            cg.add(var.set_rx_checksum2_lambda(template_))
-        else:
-            cg.add(var.set_rx_checksum2(data))
-
     if CONF_TX_CHECKSUM_LAMBDA in config:
         _LOGGER.warning(CONF_TX_CHECKSUM_LAMBDA +
                         " is deprecated and will be removed in a future version.")
@@ -221,17 +215,6 @@ async def to_code(config):
             cg.add(var.set_tx_checksum_lambda(template_))
         else:
             cg.add(var.set_tx_checksum(data))
-
-    if CONF_TX_CHECKSUM2 in config:
-        data = config[CONF_TX_CHECKSUM2]
-        if cg.is_template(data):
-            template_ = await cg.process_lambda(data,
-                                                [(uint8_ptr_const, 'data'), (num_t_const,
-                                                                             'len'), (uint8_const, 'checksum1')],
-                                                return_type=cg.uint8)
-            cg.add(var.set_tx_checksum2_lambda(template_))
-        else:
-            cg.add(var.set_tx_checksum2(data))
 
 
 

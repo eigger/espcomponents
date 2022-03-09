@@ -23,8 +23,8 @@ void WallPadComponent::dump_config()
     if (rx_suffix_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_suffix: %s", to_hex_string(rx_suffix_.value()).c_str());
     if (tx_prefix_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_prefix: %s", to_hex_string(tx_prefix_.value()).c_str());
     if (tx_suffix_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_suffix: %s", to_hex_string(tx_suffix_.value()).c_str());
-    ESP_LOGCONFIG(TAG, "  Data rx_checksum: %s", YESNO(rx_checksum_));
-    ESP_LOGCONFIG(TAG, "  Data tx_checksum: %s", YESNO(tx_checksum_));
+    ESP_LOGCONFIG(TAG, "  Data rx_checksum: %d", rx_checksum_);
+    ESP_LOGCONFIG(TAG, "  Data tx_checksum: %d", tx_checksum_);
     ESP_LOGCONFIG(TAG, "  Device count: %d", devices_.size());
 }
 
@@ -61,9 +61,6 @@ void WallPadComponent::setup()
     }
 
     if (rx_checksum_)   this->rx_checksum_len_++;
-    if (rx_checksum2_)  this->rx_checksum_len_++;
-    if (tx_checksum_)   this->tx_checksum_len_++;
-    if (tx_checksum2_)  this->tx_checksum_len_++;
 
     rx_lastTime_ = get_time();
     tx_start_time_ = get_time();
@@ -208,14 +205,12 @@ void WallPadComponent::write_command()
 
 void WallPadComponent::write_with_header(const std::vector<uint8_t> &data)
 {
-    uint8_t crc = 0;
     tx_start_time_ = get_time();
     if (status_pin_) status_pin_->digital_write(true);
     if (ctrl_pin_) ctrl_pin_->digital_write(TX_ENABLE);
     if (tx_prefix_.has_value()) write_array(tx_prefix_.value());
     write_array(data);
-    if (tx_checksum_) write_byte(crc = make_tx_checksum(&(data[0]), data.size()));
-    if (tx_checksum2_) write_byte(make_tx_checksum2(&(data[0]), data.size(), crc));
+    if (tx_checksum_) write_byte(make_tx_checksum(data));
     if (tx_suffix_.has_value()) write_array(tx_suffix_.value());
     if (ctrl_pin_)
     {
@@ -338,16 +333,11 @@ ValidateCode WallPadComponent::validate_data(bool log)
         if (log) ESP_LOGW(TAG, "[Read] Suffix error: %s", to_hex_string(parser_.buffer()).c_str());
         return ERR_SUFFIX;
     }
-    uint8_t crc = rx_checksum_ ? make_rx_checksum(&parser_.data()[0], parser_.data().size() - rx_checksum_len_) : 0;
+    uint8_t crc = rx_checksum_ ? make_rx_checksum(parser_.data(rx_checksum_len_)) : 0;
     if (rx_checksum_ && crc != parser_.data()[parser_.data().size() - rx_checksum_len_])
     {
         if (log) ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(parser_.buffer()).c_str());
         return ERR_CHECKSUM;
-    }
-    if (rx_checksum2_ && make_rx_checksum2(&parser_.data()[0], parser_.data().size() - rx_checksum_len_, crc) != parser_.data()[parser_.data().size() - rx_checksum_len_ - 1])
-    {
-        if (log) ESP_LOGW(TAG, "[Read] Checksum2 error: %s", to_hex_string(parser_.buffer()).c_str());
-        return ERR_CHECKSUM2;
     }
     return ERR_NONE;
 }
@@ -362,160 +352,92 @@ WallPadComponent::WallPadComponent(int baud, num_t data, num_t parity, num_t sto
 void WallPadComponent::set_rx_prefix(std::vector<uint8_t> prefix)
 {
     rx_prefix_ = prefix;
-    rx_prefix_len_ = prefix.size();
 }
 void WallPadComponent::set_rx_suffix(std::vector<uint8_t> suffix)
 {
     rx_suffix_ = suffix;
-    rx_suffix_len_ = suffix.size();
 }
 void WallPadComponent::set_tx_prefix(std::vector<uint8_t> prefix)
 {
     tx_prefix_ = prefix;
-    tx_prefix_len_ = prefix.size();
 }
 void WallPadComponent::set_tx_suffix(std::vector<uint8_t> suffix)
 {
     tx_suffix_ = suffix;
-    tx_suffix_len_ = suffix.size();
 }
-void WallPadComponent::set_rx_checksum(bool checksum)
+void WallPadComponent::set_rx_checksum(CheckSum checksum)
 {
     rx_checksum_ = checksum;
 }
 void WallPadComponent::set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f)
 {
     rx_checksum_f_ = f;
-    rx_checksum_ = true;
+    rx_checksum_ = CHECKSUM_CUSTOM;
 }
-void WallPadComponent::set_rx_checksum2(bool checksum2)
-{
-    rx_checksum2_ = checksum2;
-}
-void WallPadComponent::set_rx_checksum2_lambda(std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum1)> &&f)
-{
-    rx_checksum2_f_ = f;
-    rx_checksum2_ = true;
-}
-void WallPadComponent::set_tx_checksum(bool checksum)
+void WallPadComponent::set_tx_checksum(CheckSum checksum)
 {
     tx_checksum_ = checksum;
 }
 void WallPadComponent::set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f)
 {
     tx_checksum_f_ = f;
-    tx_checksum_ = true;
+    tx_checksum_ = CHECKSUM_CUSTOM;
 }
-void WallPadComponent::set_tx_checksum2(bool checksum2)
-{
-    tx_checksum2_ = checksum2;
-}
-void WallPadComponent::set_tx_checksum2_lambda(std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum1)> &&f)
-{
-    tx_checksum2_f_ = f;
-    tx_checksum2_ = true;
-}
-uint8_t WallPadComponent::make_rx_checksum(const uint8_t *data, const num_t len) const
+uint8_t WallPadComponent::make_rx_checksum(const std::vector<uint8_t> &data) const
 {
     if (this->rx_checksum_f_.has_value())
     {
-        return (*rx_checksum_f_)(data, len);
+        return (*rx_checksum_f_)(&data[0], data.size());
     }
     else
     {
-        // CheckSum8 Xor
         uint8_t crc = 0;
-        if (this->rx_prefix_.has_value())
+        switch(rx_checksum_)
         {
-            for (num_t i = 0; i < this->rx_prefix_len_; i++)
+        case CHECKSUM_ADD:
+            if (this->rx_prefix_.has_value())
             {
-                crc ^= this->rx_prefix_.value()[i];
+                for (uint8_t byte : this->rx_prefix_.value()) { crc += byte; }
             }
+            for (uint8_t byte : data) { crc += byte; }
+            break;
+        case CHECKSUM_XOR:
+            if (this->rx_prefix_.has_value())
+            {
+                for (uint8_t byte : this->rx_prefix_.value()) { crc ^= byte; }
+            }
+            for (uint8_t byte : data) { crc ^= byte; }
+            break;
         }
-        for (num_t i = 0; i < len; i++)
-        {
-            crc ^= data[i];
-        }
-        return crc;
     }
 }
 
-uint8_t WallPadComponent::make_rx_checksum2(const uint8_t *data, const num_t len, const uint8_t checksum1) const
-{
-    if (this->rx_checksum2_f_.has_value())
-    {
-        return (*rx_checksum2_f_)(data, len, checksum1);
-    }
-    else
-    {
-        // CheckSum8 Add
-        uint8_t crc = 0;
-        if (this->rx_prefix_.has_value())
-        {
-            for (num_t i = 0; i < this->rx_prefix_len_; i++)
-            {
-                crc += this->rx_prefix_.value()[i];
-            }
-        }
-
-        for (num_t i = 0; i < len; i++)
-        {
-            crc += data[i];
-        }
-
-        if (this->rx_checksum_)
-            crc += checksum1;
-        return crc;
-    }
-}
-
-uint8_t WallPadComponent::make_tx_checksum(const uint8_t *data, const num_t len) const
+uint8_t WallPadComponent::make_tx_checksum(const std::vector<uint8_t> &data) const
 {
     if (this->tx_checksum_f_.has_value())
     {
-        return (*tx_checksum_f_)(data, len);
+        return (*tx_checksum_f_)(&data[0], data.size());
     }
     else
     {
-        // CheckSum8 Xor
         uint8_t crc = 0;
-        if (this->tx_prefix_.has_value())
+        switch(tx_checksum_)
         {
-            for (num_t i = 0; i < this->tx_prefix_len_; i++)
+        case CHECKSUM_ADD:
+            if (this->tx_prefix_.has_value())
             {
-                crc ^= this->tx_prefix_.value()[i];
+                for (uint8_t byte : this->tx_prefix_.value()) { crc += byte; }
             }
-        }
-        for (num_t i = 0; i < len; i++)
-        {
-            crc ^= data[i];
-        }
-        return crc;
-    }
-}
-
-uint8_t WallPadComponent::make_tx_checksum2(const uint8_t *data, const num_t len, const uint8_t checksum1) const
-{
-    if (this->tx_checksum2_f_.has_value())
-    {
-        return (*tx_checksum2_f_)(data, len, checksum1);
-    }
-    else
-    {
-        // CheckSum8 Add
-        uint8_t crc = 0;
-        if (this->tx_prefix_.has_value())
-        {
-            for (num_t i = 0; i < this->tx_prefix_len_; i++)
+            for (uint8_t byte : data) { crc += byte; }
+            break;
+        case CHECKSUM_XOR:
+            if (this->tx_prefix_.has_value())
             {
-                crc += this->tx_prefix_.value()[i];
+                for (uint8_t byte : this->tx_prefix_.value()) { crc ^= byte; }
             }
+            for (uint8_t byte : data) { crc ^= byte; }
+            break;
         }
-        for (num_t i = 0; i < len; i++)
-        {
-            crc += data[i];
-        }
-        if (this->tx_checksum_) crc += checksum1;
         return crc;
     }
 }
