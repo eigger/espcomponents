@@ -408,7 +408,8 @@ uint8_t WallPadComponent::make_rx_checksum(const std::vector<uint8_t> &data) con
             }
             for (uint8_t byte : data) { crc ^= byte; }
             break;
-        case default:
+        case CHECKSUM_NONE:
+        case CHECKSUM_CUSTOM:
             break;
         }
     }
@@ -439,7 +440,8 @@ uint8_t WallPadComponent::make_tx_checksum(const std::vector<uint8_t> &data) con
             }
             for (uint8_t byte : data) { crc ^= byte; }
             break;
-        case default:
+        case CHECKSUM_NONE:
+        case CHECKSUM_CUSTOM:
             break;
         }
         return crc;
