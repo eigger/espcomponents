@@ -88,6 +88,7 @@ void Parser::use_checksum()
 {
 	checksum_ = true;
 }
+
 unsigned char Parser::get_checksum()
 {
 	if (!checksum_) return 0;

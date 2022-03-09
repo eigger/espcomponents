@@ -97,7 +97,6 @@ def command_hex_schema(value):
 
 def validate_tx_pin(value):
     value = pins.internal_gpio_output_pin_schema(value)
-
     #  - esp8266: UART0 (TX: GPIO1, RX: GPIO3)
     #  - esp32: UART2 (TX: GPIO17, RX: GPIO16)
     if CORE.is_esp8266 and value[CONF_NUMBER] != 1:

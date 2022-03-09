@@ -32,18 +32,17 @@ void WallPadComponent::setup()
 {
 #ifdef ARDUINO_ARCH_ESP8266
     unsigned char serialconfig = 0x10;
-#endif
-#ifdef ARDUINO_ARCH_ESP32
-    uint32_t serialconfig = 0x8000010;
-#endif
     serialconfig += conf_parity_;
     serialconfig += (conf_data_ - 5) << 2;
     if (conf_stop_ == 2) serialconfig += 0x20;
-#ifdef ARDUINO_ARCH_ESP8266
     this->hw_serial_ = &Serial;
     this->hw_serial_->begin(conf_baud_, (SerialConfig)serialconfig);
 #endif
 #ifdef ARDUINO_ARCH_ESP32
+    uint32_t serialconfig = 0x8000010;
+    serialconfig += conf_parity_;
+    serialconfig += (conf_data_ - 5) << 2;
+    if (conf_stop_ == 2) serialconfig += 0x20;
     int8_t tx = this->tx_pin_ != nullptr ? this->tx_pin_->get_pin() : -1;
     int8_t rx = this->rx_pin_ != nullptr ? this->rx_pin_->get_pin() : -1;
     this->hw_serial_ = &Serial2;
@@ -59,9 +58,7 @@ void WallPadComponent::setup()
         this->status_pin_->setup();
         this->status_pin_->digital_write(false);
     }
-
     if (rx_checksum_) parser_.use_checksum();
-
     rx_time_ = get_time();
     tx_time_ = get_time();
     if (rx_prefix_.has_value()) parser_.add_headers(rx_prefix_.value());
@@ -105,7 +102,7 @@ bool WallPadComponent::validate_ack()
 {
     if (!is_have_tx_data()) return false;
     if (tx_device() == nullptr) return false;
-    if (!tx_device()->equal(parser_.data(), tx_cmd()->ack, 0)) return false;
+    if (!tx_device()->equal(parser_.data(), tx_cmd()->ack)) return false;
     ack_tx_data(true);
     ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", to_hex_string(parser_.buffer()).c_str(), elapsed_time(tx_time_));
     return true;
@@ -161,7 +158,7 @@ bool WallPadComponent::retry_write()
         return false;
     }
     ESP_LOGD(TAG, "Retry count: %d", tx_retry_cnt_);
-    write_tx_data(tx_cmd()->data);
+    write_tx_data();
     return true;
 }
 
@@ -180,22 +177,18 @@ void WallPadComponent::write_command()
             tx_data_ = tx_queue_late_.front();
             tx_queue_late_.pop();
         }
-        write_tx_data(tx_cmd()->data);
-        if (tx_cmd()->ack.size() == 0)
-        {
-            ack_tx_data(true);
-        }
+        write_tx_data();
     }
 }
 
-void WallPadComponent::write_tx_data(const std::vector<uint8_t> &data)
+void WallPadComponent::write_tx_data()
 {
     tx_time_ = get_time();
     if (status_pin_) status_pin_->digital_write(true);
     if (ctrl_pin_) ctrl_pin_->digital_write(true);
     if (tx_prefix_.has_value()) write_array(tx_prefix_.value());
-    write_array(data);
-    if (tx_checksum_) write_byte(get_tx_checksum(data));
+    write_array(tx_cmd()->data);
+    if (tx_checksum_) write_byte(get_tx_checksum(tx_cmd()->data));
     if (tx_suffix_.has_value()) write_array(tx_suffix_.value());
     if (ctrl_pin_)
     {
@@ -205,6 +198,7 @@ void WallPadComponent::write_tx_data(const std::vector<uint8_t> &data)
     if (status_pin_) status_pin_->digital_write(false);
     tx_retry_cnt_++;
     tx_time_ = get_time();
+    if (tx_cmd()->ack.size() == 0) ack_tx_data(true);
 }
 
 void WallPadComponent::write_byte(uint8_t data)
@@ -234,51 +228,63 @@ void WallPadComponent::flush()
     this->hw_serial_->flush(true);
     ESP_LOGD(TAG, "Flushing... (%lums)", elapsed_time(tx_time_));
 }
+
 void WallPadComponent::register_device(WallPadDevice *device)
 {
     devices_.push_back(device);
 }
+
 void WallPadComponent::set_tx_interval(num_t tx_interval)
 {
     conf_tx_interval_ = tx_interval;
 }
+
 void WallPadComponent::set_tx_wait(num_t tx_wait)
 {
     conf_tx_wait_ = tx_wait;
 }
+
 void WallPadComponent::set_tx_retry_cnt(num_t tx_retry_cnt)
 {
     conf_tx_retry_cnt_ = tx_retry_cnt;
 }
+
 void WallPadComponent::set_ctrl_pin(InternalGPIOPin *pin)
 {
     ctrl_pin_ = pin;
 }
+
 void WallPadComponent::set_status_pin(InternalGPIOPin *pin)
 {
     status_pin_ = pin;
 }
+
 void WallPadComponent::set_tx_pin(InternalGPIOPin *tx_pin)
 {
     tx_pin_ = tx_pin;
 }
+
 void WallPadComponent::set_rx_pin(InternalGPIOPin *rx_pin)
 {
     rx_pin_ = rx_pin;
 }
+
 void WallPadComponent::set_model(Model model)
 {
     conf_model_ = model;
 }
+
 Model WallPadComponent::get_model()
 {
     return conf_model_;
 }
+
 bool WallPadComponent::is_have_tx_data()
 {
     if (tx_data_.cmd) return true;
     return false;
 }
+
 void WallPadComponent::ack_tx_data(bool ok)
 {
     if (tx_data_.device)
@@ -290,18 +296,22 @@ void WallPadComponent::ack_tx_data(bool ok)
     tx_data_.cmd = nullptr;
     tx_retry_cnt_ = 0;
 }
+
 const cmd_hex_t* WallPadComponent::tx_cmd()
 {
     return tx_data_.cmd;
 }
+
 WallPadDevice* WallPadComponent::tx_device()
 {
     return tx_data_.device;
 }
+
 unsigned long WallPadComponent::elapsed_time(const unsigned long timer)
 {
     return millis() - timer;
 }
+
 unsigned long WallPadComponent::get_time()
 {
     return millis();
@@ -332,6 +342,7 @@ ValidateCode WallPadComponent::validate_data(bool log)
     }
     return ERR_NONE;
 }
+
 WallPadComponent::WallPadComponent(int baud, num_t data, num_t parity, num_t stop, num_t rx_wait)
 {
     conf_baud_ = baud;
@@ -340,40 +351,49 @@ WallPadComponent::WallPadComponent(int baud, num_t data, num_t parity, num_t sto
     conf_stop_ = stop;
     conf_rx_wait_ = rx_wait;
 }
+
 void WallPadComponent::set_rx_prefix(std::vector<uint8_t> prefix)
 {
     rx_prefix_ = prefix;
 }
+
 void WallPadComponent::set_rx_suffix(std::vector<uint8_t> suffix)
 {
     rx_suffix_ = suffix;
 }
+
 void WallPadComponent::set_tx_prefix(std::vector<uint8_t> prefix)
 {
     tx_prefix_ = prefix;
 }
+
 void WallPadComponent::set_tx_suffix(std::vector<uint8_t> suffix)
 {
     tx_suffix_ = suffix;
 }
+
 void WallPadComponent::set_rx_checksum(CheckSum checksum)
 {
     rx_checksum_ = checksum;
 }
+
 void WallPadComponent::set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f)
 {
     rx_checksum_f_ = f;
     rx_checksum_ = CHECKSUM_CUSTOM;
 }
+
 void WallPadComponent::set_tx_checksum(CheckSum checksum)
 {
     tx_checksum_ = checksum;
 }
+
 void WallPadComponent::set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f)
 {
     tx_checksum_f_ = f;
     tx_checksum_ = CHECKSUM_CUSTOM;
 }
+
 uint8_t WallPadComponent::get_rx_checksum(const std::vector<uint8_t> &data) const
 {
     if (this->rx_checksum_f_.has_value())
