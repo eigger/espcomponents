@@ -51,7 +51,7 @@ def validate_hex_data(value):
     raise cv.Invalid("data must either be a list of bytes")
 
 def validate_checksum(value):
-    if isinstance(value, CHECKSUMS):
+    if isinstance(value, str):
         return cv.enum(CHECKSUMS, upper=True)
     if cg.is_template(value):
         return cv.returning_lambda
