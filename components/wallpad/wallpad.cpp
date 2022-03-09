@@ -408,6 +408,8 @@ uint8_t WallPadComponent::make_rx_checksum(const std::vector<uint8_t> &data) con
             }
             for (uint8_t byte : data) { crc ^= byte; }
             break;
+        case default:
+            break;
         }
     }
 }
@@ -436,6 +438,8 @@ uint8_t WallPadComponent::make_tx_checksum(const std::vector<uint8_t> &data) con
                 for (uint8_t byte : this->tx_prefix_.value()) { crc ^= byte; }
             }
             for (uint8_t byte : data) { crc ^= byte; }
+            break;
+        case default:
             break;
         }
         return crc;

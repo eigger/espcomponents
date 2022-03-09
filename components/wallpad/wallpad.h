@@ -34,7 +34,7 @@ enum CheckSum {
     CHECKSUM_CUSTOM,
     CHECKSUM_XOR,
     CHECKSUM_ADD
-}
+};
 
 /** Send HEX Struct */
 struct write_data
