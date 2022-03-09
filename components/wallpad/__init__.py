@@ -50,6 +50,13 @@ def validate_hex_data(value):
         return cv.Schema([cv.hex_uint8_t])(value)
     raise cv.Invalid("data must either be a list of bytes")
 
+def validate_checksum(value):
+    if isinstance(value, CHECKSUMS):
+        return cv.enum(CHECKSUMS, upper=True)
+    if cg.is_template(value):
+        return cv.returning_lambda
+    raise cv.Invalid("data type error")
+
 
 # State HEX (hex_t): int offset, uint8_t[] data
 STATE_HEX_SCHEMA = cv.Schema({
@@ -124,9 +131,9 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_RX_SUFFIX): validate_hex_data,
     cv.Optional(CONF_TX_PREFIX): validate_hex_data,
     cv.Optional(CONF_TX_SUFFIX): validate_hex_data,
-    cv.Optional(CONF_RX_CHECKSUM, default="none"): cv.enum(CHECKSUMS, upper=True),
+    cv.Optional(CONF_RX_CHECKSUM, default="none"): validate_checksum,
     cv.Optional(CONF_RX_CHECKSUM_LAMBDA): cv.returning_lambda,
-    cv.Optional(CONF_TX_CHECKSUM, default="none"): cv.enum(CHECKSUMS, upper=True),
+    cv.Optional(CONF_TX_CHECKSUM, default="none"): validate_checksum,
     cv.Optional(CONF_TX_CHECKSUM_LAMBDA): cv.returning_lambda,
 }).extend(cv.COMPONENT_SCHEMA),
 cv.has_at_least_one_key(CONF_TX_PIN, CONF_RX_PIN),
