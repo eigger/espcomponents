@@ -52,9 +52,9 @@ def validate_hex_data(value):
 
 def validate_checksum(value):
     if cg.is_template(value):
-        return cv.returning_lambda
+        return cv.returning_lambda(value)
     if isinstance(value, str):
-        return cv.enum(CHECKSUMS, upper=True)
+        return cv.enum(CHECKSUMS, upper=True)(value)
     raise cv.Invalid("data type error")
 
 
@@ -131,10 +131,8 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_RX_SUFFIX): validate_hex_data,
     cv.Optional(CONF_TX_PREFIX): validate_hex_data,
     cv.Optional(CONF_TX_SUFFIX): validate_hex_data,
-    cv.Optional(CONF_RX_CHECKSUM, default="none"): cv.enum(CHECKSUMS, upper=True),
-    cv.Optional(CONF_TX_CHECKSUM, default="none"): cv.enum(CHECKSUMS, upper=True),
-    #cv.Optional(CONF_RX_CHECKSUM, default="none"): validate_checksum,
-    #cv.Optional(CONF_TX_CHECKSUM, default="none"): validate_checksum,
+    cv.Optional(CONF_RX_CHECKSUM, default="none"): validate_checksum,
+    cv.Optional(CONF_TX_CHECKSUM, default="none"): validate_checksum,
 }).extend(cv.COMPONENT_SCHEMA),
 cv.has_at_least_one_key(CONF_TX_PIN, CONF_RX_PIN),
 )

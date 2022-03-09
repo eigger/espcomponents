@@ -412,6 +412,7 @@ uint8_t WallPadComponent::make_rx_checksum(const std::vector<uint8_t> &data) con
         case CHECKSUM_CUSTOM:
             break;
         }
+        return crc;
     }
 }
 
