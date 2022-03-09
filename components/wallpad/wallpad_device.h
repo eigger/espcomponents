@@ -10,7 +10,6 @@ namespace wallpad {
 
 typedef unsigned short num_t;
 
-/** State HEX Struct */
 struct hex_t
 {
     num_t offset;
@@ -19,7 +18,6 @@ struct hex_t
     std::vector<uint8_t> data;
 };
 
-/** Number state HEX Struct  **/
 struct state_num_t
 {
     num_t offset;
@@ -27,7 +25,6 @@ struct state_num_t
     num_t precision; // 0~5
 };
 
-/** Command HEX Struct */
 struct cmd_hex_t
 {
     std::vector<uint8_t> data;
@@ -61,17 +58,11 @@ public:
     void ack_ng();
     bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,  const num_t offset);
     bool validate(const std::vector<uint8_t>& data, const hex_t *cmd);
-    float hex_to_float(const uint8_t *data, const num_t len, const num_t precision);
-    /** WallPad raw message parse */
+    float state_to_float(const std::vector<uint8_t>& data, const state_num_t state);
+
     bool parse_data(const std::vector<uint8_t>& data);
-
-    /** Publish other message from parse_date() */
     virtual void publish(const std::vector<uint8_t>& data) = 0;
-
-    /** Publish on/off state message from parse_date() */
     virtual bool publish(bool state) = 0;
-
-    /** priority of setup(). higher -> executed earlier */
     float get_setup_priority() const override { return setup_priority::DATA; }
 
 protected:

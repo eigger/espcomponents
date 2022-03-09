@@ -8,10 +8,6 @@
 #include "wallpad_device.h"
 #include "parser.h"
 
-#define BUFFER_SIZE 128
-#define RX_ENABLE false
-#define TX_ENABLE true
-
 namespace esphome {
 namespace wallpad {
 
@@ -36,11 +32,10 @@ enum CheckSum {
     CHECKSUM_ADD
 };
 
-/** Send HEX Struct */
-struct write_data
+struct tx_data
 {
-    WallPadDevice *device;
-    const cmd_hex_t *cmd;
+    WallPadDevice* device;
+    const cmd_hex_t* cmd;
 };
 
 /** 
@@ -64,17 +59,17 @@ public:
     void set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f);
     void set_tx_checksum(CheckSum checksum);
     void set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f);
-    uint8_t make_rx_checksum(const std::vector<uint8_t> &data) const;
-    uint8_t make_tx_checksum(const std::vector<uint8_t> &data) const;
+    uint8_t get_rx_checksum(const std::vector<uint8_t> &data) const;
+    uint8_t get_tx_checksum(const std::vector<uint8_t> &data) const;
     void dump_config() override;
     void setup() override;
     void loop() override;
     float get_setup_priority() const override { return setup_priority::BUS; }
     void write_byte(uint8_t data);
     void write_array(const std::vector<uint8_t> &data);
-    void write_with_header(const std::vector<uint8_t> &data);
-    void write_next(const write_data data);
-    void write_next_late(const write_data data);
+    void write_tx_data(const std::vector<uint8_t> &data);
+    void push_tx_data(const tx_data data);
+    void push_tx_data_late(const tx_data data);
     void flush();
     void register_device(WallPadDevice *device);
     void set_tx_interval(num_t tx_interval);
@@ -86,10 +81,10 @@ public:
     void set_rx_pin(InternalGPIOPin *rx_pin);
     void set_model(Model model);
     Model get_model();
-    bool is_have_writing_data();
-    void clear_writing_data();
-    const cmd_hex_t* get_writing_cmd();
-    WallPadDevice* get_writing_device();
+    bool is_have_tx_data();
+    void ack_tx_data(bool ok);
+    const cmd_hex_t* tx_cmd();
+    WallPadDevice* tx_device();
     unsigned long elapsed_time(const unsigned long timer);
     unsigned long get_time();
 protected:
@@ -110,7 +105,6 @@ protected:
     optional<std::vector<uint8_t>> tx_prefix_{};
     optional<std::vector<uint8_t>> tx_suffix_{};
 
-    num_t rx_checksum_len_{0};
     CheckSum rx_checksum_{CHECKSUM_NONE};
     optional<std::function<uint8_t(const uint8_t *data, const num_t len)>> rx_checksum_f_{};
  
@@ -129,13 +123,12 @@ protected:
     void write_command();
     void pop_command_to_write();
 
-    unsigned long rx_lastTime_{0};
-    std::queue<write_data> tx_queue_{};
-    std::queue<write_data> tx_queue_late_{};
+    unsigned long rx_time_{0};
+    std::queue<tx_data> tx_queue_{};
+    std::queue<tx_data> tx_queue_late_{};
 
-    write_data writing_data_{};
-    unsigned long tx_start_time_{0};
-    bool tx_ack_wait_{false};
+    tx_data tx_data_{{nullptr, nullptr}};
+    unsigned long tx_time_{0};
     num_t tx_retry_cnt_{0};
     InternalGPIOPin *ctrl_pin_{nullptr};
     InternalGPIOPin *status_pin_{nullptr};

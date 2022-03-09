@@ -52,7 +52,7 @@ void WallPadComponent::setup()
     if (this->ctrl_pin_)
     {
         this->ctrl_pin_->setup();
-        this->ctrl_pin_->digital_write(RX_ENABLE);
+        this->ctrl_pin_->digital_write(false);
     }
     if (this->status_pin_)
     {
@@ -60,10 +60,10 @@ void WallPadComponent::setup()
         this->status_pin_->digital_write(false);
     }
 
-    if (rx_checksum_)   this->rx_checksum_len_++;
+    if (rx_checksum_) parser_.use_checksum(true);
 
-    rx_lastTime_ = get_time();
-    tx_start_time_ = get_time();
+    rx_time_ = get_time();
+    tx_time_ = get_time();
     if (rx_prefix_.has_value()) parser_.add_headers(rx_prefix_.value());
     if (rx_suffix_.has_value()) parser_.add_footers(rx_suffix_.value());
     ESP_LOGI(TAG, "HW Serial Initaialize.");
@@ -98,79 +98,70 @@ void WallPadComponent::treat_recived_data()
     if (validate_data(true) != ERR_NONE) return;
     if (validate_ack()) return;
     publish_data();
+    rx_time_ = get_time();
 }
 
 bool WallPadComponent::validate_ack()
 {
-    if (!tx_ack_wait_) return false;
-    if (!is_have_writing_data()) return false;
-    auto *device = get_writing_device();
-    if (!device->equal(parser_.data(), get_writing_cmd()->ack, 0)) return false;
-    device->ack_ok();
-    clear_writing_data();
-    ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", to_hex_string(parser_.buffer()).c_str(), elapsed_time(tx_start_time_));
-    rx_lastTime_ = get_time();
+    if (!is_have_tx_data()) return false;
+    if (tx_device() == nullptr) return false;
+    if (!tx_device()->equal(parser_.data(), tx_cmd()->ack, 0)) return false;
+    ack_tx_data(true);
+    ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", to_hex_string(parser_.buffer()).c_str(), elapsed_time(tx_time_));
     return true;
 }
 
 void WallPadComponent::publish_data()
 {
-#ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
-    ESP_LOGVV(TAG, "Receive data-> %s, Gap Time: %lums", to_hex_string(parser_.buffer()).c_str(), elapsed_time(rx_lastTime_));
-#endif
-
     bool found = false;
-    for (auto *device : this->devices_)
+    for (WallPadDevice* device : this->devices_)
     {
         if (device->parse_data(parser_.data()))
         {
             found = true;
         }
     }
-
+#ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
+    ESP_LOGVV(TAG, "Receive data-> %s, Gap Time: %lums", to_hex_string(parser_.buffer()).c_str(), elapsed_time(rx_time_));
+#endif
 #ifdef ESPHOME_LOG_HAS_VERBOSE
     if (!found) ESP_LOGV(TAG, "Notfound data-> %s", to_hex_string(parser_.buffer()).c_str());
 #endif
-    rx_lastTime_ = get_time();
 }
 
 void WallPadComponent::pop_command_to_write()
 {
-    for (auto *device : this->devices_)
+    for (WallPadDevice* device : this->devices_)
     {
         if (device->is_have_command())
         {
             const cmd_hex_t *cmd = device->pop_command();
             if (cmd == nullptr) continue;
-            if (cmd->ack.size() == 0)   write_next_late({device, cmd});
-            else                        write_next({device, cmd});
+            if (cmd->ack.size() == 0)   push_tx_data_late({device, cmd});
+            else                        push_tx_data({device, cmd});
         }
     }
 }
 void WallPadComponent::write_to_serial()
 {
-    if (tx_ack_wait_ && elapsed_time(tx_start_time_) > conf_tx_wait_) tx_ack_wait_ = false;
-    if (elapsed_time(rx_lastTime_) < conf_tx_interval_) return;
-    if (elapsed_time(tx_start_time_) < conf_tx_interval_) return;
-    if (tx_ack_wait_) return;
+    if (elapsed_time(rx_time_) < conf_tx_interval_) return;
+    if (elapsed_time(tx_time_) < conf_tx_interval_) return;
+    if (elapsed_time(tx_time_) < conf_tx_wait_) return;
     if (retry_write()) return;
     write_command();
 }
 
 bool WallPadComponent::retry_write()
 {
-    if (!is_have_writing_data()) return false;
+    if (!is_have_tx_data()) return false;
     if (conf_tx_retry_cnt_ <= tx_retry_cnt_)
     {
-        get_writing_device()->ack_ng();
-        clear_writing_data();
+        ack_tx_data(false);
         ESP_LOGD(TAG, "Retry fail.");
         return false;
     }
     ESP_LOGD(TAG, "Retry count: %d", tx_retry_cnt_);
-    write_with_header(get_writing_cmd()->data);
-    tx_ack_wait_ = true;
-    tx_retry_cnt_++;
+    write_tx_data(tx_cmd()->data);
     return true;
 }
 
@@ -181,44 +172,39 @@ void WallPadComponent::write_command()
     {
         if (!tx_queue_.empty())
         {
-            writing_data_ = tx_queue_.front();
+            tx_data_ = tx_queue_.front();
             tx_queue_.pop();
         }
         else
         {
-            writing_data_ = tx_queue_late_.front();
+            tx_data_ = tx_queue_late_.front();
             tx_queue_late_.pop();
         }
-        write_with_header(writing_data_.cmd->data);
-        if (writing_data_.cmd->ack.size() > 0)
+        write_tx_data(tx_cmd()->data);
+        if (tx_cmd()->ack.size() == 0)
         {
-            tx_ack_wait_ = true;
-            tx_retry_cnt_ = 1;
-        }
-        else
-        {
-            get_writing_device()->ack_ok();
-            clear_writing_data();
+            ack_tx_data(true);
         }
     }
 }
 
-void WallPadComponent::write_with_header(const std::vector<uint8_t> &data)
+void WallPadComponent::write_tx_data(const std::vector<uint8_t> &data)
 {
-    tx_start_time_ = get_time();
+    tx_time_ = get_time();
     if (status_pin_) status_pin_->digital_write(true);
-    if (ctrl_pin_) ctrl_pin_->digital_write(TX_ENABLE);
+    if (ctrl_pin_) ctrl_pin_->digital_write(true);
     if (tx_prefix_.has_value()) write_array(tx_prefix_.value());
     write_array(data);
-    if (tx_checksum_) write_byte(make_tx_checksum(data));
+    if (tx_checksum_) write_byte(get_tx_checksum(data));
     if (tx_suffix_.has_value()) write_array(tx_suffix_.value());
     if (ctrl_pin_)
     {
         flush();
-        ctrl_pin_->digital_write(RX_ENABLE);
+        ctrl_pin_->digital_write(false);
     }
     if (status_pin_) status_pin_->digital_write(false);
-    tx_start_time_ = get_time();
+    tx_retry_cnt_++;
+    tx_time_ = get_time();
 }
 
 void WallPadComponent::write_byte(uint8_t data)
@@ -233,12 +219,12 @@ void WallPadComponent::write_array(const std::vector<uint8_t> &data)
     ESP_LOGD(TAG, "Write array-> %s", to_hex_string(data).c_str());
 }
 
-void WallPadComponent::write_next(const write_data data)
+void WallPadComponent::push_tx_data(const tx_data data)
 {
     tx_queue_.push(data);
 }
 
-void WallPadComponent::write_next_late(const write_data data)
+void WallPadComponent::push_tx_data_late(const tx_data data)
 {
     tx_queue_late_.push(data);
 }
@@ -246,7 +232,7 @@ void WallPadComponent::write_next_late(const write_data data)
 void WallPadComponent::flush()
 {
     this->hw_serial_->flush(true);
-    ESP_LOGD(TAG, "Flushing... (%lums)", elapsed_time(tx_start_time_));
+    ESP_LOGD(TAG, "Flushing... (%lums)", elapsed_time(tx_time_));
 }
 void WallPadComponent::register_device(WallPadDevice *device)
 {
@@ -288,24 +274,29 @@ Model WallPadComponent::get_model()
 {
     return conf_model_;
 }
-bool WallPadComponent::is_have_writing_data()
+bool WallPadComponent::is_have_tx_data()
 {
-    if (writing_data_.device) return true;
+    if (tx_data_.cmd) return true;
     return false;
 }
-void WallPadComponent::clear_writing_data()
+void WallPadComponent::ack_tx_data(bool ok)
 {
-    writing_data_.device = nullptr;
-    tx_ack_wait_ = false;
+    if (tx_data_.device)
+    {
+        if (ok) tx_data_.device->ack_ok();
+        else    tx_data_.device->ack_ng();
+    }
+    tx_data_.device = nullptr;
+    tx_data_.cmd = nullptr;
     tx_retry_cnt_ = 0;
 }
-const cmd_hex_t *WallPadComponent::get_writing_cmd()
+const cmd_hex_t* WallPadComponent::tx_cmd()
 {
-    return writing_data_.cmd;
+    return tx_data_.cmd;
 }
-WallPadDevice *WallPadComponent::get_writing_device()
+WallPadDevice* WallPadComponent::tx_device()
 {
-    return writing_data_.device;
+    return tx_data_.device;
 }
 unsigned long WallPadComponent::elapsed_time(const unsigned long timer)
 {
@@ -318,7 +309,7 @@ unsigned long WallPadComponent::get_time()
 
 ValidateCode WallPadComponent::validate_data(bool log)
 {
-    if (parser_.data().size() < rx_checksum_len_)
+    if (parser_.data().size() == 0)
     {
         if (log) ESP_LOGW(TAG, "[Read] Size error: %s", to_hex_string(parser_.buffer()).c_str());
         return ERR_SIZE;
@@ -333,8 +324,8 @@ ValidateCode WallPadComponent::validate_data(bool log)
         if (log) ESP_LOGW(TAG, "[Read] Suffix error: %s", to_hex_string(parser_.buffer()).c_str());
         return ERR_SUFFIX;
     }
-    uint8_t crc = rx_checksum_ ? make_rx_checksum(parser_.data(rx_checksum_len_)) : 0;
-    if (rx_checksum_ && crc != parser_.data()[parser_.data().size() - rx_checksum_len_])
+    uint8_t crc = get_rx_checksum(parser_.data());
+    if (rx_checksum_ && crc != parser_.get_checksum())
     {
         if (log) ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(parser_.buffer()).c_str());
         return ERR_CHECKSUM;
@@ -383,7 +374,7 @@ void WallPadComponent::set_tx_checksum_lambda(std::function<uint8_t(const uint8_
     tx_checksum_f_ = f;
     tx_checksum_ = CHECKSUM_CUSTOM;
 }
-uint8_t WallPadComponent::make_rx_checksum(const std::vector<uint8_t> &data) const
+uint8_t WallPadComponent::get_rx_checksum(const std::vector<uint8_t> &data) const
 {
     if (this->rx_checksum_f_.has_value())
     {
@@ -416,7 +407,7 @@ uint8_t WallPadComponent::make_rx_checksum(const std::vector<uint8_t> &data) con
     }
 }
 
-uint8_t WallPadComponent::make_tx_checksum(const std::vector<uint8_t> &data) const
+uint8_t WallPadComponent::get_tx_checksum(const std::vector<uint8_t> &data) const
 {
     if (this->tx_checksum_f_.has_value())
     {

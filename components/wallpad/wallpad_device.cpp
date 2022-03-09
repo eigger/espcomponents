@@ -188,14 +188,14 @@ bool WallPadDevice::validate(const std::vector<uint8_t> &data, const hex_t *cmd)
     return false;
 }
 
-float WallPadDevice::hex_to_float(const uint8_t *data, const num_t len, const num_t precision)
+float WallPadDevice::state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
 {
     unsigned int val = 0;
-    for (num_t i = 0; i < len; i++)
+    for (num_t i = state.offset, len = 0; i < data.size() && len < state.length; i++, len++)
     {
         val = (val << 8) | data[i];
     }
-    return val / powf(10, precision);
+    return val / powf(10, state.precision);
 }
 
 std::string to_hex_string(const std::vector<unsigned char> &data)

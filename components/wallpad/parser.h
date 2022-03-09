@@ -18,15 +18,18 @@ public:
 
 	bool parse_byte(const unsigned char byte);
 	bool validate_data(const std::vector<unsigned char>& checksums);
-	void clear(void);
-	const std::vector<unsigned char> data(size_t offset = 0);
-	const std::vector<unsigned char> buffer(void);
-	bool parse_header(void);
-	bool parse_footer(void);
+	void clear();
+	const std::vector<unsigned char> data();
+	const std::vector<unsigned char> buffer();
+	bool parse_header();
+	bool parse_footer();
+	void use_checksum();
+	unsigned char get_checksum();
 	
 private:
 	std::vector<unsigned char> header_;
 	std::vector<unsigned char> footer_;
 	std::vector<unsigned char> buffer_;
+	bool checksum_;
 };
 

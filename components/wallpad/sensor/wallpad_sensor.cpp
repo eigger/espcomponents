@@ -21,7 +21,7 @@ void WallPadSensor::publish(const std::vector<uint8_t>& data)
     }
     else if(this->conf_state_num_.has_value() && data.size() >= (this->conf_state_num_.value().offset + this->conf_state_num_.value().length)) 
     {
-        float val = hex_to_float(&data[this->conf_state_num_.value().offset], this->conf_state_num_.value().length, this->conf_state_num_.value().precision);
+        float val = state_to_float(data, this->conf_state_num_.value());
         if(this->raw_state != val) this->publish_state(val);
     }
 }

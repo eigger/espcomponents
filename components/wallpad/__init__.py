@@ -3,14 +3,14 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome import automation, pins
 from esphome.const import CONF_ID, CONF_BAUD_RATE, CONF_OFFSET, CONF_DATA, \
-    CONF_UPDATE_INTERVAL, CONF_DEVICE, CONF_INVERTED, CONF_NUMBER, CONF_RX_PIN, CONF_TX_PIN
+    CONF_DEVICE, CONF_INVERTED, CONF_NUMBER, CONF_RX_PIN, CONF_TX_PIN
 from esphome.core import CORE, coroutine
 from esphome.util import SimpleRegistry
 from .const import CONF_DATA_BITS, CONF_PARITY, CONF_STOP_BITS, \
     CONF_RX_PREFIX, CONF_RX_SUFFIX, CONF_TX_PREFIX, CONF_TX_SUFFIX, \
-    CONF_RX_CHECKSUM, \
-    CONF_TX_CHECKSUM, \
-    CONF_ACK, CONF_WALLPAD_ID, CONF_MODEL, \
+    CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, \
+    CONF_WALLPAD_ID, \
+    CONF_ACK, CONF_MODEL, \
     CONF_SUB_DEVICE, \
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
     CONF_COMMAND_STATE, CONF_RX_WAIT, CONF_TX_WAIT, CONF_TX_RETRY_CNT, \

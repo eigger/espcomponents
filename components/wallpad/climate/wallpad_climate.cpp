@@ -111,7 +111,7 @@ void WallPadClimate::publish(const std::vector<uint8_t>& data)
         }
         else if (this->state_current_.has_value() && data.size() >= (this->state_current_.value().offset + this->state_current_.value().length))
         {
-            float val = hex_to_float(&data[this->state_current_.value().offset], this->state_current_.value().length, this->state_current_.value().precision);
+            float val = state_to_float(data, this->state_current_.value());
             if (this->current_temperature != val)
             {
                 this->current_temperature = val;
@@ -132,7 +132,7 @@ void WallPadClimate::publish(const std::vector<uint8_t>& data)
     }
     else if (this->state_target_.has_value() && data.size() >= (this->state_target_.value().offset + this->state_target_.value().length))
     {
-        float val = hex_to_float(&data[this->state_target_.value().offset], this->state_target_.value().length, this->state_target_.value().precision);
+        float val = state_to_float(data, this->state_target_.value());
         if (this->target_temperature != val)
         {
             this->target_temperature = val;
