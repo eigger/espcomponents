@@ -127,7 +127,7 @@ protected:
     std::queue<tx_data> tx_queue_{};
     std::queue<tx_data> tx_queue_late_{};
 
-    tx_data tx_data_{{nullptr, nullptr}};
+    tx_data tx_data_{nullptr, nullptr};
     unsigned long tx_time_{0};
     num_t tx_retry_cnt_{0};
     InternalGPIOPin *ctrl_pin_{nullptr};

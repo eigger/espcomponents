@@ -60,7 +60,7 @@ void WallPadComponent::setup()
         this->status_pin_->digital_write(false);
     }
 
-    if (rx_checksum_) parser_.use_checksum(true);
+    if (rx_checksum_) parser_.use_checksum();
 
     rx_time_ = get_time();
     tx_time_ = get_time();
