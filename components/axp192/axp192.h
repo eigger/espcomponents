@@ -33,7 +33,7 @@ public:
   void dump_config() override;
   float get_setup_priority() const override;
   void update() override;
-
+  void LCDOnOff(bool onoff) { SetLDO2(onoff); }
 protected:
     sensor::Sensor *batterylevel_sensor_;
     float brightness_{1.0f};
