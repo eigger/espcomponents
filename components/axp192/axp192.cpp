@@ -179,6 +179,7 @@ void AXP192Component::UpdateBrightness()
     }
     uint8_t buf = Read8bit( 0x28 );
     Write1Byte( 0x28 , ((buf & 0x0f) | (ubri << 4)) );
+    SetLDO2(true);
 }
 
 bool AXP192Component::GetBatState()
