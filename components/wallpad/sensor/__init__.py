@@ -12,7 +12,7 @@ DEPENDENCIES = ['wallpad']
 WallPadSensor = wallpad_ns.class_(
     'WallPadSensor', sensor.Sensor, cg.PollingComponent)
 
-CONFIG_SCHEMA = cv.All(sensor.sensor_schema(UNIT_EMPTY, ICON_EMPTY, 1).extend({
+CONFIG_SCHEMA = cv.All(sensor.SENSOR_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(WallPadSensor),
     cv.GenerateID(CONF_WALLPAD_ID): cv.use_id(WallPadComponent),
     cv.Required(CONF_DEVICE): state_hex_schema,
