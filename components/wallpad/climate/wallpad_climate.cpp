@@ -47,11 +47,11 @@ void WallPadClimate::setup()
     else this->current_temperature = NAN;
 }
 
-void WallPadClimate::publish(const uint8_t *data, const num_t len)
+void WallPadClimate::publish(const std::vector<uint8_t>& data)
 {
     bool changed = false;
     // turn off
-    if (this->state_off_.has_value() && compare(&data[0], len, &state_off_.value()))
+    if (this->state_off_.has_value() && validate(data, &state_off_.value()))
     {
         if (mode != climate::CLIMATE_MODE_OFF)
         {
@@ -60,7 +60,7 @@ void WallPadClimate::publish(const uint8_t *data, const num_t len)
         }
     }
     // heat mode
-    else if (this->state_heat_.has_value() && compare(&data[0], len, &state_heat_.value()))
+    else if (this->state_heat_.has_value() && validate(data, &state_heat_.value()))
     {
         if (mode != climate::CLIMATE_MODE_HEAT)
         {
@@ -69,7 +69,7 @@ void WallPadClimate::publish(const uint8_t *data, const num_t len)
         }
     }
     // cool mode
-    else if (this->state_cool_.has_value() && compare(&data[0], len, &state_cool_.value()))
+    else if (this->state_cool_.has_value() && validate(data, &state_cool_.value()))
     {
         if (mode != climate::CLIMATE_MODE_COOL)
         {
@@ -78,7 +78,7 @@ void WallPadClimate::publish(const uint8_t *data, const num_t len)
         }
     }
     // auto mode
-    else if (this->state_auto_.has_value() && compare(&data[0], len, &state_auto_.value()))
+    else if (this->state_auto_.has_value() && validate(data, &state_auto_.value()))
     {
         if (mode != climate::CLIMATE_MODE_AUTO)
         {
@@ -90,7 +90,7 @@ void WallPadClimate::publish(const uint8_t *data, const num_t len)
     if (this->state_away_.has_value())
     {
         bool is_away = *preset == climate::CLIMATE_PRESET_AWAY ? true : false;
-        if (is_away != compare(&data[0], len, &state_away_.value()))
+        if (is_away != validate(data, &state_away_.value()))
         {
             *preset = is_away == true ? climate::CLIMATE_PRESET_HOME : climate::CLIMATE_PRESET_AWAY;
             changed = true;
@@ -102,16 +102,16 @@ void WallPadClimate::publish(const uint8_t *data, const num_t len)
     {
         if (this->state_current_func_.has_value())
         {
-            optional<float> val = (*this->state_current_func_)(data, len);
+            optional<float> val = (*this->state_current_func_)(&data[0], data.size());
             if (val.has_value() && this->current_temperature != val.value())
             {
                 this->current_temperature = val.value();
                 changed = true;
             }
         }
-        else if (this->state_current_.has_value() && len >= (this->state_current_.value().offset + this->state_current_.value().length))
+        else if (this->state_current_.has_value() && data.size() >= (this->state_current_.value().offset + this->state_current_.value().length))
         {
-            float val = hex_to_float(&data[this->state_current_.value().offset], this->state_current_.value().length, this->state_current_.value().precision);
+            float val = state_to_float(data, this->state_current_.value());
             if (this->current_temperature != val)
             {
                 this->current_temperature = val;
@@ -123,16 +123,16 @@ void WallPadClimate::publish(const uint8_t *data, const num_t len)
     // Target temperature
     if (this->state_target_func_.has_value())
     {
-        optional<float> val = (*this->state_target_func_)(data, len);
+        optional<float> val = (*this->state_target_func_)(&data[0], data.size());
         if (val.has_value() && this->target_temperature != val.value())
         {
             this->target_temperature = val.value();
             changed = true;
         }
     }
-    else if (this->state_target_.has_value() && len >= (this->state_target_.value().offset + this->state_target_.value().length))
+    else if (this->state_target_.has_value() && data.size() >= (this->state_target_.value().offset + this->state_target_.value().length))
     {
-        float val = hex_to_float(&data[this->state_target_.value().offset], this->state_target_.value().length, this->state_target_.value().precision);
+        float val = state_to_float(data, this->state_target_.value());
         if (this->target_temperature != val)
         {
             this->target_temperature = val;
@@ -151,21 +151,21 @@ void WallPadClimate::control(const climate::ClimateCall &call)
         mode = *call.get_mode();
         if (mode == climate::CLIMATE_MODE_OFF)
         {
-            write_with_header(this->get_command_off());
+            push_command(this->get_command_off());
         }
         else if (mode == climate::CLIMATE_MODE_HEAT && this->command_heat_.has_value())
         {
-            write_with_header(&this->command_heat_.value());
+            push_command(&this->command_heat_.value());
         }
         else if (mode == climate::CLIMATE_MODE_COOL && this->command_cool_.has_value())
         {
-            write_with_header(&this->command_cool_.value());
+            push_command(&this->command_cool_.value());
         }
         else if (mode == climate::CLIMATE_MODE_AUTO)
         {
             if (this->command_auto_.has_value())
             {
-                write_with_header(&this->command_auto_.value());
+                push_command(&this->command_auto_.value());
             }
             else if (this->command_heat_.has_value() && this->command_cool_.has_value())
             {
@@ -173,12 +173,12 @@ void WallPadClimate::control(const climate::ClimateCall &call)
             }
             else if (this->command_heat_.has_value())
             {
-                write_with_header(&this->command_heat_.value());
+                push_command(&this->command_heat_.value());
                 mode = climate::CLIMATE_MODE_HEAT;
             }
             else if (this->command_cool_.has_value())
             {
-                write_with_header(&this->command_cool_.value());
+                push_command(&this->command_cool_.value());
                 mode = climate::CLIMATE_MODE_COOL;
             }
         }
@@ -189,7 +189,7 @@ void WallPadClimate::control(const climate::ClimateCall &call)
     {
         this->target_temperature = *call.get_target_temperature();
         this->command_temperature_ = (this->command_temperature_func_)(this->target_temperature);
-        write_with_header(&this->command_temperature_);
+        push_command(&this->command_temperature_);
     }
 
     // Set away
@@ -198,27 +198,27 @@ void WallPadClimate::control(const climate::ClimateCall &call)
         *preset = *call.get_preset();
         if (*preset == climate::CLIMATE_PRESET_AWAY)
         {
-            write_with_header(&this->command_away_.value());
+            push_command(&this->command_away_.value());
         }
         else if (this->command_home_.has_value())
         {
-            write_with_header(&this->command_home_.value());
+            push_command(&this->command_home_.value());
         }
         else if (mode == climate::CLIMATE_MODE_OFF)
         {
-            write_with_header(this->get_command_off());
+            push_command(this->get_command_off());
         }
         else if (mode == climate::CLIMATE_MODE_HEAT && this->command_heat_.has_value())
         {
-            write_with_header(&this->command_heat_.value());
+            push_command(&this->command_heat_.value());
         }
         else if (mode == climate::CLIMATE_MODE_COOL && this->command_cool_.has_value())
         {
-            write_with_header(&this->command_cool_.value());
+            push_command(&this->command_cool_.value());
         }
         else if (mode == climate::CLIMATE_MODE_AUTO && this->command_auto_.has_value())
         {
-            write_with_header(&this->command_auto_.value());
+            push_command(&this->command_auto_.value());
         }
     }
     this->publish_state();

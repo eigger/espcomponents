@@ -12,16 +12,16 @@ void WallPadSensor::dump_config()
     dump_wallpad_device_config(TAG);
 }
 
-void WallPadSensor::publish(const uint8_t *data, const num_t len) 
+void WallPadSensor::publish(const std::vector<uint8_t>& data) 
 {
     if (this->f_.has_value())
     {
-        optional<float> val = (*this->f_)(data, len);
+        optional<float> val = (*this->f_)(&data[0], data.size());
         if(val.has_value() && this->raw_state != val.value()) this->publish_state(val.value());
     }
-    else if(this->conf_state_num_.has_value() && len >= (this->conf_state_num_.value().offset + this->conf_state_num_.value().length)) 
+    else if(this->conf_state_num_.has_value() && data.size() >= (this->conf_state_num_.value().offset + this->conf_state_num_.value().length)) 
     {
-        float val = hex_to_float(&data[this->conf_state_num_.value().offset], this->conf_state_num_.value().length, this->conf_state_num_.value().precision);
+        float val = state_to_float(data, this->conf_state_num_.value());
         if(this->raw_state != val) this->publish_state(val);
     }
 }

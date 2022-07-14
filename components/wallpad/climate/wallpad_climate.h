@@ -1,7 +1,7 @@
 #pragma once
 
 #include "esphome/core/component.h"
-#include "esphome/components/wallpad/wallpad.h"
+#include "esphome/components/wallpad/wallpad_device.h"
 #include "esphome/components/climate/climate.h"
 #include "esphome/components/sensor/sensor.h"
 
@@ -14,7 +14,7 @@ public:
     WallPadClimate() { this->device_name_ = &this->name_; }
     void dump_config() override;
     void setup() override;
-    void publish(const uint8_t *data, const num_t len) override;
+    void publish(const std::vector<uint8_t>& data) override;
     bool publish(bool state) override { return false; }
 
     void set_sensor(sensor::Sensor *sensor) { this->sensor_ = sensor; }

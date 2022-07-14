@@ -3,26 +3,25 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome import automation, pins
 from esphome.const import CONF_ID, CONF_BAUD_RATE, CONF_OFFSET, CONF_DATA, \
-    CONF_UPDATE_INTERVAL, CONF_DEVICE, CONF_INVERTED, CONF_NUMBER, CONF_RX_PIN, CONF_TX_PIN
+    CONF_DEVICE, CONF_INVERTED, CONF_NUMBER, CONF_RX_PIN, CONF_TX_PIN
 from esphome.core import CORE, coroutine
 from esphome.util import SimpleRegistry
 from .const import CONF_DATA_BITS, CONF_PARITY, CONF_STOP_BITS, \
     CONF_RX_PREFIX, CONF_RX_SUFFIX, CONF_TX_PREFIX, CONF_TX_SUFFIX, \
-    CONF_RX_CHECKSUM, CONF_RX_CHECKSUM2, CONF_RX_CHECKSUM_LAMBDA, \
-    CONF_TX_CHECKSUM, CONF_TX_CHECKSUM2, CONF_TX_CHECKSUM_LAMBDA, \
-    CONF_ACK, CONF_WALLPAD_ID, CONF_MODEL, \
-    CONF_PACKET_MONITOR, CONF_PACKET_MONITOR_ID, CONF_SUB_DEVICE, \
+    CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, \
+    CONF_WALLPAD_ID, \
+    CONF_ACK, CONF_MODEL, \
+    CONF_SUB_DEVICE, \
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
     CONF_COMMAND_STATE, CONF_RX_WAIT, CONF_TX_WAIT, CONF_TX_RETRY_CNT, \
     CONF_STATE_RESPONSE, CONF_LENGTH, CONF_PRECISION, CONF_AND_OPERATOR, \
-    CONF_CTRL_PIN, CONF_TX_INTERVAL
+    CONF_CTRL_PIN, CONF_STATUS_PIN, CONF_TX_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 
 wallpad_ns = cg.esphome_ns.namespace('wallpad')
 WallPadComponent = wallpad_ns.class_('WallPadComponent', cg.Component)
 WallPadWriteAction = wallpad_ns.class_('WallPadWriteAction', automation.Action)
-SerialMonitor = wallpad_ns.class_('SerialMonitor')
 cmd_hex_t = wallpad_ns.class_('cmd_hex_t')
 num_t_const = wallpad_ns.class_('num_t').operator('const')
 uint8_const = cg.uint8.operator('const')
@@ -38,11 +37,25 @@ MODELS = {
     "SDS": Model.MODEL_SDS,
 }
 
+Checksum = wallpad_ns.enum("CheckSum")
+CHECKSUMS = {
+    "NONE": Checksum.CHECKSUM_NONE,
+    "XOR": Checksum.CHECKSUM_XOR,
+    "ADD": Checksum.CHECKSUM_ADD,
+}
+
 
 def validate_hex_data(value):
     if isinstance(value, list):
         return cv.Schema([cv.hex_uint8_t])(value)
     raise cv.Invalid("data must either be a list of bytes")
+
+def validate_checksum(value):
+    if cg.is_template(value):
+        return cv.returning_lambda(value)
+    if isinstance(value, str):
+        return cv.enum(CHECKSUMS, upper=True)(value)
+    raise cv.Invalid("data type error")
 
 
 # State HEX (hex_t): int offset, uint8_t[] data
@@ -84,7 +97,6 @@ def command_hex_schema(value):
 
 def validate_tx_pin(value):
     value = pins.internal_gpio_output_pin_schema(value)
-
     #  - esp8266: UART0 (TX: GPIO1, RX: GPIO3)
     #  - esp32: UART2 (TX: GPIO17, RX: GPIO16)
     if CORE.is_esp8266 and value[CONF_NUMBER] != 1:
@@ -100,7 +112,6 @@ def validate_rx_pin(value):
 # WallPad Schema
 CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.GenerateID(): cv.declare_id(WallPadComponent),
-    cv.GenerateID(CONF_PACKET_MONITOR_ID): cv.declare_id(SerialMonitor),
     cv.Required(CONF_BAUD_RATE): cv.int_range(min=1, max=115200),
     cv.Optional(CONF_TX_PIN, default=1 if CORE.is_esp8266 else 17): validate_tx_pin,
     cv.Optional(CONF_RX_PIN, default=3 if CORE.is_esp8266 else 16): validate_rx_pin,
@@ -114,18 +125,13 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_TX_WAIT): cv.int_range(min=1, max=2000),
     cv.Optional(CONF_TX_RETRY_CNT): cv.int_range(min=1, max=10),
     cv.Optional(CONF_CTRL_PIN): pins.gpio_output_pin_schema,
+    cv.Optional(CONF_STATUS_PIN): pins.gpio_output_pin_schema,
     cv.Optional(CONF_RX_PREFIX): validate_hex_data,
     cv.Optional(CONF_RX_SUFFIX): validate_hex_data,
     cv.Optional(CONF_TX_PREFIX): validate_hex_data,
     cv.Optional(CONF_TX_SUFFIX): validate_hex_data,
-    cv.Optional(CONF_RX_CHECKSUM): cv.templatable(cv.boolean),
-    cv.Optional(CONF_RX_CHECKSUM_LAMBDA): cv.returning_lambda,
-    cv.Optional(CONF_RX_CHECKSUM2): cv.templatable(cv.boolean),
-    cv.Optional(CONF_TX_CHECKSUM): cv.templatable(cv.boolean),
-    cv.Optional(CONF_TX_CHECKSUM_LAMBDA): cv.returning_lambda,
-    cv.Optional(CONF_TX_CHECKSUM2): cv.templatable(cv.boolean),
-    cv.Optional(CONF_PACKET_MONITOR): cv.ensure_list(state_hex_schema),
-    cv.Optional(CONF_STATE_RESPONSE): state_hex_schema,
+    cv.Optional(CONF_RX_CHECKSUM, default="none"): validate_checksum,
+    cv.Optional(CONF_TX_CHECKSUM, default="none"): validate_checksum,
 }).extend(cv.COMPONENT_SCHEMA),
 cv.has_at_least_one_key(CONF_TX_PIN, CONF_RX_PIN),
 )
@@ -159,20 +165,9 @@ async def to_code(config):
         ctrl_pin = await cg.gpio_pin_expression(config[CONF_CTRL_PIN])
         cg.add(var.set_ctrl_pin(ctrl_pin))
 
-    if CONF_STATE_RESPONSE in config:
-        state_response = await state_hex_expression(config[CONF_STATE_RESPONSE])
-        cg.add(var.set_state_response(state_response))
-
-    if CONF_PACKET_MONITOR in config:
-        sm = cg.new_Pvariable(config[CONF_PACKET_MONITOR_ID])
-        await sm
-        for conf in config[CONF_PACKET_MONITOR]:
-            data = conf[CONF_DATA]
-            and_operator = conf[CONF_AND_OPERATOR]
-            inverted = conf[CONF_INVERTED]
-            offset = conf[CONF_OFFSET]
-            cg.add(sm.add_filter([offset, and_operator, inverted, data]))
-        cg.add(var.register_listener(sm))
+    if CONF_STATUS_PIN in config:
+        status_pin = await cg.gpio_pin_expression(config[CONF_STATUS_PIN])
+        cg.add(var.set_status_pin(status_pin))
     
     if CONF_MODEL in config:
         cg.add(var.set_model(config[CONF_MODEL]))
@@ -187,14 +182,6 @@ async def to_code(config):
     if CONF_TX_SUFFIX in config:
         cg.add(var.set_tx_suffix(config[CONF_TX_SUFFIX]))
 
-    if CONF_RX_CHECKSUM_LAMBDA in config:
-        _LOGGER.warning(CONF_RX_CHECKSUM_LAMBDA +
-                        " is deprecated and will be removed in a future version.")
-        template_ = await cg.process_lambda(config[CONF_RX_CHECKSUM_LAMBDA],
-                                            [(uint8_ptr_const, 'data'),
-                                             (num_t_const, 'len')],
-                                            return_type=cg.uint8)
-        cg.add(var.set_rx_checksum_lambda(template_))
     if CONF_RX_CHECKSUM in config:
         data = config[CONF_RX_CHECKSUM]
         if cg.is_template(data):
@@ -206,25 +193,6 @@ async def to_code(config):
         else:
             cg.add(var.set_rx_checksum(data))
 
-    if CONF_RX_CHECKSUM2 in config:
-        data = config[CONF_RX_CHECKSUM2]
-        if cg.is_template(data):
-            template_ = await cg.process_lambda(data,
-                                                [(uint8_ptr_const, 'data'), (num_t_const,
-                                                                             'len'), (uint8_const, 'checksum1')],
-                                                return_type=cg.uint8)
-            cg.add(var.set_rx_checksum2_lambda(template_))
-        else:
-            cg.add(var.set_rx_checksum2(data))
-
-    if CONF_TX_CHECKSUM_LAMBDA in config:
-        _LOGGER.warning(CONF_TX_CHECKSUM_LAMBDA +
-                        " is deprecated and will be removed in a future version.")
-        template_ = await cg.process_lambda(config[CONF_TX_CHECKSUM_LAMBDA],
-                                            [(uint8_ptr_const, 'data'),
-                                             (num_t_const, 'len')],
-                                            return_type=cg.uint8)
-        cg.add(var.set_tx_checksum_lambda(template_))
     if CONF_TX_CHECKSUM in config:
         data = config[CONF_TX_CHECKSUM]
         if cg.is_template(data):
@@ -235,17 +203,6 @@ async def to_code(config):
             cg.add(var.set_tx_checksum_lambda(template_))
         else:
             cg.add(var.set_tx_checksum(data))
-
-    if CONF_TX_CHECKSUM2 in config:
-        data = config[CONF_TX_CHECKSUM2]
-        if cg.is_template(data):
-            template_ = await cg.process_lambda(data,
-                                                [(uint8_ptr_const, 'data'), (num_t_const,
-                                                                             'len'), (uint8_const, 'checksum1')],
-                                                return_type=cg.uint8)
-            cg.add(var.set_tx_checksum2_lambda(template_))
-        else:
-            cg.add(var.set_tx_checksum2(data))
 
 
 
@@ -259,6 +216,7 @@ WallPad_DEVICE_SCHEMA = cv.Schema({
     cv.Required(CONF_COMMAND_ON): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_STATE): command_hex_schema,
+    cv.Optional(CONF_STATE_RESPONSE): state_hex_schema,
 }).extend(cv.polling_component_schema('60s'))
 
 STATE_NUM_SCHEMA = cv.Schema({
@@ -274,7 +232,6 @@ HEX_SCHEMA_REGISTRY = SimpleRegistry()
 @coroutine
 def register_wallpad_device(var, config):
     paren = yield cg.get_variable(config[CONF_WALLPAD_ID])
-    cg.add(paren.register_listener(var))
     cg.add(paren.register_device(var))
     yield var
 
@@ -315,6 +272,10 @@ def register_wallpad_device(var, config):
     if CONF_COMMAND_STATE in config:
         command_state = yield command_hex_expression(config[CONF_COMMAND_STATE])
         cg.add(var.set_command_state(command_state))
+    
+    if CONF_STATE_RESPONSE in config:
+        state_response = yield state_hex_expression(config[CONF_STATE_RESPONSE])
+        cg.add(var.set_state_response(state_response))
 
 
 @coroutine

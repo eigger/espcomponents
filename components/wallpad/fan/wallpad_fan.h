@@ -1,6 +1,6 @@
 #pragma once
 
-#include "esphome/components/wallpad/wallpad.h"
+#include "esphome/components/wallpad/wallpad_device.h"
 #include "esphome/components/fan/fan_state.h"
 
 namespace esphome {
@@ -29,7 +29,7 @@ public:
     }
     void perform();
 
-    void publish(const uint8_t *data, const num_t len) override;
+    void publish(const std::vector<uint8_t>& data) override;
     bool publish(bool state) override
     {
         publish_state(state);
