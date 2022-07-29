@@ -56,7 +56,7 @@ public:
     void dump_config() override;
     void setup() override;
     void loop() override;
-    float get_setup_priority() const override { return setup_priority::BUS; }
+    float get_setup_priority() const override { return setup_priority::BUS - 1.0f; }
     void write_byte(uint8_t data);
     void write_array(const std::vector<uint8_t> &data);
     void write_tx_data();

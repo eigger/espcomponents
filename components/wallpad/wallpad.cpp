@@ -185,7 +185,7 @@ void WallPadComponent::write_byte(uint8_t data)
 
 void WallPadComponent::write_array(const std::vector<uint8_t> &data)
 {
-    this->write(&data[0], data.size());
+    this->write(data);
     ESP_LOGD(TAG, "Write array-> %s", to_hex_string(data).c_str());
 }
 
@@ -201,7 +201,7 @@ void WallPadComponent::push_tx_data_late(const tx_data data)
 
 void WallPadComponent::flush()
 {
-    this->flush(true);
+    this->flush();
     ESP_LOGD(TAG, "Flushing... (%lums)", elapsed_time(tx_time_));
 }
 
