@@ -39,7 +39,7 @@ struct tx_data
     const cmd_hex_t* cmd;
 };
 
-class WallPadComponent : public uart::UARTDevice, Component
+class WallPadComponent : public uart::UARTDevice, public Component
 {
 public:
     WallPadComponent(num_t rx_wait = 15);
