@@ -179,13 +179,13 @@ void WallPadComponent::write_tx_data()
 
 void WallPadComponent::write_byte(uint8_t data)
 {
-    this->write(data);
+    this->write_byte(data);
     ESP_LOGD(TAG, "Write byte-> 0x%02X", data);
 }
 
 void WallPadComponent::write_array(const std::vector<uint8_t> &data)
 {
-    this->write(data);
+    this->write_array(data);
     ESP_LOGD(TAG, "Write array-> %s", to_hex_string(data).c_str());
 }
 
