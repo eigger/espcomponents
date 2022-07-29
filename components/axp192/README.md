@@ -1,3 +1,4 @@
+'''
 external_components:
   - source:
       type: git
@@ -20,3 +21,4 @@ sensor:
     battery_level:
       id: "id_batterylevel"
       internal: True
+'''
