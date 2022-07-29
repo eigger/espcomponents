@@ -69,8 +69,6 @@ public:
     void set_tx_retry_cnt(num_t tx_retry_cnt);
     void set_ctrl_pin(InternalGPIOPin *pin);
     void set_status_pin(InternalGPIOPin *pin);
-    void set_tx_pin(InternalGPIOPin *tx_pin);
-    void set_rx_pin(InternalGPIOPin *rx_pin);
     void set_model(Model model);
     Model get_model();
     bool is_have_tx_data();

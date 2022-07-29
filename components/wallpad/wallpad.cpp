@@ -235,16 +235,6 @@ void WallPadComponent::set_status_pin(InternalGPIOPin *pin)
     status_pin_ = pin;
 }
 
-void WallPadComponent::set_tx_pin(InternalGPIOPin *tx_pin)
-{
-    tx_pin_ = tx_pin;
-}
-
-void WallPadComponent::set_rx_pin(InternalGPIOPin *rx_pin)
-{
-    rx_pin_ = rx_pin;
-}
-
 void WallPadComponent::set_model(Model model)
 {
     conf_model_ = model;
