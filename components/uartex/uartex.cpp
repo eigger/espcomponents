@@ -235,16 +235,6 @@ void UARTExComponent::set_status_pin(InternalGPIOPin *pin)
     status_pin_ = pin;
 }
 
-void UARTExComponent::set_model(Model model)
-{
-    conf_model_ = model;
-}
-
-Model UARTExComponent::get_model()
-{
-    return conf_model_;
-}
-
 bool UARTExComponent::is_have_tx_data()
 {
     if (tx_data_.cmd) return true;
