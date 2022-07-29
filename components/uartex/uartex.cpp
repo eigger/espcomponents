@@ -65,7 +65,7 @@ void UARTExComponent::read_from_uart()
     }
 }
 
-void UARTExComponent::treat_recived_data()
+void UARTExComponent::publish()
 {
     if (parser_.buffer().size() == 0) return;
     if (validate_data(true) != ERR_NONE) return;
