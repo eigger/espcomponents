@@ -44,12 +44,12 @@ void UARTExComponent::setup()
 
 void UARTExComponent::loop()
 {
-    read_from_serial();
-    treat_recived_data();
-    write_to_serial();
+    read_from_uart();
+    publish();
+    write_to_uart();
 }
 
-void UARTExComponent::read_from_serial()
+void UARTExComponent::read_from_uart()
 {
     parser_.clear();
     unsigned long timer = get_time();
@@ -115,7 +115,7 @@ void UARTExComponent::pop_command_to_write()
         }
     }
 }
-void UARTExComponent::write_to_serial()
+void UARTExComponent::write_to_uart()
 {
     if (elapsed_time(rx_time_) < conf_tx_interval_) return;
     if (elapsed_time(tx_time_) < conf_tx_interval_) return;
@@ -225,6 +225,11 @@ void UARTExComponent::set_tx_retry_cnt(num_t tx_retry_cnt)
     conf_tx_retry_cnt_ = tx_retry_cnt;
 }
 
+void UARTExComponent::set_rx_wait(num_t rx_wait)
+{
+    conf_rx_wait_ = rx_wait;
+}
+
 void UARTExComponent::set_ctrl_pin(InternalGPIOPin *pin)
 {
     ctrl_pin_ = pin;
@@ -299,9 +304,8 @@ ValidateCode UARTExComponent::validate_data(bool log)
     return ERR_NONE;
 }
 
-UARTExComponent::UARTExComponent(num_t rx_wait)
+UARTExComponent::UARTExComponent()
 {
-    conf_rx_wait_ = rx_wait;
 }
 
 void UARTExComponent::set_rx_prefix(std::vector<uint8_t> prefix)

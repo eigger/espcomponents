@@ -36,7 +36,7 @@ struct tx_data
 class UARTExComponent : public uart::UARTDevice, public Component
 {
 public:
-    UARTExComponent(num_t rx_wait = 15);
+    UARTExComponent();
     void set_rx_prefix(std::vector<uint8_t> prefix);
     void set_rx_suffix(std::vector<uint8_t> suffix);
     void set_tx_prefix(std::vector<uint8_t> prefix);
@@ -61,6 +61,7 @@ public:
     void set_tx_interval(num_t tx_interval);
     void set_tx_wait(num_t tx_wait);
     void set_tx_retry_cnt(num_t tx_retry_cnt);
+    void set_rx_wait(num_t rx_wait);
     void set_ctrl_pin(InternalGPIOPin *pin);
     void set_status_pin(InternalGPIOPin *pin);
     bool is_have_tx_data();
@@ -90,12 +91,12 @@ protected:
 
     ValidateCode validate_data(bool log = false);
 
-    void read_from_serial();
-    void treat_recived_data();
+    void read_from_uart();
+    void publish();
     bool validate_ack();
     void publish_data();
 
-    void write_to_serial();
+    void write_to_uart();
     bool retry_write();
     void write_command();
     void pop_command_to_write();

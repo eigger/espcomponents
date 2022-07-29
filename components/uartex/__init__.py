@@ -100,36 +100,32 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
 
 async def to_code(config):
     cg.add_global(uartex_ns.using)
-    var = cg.new_Pvariable(config[CONF_ID],
-                           config[CONF_RX_WAIT])
+    var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
     
+    if CONF_RX_WAIT in config:
+        cg.add(var.set_rx_wait(config[CONF_RX_WAIT]))
     if CONF_TX_INTERVAL in config:
         cg.add(var.set_tx_interval(config[CONF_TX_INTERVAL]))
     if CONF_TX_WAIT in config:
         cg.add(var.set_tx_wait(config[CONF_TX_WAIT]))
     if CONF_TX_RETRY_CNT in config:
         cg.add(var.set_tx_retry_cnt(config[CONF_TX_RETRY_CNT]))
-        
     if CONF_CTRL_PIN in config:
         ctrl_pin = await cg.gpio_pin_expression(config[CONF_CTRL_PIN])
         cg.add(var.set_ctrl_pin(ctrl_pin))
-
     if CONF_STATUS_PIN in config:
         status_pin = await cg.gpio_pin_expression(config[CONF_STATUS_PIN])
         cg.add(var.set_status_pin(status_pin))
-
     if CONF_RX_PREFIX in config:
         cg.add(var.set_rx_prefix(config[CONF_RX_PREFIX]))
     if CONF_RX_SUFFIX in config:
         cg.add(var.set_rx_suffix(config[CONF_RX_SUFFIX]))
-
     if CONF_TX_PREFIX in config:
         cg.add(var.set_tx_prefix(config[CONF_TX_PREFIX]))
     if CONF_TX_SUFFIX in config:
         cg.add(var.set_tx_suffix(config[CONF_TX_SUFFIX]))
-
     if CONF_RX_CHECKSUM in config:
         data = config[CONF_RX_CHECKSUM]
         if cg.is_template(data):
@@ -140,7 +136,6 @@ async def to_code(config):
             cg.add(var.set_rx_checksum_lambda(template_))
         else:
             cg.add(var.set_rx_checksum(data))
-
     if CONF_TX_CHECKSUM in config:
         data = config[CONF_TX_CHECKSUM]
         if cg.is_template(data):
