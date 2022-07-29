@@ -8,15 +8,9 @@ namespace wallpad {
 static const char *TAG = "wallpad";
 void WallPadComponent::dump_config()
 {
-    ESP_LOGCONFIG(TAG, "  Baud Rate: %d", conf_baud_);
-    ESP_LOGCONFIG(TAG, "  Data bits: %d", conf_data_);
-    ESP_LOGCONFIG(TAG, "  Parity: %d", conf_parity_);
-    ESP_LOGCONFIG(TAG, "  Stop bits: %d", conf_stop_);
     ESP_LOGCONFIG(TAG, "  RX Receive Timeout: %d", conf_rx_wait_);
     ESP_LOGCONFIG(TAG, "  TX Transmission Timeout: %d", conf_tx_wait_);
     ESP_LOGCONFIG(TAG, "  TX Retry Count: %d", conf_tx_retry_cnt_);
-    LOG_PIN("  RX Pin: ", rx_pin_);
-    LOG_PIN("  TX Pin: ", tx_pin_);
     if (ctrl_pin_)              LOG_PIN("  Ctrl Pin: ", ctrl_pin_);
     if (status_pin_)            LOG_PIN("  Status Pin: ", ctrl_pin_);
     if (rx_prefix_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_prefix: %s", to_hex_string(rx_prefix_.value()).c_str());
@@ -30,24 +24,6 @@ void WallPadComponent::dump_config()
 
 void WallPadComponent::setup()
 {
-#ifdef ARDUINO_ARCH_ESP8266
-    unsigned char serialconfig = 0x10;
-    serialconfig += conf_parity_;
-    serialconfig += (conf_data_ - 5) << 2;
-    if (conf_stop_ == 2) serialconfig += 0x20;
-    this->hw_serial_ = &Serial;
-    this->hw_serial_->begin(conf_baud_, (SerialConfig)serialconfig);
-#endif
-#ifdef ARDUINO_ARCH_ESP32
-    uint32_t serialconfig = 0x8000010;
-    serialconfig += conf_parity_;
-    serialconfig += (conf_data_ - 5) << 2;
-    if (conf_stop_ == 2) serialconfig += 0x20;
-    int8_t tx = this->tx_pin_ != nullptr ? this->tx_pin_->get_pin() : -1;
-    int8_t rx = this->rx_pin_ != nullptr ? this->rx_pin_->get_pin() : -1;
-    this->hw_serial_ = &Serial2;
-    this->hw_serial_->begin(conf_baud_, serialconfig, rx, tx);
-#endif
     if (this->ctrl_pin_)
     {
         this->ctrl_pin_->setup();
@@ -79,9 +55,9 @@ void WallPadComponent::read_from_serial()
     unsigned long timer = get_time();
     while (elapsed_time(timer) < conf_rx_wait_)
     {
-        while (this->hw_serial_->available())
+        while (this->available())
         {
-            if (parser_.parse_byte(this->hw_serial_->read())) return;
+            if (parser_.parse_byte(this->read())) return;
             if (validate_data() == ERR_NONE) return;
             timer = get_time();
         }
@@ -203,13 +179,13 @@ void WallPadComponent::write_tx_data()
 
 void WallPadComponent::write_byte(uint8_t data)
 {
-    this->hw_serial_->write(data);
+    this->write(data);
     ESP_LOGD(TAG, "Write byte-> 0x%02X", data);
 }
 
 void WallPadComponent::write_array(const std::vector<uint8_t> &data)
 {
-    this->hw_serial_->write(&data[0], data.size());
+    this->write(&data[0], data.size());
     ESP_LOGD(TAG, "Write array-> %s", to_hex_string(data).c_str());
 }
 
@@ -225,7 +201,7 @@ void WallPadComponent::push_tx_data_late(const tx_data data)
 
 void WallPadComponent::flush()
 {
-    this->hw_serial_->flush(true);
+    this->flush(true);
     ESP_LOGD(TAG, "Flushing... (%lums)", elapsed_time(tx_time_));
 }
 
@@ -343,12 +319,8 @@ ValidateCode WallPadComponent::validate_data(bool log)
     return ERR_NONE;
 }
 
-WallPadComponent::WallPadComponent(int baud, num_t data, num_t parity, num_t stop, num_t rx_wait)
+WallPadComponent::WallPadComponent(num_t rx_wait)
 {
-    conf_baud_ = baud;
-    conf_data_ = data;
-    conf_parity_ = parity;
-    conf_stop_ = stop;
     conf_rx_wait_ = rx_wait;
 }
 

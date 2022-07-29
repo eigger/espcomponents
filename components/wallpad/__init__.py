@@ -1,13 +1,13 @@
 import logging
 import esphome.codegen as cg
 import esphome.config_validation as cv
+from esphome.components import uart
 from esphome import automation, pins
-from esphome.const import CONF_ID, CONF_BAUD_RATE, CONF_OFFSET, CONF_DATA, \
-    CONF_DEVICE, CONF_INVERTED, CONF_NUMBER, CONF_RX_PIN, CONF_TX_PIN
+from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
+    CONF_DEVICE, CONF_INVERTED, CONF_NUMBER
 from esphome.core import CORE, coroutine
 from esphome.util import SimpleRegistry
-from .const import CONF_DATA_BITS, CONF_PARITY, CONF_STOP_BITS, \
-    CONF_RX_PREFIX, CONF_RX_SUFFIX, CONF_TX_PREFIX, CONF_TX_SUFFIX, \
+from .const import CONF_RX_PREFIX, CONF_RX_SUFFIX, CONF_TX_PREFIX, CONF_TX_SUFFIX, \
     CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, \
     CONF_WALLPAD_ID, \
     CONF_ACK, CONF_MODEL, \
@@ -20,7 +20,7 @@ from .const import CONF_DATA_BITS, CONF_PARITY, CONF_STOP_BITS, \
 _LOGGER = logging.getLogger(__name__)
 
 wallpad_ns = cg.esphome_ns.namespace('wallpad')
-WallPadComponent = wallpad_ns.class_('WallPadComponent', cg.Component)
+WallPadComponent = wallpad_ns.class_('WallPadComponent', cg.Component, uart.UARTDevice)
 WallPadWriteAction = wallpad_ns.class_('WallPadWriteAction', automation.Action)
 cmd_hex_t = wallpad_ns.class_('cmd_hex_t')
 num_t_const = wallpad_ns.class_('num_t').operator('const')
@@ -95,30 +95,9 @@ def command_hex_schema(value):
         return COMMAND_HEX_SCHEMA(value)
     return shorthand_command_hex(value)
 
-def validate_tx_pin(value):
-    value = pins.internal_gpio_output_pin_schema(value)
-    #  - esp8266: UART0 (TX: GPIO1, RX: GPIO3)
-    #  - esp32: UART2 (TX: GPIO17, RX: GPIO16)
-    if CORE.is_esp8266 and value[CONF_NUMBER] != 1:
-        raise cv.Invalid("RX pin have to use GPIO1 on ESP8266.")
-    return value
-
-def validate_rx_pin(value):
-    value = pins.internal_gpio_input_pin_schema(value)
-    if CORE.is_esp8266 and value[CONF_NUMBER] != 3:
-        raise cv.Invalid("TX pin have to use GPIO3 on ESP8266.")
-    return value
-
 # WallPad Schema
 CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.GenerateID(): cv.declare_id(WallPadComponent),
-    cv.Required(CONF_BAUD_RATE): cv.int_range(min=1, max=115200),
-    cv.Optional(CONF_TX_PIN, default=1 if CORE.is_esp8266 else 17): validate_tx_pin,
-    cv.Optional(CONF_RX_PIN, default=3 if CORE.is_esp8266 else 16): validate_rx_pin,
-    cv.Optional(CONF_DATA_BITS, default=8): cv.int_range(min=1, max=32),
-    # 0:No parity, 2:Even, 3:Odd
-    cv.Optional(CONF_PARITY, default=0): cv.int_range(min=0, max=3),
-    cv.Optional(CONF_STOP_BITS, default=1): cv.int_range(min=0, max=1),
     cv.Optional(CONF_MODEL, default="custom"): cv.enum(MODELS, upper=True),
     cv.Optional(CONF_RX_WAIT, default=10): cv.int_range(min=1, max=2000),
     cv.Optional(CONF_TX_INTERVAL): cv.int_range(min=1, max=2000),
@@ -132,34 +111,22 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_TX_SUFFIX): validate_hex_data,
     cv.Optional(CONF_RX_CHECKSUM, default="none"): validate_checksum,
     cv.Optional(CONF_TX_CHECKSUM, default="none"): validate_checksum,
-}).extend(cv.COMPONENT_SCHEMA),
-cv.has_at_least_one_key(CONF_TX_PIN, CONF_RX_PIN),
+}).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA)
 )
 
 async def to_code(config):
     cg.add_global(wallpad_ns.using)
     var = cg.new_Pvariable(config[CONF_ID],
-                           config[CONF_BAUD_RATE],
-                           config[CONF_DATA_BITS],
-                           config[CONF_PARITY],
-                           config[CONF_STOP_BITS],
                            config[CONF_RX_WAIT])
     await cg.register_component(var, config)
-
+    await uart.register_uart_device(var, config)
+    
     if CONF_TX_INTERVAL in config:
         cg.add(var.set_tx_interval(config[CONF_TX_INTERVAL]))
     if CONF_TX_WAIT in config:
         cg.add(var.set_tx_wait(config[CONF_TX_WAIT]))
     if CONF_TX_RETRY_CNT in config:
         cg.add(var.set_tx_retry_cnt(config[CONF_TX_RETRY_CNT]))
-
-    if CONF_TX_PIN in config:
-        tx_pin = await cg.gpio_pin_expression(config[CONF_TX_PIN])
-        cg.add(var.set_tx_pin(tx_pin))
-
-    if CONF_RX_PIN in config:
-        rx_pin = await cg.gpio_pin_expression(config[CONF_RX_PIN])
-        cg.add(var.set_rx_pin(rx_pin))
         
     if CONF_CTRL_PIN in config:
         ctrl_pin = await cg.gpio_pin_expression(config[CONF_CTRL_PIN])

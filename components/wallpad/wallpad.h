@@ -1,10 +1,11 @@
 #pragma once
 #include <vector>
 #include <queue>
-#include <HardwareSerial.h>
+
 #include "esphome/core/automation.h"
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
+#include "esphome/components/uart/uart.h"
 #include "wallpad_device.h"
 #include "parser.h"
 
@@ -38,19 +39,10 @@ struct tx_data
     const cmd_hex_t* cmd;
 };
 
-/** 
- * WallPad Core Component
- * 
- * @param baud Baud Rate
- * @param data Data bits
- * @param parity Parity(0: No parity, 2: Even, 3: Odd)
- * @param stop Stop bits
- * @param rx_wait RX Receive Timeout (mSec)
- */
-class WallPadComponent : public Component
+class WallPadComponent : public uart::UARTDevice, Component
 {
 public:
-    WallPadComponent(int baud, num_t data = 8, num_t parity = 0, num_t stop = 1, num_t rx_wait = 15);
+    WallPadComponent(num_t rx_wait = 15);
     void set_rx_prefix(std::vector<uint8_t> prefix);
     void set_rx_suffix(std::vector<uint8_t> suffix);
     void set_tx_prefix(std::vector<uint8_t> prefix);
@@ -88,13 +80,9 @@ public:
     unsigned long elapsed_time(const unsigned long timer);
     unsigned long get_time();
 protected:
-    HardwareSerial *hw_serial_{nullptr};
+
     std::vector<WallPadDevice *> devices_{};
     Model conf_model_;
-    int conf_baud_;
-    num_t conf_data_;
-    num_t conf_parity_;
-    num_t conf_stop_;
     num_t conf_rx_wait_;
     num_t conf_tx_interval_{50};
     num_t conf_tx_wait_{50};
@@ -132,8 +120,6 @@ protected:
     num_t tx_retry_cnt_{0};
     InternalGPIOPin *ctrl_pin_{nullptr};
     InternalGPIOPin *status_pin_{nullptr};
-    InternalGPIOPin *tx_pin_{nullptr};
-    InternalGPIOPin *rx_pin_{nullptr};
     Parser parser_{};
 };
 
