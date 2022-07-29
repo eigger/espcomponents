@@ -39,7 +39,7 @@ void WallPadComponent::setup()
     tx_time_ = get_time();
     if (rx_prefix_.has_value()) parser_.add_headers(rx_prefix_.value());
     if (rx_suffix_.has_value()) parser_.add_footers(rx_suffix_.value());
-    ESP_LOGI(TAG, "HW Serial Initaialize.");
+    ESP_LOGI(TAG, "Initaialize.");
 }
 
 void WallPadComponent::loop()
