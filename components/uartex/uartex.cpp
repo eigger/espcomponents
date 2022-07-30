@@ -59,6 +59,9 @@ void UARTExComponent::read_from_uart()
         {
             uint8_t byte;
             this->read_byte(&byte);
+            #ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
+                ESP_LOGVV(TAG, "Recv byte-> 0x%02X", byte);
+            #endif
             if (parser_.parse_byte(byte)) return;
             if (validate_data() == ERR_NONE) return;
             timer = get_time();
@@ -181,12 +184,18 @@ void UARTExComponent::write_tx_data()
 
 void UARTExComponent::write_byte(uint8_t data)
 {
+#ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
+    ESP_LOGVV(TAG, "Start Write byte-> 0x%02X", data);
+#endif
     this->write_byte(data);
     ESP_LOGD(TAG, "Write byte-> 0x%02X", data);
 }
 
 void UARTExComponent::write_array(const std::vector<uint8_t> &data)
 {
+#ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
+    ESP_LOGVV(TAG, "Start Write array-> %s", to_hex_string(data).c_str());
+#endif
     this->write_array(data);
     ESP_LOGD(TAG, "Write array-> %s", to_hex_string(data).c_str());
 }
