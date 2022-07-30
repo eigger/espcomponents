@@ -4,13 +4,13 @@ import esphome.config_validation as cv
 from esphome.components import uart
 from esphome import automation, pins
 from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
-    CONF_DEVICE, CONF_INVERTED, CONF_NUMBER
-from esphome.core import CORE, coroutine
+    CONF_DEVICE, CONF_INVERTED
+from esphome.core import coroutine
 from esphome.util import SimpleRegistry
 from .const import CONF_RX_PREFIX, CONF_RX_SUFFIX, CONF_TX_PREFIX, CONF_TX_SUFFIX, \
     CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, \
-    CONF_WALLPAD_ID, \
-    CONF_ACK, CONF_MODEL, \
+    CONF_UARTEX_ID, \
+    CONF_ACK, \
     CONF_SUB_DEVICE, \
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
     CONF_COMMAND_STATE, CONF_RX_WAIT, CONF_TX_WAIT, CONF_TX_RETRY_CNT, \
@@ -18,32 +18,23 @@ from .const import CONF_RX_PREFIX, CONF_RX_SUFFIX, CONF_TX_PREFIX, CONF_TX_SUFFI
     CONF_CTRL_PIN, CONF_STATUS_PIN, CONF_TX_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
-
-wallpad_ns = cg.esphome_ns.namespace('wallpad')
-WallPadComponent = wallpad_ns.class_('WallPadComponent', cg.Component, uart.UARTDevice)
-WallPadWriteAction = wallpad_ns.class_('WallPadWriteAction', automation.Action)
-cmd_hex_t = wallpad_ns.class_('cmd_hex_t')
-num_t_const = wallpad_ns.class_('num_t').operator('const')
+DEPENDENCIES = ["uart"]
+uartex_ns = cg.esphome_ns.namespace('uartex')
+UARTExComponent = uartex_ns.class_('UARTExComponent', cg.Component, uart.UARTDevice)
+UARTExWriteAction = uartex_ns.class_('UARTExWriteAction', automation.Action)
+cmd_hex_t = uartex_ns.class_('cmd_hex_t')
+num_t_const = uartex_ns.class_('num_t').operator('const')
 uint8_const = cg.uint8.operator('const')
 uint8_ptr_const = uint8_const.operator('ptr')
 
 MULTI_CONF = False
 
-# Validate HEX: uint8_t[]
-Model = wallpad_ns.enum("Model")
-MODELS = {
-    "CUSTOM": Model.MODEL_CUSTOM,
-    "KOCOM": Model.MODEL_KOCOM,
-    "SDS": Model.MODEL_SDS,
-}
-
-Checksum = wallpad_ns.enum("CheckSum")
+Checksum = uartex_ns.enum("CheckSum")
 CHECKSUMS = {
     "NONE": Checksum.CHECKSUM_NONE,
     "XOR": Checksum.CHECKSUM_XOR,
     "ADD": Checksum.CHECKSUM_ADD,
 }
-
 
 def validate_hex_data(value):
     if isinstance(value, list):
@@ -57,7 +48,6 @@ def validate_checksum(value):
         return cv.enum(CHECKSUMS, upper=True)(value)
     raise cv.Invalid("data type error")
 
-
 # State HEX (hex_t): int offset, uint8_t[] data
 STATE_HEX_SCHEMA = cv.Schema({
     cv.Required(CONF_DATA): validate_hex_data,
@@ -66,17 +56,14 @@ STATE_HEX_SCHEMA = cv.Schema({
     cv.Optional(CONF_INVERTED, default=False): cv.boolean
 })
 
-
 def shorthand_state_hex(value):
     value = validate_hex_data(value)
     return STATE_HEX_SCHEMA({CONF_DATA: value})
-
 
 def state_hex_schema(value):
     if isinstance(value, dict):
         return STATE_HEX_SCHEMA(value)
     return shorthand_state_hex(value)
-
 
 # Command HEX: uint8_t[] data, uint8_t[] ack
 COMMAND_HEX_SCHEMA = cv.Schema({
@@ -84,21 +71,18 @@ COMMAND_HEX_SCHEMA = cv.Schema({
     cv.Optional(CONF_ACK, default=[]): validate_hex_data
 })
 
-
 def shorthand_command_hex(value):
     value = validate_hex_data(value)
     return COMMAND_HEX_SCHEMA({CONF_DATA: value, CONF_ACK: []})
-
 
 def command_hex_schema(value):
     if isinstance(value, dict):
         return COMMAND_HEX_SCHEMA(value)
     return shorthand_command_hex(value)
 
-# WallPad Schema
+# UARTEx Schema
 CONFIG_SCHEMA = cv.All(cv.Schema({
-    cv.GenerateID(): cv.declare_id(WallPadComponent),
-    cv.Optional(CONF_MODEL, default="custom"): cv.enum(MODELS, upper=True),
+    cv.GenerateID(): cv.declare_id(UARTExComponent),
     cv.Optional(CONF_RX_WAIT, default=10): cv.int_range(min=1, max=2000),
     cv.Optional(CONF_TX_INTERVAL): cv.int_range(min=1, max=2000),
     cv.Optional(CONF_TX_WAIT): cv.int_range(min=1, max=2000),
@@ -115,40 +99,33 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
 )
 
 async def to_code(config):
-    cg.add_global(wallpad_ns.using)
-    var = cg.new_Pvariable(config[CONF_ID],
-                           config[CONF_RX_WAIT])
+    cg.add_global(uartex_ns.using)
+    var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
     
+    if CONF_RX_WAIT in config:
+        cg.add(var.set_rx_wait(config[CONF_RX_WAIT]))
     if CONF_TX_INTERVAL in config:
         cg.add(var.set_tx_interval(config[CONF_TX_INTERVAL]))
     if CONF_TX_WAIT in config:
         cg.add(var.set_tx_wait(config[CONF_TX_WAIT]))
     if CONF_TX_RETRY_CNT in config:
         cg.add(var.set_tx_retry_cnt(config[CONF_TX_RETRY_CNT]))
-        
     if CONF_CTRL_PIN in config:
         ctrl_pin = await cg.gpio_pin_expression(config[CONF_CTRL_PIN])
         cg.add(var.set_ctrl_pin(ctrl_pin))
-
     if CONF_STATUS_PIN in config:
         status_pin = await cg.gpio_pin_expression(config[CONF_STATUS_PIN])
         cg.add(var.set_status_pin(status_pin))
-    
-    if CONF_MODEL in config:
-        cg.add(var.set_model(config[CONF_MODEL]))
-
     if CONF_RX_PREFIX in config:
         cg.add(var.set_rx_prefix(config[CONF_RX_PREFIX]))
     if CONF_RX_SUFFIX in config:
         cg.add(var.set_rx_suffix(config[CONF_RX_SUFFIX]))
-
     if CONF_TX_PREFIX in config:
         cg.add(var.set_tx_prefix(config[CONF_TX_PREFIX]))
     if CONF_TX_SUFFIX in config:
         cg.add(var.set_tx_suffix(config[CONF_TX_SUFFIX]))
-
     if CONF_RX_CHECKSUM in config:
         data = config[CONF_RX_CHECKSUM]
         if cg.is_template(data):
@@ -159,7 +136,6 @@ async def to_code(config):
             cg.add(var.set_rx_checksum_lambda(template_))
         else:
             cg.add(var.set_rx_checksum(data))
-
     if CONF_TX_CHECKSUM in config:
         data = config[CONF_TX_CHECKSUM]
         if cg.is_template(data):
@@ -171,11 +147,9 @@ async def to_code(config):
         else:
             cg.add(var.set_tx_checksum(data))
 
-
-
-# A schema to use for all WallPad devices, all WallPad integrations must extend this!
-WallPad_DEVICE_SCHEMA = cv.Schema({
-    cv.GenerateID(CONF_WALLPAD_ID): cv.use_id(WallPadComponent),
+# A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
+UARTEx_DEVICE_SCHEMA = cv.Schema({
+    cv.GenerateID(CONF_UARTEX_ID): cv.use_id(UARTExComponent),
     cv.Optional(CONF_DEVICE): state_hex_schema,
     cv.Optional(CONF_SUB_DEVICE): state_hex_schema,
     cv.Optional(CONF_STATE_ON): state_hex_schema,
@@ -195,10 +169,9 @@ STATE_NUM_SCHEMA = cv.Schema({
 
 HEX_SCHEMA_REGISTRY = SimpleRegistry()
 
-
 @coroutine
-def register_wallpad_device(var, config):
-    paren = yield cg.get_variable(config[CONF_WALLPAD_ID])
+def register_uartex_device(var, config):
+    paren = yield cg.get_variable(config[CONF_UARTEX_ID])
     cg.add(paren.register_device(var))
     yield var
 
@@ -268,12 +241,12 @@ def command_hex_expression(conf):
         yield data
 
 
-@automation.register_action('wallpad.write', WallPadWriteAction, cv.maybe_simple_value({
-    cv.GenerateID(): cv.use_id(WallPadComponent),
+@automation.register_action('uartex.write', UARTExWriteAction, cv.maybe_simple_value({
+    cv.GenerateID(): cv.use_id(UARTExComponent),
     cv.Required(CONF_DATA): cv.templatable(validate_hex_data),
     cv.Optional(CONF_ACK, default=[]): validate_hex_data
 }, key=CONF_DATA))
-def wallpad_write_to_code(config, action_id, template_arg, args):
+def uartex_write_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
     yield cg.register_parented(var, config[CONF_ID])
     data = config[CONF_DATA]

@@ -1,0 +1,44 @@
+#pragma once
+
+#include "uartex.h"
+#include "esphome/core/automation.h"
+
+namespace esphome {
+namespace uartex {
+
+template <typename... Ts>
+class UARTExWriteAction : public Action<Ts...>, public Parented<UARTExComponent>
+{
+public:
+    void set_data_template(std::function<cmd_hex_t(Ts...)> func)
+    {
+        this->data_func_ = func;
+        this->static_ = false;
+    }
+    void set_data_static(const cmd_hex_t &data)
+    {
+        this->data_static_ = data;
+        this->static_ = true;
+    }
+
+    void play(Ts... x) override
+    {
+        if (this->static_)
+        {
+            this->parent_->push_tx_cmd({nullptr, &this->data_static_});
+        }
+        else
+        {
+            data_static_ = this->data_func_(x...);
+            this->parent_->push_tx_cmd({nullptr, &this->data_static_});
+        }
+    }
+
+protected:
+    bool static_{false};
+    std::function<cmd_hex_t(Ts...)> data_func_{};
+    cmd_hex_t data_static_{};
+};
+
+}  // namespace uartex
+}  // namespace esphome

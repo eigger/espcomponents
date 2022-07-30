@@ -1,12 +1,12 @@
-#include "wallpad.h"
+#include "uartex.h"
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/application.h"
 
 namespace esphome {
-namespace wallpad {
-static const char *TAG = "wallpad";
-void WallPadComponent::dump_config()
+namespace uartex {
+static const char *TAG = "uartex";
+void UARTExComponent::dump_config()
 {
     ESP_LOGCONFIG(TAG, "  RX Receive Timeout: %d", conf_rx_wait_);
     ESP_LOGCONFIG(TAG, "  TX Transmission Timeout: %d", conf_tx_wait_);
@@ -22,7 +22,7 @@ void WallPadComponent::dump_config()
     ESP_LOGCONFIG(TAG, "  Device count: %d", devices_.size());
 }
 
-void WallPadComponent::setup()
+void UARTExComponent::setup()
 {
     if (this->ctrl_pin_)
     {
@@ -42,14 +42,14 @@ void WallPadComponent::setup()
     ESP_LOGI(TAG, "Initaialize.");
 }
 
-void WallPadComponent::loop()
+void UARTExComponent::loop()
 {
-    read_from_serial();
-    treat_recived_data();
-    write_to_serial();
+    read_from_uart();
+    publish_to_devices();
+    write_to_uart();
 }
 
-void WallPadComponent::read_from_serial()
+void UARTExComponent::read_from_uart()
 {
     parser_.clear();
     unsigned long timer = get_time();
@@ -57,7 +57,9 @@ void WallPadComponent::read_from_serial()
     {
         while (this->available())
         {
-            if (parser_.parse_byte(this->read())) return;
+            uint8_t byte;
+            if (!this->read_byte(&byte)) continue;
+            if (parser_.parse_byte(byte)) return;
             if (validate_data() == ERR_NONE) return;
             timer = get_time();
         }
@@ -65,7 +67,7 @@ void WallPadComponent::read_from_serial()
     }
 }
 
-void WallPadComponent::treat_recived_data()
+void UARTExComponent::publish_to_devices()
 {
     if (parser_.buffer().size() == 0) return;
     if (validate_data(true) != ERR_NONE) return;
@@ -74,20 +76,21 @@ void WallPadComponent::treat_recived_data()
     rx_time_ = get_time();
 }
 
-bool WallPadComponent::validate_ack()
+bool UARTExComponent::validate_ack()
 {
-    if (!is_have_tx_data()) return false;
+    if (!is_have_tx_cmd()) return false;
     if (tx_device() == nullptr) return false;
     if (!tx_device()->equal(parser_.data(), tx_cmd()->ack)) return false;
     ack_tx_data(true);
     ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", to_hex_string(parser_.buffer()).c_str(), elapsed_time(tx_time_));
-    return true;
+    //return true;
+    return false;
 }
 
-void WallPadComponent::publish_data()
+void UARTExComponent::publish_data()
 {
     bool found = false;
-    for (WallPadDevice* device : this->devices_)
+    for (UARTExDevice* device : this->devices_)
     {
         if (device->parse_data(parser_.data()))
         {
@@ -102,31 +105,29 @@ void WallPadComponent::publish_data()
 #endif
 }
 
-void WallPadComponent::pop_command_to_write()
+void UARTExComponent::pop_tx_data()
 {
-    for (WallPadDevice* device : this->devices_)
+    for (UARTExDevice* device : this->devices_)
     {
-        if (device->is_have_command())
-        {
-            const cmd_hex_t *cmd = device->pop_command();
-            if (cmd == nullptr) continue;
-            if (cmd->ack.size() == 0)   push_tx_data_late({device, cmd});
-            else                        push_tx_data({device, cmd});
-        }
+        const cmd_hex_t *cmd = device->pop_tx_cmd();
+        if (cmd == nullptr) continue;
+        if (cmd->ack.size() == 0)   push_tx_data_late({device, cmd});
+        else                        push_tx_data({device, cmd});
     }
 }
-void WallPadComponent::write_to_serial()
+
+void UARTExComponent::write_to_uart()
 {
     if (elapsed_time(rx_time_) < conf_tx_interval_) return;
     if (elapsed_time(tx_time_) < conf_tx_interval_) return;
     if (elapsed_time(tx_time_) < conf_tx_wait_) return;
-    if (retry_write()) return;
-    write_command();
+    if (retry_tx_cmd()) return;
+    write_tx_data();
 }
 
-bool WallPadComponent::retry_write()
+bool UARTExComponent::retry_tx_cmd()
 {
-    if (!is_have_tx_data()) return false;
+    if (!is_have_tx_cmd()) return false;
     if (conf_tx_retry_cnt_ <= tx_retry_cnt_)
     {
         ack_tx_data(false);
@@ -134,156 +135,151 @@ bool WallPadComponent::retry_write()
         return false;
     }
     ESP_LOGD(TAG, "Retry count: %d", tx_retry_cnt_);
-    write_tx_data();
+    write_tx_cmd();
     return true;
 }
 
-void WallPadComponent::write_command()
+void UARTExComponent::write_tx_data()
 {
-    pop_command_to_write();
-    if (!tx_queue_.empty() || !tx_queue_late_.empty())
+    pop_tx_data();
+    if (!tx_queue_.empty())
     {
-        if (!tx_queue_.empty())
-        {
-            tx_data_ = tx_queue_.front();
-            tx_queue_.pop();
-        }
-        else
-        {
-            tx_data_ = tx_queue_late_.front();
-            tx_queue_late_.pop();
-        }
-        write_tx_data();
+        tx_data_ = tx_queue_.front();
+        tx_queue_.pop();
+        write_tx_cmd();
+    }
+    else if (!tx_queue_late_.empty())
+    {
+        tx_data_ = tx_queue_late_.front();
+        tx_queue_late_.pop();
+        write_tx_cmd();
     }
 }
 
-void WallPadComponent::write_tx_data()
+void UARTExComponent::write_tx_cmd()
 {
     tx_time_ = get_time();
     if (status_pin_) status_pin_->digital_write(true);
     if (ctrl_pin_) ctrl_pin_->digital_write(true);
-    if (tx_prefix_.has_value()) write_array(tx_prefix_.value());
-    write_array(tx_cmd()->data);
-    if (tx_checksum_) write_byte(get_tx_checksum(tx_cmd()->data));
-    if (tx_suffix_.has_value()) write_array(tx_suffix_.value());
-    if (ctrl_pin_)
-    {
-        flush();
-        ctrl_pin_->digital_write(false);
-    }
+    if (tx_prefix_.has_value()) write_data(tx_prefix_.value());
+    write_data(tx_cmd()->data);
+    if (tx_checksum_) write_data(get_tx_checksum(tx_cmd()->data));
+    if (tx_suffix_.has_value()) write_data(tx_suffix_.value());
+    flush();
+    if (ctrl_pin_) ctrl_pin_->digital_write(false);
     if (status_pin_) status_pin_->digital_write(false);
     tx_retry_cnt_++;
     tx_time_ = get_time();
     if (tx_cmd()->ack.size() == 0) ack_tx_data(true);
 }
 
-void WallPadComponent::write_byte(uint8_t data)
+void UARTExComponent::write_data(const uint8_t data)
 {
     this->write_byte(data);
     ESP_LOGD(TAG, "Write byte-> 0x%02X", data);
 }
 
-void WallPadComponent::write_array(const std::vector<uint8_t> &data)
+void UARTExComponent::write_data(const std::vector<uint8_t> &data)
 {
     this->write_array(data);
     ESP_LOGD(TAG, "Write array-> %s", to_hex_string(data).c_str());
 }
 
-void WallPadComponent::push_tx_data(const tx_data data)
+void UARTExComponent::push_tx_data(const tx_data data)
 {
     tx_queue_.push(data);
 }
 
-void WallPadComponent::push_tx_data_late(const tx_data data)
+void UARTExComponent::push_tx_data_late(const tx_data data)
 {
     tx_queue_late_.push(data);
 }
 
-void WallPadComponent::flush()
+void UARTExComponent::flush()
 {
     this->flush();
     ESP_LOGD(TAG, "Flushing... (%lums)", elapsed_time(tx_time_));
 }
 
-void WallPadComponent::register_device(WallPadDevice *device)
+void UARTExComponent::register_device(UARTExDevice *device)
 {
     devices_.push_back(device);
 }
 
-void WallPadComponent::set_tx_interval(num_t tx_interval)
+void UARTExComponent::set_tx_interval(num_t tx_interval)
 {
     conf_tx_interval_ = tx_interval;
 }
 
-void WallPadComponent::set_tx_wait(num_t tx_wait)
+void UARTExComponent::set_tx_wait(num_t tx_wait)
 {
     conf_tx_wait_ = tx_wait;
 }
 
-void WallPadComponent::set_tx_retry_cnt(num_t tx_retry_cnt)
+void UARTExComponent::set_tx_retry_cnt(num_t tx_retry_cnt)
 {
     conf_tx_retry_cnt_ = tx_retry_cnt;
 }
 
-void WallPadComponent::set_ctrl_pin(InternalGPIOPin *pin)
+void UARTExComponent::set_rx_wait(num_t rx_wait)
+{
+    conf_rx_wait_ = rx_wait;
+}
+
+void UARTExComponent::set_ctrl_pin(InternalGPIOPin *pin)
 {
     ctrl_pin_ = pin;
 }
 
-void WallPadComponent::set_status_pin(InternalGPIOPin *pin)
+void UARTExComponent::set_status_pin(InternalGPIOPin *pin)
 {
     status_pin_ = pin;
 }
 
-void WallPadComponent::set_model(Model model)
-{
-    conf_model_ = model;
-}
-
-Model WallPadComponent::get_model()
-{
-    return conf_model_;
-}
-
-bool WallPadComponent::is_have_tx_data()
+bool UARTExComponent::is_have_tx_cmd()
 {
     if (tx_data_.cmd) return true;
     return false;
 }
 
-void WallPadComponent::ack_tx_data(bool ok)
+void UARTExComponent::ack_tx_data(bool ok)
 {
     if (tx_data_.device)
     {
         if (ok) tx_data_.device->ack_ok();
         else    tx_data_.device->ack_ng();
     }
+    clear_tx_data();
+}
+
+void UARTExComponent::clear_tx_data()
+{
     tx_data_.device = nullptr;
     tx_data_.cmd = nullptr;
     tx_retry_cnt_ = 0;
 }
 
-const cmd_hex_t* WallPadComponent::tx_cmd()
+const cmd_hex_t* UARTExComponent::tx_cmd()
 {
     return tx_data_.cmd;
 }
 
-WallPadDevice* WallPadComponent::tx_device()
+UARTExDevice* UARTExComponent::tx_device()
 {
     return tx_data_.device;
 }
 
-unsigned long WallPadComponent::elapsed_time(const unsigned long timer)
+unsigned long UARTExComponent::elapsed_time(const unsigned long timer)
 {
     return millis() - timer;
 }
 
-unsigned long WallPadComponent::get_time()
+unsigned long UARTExComponent::get_time()
 {
     return millis();
 }
 
-ValidateCode WallPadComponent::validate_data(bool log)
+ValidateCode UARTExComponent::validate_data(bool log)
 {
     if (parser_.data().size() == 0)
     {
@@ -309,54 +305,49 @@ ValidateCode WallPadComponent::validate_data(bool log)
     return ERR_NONE;
 }
 
-WallPadComponent::WallPadComponent(num_t rx_wait)
-{
-    conf_rx_wait_ = rx_wait;
-}
-
-void WallPadComponent::set_rx_prefix(std::vector<uint8_t> prefix)
+void UARTExComponent::set_rx_prefix(std::vector<uint8_t> prefix)
 {
     rx_prefix_ = prefix;
 }
 
-void WallPadComponent::set_rx_suffix(std::vector<uint8_t> suffix)
+void UARTExComponent::set_rx_suffix(std::vector<uint8_t> suffix)
 {
     rx_suffix_ = suffix;
 }
 
-void WallPadComponent::set_tx_prefix(std::vector<uint8_t> prefix)
+void UARTExComponent::set_tx_prefix(std::vector<uint8_t> prefix)
 {
     tx_prefix_ = prefix;
 }
 
-void WallPadComponent::set_tx_suffix(std::vector<uint8_t> suffix)
+void UARTExComponent::set_tx_suffix(std::vector<uint8_t> suffix)
 {
     tx_suffix_ = suffix;
 }
 
-void WallPadComponent::set_rx_checksum(CheckSum checksum)
+void UARTExComponent::set_rx_checksum(CheckSum checksum)
 {
     rx_checksum_ = checksum;
 }
 
-void WallPadComponent::set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f)
+void UARTExComponent::set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f)
 {
     rx_checksum_f_ = f;
     rx_checksum_ = CHECKSUM_CUSTOM;
 }
 
-void WallPadComponent::set_tx_checksum(CheckSum checksum)
+void UARTExComponent::set_tx_checksum(CheckSum checksum)
 {
     tx_checksum_ = checksum;
 }
 
-void WallPadComponent::set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f)
+void UARTExComponent::set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f)
 {
     tx_checksum_f_ = f;
     tx_checksum_ = CHECKSUM_CUSTOM;
 }
 
-uint8_t WallPadComponent::get_rx_checksum(const std::vector<uint8_t> &data) const
+uint8_t UARTExComponent::get_rx_checksum(const std::vector<uint8_t> &data) const
 {
     if (this->rx_checksum_f_.has_value())
     {
@@ -389,7 +380,7 @@ uint8_t WallPadComponent::get_rx_checksum(const std::vector<uint8_t> &data) cons
     }
 }
 
-uint8_t WallPadComponent::get_tx_checksum(const std::vector<uint8_t> &data) const
+uint8_t UARTExComponent::get_tx_checksum(const std::vector<uint8_t> &data) const
 {
     if (this->tx_checksum_f_.has_value())
     {
@@ -422,5 +413,5 @@ uint8_t WallPadComponent::get_tx_checksum(const std::vector<uint8_t> &data) cons
     }
 }
 
-}  // namespace wallpad
+}  // namespace uartex
 }  // namespace esphome

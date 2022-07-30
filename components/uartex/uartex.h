@@ -6,17 +6,11 @@
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
 #include "esphome/components/uart/uart.h"
-#include "wallpad_device.h"
+#include "uartex_device.h"
 #include "parser.h"
 
 namespace esphome {
-namespace wallpad {
-
-enum Model {
-    MODEL_CUSTOM = 0,
-    MODEL_KOCOM,
-    MODEL_SDS,
-};
+namespace uartex {
 
 enum ValidateCode {
     ERR_NONE,
@@ -35,14 +29,14 @@ enum CheckSum {
 
 struct tx_data
 {
-    WallPadDevice* device;
+    UARTExDevice* device;
     const cmd_hex_t* cmd;
 };
 
-class WallPadComponent : public uart::UARTDevice, public Component
+class UARTExComponent : public uart::UARTDevice, public Component
 {
 public:
-    WallPadComponent(num_t rx_wait = 15);
+    UARTExComponent() = default;
     void set_rx_prefix(std::vector<uint8_t> prefix);
     void set_rx_suffix(std::vector<uint8_t> suffix);
     void set_tx_prefix(std::vector<uint8_t> prefix);
@@ -57,30 +51,29 @@ public:
     void setup() override;
     void loop() override;
     float get_setup_priority() const override { return setup_priority::BUS - 1.0f; }
-    void write_byte(uint8_t data);
-    void write_array(const std::vector<uint8_t> &data);
-    void write_tx_data();
+    void write_data(const uint8_t data);
+    void write_data(const std::vector<uint8_t> &data);
+    void write_tx_cmd();
     void push_tx_data(const tx_data data);
     void push_tx_data_late(const tx_data data);
     void flush();
-    void register_device(WallPadDevice *device);
+    void register_device(UARTExDevice *device);
     void set_tx_interval(num_t tx_interval);
     void set_tx_wait(num_t tx_wait);
     void set_tx_retry_cnt(num_t tx_retry_cnt);
+    void set_rx_wait(num_t rx_wait);
     void set_ctrl_pin(InternalGPIOPin *pin);
     void set_status_pin(InternalGPIOPin *pin);
-    void set_model(Model model);
-    Model get_model();
-    bool is_have_tx_data();
+    bool is_have_tx_cmd();
     void ack_tx_data(bool ok);
+    void clear_tx_data();
     const cmd_hex_t* tx_cmd();
-    WallPadDevice* tx_device();
+    UARTExDevice* tx_device();
     unsigned long elapsed_time(const unsigned long timer);
     unsigned long get_time();
 protected:
 
-    std::vector<WallPadDevice *> devices_{};
-    Model conf_model_;
+    std::vector<UARTExDevice *> devices_{};
     num_t conf_rx_wait_;
     num_t conf_tx_interval_{50};
     num_t conf_tx_wait_{50};
@@ -99,15 +92,15 @@ protected:
 
     ValidateCode validate_data(bool log = false);
 
-    void read_from_serial();
-    void treat_recived_data();
+    void read_from_uart();
+    void publish_to_devices();
     bool validate_ack();
     void publish_data();
 
-    void write_to_serial();
-    bool retry_write();
-    void write_command();
-    void pop_command_to_write();
+    void write_to_uart();
+    bool retry_tx_cmd();
+    void write_tx_data();
+    void pop_tx_data();
 
     unsigned long rx_time_{0};
     std::queue<tx_data> tx_queue_{};
@@ -121,5 +114,5 @@ protected:
     Parser parser_{};
 };
 
-} // namespace wallpad
+} // namespace uartex
 } // namespace esphome
