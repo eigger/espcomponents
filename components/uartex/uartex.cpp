@@ -304,10 +304,6 @@ ValidateCode UARTExComponent::validate_data(bool log)
     return ERR_NONE;
 }
 
-UARTExComponent::UARTExComponent()
-{
-}
-
 void UARTExComponent::set_rx_prefix(std::vector<uint8_t> prefix)
 {
     rx_prefix_ = prefix;

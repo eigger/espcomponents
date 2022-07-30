@@ -36,7 +36,7 @@ struct tx_data
 class UARTExComponent : public uart::UARTDevice, public Component
 {
 public:
-    UARTExComponent();
+    UARTExComponent() = default;
     void set_rx_prefix(std::vector<uint8_t> prefix);
     void set_rx_suffix(std::vector<uint8_t> suffix);
     void set_tx_prefix(std::vector<uint8_t> prefix);
