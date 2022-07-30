@@ -45,7 +45,7 @@ void UARTExComponent::setup()
 void UARTExComponent::loop()
 {
     read_from_uart();
-    publish();
+    publish_to_devices();
     write_to_uart();
 }
 
@@ -67,7 +67,7 @@ void UARTExComponent::read_from_uart()
     }
 }
 
-void UARTExComponent::publish()
+void UARTExComponent::publish_to_devices()
 {
     if (parser_.buffer().size() == 0) return;
     if (validate_data(true) != ERR_NONE) return;
@@ -78,12 +78,13 @@ void UARTExComponent::publish()
 
 bool UARTExComponent::validate_ack()
 {
-    if (!is_have_tx_data()) return false;
+    if (!is_have_tx_cmd()) return false;
     if (tx_device() == nullptr) return false;
     if (!tx_device()->equal(parser_.data(), tx_cmd()->ack)) return false;
     ack_tx_data(true);
     ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", to_hex_string(parser_.buffer()).c_str(), elapsed_time(tx_time_));
-    return true;
+    //return true;
+    return false;
 }
 
 void UARTExComponent::publish_data()
@@ -104,31 +105,29 @@ void UARTExComponent::publish_data()
 #endif
 }
 
-void UARTExComponent::pop_command_to_write()
+void UARTExComponent::pop_tx_data()
 {
     for (UARTExDevice* device : this->devices_)
     {
-        if (device->is_have_command())
-        {
-            const cmd_hex_t *cmd = device->pop_command();
-            if (cmd == nullptr) continue;
-            if (cmd->ack.size() == 0)   push_tx_data_late({device, cmd});
-            else                        push_tx_data({device, cmd});
-        }
+        const cmd_hex_t *cmd = device->pop_tx_cmd();
+        if (cmd == nullptr) continue;
+        if (cmd->ack.size() == 0)   push_tx_data_late({device, cmd});
+        else                        push_tx_data({device, cmd});
     }
 }
+
 void UARTExComponent::write_to_uart()
 {
     if (elapsed_time(rx_time_) < conf_tx_interval_) return;
     if (elapsed_time(tx_time_) < conf_tx_interval_) return;
     if (elapsed_time(tx_time_) < conf_tx_wait_) return;
-    if (retry_write()) return;
-    write_command();
+    if (retry_tx_cmd()) return;
+    write_tx_data();
 }
 
-bool UARTExComponent::retry_write()
+bool UARTExComponent::retry_tx_cmd()
 {
-    if (!is_have_tx_data()) return false;
+    if (!is_have_tx_cmd()) return false;
     if (conf_tx_retry_cnt_ <= tx_retry_cnt_)
     {
         ack_tx_data(false);
@@ -136,30 +135,28 @@ bool UARTExComponent::retry_write()
         return false;
     }
     ESP_LOGD(TAG, "Retry count: %d", tx_retry_cnt_);
-    write_tx_data();
+    write_tx_cmd();
     return true;
 }
 
-void UARTExComponent::write_command()
+void UARTExComponent::write_tx_data()
 {
-    pop_command_to_write();
-    if (!tx_queue_.empty() || !tx_queue_late_.empty())
+    pop_tx_data();
+    if (!tx_queue_.empty())
     {
-        if (!tx_queue_.empty())
-        {
-            tx_data_ = tx_queue_.front();
-            tx_queue_.pop();
-        }
-        else
-        {
-            tx_data_ = tx_queue_late_.front();
-            tx_queue_late_.pop();
-        }
-        write_tx_data();
+        tx_data_ = tx_queue_.front();
+        tx_queue_.pop();
+        write_tx_cmd();
+    }
+    else if (!tx_queue_late_.empty())
+    {
+        tx_data_ = tx_queue_late_.front();
+        tx_queue_late_.pop();
+        write_tx_cmd();
     }
 }
 
-void UARTExComponent::write_tx_data()
+void UARTExComponent::write_tx_cmd()
 {
     tx_time_ = get_time();
     if (status_pin_) status_pin_->digital_write(true);
@@ -168,18 +165,15 @@ void UARTExComponent::write_tx_data()
     write_data(tx_cmd()->data);
     if (tx_checksum_) write_data(get_tx_checksum(tx_cmd()->data));
     if (tx_suffix_.has_value()) write_data(tx_suffix_.value());
-    if (ctrl_pin_)
-    {
-        flush();
-        ctrl_pin_->digital_write(false);
-    }
+    flush();
+    if (ctrl_pin_) ctrl_pin_->digital_write(false);
     if (status_pin_) status_pin_->digital_write(false);
     tx_retry_cnt_++;
     tx_time_ = get_time();
     if (tx_cmd()->ack.size() == 0) ack_tx_data(true);
 }
 
-void UARTExComponent::write_data(uint8_t data)
+void UARTExComponent::write_data(const uint8_t data)
 {
     this->write_byte(data);
     ESP_LOGD(TAG, "Write byte-> 0x%02X", data);
@@ -242,7 +236,7 @@ void UARTExComponent::set_status_pin(InternalGPIOPin *pin)
     status_pin_ = pin;
 }
 
-bool UARTExComponent::is_have_tx_data()
+bool UARTExComponent::is_have_tx_cmd()
 {
     if (tx_data_.cmd) return true;
     return false;
@@ -255,6 +249,11 @@ void UARTExComponent::ack_tx_data(bool ok)
         if (ok) tx_data_.device->ack_ok();
         else    tx_data_.device->ack_ng();
     }
+    clear_tx_data();
+}
+
+void UARTExComponent::clear_tx_data()
+{
     tx_data_.device = nullptr;
     tx_data_.cmd = nullptr;
     tx_retry_cnt_ = 0;

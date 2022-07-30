@@ -38,7 +38,7 @@ void UARTExFan::perform()
     {
         this->state_ = this->fan_->state;
         ESP_LOGD(TAG, "'%s' Turning %s.", device_name_->c_str(), this->state_ ? "ON" : "OFF");
-        push_command(this->state_ ? this->get_command_on() : this->get_command_off());
+        push_tx_cmd(this->state_ ? this->get_command_on() : this->get_command_off());
     }
     // Speed
     else if (this->support_speed_ && this->state_ && this->speed_ != this->fan_->speed)
@@ -52,7 +52,7 @@ void UARTExFan::perform()
                 ESP_LOGW(TAG, "'%s' Not support speed: LOW", device_name_->c_str());
                 break;
             }
-            push_command(&command_speed_low_);
+            push_tx_cmd(&command_speed_low_);
             break;
         case 2:
             if (command_speed_medium_.data.size() == 0)
@@ -60,7 +60,7 @@ void UARTExFan::perform()
                 ESP_LOGW(TAG, "'%s' Not support speed: MEDIUM", device_name_->c_str());
                 break;
             }
-            push_command(&command_speed_medium_);
+            push_tx_cmd(&command_speed_medium_);
             break;
         case 3:
             if (command_speed_high_.data.size() == 0)
@@ -68,7 +68,7 @@ void UARTExFan::perform()
                 ESP_LOGW(TAG, "'%s' Not support speed: HIGH", device_name_->c_str());
                 break;
             }
-            push_command(&command_speed_high_);
+            push_tx_cmd(&command_speed_high_);
             break;
         default:
             // protect from invalid input

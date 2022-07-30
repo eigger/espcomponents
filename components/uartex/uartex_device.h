@@ -51,9 +51,8 @@ public:
     const cmd_hex_t* get_command_off();
     void set_command_state(cmd_hex_t command_state);
     void set_state_response(hex_t state_response);
-    void push_command(const cmd_hex_t* cmd);
-    bool is_have_command();
-    const cmd_hex_t* pop_command();
+    void push_tx_cmd(const cmd_hex_t* cmd);
+    const cmd_hex_t* pop_tx_cmd();
     void ack_ok();
     void ack_ng();
     bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,  const num_t offset = 0);

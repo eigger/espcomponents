@@ -151,21 +151,21 @@ void UARTExClimate::control(const climate::ClimateCall &call)
         mode = *call.get_mode();
         if (mode == climate::CLIMATE_MODE_OFF)
         {
-            push_command(this->get_command_off());
+            push_tx_cmd(this->get_command_off());
         }
         else if (mode == climate::CLIMATE_MODE_HEAT && this->command_heat_.has_value())
         {
-            push_command(&this->command_heat_.value());
+            push_tx_cmd(&this->command_heat_.value());
         }
         else if (mode == climate::CLIMATE_MODE_COOL && this->command_cool_.has_value())
         {
-            push_command(&this->command_cool_.value());
+            push_tx_cmd(&this->command_cool_.value());
         }
         else if (mode == climate::CLIMATE_MODE_AUTO)
         {
             if (this->command_auto_.has_value())
             {
-                push_command(&this->command_auto_.value());
+                push_tx_cmd(&this->command_auto_.value());
             }
             else if (this->command_heat_.has_value() && this->command_cool_.has_value())
             {
@@ -173,12 +173,12 @@ void UARTExClimate::control(const climate::ClimateCall &call)
             }
             else if (this->command_heat_.has_value())
             {
-                push_command(&this->command_heat_.value());
+                push_tx_cmd(&this->command_heat_.value());
                 mode = climate::CLIMATE_MODE_HEAT;
             }
             else if (this->command_cool_.has_value())
             {
-                push_command(&this->command_cool_.value());
+                push_tx_cmd(&this->command_cool_.value());
                 mode = climate::CLIMATE_MODE_COOL;
             }
         }
@@ -189,7 +189,7 @@ void UARTExClimate::control(const climate::ClimateCall &call)
     {
         this->target_temperature = *call.get_target_temperature();
         this->command_temperature_ = (this->command_temperature_func_)(this->target_temperature);
-        push_command(&this->command_temperature_);
+        push_tx_cmd(&this->command_temperature_);
     }
 
     // Set away
@@ -198,27 +198,27 @@ void UARTExClimate::control(const climate::ClimateCall &call)
         *preset = *call.get_preset();
         if (*preset == climate::CLIMATE_PRESET_AWAY)
         {
-            push_command(&this->command_away_.value());
+            push_tx_cmd(&this->command_away_.value());
         }
         else if (this->command_home_.has_value())
         {
-            push_command(&this->command_home_.value());
+            push_tx_cmd(&this->command_home_.value());
         }
         else if (mode == climate::CLIMATE_MODE_OFF)
         {
-            push_command(this->get_command_off());
+            push_tx_cmd(this->get_command_off());
         }
         else if (mode == climate::CLIMATE_MODE_HEAT && this->command_heat_.has_value())
         {
-            push_command(&this->command_heat_.value());
+            push_tx_cmd(&this->command_heat_.value());
         }
         else if (mode == climate::CLIMATE_MODE_COOL && this->command_cool_.has_value())
         {
-            push_command(&this->command_cool_.value());
+            push_tx_cmd(&this->command_cool_.value());
         }
         else if (mode == climate::CLIMATE_MODE_AUTO && this->command_auto_.has_value())
         {
-            push_command(&this->command_auto_.value());
+            push_tx_cmd(&this->command_auto_.value());
         }
     }
     this->publish_state();

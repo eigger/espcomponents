@@ -12,7 +12,7 @@ void UARTExDevice::update()
 {
     if (!command_state_.has_value()) return;
     ESP_LOGD(TAG, "'%s' update(): Request current state...", device_name_->c_str());
-    push_command(&command_state_.value());
+    push_tx_cmd(&command_state_.value());
 }
 
 void UARTExDevice::dump_uartex_device_config(const char *TAG)
@@ -105,12 +105,7 @@ void UARTExDevice::set_state_response(hex_t state_response)
     state_response_ = state_response;
 }
 
-bool UARTExDevice::is_have_command()
-{
-    return tx_cmd_queue_.size() > 0 ? true : false;
-}
-
-const cmd_hex_t *UARTExDevice::pop_command()
+const cmd_hex_t *UARTExDevice::pop_tx_cmd()
 {
     if (state_response_.has_value() && !rx_response_) return nullptr;
     rx_response_ = false;
@@ -153,7 +148,7 @@ bool UARTExDevice::parse_data(const std::vector<uint8_t> &data)
     return true;
 }
 
-void UARTExDevice::push_command(const cmd_hex_t *cmd)
+void UARTExDevice::push_tx_cmd(const cmd_hex_t *cmd)
 {
     tx_cmd_queue_.push(cmd);
 }

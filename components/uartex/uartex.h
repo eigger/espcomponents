@@ -51,9 +51,9 @@ public:
     void setup() override;
     void loop() override;
     float get_setup_priority() const override { return setup_priority::BUS - 1.0f; }
-    void write_data(uint8_t data);
+    void write_data(const uint8_t data);
     void write_data(const std::vector<uint8_t> &data);
-    void write_tx_data();
+    void write_tx_cmd();
     void push_tx_data(const tx_data data);
     void push_tx_data_late(const tx_data data);
     void flush();
@@ -64,8 +64,9 @@ public:
     void set_rx_wait(num_t rx_wait);
     void set_ctrl_pin(InternalGPIOPin *pin);
     void set_status_pin(InternalGPIOPin *pin);
-    bool is_have_tx_data();
+    bool is_have_tx_cmd();
     void ack_tx_data(bool ok);
+    void clear_tx_data();
     const cmd_hex_t* tx_cmd();
     UARTExDevice* tx_device();
     unsigned long elapsed_time(const unsigned long timer);
@@ -92,14 +93,14 @@ protected:
     ValidateCode validate_data(bool log = false);
 
     void read_from_uart();
-    void publish();
+    void publish_to_devices();
     bool validate_ack();
     void publish_data();
 
     void write_to_uart();
-    bool retry_write();
-    void write_command();
-    void pop_command_to_write();
+    bool retry_tx_cmd();
+    void write_tx_data();
+    void pop_tx_data();
 
     unsigned long rx_time_{0};
     std::queue<tx_data> tx_queue_{};
