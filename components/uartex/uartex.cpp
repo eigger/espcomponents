@@ -58,10 +58,7 @@ void UARTExComponent::read_from_uart()
         while (this->available())
         {
             uint8_t byte;
-            this->read_byte(&byte);
-            #ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
-                ESP_LOGVV(TAG, "Recv byte-> 0x%02X", byte);
-            #endif
+            if (!this->read_byte(&byte) continue;
             if (parser_.parse_byte(byte)) return;
             if (validate_data() == ERR_NONE) return;
             timer = get_time();
@@ -167,10 +164,10 @@ void UARTExComponent::write_tx_data()
     tx_time_ = get_time();
     if (status_pin_) status_pin_->digital_write(true);
     if (ctrl_pin_) ctrl_pin_->digital_write(true);
-    if (tx_prefix_.has_value()) write_array(tx_prefix_.value());
-    write_array(tx_cmd()->data);
-    if (tx_checksum_) write_byte(get_tx_checksum(tx_cmd()->data));
-    if (tx_suffix_.has_value()) write_array(tx_suffix_.value());
+    if (tx_prefix_.has_value()) write_data(tx_prefix_.value());
+    write_data(tx_cmd()->data);
+    if (tx_checksum_) write_data(get_tx_checksum(tx_cmd()->data));
+    if (tx_suffix_.has_value()) write_data(tx_suffix_.value());
     if (ctrl_pin_)
     {
         flush();
@@ -182,20 +179,14 @@ void UARTExComponent::write_tx_data()
     if (tx_cmd()->ack.size() == 0) ack_tx_data(true);
 }
 
-void UARTExComponent::write_byte(uint8_t data)
+void UARTExComponent::write_data(uint8_t data)
 {
-#ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
-    ESP_LOGVV(TAG, "Start Write byte-> 0x%02X", data);
-#endif
     this->write_byte(data);
     ESP_LOGD(TAG, "Write byte-> 0x%02X", data);
 }
 
-void UARTExComponent::write_array(const std::vector<uint8_t> &data)
+void UARTExComponent::write_data(const std::vector<uint8_t> &data)
 {
-#ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
-    ESP_LOGVV(TAG, "Start Write array-> %s", to_hex_string(data).c_str());
-#endif
     this->write_array(data);
     ESP_LOGD(TAG, "Write array-> %s", to_hex_string(data).c_str());
 }
