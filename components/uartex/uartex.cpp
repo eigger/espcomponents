@@ -57,7 +57,9 @@ void UARTExComponent::read_from_uart()
     {
         while (this->available())
         {
-            if (parser_.parse_byte(this->read())) return;
+            uint8_t byte;
+            this->read_byte(&byte);
+            if (parser_.parse_byte(byte)) return;
             if (validate_data() == ERR_NONE) return;
             timer = get_time();
         }
