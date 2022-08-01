@@ -14,7 +14,7 @@ void UARTExButton::dump_config()
 
 void UARTExButton::publish(const std::vector<uint8_t>& data)
 {
-    ESP_LOGW(TAG, "'%s' State not found: %s", device_name_->c_str(), to_hex_string(&data[0], len).c_str());
+    ESP_LOGW(TAG, "'%s' State not found: %s", device_name_->c_str(), to_hex_string(data).c_str());
 }
 
 }  // namespace uartex
