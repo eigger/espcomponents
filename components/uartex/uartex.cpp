@@ -109,7 +109,7 @@ void UARTExComponent::pop_tx_data()
 {
     for (UARTExDevice* device : this->devices_)
     {
-        const cmd_hex_t *cmd = device->pop_tx_cmd();
+        const cmd_t *cmd = device->pop_tx_cmd();
         if (cmd == nullptr) continue;
         if (cmd->ack.size() == 0)   push_tx_data_late({device, cmd});
         else                        push_tx_data({device, cmd});
@@ -259,7 +259,7 @@ void UARTExComponent::clear_tx_data()
     tx_retry_cnt_ = 0;
 }
 
-const cmd_hex_t* UARTExComponent::tx_cmd()
+const cmd_t* UARTExComponent::tx_cmd()
 {
     return tx_data_.cmd;
 }
@@ -325,7 +325,7 @@ void UARTExComponent::set_tx_suffix(std::vector<uint8_t> suffix)
     tx_suffix_ = suffix;
 }
 
-void UARTExComponent::set_rx_checksum(CheckSum checksum)
+void UARTExComponent::set_rx_checksum(Checksum checksum)
 {
     rx_checksum_ = checksum;
 }
@@ -336,7 +336,7 @@ void UARTExComponent::set_rx_checksum_lambda(std::function<uint8_t(const uint8_t
     rx_checksum_ = CHECKSUM_CUSTOM;
 }
 
-void UARTExComponent::set_tx_checksum(CheckSum checksum)
+void UARTExComponent::set_tx_checksum(Checksum checksum)
 {
     tx_checksum_ = checksum;
 }

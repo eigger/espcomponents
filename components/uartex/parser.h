@@ -17,7 +17,7 @@ public:
 	bool add_footers(const std::vector<unsigned char>& footer);
 
 	bool parse_byte(const unsigned char byte);
-	bool validate_data(const std::vector<unsigned char>& checksums);
+	bool validate(const std::vector<unsigned char>& checksums);
 	void clear();
 	const std::vector<unsigned char> data();
 	const std::vector<unsigned char> buffer();

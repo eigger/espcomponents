@@ -41,76 +41,76 @@ void UARTExDevice::dump_uartex_device_config(const char *TAG)
     LOG_UPDATE_INTERVAL(this);
 }
 
-void UARTExDevice::set_device(hex_t device)
+void UARTExDevice::set_device(state_t device)
 {
     device_ = device;
 }
 
-void UARTExDevice::set_sub_device(hex_t sub_device)
+void UARTExDevice::set_sub_device(state_t sub_device)
 {
     sub_device_ = sub_device;
 }
 
-void UARTExDevice::set_state_on(hex_t state_on)
+void UARTExDevice::set_state_on(state_t state_on)
 {
     state_on_ = state_on;
 }
 
-void UARTExDevice::set_state_off(hex_t state_off)
+void UARTExDevice::set_state_off(state_t state_off)
 {
     state_off_ = state_off;
 }
 
-void UARTExDevice::set_command_on(cmd_hex_t command_on)
+void UARTExDevice::set_command_on(cmd_t command_on)
 {
     command_on_ = command_on;
 }
 
-void UARTExDevice::set_command_on(std::function<cmd_hex_t()> command_on_func)
+void UARTExDevice::set_command_on(std::function<cmd_t()> command_on_func)
 {
     command_on_func_ = command_on_func;
 }
 
-const cmd_hex_t *UARTExDevice::get_command_on()
+const cmd_t *UARTExDevice::get_command_on()
 {
     if (command_on_func_.has_value())
         command_on_ = (*command_on_func_)();
     return &command_on_.value();
 }
 
-void UARTExDevice::set_command_off(cmd_hex_t command_off)
+void UARTExDevice::set_command_off(cmd_t command_off)
 {
     command_off_ = command_off;
 }
 
-void UARTExDevice::set_command_off(std::function<cmd_hex_t()> command_off_func)
+void UARTExDevice::set_command_off(std::function<cmd_t()> command_off_func)
 {
     command_off_func_ = command_off_func;
 }
 
-const cmd_hex_t *UARTExDevice::get_command_off()
+const cmd_t *UARTExDevice::get_command_off()
 {
     if (command_off_func_.has_value())
         command_off_ = (*command_off_func_)();
     return &command_off_.value();
 }
 
-void UARTExDevice::set_command_state(cmd_hex_t command_state)
+void UARTExDevice::set_command_state(cmd_t command_state)
 {
     command_state_ = command_state;
 }
 
-void UARTExDevice::set_state_response(hex_t state_response)
+void UARTExDevice::set_state_response(state_t state_response)
 {
     state_response_ = state_response;
 }
 
-const cmd_hex_t *UARTExDevice::pop_tx_cmd()
+const cmd_t *UARTExDevice::pop_tx_cmd()
 {
     if (state_response_.has_value() && !rx_response_) return nullptr;
     rx_response_ = false;
     if (tx_cmd_queue_.size() == 0) return nullptr;
-    const cmd_hex_t *cmd = tx_cmd_queue_.front();
+    const cmd_t *cmd = tx_cmd_queue_.front();
     tx_cmd_queue_.pop();
     return cmd;
 }
@@ -148,7 +148,7 @@ bool UARTExDevice::parse_data(const std::vector<uint8_t> &data)
     return true;
 }
 
-void UARTExDevice::push_tx_cmd(const cmd_hex_t *cmd)
+void UARTExDevice::push_tx_cmd(const cmd_t *cmd)
 {
     tx_cmd_queue_.push(cmd);
 }
@@ -159,25 +159,25 @@ bool UARTExDevice::equal(const std::vector<uint8_t> &data1, const std::vector<ui
     return std::equal(data1.begin() + offset, data1.begin() + offset + data2.size(), data2.begin());
 }
 
-bool UARTExDevice::validate(const std::vector<uint8_t> &data, const hex_t *cmd)
+bool UARTExDevice::validate(const std::vector<uint8_t> &data, const state_t *state)
 {
-    if (!cmd->and_operator) return equal(data, cmd->data, cmd->offset) ? !cmd->inverted : cmd->inverted;
-    else if (data.size() - cmd->offset > 0 && cmd->data.size() > 0)
+    if (!state->and_operator) return equal(data, state->data, state->offset) ? !state->inverted : state->inverted;
+    else if (data.size() - state->offset > 0 && state->data.size() > 0)
     {
-        uint8_t val = data[cmd->offset] & (cmd->data[0]);
-        if (cmd->data.size() == 1) return val ? !cmd->inverted : cmd->inverted;
+        uint8_t val = data[state->offset] & (state->data[0]);
+        if (state->data.size() == 1) return val ? !state->inverted : state->inverted;
         else
         {
             bool ret = false;
-            for (num_t i = 1; i < cmd->data.size(); i++)
+            for (num_t i = 1; i < state->data.size(); i++)
             {
-                if (val == cmd->data[i])
+                if (val == state->data[i])
                 {
                     ret = true;
                     break;
                 }
             }
-            return ret ? !cmd->inverted : cmd->inverted;
+            return ret ? !state->inverted : state->inverted;
         }
     }
     return false;

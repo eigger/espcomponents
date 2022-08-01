@@ -12,20 +12,20 @@ public:
     UARTExFan(fan::FanState *fan) : fan_(fan) { this->device_name_ = &fan->get_name(); }
     void dump_config() override;
     void setup() override;
-    void set_speed_low(hex_t state, cmd_hex_t command)
+    void set_speed_low(state_t state, cmd_t cmd)
     {
         this->state_speed_low_ = state;
-        this->command_speed_low_ = command;
+        this->command_speed_low_ = cmd;
     }
-    void set_speed_medium(hex_t state, cmd_hex_t command)
+    void set_speed_medium(state_t state, cmd_t cmd)
     {
         this->state_speed_medium_ = state;
-        this->command_speed_medium_ = command;
+        this->command_speed_medium_ = cmd;
     }
-    void set_speed_high(hex_t state, cmd_hex_t command)
+    void set_speed_high(state_t state, cmd_t cmd)
     {
         this->state_speed_high_ = state;
-        this->command_speed_high_ = command;
+        this->command_speed_high_ = cmd;
     }
     void perform();
 
@@ -42,12 +42,12 @@ protected:
     bool support_speed_{false};
     bool state_{false};
 
-    hex_t state_speed_low_{};
-    hex_t state_speed_medium_{};
-    hex_t state_speed_high_{};
-    cmd_hex_t command_speed_low_{};
-    cmd_hex_t command_speed_medium_{};
-    cmd_hex_t command_speed_high_{};
+    state_t state_speed_low_{};
+    state_t state_speed_medium_{};
+    state_t state_speed_high_{};
+    cmd_t command_speed_low_{};
+    cmd_t command_speed_medium_{};
+    cmd_t command_speed_high_{};
 
     void publish_state(bool state);
     void publish_state(int speed);

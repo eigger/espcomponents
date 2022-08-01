@@ -10,12 +10,12 @@ template <typename... Ts>
 class UARTExWriteAction : public Action<Ts...>, public Parented<UARTExComponent>
 {
 public:
-    void set_data_template(std::function<cmd_hex_t(Ts...)> func)
+    void set_data_template(std::function<cmd_t(Ts...)> func)
     {
         this->data_func_ = func;
         this->static_ = false;
     }
-    void set_data_static(const cmd_hex_t &data)
+    void set_data_static(const cmd_t &data)
     {
         this->data_static_ = data;
         this->static_ = true;
@@ -36,8 +36,8 @@ public:
 
 protected:
     bool static_{false};
-    std::function<cmd_hex_t(Ts...)> data_func_{};
-    cmd_hex_t data_static_{};
+    std::function<cmd_t(Ts...)> data_func_{};
+    cmd_t data_static_{};
 };
 
 }  // namespace uartex

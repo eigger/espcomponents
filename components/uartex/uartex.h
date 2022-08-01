@@ -20,7 +20,7 @@ enum ValidateCode {
     ERR_CHECKSUM
 };
 
-enum CheckSum {
+enum Checksum {
     CHECKSUM_NONE,
     CHECKSUM_CUSTOM,
     CHECKSUM_XOR,
@@ -30,7 +30,7 @@ enum CheckSum {
 struct tx_data
 {
     UARTExDevice* device;
-    const cmd_hex_t* cmd;
+    const cmd_t* cmd;
 };
 
 class UARTExComponent : public uart::UARTDevice, public Component
@@ -41,9 +41,9 @@ public:
     void set_rx_suffix(std::vector<uint8_t> suffix);
     void set_tx_prefix(std::vector<uint8_t> prefix);
     void set_tx_suffix(std::vector<uint8_t> suffix);
-    void set_rx_checksum(CheckSum checksum);
+    void set_rx_checksum(Checksum checksum);
     void set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f);
-    void set_tx_checksum(CheckSum checksum);
+    void set_tx_checksum(Checksum checksum);
     void set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f);
     uint8_t get_rx_checksum(const std::vector<uint8_t> &data) const;
     uint8_t get_tx_checksum(const std::vector<uint8_t> &data) const;
@@ -67,7 +67,7 @@ public:
     bool is_have_tx_cmd();
     void ack_tx_data(bool ok);
     void clear_tx_data();
-    const cmd_hex_t* tx_cmd();
+    const cmd_t* tx_cmd();
     UARTExDevice* tx_device();
     unsigned long elapsed_time(const unsigned long timer);
     unsigned long get_time();
@@ -84,10 +84,10 @@ protected:
     optional<std::vector<uint8_t>> tx_prefix_{};
     optional<std::vector<uint8_t>> tx_suffix_{};
 
-    CheckSum rx_checksum_{CHECKSUM_NONE};
+    Checksum rx_checksum_{CHECKSUM_NONE};
     optional<std::function<uint8_t(const uint8_t *data, const num_t len)>> rx_checksum_f_{};
  
-    CheckSum tx_checksum_{CHECKSUM_NONE};
+    Checksum tx_checksum_{CHECKSUM_NONE};
     optional<std::function<uint8_t(const uint8_t *data, const num_t len)>> tx_checksum_f_{};
 
     ValidateCode validate_data(bool log = false);
