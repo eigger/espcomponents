@@ -42,12 +42,11 @@ public:
     void set_tx_prefix(std::vector<uint8_t> prefix);
     void set_tx_suffix(std::vector<uint8_t> suffix);
     void set_rx_checksum(Checksum checksum);
-    void set_rx_checksum_lambda(std::function<std::vector<uint8_t>(const std::vector<uint8_t> &data)> &&f);
+    void set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f);
     void set_tx_checksum(Checksum checksum);
-    void set_tx_checksum_lambda(std::function<std::vector<uint8_t>(const std::vector<uint8_t> &data)> &&f);
-    size_t get_rx_checksum_len() const;
-    std::vector<uint8_t> get_rx_checksum(const std::vector<uint8_t> &data) const;
-    std::vector<uint8_t> get_tx_checksum(const std::vector<uint8_t> &data) const;
+    void set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f);
+    uint8_t get_rx_checksum(const std::vector<uint8_t> &data) const;
+    uint8_t get_tx_checksum(const std::vector<uint8_t> &data) const;
     void dump_config() override;
     void setup() override;
     void loop() override;

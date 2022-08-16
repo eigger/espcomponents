@@ -34,7 +34,7 @@ void UARTExComponent::setup()
         this->status_pin_->setup();
         this->status_pin_->digital_write(false);
     }
-    if (rx_checksum_) parser_.use_checksum(get_rx_checksum_len());
+    if (rx_checksum_) parser_.use_checksum();
     rx_time_ = get_time();
     tx_time_ = get_time();
     if (rx_prefix_.has_value()) parser_.add_headers(rx_prefix_.value());
@@ -296,8 +296,8 @@ ValidateCode UARTExComponent::validate_data(bool log)
         if (log) ESP_LOGW(TAG, "[Read] Suffix error: %s", to_hex_string(parser_.buffer()).c_str());
         return ERR_SUFFIX;
     }
-    std::vector<uint8_t> checksum = get_rx_checksum(parser_.data());
-    if (rx_checksum_ && parser_.validate(checksum)) == false)
+    uint8_t crc = get_rx_checksum(parser_.data());
+    if (rx_checksum_ && crc != parser_.get_checksum())
     {
         if (log) ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(parser_.buffer()).c_str());
         return ERR_CHECKSUM;
@@ -330,7 +330,7 @@ void UARTExComponent::set_rx_checksum(Checksum checksum)
     rx_checksum_ = checksum;
 }
 
-void UARTExComponent::set_rx_checksum_lambda(std::function<std::vector<uint8_t>(const std::vector<uint8_t> &data)> &&f)
+void UARTExComponent::set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f)
 {
     rx_checksum_f_ = f;
     rx_checksum_ = CHECKSUM_CUSTOM;
@@ -341,44 +341,21 @@ void UARTExComponent::set_tx_checksum(Checksum checksum)
     tx_checksum_ = checksum;
 }
 
-void UARTExComponent::set_tx_checksum_lambda(std::function<std::vector<uint8_t>(const std::vector<uint8_t> &data)> &&f)
+void UARTExComponent::set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f)
 {
     tx_checksum_f_ = f;
     tx_checksum_ = CHECKSUM_CUSTOM;
 }
-size_t UARTExComponent::get_rx_checksum_len() const
-{
-    size_t checksum = 0;
-    if (this->rx_checksum_f_.has_value())
-    {
-        checksum = (*rx_checksum_f_)(data).size();
-    }
-    else
-    {
-        switch(rx_checksum_)
-        {
-        case CHECKSUM_ADD:
-        case CHECKSUM_XOR:
-            checksum = 1;
-            break;
-        case CHECKSUM_NONE:
-        case CHECKSUM_CUSTOM:
-            break;
-        }
-    }
-    return checksum;
-}
 
-std::vector<uint8_t> UARTExComponent::get_rx_checksum(const std::vector<uint8_t> &data) const
+uint8_t UARTExComponent::get_rx_checksum(const std::vector<uint8_t> &data) const
 {
     if (this->rx_checksum_f_.has_value())
     {
-        return (*rx_checksum_f_)(data);
+        return (*rx_checksum_f_)(&data[0], data.size());
     }
     else
     {
         uint8_t crc = 0;
-        std::vector<uint8_t> checksum;
         switch(rx_checksum_)
         {
         case CHECKSUM_ADD:
@@ -387,7 +364,6 @@ std::vector<uint8_t> UARTExComponent::get_rx_checksum(const std::vector<uint8_t>
                 for (uint8_t byte : this->rx_prefix_.value()) { crc += byte; }
             }
             for (uint8_t byte : data) { crc += byte; }
-            checksum.push_back(crc);
             break;
         case CHECKSUM_XOR:
             if (this->rx_prefix_.has_value())
@@ -395,26 +371,24 @@ std::vector<uint8_t> UARTExComponent::get_rx_checksum(const std::vector<uint8_t>
                 for (uint8_t byte : this->rx_prefix_.value()) { crc ^= byte; }
             }
             for (uint8_t byte : data) { crc ^= byte; }
-            checksum.push_back(crc);
             break;
         case CHECKSUM_NONE:
         case CHECKSUM_CUSTOM:
             break;
         }
-        return checksum;
+        return crc;
     }
 }
 
-std::vector<uint8_t> UARTExComponent::get_tx_checksum(const std::vector<uint8_t> &data) const
+uint8_t UARTExComponent::get_tx_checksum(const std::vector<uint8_t> &data) const
 {
     if (this->tx_checksum_f_.has_value())
     {
-        return (*tx_checksum_f_)(data);
+        return (*tx_checksum_f_)(&data[0], data.size());
     }
     else
     {
         uint8_t crc = 0;
-        std::vector<uint8_t> checksum;
         switch(tx_checksum_)
         {
         case CHECKSUM_ADD:
@@ -423,7 +397,6 @@ std::vector<uint8_t> UARTExComponent::get_tx_checksum(const std::vector<uint8_t>
                 for (uint8_t byte : this->tx_prefix_.value()) { crc += byte; }
             }
             for (uint8_t byte : data) { crc += byte; }
-            checksum.push_back(crc);
             break;
         case CHECKSUM_XOR:
             if (this->tx_prefix_.has_value())
@@ -431,13 +404,12 @@ std::vector<uint8_t> UARTExComponent::get_tx_checksum(const std::vector<uint8_t>
                 for (uint8_t byte : this->tx_prefix_.value()) { crc ^= byte; }
             }
             for (uint8_t byte : data) { crc ^= byte; }
-            checksum.push_back(crc);
             break;
         case CHECKSUM_NONE:
         case CHECKSUM_CUSTOM:
             break;
         }
-        return checksum;
+        return crc;
     }
 }
 
