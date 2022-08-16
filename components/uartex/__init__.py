@@ -26,7 +26,7 @@ cmd_t = uartex_ns.class_('cmd_t')
 num_t_const = uartex_ns.class_('num_t').operator('const')
 uint8_const = cg.uint8.operator('const')
 uint8_ptr_const = uint8_const.operator('ptr')
-std_vector_const = cg.std_vector.operator('const')
+std_vector_ptr_const = cg.std_vector.operator('const').operator('ptr')
 MULTI_CONF = False
 
 Checksum = uartex_ns.enum("Checksum")
@@ -128,7 +128,7 @@ async def to_code(config):
         data = config[CONF_RX_CHECKSUM]
         if cg.is_template(data):
             template_ = await cg.process_lambda(data,
-                                                [(std_vector_const, 'data')],
+                                                [(std_vector_ptr_const, 'data')],
                                                 return_type=cg.optional.template(cg.std_vector))
             cg.add(var.set_rx_checksum_lambda(template_))
         else:
@@ -137,7 +137,7 @@ async def to_code(config):
         data = config[CONF_TX_CHECKSUM]
         if cg.is_template(data):
             template_ = await cg.process_lambda(data,
-                                                [(std_vector_const, 'data')],
+                                                [(std_vector_ptr_const, 'data')],
                                                 return_type=cg.optional.template(cg.std_vector))
             cg.add(var.set_tx_checksum_lambda(template_))
         else:
