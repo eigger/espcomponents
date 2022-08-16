@@ -86,10 +86,10 @@ protected:
     optional<std::vector<uint8_t>> tx_suffix_{};
 
     Checksum rx_checksum_{CHECKSUM_NONE};
-    optional<std::function<uint8_t(const uint8_t *data, const num_t len)>> rx_checksum_f_{};
+    optional<std::function<std::vector<uint8_t>(const std::vector<uint8_t> &data)>> rx_checksum_f_{};
  
     Checksum tx_checksum_{CHECKSUM_NONE};
-    optional<std::function<uint8_t(const uint8_t *data, const num_t len)>> tx_checksum_f_{};
+    optional<std::function<std::vector<uint8_t>(const std::vector<uint8_t> &data)>> tx_checksum_f_{};
 
     ValidateCode validate_data(bool log = false);
 
