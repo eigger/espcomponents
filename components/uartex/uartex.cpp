@@ -297,7 +297,7 @@ ValidateCode UARTExComponent::validate_data(bool log)
         return ERR_SUFFIX;
     }
     std::vector<uint8_t> checksum = get_rx_checksum(parser_.data());
-    if (rx_checksum_ && parser_.validate(checksum) == false)
+    if (rx_checksum_ && parser_.validate(checksum)) == false)
     {
         if (log) ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(parser_.buffer()).c_str());
         return ERR_CHECKSUM;
