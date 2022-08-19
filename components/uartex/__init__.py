@@ -8,7 +8,7 @@ from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
 from esphome.core import coroutine
 from esphome.util import SimpleRegistry
 from .const import CONF_RX_PREFIX, CONF_RX_SUFFIX, CONF_TX_PREFIX, CONF_TX_SUFFIX, \
-    CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, \
+    CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, CONF_RX_CHECKSUM_2, CONF_TX_CHECKSUM_2, \
     CONF_UARTEX_ID, \
     CONF_ACK, \
     CONF_SUB_DEVICE, \
@@ -93,6 +93,8 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_TX_SUFFIX): validate_hex_data,
     cv.Optional(CONF_RX_CHECKSUM, default="none"): validate_checksum,
     cv.Optional(CONF_TX_CHECKSUM, default="none"): validate_checksum,
+    cv.Optional(CONF_RX_CHECKSUM_2, default="none"): validate_checksum,
+    cv.Optional(CONF_TX_CHECKSUM_2, default="none"): validate_checksum,
 }).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA)
 )
 
@@ -134,6 +136,17 @@ async def to_code(config):
             cg.add(var.set_rx_checksum_lambda(template_))
         else:
             cg.add(var.set_rx_checksum(data))
+    if CONF_RX_CHECKSUM_2 in config:
+        data = config[CONF_RX_CHECKSUM_2]
+        if cg.is_template(data):
+            template_ = await cg.process_lambda(data,
+                                                [(uint8_ptr_const, 'data'),
+                                                 (num_t_const, 'len'),
+                                                 (uint8_const, 'checksum')],
+                                                return_type=cg.uint8)
+            cg.add(var.set_rx_checksum_2_lambda(template_))
+        else:
+            cg.add(var.set_rx_checksum_2(data))
     if CONF_TX_CHECKSUM in config:
         data = config[CONF_TX_CHECKSUM]
         if cg.is_template(data):
@@ -144,7 +157,17 @@ async def to_code(config):
             cg.add(var.set_tx_checksum_lambda(template_))
         else:
             cg.add(var.set_tx_checksum(data))
-
+    if CONF_TX_CHECKSUM_2 in config:
+        data = config[CONF_TX_CHECKSUM_2]
+        if cg.is_template(data):
+            template_ = await cg.process_lambda(data,
+                                                [(uint8_ptr_const, 'data'),
+                                                 (num_t_const, 'len'),
+                                                 (uint8_const, 'checksum')],
+                                                return_type=cg.uint8)
+            cg.add(var.set_tx_checksum_2_lambda(template_))
+        else:
+            cg.add(var.set_tx_checksum_2(data))
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
 UARTEx_DEVICE_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_UARTEX_ID): cv.use_id(UARTExComponent),

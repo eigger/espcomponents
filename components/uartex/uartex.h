@@ -42,11 +42,17 @@ public:
     void set_tx_prefix(std::vector<uint8_t> prefix);
     void set_tx_suffix(std::vector<uint8_t> suffix);
     void set_rx_checksum(Checksum checksum);
+    void set_rx_checksum_2(Checksum checksum);
     void set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f);
+    void set_rx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum)> &&f);
     void set_tx_checksum(Checksum checksum);
+    void set_tx_checksum_2(Checksum checksum);
     void set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f);
+    void set_tx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum)> &&f);
     uint8_t get_rx_checksum(const std::vector<uint8_t> &data) const;
     uint8_t get_tx_checksum(const std::vector<uint8_t> &data) const;
+    uint8_t get_rx_checksum_2(const std::vector<uint8_t> &data) const;
+    uint8_t get_tx_checksum_2(const std::vector<uint8_t> &data) const;
     void dump_config() override;
     void setup() override;
     void loop() override;
@@ -85,11 +91,14 @@ protected:
     optional<std::vector<uint8_t>> tx_suffix_{};
 
     Checksum rx_checksum_{CHECKSUM_NONE};
+    Checksum rx_checksum_2_{CHECKSUM_NONE};
     optional<std::function<uint8_t(const uint8_t *data, const num_t len)>> rx_checksum_f_{};
+    optional<std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum)>> rx_checksum_f_2_{};
  
     Checksum tx_checksum_{CHECKSUM_NONE};
+    Checksum tx_checksum_2_{CHECKSUM_NONE};
     optional<std::function<uint8_t(const uint8_t *data, const num_t len)>> tx_checksum_f_{};
-
+    optional<std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum)>> tx_checksum_f_2_{};
     ValidateCode validate_data(bool log = false);
 
     void read_from_uart();

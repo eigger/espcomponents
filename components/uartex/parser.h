@@ -23,13 +23,14 @@ public:
 	const std::vector<unsigned char> buffer();
 	bool parse_header();
 	bool parse_footer();
-	void use_checksum();
+	void set_checksum_len(size_t len);
 	unsigned char get_checksum();
+	unsigned char get_checksum_2();
 	
 private:
 	std::vector<unsigned char> header_;
 	std::vector<unsigned char> footer_;
 	std::vector<unsigned char> buffer_;
-	bool checksum_;
+	size_t checksum_len_;
 };
 
