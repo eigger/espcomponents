@@ -34,12 +34,12 @@ void UARTExComponent::setup()
         this->status_pin_->setup();
         this->status_pin_->digital_write(false);
     }
-    if (rx_checksum_) parser_.set_checksum_len(1);
-    if (rx_checksum_2_) parser_.set_checksum_len(2);
+    if (rx_checksum_) rx_parser_.set_checksum_len(1);
+    if (rx_checksum_2_) rx_parser_.set_checksum_len(2);
     rx_time_ = get_time();
     tx_time_ = get_time();
-    if (rx_prefix_.has_value()) parser_.add_headers(rx_prefix_.value());
-    if (rx_suffix_.has_value()) parser_.add_footers(rx_suffix_.value());
+    if (rx_prefix_.has_value()) rx_parser_.add_headers(rx_prefix_.value());
+    if (rx_suffix_.has_value()) rx_parser_.add_footers(rx_suffix_.value());
     ESP_LOGI(TAG, "Initaialize.");
 }
 
@@ -52,7 +52,7 @@ void UARTExComponent::loop()
 
 void UARTExComponent::read_from_uart()
 {
-    parser_.clear();
+    rx_parser_.clear();
     unsigned long timer = get_time();
     while (elapsed_time(timer) < conf_rx_wait_)
     {
@@ -60,7 +60,7 @@ void UARTExComponent::read_from_uart()
         {
             uint8_t byte;
             if (!this->read_byte(&byte)) continue;
-            if (parser_.parse_byte(byte)) return;
+            if (rx_parser_.parse_byte(byte)) return;
             if (validate_data() == ERR_NONE) return;
             timer = get_time();
         }
@@ -70,7 +70,7 @@ void UARTExComponent::read_from_uart()
 
 void UARTExComponent::publish_to_devices()
 {
-    if (parser_.buffer().size() == 0) return;
+    if (rx_parser_.buffer().size() == 0) return;
     if (validate_data(true) != ERR_NONE) return;
     if (validate_ack()) return;
     publish_data();
@@ -81,9 +81,9 @@ bool UARTExComponent::validate_ack()
 {
     if (!is_have_tx_cmd()) return false;
     if (tx_device() == nullptr) return false;
-    if (!tx_device()->equal(parser_.data(), tx_cmd()->ack)) return false;
+    if (!tx_device()->equal(rx_parser_.data(), tx_cmd()->ack)) return false;
     ack_tx_data(true);
-    ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", to_hex_string(parser_.buffer()).c_str(), elapsed_time(tx_time_));
+    ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", to_hex_string(rx_parser_.buffer()).c_str(), elapsed_time(tx_time_));
     //return true;
     return false;
 }
@@ -93,16 +93,16 @@ void UARTExComponent::publish_data()
     bool found = false;
     for (UARTExDevice* device : this->devices_)
     {
-        if (device->parse_data(parser_.data()))
+        if (device->parse_data(rx_parser_.data()))
         {
             found = true;
         }
     }
 #ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
-    ESP_LOGVV(TAG, "Receive data-> %s, Gap Time: %lums", to_hex_string(parser_.buffer()).c_str(), elapsed_time(rx_time_));
+    ESP_LOGVV(TAG, "Receive data-> %s, Gap Time: %lums", to_hex_string(rx_parser_.buffer()).c_str(), elapsed_time(rx_time_));
 #endif
 #ifdef ESPHOME_LOG_HAS_VERBOSE
-    if (!found) ESP_LOGV(TAG, "Notfound data-> %s", to_hex_string(parser_.buffer()).c_str());
+    if (!found) ESP_LOGV(TAG, "Notfound data-> %s", to_hex_string(rx_parser_.buffer()).c_str());
 #endif
 }
 
@@ -283,31 +283,31 @@ unsigned long UARTExComponent::get_time()
 
 ValidateCode UARTExComponent::validate_data(bool log)
 {
-    if (parser_.data().size() == 0)
+    if (rx_parser_.data().size() == 0)
     {
-        if (log) ESP_LOGW(TAG, "[Read] Size error: %s", to_hex_string(parser_.buffer()).c_str());
+        if (log) ESP_LOGW(TAG, "[Read] Size error: %s", to_hex_string(rx_parser_.buffer()).c_str());
         return ERR_SIZE;
     }
-    if (rx_prefix_.has_value() && parser_.parse_header() == false)
+    if (rx_prefix_.has_value() && rx_parser_.parse_header() == false)
     {
-        if (log) ESP_LOGW(TAG, "[Read] Prefix error: %s", to_hex_string(parser_.buffer()).c_str());
+        if (log) ESP_LOGW(TAG, "[Read] Prefix error: %s", to_hex_string(rx_parser_.buffer()).c_str());
         return ERR_PREFIX;
     }
-    if (rx_suffix_.has_value() && parser_.parse_footer() == false)
+    if (rx_suffix_.has_value() && rx_parser_.parse_footer() == false)
     {
-        if (log) ESP_LOGW(TAG, "[Read] Suffix error: %s", to_hex_string(parser_.buffer()).c_str());
+        if (log) ESP_LOGW(TAG, "[Read] Suffix error: %s", to_hex_string(rx_parser_.buffer()).c_str());
         return ERR_SUFFIX;
     }
-    uint8_t crc = get_rx_checksum(parser_.data());
-    if (rx_checksum_ && crc != parser_.get_checksum())
+    uint8_t crc = get_rx_checksum(rx_parser_.data());
+    if (rx_checksum_ && crc != rx_parser_.get_checksum())
     {
-        if (log) ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(parser_.buffer()).c_str());
+        if (log) ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(rx_parser_.buffer()).c_str());
         return ERR_CHECKSUM;
     }
-    crc = get_rx_checksum_2(parser_.data());
-    if (rx_checksum_2_ && crc != parser_.get_checksum_2())
+    crc = get_rx_checksum_2(rx_parser_.data());
+    if (rx_checksum_2_ && crc != rx_parser_.get_checksum_2())
     {
-        if (log) ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(parser_.buffer()).c_str());
+        if (log) ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(rx_parser_.buffer()).c_str());
         return ERR_CHECKSUM;
     }
     return ERR_NONE;

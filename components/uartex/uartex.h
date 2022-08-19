@@ -120,7 +120,7 @@ protected:
     num_t tx_retry_cnt_{0};
     InternalGPIOPin *ctrl_pin_{nullptr};
     InternalGPIOPin *status_pin_{nullptr};
-    Parser parser_{};
+    Parser rx_parser_{};
 };
 
 } // namespace uartex
