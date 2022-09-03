@@ -24,7 +24,7 @@ A2DPSource::A2DPSource()
     s_a2d_state = APP_AV_STATE_IDLE;
     s_media_state = APP_AV_MEDIA_STATE_IDLE;
     s_BT_sink_name = "";
-    s_pin_code = "";
+    //s_pin_code = "";
     s_pin_code_length = 0;
     s_deviceName = "ESP_A2DP_SRC";
 }
