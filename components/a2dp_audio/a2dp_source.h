@@ -63,6 +63,7 @@ typedef void (* bt_app_copy_cb_t) (bt_app_msg_t *msg, void *p_dest, void *p_src)
 int32_t bt_app_a2d_data_cb(uint8_t *data, int32_t len);
 class A2DPSource {
 public:
+    A2DPSource();
     bool bt_app_work_dispatch(bt_app_cb_t p_cback, uint16_t event, void *p_params, int param_len, bt_app_copy_cb_t p_copy_cback);
     bool bt_app_send_msg(bt_app_msg_t *msg);
     void bt_app_work_dispatched(bt_app_msg_t *msg);
@@ -87,17 +88,17 @@ public:
     int get_APP_AV_STATE();
     bool a2dp_source_init(String deviceName, String pinCode);
 private:
-    xQueueHandle      s_bt_app_task_queue{NULL};
-    xTaskHandle       s_bt_app_task_handle{NULL};
-    esp_bd_addr_t     s_peer_bda{0};
+    xQueueHandle      s_bt_app_task_queue;
+    xTaskHandle       s_bt_app_task_handle;
+    esp_bd_addr_t     s_peer_bda;
     uint8_t           s_peer_bdname[ESP_BT_GAP_MAX_BDNAME_LEN + 1];
-    int               s_a2d_state{APP_AV_STATE_IDLE};
-    int               s_media_state{APP_AV_MEDIA_STATE_IDLE};
-    String            s_BT_sink_name{""};
-    esp_bt_pin_code_t s_pin_code{""};
-    int               s_pin_code_length{0};
+    int               s_a2d_state;
+    int               s_media_state;
+    String            s_BT_sink_name;
+    esp_bt_pin_code_t s_pin_code;
+    int               s_pin_code_length;
     TimerHandle_t     s_tmr;
-    String            s_deviceName{"ESP_A2DP_SRC"};
+    String            s_deviceName;
 }
 
 }

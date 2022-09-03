@@ -16,6 +16,18 @@
 namespace esphome {
 namespace a2dp_audio {
 
+A2DPSource::A2DPSource()
+{
+    s_bt_app_task_queue = NULL;
+    s_bt_app_task_handle = NULL;
+    s_peer_bda = 0;
+    s_a2d_state = APP_AV_STATE_IDLE;
+    s_media_state = APP_AV_MEDIA_STATE_IDLE;
+    s_BT_sink_name = "";
+    s_pin_code = "";
+    s_pin_code_length = 0;
+    s_deviceName = "ESP_A2DP_SRC";
+}
 //---------------------------------------------------------------------------------------------------------------------
 bool A2DPSource::bt_app_work_dispatch(bt_app_cb_t p_cback, uint16_t event, void *p_params, int param_len, bt_app_copy_cb_t p_copy_cback)
 {
