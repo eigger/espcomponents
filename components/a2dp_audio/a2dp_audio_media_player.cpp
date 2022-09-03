@@ -1,5 +1,5 @@
 #include "a2dp_audio_media_player.h"
-#include "a2dp_source.h"
+
 #ifdef USE_ESP32_FRAMEWORK_ARDUINO
 
 #include "esphome/core/log.h"
@@ -11,7 +11,6 @@ static const char *const TAG = "audio";
 
 char BT_SINK_NAME[]   = "Manhattan-165327"; // set your sink devicename here
 char BT_SINK_PIN[]    = "1234";             // sink pincode
-char BT_DEVICE_NAME[] = "ESP_A2DP_SRC";     // source devicename
 
 void A2DPAudioMediaPlayer::control(const media_player::MediaPlayerCall &call) {
   if (call.get_media_url().has_value()) {
@@ -118,7 +117,7 @@ void A2DPAudioMediaPlayer::setup() {
       this->mute_pin_->digital_write(false);
     }
   }
-  a2dp_source_init(BT_SINK_NAME, BT_SINK_PIN);
+  this->a2dp_source_.a2dp_source_init(BT_SINK_NAME, BT_SINK_PIN);
   this->state = media_player::MEDIA_PLAYER_STATE_IDLE;
 }
 
@@ -132,11 +131,15 @@ void A2DPAudioMediaPlayer::loop() {
 
 int32_t bt_app_a2d_data_cb(uint8_t *data, int32_t len) // BT data event
 {
-    static uint8_t bnr = 1;
     if (len < 0 || data == NULL) {
         return 0;
     }
-    return len;
+    // if(!buffSize) return 0;
+    // memcpy(data, readBuff, buffSize);
+    // bnr=2;
+    // buffStat = BUFF_EMPTY;
+    // return buffSize;
+    return 0;
 }
 
 media_player::MediaPlayerTraits A2DPAudioMediaPlayer::get_traits() {

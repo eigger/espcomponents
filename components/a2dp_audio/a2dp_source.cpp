@@ -16,21 +16,8 @@
 namespace esphome {
 namespace a2dp_audio {
 
-extern String BT_DEVICE_NAME;
-
-static xQueueHandle      s_bt_app_task_queue  = NULL;
-static xTaskHandle       s_bt_app_task_handle = NULL;
-static esp_bd_addr_t     s_peer_bda           = {0};
-static uint8_t           s_peer_bdname[ESP_BT_GAP_MAX_BDNAME_LEN + 1];
-static int               s_a2d_state          = APP_AV_STATE_IDLE;
-static int               s_media_state        = APP_AV_MEDIA_STATE_IDLE;
-static String            s_BT_sink_name       = "";
-static esp_bt_pin_code_t s_pin_code           = "";
-static int               s_pin_code_length    = 0;
-static TimerHandle_t     s_tmr;
-
 //---------------------------------------------------------------------------------------------------------------------
-bool bt_app_work_dispatch(bt_app_cb_t p_cback, uint16_t event, void *p_params, int param_len, bt_app_copy_cb_t p_copy_cback)
+bool A2DPSource::bt_app_work_dispatch(bt_app_cb_t p_cback, uint16_t event, void *p_params, int param_len, bt_app_copy_cb_t p_copy_cback)
 {
     log_d("event 0x%x, param len %d", event, param_len);
 
@@ -57,7 +44,7 @@ bool bt_app_work_dispatch(bt_app_cb_t p_cback, uint16_t event, void *p_params, i
     return false;
 }
 //---------------------------------------------------------------------------------------------------------------------
-bool bt_app_send_msg(bt_app_msg_t *msg){
+bool A2DPSource::bt_app_send_msg(bt_app_msg_t *msg){
     if (msg == NULL) {
         return false;
     }
@@ -69,13 +56,13 @@ bool bt_app_send_msg(bt_app_msg_t *msg){
     return true;
 }
 //---------------------------------------------------------------------------------------------------------------------
-void bt_app_work_dispatched(bt_app_msg_t *msg){
+void A2DPSource::bt_app_work_dispatched(bt_app_msg_t *msg){
     if (msg->cb) {
         msg->cb(msg->event, msg->param);
     }
 }
 //---------------------------------------------------------------------------------------------------------------------
-void bt_app_task_handler(void *arg){
+void A2DPSource::bt_app_task_handler(void *arg){
     bt_app_msg_t msg;
     for (;;) {
         if (pdTRUE == xQueueReceive(s_bt_app_task_queue, &msg, (portTickType)portMAX_DELAY)) {
@@ -96,14 +83,14 @@ void bt_app_task_handler(void *arg){
     }
 }
 //---------------------------------------------------------------------------------------------------------------------
-void bt_app_task_start_up(void)
+void A2DPSource::bt_app_task_start_up(void)
 {
     s_bt_app_task_queue = xQueueCreate(20, sizeof(bt_app_msg_t));
     xTaskCreate(bt_app_task_handler, "BtAppT", 2048, NULL, configMAX_PRIORITIES - 3, &s_bt_app_task_handle);
     return;
 }
 //---------------------------------------------------------------------------------------------------------------------
-void bt_app_task_shut_down(void)
+void A2DPSource::bt_app_task_shut_down(void)
 {
     if (s_bt_app_task_handle) {
         vTaskDelete(s_bt_app_task_handle);
@@ -115,7 +102,7 @@ void bt_app_task_shut_down(void)
     }
 }
 //---------------------------------------------------------------------------------------------------------------------
-char *bda2str(esp_bd_addr_t bda, char *str, size_t size)
+char *A2DPSource::bda2str(esp_bd_addr_t bda, char *str, size_t size)
 {
     if (bda == NULL || str == NULL || size < 18) {
         return NULL;
@@ -127,7 +114,7 @@ char *bda2str(esp_bd_addr_t bda, char *str, size_t size)
     return str;
 }
 //---------------------------------------------------------------------------------------------------------------------
-void perform_wipe_security_db(){  // delete all paired devices
+void A2DPSource::perform_wipe_security_db(){  // delete all paired devices
     uint8_t paired_device_addr[10][6];
     char bda_str[18];
     esp_err_t res;
@@ -155,7 +142,7 @@ void perform_wipe_security_db(){  // delete all paired devices
     esp_restart();
 }
 //---------------------------------------------------------------------------------------------------------------------
-bool get_name_from_eir(uint8_t *eir, uint8_t *bdname, uint8_t *bdname_len){
+bool A2DPSource::get_name_from_eir(uint8_t *eir, uint8_t *bdname, uint8_t *bdname_len){
     uint8_t *rmt_bdname = NULL;
     uint8_t rmt_bdname_len = 0;
 
@@ -186,7 +173,7 @@ bool get_name_from_eir(uint8_t *eir, uint8_t *bdname, uint8_t *bdname_len){
     return false;
 }
 //---------------------------------------------------------------------------------------------------------------------
-void filter_inquiry_scan_result(esp_bt_gap_cb_param_t *param){
+void A2DPSource::filter_inquiry_scan_result(esp_bt_gap_cb_param_t *param){
     char bda_str[18];
     uint32_t cod = 0;
     int32_t rssi = -129; /* invalid value */
@@ -238,7 +225,7 @@ void filter_inquiry_scan_result(esp_bt_gap_cb_param_t *param){
     }
 }
 //---------------------------------------------------------------------------------------------------------------------
-void bt_app_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param){
+void A2DPSource::bt_app_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param){
     switch (event) {
     case ESP_BT_GAP_DISC_RES_EVT: {
         filter_inquiry_scan_result(param);
@@ -299,12 +286,12 @@ void bt_app_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param){
     return;
 }
 //---------------------------------------------------------------------------------------------------------------------
-void bt_av_hdl_stack_evt(uint16_t event, void *p_param){
+void A2DPSource::bt_av_hdl_stack_evt(uint16_t event, void *p_param){
     log_d("event %d",event);
     switch (event) {
     case BT_APP_EVT_STACK_UP: {
         /* set up device name */
-        esp_bt_dev_set_device_name(BT_DEVICE_NAME.c_str());
+        esp_bt_dev_set_device_name(s_deviceName.c_str());
 
         /* register GAP callback function */
         esp_bt_gap_register_callback(bt_app_gap_cb);
@@ -341,15 +328,15 @@ void bt_av_hdl_stack_evt(uint16_t event, void *p_param){
     }
 }
 //---------------------------------------------------------------------------------------------------------------------
-void bt_app_a2d_cb(esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param){
+void A2DPSource::bt_app_a2d_cb(esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param){
     bt_app_work_dispatch(bt_app_av_sm_hdlr, event, param, sizeof(esp_a2d_cb_param_t), NULL);
 }
 //---------------------------------------------------------------------------------------------------------------------
-void a2d_app_heart_beat(void *arg){
+void A2DPSource::a2d_app_heart_beat(void *arg){
     bt_app_work_dispatch(bt_app_av_sm_hdlr, BT_APP_HEART_BEAT_EVT, NULL, 0, NULL);
 }
 //---------------------------------------------------------------------------------------------------------------------
-void bt_app_av_sm_hdlr(uint16_t event, void *param){
+void A2DPSource::bt_app_av_sm_hdlr(uint16_t event, void *param){
     switch (s_a2d_state) {
     case APP_AV_STATE_DISCOVERING:
         log_d("state %d, evt 0x%x: APP_AV_STATE_DISCOVERING",s_a2d_state, event);
@@ -379,7 +366,7 @@ void bt_app_av_sm_hdlr(uint16_t event, void *param){
     }
 }
 //---------------------------------------------------------------------------------------------------------------------
-void bt_app_av_state_unconnected(uint16_t event, void *param){
+void A2DPSource::bt_app_av_state_unconnected(uint16_t event, void *param){
     switch (event) {
     case ESP_A2D_CONNECTION_STATE_EVT:
         break;
@@ -405,7 +392,7 @@ void bt_app_av_state_unconnected(uint16_t event, void *param){
     }
 }
 //---------------------------------------------------------------------------------------------------------------------
-void bt_app_av_state_connecting(uint16_t event, void *param){
+void A2DPSource::bt_app_av_state_connecting(uint16_t event, void *param){
     log_d("event %i", event);
     esp_a2d_cb_param_t *a2d = NULL;
     switch (event) {
@@ -459,7 +446,7 @@ void bt_app_av_state_connecting(uint16_t event, void *param){
     }
 }
 //---------------------------------------------------------------------------------------------------------------------
-void bt_app_av_media_proc(uint16_t event, void *param){
+void A2DPSource::bt_app_av_media_proc(uint16_t event, void *param){
     esp_a2d_cb_param_t *a2d = NULL;
     a2d = (esp_a2d_cb_param_t *)(param);
     switch (s_media_state) {
@@ -523,7 +510,7 @@ void bt_app_av_media_proc(uint16_t event, void *param){
     }
 }
 //---------------------------------------------------------------------------------------------------------------------
-void bt_app_av_state_connected(uint16_t event, void *param){
+void A2DPSource::bt_app_av_state_connected(uint16_t event, void *param){
     log_d("Event called: %d",event);
     esp_a2d_cb_param_t *a2d = NULL;
     switch (event) {
@@ -562,7 +549,7 @@ void bt_app_av_state_connected(uint16_t event, void *param){
     }
 }
 //---------------------------------------------------------------------------------------------------------------------
-void bt_app_av_state_disconnecting(uint16_t event, void *param){
+void A2DPSource::bt_app_av_state_disconnecting(uint16_t event, void *param){
     esp_a2d_cb_param_t *a2d = NULL;
     switch (event) {
     case ESP_A2D_CONNECTION_STATE_EVT: {
@@ -589,11 +576,11 @@ void bt_app_av_state_disconnecting(uint16_t event, void *param){
     }
 }
 //---------------------------------------------------------------------------------------------------------------------
-int get_APP_AV_STATE(){
+int A2DPSource::get_APP_AV_STATE(){
     return s_a2d_state;
 }
 //---------------------------------------------------------------------------------------------------------------------
-bool a2dp_source_init(String deviceName, String pinCode){
+bool A2DPSource::a2dp_source_init(String deviceName, String pinCode){
     esp_err_t res;
     s_BT_sink_name = deviceName;
     int s_pin_code_length = pinCode.length();
