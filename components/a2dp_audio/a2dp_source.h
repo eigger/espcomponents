@@ -16,7 +16,8 @@
 #include <esp_gap_bt_api.h>
 #include <esp_a2dp_api.h>
 #include <esp_avrc_api.h>
-
+namespace esphome {
+namespace a2dp_audio {
 #define BT_APP_HEART_BEAT_EVT             (0xff00)
 #define BT_APP_SIG_WORK_DISPATCH          (0x01)
 
@@ -84,4 +85,6 @@ void bt_app_av_state_connected(uint16_t event, void *param);
 void bt_app_av_state_disconnecting(uint16_t event, void *param);
 int get_APP_AV_STATE();
 bool a2dp_source_init(String deviceName, String pinCode);
+}
+}
 #endif /* A2DP_SOURCE_H_ */

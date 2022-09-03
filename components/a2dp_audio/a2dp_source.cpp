@@ -13,6 +13,8 @@
 
 // #define ArduinoVers_2 /* uncomment this if vers >= 2.0.0, events run on core 1, Arduino runs on core 1 */
 
+namespace esphome {
+namespace a2dp_audio {
 
 extern String BT_DEVICE_NAME;
 
@@ -628,4 +630,8 @@ bool a2dp_source_init(String deviceName, String pinCode){
 
 
     return true;
+}
+
+
+}
 }
