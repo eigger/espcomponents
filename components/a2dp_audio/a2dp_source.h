@@ -99,7 +99,7 @@ private:
     int               s_pin_code_length;
     TimerHandle_t     s_tmr;
     String            s_deviceName;
-}
+};
 
 }
 }
