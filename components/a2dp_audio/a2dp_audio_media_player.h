@@ -10,6 +10,14 @@
 namespace esphome {
 namespace a2dp_audio {
 
+class AudioEx : public Audio {
+public:
+  int  sendBytesCB(uint8_t* data, size_t len)
+  {
+    return this->sendBytes(data, len);
+  }
+};
+
 class A2DPAudioMediaPlayer : public Component, public media_player::MediaPlayer {
  public:
   void setup() override;
@@ -25,7 +33,7 @@ class A2DPAudioMediaPlayer : public Component, public media_player::MediaPlayer 
   void set_mute_pin(GPIOPin *mute_pin) { this->mute_pin_ = mute_pin; }
   void set_internal_dac_mode(i2s_dac_mode_t mode) { this->internal_dac_mode_ = mode; }
   void set_external_dac_channels(uint8_t channels) { this->external_dac_channels_ = channels; }
-  int32_t chunked_data_transfer(uint8_t *data) { return audio_->chunkedDataTransfer(data); }
+  int32_t send_bytes_cb(uint8_t *data, size_t len) { return audio_->sendBytesCB(data, len); }
   media_player::MediaPlayerTraits get_traits() override;
 
   bool is_muted() const override { return this->muted_; }
@@ -38,7 +46,7 @@ class A2DPAudioMediaPlayer : public Component, public media_player::MediaPlayer 
   void set_volume_(float volume, bool publish = true);
   void stop_();
 
-  std::unique_ptr<Audio> audio_;
+  std::unique_ptr<AudioEx> audio_;
   uint8_t dout_pin_{0};
   uint8_t din_pin_{0};
   uint8_t bclk_pin_;

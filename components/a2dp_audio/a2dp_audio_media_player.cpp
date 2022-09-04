@@ -110,9 +110,9 @@ void A2DPAudioMediaPlayer::stop_() {
 void A2DPAudioMediaPlayer::setup() {
   ESP_LOGCONFIG(TAG, "Setting up Audio...");
   if (this->internal_dac_mode_ != I2S_DAC_CHANNEL_DISABLE) {
-    this->audio_ = make_unique<Audio>(true, this->internal_dac_mode_);
+    this->audio_ = make_unique<AudioEx>(true, this->internal_dac_mode_);
   } else {
-    this->audio_ = make_unique<Audio>(false);
+    this->audio_ = make_unique<AudioEx>(false);
     this->audio_->setPinout(this->bclk_pin_, this->lrclk_pin_, this->dout_pin_);
     this->audio_->forceMono(this->external_dac_channels_ == 1);
     if (this->mute_pin_ != nullptr) {
@@ -138,7 +138,7 @@ int32_t bt_app_a2d_data_cb(uint8_t *data, int32_t len) // BT data event
     if (len < 0 || data == NULL) {
         return 0;
     }
-    return player->chunked_data_transfer(data);
+    return player->send_bytes_cb(data, len);
     // if(!buffSize) return 0;
     // memcpy(data, readBuff, buffSize);
     // bnr=2;
