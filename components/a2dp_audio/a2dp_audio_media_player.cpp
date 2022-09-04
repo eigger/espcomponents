@@ -1,5 +1,5 @@
 #include "a2dp_audio_media_player.h"
-
+#include "a2dp_source.h"
 #ifdef USE_ESP32_FRAMEWORK_ARDUINO
 
 #include "esphome/core/log.h"
