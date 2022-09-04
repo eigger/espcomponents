@@ -138,7 +138,7 @@ int32_t bt_app_a2d_data_cb(uint8_t *data, int32_t len) // BT data event
     if (len < 0 || data == NULL) {
         return 0;
     }
-    return player->get_audio()->chunkedDataTransfer(data);
+    return player->chunked_data_transfer(data);
     // if(!buffSize) return 0;
     // memcpy(data, readBuff, buffSize);
     // bnr=2;
