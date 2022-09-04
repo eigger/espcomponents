@@ -25,7 +25,9 @@ class A2DPAudioMediaPlayer : public Component, public media_player::MediaPlayer 
   void set_mute_pin(GPIOPin *mute_pin) { this->mute_pin_ = mute_pin; }
   void set_internal_dac_mode(i2s_dac_mode_t mode) { this->internal_dac_mode_ = mode; }
   void set_external_dac_channels(uint8_t channels) { this->external_dac_channels_ = channels; }
-  Audio* get_audio() { return audio_; }
+  Audio* get_audio() { 
+    auto ptr = audio_;
+    return (Audio*)ptr;}
   media_player::MediaPlayerTraits get_traits() override;
 
   bool is_muted() const override { return this->muted_; }
