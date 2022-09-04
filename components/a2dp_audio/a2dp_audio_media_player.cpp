@@ -11,6 +11,9 @@ static const char *const TAG = "audio";
 
 char BT_SINK_NAME[]   = "Manhattan-165327"; // set your sink devicename here
 char BT_SINK_PIN[]    = "1234";             // sink pincode
+String BT_DEVICE_NAME = "ESP_SOURCE"
+
+A2DPAudioMediaPlayer* player = nullptr;
 
 void A2DPAudioMediaPlayer::control(const media_player::MediaPlayerCall &call) {
   if (call.get_media_url().has_value()) {
@@ -117,7 +120,8 @@ void A2DPAudioMediaPlayer::setup() {
       this->mute_pin_->digital_write(false);
     }
   }
-  this->a2dp_source_.a2dp_source_init(BT_SINK_NAME, BT_SINK_PIN);
+  player = this;
+  a2dp_source_init(BT_SINK_NAME, BT_SINK_PIN);
   this->state = media_player::MEDIA_PLAYER_STATE_IDLE;
 }
 
@@ -134,6 +138,7 @@ int32_t bt_app_a2d_data_cb(uint8_t *data, int32_t len) // BT data event
     if (len < 0 || data == NULL) {
         return 0;
     }
+    return player->get_audio()->chunkedDataTransfer(data);
     // if(!buffSize) return 0;
     // memcpy(data, readBuff, buffSize);
     // bnr=2;

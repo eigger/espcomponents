@@ -7,7 +7,6 @@
 #include "esphome/core/gpio.h"
 #include "esphome/core/helpers.h"
 #include <Audio.h>
-#include "a2dp_source.h"
 namespace esphome {
 namespace a2dp_audio {
 
@@ -26,7 +25,7 @@ class A2DPAudioMediaPlayer : public Component, public media_player::MediaPlayer 
   void set_mute_pin(GPIOPin *mute_pin) { this->mute_pin_ = mute_pin; }
   void set_internal_dac_mode(i2s_dac_mode_t mode) { this->internal_dac_mode_ = mode; }
   void set_external_dac_channels(uint8_t channels) { this->external_dac_channels_ = channels; }
-
+  std::unique_ptr<Audio> get_audio() { return audio_; }
   media_player::MediaPlayerTraits get_traits() override;
 
   bool is_muted() const override { return this->muted_; }
@@ -40,7 +39,6 @@ class A2DPAudioMediaPlayer : public Component, public media_player::MediaPlayer 
   void stop_();
 
   std::unique_ptr<Audio> audio_;
-  A2DPSource a2dp_source_;
   uint8_t dout_pin_{0};
   uint8_t din_pin_{0};
   uint8_t bclk_pin_;
