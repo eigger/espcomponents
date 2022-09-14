@@ -4,7 +4,6 @@
 #include <vector>
 #include <string>
 #include <memory>
-#define MAX_QUEUE_COUNT 100
 
 class Parser
 {
