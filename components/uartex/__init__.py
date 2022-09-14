@@ -4,7 +4,7 @@ import esphome.config_validation as cv
 from esphome.components import uart, text_sensor
 from esphome import automation, pins
 from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
-    CONF_DEVICE, CONF_INVERTED
+    CONF_DEVICE, CONF_INVERTED, CONF_VERSION, CONF_ICON, ICON_RESTART
 from esphome.core import coroutine
 from esphome.util import SimpleRegistry
 from .const import CONF_RX_PREFIX, CONF_RX_SUFFIX, CONF_TX_PREFIX, CONF_TX_SUFFIX, \
@@ -95,6 +95,11 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_TX_CHECKSUM, default="none"): validate_checksum,
     cv.Optional(CONF_RX_CHECKSUM_2, default="none"): validate_checksum,
     cv.Optional(CONF_TX_CHECKSUM_2, default="none"): validate_checksum,
+    cv.Optional(CONF_VERSION): text_sensor.TEXT_SENSOR_SCHEMA.extend(
+    {
+        cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
+        cv.Optional(CONF_ICON, default=ICON_RESTART): cv.icon,
+    }),
 }).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA)
 )
 
@@ -103,8 +108,11 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
-    await text_sensor.register_text_sensor(var, config)
-    cg.add(var.set_version(var))
+    
+    if CONF_VERSION in config:
+        sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
+        await text_sensor.register_text_sensor(sens, config[CONF_VERSION])
+        cg.add(var.set_version(sens))
 
     if CONF_RX_WAIT in config:
         cg.add(var.set_rx_wait(config[CONF_RX_WAIT]))
