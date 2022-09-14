@@ -103,9 +103,9 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
-    
-    ver = await text_sensor.new_sensor()
-    cg.add(var.set_version(ver))
+    await text_sensor.register_text_sensor(var, config)
+    cg.add(var.set_version(var))
+
     if CONF_RX_WAIT in config:
         cg.add(var.set_rx_wait(config[CONF_RX_WAIT]))
     if CONF_TX_INTERVAL in config:
