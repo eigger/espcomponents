@@ -8,7 +8,6 @@ namespace uartex {
 static const char *TAG = "uartex";
 void UARTExComponent::dump_config()
 {
-    LOG_TEXT_SENSOR("", "Version Text Sensor", this);
     ESP_LOGCONFIG(TAG, "  RX Receive Timeout: %d", conf_rx_wait_);
     ESP_LOGCONFIG(TAG, "  TX Transmission Timeout: %d", conf_tx_wait_);
     ESP_LOGCONFIG(TAG, "  TX Retry Count: %d", conf_tx_retry_cnt_);
@@ -25,7 +24,6 @@ void UARTExComponent::dump_config()
 
 void UARTExComponent::setup()
 {
-    this->publish_state(UARTEX_VERSION);
     if (this->ctrl_pin_)
     {
         this->ctrl_pin_->setup();
@@ -43,11 +41,6 @@ void UARTExComponent::setup()
     if (rx_prefix_.has_value()) rx_parser_.add_headers(rx_prefix_.value());
     if (rx_suffix_.has_value()) rx_parser_.add_footers(rx_suffix_.value());
     ESP_LOGI(TAG, "Initaialize.");
-}
-
-std::string UARTExComponent::unique_id()
-{
-    return get_mac_address() + "-uartex_version";
 }
 
 void UARTExComponent::loop()
