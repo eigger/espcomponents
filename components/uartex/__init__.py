@@ -1,7 +1,7 @@
 import logging
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import uart
+from esphome.components import uart, text_sensor
 from esphome import automation, pins
 from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
     CONF_DEVICE, CONF_INVERTED
@@ -20,7 +20,7 @@ from .const import CONF_RX_PREFIX, CONF_RX_SUFFIX, CONF_TX_PREFIX, CONF_TX_SUFFI
 _LOGGER = logging.getLogger(__name__)
 DEPENDENCIES = ["uart"]
 uartex_ns = cg.esphome_ns.namespace('uartex')
-UARTExComponent = uartex_ns.class_('UARTExComponent', cg.Component, uart.UARTDevice)
+UARTExComponent = uartex_ns.class_('UARTExComponent', cg.Component, uart.UARTDevice, text_sensor.TextSensor)
 UARTExWriteAction = uartex_ns.class_('UARTExWriteAction', automation.Action)
 cmd_t = uartex_ns.class_('cmd_t')
 num_t_const = uartex_ns.class_('num_t').operator('const')
@@ -95,7 +95,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_TX_CHECKSUM, default="none"): validate_checksum,
     cv.Optional(CONF_RX_CHECKSUM_2, default="none"): validate_checksum,
     cv.Optional(CONF_TX_CHECKSUM_2, default="none"): validate_checksum,
-}).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA)
+}).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA).extend(text_sensor.TEXT_SENSOR_SCHEMA)
 )
 
 async def to_code(config):
