@@ -34,11 +34,14 @@ void UARTExComponent::setup()
         this->status_pin_->setup();
         this->status_pin_->digital_write(false);
     }
-    if (rx_checksum_) parser_.use_checksum();
+    if (rx_checksum_) rx_parser_.set_checksum_len(1);
+    if (rx_checksum_2_) rx_parser_.set_checksum_len(2);
     rx_time_ = get_time();
     tx_time_ = get_time();
-    if (rx_prefix_.has_value()) parser_.add_headers(rx_prefix_.value());
-    if (rx_suffix_.has_value()) parser_.add_footers(rx_suffix_.value());
+    if (rx_prefix_.has_value()) rx_parser_.add_headers(rx_prefix_.value());
+    if (rx_suffix_.has_value()) rx_parser_.add_footers(rx_suffix_.value());
+
+    if (this->version_) this->version_->publish_state(UARTEX_VERSION);
     ESP_LOGI(TAG, "Initaialize.");
 }
 
@@ -51,7 +54,7 @@ void UARTExComponent::loop()
 
 void UARTExComponent::read_from_uart()
 {
-    parser_.clear();
+    rx_parser_.clear();
     unsigned long timer = get_time();
     while (elapsed_time(timer) < conf_rx_wait_)
     {
@@ -59,7 +62,7 @@ void UARTExComponent::read_from_uart()
         {
             uint8_t byte;
             if (!this->read_byte(&byte)) continue;
-            if (parser_.parse_byte(byte)) return;
+            if (rx_parser_.parse_byte(byte)) return;
             if (validate_data() == ERR_NONE) return;
             timer = get_time();
         }
@@ -69,7 +72,7 @@ void UARTExComponent::read_from_uart()
 
 void UARTExComponent::publish_to_devices()
 {
-    if (parser_.buffer().size() == 0) return;
+    if (rx_parser_.buffer().size() == 0) return;
     if (validate_data(true) != ERR_NONE) return;
     if (validate_ack()) return;
     publish_data();
@@ -80,9 +83,9 @@ bool UARTExComponent::validate_ack()
 {
     if (!is_have_tx_cmd()) return false;
     if (tx_device() == nullptr) return false;
-    if (!tx_device()->equal(parser_.data(), tx_cmd()->ack)) return false;
+    if (!tx_device()->equal(rx_parser_.data(), tx_cmd()->ack)) return false;
     ack_tx_data(true);
-    ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", to_hex_string(parser_.buffer()).c_str(), elapsed_time(tx_time_));
+    ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", to_hex_string(rx_parser_.buffer()).c_str(), elapsed_time(tx_time_));
     //return true;
     return false;
 }
@@ -92,16 +95,16 @@ void UARTExComponent::publish_data()
     bool found = false;
     for (UARTExDevice* device : this->devices_)
     {
-        if (device->parse_data(parser_.data()))
+        if (device->parse_data(rx_parser_.data()))
         {
             found = true;
         }
     }
 #ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
-    ESP_LOGVV(TAG, "Receive data-> %s, Gap Time: %lums", to_hex_string(parser_.buffer()).c_str(), elapsed_time(rx_time_));
+    ESP_LOGVV(TAG, "Receive data-> %s, Gap Time: %lums", to_hex_string(rx_parser_.buffer()).c_str(), elapsed_time(rx_time_));
 #endif
 #ifdef ESPHOME_LOG_HAS_VERBOSE
-    if (!found) ESP_LOGV(TAG, "Notfound data-> %s", to_hex_string(parser_.buffer()).c_str());
+    if (!found) ESP_LOGV(TAG, "Notfound data-> %s", to_hex_string(rx_parser_.buffer()).c_str());
 #endif
 }
 
@@ -109,7 +112,7 @@ void UARTExComponent::pop_tx_data()
 {
     for (UARTExDevice* device : this->devices_)
     {
-        const cmd_hex_t *cmd = device->pop_tx_cmd();
+        const cmd_t *cmd = device->pop_tx_cmd();
         if (cmd == nullptr) continue;
         if (cmd->ack.size() == 0)   push_tx_data_late({device, cmd});
         else                        push_tx_data({device, cmd});
@@ -164,6 +167,7 @@ void UARTExComponent::write_tx_cmd()
     if (tx_prefix_.has_value()) write_data(tx_prefix_.value());
     write_data(tx_cmd()->data);
     if (tx_checksum_) write_data(get_tx_checksum(tx_cmd()->data));
+    if (tx_checksum_2_) write_data(get_tx_checksum_2(tx_cmd()->data));
     if (tx_suffix_.has_value()) write_data(tx_suffix_.value());
     flush();
     if (ctrl_pin_) ctrl_pin_->digital_write(false);
@@ -259,7 +263,7 @@ void UARTExComponent::clear_tx_data()
     tx_retry_cnt_ = 0;
 }
 
-const cmd_hex_t* UARTExComponent::tx_cmd()
+const cmd_t* UARTExComponent::tx_cmd()
 {
     return tx_data_.cmd;
 }
@@ -281,25 +285,31 @@ unsigned long UARTExComponent::get_time()
 
 ValidateCode UARTExComponent::validate_data(bool log)
 {
-    if (parser_.data().size() == 0)
+    if (rx_parser_.data().size() == 0)
     {
-        if (log) ESP_LOGW(TAG, "[Read] Size error: %s", to_hex_string(parser_.buffer()).c_str());
+        if (log) ESP_LOGW(TAG, "[Read] Size error: %s", to_hex_string(rx_parser_.buffer()).c_str());
         return ERR_SIZE;
     }
-    if (rx_prefix_.has_value() && parser_.parse_header() == false)
+    if (rx_prefix_.has_value() && rx_parser_.parse_header() == false)
     {
-        if (log) ESP_LOGW(TAG, "[Read] Prefix error: %s", to_hex_string(parser_.buffer()).c_str());
+        if (log) ESP_LOGW(TAG, "[Read] Prefix error: %s", to_hex_string(rx_parser_.buffer()).c_str());
         return ERR_PREFIX;
     }
-    if (rx_suffix_.has_value() && parser_.parse_footer() == false)
+    if (rx_suffix_.has_value() && rx_parser_.parse_footer() == false)
     {
-        if (log) ESP_LOGW(TAG, "[Read] Suffix error: %s", to_hex_string(parser_.buffer()).c_str());
+        if (log) ESP_LOGW(TAG, "[Read] Suffix error: %s", to_hex_string(rx_parser_.buffer()).c_str());
         return ERR_SUFFIX;
     }
-    uint8_t crc = get_rx_checksum(parser_.data());
-    if (rx_checksum_ && crc != parser_.get_checksum())
+    uint8_t crc = get_rx_checksum(rx_parser_.data());
+    if (rx_checksum_ && crc != rx_parser_.get_checksum())
     {
-        if (log) ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(parser_.buffer()).c_str());
+        if (log) ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(rx_parser_.buffer()).c_str());
+        return ERR_CHECKSUM;
+    }
+    crc = get_rx_checksum_2(rx_parser_.data());
+    if (rx_checksum_2_ && crc != rx_parser_.get_checksum_2())
+    {
+        if (log) ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(rx_parser_.buffer()).c_str());
         return ERR_CHECKSUM;
     }
     return ERR_NONE;
@@ -325,9 +335,14 @@ void UARTExComponent::set_tx_suffix(std::vector<uint8_t> suffix)
     tx_suffix_ = suffix;
 }
 
-void UARTExComponent::set_rx_checksum(CheckSum checksum)
+void UARTExComponent::set_rx_checksum(Checksum checksum)
 {
     rx_checksum_ = checksum;
+}
+
+void UARTExComponent::set_rx_checksum_2(Checksum checksum)
+{
+    rx_checksum_2_ = checksum;
 }
 
 void UARTExComponent::set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f)
@@ -336,15 +351,32 @@ void UARTExComponent::set_rx_checksum_lambda(std::function<uint8_t(const uint8_t
     rx_checksum_ = CHECKSUM_CUSTOM;
 }
 
-void UARTExComponent::set_tx_checksum(CheckSum checksum)
+void UARTExComponent::set_rx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum)> &&f)
+{
+    rx_checksum_f_2_ = f;
+    rx_checksum_2_ = CHECKSUM_CUSTOM;
+}
+
+void UARTExComponent::set_tx_checksum(Checksum checksum)
 {
     tx_checksum_ = checksum;
+}
+
+void UARTExComponent::set_tx_checksum_2(Checksum checksum)
+{
+    tx_checksum_2_ = checksum;
 }
 
 void UARTExComponent::set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f)
 {
     tx_checksum_f_ = f;
     tx_checksum_ = CHECKSUM_CUSTOM;
+}
+
+void UARTExComponent::set_tx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum)> &&f)
+{
+    tx_checksum_f_2_ = f;
+    tx_checksum_2_ = CHECKSUM_CUSTOM;
 }
 
 uint8_t UARTExComponent::get_rx_checksum(const std::vector<uint8_t> &data) const
@@ -371,6 +403,43 @@ uint8_t UARTExComponent::get_rx_checksum(const std::vector<uint8_t> &data) const
                 for (uint8_t byte : this->rx_prefix_.value()) { crc ^= byte; }
             }
             for (uint8_t byte : data) { crc ^= byte; }
+            break;
+        case CHECKSUM_NONE:
+        case CHECKSUM_CUSTOM:
+            break;
+        }
+        return crc;
+    }
+}
+
+
+uint8_t UARTExComponent::get_rx_checksum_2(const std::vector<uint8_t> &data) const
+{
+    uint8_t checksum = get_rx_checksum(data);
+    if (this->rx_checksum_f_2_.has_value())
+    {
+        return (*rx_checksum_f_2_)(&data[0], data.size(), checksum);
+    }
+    else
+    {
+        uint8_t crc = 0;
+        switch(rx_checksum_2_)
+        {
+        case CHECKSUM_ADD:
+            if (this->rx_prefix_.has_value())
+            {
+                for (uint8_t byte : this->rx_prefix_.value()) { crc += byte; }
+            }
+            for (uint8_t byte : data) { crc += byte; }
+            crc += checksum;
+            break;
+        case CHECKSUM_XOR:
+            if (this->rx_prefix_.has_value())
+            {
+                for (uint8_t byte : this->rx_prefix_.value()) { crc ^= byte; }
+            }
+            for (uint8_t byte : data) { crc ^= byte; }
+            crc ^= checksum;
             break;
         case CHECKSUM_NONE:
         case CHECKSUM_CUSTOM:
@@ -413,5 +482,41 @@ uint8_t UARTExComponent::get_tx_checksum(const std::vector<uint8_t> &data) const
     }
 }
 
+
+uint8_t UARTExComponent::get_tx_checksum_2(const std::vector<uint8_t> &data) const
+{
+    uint8_t checksum = get_tx_checksum(data);
+    if (this->tx_checksum_f_2_.has_value())
+    {
+        return (*tx_checksum_f_2_)(&data[0], data.size(), checksum);
+    }
+    else
+    {
+        uint8_t crc = 0;
+        switch(tx_checksum_2_)
+        {
+        case CHECKSUM_ADD:
+            if (this->tx_prefix_.has_value())
+            {
+                for (uint8_t byte : this->tx_prefix_.value()) { crc += byte; }
+            }
+            for (uint8_t byte : data) { crc += byte; }
+            crc += checksum;
+            break;
+        case CHECKSUM_XOR:
+            if (this->tx_prefix_.has_value())
+            {
+                for (uint8_t byte : this->tx_prefix_.value()) { crc ^= byte; }
+            }
+            for (uint8_t byte : data) { crc ^= byte; }
+            crc ^= checksum;
+            break;
+        case CHECKSUM_NONE:
+        case CHECKSUM_CUSTOM:
+            break;
+        }
+        return crc;
+    }
+}
 }  // namespace uartex
 }  // namespace esphome

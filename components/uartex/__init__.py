@@ -1,14 +1,14 @@
 import logging
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import uart
+from esphome.components import uart, text_sensor
 from esphome import automation, pins
 from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
-    CONF_DEVICE, CONF_INVERTED
+    CONF_DEVICE, CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, ICON_NEW_BOX
 from esphome.core import coroutine
 from esphome.util import SimpleRegistry
 from .const import CONF_RX_PREFIX, CONF_RX_SUFFIX, CONF_TX_PREFIX, CONF_TX_SUFFIX, \
-    CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, \
+    CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, CONF_RX_CHECKSUM_2, CONF_TX_CHECKSUM_2, \
     CONF_UARTEX_ID, \
     CONF_ACK, \
     CONF_SUB_DEVICE, \
@@ -22,14 +22,14 @@ DEPENDENCIES = ["uart"]
 uartex_ns = cg.esphome_ns.namespace('uartex')
 UARTExComponent = uartex_ns.class_('UARTExComponent', cg.Component, uart.UARTDevice)
 UARTExWriteAction = uartex_ns.class_('UARTExWriteAction', automation.Action)
-cmd_hex_t = uartex_ns.class_('cmd_hex_t')
+cmd_t = uartex_ns.class_('cmd_t')
 num_t_const = uartex_ns.class_('num_t').operator('const')
 uint8_const = cg.uint8.operator('const')
 uint8_ptr_const = uint8_const.operator('ptr')
 
 MULTI_CONF = False
 
-Checksum = uartex_ns.enum("CheckSum")
+Checksum = uartex_ns.enum("Checksum")
 CHECKSUMS = {
     "NONE": Checksum.CHECKSUM_NONE,
     "XOR": Checksum.CHECKSUM_XOR,
@@ -48,7 +48,6 @@ def validate_checksum(value):
         return cv.enum(CHECKSUMS, upper=True)(value)
     raise cv.Invalid("data type error")
 
-# State HEX (hex_t): int offset, uint8_t[] data
 STATE_HEX_SCHEMA = cv.Schema({
     cv.Required(CONF_DATA): validate_hex_data,
     cv.Optional(CONF_OFFSET, default=0): cv.int_range(min=0, max=128),
@@ -65,7 +64,6 @@ def state_hex_schema(value):
         return STATE_HEX_SCHEMA(value)
     return shorthand_state_hex(value)
 
-# Command HEX: uint8_t[] data, uint8_t[] ack
 COMMAND_HEX_SCHEMA = cv.Schema({
     cv.Required(CONF_DATA): validate_hex_data,
     cv.Optional(CONF_ACK, default=[]): validate_hex_data
@@ -95,6 +93,13 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_TX_SUFFIX): validate_hex_data,
     cv.Optional(CONF_RX_CHECKSUM, default="none"): validate_checksum,
     cv.Optional(CONF_TX_CHECKSUM, default="none"): validate_checksum,
+    cv.Optional(CONF_RX_CHECKSUM_2, default="none"): validate_checksum,
+    cv.Optional(CONF_TX_CHECKSUM_2, default="none"): validate_checksum,
+    cv.Optional(CONF_VERSION, default={CONF_NAME: "UartEX Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
+    {
+        cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
+        cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
+    }),
 }).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA)
 )
 
@@ -103,7 +108,12 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
-    
+
+    if CONF_VERSION in config:
+        sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
+        await text_sensor.register_text_sensor(sens, config[CONF_VERSION])
+        cg.add(var.set_version(sens))
+
     if CONF_RX_WAIT in config:
         cg.add(var.set_rx_wait(config[CONF_RX_WAIT]))
     if CONF_TX_INTERVAL in config:
@@ -136,6 +146,17 @@ async def to_code(config):
             cg.add(var.set_rx_checksum_lambda(template_))
         else:
             cg.add(var.set_rx_checksum(data))
+    if CONF_RX_CHECKSUM_2 in config:
+        data = config[CONF_RX_CHECKSUM_2]
+        if cg.is_template(data):
+            template_ = await cg.process_lambda(data,
+                                                [(uint8_ptr_const, 'data'),
+                                                 (num_t_const, 'len'),
+                                                 (uint8_const, 'checksum')],
+                                                return_type=cg.uint8)
+            cg.add(var.set_rx_checksum_2_lambda(template_))
+        else:
+            cg.add(var.set_rx_checksum_2(data))
     if CONF_TX_CHECKSUM in config:
         data = config[CONF_TX_CHECKSUM]
         if cg.is_template(data):
@@ -146,16 +167,26 @@ async def to_code(config):
             cg.add(var.set_tx_checksum_lambda(template_))
         else:
             cg.add(var.set_tx_checksum(data))
-
+    if CONF_TX_CHECKSUM_2 in config:
+        data = config[CONF_TX_CHECKSUM_2]
+        if cg.is_template(data):
+            template_ = await cg.process_lambda(data,
+                                                [(uint8_ptr_const, 'data'),
+                                                 (num_t_const, 'len'),
+                                                 (uint8_const, 'checksum')],
+                                                return_type=cg.uint8)
+            cg.add(var.set_tx_checksum_2_lambda(template_))
+        else:
+            cg.add(var.set_tx_checksum_2(data))
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
 UARTEx_DEVICE_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_UARTEX_ID): cv.use_id(UARTExComponent),
-    cv.Optional(CONF_DEVICE): state_hex_schema,
+    cv.Required(CONF_DEVICE): state_hex_schema,
     cv.Optional(CONF_SUB_DEVICE): state_hex_schema,
-    cv.Optional(CONF_STATE_ON): state_hex_schema,
-    cv.Optional(CONF_STATE_OFF): state_hex_schema,
+    cv.Required(CONF_STATE_ON): state_hex_schema,
+    cv.Required(CONF_STATE_OFF): state_hex_schema,
     cv.Required(CONF_COMMAND_ON): cv.templatable(command_hex_schema),
-    cv.Optional(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
+    cv.Required(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_STATE): command_hex_schema,
     cv.Optional(CONF_STATE_RESPONSE): state_hex_schema,
 }).extend(cv.polling_component_schema('60s'))
@@ -194,7 +225,7 @@ def register_uartex_device(var, config):
     if CONF_COMMAND_ON in config:
         data = config[CONF_COMMAND_ON]
         if cg.is_template(data):
-            command_on = yield cg.templatable(data, [], cmd_hex_t)
+            command_on = yield cg.templatable(data, [], cmd_t)
             cg.add(var.set_command_on(command_on))
         else:
             command_on = yield command_hex_expression(config[CONF_COMMAND_ON])
@@ -203,7 +234,7 @@ def register_uartex_device(var, config):
     if CONF_COMMAND_OFF in config:
         data = config[CONF_COMMAND_OFF]
         if cg.is_template(data):
-            command_off = yield cg.templatable(data, [], cmd_hex_t)
+            command_off = yield cg.templatable(data, [], cmd_t)
             cg.add(var.set_command_off(command_off))
         else:
             command_off = yield command_hex_expression(config[CONF_COMMAND_OFF])
@@ -252,7 +283,7 @@ def uartex_write_to_code(config, action_id, template_arg, args):
     data = config[CONF_DATA]
 
     if cg.is_template(data):
-        templ = yield cg.templatable(data, args, cmd_hex_t)
+        templ = yield cg.templatable(data, args, cmd_t)
         cg.add(var.set_data_template(templ))
     else:
         cmd = yield command_hex_expression(config)

@@ -14,6 +14,8 @@ CONF_TX_PREFIX = 'tx_prefix'
 CONF_TX_SUFFIX = 'tx_suffix'
 CONF_RX_CHECKSUM = 'rx_checksum'
 CONF_TX_CHECKSUM = 'tx_checksum'
+CONF_RX_CHECKSUM_2 = 'rx_checksum2'
+CONF_TX_CHECKSUM_2 = 'tx_checksum2'
 CONF_SUB_DEVICE = 'sub_device'
 CONF_AND_OPERATOR = 'and_operator'
 

@@ -6,9 +6,11 @@
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
 #include "esphome/components/uart/uart.h"
+#include "esphome/components/text_sensor/text_sensor.h"
 #include "uartex_device.h"
 #include "parser.h"
 
+#define UARTEX_VERSION "1.0.0.0-220914"
 namespace esphome {
 namespace uartex {
 
@@ -20,7 +22,7 @@ enum ValidateCode {
     ERR_CHECKSUM
 };
 
-enum CheckSum {
+enum Checksum {
     CHECKSUM_NONE,
     CHECKSUM_CUSTOM,
     CHECKSUM_XOR,
@@ -30,7 +32,7 @@ enum CheckSum {
 struct tx_data
 {
     UARTExDevice* device;
-    const cmd_hex_t* cmd;
+    const cmd_t* cmd;
 };
 
 class UARTExComponent : public uart::UARTDevice, public Component
@@ -41,12 +43,18 @@ public:
     void set_rx_suffix(std::vector<uint8_t> suffix);
     void set_tx_prefix(std::vector<uint8_t> prefix);
     void set_tx_suffix(std::vector<uint8_t> suffix);
-    void set_rx_checksum(CheckSum checksum);
+    void set_rx_checksum(Checksum checksum);
+    void set_rx_checksum_2(Checksum checksum);
     void set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f);
-    void set_tx_checksum(CheckSum checksum);
+    void set_rx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum)> &&f);
+    void set_tx_checksum(Checksum checksum);
+    void set_tx_checksum_2(Checksum checksum);
     void set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f);
+    void set_tx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum)> &&f);
     uint8_t get_rx_checksum(const std::vector<uint8_t> &data) const;
     uint8_t get_tx_checksum(const std::vector<uint8_t> &data) const;
+    uint8_t get_rx_checksum_2(const std::vector<uint8_t> &data) const;
+    uint8_t get_tx_checksum_2(const std::vector<uint8_t> &data) const;
     void dump_config() override;
     void setup() override;
     void loop() override;
@@ -67,10 +75,12 @@ public:
     bool is_have_tx_cmd();
     void ack_tx_data(bool ok);
     void clear_tx_data();
-    const cmd_hex_t* tx_cmd();
+    const cmd_t* tx_cmd();
     UARTExDevice* tx_device();
     unsigned long elapsed_time(const unsigned long timer);
     unsigned long get_time();
+
+    void set_version(text_sensor::TextSensor *version) { version_ = version; }
 protected:
 
     std::vector<UARTExDevice *> devices_{};
@@ -84,12 +94,15 @@ protected:
     optional<std::vector<uint8_t>> tx_prefix_{};
     optional<std::vector<uint8_t>> tx_suffix_{};
 
-    CheckSum rx_checksum_{CHECKSUM_NONE};
+    Checksum rx_checksum_{CHECKSUM_NONE};
+    Checksum rx_checksum_2_{CHECKSUM_NONE};
     optional<std::function<uint8_t(const uint8_t *data, const num_t len)>> rx_checksum_f_{};
+    optional<std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum)>> rx_checksum_f_2_{};
  
-    CheckSum tx_checksum_{CHECKSUM_NONE};
+    Checksum tx_checksum_{CHECKSUM_NONE};
+    Checksum tx_checksum_2_{CHECKSUM_NONE};
     optional<std::function<uint8_t(const uint8_t *data, const num_t len)>> tx_checksum_f_{};
-
+    optional<std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum)>> tx_checksum_f_2_{};
     ValidateCode validate_data(bool log = false);
 
     void read_from_uart();
@@ -111,7 +124,9 @@ protected:
     num_t tx_retry_cnt_{0};
     InternalGPIOPin *ctrl_pin_{nullptr};
     InternalGPIOPin *status_pin_{nullptr};
-    Parser parser_{};
+    Parser rx_parser_{};
+
+    text_sensor::TextSensor *version_{nullptr};
 };
 
 } // namespace uartex

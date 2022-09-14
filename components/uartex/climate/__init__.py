@@ -2,7 +2,7 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import climate, uartex, sensor
 from esphome.const import CONF_ID, CONF_SENSOR, CONF_OFFSET
-from .. import uartex_ns, command_hex_schema, STATE_NUM_SCHEMA, cmd_hex_t, uint8_ptr_const, num_t_const, \
+from .. import uartex_ns, command_hex_schema, STATE_NUM_SCHEMA, cmd_t, uint8_ptr_const, num_t_const, \
     command_hex_expression, state_hex_schema, state_hex_expression
 from ..const import CONF_STATE_CURRENT, CONF_STATE_TARGET, \
     CONF_STATE_AUTO, CONF_STATE_HEAT, CONF_STATE_COOL, CONF_STATE_AWAY, \
@@ -45,7 +45,7 @@ def to_code(config):
     yield climate.register_climate(var, config)
     yield uartex.register_uartex_device(var, config)
 
-    templ = yield cg.templatable(config[CONF_COMMAND_TEMPERATURE], [(cg.float_.operator('const'), 'x')], cmd_hex_t)
+    templ = yield cg.templatable(config[CONF_COMMAND_TEMPERATURE], [(cg.float_.operator('const'), 'x')], cmd_t)
     cg.add(var.set_command_temperature(templ))
 
     state = config[CONF_STATE_TARGET]

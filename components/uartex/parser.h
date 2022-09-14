@@ -4,7 +4,6 @@
 #include <vector>
 #include <string>
 #include <memory>
-#define MAX_QUEUE_COUNT 100
 
 class Parser
 {
@@ -17,19 +16,20 @@ public:
 	bool add_footers(const std::vector<unsigned char>& footer);
 
 	bool parse_byte(const unsigned char byte);
-	bool validate_data(const std::vector<unsigned char>& checksums);
+	bool validate(const std::vector<unsigned char>& checksums);
 	void clear();
 	const std::vector<unsigned char> data();
 	const std::vector<unsigned char> buffer();
 	bool parse_header();
 	bool parse_footer();
-	void use_checksum();
+	void set_checksum_len(size_t len);
 	unsigned char get_checksum();
+	unsigned char get_checksum_2();
 	
 private:
 	std::vector<unsigned char> header_;
 	std::vector<unsigned char> footer_;
 	std::vector<unsigned char> buffer_;
-	bool checksum_;
+	size_t checksum_len_;
 };
 
