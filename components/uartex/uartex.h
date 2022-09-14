@@ -9,6 +9,7 @@
 #include "uartex_device.h"
 #include "parser.h"
 
+#define UARTEX_VERSION "1.0.0.0-220914"
 namespace esphome {
 namespace uartex {
 
@@ -33,7 +34,7 @@ struct tx_data
     const cmd_t* cmd;
 };
 
-class UARTExComponent : public uart::UARTDevice, public Component
+class UARTExComponent : public text_sensor::TextSensor, public uart::UARTDevice, public Component
 {
 public:
     UARTExComponent() = default;
@@ -57,6 +58,7 @@ public:
     void setup() override;
     void loop() override;
     float get_setup_priority() const override { return setup_priority::BUS - 1.0f; }
+    std::string unique_id() override;
     void write_data(const uint8_t data);
     void write_data(const std::vector<uint8_t> &data);
     void write_tx_cmd();
