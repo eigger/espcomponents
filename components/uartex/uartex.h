@@ -9,10 +9,10 @@
 #include "uartex_device.h"
 #include "parser.h"
 
-#define UARTEX_VERSION "1.0.0.0-220914"
+
 namespace esphome {
 namespace uartex {
-
+#define UARTEX_VERSION "1.0.0.0-220914"
 enum ValidateCode {
     ERR_NONE,
     ERR_SIZE,
