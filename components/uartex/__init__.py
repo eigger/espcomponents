@@ -4,7 +4,7 @@ import esphome.config_validation as cv
 from esphome.components import uart, text_sensor
 from esphome import automation, pins
 from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
-    CONF_DEVICE, CONF_INVERTED, CONF_VERSION, CONF_ICON, ICON_NEW_BOX
+    CONF_DEVICE, CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, ICON_NEW_BOX
 from esphome.core import coroutine
 from esphome.util import SimpleRegistry
 from .const import CONF_RX_PREFIX, CONF_RX_SUFFIX, CONF_TX_PREFIX, CONF_TX_SUFFIX, \
@@ -95,7 +95,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_TX_CHECKSUM, default="none"): validate_checksum,
     cv.Optional(CONF_RX_CHECKSUM_2, default="none"): validate_checksum,
     cv.Optional(CONF_TX_CHECKSUM_2, default="none"): validate_checksum,
-    cv.Optional(CONF_VERSION, default="version"): text_sensor.TEXT_SENSOR_SCHEMA.extend(
+    cv.Optional(CONF_VERSION, default=[{CONF_NAME: "Version"}]): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
         cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
