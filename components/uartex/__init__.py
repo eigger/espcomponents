@@ -20,7 +20,7 @@ from .const import CONF_RX_PREFIX, CONF_RX_SUFFIX, CONF_TX_PREFIX, CONF_TX_SUFFI
 _LOGGER = logging.getLogger(__name__)
 DEPENDENCIES = ["uart"]
 uartex_ns = cg.esphome_ns.namespace('uartex')
-UARTExComponent = uartex_ns.class_('UARTExComponent', cg.Component, uart.UARTDevice, text_sensor.TextSensor)
+UARTExComponent = uartex_ns.class_('UARTExComponent', cg.Component, uart.UARTDevice)
 UARTExWriteAction = uartex_ns.class_('UARTExWriteAction', automation.Action)
 cmd_t = uartex_ns.class_('cmd_t')
 num_t_const = uartex_ns.class_('num_t').operator('const')
@@ -95,7 +95,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_TX_CHECKSUM, default="none"): validate_checksum,
     cv.Optional(CONF_RX_CHECKSUM_2, default="none"): validate_checksum,
     cv.Optional(CONF_TX_CHECKSUM_2, default="none"): validate_checksum,
-}).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA).extend(text_sensor.TEXT_SENSOR_SCHEMA)
+}).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA)
 )
 
 async def to_code(config):
@@ -104,6 +104,8 @@ async def to_code(config):
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
     
+    ver = await text_sensor.new_sensor()
+    cg.add(var.set_version(ver))
     if CONF_RX_WAIT in config:
         cg.add(var.set_rx_wait(config[CONF_RX_WAIT]))
     if CONF_TX_INTERVAL in config:

@@ -40,6 +40,8 @@ void UARTExComponent::setup()
     tx_time_ = get_time();
     if (rx_prefix_.has_value()) rx_parser_.add_headers(rx_prefix_.value());
     if (rx_suffix_.has_value()) rx_parser_.add_footers(rx_suffix_.value());
+
+    if (this->version_) this->version_->publish_state(UARTEX_VERSION);
     ESP_LOGI(TAG, "Initaialize.");
 }
 

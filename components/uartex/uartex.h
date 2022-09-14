@@ -35,7 +35,7 @@ struct tx_data
     const cmd_t* cmd;
 };
 
-class UARTExComponent : public text_sensor::TextSensor, public uart::UARTDevice, public Component
+class UARTExComponent : public uart::UARTDevice, public Component
 {
 public:
     UARTExComponent() = default;
@@ -79,6 +79,8 @@ public:
     UARTExDevice* tx_device();
     unsigned long elapsed_time(const unsigned long timer);
     unsigned long get_time();
+
+    void set_version(text_sensor::TextSensor *version) { version_ = version; }
 protected:
 
     std::vector<UARTExDevice *> devices_{};
@@ -123,6 +125,8 @@ protected:
     InternalGPIOPin *ctrl_pin_{nullptr};
     InternalGPIOPin *status_pin_{nullptr};
     Parser rx_parser_{};
+
+    text_sensor::TextSensor *version_{nullptr};
 };
 
 } // namespace uartex
