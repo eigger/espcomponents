@@ -21,7 +21,7 @@ from .const import CONF_RX_PREFIX, CONF_RX_SUFFIX, CONF_TX_PREFIX, CONF_TX_SUFFI
 _LOGGER = logging.getLogger(__name__)
 DEPENDENCIES = ["uart"]
 uartex_ns = cg.esphome_ns.namespace('uartex')
-UARTExComponent = uartex_ns.class_('UARTExComponent', text_sensor.TextSensor, uart.UARTDevice, cg.Component)
+UARTExComponent = uartex_ns.class_('UARTExComponent', cg.Component, uart.UARTDevice, text_sensor.TextSensor)
 UARTExWriteAction = uartex_ns.class_('UARTExWriteAction', automation.Action)
 cmd_t = uartex_ns.class_('cmd_t')
 num_t_const = uartex_ns.class_('num_t').operator('const')
