@@ -48,5 +48,5 @@ def to_code(config):
         state = yield state_hex_expression(speed[CONF_STATE])
         command = yield command_hex_expression(speed[CONF_COMMAND])
         cg.add(var.set_speed_high(state, command))
-
+    yield fan.register_fan(var, config)
     yield uartex.register_uartex_device(var, config)
