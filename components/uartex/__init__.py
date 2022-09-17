@@ -18,7 +18,7 @@ from .const import CONF_RX_PREFIX, CONF_RX_SUFFIX, CONF_TX_PREFIX, CONF_TX_SUFFI
     CONF_CTRL_PIN, CONF_STATUS_PIN, CONF_TX_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
-DEPENDENCIES = ["uart"]
+DEPENDENCIES = ["uart", "text_sensor"]
 uartex_ns = cg.esphome_ns.namespace('uartex')
 UARTExComponent = uartex_ns.class_('UARTExComponent', cg.Component, uart.UARTDevice)
 UARTExWriteAction = uartex_ns.class_('UARTExWriteAction', automation.Action)
@@ -111,8 +111,7 @@ async def to_code(config):
 
     if CONF_VERSION in config:
         sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
-        conf = await text_sensor.new_text_sensor(conf)
-        await cg.register_component(conf, sens)
+        await text_sensor.register_text_sensor(sens, config[CONF_VERSION])
         cg.add(var.set_version(sens))
 
     if CONF_RX_WAIT in config:
