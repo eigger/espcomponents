@@ -22,7 +22,8 @@ void UARTExFan::setup()
     }
 
 }
-void UARTExFan::control(const fan::FanCall &call) override
+
+void UARTExFan::control(const fan::FanCall &call)
 {
     if (call.get_state().has_value())
       this->state = *call.get_state();
