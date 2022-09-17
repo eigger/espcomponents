@@ -106,16 +106,16 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
 )
 
 async def to_code(config):
-    #cg.add_global(uartex_ns.using)
+    cg.add_global(uartex_ns.using)
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
-    await uart.register_uart_device(var, config)
-
+    
     if CONF_VERSION in config:
         sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
         await text_sensor.register_text_sensor(sens, config[CONF_VERSION])
         cg.add(var.set_version(sens))
 
+    await uart.register_uart_device(var, config)
     if CONF_RX_WAIT in config:
         cg.add(var.set_rx_wait(config[CONF_RX_WAIT]))
     if CONF_TX_INTERVAL in config:
