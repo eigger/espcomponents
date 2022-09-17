@@ -71,7 +71,7 @@ void UARTExDevice::set_command_on(std::function<cmd_t()> command_on_func)
     command_on_func_ = command_on_func;
 }
 
-const cmd_t *UARTExDevice::get_command_on()
+cmd_t *UARTExDevice::get_command_on()
 {
     if (command_on_func_.has_value())
         command_on_ = (*command_on_func_)();
@@ -88,7 +88,7 @@ void UARTExDevice::set_command_off(std::function<cmd_t()> command_off_func)
     command_off_func_ = command_off_func;
 }
 
-const cmd_t *UARTExDevice::get_command_off()
+cmd_t *UARTExDevice::get_command_off()
 {
     if (command_off_func_.has_value())
         command_off_ = (*command_off_func_)();

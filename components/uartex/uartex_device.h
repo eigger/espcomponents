@@ -43,10 +43,10 @@ public:
     void set_state_off(state_t state_off);
     void set_command_on(cmd_t command_on);
     void set_command_on(std::function<cmd_t()> command_on_func);
-    const cmd_t* get_command_on();
+    cmd_t* get_command_on();
     void set_command_off(cmd_t command_off);
     void set_command_off(std::function<cmd_t()> command_off_func);
-    const cmd_t* get_command_off();
+    cmd_t* get_command_off();
     void set_command_state(cmd_t command_state);
     void set_state_response(state_t state_response);
     void push_tx_cmd(cmd_t* cmd);
