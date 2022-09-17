@@ -112,8 +112,9 @@ void UARTExComponent::pop_tx_data()
 {
     for (UARTExDevice* device : this->devices_)
     {
-        const cmd_t *cmd = device->pop_tx_cmd();
+        cmd_t *cmd = device->pop_tx_cmd();
         if (cmd == nullptr) continue;
+        ESP_LOGD(TAG, "pop_tx_data");
         if (cmd->ack.size() == 0)   push_tx_data_late({device, cmd});
         else                        push_tx_data({device, cmd});
     }
