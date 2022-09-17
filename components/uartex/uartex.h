@@ -35,7 +35,7 @@ struct tx_data
     const cmd_t* cmd;
 };
 
-class UARTExComponent : public uart::UARTDevice, public Component
+class UARTExComponent : public uart::UARTDevice, public text_sensor::TextSensor, public Component
 {
 public:
     UARTExComponent() = default;
