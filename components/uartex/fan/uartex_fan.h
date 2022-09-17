@@ -42,12 +42,12 @@ public:
 protected:
     int speed_count_{0};
 
-    state_t state_speed_low_{};
-    state_t state_speed_medium_{};
-    state_t state_speed_high_{};
-    cmd_t command_speed_low_{};
-    cmd_t command_speed_medium_{};
-    cmd_t command_speed_high_{};
+    optional<state_t> state_speed_low_{};
+    optional<state_t> state_speed_medium_{};
+    optional<state_t> state_speed_high_{};
+    optional<cmd_t> command_speed_low_{};
+    optional<cmd_t> command_speed_medium_{};
+    optional<cmd_t> command_speed_high_{};
 };
 
 }  // namespace uartex
