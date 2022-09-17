@@ -33,6 +33,7 @@ void UARTExFan::control(const fan::FanCall &call)
       this->speed = *call.get_speed();
     if (call.get_direction().has_value())
       this->direction = *call.get_direction();
+    if (this->state && command_on_.has_value()) push_tx_cmd(&this->command_on_.value());
     switch (this->speed)
     {
     case 1:
@@ -63,6 +64,7 @@ void UARTExFan::control(const fan::FanCall &call)
         // protect from invalid input
         break;
     }
+    if (!this->state && command_off_.has_value()) push_tx_cmd(&this->command_off_.value());
     this->publish_state();
 }
 
