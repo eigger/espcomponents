@@ -29,6 +29,7 @@ public:
     }
     void publish(const std::vector<uint8_t>& data) override;
     void control(const fan::FanCall &call) override;
+protected:
     fan::FanTraits get_traits() override
     {
         fan::FanTraits traits{};

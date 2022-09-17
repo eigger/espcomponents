@@ -83,7 +83,7 @@ void UARTExFan::publish(const std::vector<uint8_t>& data)
     // Speed low
     else if (validate(data, &state_speed_low_.value()))
     {
-        pspeed = 1;
+        speed = 1;
         changed = true;
     }
     if (changed) this->publish_state();
