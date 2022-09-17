@@ -23,6 +23,7 @@ CODEOWNERS = ["@eigger"]
 DEPENDENCIES = ["uart"]
 uartex_ns = cg.esphome_ns.namespace('uartex')
 textsensor_ns = cg.esphome_ns.namespace('text_sensor')
+textSensor = textsensor_ns.class_('TextSensor')
 UARTExComponent = uartex_ns.class_('UARTExComponent', cg.Component, uart.UARTDevice)
 UARTExWriteAction = uartex_ns.class_('UARTExWriteAction', automation.Action)
 cmd_t = uartex_ns.class_('cmd_t')
