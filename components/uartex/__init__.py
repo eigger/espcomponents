@@ -106,7 +106,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
 )
 
 async def to_code(config):
-    cg.add_global(uartex_ns.using)
+    #cg.add_global(uartex_ns.using)
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
