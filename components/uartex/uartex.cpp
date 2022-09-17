@@ -169,7 +169,7 @@ void UARTExComponent::write_tx_cmd()
     if (tx_checksum_) write_data(get_tx_checksum(tx_cmd()->data));
     if (tx_checksum_2_) write_data(get_tx_checksum_2(tx_cmd()->data));
     if (tx_suffix_.has_value()) write_data(tx_suffix_.value());
-    flush();
+    write_flush();
     if (ctrl_pin_) ctrl_pin_->digital_write(false);
     if (status_pin_) status_pin_->digital_write(false);
     tx_retry_cnt_++;
@@ -199,7 +199,7 @@ void UARTExComponent::push_tx_data_late(const tx_data data)
     tx_queue_late_.push(data);
 }
 
-void UARTExComponent::flush()
+void UARTExComponent::write_flush()
 {
     this->flush();
     ESP_LOGD(TAG, "Flushing... (%lums)", elapsed_time(tx_time_));
@@ -210,22 +210,22 @@ void UARTExComponent::register_device(UARTExDevice *device)
     devices_.push_back(device);
 }
 
-void UARTExComponent::set_tx_interval(num_t tx_interval)
+void UARTExComponent::set_tx_interval(uint16_t tx_interval)
 {
     conf_tx_interval_ = tx_interval;
 }
 
-void UARTExComponent::set_tx_wait(num_t tx_wait)
+void UARTExComponent::set_tx_wait(uint16_t tx_wait)
 {
     conf_tx_wait_ = tx_wait;
 }
 
-void UARTExComponent::set_tx_retry_cnt(num_t tx_retry_cnt)
+void UARTExComponent::set_tx_retry_cnt(uint16_t tx_retry_cnt)
 {
     conf_tx_retry_cnt_ = tx_retry_cnt;
 }
 
-void UARTExComponent::set_rx_wait(num_t rx_wait)
+void UARTExComponent::set_rx_wait(uint16_t rx_wait)
 {
     conf_rx_wait_ = rx_wait;
 }
@@ -345,13 +345,13 @@ void UARTExComponent::set_rx_checksum_2(Checksum checksum)
     rx_checksum_2_ = checksum;
 }
 
-void UARTExComponent::set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f)
+void UARTExComponent::set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f)
 {
     rx_checksum_f_ = f;
     rx_checksum_ = CHECKSUM_CUSTOM;
 }
 
-void UARTExComponent::set_rx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum)> &&f)
+void UARTExComponent::set_rx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)> &&f)
 {
     rx_checksum_f_2_ = f;
     rx_checksum_2_ = CHECKSUM_CUSTOM;
@@ -367,13 +367,13 @@ void UARTExComponent::set_tx_checksum_2(Checksum checksum)
     tx_checksum_2_ = checksum;
 }
 
-void UARTExComponent::set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f)
+void UARTExComponent::set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f)
 {
     tx_checksum_f_ = f;
     tx_checksum_ = CHECKSUM_CUSTOM;
 }
 
-void UARTExComponent::set_tx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum)> &&f)
+void UARTExComponent::set_tx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)> &&f)
 {
     tx_checksum_f_2_ = f;
     tx_checksum_2_ = CHECKSUM_CUSTOM;

@@ -8,11 +8,9 @@
 namespace esphome {
 namespace uartex {
 
-typedef unsigned short num_t;
-
 struct state_t
 {
-    num_t offset;
+    uint16_t offset;
     bool and_operator;
     bool inverted;
     std::vector<uint8_t> data;
@@ -20,9 +18,9 @@ struct state_t
 
 struct state_num_t
 {
-    num_t offset;
-    num_t length;    // 1~4
-    num_t precision; // 0~5
+    uint16_t offset;
+    uint16_t length;    // 1~4
+    uint16_t precision; // 0~5
 };
 
 struct cmd_t
@@ -55,7 +53,7 @@ public:
     const cmd_t* pop_tx_cmd();
     void ack_ok();
     void ack_ng();
-    bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,  const num_t offset = 0);
+    bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,  const uint16_t offset = 0);
     bool validate(const std::vector<uint8_t>& data, const state_t *state);
     float state_to_float(const std::vector<uint8_t>& data, const state_num_t state);
 

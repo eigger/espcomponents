@@ -1,15 +1,15 @@
 #pragma once
 
 #include "esphome/components/uartex/uartex_device.h"
-#include "esphome/components/fan/fan_state.h"
+#include "esphome/components/fan/fan.h"
 
 namespace esphome {
 namespace uartex {
 
-class UARTExFan : public UARTExDevice
+class UARTExFan : public fan::Fan, public UARTExDevice
 {
 public:
-    UARTExFan(fan::FanState *fan) : fan_(fan) { this->device_name_ = &fan->get_name(); }
+    UARTExFan() { this->device_name_ = &this->name_; }
     void dump_config() override;
     void setup() override;
     void set_speed_low(state_t state, cmd_t cmd)
@@ -27,30 +27,29 @@ public:
         this->state_speed_high_ = state;
         this->command_speed_high_ = cmd;
     }
-    void perform();
-
     void publish(const std::vector<uint8_t>& data) override;
-    bool publish(bool state) override
-    {
-        publish_state(state);
-        return !state;
-    }
-
+    bool publish(bool state) override { return false; }
+    void control(const fan::FanCall &call) override;
 protected:
-    fan::FanState *fan_;
-    int speed_{0};
-    bool support_speed_{false};
-    bool state_{false};
+    fan::FanTraits get_traits() override
+    {
+        fan::FanTraits traits{};
+        if (speed_count_ > 0)
+        {
+            traits.set_speed(true);
+            traits.set_supported_speed_count(speed_count_);
+        }
+        return traits;
+    }
+protected:
+    int speed_count_{0};
 
-    state_t state_speed_low_{};
-    state_t state_speed_medium_{};
-    state_t state_speed_high_{};
-    cmd_t command_speed_low_{};
-    cmd_t command_speed_medium_{};
-    cmd_t command_speed_high_{};
-
-    void publish_state(bool state);
-    void publish_state(int speed);
+    optional<state_t> state_speed_low_{};
+    optional<state_t> state_speed_medium_{};
+    optional<state_t> state_speed_high_{};
+    optional<cmd_t> command_speed_low_{};
+    optional<cmd_t> command_speed_medium_{};
+    optional<cmd_t> command_speed_high_{};
 };
 
 }  // namespace uartex

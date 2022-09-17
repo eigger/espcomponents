@@ -121,7 +121,6 @@ void UARTExDevice::ack_ok()
 
 void UARTExDevice::ack_ng()
 {
-    ack_ok();
 }
 
 bool UARTExDevice::parse_data(const std::vector<uint8_t> &data)
@@ -153,7 +152,7 @@ void UARTExDevice::push_tx_cmd(const cmd_t *cmd)
     tx_cmd_queue_.push(cmd);
 }
 
-bool UARTExDevice::equal(const std::vector<uint8_t> &data1, const std::vector<uint8_t> &data2, const num_t offset)
+bool UARTExDevice::equal(const std::vector<uint8_t> &data1, const std::vector<uint8_t> &data2, const uint16_t offset)
 {
     if (data1.size() - offset < data2.size()) return false;
     return std::equal(data1.begin() + offset, data1.begin() + offset + data2.size(), data2.begin());
@@ -169,7 +168,7 @@ bool UARTExDevice::validate(const std::vector<uint8_t> &data, const state_t *sta
         else
         {
             bool ret = false;
-            for (num_t i = 1; i < state->data.size(); i++)
+            for (uint16_t i = 1; i < state->data.size(); i++)
             {
                 if (val == state->data[i])
                 {
@@ -186,7 +185,7 @@ bool UARTExDevice::validate(const std::vector<uint8_t> &data, const state_t *sta
 float UARTExDevice::state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
 {
     unsigned int val = 0;
-    for (num_t i = state.offset, len = 0; i < data.size() && len < state.length; i++, len++)
+    for (uint16_t i = state.offset, len = 0; i < data.size() && len < state.length; i++, len++)
     {
         val = (val << 8) | data[i];
     }
@@ -197,7 +196,7 @@ std::string to_hex_string(const std::vector<unsigned char> &data)
 {
     char buf[20];
     std::string res;
-    for (num_t i = 0; i < data.size(); i++)
+    for (uint16_t i = 0; i < data.size(); i++)
     {
         sprintf(buf, "0x%02X ", data[i]);
         res += buf;

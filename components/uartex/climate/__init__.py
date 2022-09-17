@@ -2,9 +2,9 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import climate, uartex, sensor
 from esphome.const import CONF_ID, CONF_SENSOR, CONF_OFFSET
-from .. import uartex_ns, command_hex_schema, STATE_NUM_SCHEMA, cmd_t, uint8_ptr_const, num_t_const, \
-    command_hex_expression, state_hex_schema, state_hex_expression
-from ..const import CONF_STATE_CURRENT, CONF_STATE_TARGET, \
+from .. import uartex_ns, command_hex_schema, STATE_NUM_SCHEMA, cmd_t, uint8_ptr_const, uint16_const, \
+    command_hex_expression, state_schema, state_hex_expression
+from ..const import CONF_STATE_TEMPERATURE_CURRENT, CONF_STATE_TEMPERATURE_TARGET, \
     CONF_STATE_AUTO, CONF_STATE_HEAT, CONF_STATE_COOL, CONF_STATE_AWAY, \
     CONF_COMMAND_AUTO, CONF_COMMAND_HEAT, CONF_COMMAND_COOL, CONF_COMMAND_AWAY, \
     CONF_COMMAND_TEMPERATURE, CONF_LENGTH, CONF_PRECISION, \
@@ -20,22 +20,22 @@ UARTExClimate = uartex_ns.class_(
 CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExClimate),
     cv.Optional(CONF_SENSOR): cv.use_id(sensor.Sensor),
-    cv.Optional(CONF_STATE_CURRENT): cv.templatable(STATE_NUM_SCHEMA),
-    cv.Required(CONF_STATE_TARGET): cv.templatable(STATE_NUM_SCHEMA),
-    cv.Optional(CONF_STATE_AUTO): state_hex_schema,
-    cv.Optional(CONF_STATE_HEAT): state_hex_schema,
-    cv.Optional(CONF_STATE_COOL): state_hex_schema,
-    cv.Optional(CONF_STATE_AWAY): state_hex_schema,
+    cv.Optional(CONF_STATE_TEMPERATURE_CURRENT): cv.templatable(STATE_NUM_SCHEMA),
+    cv.Required(CONF_STATE_TEMPERATURE_TARGET): cv.templatable(STATE_NUM_SCHEMA),
+    cv.Optional(CONF_STATE_AUTO): state_schema,
+    cv.Optional(CONF_STATE_HEAT): state_schema,
+    cv.Optional(CONF_STATE_COOL): state_schema,
+    cv.Optional(CONF_STATE_AWAY): state_schema,
     cv.Required(CONF_COMMAND_TEMPERATURE): cv.returning_lambda,
     cv.Optional(CONF_COMMAND_AUTO): command_hex_schema,
     cv.Optional(CONF_COMMAND_HEAT): command_hex_schema,
     cv.Optional(CONF_COMMAND_COOL): command_hex_schema,
     cv.Optional(CONF_COMMAND_AWAY): command_hex_schema,
     cv.Optional(CONF_COMMAND_HOME): command_hex_schema,
-}).extend(uartex.UARTEx_DEVICE_SCHEMA).extend({
+}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Climate do not support command_on!"),
     cv.Optional(CONF_STATE_ON): cv.invalid("UARTEx Climate do not support state_on!")
-}).extend(cv.COMPONENT_SCHEMA), cv.has_exactly_one_key(CONF_SENSOR, CONF_STATE_CURRENT), cv.has_at_least_one_key(CONF_COMMAND_HEAT, CONF_COMMAND_COOL, CONF_COMMAND_AUTO)
+}).extend(cv.COMPONENT_SCHEMA), cv.has_exactly_one_key(CONF_SENSOR, CONF_STATE_TEMPERATURE_CURRENT), cv.has_at_least_one_key(CONF_COMMAND_HEAT, CONF_COMMAND_COOL, CONF_COMMAND_AUTO)
 )
 
 
@@ -48,9 +48,9 @@ def to_code(config):
     templ = yield cg.templatable(config[CONF_COMMAND_TEMPERATURE], [(cg.float_.operator('const'), 'x')], cmd_t)
     cg.add(var.set_command_temperature(templ))
 
-    state = config[CONF_STATE_TARGET]
+    state = config[CONF_STATE_TEMPERATURE_TARGET]
     if cg.is_template(state):
-        templ = yield cg.templatable(state, [(uint8_ptr_const, 'data'), (num_t_const, 'len')], cg.float_)
+        templ = yield cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
         cg.add(var.set_state_target(templ))
     else:
         args = yield state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION]
@@ -60,10 +60,10 @@ def to_code(config):
         sens = yield cg.get_variable(config[CONF_SENSOR])
         cg.add(var.set_sensor(sens))
 
-    if CONF_STATE_CURRENT in config:
-        state = config[CONF_STATE_CURRENT]
+    if CONF_STATE_TEMPERATURE_CURRENT in config:
+        state = config[CONF_STATE_TEMPERATURE_CURRENT]
         if cg.is_template(state):
-            templ = yield cg.templatable(state, [(uint8_ptr_const, 'data'), (num_t_const, 'len')], cg.float_)
+            templ = yield cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
             cg.add(var.set_state_current(templ))
         else:
             args = yield state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION]

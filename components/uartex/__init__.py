@@ -2,6 +2,7 @@ import logging
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import uart, text_sensor
+from esphome.components.text_sensor import register_text_sensor
 from esphome import automation, pins
 from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
     CONF_DEVICE, CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, ICON_NEW_BOX
@@ -18,12 +19,14 @@ from .const import CONF_RX_PREFIX, CONF_RX_SUFFIX, CONF_TX_PREFIX, CONF_TX_SUFFI
     CONF_CTRL_PIN, CONF_STATUS_PIN, CONF_TX_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
+AUTO_LOAD = ["text_sensor"]
+CODEOWNERS = ["@eigger"]
 DEPENDENCIES = ["uart"]
 uartex_ns = cg.esphome_ns.namespace('uartex')
 UARTExComponent = uartex_ns.class_('UARTExComponent', cg.Component, uart.UARTDevice)
 UARTExWriteAction = uartex_ns.class_('UARTExWriteAction', automation.Action)
 cmd_t = uartex_ns.class_('cmd_t')
-num_t_const = uartex_ns.class_('num_t').operator('const')
+uint16_const = cg.uint16.operator('const')
 uint8_const = cg.uint8.operator('const')
 uint8_ptr_const = uint8_const.operator('ptr')
 
@@ -48,21 +51,21 @@ def validate_checksum(value):
         return cv.enum(CHECKSUMS, upper=True)(value)
     raise cv.Invalid("data type error")
 
-STATE_HEX_SCHEMA = cv.Schema({
+STATE_SCHEMA = cv.Schema({
     cv.Required(CONF_DATA): validate_hex_data,
     cv.Optional(CONF_OFFSET, default=0): cv.int_range(min=0, max=128),
     cv.Optional(CONF_AND_OPERATOR, default=False): cv.boolean,
     cv.Optional(CONF_INVERTED, default=False): cv.boolean
 })
 
-def shorthand_state_hex(value):
+def shorthand_state(value):
     value = validate_hex_data(value)
-    return STATE_HEX_SCHEMA({CONF_DATA: value})
+    return STATE_SCHEMA({CONF_DATA: value})
 
-def state_hex_schema(value):
+def state_schema(value):
     if isinstance(value, dict):
-        return STATE_HEX_SCHEMA(value)
-    return shorthand_state_hex(value)
+        return STATE_SCHEMA(value)
+    return shorthand_state(value)
 
 COMMAND_HEX_SCHEMA = cv.Schema({
     cv.Required(CONF_DATA): validate_hex_data,
@@ -108,12 +111,12 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
-
     if CONF_VERSION in config:
         sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
-        await text_sensor.register_text_sensor(sens, config[CONF_VERSION])
+        await register_text_sensor(sens, config[CONF_VERSION])
         cg.add(var.set_version(sens))
 
+    
     if CONF_RX_WAIT in config:
         cg.add(var.set_rx_wait(config[CONF_RX_WAIT]))
     if CONF_TX_INTERVAL in config:
@@ -141,7 +144,7 @@ async def to_code(config):
         if cg.is_template(data):
             template_ = await cg.process_lambda(data,
                                                 [(uint8_ptr_const, 'data'),
-                                                 (num_t_const, 'len')],
+                                                 (uint16_const, 'len')],
                                                 return_type=cg.uint8)
             cg.add(var.set_rx_checksum_lambda(template_))
         else:
@@ -151,7 +154,7 @@ async def to_code(config):
         if cg.is_template(data):
             template_ = await cg.process_lambda(data,
                                                 [(uint8_ptr_const, 'data'),
-                                                 (num_t_const, 'len'),
+                                                 (uint16_const, 'len'),
                                                  (uint8_const, 'checksum')],
                                                 return_type=cg.uint8)
             cg.add(var.set_rx_checksum_2_lambda(template_))
@@ -162,7 +165,7 @@ async def to_code(config):
         if cg.is_template(data):
             template_ = await cg.process_lambda(data,
                                                 [(uint8_ptr_const, 'data'),
-                                                 (num_t_const, 'len')],
+                                                 (uint16_const, 'len')],
                                                 return_type=cg.uint8)
             cg.add(var.set_tx_checksum_lambda(template_))
         else:
@@ -172,23 +175,23 @@ async def to_code(config):
         if cg.is_template(data):
             template_ = await cg.process_lambda(data,
                                                 [(uint8_ptr_const, 'data'),
-                                                 (num_t_const, 'len'),
+                                                 (uint16_const, 'len'),
                                                  (uint8_const, 'checksum')],
                                                 return_type=cg.uint8)
             cg.add(var.set_tx_checksum_2_lambda(template_))
         else:
             cg.add(var.set_tx_checksum_2(data))
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
-UARTEx_DEVICE_SCHEMA = cv.Schema({
+UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_UARTEX_ID): cv.use_id(UARTExComponent),
-    cv.Required(CONF_DEVICE): state_hex_schema,
-    cv.Optional(CONF_SUB_DEVICE): state_hex_schema,
-    cv.Required(CONF_STATE_ON): state_hex_schema,
-    cv.Required(CONF_STATE_OFF): state_hex_schema,
+    cv.Required(CONF_DEVICE): state_schema,
+    cv.Optional(CONF_SUB_DEVICE): state_schema,
+    cv.Required(CONF_STATE_ON): state_schema,
+    cv.Required(CONF_STATE_OFF): state_schema,
     cv.Required(CONF_COMMAND_ON): cv.templatable(command_hex_schema),
     cv.Required(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_STATE): command_hex_schema,
-    cv.Optional(CONF_STATE_RESPONSE): state_hex_schema,
+    cv.Optional(CONF_STATE_RESPONSE): state_schema,
 }).extend(cv.polling_component_schema('60s'))
 
 STATE_NUM_SCHEMA = cv.Schema({

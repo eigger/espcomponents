@@ -10,7 +10,7 @@ UARTExSwitch = uartex_ns.class_('UARTExSwitch', switch.Switch, cg.Component)
 CONFIG_SCHEMA = switch.SWITCH_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExSwitch),
     cv.Optional(CONF_INVERTED): cv.invalid("UARTEx switches do not support inverted mode!")
-}).extend(uartex.UARTEx_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
+}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
 
 
 def to_code(config):

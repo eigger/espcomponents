@@ -10,7 +10,7 @@
 #include "uartex_device.h"
 #include "parser.h"
 
-#define UARTEX_VERSION "1.0.0.0-220914"
+#define UARTEX_VERSION "1.0.0-220918"
 namespace esphome {
 namespace uartex {
 
@@ -45,12 +45,12 @@ public:
     void set_tx_suffix(std::vector<uint8_t> suffix);
     void set_rx_checksum(Checksum checksum);
     void set_rx_checksum_2(Checksum checksum);
-    void set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f);
-    void set_rx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum)> &&f);
+    void set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f);
+    void set_rx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)> &&f);
     void set_tx_checksum(Checksum checksum);
     void set_tx_checksum_2(Checksum checksum);
-    void set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const num_t len)> &&f);
-    void set_tx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum)> &&f);
+    void set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f);
+    void set_tx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)> &&f);
     uint8_t get_rx_checksum(const std::vector<uint8_t> &data) const;
     uint8_t get_tx_checksum(const std::vector<uint8_t> &data) const;
     uint8_t get_rx_checksum_2(const std::vector<uint8_t> &data) const;
@@ -64,12 +64,12 @@ public:
     void write_tx_cmd();
     void push_tx_data(const tx_data data);
     void push_tx_data_late(const tx_data data);
-    void flush();
+    void write_flush();
     void register_device(UARTExDevice *device);
-    void set_tx_interval(num_t tx_interval);
-    void set_tx_wait(num_t tx_wait);
-    void set_tx_retry_cnt(num_t tx_retry_cnt);
-    void set_rx_wait(num_t rx_wait);
+    void set_tx_interval(uint16_t tx_interval);
+    void set_tx_wait(uint16_t tx_wait);
+    void set_tx_retry_cnt(uint16_t tx_retry_cnt);
+    void set_rx_wait(uint16_t rx_wait);
     void set_ctrl_pin(InternalGPIOPin *pin);
     void set_status_pin(InternalGPIOPin *pin);
     bool is_have_tx_cmd();
@@ -84,10 +84,10 @@ public:
 protected:
 
     std::vector<UARTExDevice *> devices_{};
-    num_t conf_rx_wait_;
-    num_t conf_tx_interval_{50};
-    num_t conf_tx_wait_{50};
-    num_t conf_tx_retry_cnt_{3};
+    uint16_t conf_rx_wait_;
+    uint16_t conf_tx_interval_{50};
+    uint16_t conf_tx_wait_{50};
+    uint16_t conf_tx_retry_cnt_{3};
 
     optional<std::vector<uint8_t>> rx_prefix_{};
     optional<std::vector<uint8_t>> rx_suffix_{};
@@ -96,13 +96,13 @@ protected:
 
     Checksum rx_checksum_{CHECKSUM_NONE};
     Checksum rx_checksum_2_{CHECKSUM_NONE};
-    optional<std::function<uint8_t(const uint8_t *data, const num_t len)>> rx_checksum_f_{};
-    optional<std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum)>> rx_checksum_f_2_{};
+    optional<std::function<uint8_t(const uint8_t *data, const uint16_t len)>> rx_checksum_f_{};
+    optional<std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)>> rx_checksum_f_2_{};
  
     Checksum tx_checksum_{CHECKSUM_NONE};
     Checksum tx_checksum_2_{CHECKSUM_NONE};
-    optional<std::function<uint8_t(const uint8_t *data, const num_t len)>> tx_checksum_f_{};
-    optional<std::function<uint8_t(const uint8_t *data, const num_t len, const uint8_t checksum)>> tx_checksum_f_2_{};
+    optional<std::function<uint8_t(const uint8_t *data, const uint16_t len)>> tx_checksum_f_{};
+    optional<std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)>> tx_checksum_f_2_{};
     ValidateCode validate_data(bool log = false);
 
     void read_from_uart();
@@ -121,7 +121,7 @@ protected:
 
     tx_data tx_data_{nullptr, nullptr};
     unsigned long tx_time_{0};
-    num_t tx_retry_cnt_{0};
+    uint16_t tx_retry_cnt_{0};
     InternalGPIOPin *ctrl_pin_{nullptr};
     InternalGPIOPin *status_pin_{nullptr};
     Parser rx_parser_{};

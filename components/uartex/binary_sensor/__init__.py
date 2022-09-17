@@ -12,7 +12,7 @@ UARTExBinarySensor = uartex_ns.class_('UARTExBinarySensor', binary_sensor.Binary
 
 CONFIG_SCHEMA = binary_sensor.BINARY_SENSOR_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExBinarySensor),
-}).extend(uartex.UARTEx_DEVICE_SCHEMA).extend({
+}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Binary Sensor do not support command_on!"),
     cv.Optional(CONF_COMMAND_OFF): cv.invalid("UARTEx Binary Sensor do not support command_off!")
 }).extend(cv.COMPONENT_SCHEMA)
