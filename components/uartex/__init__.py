@@ -1,7 +1,8 @@
 import logging
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import uart, text_sensor
+from esphome.components import uart
+from esphome.components import text_sensor as ts
 from esphome import automation, pins
 from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
     CONF_DEVICE, CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, ICON_NEW_BOX
@@ -22,8 +23,6 @@ AUTO_LOAD = ["text_sensor"]
 CODEOWNERS = ["@eigger"]
 DEPENDENCIES = ["uart"]
 uartex_ns = cg.esphome_ns.namespace('uartex')
-textsensor_ns = cg.esphome_ns.namespace('text_sensor')
-textSensor = textsensor_ns.class_('TextSensor')
 UARTExComponent = uartex_ns.class_('UARTExComponent', cg.Component, uart.UARTDevice)
 UARTExWriteAction = uartex_ns.class_('UARTExWriteAction', automation.Action)
 cmd_t = uartex_ns.class_('cmd_t')
@@ -114,7 +113,7 @@ async def to_code(config):
     await uart.register_uart_device(var, config)
     if CONF_VERSION in config:
         sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
-        await textsensor_ns.text_sensor.register_text_sensor(sens, config[CONF_VERSION])
+        await ts.register_text_sensor(sens, config[CONF_VERSION])
         cg.add(var.set_version(sens))
 
     
