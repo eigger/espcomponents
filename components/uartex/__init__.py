@@ -1,7 +1,7 @@
 import logging
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import uart
+from esphome.components import uart, text_sensor
 from esphome.components.text_sensor import register_text_sensor
 from esphome import automation, pins
 from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
