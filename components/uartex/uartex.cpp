@@ -175,6 +175,7 @@ void UARTExComponent::write_tx_cmd()
     tx_retry_cnt_++;
     tx_time_ = get_time();
     if (tx_cmd()->ack.size() == 0) ack_tx_data(true);
+    ESP_LOGD(TAG, "Write tx cmd");
 }
 
 void UARTExComponent::write_data(const uint8_t data)

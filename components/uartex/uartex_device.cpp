@@ -121,7 +121,6 @@ void UARTExDevice::ack_ok()
 
 void UARTExDevice::ack_ng()
 {
-    ack_ok();
 }
 
 bool UARTExDevice::parse_data(const std::vector<uint8_t> &data)
