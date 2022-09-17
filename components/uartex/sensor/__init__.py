@@ -2,11 +2,11 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome import automation
 from esphome.components import sensor, uartex
-from esphome.const import CONF_ID, CONF_DEVICE, CONF_LAMBDA, CONF_STATE_NUM, CONF_UPDATE_INTERVAL, \
+from esphome.const import CONF_ID, CONF_DEVICE, CONF_LAMBDA, CONF_UPDATE_INTERVAL, \
     UNIT_EMPTY, ICON_EMPTY, CONF_OFFSET, CONF_ACCURACY_DECIMALS
 from .. import uartex_ns, UARTExComponent, uint8_ptr_const, uint16_const, \
     state_hex_schema, command_hex_schema, STATE_NUM_SCHEMA
-from ..const import CONF_UARTEX_ID, CONF_SUB_DEVICE, CONF_COMMAND_STATE, CONF_LENGTH, CONF_PRECISION
+from ..const import CONF_UARTEX_ID, CONF_SUB_DEVICE, CONF_STATE_NUM, CONF_COMMAND_STATE, CONF_LENGTH, CONF_PRECISION
 
 DEPENDENCIES = ['uartex']
 UARTExSensor = uartex_ns.class_(
