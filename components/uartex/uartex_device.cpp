@@ -105,12 +105,12 @@ void UARTExDevice::set_state_response(state_t state_response)
     state_response_ = state_response;
 }
 
-const cmd_t *UARTExDevice::pop_tx_cmd()
+cmd_t *UARTExDevice::pop_tx_cmd()
 {
     if (state_response_.has_value() && !rx_response_) return nullptr;
     rx_response_ = false;
     if (tx_cmd_queue_.size() == 0) return nullptr;
-    const cmd_t *cmd = tx_cmd_queue_.front();
+    cmd_t *cmd = tx_cmd_queue_.front();
     tx_cmd_queue_.pop();
     return cmd;
 }

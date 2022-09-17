@@ -50,7 +50,7 @@ public:
     void set_command_state(cmd_t command_state);
     void set_state_response(state_t state_response);
     void push_tx_cmd(const cmd_t* cmd);
-    const cmd_t* pop_tx_cmd();
+    cmd_t* pop_tx_cmd();
     void ack_ok();
     void ack_ng();
     bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,  const uint16_t offset = 0);
