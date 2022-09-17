@@ -113,7 +113,7 @@ async def to_code(config):
     await uart.register_uart_device(var, config)
     if CONF_VERSION in config:
         sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
-        await ts.register_text_sensor(sens, config[CONF_VERSION])
+        await text_sensor.register_text_sensor(sens, config[CONF_VERSION])
         cg.add(var.set_version(sens))
 
     
