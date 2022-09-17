@@ -169,13 +169,12 @@ void UARTExComponent::write_tx_cmd()
     if (tx_checksum_) write_data(get_tx_checksum(tx_cmd()->data));
     if (tx_checksum_2_) write_data(get_tx_checksum_2(tx_cmd()->data));
     if (tx_suffix_.has_value()) write_data(tx_suffix_.value());
-    flush();
+    write_flush();
     if (ctrl_pin_) ctrl_pin_->digital_write(false);
     if (status_pin_) status_pin_->digital_write(false);
     tx_retry_cnt_++;
     tx_time_ = get_time();
     if (tx_cmd()->ack.size() == 0) ack_tx_data(true);
-    ESP_LOGD(TAG, "Write tx cmd");
 }
 
 void UARTExComponent::write_data(const uint8_t data)
@@ -200,7 +199,7 @@ void UARTExComponent::push_tx_data_late(const tx_data data)
     tx_queue_late_.push(data);
 }
 
-void UARTExComponent::flush()
+void UARTExComponent::write_flush()
 {
     this->flush();
     ESP_LOGD(TAG, "Flushing... (%lums)", elapsed_time(tx_time_));

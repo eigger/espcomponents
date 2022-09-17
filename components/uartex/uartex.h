@@ -64,7 +64,7 @@ public:
     void write_tx_cmd();
     void push_tx_data(const tx_data data);
     void push_tx_data_late(const tx_data data);
-    void flush();
+    void write_flush();
     void register_device(UARTExDevice *device);
     void set_tx_interval(uint16_t tx_interval);
     void set_tx_wait(uint16_t tx_wait);
