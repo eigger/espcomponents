@@ -21,7 +21,7 @@ CONFIG_SCHEMA = fan.FAN_SCHEMA.extend({
         cv.Optional(CONF_MEDIUM): SPEED_SCHEMA,
         cv.Optional(CONF_HIGH): SPEED_SCHEMA
     }),
-}).extend(uartex.UARTEx_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
+}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
 
 
 def to_code(config):

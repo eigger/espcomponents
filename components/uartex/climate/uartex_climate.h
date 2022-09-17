@@ -18,9 +18,9 @@ public:
     bool publish(bool state) override { return false; }
 
     void set_sensor(sensor::Sensor *sensor) { this->sensor_ = sensor; }
-    void set_state_current(std::function<optional<float>(const uint8_t *data, const num_t len)> f) { state_current_func_ = f; }
+    void set_state_current(std::function<optional<float>(const uint8_t *data, const uint16_t len)> f) { state_current_func_ = f; }
     void set_state_current(state_num_t state_current) { state_current_ = state_current; }
-    void set_state_target(std::function<optional<float>(const uint8_t *data, const num_t len)> f) { state_target_func_ = f; }
+    void set_state_target(std::function<optional<float>(const uint8_t *data, const uint16_t len)> f) { state_target_func_ = f; }
     void set_state_target(state_num_t state_target) { state_target_ = state_target; }
     void set_state_auto(state_t state)
     {
@@ -80,9 +80,9 @@ protected:
     /// Current temperature sensor
     sensor::Sensor *sensor_{nullptr};
     /// Template function current temperature
-    optional<std::function<optional<float>(const uint8_t *data, const num_t len)>> state_current_func_{};
+    optional<std::function<optional<float>(const uint8_t *data, const uint16_t len)>> state_current_func_{};
     /// Template function target temperature
-    optional<std::function<optional<float>(const uint8_t *data, const num_t len)>> state_target_func_{};
+    optional<std::function<optional<float>(const uint8_t *data, const uint16_t len)>> state_target_func_{};
     /// State current temperature
     optional<state_num_t> state_current_{};
     /// State target temperature

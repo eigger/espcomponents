@@ -10,7 +10,7 @@ UARTExButton = uartex_ns.class_('UARTExButton', button.Button, cg.Component)
 
 CONFIG_SCHEMA = button.BUTTON_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExButton),
-}).extend(uartex.UARTEx_DEVICE_SCHEMA).extend({
+}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_INVERTED): cv.invalid("UARTEx buttons do not support inverted mode!"),
     cv.Optional(CONF_DEVICE): cv.invalid("UARTEx buttons do not support device!"),
     cv.Optional(CONF_SUB_DEVICE): cv.invalid("UARTEx buttons do not support sub device!"),

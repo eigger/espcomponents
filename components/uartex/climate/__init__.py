@@ -2,7 +2,7 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import climate, uartex, sensor
 from esphome.const import CONF_ID, CONF_SENSOR, CONF_OFFSET
-from .. import uartex_ns, command_hex_schema, STATE_NUM_SCHEMA, cmd_t, uint8_ptr_const, num_t_const, \
+from .. import uartex_ns, command_hex_schema, STATE_NUM_SCHEMA, cmd_t, uint8_ptr_const, uint16_const, \
     command_hex_expression, state_hex_schema, state_hex_expression
 from ..const import CONF_STATE_CURRENT, CONF_STATE_TARGET, \
     CONF_STATE_AUTO, CONF_STATE_HEAT, CONF_STATE_COOL, CONF_STATE_AWAY, \
@@ -32,7 +32,7 @@ CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
     cv.Optional(CONF_COMMAND_COOL): command_hex_schema,
     cv.Optional(CONF_COMMAND_AWAY): command_hex_schema,
     cv.Optional(CONF_COMMAND_HOME): command_hex_schema,
-}).extend(uartex.UARTEx_DEVICE_SCHEMA).extend({
+}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Climate do not support command_on!"),
     cv.Optional(CONF_STATE_ON): cv.invalid("UARTEx Climate do not support state_on!")
 }).extend(cv.COMPONENT_SCHEMA), cv.has_exactly_one_key(CONF_SENSOR, CONF_STATE_CURRENT), cv.has_at_least_one_key(CONF_COMMAND_HEAT, CONF_COMMAND_COOL, CONF_COMMAND_AUTO)
@@ -50,7 +50,7 @@ def to_code(config):
 
     state = config[CONF_STATE_TARGET]
     if cg.is_template(state):
-        templ = yield cg.templatable(state, [(uint8_ptr_const, 'data'), (num_t_const, 'len')], cg.float_)
+        templ = yield cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
         cg.add(var.set_state_target(templ))
     else:
         args = yield state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION]
@@ -63,7 +63,7 @@ def to_code(config):
     if CONF_STATE_CURRENT in config:
         state = config[CONF_STATE_CURRENT]
         if cg.is_template(state):
-            templ = yield cg.templatable(state, [(uint8_ptr_const, 'data'), (num_t_const, 'len')], cg.float_)
+            templ = yield cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
             cg.add(var.set_state_current(templ))
         else:
             args = yield state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION]

@@ -10,7 +10,7 @@ UARTExLightOutput = uartex_ns.class_(
 
 CONFIG_SCHEMA = light.BINARY_LIGHT_SCHEMA.extend({
     cv.GenerateID(CONF_OUTPUT_ID): cv.declare_id(UARTExLightOutput),
-}).extend(uartex.UARTEx_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
+}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
 
 
 def to_code(config):

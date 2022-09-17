@@ -23,7 +23,7 @@ uartex_ns = cg.esphome_ns.namespace('uartex')
 UARTExComponent = uartex_ns.class_('UARTExComponent', cg.Component, uart.UARTDevice)
 UARTExWriteAction = uartex_ns.class_('UARTExWriteAction', automation.Action)
 cmd_t = uartex_ns.class_('cmd_t')
-num_t_const = uartex_ns.class_('num_t').operator('const')
+uint16_const = cg.uint16.operator('const')
 uint8_const = cg.uint8.operator('const')
 uint8_ptr_const = uint8_const.operator('ptr')
 
@@ -141,7 +141,7 @@ async def to_code(config):
         if cg.is_template(data):
             template_ = await cg.process_lambda(data,
                                                 [(uint8_ptr_const, 'data'),
-                                                 (num_t_const, 'len')],
+                                                 (uint16_const, 'len')],
                                                 return_type=cg.uint8)
             cg.add(var.set_rx_checksum_lambda(template_))
         else:
@@ -151,7 +151,7 @@ async def to_code(config):
         if cg.is_template(data):
             template_ = await cg.process_lambda(data,
                                                 [(uint8_ptr_const, 'data'),
-                                                 (num_t_const, 'len'),
+                                                 (uint16_const, 'len'),
                                                  (uint8_const, 'checksum')],
                                                 return_type=cg.uint8)
             cg.add(var.set_rx_checksum_2_lambda(template_))
@@ -162,7 +162,7 @@ async def to_code(config):
         if cg.is_template(data):
             template_ = await cg.process_lambda(data,
                                                 [(uint8_ptr_const, 'data'),
-                                                 (num_t_const, 'len')],
+                                                 (uint16_const, 'len')],
                                                 return_type=cg.uint8)
             cg.add(var.set_tx_checksum_lambda(template_))
         else:
@@ -172,14 +172,14 @@ async def to_code(config):
         if cg.is_template(data):
             template_ = await cg.process_lambda(data,
                                                 [(uint8_ptr_const, 'data'),
-                                                 (num_t_const, 'len'),
+                                                 (uint16_const, 'len'),
                                                  (uint8_const, 'checksum')],
                                                 return_type=cg.uint8)
             cg.add(var.set_tx_checksum_2_lambda(template_))
         else:
             cg.add(var.set_tx_checksum_2(data))
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
-UARTEx_DEVICE_SCHEMA = cv.Schema({
+UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_UARTEX_ID): cv.use_id(UARTExComponent),
     cv.Required(CONF_DEVICE): state_hex_schema,
     cv.Optional(CONF_SUB_DEVICE): state_hex_schema,

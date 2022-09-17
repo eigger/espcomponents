@@ -21,6 +21,7 @@ CONF_AND_OPERATOR = 'and_operator'
 
 CONF_STATE_ON = 'state_on'
 CONF_STATE_OFF = 'state_off'
+CONF_STATE_NUM = 'state_num'
 CONF_STATE_RESPONSE = 'state_response'
 CONF_STATE_CURRENT = 'state_current'
 CONF_STATE_TARGET = 'state_target'
