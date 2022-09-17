@@ -18,9 +18,11 @@ from .const import CONF_RX_PREFIX, CONF_RX_SUFFIX, CONF_TX_PREFIX, CONF_TX_SUFFI
     CONF_CTRL_PIN, CONF_STATUS_PIN, CONF_TX_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
-DEPENDENCIES = ["uart", "text_sensor"]
+AUTO_LOAD = ["text_sensor"]
+CODEOWNERS = ["@eigger"]
+DEPENDENCIES = ["uart"]
 uartex_ns = cg.esphome_ns.namespace('uartex')
-UARTExComponent = uartex_ns.class_('UARTExComponent', cg.Component, uart.UARTDevice, text_sensor.TextSensor)
+UARTExComponent = uartex_ns.class_('UARTExComponent', cg.Component, uart.UARTDevice)
 UARTExWriteAction = uartex_ns.class_('UARTExWriteAction', automation.Action)
 cmd_t = uartex_ns.class_('cmd_t')
 uint16_const = cg.uint16.operator('const')
@@ -100,7 +102,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
         cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
     }),
-}).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA).extend(text_sensor.TEXT_SENSOR_SCHEMA)
+}).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA)
 )
 
 async def to_code(config):
@@ -108,11 +110,11 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
-    await text_sensor.register_text_sensor(var, config)
-    # if CONF_VERSION in config:
-    #     sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
-    #     await text_sensor.register_text_sensor(sens, config[CONF_VERSION])
-    #     cg.add(var.set_version(sens))
+
+    if CONF_VERSION in config:
+        sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
+        await text_sensor.register_text_sensor(sens, config[CONF_VERSION])
+        cg.add(var.set_version(sens))
 
     if CONF_RX_WAIT in config:
         cg.add(var.set_rx_wait(config[CONF_RX_WAIT]))
