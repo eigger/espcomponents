@@ -28,7 +28,7 @@ def to_code(config):
     if CONF_LAMBDA in config:
         template_ = yield cg.process_lambda(config[CONF_LAMBDA], [(uint8_ptr_const, 'data'),
                                                                   (uint16_const, 'len')],
-                                            return_type=cg.optional.template(cg.std_string))
+                                            return_type=cg.optional.template(cg.char))
         cg.add(var.set_template(template_))
 
     yield text_sensor.register_text_sensor(var, config)
