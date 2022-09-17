@@ -3,14 +3,14 @@ import esphome.config_validation as cv
 from esphome.components import fan, uartex
 from esphome.const import CONF_OUTPUT_ID, CONF_SPEED, CONF_LOW, CONF_MEDIUM, CONF_HIGH, \
     CONF_STATE, CONF_COMMAND, CONF_UPDATE_INTERVAL
-from .. import uartex_ns, state_hex_schema, command_hex_schema, state_hex_expression, \
+from .. import uartex_ns, state_schema, command_hex_schema, state_hex_expression, \
     command_hex_expression
 
 DEPENDENCIES = ['uartex']
 UARTExFan = uartex_ns.class_('UARTExFan', cg.Component)
 
 SPEED_SCHEMA = cv.Schema({
-    cv.Optional(CONF_STATE, default={}): state_hex_schema,
+    cv.Optional(CONF_STATE, default={}): state_schema,
     cv.Optional(CONF_COMMAND, default={}): command_hex_schema
 })
 

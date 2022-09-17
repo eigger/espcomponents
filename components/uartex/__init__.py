@@ -48,21 +48,21 @@ def validate_checksum(value):
         return cv.enum(CHECKSUMS, upper=True)(value)
     raise cv.Invalid("data type error")
 
-STATE_HEX_SCHEMA = cv.Schema({
+STATE_SCHEMA = cv.Schema({
     cv.Required(CONF_DATA): validate_hex_data,
     cv.Optional(CONF_OFFSET, default=0): cv.int_range(min=0, max=128),
     cv.Optional(CONF_AND_OPERATOR, default=False): cv.boolean,
     cv.Optional(CONF_INVERTED, default=False): cv.boolean
 })
 
-def shorthand_state_hex(value):
+def shorthand_state(value):
     value = validate_hex_data(value)
-    return STATE_HEX_SCHEMA({CONF_DATA: value})
+    return STATE_SCHEMA({CONF_DATA: value})
 
-def state_hex_schema(value):
+def state_schema(value):
     if isinstance(value, dict):
-        return STATE_HEX_SCHEMA(value)
-    return shorthand_state_hex(value)
+        return STATE_SCHEMA(value)
+    return shorthand_state(value)
 
 COMMAND_HEX_SCHEMA = cv.Schema({
     cv.Required(CONF_DATA): validate_hex_data,
@@ -181,14 +181,14 @@ async def to_code(config):
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
 UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_UARTEX_ID): cv.use_id(UARTExComponent),
-    cv.Required(CONF_DEVICE): state_hex_schema,
-    cv.Optional(CONF_SUB_DEVICE): state_hex_schema,
-    cv.Required(CONF_STATE_ON): state_hex_schema,
-    cv.Required(CONF_STATE_OFF): state_hex_schema,
+    cv.Required(CONF_DEVICE): state_schema,
+    cv.Optional(CONF_SUB_DEVICE): state_schema,
+    cv.Required(CONF_STATE_ON): state_schema,
+    cv.Required(CONF_STATE_OFF): state_schema,
     cv.Required(CONF_COMMAND_ON): cv.templatable(command_hex_schema),
     cv.Required(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_STATE): command_hex_schema,
-    cv.Optional(CONF_STATE_RESPONSE): state_hex_schema,
+    cv.Optional(CONF_STATE_RESPONSE): state_schema,
 }).extend(cv.polling_component_schema('60s'))
 
 STATE_NUM_SCHEMA = cv.Schema({
