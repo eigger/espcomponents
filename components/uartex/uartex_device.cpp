@@ -71,7 +71,7 @@ void UARTExDevice::set_command_on(std::function<cmd_t()> command_on_func)
     command_on_func_ = command_on_func;
 }
 
-cmd_t *UARTExDevice::get_command_on()
+const cmd_t *UARTExDevice::get_command_on()
 {
     if (command_on_func_.has_value())
         command_on_ = (*command_on_func_)();
@@ -88,7 +88,7 @@ void UARTExDevice::set_command_off(std::function<cmd_t()> command_off_func)
     command_off_func_ = command_off_func;
 }
 
-cmd_t *UARTExDevice::get_command_off()
+const cmd_t *UARTExDevice::get_command_off()
 {
     if (command_off_func_.has_value())
         command_off_ = (*command_off_func_)();
@@ -105,12 +105,12 @@ void UARTExDevice::set_state_response(state_t state_response)
     state_response_ = state_response;
 }
 
-cmd_t *UARTExDevice::pop_tx_cmd()
+const cmd_t *UARTExDevice::pop_tx_cmd()
 {
     if (state_response_.has_value() && !rx_response_) return nullptr;
     rx_response_ = false;
     if (tx_cmd_queue_.size() == 0) return nullptr;
-    cmd_t *cmd = tx_cmd_queue_.front();
+    const cmd_t *cmd = tx_cmd_queue_.front();
     tx_cmd_queue_.pop();
     return cmd;
 }
@@ -148,7 +148,7 @@ bool UARTExDevice::parse_data(const std::vector<uint8_t> &data)
     return true;
 }
 
-void UARTExDevice::push_tx_cmd(cmd_t *cmd)
+void UARTExDevice::push_tx_cmd(const cmd_t *cmd)
 {
     tx_cmd_queue_.push(cmd);
 }

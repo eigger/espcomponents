@@ -43,14 +43,14 @@ public:
     void set_state_off(state_t state_off);
     void set_command_on(cmd_t command_on);
     void set_command_on(std::function<cmd_t()> command_on_func);
-    cmd_t* get_command_on();
+    const cmd_t* get_command_on();
     void set_command_off(cmd_t command_off);
     void set_command_off(std::function<cmd_t()> command_off_func);
-    cmd_t* get_command_off();
+    const cmd_t* get_command_off();
     void set_command_state(cmd_t command_state);
     void set_state_response(state_t state_response);
-    void push_tx_cmd(cmd_t* cmd);
-    cmd_t* pop_tx_cmd();
+    void push_tx_cmd(const cmd_t* cmd);
+    const cmd_t* pop_tx_cmd();
     void ack_ok();
     void ack_ng();
     bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,  const uint16_t offset = 0);
@@ -75,7 +75,7 @@ protected:
     optional<cmd_t> command_state_;
     optional<state_t> state_response_{};
     bool rx_response_{false};
-    std::queue<cmd_t*> tx_cmd_queue_{};
+    std::queue<const cmd_t*> tx_cmd_queue_{};
 };
 
 std::string to_hex_string(const std::vector<unsigned char>& data);
