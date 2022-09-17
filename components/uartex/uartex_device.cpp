@@ -148,7 +148,7 @@ bool UARTExDevice::parse_data(const std::vector<uint8_t> &data)
     return true;
 }
 
-void UARTExDevice::push_tx_cmd(const cmd_t *cmd)
+void UARTExDevice::push_tx_cmd(cmd_t *cmd)
 {
     tx_cmd_queue_.push(cmd);
 }

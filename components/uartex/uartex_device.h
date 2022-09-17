@@ -49,7 +49,7 @@ public:
     const cmd_t* get_command_off();
     void set_command_state(cmd_t command_state);
     void set_state_response(state_t state_response);
-    void push_tx_cmd(const cmd_t* cmd);
+    void push_tx_cmd(cmd_t* cmd);
     cmd_t* pop_tx_cmd();
     void ack_ok();
     void ack_ng();
