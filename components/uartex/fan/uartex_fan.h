@@ -28,7 +28,12 @@ public:
         this->command_speed_high_ = cmd;
     }
     void publish(const std::vector<uint8_t>& data) override;
-    bool publish(bool state) override { publish_state(state); return false; }
+    bool publish(bool state) override
+    {
+        this->state = state; 
+        this->publish_state();
+        return false; 
+    }
     void control(const fan::FanCall &call) override;
 protected:
     fan::FanTraits get_traits() override
