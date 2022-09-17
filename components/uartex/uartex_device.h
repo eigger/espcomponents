@@ -75,7 +75,7 @@ protected:
     optional<cmd_t> command_state_;
     optional<state_t> state_response_{};
     bool rx_response_{false};
-    std::queue<const cmd_t*> tx_cmd_queue_{};
+    std::queue<cmd_t*> tx_cmd_queue_{};
 };
 
 std::string to_hex_string(const std::vector<unsigned char>& data);
