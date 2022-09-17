@@ -27,10 +27,8 @@ CONFIG_SCHEMA = fan.FAN_SCHEMA.extend({
 def to_code(config):
     interval = config[CONF_UPDATE_INTERVAL]
     del config[CONF_UPDATE_INTERVAL]
-    fan_state = yield fan.create_fan_state(config)
-
     config[CONF_UPDATE_INTERVAL] = interval
-    var = cg.new_Pvariable(config[CONF_OUTPUT_ID], fan_state)
+    var = cg.new_Pvariable(config[CONF_OUTPUT_ID])
     yield cg.register_component(var, config)
     speeds = config[CONF_SPEED]
     if CONF_LOW in speeds:
