@@ -16,12 +16,12 @@ public:
     bool publish(bool state) override { return false; }
 
     //void set_template(std::function<optional<std::string>(const uint8_t *data, const uint16_t len)> &&f) { this->f_ = f; }
-    void set_template(std::function<optional<char*>(const uint8_t *data, const uint16_t len)> &&f) { this->f_ = f; }
+    void set_template(std::function<optional<const char*>(const uint8_t *data, const uint16_t len)> &&f) { this->f_ = f; }
     float get_setup_priority() const override { return setup_priority::DATA; }
 
 protected:
     //optional<std::function<optional<std::string>(const uint8_t *data, const uint16_t len)>> f_{};
-    optional<std::function<optional<char*>(const uint8_t *data, const uint16_t len)>> f_{};
+    optional<std::function<optional<const char*>(const uint8_t *data, const uint16_t len)>> f_{};
 };
 
 }  // namespace uartex
