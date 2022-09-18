@@ -6,14 +6,14 @@ from esphome.components import uart, text_sensor
 from esphome.components.text_sensor import register_text_sensor
 from esphome import automation, pins
 from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
-    CONF_DEVICE, CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, ICON_NEW_BOX
+    CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, ICON_NEW_BOX
 from esphome.core import coroutine
 from esphome.util import SimpleRegistry
 from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTER, \
     CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, CONF_RX_CHECKSUM_2, CONF_TX_CHECKSUM_2, \
     CONF_UARTEX_ID, \
     CONF_ACK, \
-    CONF_SUB_DEVICE, \
+    CONF_SUB_FILTER, CONF_FILTER, \
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
     CONF_COMMAND_UPDATE, CONF_RX_TIMEOUT, CONF_TX_TIMEOUT, CONF_TX_RETRY_CNT, \
     CONF_STATE_RESPONSE, CONF_LENGTH, CONF_PRECISION, CONF_AND_OPERATOR, \
@@ -185,8 +185,8 @@ async def to_code(config):
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
 UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_UARTEX_ID): cv.use_id(UARTExComponent),
-    cv.Required(CONF_DEVICE): state_schema,
-    cv.Optional(CONF_SUB_DEVICE): state_schema,
+    cv.Required(CONF_FILTER): state_schema,
+    cv.Optional(CONF_SUB_FILTER): state_schema,
     cv.Required(CONF_STATE_ON): state_schema,
     cv.Required(CONF_STATE_OFF): state_schema,
     cv.Required(CONF_COMMAND_ON): cv.templatable(command_hex_schema),
@@ -210,13 +210,13 @@ def register_uartex_device(var, config):
     cg.add(paren.register_device(var))
     yield var
 
-    if CONF_DEVICE in config:
-        device = yield state_hex_expression(config[CONF_DEVICE])
-        cg.add(var.set_device(device))
+    if CONF_FILTER in config:
+        filter = yield state_hex_expression(config[CONF_FILTER])
+        cg.add(var.set_filter(filter))
 
-    if CONF_SUB_DEVICE in config:
-        sub_device = yield state_hex_expression(config[CONF_SUB_DEVICE])
-        cg.add(var.set_sub_device(sub_device))
+    if CONF_SUB_FILTER in config:
+        sub_filter = yield state_hex_expression(config[CONF_SUB_FILTER])
+        cg.add(var.set_sub_filter(sub_filter))
 
     if CONF_STATE_ON in config:
         state_on = yield state_hex_expression(config[CONF_STATE_ON])

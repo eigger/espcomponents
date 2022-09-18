@@ -17,9 +17,9 @@ void UARTExDevice::update()
 
 void UARTExDevice::dump_uartex_device_config(const char *TAG)
 {
-    ESP_LOGCONFIG(TAG, "  Device: %s, offset: %d", to_hex_string(device_.data).c_str(), device_.offset);
-    if (sub_device_.has_value())
-        ESP_LOGCONFIG(TAG, "  Sub device: %s, offset: %d", to_hex_string(sub_device_.value().data).c_str(), sub_device_.value().offset);
+    ESP_LOGCONFIG(TAG, "  Filter: %s, offset: %d", to_hex_string(filter_.value().data).c_str(), filter_.value().offset);
+    if (sub_filter_.has_value())
+        ESP_LOGCONFIG(TAG, "  Sub filter: %s, offset: %d", to_hex_string(sub_filter_.value().data).c_str(), sub_filter_.value().offset);
     if (state_on_.has_value())
         ESP_LOGCONFIG(TAG, "  State ON: %s, offset: %d, and_operator: %s, inverted: %s", to_hex_string(state_on_.value().data).c_str(), state_on_.value().offset, YESNO(state_on_.value().and_operator), YESNO(state_on_.value().inverted));
     if (state_off_.has_value())
@@ -41,14 +41,14 @@ void UARTExDevice::dump_uartex_device_config(const char *TAG)
     LOG_UPDATE_INTERVAL(this);
 }
 
-void UARTExDevice::set_device(state_t device)
+void UARTExDevice::set_filter(state_t filter)
 {
-    device_ = device;
+    filter_ = filter;
 }
 
-void UARTExDevice::set_sub_device(state_t sub_device)
+void UARTExDevice::set_sub_filter(state_t sub_filter)
 {
-    sub_device_ = sub_device;
+    sub_filter_ = sub_filter;
 }
 
 void UARTExDevice::set_state_on(state_t state_on)
@@ -130,8 +130,8 @@ bool UARTExDevice::parse_data(const std::vector<uint8_t> &data)
     else
         rx_response_ = false;
 
-    if (!validate(data, &device_)) return false;
-    else if (sub_device_.has_value() && !validate(data, &sub_device_.value())) return false;
+    if (!validate(data, &filter_.value())) return false;
+    else if (sub_filter_.has_value() && !validate(data, &sub_filter_.value())) return false;
 
     if (state_off_.has_value() && validate(data, &state_off_.value()))
     {
