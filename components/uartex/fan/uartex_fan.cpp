@@ -25,46 +25,66 @@ void UARTExFan::setup()
 
 void UARTExFan::control(const fan::FanCall &call)
 {
-    if (call.get_state().has_value())
-      this->state = *call.get_state();
-    if (call.get_oscillating().has_value())
-      this->oscillating = *call.get_oscillating();
-    if (call.get_speed().has_value())
-      this->speed = *call.get_speed();
-    if (call.get_direction().has_value())
-      this->direction = *call.get_direction();
-    if (this->state && command_on_.has_value()) push_tx_cmd(&this->command_on_.value());
-    switch (this->speed)
+    bool changed_state = false;
+    bool changed_speed = false;
+    bool changed_oscillating = false;
+    bool changed_direction = false;
+    if (call.get_state().has_value() && this->state != *call.get_state())
     {
-    case 1:
-        if (!command_speed_low_.has_value())
-        {
-            ESP_LOGW(TAG, "'%s' Not support speed: LOW", device_name_->c_str());
-            break;
-        }
-        push_tx_cmd(&this->command_speed_low_.value());
-        break;
-    case 2:
-        if (!command_speed_medium_.has_value())
-        {
-            ESP_LOGW(TAG, "'%s' Not support speed: MEDIUM", device_name_->c_str());
-            break;
-        }
-        push_tx_cmd(&this->command_speed_medium_.value());
-        break;
-    case 3:
-        if (!command_speed_high_.has_value())
-        {
-            ESP_LOGW(TAG, "'%s' Not support speed: HIGH", device_name_->c_str());
-            break;
-        }
-        push_tx_cmd(&this->command_speed_high_.value());
-        break;
-    default:
-        // protect from invalid input
-        break;
+        this->state = *call.get_state();
+        changed_state = true;
     }
-    if (!this->state && command_off_.has_value()) push_tx_cmd(&this->command_off_.value());
+    if (call.get_oscillating().has_value() && this->oscillating != *call.get_oscillating())
+    {
+        this->oscillating = *call.get_oscillating();
+        changed_oscillating = true;
+    }
+    if (call.get_speed().has_value() && this->speed != *call.get_speed())
+    {
+        this->speed = *call.get_speed();
+        changed_speed = true;
+    }
+    if (call.get_direction().has_value() && this->direction != *call.get_direction())
+    {
+        this->direction = *call.get_direction();
+        changed_direction = true;
+    }
+      
+    if (command_on_.has_value() && this->state && changed_state) push_tx_cmd(&this->command_on_.value());
+    if (changed_speed)
+    {
+        switch (this->speed)
+        {
+        case 1:
+            if (!command_speed_low_.has_value())
+            {
+                ESP_LOGW(TAG, "'%s' Not support speed: LOW", device_name_->c_str());
+                break;
+            }
+            push_tx_cmd(&this->command_speed_low_.value());
+            break;
+        case 2:
+            if (!command_speed_medium_.has_value())
+            {
+                ESP_LOGW(TAG, "'%s' Not support speed: MEDIUM", device_name_->c_str());
+                break;
+            }
+            push_tx_cmd(&this->command_speed_medium_.value());
+            break;
+        case 3:
+            if (!command_speed_high_.has_value())
+            {
+                ESP_LOGW(TAG, "'%s' Not support speed: HIGH", device_name_->c_str());
+                break;
+            }
+            push_tx_cmd(&this->command_speed_high_.value());
+            break;
+        default:
+            // protect from invalid input
+            break;
+        }
+    }
+    if (command_off_.has_value() && !this->state && changed_state) push_tx_cmd(&this->command_off_.value());
     this->publish_state();
 }
 

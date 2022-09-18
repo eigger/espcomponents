@@ -8,15 +8,15 @@ namespace uartex {
 static const char *TAG = "uartex";
 void UARTExComponent::dump_config()
 {
-    ESP_LOGCONFIG(TAG, "  RX Receive Timeout: %d", conf_rx_wait_);
-    ESP_LOGCONFIG(TAG, "  TX Transmission Timeout: %d", conf_tx_wait_);
+    ESP_LOGCONFIG(TAG, "  RX Receive Timeout: %d", conf_rx_timeout_);
+    ESP_LOGCONFIG(TAG, "  TX Transmission Timeout: %d", conf_tx_timeout_);
     ESP_LOGCONFIG(TAG, "  TX Retry Count: %d", conf_tx_retry_cnt_);
     if (ctrl_pin_)              LOG_PIN("  Ctrl Pin: ", ctrl_pin_);
     if (status_pin_)            LOG_PIN("  Status Pin: ", ctrl_pin_);
-    if (rx_prefix_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_prefix: %s", to_hex_string(rx_prefix_.value()).c_str());
-    if (rx_suffix_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_suffix: %s", to_hex_string(rx_suffix_.value()).c_str());
-    if (tx_prefix_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_prefix: %s", to_hex_string(tx_prefix_.value()).c_str());
-    if (tx_suffix_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_suffix: %s", to_hex_string(tx_suffix_.value()).c_str());
+    if (rx_header_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_header: %s", to_hex_string(rx_header_.value()).c_str());
+    if (rx_footer_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_footer: %s", to_hex_string(rx_footer_.value()).c_str());
+    if (tx_header_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_header: %s", to_hex_string(tx_header_.value()).c_str());
+    if (tx_footer_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_footer: %s", to_hex_string(tx_footer_.value()).c_str());
     ESP_LOGCONFIG(TAG, "  Data rx_checksum: %d", rx_checksum_);
     ESP_LOGCONFIG(TAG, "  Data tx_checksum: %d", tx_checksum_);
     ESP_LOGCONFIG(TAG, "  Device count: %d", devices_.size());
@@ -38,8 +38,8 @@ void UARTExComponent::setup()
     if (rx_checksum_2_) rx_parser_.set_checksum_len(2);
     rx_time_ = get_time();
     tx_time_ = get_time();
-    if (rx_prefix_.has_value()) rx_parser_.add_headers(rx_prefix_.value());
-    if (rx_suffix_.has_value()) rx_parser_.add_footers(rx_suffix_.value());
+    if (rx_header_.has_value()) rx_parser_.add_headers(rx_header_.value());
+    if (rx_footer_.has_value()) rx_parser_.add_footers(rx_footer_.value());
 
     if (this->version_) this->version_->publish_state(UARTEX_VERSION);
     ESP_LOGI(TAG, "Initaialize.");
@@ -56,7 +56,7 @@ void UARTExComponent::read_from_uart()
 {
     rx_parser_.clear();
     unsigned long timer = get_time();
-    while (elapsed_time(timer) < conf_rx_wait_)
+    while (elapsed_time(timer) < conf_rx_timeout_)
     {
         while (this->available())
         {
@@ -123,7 +123,7 @@ void UARTExComponent::write_to_uart()
 {
     if (elapsed_time(rx_time_) < conf_tx_interval_) return;
     if (elapsed_time(tx_time_) < conf_tx_interval_) return;
-    if (elapsed_time(tx_time_) < conf_tx_wait_) return;
+    if (elapsed_time(tx_time_) < conf_tx_timeout_) return;
     if (retry_tx_cmd()) return;
     write_tx_data();
 }
@@ -164,11 +164,11 @@ void UARTExComponent::write_tx_cmd()
     tx_time_ = get_time();
     if (status_pin_) status_pin_->digital_write(true);
     if (ctrl_pin_) ctrl_pin_->digital_write(true);
-    if (tx_prefix_.has_value()) write_data(tx_prefix_.value());
+    if (tx_header_.has_value()) write_data(tx_header_.value());
     write_data(tx_cmd()->data);
     if (tx_checksum_) write_data(get_tx_checksum(tx_cmd()->data));
     if (tx_checksum_2_) write_data(get_tx_checksum_2(tx_cmd()->data));
-    if (tx_suffix_.has_value()) write_data(tx_suffix_.value());
+    if (tx_footer_.has_value()) write_data(tx_footer_.value());
     write_flush();
     if (ctrl_pin_) ctrl_pin_->digital_write(false);
     if (status_pin_) status_pin_->digital_write(false);
@@ -215,9 +215,9 @@ void UARTExComponent::set_tx_interval(uint16_t tx_interval)
     conf_tx_interval_ = tx_interval;
 }
 
-void UARTExComponent::set_tx_wait(uint16_t tx_wait)
+void UARTExComponent::set_tx_timeout(uint16_t timeout)
 {
-    conf_tx_wait_ = tx_wait;
+    conf_tx_timeout_ = timeout;
 }
 
 void UARTExComponent::set_tx_retry_cnt(uint16_t tx_retry_cnt)
@@ -225,9 +225,9 @@ void UARTExComponent::set_tx_retry_cnt(uint16_t tx_retry_cnt)
     conf_tx_retry_cnt_ = tx_retry_cnt;
 }
 
-void UARTExComponent::set_rx_wait(uint16_t rx_wait)
+void UARTExComponent::set_rx_timeout(uint16_t timeout)
 {
-    conf_rx_wait_ = rx_wait;
+    conf_rx_timeout_ = timeout;
 }
 
 void UARTExComponent::set_ctrl_pin(InternalGPIOPin *pin)
@@ -290,15 +290,15 @@ ValidateCode UARTExComponent::validate_data(bool log)
         if (log) ESP_LOGW(TAG, "[Read] Size error: %s", to_hex_string(rx_parser_.buffer()).c_str());
         return ERR_SIZE;
     }
-    if (rx_prefix_.has_value() && rx_parser_.parse_header() == false)
+    if (rx_header_.has_value() && rx_parser_.parse_header() == false)
     {
-        if (log) ESP_LOGW(TAG, "[Read] Prefix error: %s", to_hex_string(rx_parser_.buffer()).c_str());
-        return ERR_PREFIX;
+        if (log) ESP_LOGW(TAG, "[Read] Header error: %s", to_hex_string(rx_parser_.buffer()).c_str());
+        return ERR_HEADER;
     }
-    if (rx_suffix_.has_value() && rx_parser_.parse_footer() == false)
+    if (rx_footer_.has_value() && rx_parser_.parse_footer() == false)
     {
-        if (log) ESP_LOGW(TAG, "[Read] Suffix error: %s", to_hex_string(rx_parser_.buffer()).c_str());
-        return ERR_SUFFIX;
+        if (log) ESP_LOGW(TAG, "[Read] Footer error: %s", to_hex_string(rx_parser_.buffer()).c_str());
+        return ERR_FOOTER;
     }
     uint8_t crc = get_rx_checksum(rx_parser_.data());
     if (rx_checksum_ && crc != rx_parser_.get_checksum())
@@ -315,24 +315,24 @@ ValidateCode UARTExComponent::validate_data(bool log)
     return ERR_NONE;
 }
 
-void UARTExComponent::set_rx_prefix(std::vector<uint8_t> prefix)
+void UARTExComponent::set_rx_header(std::vector<uint8_t> header)
 {
-    rx_prefix_ = prefix;
+    rx_header_ = header;
 }
 
-void UARTExComponent::set_rx_suffix(std::vector<uint8_t> suffix)
+void UARTExComponent::set_rx_footer(std::vector<uint8_t> footer)
 {
-    rx_suffix_ = suffix;
+    rx_footer_ = footer;
 }
 
-void UARTExComponent::set_tx_prefix(std::vector<uint8_t> prefix)
+void UARTExComponent::set_tx_header(std::vector<uint8_t> header)
 {
-    tx_prefix_ = prefix;
+    tx_header_ = header;
 }
 
-void UARTExComponent::set_tx_suffix(std::vector<uint8_t> suffix)
+void UARTExComponent::set_tx_footer(std::vector<uint8_t> footer)
 {
-    tx_suffix_ = suffix;
+    tx_footer_ = footer;
 }
 
 void UARTExComponent::set_rx_checksum(Checksum checksum)
@@ -391,16 +391,16 @@ uint8_t UARTExComponent::get_rx_checksum(const std::vector<uint8_t> &data) const
         switch(rx_checksum_)
         {
         case CHECKSUM_ADD:
-            if (this->rx_prefix_.has_value())
+            if (this->rx_header_.has_value())
             {
-                for (uint8_t byte : this->rx_prefix_.value()) { crc += byte; }
+                for (uint8_t byte : this->rx_header_.value()) { crc += byte; }
             }
             for (uint8_t byte : data) { crc += byte; }
             break;
         case CHECKSUM_XOR:
-            if (this->rx_prefix_.has_value())
+            if (this->rx_header_.has_value())
             {
-                for (uint8_t byte : this->rx_prefix_.value()) { crc ^= byte; }
+                for (uint8_t byte : this->rx_header_.value()) { crc ^= byte; }
             }
             for (uint8_t byte : data) { crc ^= byte; }
             break;
@@ -426,17 +426,17 @@ uint8_t UARTExComponent::get_rx_checksum_2(const std::vector<uint8_t> &data) con
         switch(rx_checksum_2_)
         {
         case CHECKSUM_ADD:
-            if (this->rx_prefix_.has_value())
+            if (this->rx_header_.has_value())
             {
-                for (uint8_t byte : this->rx_prefix_.value()) { crc += byte; }
+                for (uint8_t byte : this->rx_header_.value()) { crc += byte; }
             }
             for (uint8_t byte : data) { crc += byte; }
             crc += checksum;
             break;
         case CHECKSUM_XOR:
-            if (this->rx_prefix_.has_value())
+            if (this->rx_header_.has_value())
             {
-                for (uint8_t byte : this->rx_prefix_.value()) { crc ^= byte; }
+                for (uint8_t byte : this->rx_header_.value()) { crc ^= byte; }
             }
             for (uint8_t byte : data) { crc ^= byte; }
             crc ^= checksum;
@@ -461,16 +461,16 @@ uint8_t UARTExComponent::get_tx_checksum(const std::vector<uint8_t> &data) const
         switch(tx_checksum_)
         {
         case CHECKSUM_ADD:
-            if (this->tx_prefix_.has_value())
+            if (this->tx_header_.has_value())
             {
-                for (uint8_t byte : this->tx_prefix_.value()) { crc += byte; }
+                for (uint8_t byte : this->tx_header_.value()) { crc += byte; }
             }
             for (uint8_t byte : data) { crc += byte; }
             break;
         case CHECKSUM_XOR:
-            if (this->tx_prefix_.has_value())
+            if (this->tx_header_.has_value())
             {
-                for (uint8_t byte : this->tx_prefix_.value()) { crc ^= byte; }
+                for (uint8_t byte : this->tx_header_.value()) { crc ^= byte; }
             }
             for (uint8_t byte : data) { crc ^= byte; }
             break;
@@ -496,17 +496,17 @@ uint8_t UARTExComponent::get_tx_checksum_2(const std::vector<uint8_t> &data) con
         switch(tx_checksum_2_)
         {
         case CHECKSUM_ADD:
-            if (this->tx_prefix_.has_value())
+            if (this->tx_header_.has_value())
             {
-                for (uint8_t byte : this->tx_prefix_.value()) { crc += byte; }
+                for (uint8_t byte : this->tx_header_.value()) { crc += byte; }
             }
             for (uint8_t byte : data) { crc += byte; }
             crc += checksum;
             break;
         case CHECKSUM_XOR:
-            if (this->tx_prefix_.has_value())
+            if (this->tx_header_.has_value())
             {
-                for (uint8_t byte : this->tx_prefix_.value()) { crc ^= byte; }
+                for (uint8_t byte : this->tx_header_.value()) { crc ^= byte; }
             }
             for (uint8_t byte : data) { crc ^= byte; }
             crc ^= checksum;
