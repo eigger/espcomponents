@@ -7,6 +7,6 @@ external_components:
   - source:
       type: git
       url: https://github.com/eigger/espcomponents/
-    components: [ wallpad ]
+    components: [ uartex ]
     refresh: always
 ```
