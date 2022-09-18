@@ -10,9 +10,9 @@ static const char *TAG = "uartex";
 
 void UARTExDevice::update()
 {
-    if (!command_state_.has_value()) return;
+    if (!command_update_.has_value()) return;
     ESP_LOGD(TAG, "'%s' update(): Request current state...", device_name_->c_str());
-    push_tx_cmd(&command_state_.value());
+    push_tx_cmd(&command_update_.value());
 }
 
 void UARTExDevice::dump_uartex_device_config(const char *TAG)
@@ -32,10 +32,10 @@ void UARTExDevice::dump_uartex_device_config(const char *TAG)
         ESP_LOGCONFIG(TAG, "  Command OFF: %s", to_hex_string(command_off_.value().data).c_str());
     if (command_off_.has_value() && command_off_.value().ack.size() > 0)
         ESP_LOGCONFIG(TAG, "  Command OFF Ack: %s", to_hex_string(command_off_.value().ack).c_str());
-    if (command_state_.has_value())
-        ESP_LOGCONFIG(TAG, "  Command State: %s", to_hex_string(command_state_.value().data).c_str());
-    if (command_state_.has_value() && command_state_.value().ack.size() > 0)
-        ESP_LOGCONFIG(TAG, "  Command State Ack: %s", to_hex_string(command_state_.value().ack).c_str());
+    if (command_update_.has_value())
+        ESP_LOGCONFIG(TAG, "  Command State: %s", to_hex_string(command_update_.value().data).c_str());
+    if (command_update_.has_value() && command_update_.value().ack.size() > 0)
+        ESP_LOGCONFIG(TAG, "  Command State Ack: %s", to_hex_string(command_update_.value().ack).c_str());
     if (state_response_.has_value())
         ESP_LOGCONFIG(TAG, "  Data response: %s, offset: %d", to_hex_string(state_response_.value().data).c_str(), state_response_.value().offset);
     LOG_UPDATE_INTERVAL(this);
@@ -95,9 +95,9 @@ const cmd_t *UARTExDevice::get_command_off()
     return &command_off_.value();
 }
 
-void UARTExDevice::set_command_state(cmd_t command_state)
+void UARTExDevice::set_command_update(cmd_t command_update)
 {
-    command_state_ = command_state;
+    command_update_ = command_update;
 }
 
 void UARTExDevice::set_state_response(state_t state_response)

@@ -47,7 +47,7 @@ public:
     void set_command_off(cmd_t command_off);
     void set_command_off(std::function<cmd_t()> command_off_func);
     const cmd_t* get_command_off();
-    void set_command_state(cmd_t command_state);
+    void set_command_update(cmd_t command_update);
     void set_state_response(state_t state_response);
     void push_tx_cmd(const cmd_t* cmd);
     const cmd_t* pop_tx_cmd();
@@ -72,7 +72,7 @@ protected:
     optional<std::function<cmd_t()>> command_on_func_{};
     optional<cmd_t> command_off_{};
     optional<std::function<cmd_t()>> command_off_func_{};
-    optional<cmd_t> command_state_;
+    optional<cmd_t> command_update_;
     optional<state_t> state_response_{};
     bool rx_response_{false};
     std::queue<const cmd_t*> tx_cmd_queue_{};

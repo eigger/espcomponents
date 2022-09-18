@@ -1,3 +1,4 @@
+from email.policy import default
 import logging
 import esphome.codegen as cg
 import esphome.config_validation as cv
@@ -8,13 +9,13 @@ from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
     CONF_DEVICE, CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, ICON_NEW_BOX
 from esphome.core import coroutine
 from esphome.util import SimpleRegistry
-from .const import CONF_RX_PREFIX, CONF_RX_SUFFIX, CONF_TX_PREFIX, CONF_TX_SUFFIX, \
+from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTER, \
     CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, CONF_RX_CHECKSUM_2, CONF_TX_CHECKSUM_2, \
     CONF_UARTEX_ID, \
     CONF_ACK, \
     CONF_SUB_DEVICE, \
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
-    CONF_COMMAND_STATE, CONF_RX_WAIT, CONF_TX_WAIT, CONF_TX_RETRY_CNT, \
+    CONF_COMMAND_UPDATE, CONF_RX_TIMEOUT, CONF_TX_TIMEOUT, CONF_TX_RETRY_CNT, \
     CONF_STATE_RESPONSE, CONF_LENGTH, CONF_PRECISION, CONF_AND_OPERATOR, \
     CONF_CTRL_PIN, CONF_STATUS_PIN, CONF_TX_INTERVAL
 
@@ -84,16 +85,16 @@ def command_hex_schema(value):
 # UARTEx Schema
 CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.GenerateID(): cv.declare_id(UARTExComponent),
-    cv.Optional(CONF_RX_WAIT, default=10): cv.int_range(min=1, max=2000),
-    cv.Optional(CONF_TX_INTERVAL): cv.int_range(min=1, max=2000),
-    cv.Optional(CONF_TX_WAIT): cv.int_range(min=1, max=2000),
-    cv.Optional(CONF_TX_RETRY_CNT): cv.int_range(min=1, max=10),
+    cv.Optional(CONF_RX_TIMEOUT, default=10): cv.int_range(min=1, max=2000),
+    cv.Optional(CONF_TX_INTERVAL, default=50): cv.int_range(min=1, max=2000),
+    cv.Optional(CONF_TX_TIMEOUT, default=50): cv.int_range(min=1, max=2000),
+    cv.Optional(CONF_TX_RETRY_CNT, default=3): cv.int_range(min=1, max=10),
     cv.Optional(CONF_CTRL_PIN): pins.gpio_output_pin_schema,
     cv.Optional(CONF_STATUS_PIN): pins.gpio_output_pin_schema,
-    cv.Optional(CONF_RX_PREFIX): validate_hex_data,
-    cv.Optional(CONF_RX_SUFFIX): validate_hex_data,
-    cv.Optional(CONF_TX_PREFIX): validate_hex_data,
-    cv.Optional(CONF_TX_SUFFIX): validate_hex_data,
+    cv.Optional(CONF_RX_HEADER): validate_hex_data,
+    cv.Optional(CONF_RX_FOOTER): validate_hex_data,
+    cv.Optional(CONF_TX_HEADER): validate_hex_data,
+    cv.Optional(CONF_TX_FOOTER): validate_hex_data,
     cv.Optional(CONF_RX_CHECKSUM, default="none"): validate_checksum,
     cv.Optional(CONF_TX_CHECKSUM, default="none"): validate_checksum,
     cv.Optional(CONF_RX_CHECKSUM_2, default="none"): validate_checksum,
@@ -117,12 +118,12 @@ async def to_code(config):
         cg.add(var.set_version(sens))
 
     
-    if CONF_RX_WAIT in config:
-        cg.add(var.set_rx_wait(config[CONF_RX_WAIT]))
+    if CONF_RX_TIMEOUT in config:
+        cg.add(var.set_rx_timeout(config[CONF_RX_TIMEOUT]))
     if CONF_TX_INTERVAL in config:
         cg.add(var.set_tx_interval(config[CONF_TX_INTERVAL]))
-    if CONF_TX_WAIT in config:
-        cg.add(var.set_tx_wait(config[CONF_TX_WAIT]))
+    if CONF_TX_TIMEOUT in config:
+        cg.add(var.set_tx_timeout(config[CONF_TX_TIMEOUT]))
     if CONF_TX_RETRY_CNT in config:
         cg.add(var.set_tx_retry_cnt(config[CONF_TX_RETRY_CNT]))
     if CONF_CTRL_PIN in config:
@@ -131,14 +132,14 @@ async def to_code(config):
     if CONF_STATUS_PIN in config:
         status_pin = await cg.gpio_pin_expression(config[CONF_STATUS_PIN])
         cg.add(var.set_status_pin(status_pin))
-    if CONF_RX_PREFIX in config:
-        cg.add(var.set_rx_prefix(config[CONF_RX_PREFIX]))
-    if CONF_RX_SUFFIX in config:
-        cg.add(var.set_rx_suffix(config[CONF_RX_SUFFIX]))
-    if CONF_TX_PREFIX in config:
-        cg.add(var.set_tx_prefix(config[CONF_TX_PREFIX]))
-    if CONF_TX_SUFFIX in config:
-        cg.add(var.set_tx_suffix(config[CONF_TX_SUFFIX]))
+    if CONF_RX_HEADER in config:
+        cg.add(var.set_rx_header(config[CONF_RX_HEADER]))
+    if CONF_RX_FOOTER in config:
+        cg.add(var.set_rx_footer(config[CONF_RX_FOOTER]))
+    if CONF_TX_HEADER in config:
+        cg.add(var.set_tx_header(config[CONF_TX_HEADER]))
+    if CONF_TX_FOOTER in config:
+        cg.add(var.set_tx_footer(config[CONF_TX_FOOTER]))
     if CONF_RX_CHECKSUM in config:
         data = config[CONF_RX_CHECKSUM]
         if cg.is_template(data):
@@ -190,7 +191,7 @@ UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.Required(CONF_STATE_OFF): state_schema,
     cv.Required(CONF_COMMAND_ON): cv.templatable(command_hex_schema),
     cv.Required(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
-    cv.Optional(CONF_COMMAND_STATE): command_hex_schema,
+    cv.Optional(CONF_COMMAND_UPDATE): command_hex_schema,
     cv.Optional(CONF_STATE_RESPONSE): state_schema,
 }).extend(cv.polling_component_schema('60s'))
 
@@ -243,9 +244,9 @@ def register_uartex_device(var, config):
             command_off = yield command_hex_expression(config[CONF_COMMAND_OFF])
             cg.add(var.set_command_off(command_off))
 
-    if CONF_COMMAND_STATE in config:
-        command_state = yield command_hex_expression(config[CONF_COMMAND_STATE])
-        cg.add(var.set_command_state(command_state))
+    if CONF_COMMAND_UPDATE in config:
+        command_update = yield command_hex_expression(config[CONF_COMMAND_UPDATE])
+        cg.add(var.set_command_update(command_update))
     
     if CONF_STATE_RESPONSE in config:
         state_response = yield state_hex_expression(config[CONF_STATE_RESPONSE])

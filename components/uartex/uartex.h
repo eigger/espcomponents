@@ -10,15 +10,15 @@
 #include "uartex_device.h"
 #include "parser.h"
 
-#define UARTEX_VERSION "1.0.0-220918"
+#define UARTEX_VERSION "1.0.1-220918"
 namespace esphome {
 namespace uartex {
 
 enum ValidateCode {
     ERR_NONE,
     ERR_SIZE,
-    ERR_PREFIX,
-    ERR_SUFFIX,
+    ERR_HEADER,
+    ERR_FOOTER,
     ERR_CHECKSUM
 };
 
@@ -39,10 +39,10 @@ class UARTExComponent : public uart::UARTDevice, public Component
 {
 public:
     UARTExComponent() = default;
-    void set_rx_prefix(std::vector<uint8_t> prefix);
-    void set_rx_suffix(std::vector<uint8_t> suffix);
-    void set_tx_prefix(std::vector<uint8_t> prefix);
-    void set_tx_suffix(std::vector<uint8_t> suffix);
+    void set_rx_header(std::vector<uint8_t> header);
+    void set_rx_footer(std::vector<uint8_t> footer);
+    void set_tx_header(std::vector<uint8_t> header);
+    void set_tx_footer(std::vector<uint8_t> footer);
     void set_rx_checksum(Checksum checksum);
     void set_rx_checksum_2(Checksum checksum);
     void set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f);
@@ -67,9 +67,9 @@ public:
     void write_flush();
     void register_device(UARTExDevice *device);
     void set_tx_interval(uint16_t tx_interval);
-    void set_tx_wait(uint16_t tx_wait);
+    void set_tx_timeout(uint16_t timeout);
     void set_tx_retry_cnt(uint16_t tx_retry_cnt);
-    void set_rx_wait(uint16_t rx_wait);
+    void set_rx_timeout(uint16_t timeout);
     void set_ctrl_pin(InternalGPIOPin *pin);
     void set_status_pin(InternalGPIOPin *pin);
     bool is_have_tx_cmd();
@@ -84,15 +84,15 @@ public:
 protected:
 
     std::vector<UARTExDevice *> devices_{};
-    uint16_t conf_rx_wait_;
+    uint16_t conf_rx_timeout_;
     uint16_t conf_tx_interval_{50};
-    uint16_t conf_tx_wait_{50};
+    uint16_t conf_tx_timeout_{50};
     uint16_t conf_tx_retry_cnt_{3};
 
-    optional<std::vector<uint8_t>> rx_prefix_{};
-    optional<std::vector<uint8_t>> rx_suffix_{};
-    optional<std::vector<uint8_t>> tx_prefix_{};
-    optional<std::vector<uint8_t>> tx_suffix_{};
+    optional<std::vector<uint8_t>> rx_header_{};
+    optional<std::vector<uint8_t>> rx_footer_{};
+    optional<std::vector<uint8_t>> tx_header_{};
+    optional<std::vector<uint8_t>> tx_footer_{};
 
     Checksum rx_checksum_{CHECKSUM_NONE};
     Checksum rx_checksum_2_{CHECKSUM_NONE};
