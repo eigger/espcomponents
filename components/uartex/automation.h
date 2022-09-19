@@ -25,12 +25,12 @@ public:
     {
         if (this->static_)
         {
-            this->parent_->push_tx_cmd({nullptr, &this->data_static_});
+            this->parent_->push_tx_data({nullptr, &this->data_static_});
         }
         else
         {
             data_static_ = this->data_func_(x...);
-            this->parent_->push_tx_cmd({nullptr, &this->data_static_});
+            this->parent_->push_tx_data({nullptr, &this->data_static_});
         }
     }
 
