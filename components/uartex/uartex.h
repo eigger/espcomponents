@@ -83,7 +83,7 @@ public:
 protected:
 
     std::vector<UARTExDevice *> devices_{};
-    uint16_t conf_rx_timeout_;
+    uint16_t conf_rx_timeout_{10};
     uint16_t conf_tx_delay_{50};
     uint16_t conf_tx_timeout_{50};
     uint16_t conf_tx_retry_cnt_{3};
