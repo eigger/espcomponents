@@ -85,9 +85,9 @@ def command_hex_schema(value):
 # UARTEx Schema
 CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.GenerateID(): cv.declare_id(UARTExComponent),
-    cv.Optional(CONF_RX_TIMEOUT, default=10): cv.int_range(min=1, max=2000),
-    cv.Optional(CONF_TX_DELAY, default=50): cv.int_range(min=1, max=2000),
-    cv.Optional(CONF_TX_TIMEOUT, default=50): cv.int_range(min=1, max=2000),
+    cv.Optional(CONF_RX_TIMEOUT, default="10ms"): cv.positive_time_period_milliseconds, #: cv.int_range(min=1, max=2000),
+    cv.Optional(CONF_TX_DELAY, default="50ms"): cv.positive_time_period_milliseconds,   #: cv.int_range(min=1, max=2000),
+    cv.Optional(CONF_TX_TIMEOUT, default="50ms"): cv.positive_time_period_milliseconds, #: cv.int_range(min=1, max=2000),
     cv.Optional(CONF_TX_RETRY_CNT, default=3): cv.int_range(min=1, max=10),
     cv.Optional(CONF_TX_CTRL_PIN): pins.gpio_output_pin_schema,
     cv.Optional(CONF_RX_HEADER): validate_hex_data,
