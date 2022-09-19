@@ -11,9 +11,9 @@ namespace uartex {
 struct state_t
 {
     uint16_t offset;
-    bool and_operator;
     bool inverted;
     std::vector<uint8_t> data;
+    std::vector<uint8_t> mask;
 };
 
 struct state_num_t
@@ -54,6 +54,7 @@ public:
     void ack_ok();
     void ack_ng();
     bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,  const uint16_t offset = 0);
+    const std::vector<uint8_t> masked_data(const std::vector<uint8_t> &data, const state_t *state);
     bool validate(const std::vector<uint8_t>& data, const state_t *state);
     float state_to_float(const std::vector<uint8_t>& data, const state_num_t state);
 

@@ -11,8 +11,7 @@ void UARTExComponent::dump_config()
     ESP_LOGCONFIG(TAG, "  RX Receive Timeout: %d", conf_rx_timeout_);
     ESP_LOGCONFIG(TAG, "  TX Transmission Timeout: %d", conf_tx_timeout_);
     ESP_LOGCONFIG(TAG, "  TX Retry Count: %d", conf_tx_retry_cnt_);
-    if (ctrl_pin_)              LOG_PIN("  Ctrl Pin: ", ctrl_pin_);
-    if (status_pin_)            LOG_PIN("  Status Pin: ", ctrl_pin_);
+    if (tx_ctrl_pin_)   LOG_PIN("  TX Ctrl Pin: ", tx_ctrl_pin_);
     if (rx_header_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_header: %s", to_hex_string(rx_header_.value()).c_str());
     if (rx_footer_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_footer: %s", to_hex_string(rx_footer_.value()).c_str());
     if (tx_header_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_header: %s", to_hex_string(tx_header_.value()).c_str());
@@ -24,15 +23,10 @@ void UARTExComponent::dump_config()
 
 void UARTExComponent::setup()
 {
-    if (this->ctrl_pin_)
+    if (this->tx_ctrl_pin_)
     {
-        this->ctrl_pin_->setup();
-        this->ctrl_pin_->digital_write(false);
-    }
-    if (this->status_pin_)
-    {
-        this->status_pin_->setup();
-        this->status_pin_->digital_write(false);
+        this->tx_ctrl_pin_->setup();
+        this->tx_ctrl_pin_->digital_write(false);
     }
     if (rx_checksum_) rx_parser_.set_checksum_len(1);
     if (rx_checksum_2_) rx_parser_.set_checksum_len(2);
@@ -121,8 +115,8 @@ void UARTExComponent::pop_tx_data()
 
 void UARTExComponent::write_to_uart()
 {
-    if (elapsed_time(rx_time_) < conf_tx_interval_) return;
-    if (elapsed_time(tx_time_) < conf_tx_interval_) return;
+    if (elapsed_time(rx_time_) < conf_tx_delay_) return;
+    if (elapsed_time(tx_time_) < conf_tx_delay_) return;
     if (elapsed_time(tx_time_) < conf_tx_timeout_) return;
     if (retry_tx_cmd()) return;
     write_tx_data();
@@ -162,16 +156,14 @@ void UARTExComponent::write_tx_data()
 void UARTExComponent::write_tx_cmd()
 {
     tx_time_ = get_time();
-    if (status_pin_) status_pin_->digital_write(true);
-    if (ctrl_pin_) ctrl_pin_->digital_write(true);
+    if (tx_ctrl_pin_) tx_ctrl_pin_->digital_write(true);
     if (tx_header_.has_value()) write_data(tx_header_.value());
     write_data(tx_cmd()->data);
     if (tx_checksum_) write_data(get_tx_checksum(tx_cmd()->data));
     if (tx_checksum_2_) write_data(get_tx_checksum_2(tx_cmd()->data));
     if (tx_footer_.has_value()) write_data(tx_footer_.value());
     write_flush();
-    if (ctrl_pin_) ctrl_pin_->digital_write(false);
-    if (status_pin_) status_pin_->digital_write(false);
+    if (tx_ctrl_pin_) tx_ctrl_pin_->digital_write(false);
     tx_retry_cnt_++;
     tx_time_ = get_time();
     if (tx_cmd()->ack.size() == 0) ack_tx_data(true);
@@ -210,9 +202,9 @@ void UARTExComponent::register_device(UARTExDevice *device)
     devices_.push_back(device);
 }
 
-void UARTExComponent::set_tx_interval(uint16_t tx_interval)
+void UARTExComponent::set_tx_delay(uint16_t tx_delay)
 {
-    conf_tx_interval_ = tx_interval;
+    conf_tx_delay_ = tx_delay;
 }
 
 void UARTExComponent::set_tx_timeout(uint16_t timeout)
@@ -230,14 +222,9 @@ void UARTExComponent::set_rx_timeout(uint16_t timeout)
     conf_rx_timeout_ = timeout;
 }
 
-void UARTExComponent::set_ctrl_pin(InternalGPIOPin *pin)
+void UARTExComponent::set_tx_ctrl_pin(InternalGPIOPin *pin)
 {
-    ctrl_pin_ = pin;
-}
-
-void UARTExComponent::set_status_pin(InternalGPIOPin *pin)
-{
-    status_pin_ = pin;
+    tx_ctrl_pin_ = pin;
 }
 
 bool UARTExComponent::is_have_tx_cmd()
