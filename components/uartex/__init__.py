@@ -6,18 +6,18 @@ from esphome.components import uart, text_sensor
 from esphome.components.text_sensor import register_text_sensor
 from esphome import automation, pins
 from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
-    CONF_DEVICE, CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, ICON_NEW_BOX
+    CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, ICON_NEW_BOX
 from esphome.core import coroutine
 from esphome.util import SimpleRegistry
 from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTER, \
     CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, CONF_RX_CHECKSUM_2, CONF_TX_CHECKSUM_2, \
     CONF_UARTEX_ID, \
     CONF_ACK, \
-    CONF_SUB_DEVICE, \
+    CONF_SUB_FILTER, CONF_FILTER, CONF_MASK, \
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
     CONF_COMMAND_UPDATE, CONF_RX_TIMEOUT, CONF_TX_TIMEOUT, CONF_TX_RETRY_CNT, \
-    CONF_STATE_RESPONSE, CONF_LENGTH, CONF_PRECISION, CONF_AND_OPERATOR, \
-    CONF_CTRL_PIN, CONF_STATUS_PIN, CONF_TX_INTERVAL
+    CONF_STATE_RESPONSE, CONF_LENGTH, CONF_PRECISION, \
+    CONF_TX_CTRL_PIN, CONF_TX_DELAY
 
 _LOGGER = logging.getLogger(__name__)
 AUTO_LOAD = ["text_sensor"]
@@ -54,8 +54,8 @@ def validate_checksum(value):
 
 STATE_SCHEMA = cv.Schema({
     cv.Required(CONF_DATA): validate_hex_data,
+    cv.Optional(CONF_MASK, default=[]): validate_hex_data,
     cv.Optional(CONF_OFFSET, default=0): cv.int_range(min=0, max=128),
-    cv.Optional(CONF_AND_OPERATOR, default=False): cv.boolean,
     cv.Optional(CONF_INVERTED, default=False): cv.boolean
 })
 
@@ -86,11 +86,10 @@ def command_hex_schema(value):
 CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.GenerateID(): cv.declare_id(UARTExComponent),
     cv.Optional(CONF_RX_TIMEOUT, default=10): cv.int_range(min=1, max=2000),
-    cv.Optional(CONF_TX_INTERVAL, default=50): cv.int_range(min=1, max=2000),
+    cv.Optional(CONF_TX_DELAY, default=50): cv.int_range(min=1, max=2000),
     cv.Optional(CONF_TX_TIMEOUT, default=50): cv.int_range(min=1, max=2000),
     cv.Optional(CONF_TX_RETRY_CNT, default=3): cv.int_range(min=1, max=10),
-    cv.Optional(CONF_CTRL_PIN): pins.gpio_output_pin_schema,
-    cv.Optional(CONF_STATUS_PIN): pins.gpio_output_pin_schema,
+    cv.Optional(CONF_TX_CTRL_PIN): pins.gpio_output_pin_schema,
     cv.Optional(CONF_RX_HEADER): validate_hex_data,
     cv.Optional(CONF_RX_FOOTER): validate_hex_data,
     cv.Optional(CONF_TX_HEADER): validate_hex_data,
@@ -120,18 +119,15 @@ async def to_code(config):
     
     if CONF_RX_TIMEOUT in config:
         cg.add(var.set_rx_timeout(config[CONF_RX_TIMEOUT]))
-    if CONF_TX_INTERVAL in config:
-        cg.add(var.set_tx_interval(config[CONF_TX_INTERVAL]))
+    if CONF_TX_DELAY in config:
+        cg.add(var.set_tx_delay(config[CONF_TX_DELAY]))
     if CONF_TX_TIMEOUT in config:
         cg.add(var.set_tx_timeout(config[CONF_TX_TIMEOUT]))
     if CONF_TX_RETRY_CNT in config:
         cg.add(var.set_tx_retry_cnt(config[CONF_TX_RETRY_CNT]))
-    if CONF_CTRL_PIN in config:
-        ctrl_pin = await cg.gpio_pin_expression(config[CONF_CTRL_PIN])
-        cg.add(var.set_ctrl_pin(ctrl_pin))
-    if CONF_STATUS_PIN in config:
-        status_pin = await cg.gpio_pin_expression(config[CONF_STATUS_PIN])
-        cg.add(var.set_status_pin(status_pin))
+    if CONF_TX_CTRL_PIN in config:
+        tx_ctrl_pin = await cg.gpio_pin_expression(config[CONF_TX_CTRL_PIN])
+        cg.add(var.set_tx_ctrl_pin(tx_ctrl_pin))
     if CONF_RX_HEADER in config:
         cg.add(var.set_rx_header(config[CONF_RX_HEADER]))
     if CONF_RX_FOOTER in config:
@@ -185,8 +181,8 @@ async def to_code(config):
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
 UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_UARTEX_ID): cv.use_id(UARTExComponent),
-    cv.Required(CONF_DEVICE): state_schema,
-    cv.Optional(CONF_SUB_DEVICE): state_schema,
+    cv.Required(CONF_FILTER): state_schema,
+    cv.Optional(CONF_SUB_FILTER): state_schema,
     cv.Required(CONF_STATE_ON): state_schema,
     cv.Required(CONF_STATE_OFF): state_schema,
     cv.Required(CONF_COMMAND_ON): cv.templatable(command_hex_schema),
@@ -210,13 +206,13 @@ def register_uartex_device(var, config):
     cg.add(paren.register_device(var))
     yield var
 
-    if CONF_DEVICE in config:
-        device = yield state_hex_expression(config[CONF_DEVICE])
-        cg.add(var.set_device(device))
+    if CONF_FILTER in config:
+        filter = yield state_hex_expression(config[CONF_FILTER])
+        cg.add(var.set_filter(filter))
 
-    if CONF_SUB_DEVICE in config:
-        sub_device = yield state_hex_expression(config[CONF_SUB_DEVICE])
-        cg.add(var.set_sub_device(sub_device))
+    if CONF_SUB_FILTER in config:
+        sub_filter = yield state_hex_expression(config[CONF_SUB_FILTER])
+        cg.add(var.set_sub_filter(sub_filter))
 
     if CONF_STATE_ON in config:
         state_on = yield state_hex_expression(config[CONF_STATE_ON])
@@ -258,10 +254,10 @@ def state_hex_expression(conf):
     if conf is None:
         return
     data = conf[CONF_DATA]
-    and_operator = conf[CONF_AND_OPERATOR]
+    mask = conf[CONF_MASK]
     inverted = conf[CONF_INVERTED]
     offset = conf[CONF_OFFSET]
-    yield offset, and_operator, inverted, data
+    yield offset, inverted, data, mask
 
 
 @coroutine

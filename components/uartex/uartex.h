@@ -10,7 +10,7 @@
 #include "uartex_device.h"
 #include "parser.h"
 
-#define UARTEX_VERSION "1.0.1-220918"
+#define UARTEX_VERSION "1.1.0-220919"
 namespace esphome {
 namespace uartex {
 
@@ -66,12 +66,11 @@ public:
     void push_tx_data_late(const tx_data data);
     void write_flush();
     void register_device(UARTExDevice *device);
-    void set_tx_interval(uint16_t tx_interval);
+    void set_tx_delay(uint16_t tx_delay);
     void set_tx_timeout(uint16_t timeout);
     void set_tx_retry_cnt(uint16_t tx_retry_cnt);
     void set_rx_timeout(uint16_t timeout);
-    void set_ctrl_pin(InternalGPIOPin *pin);
-    void set_status_pin(InternalGPIOPin *pin);
+    void set_tx_ctrl_pin(InternalGPIOPin *pin);
     bool is_have_tx_cmd();
     void ack_tx_data(bool ok);
     void clear_tx_data();
@@ -85,7 +84,7 @@ protected:
 
     std::vector<UARTExDevice *> devices_{};
     uint16_t conf_rx_timeout_;
-    uint16_t conf_tx_interval_{50};
+    uint16_t conf_tx_delay_{50};
     uint16_t conf_tx_timeout_{50};
     uint16_t conf_tx_retry_cnt_{3};
 
@@ -122,8 +121,7 @@ protected:
     tx_data tx_data_{nullptr, nullptr};
     unsigned long tx_time_{0};
     uint16_t tx_retry_cnt_{0};
-    InternalGPIOPin *ctrl_pin_{nullptr};
-    InternalGPIOPin *status_pin_{nullptr};
+    InternalGPIOPin *tx_ctrl_pin_{nullptr};
     Parser rx_parser_{};
 
     text_sensor::TextSensor *version_{nullptr};

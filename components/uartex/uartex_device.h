@@ -11,9 +11,9 @@ namespace uartex {
 struct state_t
 {
     uint16_t offset;
-    bool and_operator;
     bool inverted;
     std::vector<uint8_t> data;
+    std::vector<uint8_t> mask;
 };
 
 struct state_num_t
@@ -37,8 +37,8 @@ class UARTExDevice : public PollingComponent
 public:
     void update() override;
     void dump_uartex_device_config(const char *TAG);
-    void set_device(state_t device);
-    void set_sub_device(state_t sub_device);
+    void set_filter(state_t filter);
+    void set_sub_filter(state_t sub_filter);
     void set_state_on(state_t state_on);
     void set_state_off(state_t state_off);
     void set_command_on(cmd_t command_on);
@@ -54,6 +54,7 @@ public:
     void ack_ok();
     void ack_ng();
     bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,  const uint16_t offset = 0);
+    const std::vector<uint8_t> masked_data(const std::vector<uint8_t> &data, const state_t *state);
     bool validate(const std::vector<uint8_t>& data, const state_t *state);
     float state_to_float(const std::vector<uint8_t>& data, const state_num_t state);
 
@@ -64,8 +65,8 @@ public:
 
 protected:
     const std::string *device_name_;
-    state_t device_{};
-    optional<state_t> sub_device_{};
+    optional<state_t> filter_{};
+    optional<state_t> sub_filter_{};
     optional<state_t> state_on_{};
     optional<state_t> state_off_{};
     optional<cmd_t> command_on_{};

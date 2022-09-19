@@ -1,7 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import light, uartex
-from esphome.const import CONF_ID, CONF_NAME, CONF_OUTPUT_ID, CONF_DEVICE, CONF_UPDATE_INTERVAL
+from esphome.const import CONF_ID, CONF_NAME, CONF_OUTPUT_ID, CONF_UPDATE_INTERVAL
 from .. import uartex_ns
 
 DEPENDENCIES = ['uartex']

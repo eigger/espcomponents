@@ -17,13 +17,13 @@ void UARTExDevice::update()
 
 void UARTExDevice::dump_uartex_device_config(const char *TAG)
 {
-    ESP_LOGCONFIG(TAG, "  Device: %s, offset: %d", to_hex_string(device_.data).c_str(), device_.offset);
-    if (sub_device_.has_value())
-        ESP_LOGCONFIG(TAG, "  Sub device: %s, offset: %d", to_hex_string(sub_device_.value().data).c_str(), sub_device_.value().offset);
+    ESP_LOGCONFIG(TAG, "  Filter: %s, offset: %d", to_hex_string(filter_.value().data).c_str(), filter_.value().offset);
+    if (sub_filter_.has_value())
+        ESP_LOGCONFIG(TAG, "  Sub filter: %s, offset: %d", to_hex_string(sub_filter_.value().data).c_str(), sub_filter_.value().offset);
     if (state_on_.has_value())
-        ESP_LOGCONFIG(TAG, "  State ON: %s, offset: %d, and_operator: %s, inverted: %s", to_hex_string(state_on_.value().data).c_str(), state_on_.value().offset, YESNO(state_on_.value().and_operator), YESNO(state_on_.value().inverted));
+        ESP_LOGCONFIG(TAG, "  State ON: %s, offset: %d, inverted: %s", to_hex_string(state_on_.value().data).c_str(), state_on_.value().offset, YESNO(state_on_.value().inverted));
     if (state_off_.has_value())
-        ESP_LOGCONFIG(TAG, "  State OFF: %s, offset: %d, and_operator: %s, inverted: %s", to_hex_string(state_off_.value().data).c_str(), state_off_.value().offset, YESNO(state_off_.value().and_operator), YESNO(state_off_.value().inverted));
+        ESP_LOGCONFIG(TAG, "  State OFF: %s, offset: %d, inverted: %s", to_hex_string(state_off_.value().data).c_str(), state_off_.value().offset, YESNO(state_off_.value().inverted));
     if (command_on_.has_value())
         ESP_LOGCONFIG(TAG, "  Command ON: %s", to_hex_string(command_on_.value().data).c_str());
     if (command_on_.has_value() && command_on_.value().ack.size() > 0)
@@ -41,14 +41,14 @@ void UARTExDevice::dump_uartex_device_config(const char *TAG)
     LOG_UPDATE_INTERVAL(this);
 }
 
-void UARTExDevice::set_device(state_t device)
+void UARTExDevice::set_filter(state_t filter)
 {
-    device_ = device;
+    filter_ = filter;
 }
 
-void UARTExDevice::set_sub_device(state_t sub_device)
+void UARTExDevice::set_sub_filter(state_t sub_filter)
 {
-    sub_device_ = sub_device;
+    sub_filter_ = sub_filter;
 }
 
 void UARTExDevice::set_state_on(state_t state_on)
@@ -130,8 +130,8 @@ bool UARTExDevice::parse_data(const std::vector<uint8_t> &data)
     else
         rx_response_ = false;
 
-    if (!validate(data, &device_)) return false;
-    else if (sub_device_.has_value() && !validate(data, &sub_device_.value())) return false;
+    if (!validate(data, &filter_.value())) return false;
+    else if (sub_filter_.has_value() && !validate(data, &sub_filter_.value())) return false;
 
     if (state_off_.has_value() && validate(data, &state_off_.value()))
     {
@@ -158,27 +158,22 @@ bool UARTExDevice::equal(const std::vector<uint8_t> &data1, const std::vector<ui
     return std::equal(data1.begin() + offset, data1.begin() + offset + data2.size(), data2.begin());
 }
 
+const std::vector<uint8_t> UARTExDevice::masked_data(const std::vector<uint8_t> &data, const state_t *state)
+{
+    std::vector<uint8_t> masked_data;
+    masked_data.resize(data.size());
+    copy(data.begin(), data.end(), masked_data.begin());
+    for(size_t i = state->offset, j = 0; i < data.size() && j < state->mask.size(); i++, j++)
+    {
+        masked_data[i] &= state->mask[j];
+    }
+    return masked_data;
+}
+
 bool UARTExDevice::validate(const std::vector<uint8_t> &data, const state_t *state)
 {
-    if (!state->and_operator) return equal(data, state->data, state->offset) ? !state->inverted : state->inverted;
-    else if (data.size() - state->offset > 0 && state->data.size() > 0)
-    {
-        uint8_t val = data[state->offset] & (state->data[0]);
-        if (state->data.size() == 1) return val ? !state->inverted : state->inverted;
-        else
-        {
-            bool ret = false;
-            for (uint16_t i = 1; i < state->data.size(); i++)
-            {
-                if (val == state->data[i])
-                {
-                    ret = true;
-                    break;
-                }
-            }
-            return ret ? !state->inverted : state->inverted;
-        }
-    }
+    if (state->mask.size() == 0)    return equal(data, state->data, state->offset) ? !state->inverted : state->inverted;
+    else                            return equal(masked_data(data, state), state->data, state->offset) ? !state->inverted : state->inverted;
     return false;
 }
 
