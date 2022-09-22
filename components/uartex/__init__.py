@@ -4,12 +4,12 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import uart, text_sensor
 from esphome.components.text_sensor import register_text_sensor
-from esphome import automation, pins
+from esphome import automation, pins, core
 from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
     CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, ICON_NEW_BOX
 from esphome.core import coroutine
 from esphome.util import SimpleRegistry
-from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_RX_READ_ON, CONF_TX_HEADER, CONF_TX_FOOTER, CONF_TX_WRITE_ON, \
+from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTER, \
     CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, CONF_RX_CHECKSUM_2, CONF_TX_CHECKSUM_2, \
     CONF_UARTEX_ID, \
     CONF_ACK, \
@@ -85,9 +85,18 @@ def command_hex_schema(value):
 # UARTEx Schema
 CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.GenerateID(): cv.declare_id(UARTExComponent),
-    cv.Optional(CONF_RX_TIMEOUT, default="10ms"): cv.positive_time_period_milliseconds, #: cv.int_range(min=1, max=2000),
-    cv.Optional(CONF_TX_DELAY, default="50ms"): cv.positive_time_period_milliseconds,   #: cv.int_range(min=1, max=2000),
-    cv.Optional(CONF_TX_TIMEOUT, default="50ms"): cv.positive_time_period_milliseconds, #: cv.int_range(min=1, max=2000),
+    cv.Optional(CONF_RX_TIMEOUT, default="10ms"): cv.All(
+        cv.positive_time_period_milliseconds,
+        cv.Range(max=core.TimePeriod(milliseconds=2000)),
+    ),
+    cv.Optional(CONF_TX_DELAY, default="50ms"): cv.All(
+        cv.positive_time_period_milliseconds,
+        cv.Range(max=core.TimePeriod(milliseconds=2000)),
+    ),
+    cv.Optional(CONF_TX_TIMEOUT, default="50ms"): cv.All(
+        cv.positive_time_period_milliseconds,
+        cv.Range(max=core.TimePeriod(milliseconds=2000)),
+    ),
     cv.Optional(CONF_TX_RETRY_CNT, default=3): cv.int_range(min=1, max=10),
     cv.Optional(CONF_TX_CTRL_PIN): pins.gpio_output_pin_schema,
     cv.Optional(CONF_RX_HEADER): validate_hex_data,
@@ -98,8 +107,6 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_TX_CHECKSUM, default="none"): validate_checksum,
     cv.Optional(CONF_RX_CHECKSUM_2, default="none"): validate_checksum,
     cv.Optional(CONF_TX_CHECKSUM_2, default="none"): validate_checksum,
-    cv.Optional(CONF_RX_READ_ON): cv.returning_lambda,
-    cv.Optional(CONF_TX_WRITE_ON): cv.returning_lambda,
     cv.Optional(CONF_VERSION, default={CONF_NAME: "UartEX Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
@@ -181,23 +188,6 @@ async def to_code(config):
         else:
             cg.add(var.set_tx_checksum_2(data))
 
-    if CONF_RX_READ_ON in config:
-        data = config[CONF_RX_READ_ON]
-        if cg.is_template(data):
-            template_ = await cg.process_lambda(data,
-                                                [(uint8_ptr_const, 'data'),
-                                                 (uint16_const, 'len')],
-                                                return_type=cg.void)
-            cg.add(var.set_rx_read_on_lambda(template_))
-
-    if CONF_TX_WRITE_ON in config:
-        data = config[CONF_TX_WRITE_ON]
-        if cg.is_template(data):
-            template_ = await cg.process_lambda(data,
-                                                [(uint8_ptr_const, 'data'),
-                                                 (uint16_const, 'len')],
-                                                return_type=cg.void)
-            cg.add(var.set_tx_write_on_lambda(template_))
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
 UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_UARTEX_ID): cv.use_id(UARTExComponent),

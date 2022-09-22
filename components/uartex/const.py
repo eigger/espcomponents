@@ -15,8 +15,6 @@ CONF_RX_CHECKSUM = 'rx_checksum'
 CONF_TX_CHECKSUM = 'tx_checksum'
 CONF_RX_CHECKSUM_2 = 'rx_checksum2'
 CONF_TX_CHECKSUM_2 = 'tx_checksum2'
-CONF_RX_READ_ON = 'rx_read_on'
-CONF_TX_WRITE_ON = 'tx_write_on'
 CONF_MASK = 'mask'
 
 CONF_FILTER = 'filter'

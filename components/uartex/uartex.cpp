@@ -59,13 +59,11 @@ void UARTExComponent::read_from_uart()
             if (!this->read_byte(&byte)) continue;
             if (rx_parser_.parse_byte(byte)) valid_data = true;
             if (validate_data() == ERR_NONE) valid_data = true;
-            if (this->rx_read_on_f_.has_value()) (*rx_read_on_f_)(&byte, 1);
             timer = get_time();
         }
         if (valid_data) break;
         delay(1);
     }
-    if (this->rx_read_on_f_.has_value()) (*rx_read_on_f_)(nullptr, 0);
 }
 
 void UARTExComponent::publish_to_devices()
@@ -159,32 +157,29 @@ void UARTExComponent::write_tx_data()
 
 void UARTExComponent::write_tx_cmd()
 {
-    tx_time_ = get_time();
+    unsigned long timer = get_time();
     if (tx_ctrl_pin_) tx_ctrl_pin_->digital_write(true);
     if (tx_header_.has_value()) write_data(tx_header_.value());
     write_data(tx_cmd()->data);
     if (tx_checksum_) write_data(get_tx_checksum(tx_cmd()->data));
     if (tx_checksum_2_) write_data(get_tx_checksum_2(tx_cmd()->data));
     if (tx_footer_.has_value()) write_data(tx_footer_.value());
-    write_flush();
+    write_flush(timer);
     if (tx_ctrl_pin_) tx_ctrl_pin_->digital_write(false);
     tx_retry_cnt_++;
     tx_time_ = get_time();
-    if (this->tx_write_on_f_.has_value()) (*tx_write_on_f_)(nullptr, 0);
     if (tx_cmd()->ack.size() == 0) ack_tx_data(true);
 }
 
 void UARTExComponent::write_data(const uint8_t data)
 {
     this->write_byte(data);
-    if (this->tx_write_on_f_.has_value()) (*tx_write_on_f_)(&data, 1);
     ESP_LOGD(TAG, "Write byte-> 0x%02X", data);
 }
 
 void UARTExComponent::write_data(const std::vector<uint8_t> &data)
 {
     this->write_array(data);
-    if (this->tx_write_on_f_.has_value()) (*tx_write_on_f_)(&data[0], data.size());
     ESP_LOGD(TAG, "Write array-> %s", to_hex_string(data).c_str());
 }
 
@@ -198,10 +193,10 @@ void UARTExComponent::push_tx_data_late(const tx_data data)
     tx_queue_late_.push(data);
 }
 
-void UARTExComponent::write_flush()
+void UARTExComponent::write_flush(const unsigned long timer)
 {
     this->flush();
-    ESP_LOGD(TAG, "Flushing... (%lums)", elapsed_time(tx_time_));
+    ESP_LOGD(TAG, "Flushing... (%lums)", elapsed_time(timer));
 }
 
 void UARTExComponent::register_device(UARTExDevice *device)
@@ -371,16 +366,6 @@ void UARTExComponent::set_tx_checksum_2_lambda(std::function<uint8_t(const uint8
 {
     tx_checksum_f_2_ = f;
     tx_checksum_2_ = CHECKSUM_CUSTOM;
-}
-
-void UARTExComponent::set_rx_read_on_lambda(std::function<void(const uint8_t *data, const uint16_t len)> &&f)
-{
-    rx_read_on_f_ = f;
-}
-
-void UARTExComponent::set_tx_write_on_lambda(std::function<void(const uint8_t *data, const uint16_t len)> &&f)
-{
-    tx_write_on_f_ = f;
 }
 
 uint8_t UARTExComponent::get_rx_checksum(const std::vector<uint8_t> &data) const

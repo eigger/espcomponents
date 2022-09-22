@@ -51,8 +51,6 @@ public:
     void set_tx_checksum_2(Checksum checksum);
     void set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f);
     void set_tx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)> &&f);
-    void set_rx_read_on_lambda(std::function<void(const uint8_t *data, const uint16_t len)> &&f);
-    void set_tx_write_on_lambda(std::function<void(const uint8_t *data, const uint16_t len)> &&f);
     uint8_t get_rx_checksum(const std::vector<uint8_t> &data) const;
     uint8_t get_tx_checksum(const std::vector<uint8_t> &data) const;
     uint8_t get_rx_checksum_2(const std::vector<uint8_t> &data) const;
@@ -66,7 +64,7 @@ public:
     void write_tx_cmd();
     void push_tx_data(const tx_data data);
     void push_tx_data_late(const tx_data data);
-    void write_flush();
+    void write_flush(const unsigned long timer);
     void register_device(UARTExDevice *device);
     void set_tx_delay(uint16_t tx_delay);
     void set_tx_timeout(uint16_t timeout);
@@ -105,8 +103,6 @@ protected:
     optional<std::function<uint8_t(const uint8_t *data, const uint16_t len)>> tx_checksum_f_{};
     optional<std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)>> tx_checksum_f_2_{};
 
-    optional<std::function<void(const uint8_t *data, const uint16_t len)>> rx_read_on_f_{};
-    optional<std::function<void(const uint8_t *data, const uint16_t len)>> tx_write_on_f_{};
     ValidateCode validate_data(bool log = false);
 
     void read_from_uart();
