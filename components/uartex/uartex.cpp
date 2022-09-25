@@ -49,17 +49,19 @@ void UARTExComponent::loop()
 void UARTExComponent::read_from_uart()
 {
     rx_parser_.clear();
+    bool valid_data = false;
     unsigned long timer = get_time();
     while (elapsed_time(timer) < conf_rx_timeout_)
     {
-        while (this->available())
+        while (!valid_data && this->available())
         {
             uint8_t byte;
             if (!this->read_byte(&byte)) continue;
-            if (rx_parser_.parse_byte(byte)) return;
-            if (validate_data() == ERR_NONE) return;
+            if (rx_parser_.parse_byte(byte)) valid_data = true;
+            if (validate_data() == ERR_NONE) valid_data = true;
             timer = get_time();
         }
+        if (valid_data) break;
         delay(1);
     }
 }
@@ -155,14 +157,14 @@ void UARTExComponent::write_tx_data()
 
 void UARTExComponent::write_tx_cmd()
 {
-    tx_time_ = get_time();
+    unsigned long timer = get_time();
     if (tx_ctrl_pin_) tx_ctrl_pin_->digital_write(true);
     if (tx_header_.has_value()) write_data(tx_header_.value());
     write_data(tx_cmd()->data);
     if (tx_checksum_) write_data(get_tx_checksum(tx_cmd()->data));
     if (tx_checksum_2_) write_data(get_tx_checksum_2(tx_cmd()->data));
     if (tx_footer_.has_value()) write_data(tx_footer_.value());
-    write_flush();
+    write_flush(timer);
     if (tx_ctrl_pin_) tx_ctrl_pin_->digital_write(false);
     tx_retry_cnt_++;
     tx_time_ = get_time();
@@ -191,10 +193,10 @@ void UARTExComponent::push_tx_data_late(const tx_data data)
     tx_queue_late_.push(data);
 }
 
-void UARTExComponent::write_flush()
+void UARTExComponent::write_flush(const unsigned long timer)
 {
     this->flush();
-    ESP_LOGD(TAG, "Flushing... (%lums)", elapsed_time(tx_time_));
+    ESP_LOGD(TAG, "Flushing... (%lums)", elapsed_time(timer));
 }
 
 void UARTExComponent::register_device(UARTExDevice *device)

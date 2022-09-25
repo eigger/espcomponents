@@ -10,7 +10,7 @@
 #include "uartex_device.h"
 #include "parser.h"
 
-#define UARTEX_VERSION "1.1.1-220919"
+#define UARTEX_VERSION "1.1.2-220925"
 namespace esphome {
 namespace uartex {
 
@@ -64,7 +64,7 @@ public:
     void write_tx_cmd();
     void push_tx_data(const tx_data data);
     void push_tx_data_late(const tx_data data);
-    void write_flush();
+    void write_flush(const unsigned long timer);
     void register_device(UARTExDevice *device);
     void set_tx_delay(uint16_t tx_delay);
     void set_tx_timeout(uint16_t timeout);
@@ -102,6 +102,7 @@ protected:
     Checksum tx_checksum_2_{CHECKSUM_NONE};
     optional<std::function<uint8_t(const uint8_t *data, const uint16_t len)>> tx_checksum_f_{};
     optional<std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)>> tx_checksum_f_2_{};
+
     ValidateCode validate_data(bool log = false);
 
     void read_from_uart();

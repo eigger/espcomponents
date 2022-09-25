@@ -22,7 +22,6 @@ void UARTExLightOutput::publish(const std::vector<uint8_t>& data)
 void UARTExLightOutput::publish_state(bool state)
 {
     if (light_ == nullptr || state == this->state_)return;
-    ESP_LOGD(TAG, "'%s' UARTExLightOutput::publish_state(%s)", device_name_->c_str(), state ? "True" : "False");
     this->state_ = state;
     this->light_->remote_values.set_state(state);
     if (api::global_api_server->is_connected()) api::global_api_server->on_light_update(this->light_);

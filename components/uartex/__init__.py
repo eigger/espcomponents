@@ -4,9 +4,9 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import uart, text_sensor
 from esphome.components.text_sensor import register_text_sensor
-from esphome import automation, pins
+from esphome import automation, pins, core
 from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
-    CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, ICON_NEW_BOX
+    CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, ICON_NEW_BOX
 from esphome.core import coroutine
 from esphome.util import SimpleRegistry
 from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTER, \
@@ -85,9 +85,18 @@ def command_hex_schema(value):
 # UARTEx Schema
 CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.GenerateID(): cv.declare_id(UARTExComponent),
-    cv.Optional(CONF_RX_TIMEOUT, default="10ms"): cv.positive_time_period_milliseconds, #: cv.int_range(min=1, max=2000),
-    cv.Optional(CONF_TX_DELAY, default="50ms"): cv.positive_time_period_milliseconds,   #: cv.int_range(min=1, max=2000),
-    cv.Optional(CONF_TX_TIMEOUT, default="50ms"): cv.positive_time_period_milliseconds, #: cv.int_range(min=1, max=2000),
+    cv.Optional(CONF_RX_TIMEOUT, default="10ms"): cv.All(
+        cv.positive_time_period_milliseconds,
+        cv.Range(max=core.TimePeriod(milliseconds=2000)),
+    ),
+    cv.Optional(CONF_TX_DELAY, default="50ms"): cv.All(
+        cv.positive_time_period_milliseconds,
+        cv.Range(max=core.TimePeriod(milliseconds=2000)),
+    ),
+    cv.Optional(CONF_TX_TIMEOUT, default="50ms"): cv.All(
+        cv.positive_time_period_milliseconds,
+        cv.Range(max=core.TimePeriod(milliseconds=2000)),
+    ),
     cv.Optional(CONF_TX_RETRY_CNT, default=3): cv.int_range(min=1, max=10),
     cv.Optional(CONF_TX_CTRL_PIN): pins.gpio_output_pin_schema,
     cv.Optional(CONF_RX_HEADER): validate_hex_data,
@@ -102,6 +111,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     {
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
         cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
+        cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
     }),
 }).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA)
 )
@@ -178,6 +188,7 @@ async def to_code(config):
             cg.add(var.set_tx_checksum_2_lambda(template_))
         else:
             cg.add(var.set_tx_checksum_2(data))
+
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
 UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_UARTEX_ID): cv.use_id(UARTExComponent),
