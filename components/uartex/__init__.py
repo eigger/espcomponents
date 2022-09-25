@@ -6,7 +6,7 @@ from esphome.components import uart, text_sensor
 from esphome.components.text_sensor import register_text_sensor
 from esphome import automation, pins, core
 from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
-    CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, ICON_NEW_BOX
+    CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, ICON_NEW_BOX
 from esphome.core import coroutine
 from esphome.util import SimpleRegistry
 from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTER, \
@@ -111,6 +111,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     {
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
         cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
+        cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
     }),
 }).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA)
 )
