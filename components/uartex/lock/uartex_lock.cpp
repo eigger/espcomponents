@@ -73,6 +73,12 @@ void UARTExLock::control(const lock::LockCall &call)
                 push_tx_cmd(&this->command_unlock_.value());
             }
             break;
+
+        case lock::LOCK_STATE_NONE:
+        case lock::LOCK_STATE_LOCKED:
+        case lock::LOCK_STATE_UNLOCKED:
+        case lock::LOCK_STATE_JAMMED:
+            break;
         }
     }
 }
