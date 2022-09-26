@@ -24,7 +24,7 @@ CONFIG_SCHEMA = cv.All(lock.LOCK_SCHEMA.extend({
     cv.Optional(CONF_COMMAND_OFF): cv.invalid("UARTEx Lock do not support command_off!"),
     cv.Optional(CONF_STATE_ON): cv.invalid("UARTEx Lock do not support state_on!"),
     cv.Optional(CONF_STATE_OFF): cv.invalid("UARTEx Lock do not support state_off!")
-}).extend(cv.COMPONENT_SCHEMA), cv.has_exactly_one_key(CONF_STATE_LOCKED, CONF_STATE_UNLOCKED), cv.has_at_least_one_key(CONF_COMMAND_LOCK, CONF_COMMAND_UNLOCK))
+}).extend(cv.COMPONENT_SCHEMA), cv.has_at_least_one_key(CONF_STATE_LOCKED, CONF_STATE_UNLOCKED), cv.has_at_least_one_key(CONF_COMMAND_LOCK, CONF_COMMAND_UNLOCK))
 
 
 def to_code(config):
