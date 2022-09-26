@@ -58,26 +58,22 @@ void UARTExLock::control(const lock::LockCall &call)
     if (this->state != *call.get_state())
     {
         this->state = *call.get_state();
-    }
-}
-
-void UARTExLock::lock()
-{
-    if (this->command_lock_.has_value())
-    {
-        push_tx_cmd(&this->command_lock_.value());
-        state = lock::LOCK_STATE_LOCKING;
-        this->publish_state(state);
-    }
-}
-
-void UARTExLock::unlock()
-{
-    if (this->command_unlock_.has_value())
-    {
-        push_tx_cmd(&this->command_unlock_.value());
-        state = lock::LOCK_STATE_UNLOCKING;
-        this->publish_state(state);
+        switch (this->state)
+        {
+        case lock::LOCK_STATE_LOCKING:
+            if (this->command_lock_.has_value())
+            {
+                push_tx_cmd(&this->command_lock_.value());
+            }
+            break;
+        
+        case lock::LOCK_STATE_UNLOCKING:
+            if (this->command_unlock_.has_value())
+            {
+                push_tx_cmd(&this->command_unlock_.value());
+            }
+            break;
+        }
     }
 }
 
