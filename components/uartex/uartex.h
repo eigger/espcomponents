@@ -10,7 +10,7 @@
 #include "uartex_device.h"
 #include "parser.h"
 
-#define UARTEX_VERSION "1.1.2-220925"
+#define UARTEX_VERSION "1.2.0-220926"
 namespace esphome {
 namespace uartex {
 
