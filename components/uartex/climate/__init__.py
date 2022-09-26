@@ -14,8 +14,7 @@ from ..const import CONF_STATE_TEMPERATURE_CURRENT, CONF_STATE_TEMPERATURE_TARGE
 AUTO_LOAD = ['sensor']
 DEPENDENCIES = ['uartex']
 
-UARTExClimate = uartex_ns.class_(
-    'UARTExClimate', climate.Climate, cg.Component)
+UARTExClimate = uartex_ns.class_('UARTExClimate', climate.Climate, cg.Component)
 
 CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExClimate),
@@ -35,8 +34,7 @@ CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
 }).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Climate do not support command_on!"),
     cv.Optional(CONF_STATE_ON): cv.invalid("UARTEx Climate do not support state_on!")
-}).extend(cv.COMPONENT_SCHEMA), cv.has_exactly_one_key(CONF_SENSOR, CONF_STATE_TEMPERATURE_CURRENT), cv.has_at_least_one_key(CONF_COMMAND_HEAT, CONF_COMMAND_COOL, CONF_COMMAND_AUTO)
-)
+}).extend(cv.COMPONENT_SCHEMA), cv.has_exactly_one_key(CONF_SENSOR, CONF_STATE_TEMPERATURE_CURRENT), cv.has_at_least_one_key(CONF_COMMAND_HEAT, CONF_COMMAND_COOL, CONF_COMMAND_AUTO))
 
 
 def to_code(config):

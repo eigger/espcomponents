@@ -92,19 +92,19 @@ void UARTExFan::publish(const std::vector<uint8_t>& data)
 {
     bool changed = false;
     // Speed high
-    if (validate(data, &state_speed_high_.value()))
+    if (state_speed_high_.has_value() && validate(data, &state_speed_high_.value()))
     {
         speed = 3;
         changed = true;
     }
     // Speed medium
-    else if (validate(data, &state_speed_medium_.value()))
+    else if (state_speed_medium_.has_value() && validate(data, &state_speed_medium_.value()))
     {
         speed = 2;
         changed = true;
     }
     // Speed low
-    else if (validate(data, &state_speed_low_.value()))
+    else if (state_speed_low_.has_value() && validate(data, &state_speed_low_.value()))
     {
         speed = 1;
         changed = true;
