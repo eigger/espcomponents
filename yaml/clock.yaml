@@ -1,0 +1,19 @@
+<<: !include ../secrets.yaml
+
+display:
+  - platform: tm1637
+    clk_pin: D6
+    dio_pin: D5
+    update_interval: 500ms
+    lambda: |-
+        static boolean toggle = false;
+        toggle = !toggle;
+        if (toggle)
+          it.strftime("%H.%M", id(homeassistant_time).now());
+        else
+          it.strftime("%H%M", id(homeassistant_time).now());
+      
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+    timezone: Asia/Seoul
