@@ -1,5 +1,3 @@
-<<: !include ../secrets.yaml
-
 esphome:
   name: "${node_name}"
 
