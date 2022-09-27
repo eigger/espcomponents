@@ -60,43 +60,29 @@ void UARTExLock::control(const lock::LockCall &call)
         this->state = *call.get_state();
         switch (this->state)
         {
-        case lock::LOCK_STATE_LOCKING:
-
-            break;
-        
-        case lock::LOCK_STATE_UNLOCKING:
-
-            break;
-
-        case lock::LOCK_STATE_NONE:
         case lock::LOCK_STATE_LOCKED:
+            if (this->command_lock_.has_value())
+            {
+                push_tx_cmd(&this->command_lock_.value());
+            }
+            break;
         case lock::LOCK_STATE_UNLOCKED:
+            if (this->command_unlock_.has_value())
+            {
+                push_tx_cmd(&this->command_unlock_.value());
+            }
+            break;
+        case lock::LOCK_STATE_LOCKING:
+            break;        
+        case lock::LOCK_STATE_UNLOCKING:
+            break;
+        case lock::LOCK_STATE_NONE:
+            break;
         case lock::LOCK_STATE_JAMMED:
             break;
         }
         this->publish_state(this->state);
     }
-}
-
-void UARTExLock::lock()
-{
-    if (this->command_lock_.has_value())
-    {
-        push_tx_cmd(&this->command_lock_.value());
-    }
-}
-
-void UARTExLock::unlock()
-{
-    if (this->command_unlock_.has_value())
-    {
-        push_tx_cmd(&this->command_unlock_.value());
-    }
-}
-
-void UARTExLock::open()
-{
-
 }
 
 }  // namespace uartex

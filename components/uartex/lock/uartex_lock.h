@@ -15,9 +15,6 @@ public:
     void publish(const std::vector<uint8_t>& data) override;
     bool publish(bool state) override { return false; }
     void control(const lock::LockCall &call) override;
-    void lock();
-    void unlock();
-    void open();
     void set_state_locked(state_t state) { state_locked_ = state; }
     void set_state_unlocked(state_t state) { state_unlocked_ = state; }
     void set_state_jammed(state_t state) { state_jammed_ = state; }
