@@ -115,7 +115,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     }),
     cv.Optional(CONF_LAST_ERROR): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
-        cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
+        cv.GenerateID(): cv.declare_id(CONF_LAST_ERROR),
         cv.Optional(CONF_NAME, default="Last Error"): cv.string,
         cv.Optional(CONF_ICON, default="mdi:alert-circle"): cv.icon,
         cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
