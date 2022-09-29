@@ -113,10 +113,9 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
         cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
     }),
-    cv.Optional(CONF_LAST_ERROR): text_sensor.TEXT_SENSOR_SCHEMA.extend(
+    cv.Optional(CONF_LAST_ERROR, default={CONF_NAME: "Last Error"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
-        cv.GenerateID(): cv.declare_id(CONF_LAST_ERROR),
-        cv.Optional(CONF_NAME, default="Last Error"): cv.string,
+        cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
         cv.Optional(CONF_ICON, default="mdi:alert-circle"): cv.icon,
         cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
     }),
