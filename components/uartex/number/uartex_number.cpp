@@ -14,11 +14,8 @@ void UARTExNumber::dump_config()
 
 void UARTExNumber::setup()
 {
-    if (isnan(this->state))
-    {
-        this->state = this->traits.get_min_value();
-        this->publish_state(this->state);
-    }
+    this->state = this->traits.get_min_value();
+    this->publish_state(this->state);
 }
 
 void UARTExNumber::publish(const std::vector<uint8_t>& data)
