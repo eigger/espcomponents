@@ -1,28 +1,20 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import fan, uartex
-from esphome.const import CONF_OUTPUT_ID, CONF_SPEED, CONF_LOW, CONF_MEDIUM, CONF_HIGH, \
+from esphome.const import CONF_OUTPUT_ID, \
     CONF_STATE, CONF_COMMAND, CONF_UPDATE_INTERVAL
-from .. import uartex_ns, state_schema, command_hex_schema, state_hex_expression, \
-    command_hex_expression
+from .. import uartex_ns, cmd_t, uint8_ptr_const, uint16_const
+from ..const import CONF_SPEED_CNT, CONF_STATE_SPEED, CONF_COMMAND_SPEED
 
 DEPENDENCIES = ['uartex']
 UARTExFan = uartex_ns.class_('UARTExFan', cg.Component)
 
-SPEED_SCHEMA = cv.Schema({
-    cv.Optional(CONF_STATE, default={}): state_schema,
-    cv.Optional(CONF_COMMAND, default={}): command_hex_schema
-})
-
-CONFIG_SCHEMA = fan.FAN_SCHEMA.extend({
+CONFIG_SCHEMA = cv.All(fan.FAN_SCHEMA.extend({
     cv.GenerateID(CONF_OUTPUT_ID): cv.declare_id(UARTExFan),
-    cv.Optional(CONF_SPEED, default={}): cv.Schema({
-        cv.Optional(CONF_LOW): SPEED_SCHEMA,
-        cv.Optional(CONF_MEDIUM): SPEED_SCHEMA,
-        cv.Optional(CONF_HIGH): SPEED_SCHEMA
-    }),
-}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
-
+    cv.Optional(CONF_SPEED_CNT, default=3): cv.int_range(min=1, max=100),
+    cv.Required(CONF_STATE_SPEED): cv.returning_lambda,
+    cv.Required(CONF_COMMAND_SPEED): cv.returning_lambda,
+}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA))
 
 def to_code(config):
     var = cg.new_Pvariable(config[CONF_OUTPUT_ID])
@@ -30,23 +22,15 @@ def to_code(config):
     del config[CONF_UPDATE_INTERVAL]
     config[CONF_UPDATE_INTERVAL] = interval
     yield cg.register_component(var, config)
-    speeds = config[CONF_SPEED]
-    if CONF_LOW in speeds:
-        speed = speeds[CONF_LOW]
-        state = yield state_hex_expression(speed[CONF_STATE])
-        command = yield command_hex_expression(speed[CONF_COMMAND])
-        cg.add(var.set_speed_low(state, command))
-
-    if CONF_MEDIUM in speeds:
-        speed = speeds[CONF_MEDIUM]
-        state = yield state_hex_expression(speed[CONF_STATE])
-        command = yield command_hex_expression(speed[CONF_COMMAND])
-        cg.add(var.set_speed_medium(state, command))
-
-    if CONF_HIGH in speeds:
-        speed = speeds[CONF_HIGH]
-        state = yield state_hex_expression(speed[CONF_STATE])
-        command = yield command_hex_expression(speed[CONF_COMMAND])
-        cg.add(var.set_speed_high(state, command))
     yield fan.register_fan(var, config)
     yield uartex.register_uartex_device(var, config)
+
+    templ = yield cg.templatable(config[CONF_COMMAND_SPEED], [(cg.float_.operator('const'), 'x')], cmd_t)
+    cg.add(var.set_command_speed(templ))
+
+    templ = yield cg.templatable(config[CONF_STATE_SPEED], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
+    cg.add(var.set_state_speed(templ))
+
+    if CONF_SPEED_CNT in config:
+        cg.add(var.set_speed_count(config[CONF_SPEED_CNT]))
+

@@ -15,12 +15,6 @@ void UARTExFan::dump_config()
 
 void UARTExFan::setup()
 {
-    bool oscillation = false;
-    if (command_speed_low_.has_value() || command_speed_medium_.has_value() || command_speed_high_.has_value())
-    {
-        speed_count_ = 3;
-    }
-
 }
 
 void UARTExFan::control(const fan::FanCall &call)
@@ -53,35 +47,10 @@ void UARTExFan::control(const fan::FanCall &call)
     if (command_on_.has_value() && this->state && changed_state) push_tx_cmd(&this->command_on_.value());
     if (changed_speed)
     {
-        switch (this->speed)
+        if (this->command_speed_func_.has_value())
         {
-        case 1:
-            if (!command_speed_low_.has_value())
-            {
-                ESP_LOGW(TAG, "'%s' Not support speed: LOW", device_name_->c_str());
-                break;
-            }
-            push_tx_cmd(&this->command_speed_low_.value());
-            break;
-        case 2:
-            if (!command_speed_medium_.has_value())
-            {
-                ESP_LOGW(TAG, "'%s' Not support speed: MEDIUM", device_name_->c_str());
-                break;
-            }
-            push_tx_cmd(&this->command_speed_medium_.value());
-            break;
-        case 3:
-            if (!command_speed_high_.has_value())
-            {
-                ESP_LOGW(TAG, "'%s' Not support speed: HIGH", device_name_->c_str());
-                break;
-            }
-            push_tx_cmd(&this->command_speed_high_.value());
-            break;
-        default:
-            // protect from invalid input
-            break;
+            command_speed_ = (*this->command_speed_func_)((float)this->speed);
+            push_tx_cmd(&command_speed_);
         }
     }
     if (command_off_.has_value() && !this->state && changed_state) push_tx_cmd(&this->command_off_.value());
@@ -90,26 +59,15 @@ void UARTExFan::control(const fan::FanCall &call)
 
 void UARTExFan::publish(const std::vector<uint8_t>& data)
 {
-    bool changed = false;
-    // Speed high
-    if (state_speed_high_.has_value() && validate(data, &state_speed_high_.value()))
+    if (this->state_speed_func_.has_value())
     {
-        speed = 3;
-        changed = true;
+        optional<float> val = (*this->state_speed_func_)(&data[0], data.size());
+        if (val.has_value() && this->speed != (int)val.value())
+        {
+            this->speed = (int)val.value();
+            this->publish_state();
+        }
     }
-    // Speed medium
-    else if (state_speed_medium_.has_value() && validate(data, &state_speed_medium_.value()))
-    {
-        speed = 2;
-        changed = true;
-    }
-    // Speed low
-    else if (state_speed_low_.has_value() && validate(data, &state_speed_low_.value()))
-    {
-        speed = 1;
-        changed = true;
-    }
-    if (changed) this->publish_state();
 }
 
 }  // namespace uartex
