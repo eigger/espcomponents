@@ -14,6 +14,7 @@ void UARTExNumber::dump_config()
 
 void UARTExNumber::setup()
 {
+    this->state = this->traits.get_min_value();
 }
 
 void UARTExNumber::publish(const std::vector<uint8_t>& data)
