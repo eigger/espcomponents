@@ -22,6 +22,7 @@ protected:
     optional<std::function<optional<float>(const uint8_t *data, const uint16_t len)>> state_number_func_{};
     optional<std::function<cmd_t(const float x)>> command_number_func_{};
     optional<state_num_t> state_number_{};
+    cmd_t command_number_{};
 };
 
 }  // namespace uartex
