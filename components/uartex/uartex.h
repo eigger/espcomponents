@@ -9,8 +9,7 @@
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "uartex_device.h"
 #include "parser.h"
-
-#define UARTEX_VERSION "1.3.0-220929"
+#include "version.h"
 namespace esphome {
 namespace uartex {
 
@@ -80,6 +79,7 @@ public:
     unsigned long get_time();
 
     void set_version(text_sensor::TextSensor *version) { version_ = version; }
+    void set_last_error(text_sensor::TextSensor *last_error) { last_error_ = last_error; }
 protected:
 
     std::vector<UARTExDevice *> devices_{};
@@ -126,6 +126,7 @@ protected:
     Parser rx_parser_{};
 
     text_sensor::TextSensor *version_{nullptr};
+    text_sensor::TextSensor *last_error_{nullptr};
 };
 
 } // namespace uartex

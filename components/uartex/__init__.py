@@ -6,12 +6,12 @@ from esphome.components import uart, text_sensor
 from esphome.components.text_sensor import register_text_sensor
 from esphome import automation, pins, core
 from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
-    CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, ICON_NEW_BOX
+    CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, ICON_NEW_BOX, ICON_ALERT_CIRCLE
 from esphome.core import coroutine
 from esphome.util import SimpleRegistry
 from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTER, \
     CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, CONF_RX_CHECKSUM_2, CONF_TX_CHECKSUM_2, \
-    CONF_UARTEX_ID, \
+    CONF_UARTEX_ID, CONF_LAST_ERROR, \
     CONF_ACK, \
     CONF_SUB_FILTER, CONF_FILTER, CONF_MASK, \
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
@@ -113,6 +113,12 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
         cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
     }),
+    cv.Optional(CONF_LAST_ERROR, default={CONF_NAME: "Last Error"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
+    {
+        cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
+        cv.Optional(CONF_ICON, default=ICON_ALERT_CIRCLE): cv.icon,
+        cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
+    }),
 }).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA)
 )
 
@@ -125,7 +131,10 @@ async def to_code(config):
         sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
         await register_text_sensor(sens, config[CONF_VERSION])
         cg.add(var.set_version(sens))
-
+    if CONF_LAST_ERROR in config:
+        sens = cg.new_Pvariable(config[CONF_LAST_ERROR][CONF_ID])
+        await register_text_sensor(sens, config[CONF_LAST_ERROR])
+        cg.add(var.set_last_error(sens))
     
     if CONF_RX_TIMEOUT in config:
         cg.add(var.set_rx_timeout(config[CONF_RX_TIMEOUT]))
