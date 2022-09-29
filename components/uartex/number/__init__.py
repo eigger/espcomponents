@@ -27,7 +27,12 @@ CONFIG_SCHEMA = cv.All(number.NUMBER_SCHEMA.extend({
 def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     yield cg.register_component(var, config)
-    yield number.register_number(var, config)
+    yield number.register_number(            
+        var,
+        config,
+        min_value = config[CONF_MIN_VALUE],
+        max_value = config[CONF_MAX_VALUE],
+        step = config[CONF_STEP],)
     yield uartex.register_uartex_device(var, config)
 
     templ = yield cg.templatable(config[CONF_COMMAND_NUMBER], [(cg.float_.operator('const'), 'x')], cmd_t)
