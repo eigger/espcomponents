@@ -131,6 +131,7 @@ bool UARTExComponent::retry_tx_cmd()
     {
         ack_tx_data(false);
         ESP_LOGD(TAG, "Retry fail.");
+        if (this->last_error_) this->last_error_->publish_state("Ack Error");
         return false;
     }
     ESP_LOGD(TAG, "Retry count: %d", tx_retry_cnt_);
@@ -276,29 +277,49 @@ ValidateCode UARTExComponent::validate_data(bool log)
 {
     if (rx_parser_.data().size() == 0)
     {
-        if (log) ESP_LOGW(TAG, "[Read] Size error: %s", to_hex_string(rx_parser_.buffer()).c_str());
+        if (log)
+        {
+            ESP_LOGW(TAG, "[Read] Size error: %s", to_hex_string(rx_parser_.buffer()).c_str());
+            if (this->last_error_) this->last_error_->publish_state("Size Error");
+        }
         return ERR_SIZE;
     }
     if (rx_header_.has_value() && rx_parser_.parse_header() == false)
     {
-        if (log) ESP_LOGW(TAG, "[Read] Header error: %s", to_hex_string(rx_parser_.buffer()).c_str());
+        if (log)
+        {
+            ESP_LOGW(TAG, "[Read] Header error: %s", to_hex_string(rx_parser_.buffer()).c_str());
+            if (this->last_error_) this->last_error_->publish_state("Header Error");
+        }
         return ERR_HEADER;
     }
     if (rx_footer_.has_value() && rx_parser_.parse_footer() == false)
     {
-        if (log) ESP_LOGW(TAG, "[Read] Footer error: %s", to_hex_string(rx_parser_.buffer()).c_str());
+        if (log)
+        {
+            ESP_LOGW(TAG, "[Read] Footer error: %s", to_hex_string(rx_parser_.buffer()).c_str());
+            if (this->last_error_) this->last_error_->publish_state("Footer Error");
+        }
         return ERR_FOOTER;
     }
     uint8_t crc = get_rx_checksum(rx_parser_.data());
     if (rx_checksum_ && crc != rx_parser_.get_checksum())
     {
-        if (log) ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(rx_parser_.buffer()).c_str());
+        if (log)
+        {
+            ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(rx_parser_.buffer()).c_str());
+            if (this->last_error_) this->last_error_->publish_state("Checksum Error");
+        }
         return ERR_CHECKSUM;
     }
     crc = get_rx_checksum_2(rx_parser_.data());
     if (rx_checksum_2_ && crc != rx_parser_.get_checksum_2())
     {
-        if (log) ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(rx_parser_.buffer()).c_str());
+        if (log)
+        {
+            ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(rx_parser_.buffer()).c_str());
+            if (this->last_error_) this->last_error_->publish_state("Checksum2 Error");
+        }
         return ERR_CHECKSUM;
     }
     return ERR_NONE;

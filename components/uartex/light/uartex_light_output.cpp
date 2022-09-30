@@ -16,7 +16,6 @@ void UARTExLightOutput::dump_config()
 
 void UARTExLightOutput::publish(const std::vector<uint8_t>& data)
 {
-    ESP_LOGW(TAG, "'%s' State not found: %s", device_name_->c_str(), to_hex_string(data).c_str());
 }
 
 void UARTExLightOutput::publish_state(bool state)

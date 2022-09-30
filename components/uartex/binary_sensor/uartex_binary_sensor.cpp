@@ -14,7 +14,6 @@ void UARTExBinarySensor::dump_config()
 
 void UARTExBinarySensor::publish(const std::vector<uint8_t>& data)
 {
-    ESP_LOGW(TAG, "'%s' State not found: %s", device_name_->c_str(), to_hex_string(data).c_str());
 }
 
 }  // namespace uartex
