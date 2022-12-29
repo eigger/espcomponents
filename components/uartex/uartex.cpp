@@ -131,7 +131,8 @@ bool UARTExComponent::retry_tx_cmd()
     {
         ack_tx_data(false);
         ESP_LOGD(TAG, "Retry fail.");
-        if (this->last_error_) this->last_error_->publish_state("Ack Error");
+        if (this->last_error_ && last_error_code_ != ERR_ACK) this->last_error_->publish_state("Ack Error");
+        last_error_code_ = ERR_ACK;
         return false;
     }
     ESP_LOGD(TAG, "Retry count: %d", tx_retry_cnt_);
@@ -280,7 +281,8 @@ ValidateCode UARTExComponent::validate_data(bool log)
         if (log)
         {
             ESP_LOGW(TAG, "[Read] Size error: %s", to_hex_string(rx_parser_.buffer()).c_str());
-            if (this->last_error_) this->last_error_->publish_state("Size Error");
+            if (this->last_error_ && last_error_code_ != ERR_SIZE) this->last_error_->publish_state("Size Error");
+            last_error_code_ = ERR_SIZE;
         }
         return ERR_SIZE;
     }
@@ -289,7 +291,8 @@ ValidateCode UARTExComponent::validate_data(bool log)
         if (log)
         {
             ESP_LOGW(TAG, "[Read] Header error: %s", to_hex_string(rx_parser_.buffer()).c_str());
-            if (this->last_error_) this->last_error_->publish_state("Header Error");
+            if (this->last_error_ && last_error_code_ != ERR_HEADER) this->last_error_->publish_state("Header Error");
+            last_error_code_ = ERR_HEADER;
         }
         return ERR_HEADER;
     }
@@ -298,7 +301,8 @@ ValidateCode UARTExComponent::validate_data(bool log)
         if (log)
         {
             ESP_LOGW(TAG, "[Read] Footer error: %s", to_hex_string(rx_parser_.buffer()).c_str());
-            if (this->last_error_) this->last_error_->publish_state("Footer Error");
+            if (this->last_error_ && last_error_code_ != ERR_FOOTER) this->last_error_->publish_state("Footer Error");
+            last_error_code_ = ERR_FOOTER;
         }
         return ERR_FOOTER;
     }
@@ -308,7 +312,8 @@ ValidateCode UARTExComponent::validate_data(bool log)
         if (log)
         {
             ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(rx_parser_.buffer()).c_str());
-            if (this->last_error_) this->last_error_->publish_state("Checksum Error");
+            if (this->last_error_ && last_error_code_ != ERR_CHECKSUM) this->last_error_->publish_state("Checksum Error");
+            last_error_code_ = ERR_CHECKSUM;
         }
         return ERR_CHECKSUM;
     }
@@ -318,9 +323,15 @@ ValidateCode UARTExComponent::validate_data(bool log)
         if (log)
         {
             ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(rx_parser_.buffer()).c_str());
-            if (this->last_error_) this->last_error_->publish_state("Checksum2 Error");
+            if (this->last_error_ && last_error_code_ != ERR_CHECKSUM_2) this->last_error_->publish_state("Checksum2 Error");
+            last_error_code_ = ERR_CHECKSUM_2;
         }
-        return ERR_CHECKSUM;
+        return ERR_CHECKSUM_2;
+    }
+    if (log)
+    {
+        if (this->last_error_ && last_error_code_ != ERR_NONE) this->last_error_->publish_state("None");
+        last_error_code_ = ERR_NONE;
     }
     return ERR_NONE;
 }

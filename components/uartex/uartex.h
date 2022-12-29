@@ -18,7 +18,9 @@ enum ValidateCode {
     ERR_SIZE,
     ERR_HEADER,
     ERR_FOOTER,
-    ERR_CHECKSUM
+    ERR_CHECKSUM,
+    ERR_CHECKSUM_2,
+    ERR_ACK
 };
 
 enum Checksum {
@@ -104,7 +106,7 @@ protected:
     optional<std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)>> tx_checksum_f_2_{};
 
     ValidateCode validate_data(bool log = false);
-
+    ValidateCode last_error_code_{ValidateCode::ERR_NONE};
     void read_from_uart();
     void publish_to_devices();
     bool validate_ack();
