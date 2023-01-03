@@ -87,6 +87,15 @@ void BotemCSM505Component::publish_data()
     }
 }
 
+void BotemCSM505Component::control(float value)
+{
+    if (this->state != value)
+    {
+        this->state = value;
+        this->publish_state(value);
+    }
+}
+
 unsigned long BotemCSM505Component::elapsed_time(const unsigned long timer)
 {
     return millis() - timer;
