@@ -13,6 +13,12 @@
 namespace esphome {
 namespace botem_csm505 {
 
+class PeopleCount : public number::Number
+{
+protected:
+    void control(float value) override { this->state = value; this->publish_state(value); }
+};
+
 class BotemCSM505Component : public uart::UARTDevice, public Component
 {
 public:
@@ -38,8 +44,7 @@ protected:
     Parser rx_parser_{};
     text_sensor::TextSensor *version_{nullptr};
     text_sensor::TextSensor *last_error_{nullptr};
-    number::Number *people_count_{nullptr};
-    float count_{0};
+    PeopleCount *people_count_{nullptr};
 };
 
 } // namespace botem_csm505

@@ -57,22 +57,22 @@ void BotemCSM505Component::publish_data()
     case 0x31:
         if (this->people_count_)
         {
-            if (count_ < this->people_count_->traits.get_max_value())
+            if (this->people_count_->state < this->people_count_->traits.get_max_value())
             {
-                count_ += this->people_count_->traits.get_step();
+                this->people_count_->state += this->people_count_->traits.get_step();
             }
-            this->people_count_->publish_state(count_);
+            this->people_count_->publish_state(this->people_count_->state);
         }
         break;
     //Out
     case 0x32:
         if (this->people_count_)
         {
-            if (count_ > this->people_count_->traits.get_min_value())
+            if (this->people_count_->state > this->people_count_->traits.get_min_value())
             {
-                count_ -= this->people_count_->traits.get_step();
+                this->people_count_->state -= this->people_count_->traits.get_step();
             }
-            this->people_count_->publish_state(count_);
+            this->people_count_->publish_state(this->people_count_->state);
         }
         break;
     //Rx Error
