@@ -33,7 +33,7 @@ public:
 
     void set_version(text_sensor::TextSensor *version) { version_ = version; }
     void set_last_error(text_sensor::TextSensor *last_error) { last_error_ = last_error; }
-    void set_people_count(number::Number *people_count) { people_count_ = people_count; }
+    void set_people_count(number::Number *people_count) { people_count_ = (number::Number*)people_count; }
 protected:
 
     uint16_t conf_rx_timeout_{10};
