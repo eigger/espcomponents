@@ -9,8 +9,6 @@ static const char *TAG = "botem_csm505";
 void BotemCSM505Component::dump_config()
 {
     ESP_LOGCONFIG(TAG, "  RX Receive Timeout: %d", conf_rx_timeout_);
-    if (rx_header_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_header: %s", to_hex_string(rx_header_.value()).c_str());
-    if (rx_footer_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_footer: %s", to_hex_string(rx_footer_.value()).c_str());
 }
 
 void BotemCSM505Component::setup()
@@ -59,9 +57,9 @@ void BotemCSM505Component::publish_data()
     case 0x31:
         if (this->people_count_)
         {
-            if (count_ < this->people_count_.traits.get_max_value())
+            if (count_ < this->people_count_->traits.get_max_value())
             {
-                count_ += this->people_count_.traits.get_step();
+                count_ += this->people_count_->traits.get_step();
             }
             this->people_count_->publish_state(count_);
         }
@@ -70,9 +68,9 @@ void BotemCSM505Component::publish_data()
     case 0x32:
         if (this->people_count_)
         {
-            if (count_ > this->people_count_.traits.get_min_value())
+            if (count_ > this->people_count_->traits.get_min_value())
             {
-                count_ -= this->people_count_.traits.get_step();
+                count_ -= this->people_count_->traits.get_step();
             }
             this->people_count_->publish_state(count_);
         }
