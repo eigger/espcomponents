@@ -61,7 +61,10 @@ async def to_code(config):
         cg.add(var.set_last_error(sens))
     if CONF_PEOPLE_COUNT in config:
         sens = cg.new_Pvariable(config[CONF_PEOPLE_COUNT][CONF_ID])
-        await number.register_number(sens, config[CONF_PEOPLE_COUNT])
+        await number.register_number(sens, config[CONF_PEOPLE_COUNT],
+            min_value=config[CONF_PEOPLE_COUNT][CONF_MIN_VALUE],
+            max_value=config[CONF_PEOPLE_COUNT][CONF_MAX_VALUE],
+            step=config[CONF_PEOPLE_COUNT][CONF_STEP],)
         cg.add(var.set_people_count(sens))
     
     
