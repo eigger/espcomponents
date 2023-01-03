@@ -55,13 +55,11 @@ void BotemCSM505Component::publish_data()
     {
     //In
     case 0x31:
-
         if (this->state < this->traits.get_max_value())
         {
             this->state += this->traits.get_step();
+            this->publish_state(this->state);
         }
-        this->publish_state(this->state);
-
         break;
     //Out
     case 0x32:
@@ -69,9 +67,8 @@ void BotemCSM505Component::publish_data()
         if (this->state > this->traits.get_min_value())
         {
             this->state -= this->traits.get_step();
+            this->publish_state(this->state);
         }
-        this->publish_state(this->state);
-        
         break;
     //Rx Error
     case 0x38:
