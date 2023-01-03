@@ -13,9 +13,9 @@ from .const import CONF_CS505_ID, CONF_LAST_ERROR
 _LOGGER = logging.getLogger(__name__)
 AUTO_LOAD = ["text_sensor", "number"]
 CODEOWNERS = ["@eigger"]
-DEPENDENCIES = ["uart", "number"]
+DEPENDENCIES = ["uart"]
 botem_csm505_ns = cg.esphome_ns.namespace('botem_csm505')
-BotemCSM505Component = botem_csm505_ns.class_('BotemCSM505Component', cg.Component, uart.UARTDevice, number.Number)
+BotemCSM505Component = botem_csm505_ns.class_('BotemCSM505Component', number.Number, cg.Component, uart.UARTDevice)
 
 MULTI_CONF = False
 
