@@ -11,7 +11,7 @@ from esphome.util import SimpleRegistry
 from .const import CONF_CS505_ID, CONF_LAST_ERROR
 
 _LOGGER = logging.getLogger(__name__)
-AUTO_LOAD = ["text_sensor"]
+AUTO_LOAD = ["text_sensor", "number"]
 CODEOWNERS = ["@eigger"]
 DEPENDENCIES = ["uart", "number"]
 botem_csm505_ns = cg.esphome_ns.namespace('botem_csm505')
