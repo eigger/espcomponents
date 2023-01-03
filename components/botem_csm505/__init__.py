@@ -37,7 +37,7 @@ CONFIG_SCHEMA = cv.All(number.NUMBER_SCHEMA.extend({
     {
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
         cv.Optional(CONF_ICON, default="mdi:alert-circle"): cv.icon,
-        #cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
+        cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
     }),
 }).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA))
 
