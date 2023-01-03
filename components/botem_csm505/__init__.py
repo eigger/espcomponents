@@ -5,7 +5,7 @@ import esphome.config_validation as cv
 from esphome.components import uart, text_sensor, number
 from esphome.components.text_sensor import register_text_sensor
 from esphome import automation, pins, core
-from esphome.const import CONF_ID, CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, ICON_NEW_BOX, CONF_TYPE, NUMBER_TYPES, CONF_MIN_VALUE, CONF_MAX_VALUE, CONF_STEP 
+from esphome.const import CONF_ID, CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, ICON_NEW_BOX, CONF_MIN_VALUE, CONF_MAX_VALUE, CONF_STEP 
 from esphome.core import coroutine
 from esphome.util import SimpleRegistry
 from .const import CONF_CS505_ID, CONF_LAST_ERROR, CONF_PEOPLE_COUNT
@@ -37,7 +37,6 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_PEOPLE_COUNT, default={CONF_NAME: "People Count"}): number.NUMBER_SCHEMA.extend(cv.COMPONENT_SCHEMA).extend(
     {
         cv.GenerateID(): cv.declare_id(number.Number),
-        cv.Optional(CONF_TYPE, default=1): cv.enum(NUMBER_TYPES, int=True),
         cv.Optional(CONF_MIN_VALUE, default=0): cv.float_,
         cv.Optional(CONF_MAX_VALUE, default=99999): cv.float_,
         cv.Optional(CONF_STEP, default=1): cv.float_,
