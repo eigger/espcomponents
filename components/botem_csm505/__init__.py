@@ -2,13 +2,13 @@ from email.policy import default
 import logging
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import uart, text_sensor, number
+from esphome.components import uart, text_sensor, number, sensor
 from esphome.components.text_sensor import register_text_sensor
 from esphome import automation, pins, core
 from esphome.const import CONF_ID, CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, ICON_NEW_BOX, CONF_MIN_VALUE, CONF_MAX_VALUE, CONF_STEP 
 from esphome.core import coroutine
 from esphome.util import SimpleRegistry
-from .const import CONF_CS505_ID, CONF_ERROR
+from .const import CONF_CS505_ID, CONF_ERROR, CONF_COUNT
 
 _LOGGER = logging.getLogger(__name__)
 AUTO_LOAD = ["text_sensor", "number"]
@@ -39,6 +39,12 @@ CONFIG_SCHEMA = cv.All(number.NUMBER_SCHEMA.extend({
         cv.Optional(CONF_ICON, default="mdi:alert-circle"): cv.icon,
         cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
     }),
+    cv.Optional(CONF_COUNT, default={CONF_NAME: "Count"}): sensor.SENSOR_SCHEMA.extend(
+    {
+        cv.GenerateID(): cv.declare_id(sensor.Sensor),
+        cv.Optional(CONF_ICON, default="mdi:account"): cv.icon,
+        #cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
+    }),
 }).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA))
 
 async def to_code(config):
@@ -60,6 +66,10 @@ async def to_code(config):
         sens = cg.new_Pvariable(config[CONF_ERROR][CONF_ID])
         await register_text_sensor(sens, config[CONF_ERROR])
         cg.add(var.set_error(sens))
+    if CONF_COUNT in config:
+        sens = cg.new_Pvariable(config[CONF_COUNT][CONF_ID])
+        await sensor.register_sensor(sens, config[CONF_COUNT])
+        cg.add(var.set_count(sens))
     
     
 #HEX_SCHEMA_REGISTRY = SimpleRegistry()

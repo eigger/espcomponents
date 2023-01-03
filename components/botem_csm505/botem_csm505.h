@@ -7,6 +7,7 @@
 #include "esphome/core/hal.h"
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/text_sensor/text_sensor.h"
+#include "esphome/components/sensor/sensor.h"
 #include "esphome/components/number/number.h"
 #include "parser.h"
 #include "version.h"
@@ -27,6 +28,7 @@ public:
     void control(float value) override;
     void set_version(text_sensor::TextSensor *version) { version_ = version; }
     void set_error(text_sensor::TextSensor *error) { error_ = error; }
+    void set_count(sensor::Sensor *count) { count_ = count; }
     //void set_people_count(number::Number *people_count) { people_count_ = people_count; }
 protected:
 
@@ -38,6 +40,7 @@ protected:
     Parser rx_parser_{};
     text_sensor::TextSensor *version_{nullptr};
     text_sensor::TextSensor *error_{nullptr};
+    sensor::Sensor *count_{nullptr};
     //number::Number *people_count_{nullptr};
 };
 

@@ -18,6 +18,7 @@ void BotemCSM505Component::setup()
     if (this->error_) this->error_->publish_state("None");
     if (this->version_) this->version_->publish_state(VERSION);
     this->publish_state(0);
+    if (this->count_) this->count_->publish_state(0);
     ESP_LOGI(TAG, "Initaialize.");
 }
 
@@ -59,6 +60,7 @@ void BotemCSM505Component::publish_data()
         {
             this->state += this->traits.get_step();
             this->publish_state(this->state);
+            if (this->count_) this->count_->publish_state(this->state);
         }
         break;
     //Out
@@ -68,6 +70,7 @@ void BotemCSM505Component::publish_data()
         {
             this->state -= this->traits.get_step();
             this->publish_state(this->state);
+            if (this->count_) this->count_->publish_state(this->state);
         }
         break;
     //Rx Error
@@ -90,6 +93,7 @@ void BotemCSM505Component::control(float value)
     {
         this->state = value;
         this->publish_state(value);
+        if (this->count_) this->count_->publish_state(this->state);
     }
 }
 
