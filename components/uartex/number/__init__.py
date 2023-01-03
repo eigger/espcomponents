@@ -40,7 +40,7 @@ def to_code(config):
  
     state = config[CONF_STATE_NUMBER]
     if cg.is_template(state):
-        templ = yield cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
+        templ = yield cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len'), (cg.float_, 'state')], cg.float_)
         cg.add(var.set_state_number(templ))
     else:
         args = yield state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION]
