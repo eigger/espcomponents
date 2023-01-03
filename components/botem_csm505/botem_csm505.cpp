@@ -17,7 +17,7 @@ void BotemCSM505Component::setup()
     rx_parser_.add_footers({ 0x5D, 0x0D });
     if (this->last_error_) this->last_error_->publish_state("None");
     if (this->version_) this->version_->publish_state(VERSION);
-    if (this->people_count_) this->people_count_->publish_state(0);
+    if (this->people_count_) this->publish_state(0);
     ESP_LOGI(TAG, "Initaialize.");
 }
 
@@ -55,25 +55,23 @@ void BotemCSM505Component::publish_data()
     {
     //In
     case 0x31:
-        if (this->people_count_)
+
+        if (this->state < this->traits.get_max_value())
         {
-            if (this->people_count_->state < this->people_count_->traits.get_max_value())
-            {
-                this->people_count_->state += this->people_count_->traits.get_step();
-            }
-            this->people_count_->publish_state(this->people_count_->state);
+            this->state += this->traits.get_step();
         }
+        this->publish_state(this->state);
+
         break;
     //Out
     case 0x32:
-        if (this->people_count_)
+
+        if (this->state > this->traits.get_min_value())
         {
-            if (this->people_count_->state > this->people_count_->traits.get_min_value())
-            {
-                this->people_count_->state -= this->people_count_->traits.get_step();
-            }
-            this->people_count_->publish_state(this->people_count_->state);
+            this->state -= this->traits.get_step();
         }
+        this->publish_state(this->state);
+        
         break;
     //Rx Error
     case 0x38:

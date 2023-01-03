@@ -15,13 +15,18 @@ AUTO_LOAD = ["text_sensor", "number"]
 CODEOWNERS = ["@eigger"]
 DEPENDENCIES = ["uart"]
 botem_csm505_ns = cg.esphome_ns.namespace('botem_csm505')
-BotemCSM505Component = botem_csm505_ns.class_('BotemCSM505Component', cg.Component, uart.UARTDevice)
+BotemCSM505Component = botem_csm505_ns.class_('BotemCSM505Component', number.Number, cg.Component, uart.UARTDevice)
 
 MULTI_CONF = False
 
 # botem_csm505 Schema
-CONFIG_SCHEMA = cv.All(cv.Schema({
+
+CONFIG_SCHEMA = cv.All(number.NUMBER_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(BotemCSM505Component),
+    cv.Required(CONF_MIN_VALUE): cv.float_,
+    cv.Required(CONF_MAX_VALUE): cv.float_,
+    cv.Required(CONF_STEP): cv.float_,
+}).extend({
     cv.Optional(CONF_VERSION, default={CONF_NAME: "Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
@@ -34,23 +39,46 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         cv.Optional(CONF_ICON, default="mdi:alert-circle"): cv.icon,
         #cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
     }),
-    cv.Optional(CONF_PEOPLE_COUNT, default={CONF_NAME: "People Count"}): number.NUMBER_SCHEMA.extend(cv.COMPONENT_SCHEMA).extend(
-    {
-        cv.GenerateID(): cv.declare_id(number.Number),
-        cv.Optional(CONF_MIN_VALUE, default=0): cv.float_,
-        cv.Optional(CONF_MAX_VALUE, default=99999): cv.float_,
-        cv.Optional(CONF_STEP, default=1): cv.float_,
-        cv.Optional(CONF_ICON, default="mdi:account"): cv.icon,
-        #cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
-    }),
-}).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA)
-)
+}).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA))
+
+
+# CONFIG_SCHEMA = cv.All(cv.Schema({
+#     cv.GenerateID(): cv.declare_id(BotemCSM505Component),
+#     cv.Optional(CONF_VERSION, default={CONF_NAME: "Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
+#     {
+#         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
+#         cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
+#         cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
+#     }),
+#     cv.Optional(CONF_LAST_ERROR, default={CONF_NAME: "Last Error"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
+#     {
+#         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
+#         cv.Optional(CONF_ICON, default="mdi:alert-circle"): cv.icon,
+#         #cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
+#     }),
+#     cv.Optional(CONF_PEOPLE_COUNT, default={CONF_NAME: "People Count"}): number.NUMBER_SCHEMA.extend(cv.COMPONENT_SCHEMA).extend(
+#     {
+#         cv.GenerateID(): cv.declare_id(number.Number),
+#         cv.Optional(CONF_MIN_VALUE, default=0): cv.float_,
+#         cv.Optional(CONF_MAX_VALUE, default=99999): cv.float_,
+#         cv.Optional(CONF_STEP, default=1): cv.float_,
+#         cv.Optional(CONF_ICON, default="mdi:account"): cv.icon,
+#         #cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
+#     }),
+# }).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA)
+# )
 
 async def to_code(config):
     cg.add_global(botem_csm505_ns.using)
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
+    await number.register_number(            
+        var,
+        config,
+        min_value = config[CONF_MIN_VALUE],
+        max_value = config[CONF_MAX_VALUE],
+        step = config[CONF_STEP],)
     if CONF_VERSION in config:
         sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
         await register_text_sensor(sens, config[CONF_VERSION])
@@ -59,13 +87,13 @@ async def to_code(config):
         sens = cg.new_Pvariable(config[CONF_LAST_ERROR][CONF_ID])
         await register_text_sensor(sens, config[CONF_LAST_ERROR])
         cg.add(var.set_last_error(sens))
-    if CONF_PEOPLE_COUNT in config:
-        sens = cg.new_Pvariable(config[CONF_PEOPLE_COUNT][CONF_ID])
-        await number.register_number(sens, config[CONF_PEOPLE_COUNT],
-            min_value=config[CONF_PEOPLE_COUNT][CONF_MIN_VALUE],
-            max_value=config[CONF_PEOPLE_COUNT][CONF_MAX_VALUE],
-            step=config[CONF_PEOPLE_COUNT][CONF_STEP],)
-        cg.add(var.set_people_count(sens))
+    # if CONF_PEOPLE_COUNT in config:
+    #     sens = cg.new_Pvariable(config[CONF_PEOPLE_COUNT][CONF_ID])
+    #     await number.register_number(sens, config[CONF_PEOPLE_COUNT],
+    #         min_value=config[CONF_PEOPLE_COUNT][CONF_MIN_VALUE],
+    #         max_value=config[CONF_PEOPLE_COUNT][CONF_MAX_VALUE],
+    #         step=config[CONF_PEOPLE_COUNT][CONF_STEP],)
+    #     cg.add(var.set_people_count(sens))
     
     
 #HEX_SCHEMA_REGISTRY = SimpleRegistry()

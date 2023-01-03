@@ -13,7 +13,7 @@
 namespace esphome {
 namespace botem_csm505 {
 
-class BotemCSM505Component : public uart::UARTDevice, public Component
+class BotemCSM505Component : public uart::UARTDevice, public number::Number, public Component
 {
 public:
     BotemCSM505Component() = default;
@@ -24,10 +24,10 @@ public:
 
     unsigned long elapsed_time(const unsigned long timer);
     unsigned long get_time();
-
+    void control(float value) override;
     void set_version(text_sensor::TextSensor *version) { version_ = version; }
     void set_last_error(text_sensor::TextSensor *last_error) { last_error_ = last_error; }
-    void set_people_count(number::Number *people_count) { people_count_ = people_count; }
+    //void set_people_count(number::Number *people_count) { people_count_ = people_count; }
 protected:
 
     uint16_t conf_rx_timeout_{10};
@@ -38,7 +38,7 @@ protected:
     Parser rx_parser_{};
     text_sensor::TextSensor *version_{nullptr};
     text_sensor::TextSensor *last_error_{nullptr};
-    number::Number *people_count_{nullptr};
+    //number::Number *people_count_{nullptr};
 };
 
 } // namespace botem_csm505
