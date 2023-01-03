@@ -5,7 +5,7 @@ import esphome.config_validation as cv
 from esphome.components import uart, text_sensor, number, sensor
 from esphome.components.text_sensor import register_text_sensor
 from esphome import automation, pins, core
-from esphome.const import CONF_ID, CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, ICON_NEW_BOX, CONF_MIN_VALUE, CONF_MAX_VALUE, CONF_STEP 
+from esphome.const import CONF_ID, CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, CONF_UNIT_OF_MEASUREMENT, ICON_NEW_BOX, CONF_MIN_VALUE, CONF_MAX_VALUE, CONF_STEP 
 from esphome.core import coroutine
 from esphome.util import SimpleRegistry
 from .const import CONF_CS505_ID, CONF_ERROR, CONF_COUNT
@@ -43,6 +43,7 @@ CONFIG_SCHEMA = cv.All(number.NUMBER_SCHEMA.extend({
     {
         cv.GenerateID(): cv.declare_id(sensor.Sensor),
         cv.Optional(CONF_ICON, default="mdi:account"): cv.icon,
+        cv.Optional(CONF_UNIT_OF_MEASUREMENT, default="명"): cv.unit_of_measurement,
         #cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
     }),
 }).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA))
