@@ -15,7 +15,7 @@ AUTO_LOAD = ["text_sensor", "number"]
 CODEOWNERS = ["@eigger"]
 DEPENDENCIES = ["uart"]
 botem_csm505_ns = cg.esphome_ns.namespace('botem_csm505')
-BotemCSM505Component = botem_csm505_ns.class_('BotemCSM505Component', cg.Component)
+BotemCSM505Component = botem_csm505_ns.class_('BotemCSM505Component', cg.Component, uart.UARTDevice)
 
 MULTI_CONF = False
 

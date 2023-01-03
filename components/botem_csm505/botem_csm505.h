@@ -13,7 +13,7 @@
 namespace esphome {
 namespace botem_csm505 {
 
-class BotemCSM505Component : public Component
+class BotemCSM505Component : public uart::UARTDevice, public Component
 {
 public:
     BotemCSM505Component() = default;
