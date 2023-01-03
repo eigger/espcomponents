@@ -34,7 +34,7 @@ void UARTExComponent::setup()
     tx_time_ = get_time();
     if (rx_header_.has_value()) rx_parser_.add_headers(rx_header_.value());
     if (rx_footer_.has_value()) rx_parser_.add_footers(rx_footer_.value());
-    if (this->last_error_) this->last_error_->publish_state("None");
+    if (this->error_) this->error_->publish_state("None");
     if (this->version_) this->version_->publish_state(UARTEX_VERSION);
     ESP_LOGI(TAG, "Initaialize.");
 }
@@ -69,7 +69,7 @@ void UARTExComponent::read_from_uart()
 void UARTExComponent::publish_to_devices()
 {
     if (rx_parser_.buffer().size() == 0) return;
-    if (validate_data(true) != ERR_NONE) return;
+    if (publish_error(validate_data()) == true) return;
     if (validate_ack()) return;
     publish_data();
     rx_time_ = get_time();
@@ -131,8 +131,8 @@ bool UARTExComponent::retry_tx_cmd()
     {
         ack_tx_data(false);
         ESP_LOGD(TAG, "Retry fail.");
-        if (this->last_error_ && last_error_code_ != ERR_ACK) this->last_error_->publish_state("Ack Error");
-        last_error_code_ = ERR_ACK;
+        if (this->error_ && error_code_ != ERR_ACK) this->error_->publish_state("Ack Error");
+        error_code_ = ERR_ACK;
         return false;
     }
     ESP_LOGD(TAG, "Retry count: %d", tx_retry_cnt_);
@@ -274,66 +274,65 @@ unsigned long UARTExComponent::get_time()
     return millis();
 }
 
-ValidateCode UARTExComponent::validate_data(bool log)
+ValidateCode UARTExComponent::validate_data()
 {
     if (rx_parser_.data().size() == 0)
     {
-        if (log)
-        {
-            ESP_LOGW(TAG, "[Read] Size error: %s", to_hex_string(rx_parser_.buffer()).c_str());
-            if (this->last_error_ && last_error_code_ != ERR_SIZE) this->last_error_->publish_state("Size Error");
-            last_error_code_ = ERR_SIZE;
-        }
         return ERR_SIZE;
     }
     if (rx_header_.has_value() && rx_parser_.parse_header() == false)
     {
-        if (log)
-        {
-            ESP_LOGW(TAG, "[Read] Header error: %s", to_hex_string(rx_parser_.buffer()).c_str());
-            if (this->last_error_ && last_error_code_ != ERR_HEADER) this->last_error_->publish_state("Header Error");
-            last_error_code_ = ERR_HEADER;
-        }
         return ERR_HEADER;
     }
     if (rx_footer_.has_value() && rx_parser_.parse_footer() == false)
     {
-        if (log)
-        {
-            ESP_LOGW(TAG, "[Read] Footer error: %s", to_hex_string(rx_parser_.buffer()).c_str());
-            if (this->last_error_ && last_error_code_ != ERR_FOOTER) this->last_error_->publish_state("Footer Error");
-            last_error_code_ = ERR_FOOTER;
-        }
         return ERR_FOOTER;
     }
     uint8_t crc = get_rx_checksum(rx_parser_.data());
     if (rx_checksum_ && crc != rx_parser_.get_checksum())
     {
-        if (log)
-        {
-            ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(rx_parser_.buffer()).c_str());
-            if (this->last_error_ && last_error_code_ != ERR_CHECKSUM) this->last_error_->publish_state("Checksum Error");
-            last_error_code_ = ERR_CHECKSUM;
-        }
         return ERR_CHECKSUM;
     }
     crc = get_rx_checksum_2(rx_parser_.data());
     if (rx_checksum_2_ && crc != rx_parser_.get_checksum_2())
     {
-        if (log)
-        {
-            ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(rx_parser_.buffer()).c_str());
-            if (this->last_error_ && last_error_code_ != ERR_CHECKSUM_2) this->last_error_->publish_state("Checksum2 Error");
-            last_error_code_ = ERR_CHECKSUM_2;
-        }
         return ERR_CHECKSUM_2;
     }
-    if (log)
-    {
-        if (this->last_error_ && last_error_code_ != ERR_NONE) this->last_error_->publish_state("None");
-        last_error_code_ = ERR_NONE;
-    }
     return ERR_NONE;
+}
+
+bool UARTExComponent::publish_error(ValidateCode error_code)
+{
+    bool error = true;
+    switch(error_code)
+    {
+    case ERR_SIZE:
+        ESP_LOGW(TAG, "[Read] Size error: %s", to_hex_string(rx_parser_.buffer()).c_str());
+        if (this->error_ && error_code_ != ERR_SIZE) this->error_->publish_state("Size Error");
+        break;
+    case ERR_HEADER:
+        ESP_LOGW(TAG, "[Read] Header error: %s", to_hex_string(rx_parser_.buffer()).c_str());
+        if (this->error_ && error_code_ != ERR_HEADER) this->error_->publish_state("Header Error");
+        break;
+    case ERR_FOOTER:
+        ESP_LOGW(TAG, "[Read] Footer error: %s", to_hex_string(rx_parser_.buffer()).c_str());
+        if (this->error_ && error_code_ != ERR_FOOTER) this->error_->publish_state("Footer Error");
+        break;
+    case ERR_CHECKSUM:
+        ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(rx_parser_.buffer()).c_str());
+        if (this->error_ && error_code_ != ERR_CHECKSUM) this->error_->publish_state("Checksum Error");
+        break;
+    case ERR_CHECKSUM_2:
+        ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(rx_parser_.buffer()).c_str());
+        if (this->error_ && error_code_ != ERR_CHECKSUM_2) this->error_->publish_state("Checksum2 Error");
+        break;
+    case ERR_NONE:
+        if (this->error_ && error_code_ != ERR_NONE) this->error_->publish_state("None");
+        error = false;
+        break;
+    }
+    error_code_ = error_code;
+    return error;
 }
 
 void UARTExComponent::set_rx_header(std::vector<uint8_t> header)

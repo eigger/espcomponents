@@ -16,7 +16,7 @@ CONF_TX_CHECKSUM = 'tx_checksum'
 CONF_RX_CHECKSUM_2 = 'rx_checksum2'
 CONF_TX_CHECKSUM_2 = 'tx_checksum2'
 CONF_MASK = 'mask'
-CONF_LAST_ERROR = 'last_error'
+CONF_ERROR = 'error'
 
 CONF_FILTER = 'filter'
 CONF_SUB_FILTER = 'sub_filter'

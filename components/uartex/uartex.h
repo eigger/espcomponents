@@ -81,7 +81,7 @@ public:
     unsigned long get_time();
 
     void set_version(text_sensor::TextSensor *version) { version_ = version; }
-    void set_last_error(text_sensor::TextSensor *last_error) { last_error_ = last_error; }
+    void set_error(text_sensor::TextSensor *error) { error_ = error; }
 protected:
 
     std::vector<UARTExDevice *> devices_{};
@@ -105,8 +105,9 @@ protected:
     optional<std::function<uint8_t(const uint8_t *data, const uint16_t len)>> tx_checksum_f_{};
     optional<std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)>> tx_checksum_f_2_{};
 
-    ValidateCode validate_data(bool log = false);
-    ValidateCode last_error_code_{ValidateCode::ERR_NONE};
+    ValidateCode validate_data();
+    bool publish_error(ValidateCode error_code);
+    ValidateCode error_code_{ValidateCode::ERR_NONE};
     void read_from_uart();
     void publish_to_devices();
     bool validate_ack();
@@ -128,7 +129,7 @@ protected:
     Parser rx_parser_{};
 
     text_sensor::TextSensor *version_{nullptr};
-    text_sensor::TextSensor *last_error_{nullptr};
+    text_sensor::TextSensor *error_{nullptr};
 };
 
 } // namespace uartex

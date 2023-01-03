@@ -48,18 +48,10 @@ void UARTExNumber::control(float value)
         {
             command_number_ = (*this->command_number_func_)(value);
             push_tx_cmd(&command_number_);
-            this->state = value;
-            this->publish_state(value);
         }
     }
-    else
-    {
-        if (this->state != value)
-        {
-            this->state = value;
-            this->publish_state(value);
-        }
-    }
+    this->state = value;
+    this->publish_state(value);
 }
 
 }  // namespace uartex
