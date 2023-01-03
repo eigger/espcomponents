@@ -8,14 +8,14 @@ from esphome import automation, pins, core
 from esphome.const import CONF_ID, CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, ICON_NEW_BOX, CONF_MIN_VALUE, CONF_MAX_VALUE, CONF_STEP 
 from esphome.core import coroutine
 from esphome.util import SimpleRegistry
-from .const import CONF_CS505_ID, CONF_LAST_ERROR, CONF_PEOPLE_COUNT
+from .const import CONF_CS505_ID, CONF_LAST_ERROR
 
 _LOGGER = logging.getLogger(__name__)
-AUTO_LOAD = ["text_sensor", "number"]
+AUTO_LOAD = ["text_sensor"]
 CODEOWNERS = ["@eigger"]
-DEPENDENCIES = ["uart"]
+DEPENDENCIES = ["uart", "number"]
 botem_csm505_ns = cg.esphome_ns.namespace('botem_csm505')
-BotemCSM505Component = botem_csm505_ns.class_('BotemCSM505Component', cg.Component, uart.UARTDevice)
+BotemCSM505Component = botem_csm505_ns.class_('BotemCSM505Component', cg.Component, uart.UARTDevice, number.Number)
 
 MULTI_CONF = False
 
@@ -34,16 +34,10 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         cv.Optional(CONF_ICON, default="mdi:alert-circle"): cv.icon,
         #cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
     }),
-    cv.Optional(CONF_PEOPLE_COUNT, default={CONF_NAME: "People Count"}): number.NUMBER_SCHEMA.extend(cv.COMPONENT_SCHEMA).extend(
-    {
-        cv.GenerateID(): cv.declare_id(number.Number),
-        cv.Optional(CONF_MIN_VALUE, default=0): cv.float_,
-        cv.Optional(CONF_MAX_VALUE, default=99999): cv.float_,
-        cv.Optional(CONF_STEP, default=1): cv.float_,
-        cv.Optional(CONF_ICON, default="mdi:account"): cv.icon,
-        #cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
-    }),
-}).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA)
+    cv.Optional(CONF_MIN_VALUE, default=0): cv.float_,
+    cv.Optional(CONF_MAX_VALUE, default=99999): cv.float_,
+    cv.Optional(CONF_STEP, default=1): cv.float_,
+}).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA).extend(number.NUMBER_SCHEMA)
 )
 
 async def to_code(config):
@@ -51,6 +45,10 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
+    await number.register_number(sens, config,
+            min_value=config[CONF_MIN_VALUE],
+            max_value=config[CONF_MAX_VALUE],
+            step=config[CONF_STEP],)
     if CONF_VERSION in config:
         sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
         await register_text_sensor(sens, config[CONF_VERSION])
@@ -58,14 +56,6 @@ async def to_code(config):
     if CONF_LAST_ERROR in config:
         sens = cg.new_Pvariable(config[CONF_LAST_ERROR][CONF_ID])
         await register_text_sensor(sens, config[CONF_LAST_ERROR])
-        cg.add(var.set_last_error(sens))
-    if CONF_PEOPLE_COUNT in config:
-        sens = cg.new_Pvariable(config[CONF_PEOPLE_COUNT][CONF_ID])
-        await number.register_number(sens, config[CONF_PEOPLE_COUNT],
-            min_value=config[CONF_PEOPLE_COUNT][CONF_MIN_VALUE],
-            max_value=config[CONF_PEOPLE_COUNT][CONF_MAX_VALUE],
-            step=config[CONF_PEOPLE_COUNT][CONF_STEP],)
-        cg.add(var.set_people_count(sens))
-    
+        cg.add(var.set_last_error(sens))   
     
 #HEX_SCHEMA_REGISTRY = SimpleRegistry()
