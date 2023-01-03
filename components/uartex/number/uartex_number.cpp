@@ -22,7 +22,7 @@ void UARTExNumber::publish(const std::vector<uint8_t>& data)
 {
     if (this->state_number_func_.has_value())
     {
-        optional<float> val = (*this->state_number_func_)(&data[0], data.size(), this->sate);
+        optional<float> val = (*this->state_number_func_)(&data[0], data.size(), this->state);
         if (val.has_value() && this->state != val.value())
         {
             this->state = val.value();
