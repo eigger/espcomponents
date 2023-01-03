@@ -17,7 +17,7 @@ void BotemCSM505Component::setup()
     rx_parser_.add_footers({ 0x5D, 0x0D });
     if (this->last_error_) this->last_error_->publish_state("None");
     if (this->version_) this->version_->publish_state(VERSION);
-    if (this->people_count_) this->publish_state(0);
+    this->publish_state(0);
     ESP_LOGI(TAG, "Initaialize.");
 }
 
