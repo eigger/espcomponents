@@ -52,6 +52,14 @@ void UARTExNumber::control(float value)
             this->publish_state(value);
         }
     }
+    else
+    {
+        if (this->state != value)
+        {
+            this->state = value;
+            this->publish_state(value);
+        }
+    }
 }
 
 }  // namespace uartex

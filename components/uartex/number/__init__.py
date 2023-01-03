@@ -15,7 +15,7 @@ CONFIG_SCHEMA = cv.All(number.NUMBER_SCHEMA.extend({
     cv.Required(CONF_MAX_VALUE): cv.float_,
     cv.Required(CONF_STEP): cv.float_,
     cv.Required(CONF_STATE_NUMBER): cv.templatable(STATE_NUM_SCHEMA),
-    cv.Required(CONF_COMMAND_NUMBER): cv.returning_lambda,
+    cv.Optional(CONF_COMMAND_NUMBER): cv.returning_lambda,
 }).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Number do not support command_on!"),
     cv.Optional(CONF_COMMAND_OFF): cv.invalid("UARTEx Number do not support command_off!"),
