@@ -103,19 +103,19 @@ bool BotemCSM505Component::validate_data()
 {
     if (rx_parser_.data().size() == 0)
     {
-        ESP_LOGW(TAG, "[Read] Size error: %s", to_hex_string(rx_parser_.buffer()).c_str());
+        //ESP_LOGW(TAG, "[Read] Size error: %s", to_hex_string(rx_parser_.buffer()).c_str());
         if (this->last_error_) this->last_error_->publish_state("Size Error");
         return false;
     }
     if (rx_parser_.parse_header() == false)
     {
-        ESP_LOGW(TAG, "[Read] Header error: %s", to_hex_string(rx_parser_.buffer()).c_str());
+        //ESP_LOGW(TAG, "[Read] Header error: %s", to_hex_string(rx_parser_.buffer()).c_str());
         if (this->last_error_) this->last_error_->publish_state("Header Error");
         return false;
     }
     if (rx_parser_.parse_footer() == false)
     {
-        ESP_LOGW(TAG, "[Read] Footer error: %s", to_hex_string(rx_parser_.buffer()).c_str());
+        //ESP_LOGW(TAG, "[Read] Footer error: %s", to_hex_string(rx_parser_.buffer()).c_str());
         if (this->last_error_) this->last_error_->publish_state("Footer Error");
         return false;
     }
