@@ -1,11 +1,11 @@
-#include "botem_cs505.h"
+#include "botem_csm505.h"
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/application.h"
 
 namespace esphome {
-namespace botem_cs505 {
-static const char *TAG = "botem_cs505";
+namespace botem_csm505 {
+static const char *TAG = "botem_csm505";
 void BotemCSM505Component::dump_config()
 {
     ESP_LOGCONFIG(TAG, "  RX Receive Timeout: %d", conf_rx_timeout_);
@@ -125,5 +125,5 @@ bool BotemCSM505Component::validate_data()
     return true;
 }
 
-}  // namespace botem_cs505
+}  // namespace botem_csm505
 }  // namespace esphome

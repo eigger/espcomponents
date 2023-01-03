@@ -14,12 +14,12 @@ _LOGGER = logging.getLogger(__name__)
 AUTO_LOAD = ["text_sensor", "number"]
 CODEOWNERS = ["@eigger"]
 DEPENDENCIES = ["uart"]
-botem_cs505_ns = cg.esphome_ns.namespace('botem_cs505')
-BotemCSM505Component = botem_cs505_ns.class_('BotemCSM505Component', cg.Component)
+botem_csm505_ns = cg.esphome_ns.namespace('botem_csm505')
+BotemCSM505Component = botem_csm505_ns.class_('BotemCSM505Component', cg.Component)
 
 MULTI_CONF = False
 
-# botem_cs505 Schema
+# botem_csm505 Schema
 CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.GenerateID(): cv.declare_id(BotemCSM505Component),
     cv.Optional(CONF_VERSION, default={CONF_NAME: "Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
@@ -47,7 +47,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
 )
 
 async def to_code(config):
-    cg.add_global(botem_cs505_ns.using)
+    cg.add_global(botem_csm505_ns.using)
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)

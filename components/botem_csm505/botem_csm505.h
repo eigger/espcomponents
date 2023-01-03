@@ -11,7 +11,7 @@
 #include "parser.h"
 #include "version.h"
 namespace esphome {
-namespace botem_cs505 {
+namespace botem_csm505 {
 
 class BotemCSM505Component : public Component
 {
@@ -42,5 +42,5 @@ protected:
     float count_{0};
 };
 
-} // namespace botem_cs505
+} // namespace botem_csm505
 } // namespace esphome
