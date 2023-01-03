@@ -26,7 +26,7 @@ CONFIG_SCHEMA = cv.All(number.NUMBER_SCHEMA.extend({
     cv.Required(CONF_MAX_VALUE): cv.float_,
     cv.Optional(CONF_MIN_VALUE, default=0): cv.float_,
     cv.Optional(CONF_STEP, default=1): cv.float_,
-    cv.Optional(CONF_UNIT_OF_MEASUREMENT, default="명"): cv.unit_of_measurement,
+    cv.Optional(CONF_UNIT_OF_MEASUREMENT, default="명"): cv.string,
 }).extend({
     cv.Optional(CONF_VERSION, default={CONF_NAME: "Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
@@ -44,7 +44,7 @@ CONFIG_SCHEMA = cv.All(number.NUMBER_SCHEMA.extend({
     {
         cv.GenerateID(): cv.declare_id(sensor.Sensor),
         cv.Optional(CONF_ICON, default="mdi:account"): cv.icon,
-        cv.Optional(CONF_UNIT_OF_MEASUREMENT, default="명"): cv.unit_of_measurement,
+        cv.Optional(CONF_UNIT_OF_MEASUREMENT, default="명"): cv.string,
         #cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
     }),
 }).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA))
