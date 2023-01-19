@@ -37,7 +37,7 @@ void BluetoothExComponent::setup()
     if (this->error_) this->error_->publish_state("None");
     if (this->version_) this->version_->publish_state(BLUETOOTHEX_VERSION);
     serialbt_.begin("BT_DEVICE", true);
-    // connected_ = serialbt_.connect(device_name_.value().c_str());
+    connected_ = serialbt_.connect(device_name_.value().c_str());
     disconnected_time_ = get_time();
     ESP_LOGI(TAG, "Initaialize.");
 }
@@ -52,7 +52,7 @@ void BluetoothExComponent::loop()
 
 void BluetoothExComponent::connect_to_device()
 {
-    connected_ = serialbt_.connected(10);
+    connected_ = serialbt_.connected(10000);
     if (connected_)
     {
         disconnected_time_ = get_time();
@@ -61,7 +61,7 @@ void BluetoothExComponent::connect_to_device()
     if (elapsed_time(disconnected_time_) > 10000)
     {
         serialbt_.disconnect();
-        serialbt_.connect(device_name_.value().c_str());
+        serialbt_.connect();
         disconnected_time_ = get_time();
         ESP_LOGI(TAG, "Retry connection");
     }
