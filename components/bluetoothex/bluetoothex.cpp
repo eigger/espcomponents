@@ -37,14 +37,20 @@ void BluetoothExComponent::setup()
     if (this->error_) this->error_->publish_state("None");
     if (this->version_) this->version_->publish_state(BLUETOOTHEX_VERSION);
     serialbt_.begin("BT_DEVICE", true);
-    connected_ = serialbt_.connect(device_name_.value().c_str());
+    
+    //connected_ = serialbt_.connect(device_name_.value().c_str());
+    uint8_t address[6]  = {0xB1,0x21,0x81,0x35,0xC6,0xCE};
+    connected_ = serialbt_.connect(address);
+    if(!connected_) while(!serialbt_.connected(10000));
+    serialbt_.disconnect();
+    serialbt_.connect();
     disconnected_time_ = get_time();
     ESP_LOGI(TAG, "Initaialize.");
 }
 
 void BluetoothExComponent::loop()
 {
-    connect_to_device();
+    //connect_to_device();
     read_from_bluetooth();
     publish_to_devices();
     write_to_bluetooth();
