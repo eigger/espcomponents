@@ -85,7 +85,7 @@ def command_hex_schema(value):
 # BluetoothEx Schema
 CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.GenerateID(): cv.declare_id(BluetoothExComponent),
-    cv.Required(CONF_DEVICE_NAME): cv.str,
+    cv.Required(CONF_DEVICE_NAME): cv.string,
     cv.Optional(CONF_RX_TIMEOUT, default="10ms"): cv.All(
         cv.positive_time_period_milliseconds,
         cv.Range(max=core.TimePeriod(milliseconds=2000)),

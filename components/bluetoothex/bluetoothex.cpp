@@ -60,8 +60,8 @@ void BluetoothExComponent::connect_to_device()
     }
     if (elapsed_time(disconnected_time_) > 10000)
     {
-        SerialBT.disconnect();
-        SerialBT.connect();
+        serialbt_.disconnect();
+        serialbt_.connect();
         disconnected_time_ = get_time();
         ESP_LOGI(TAG, "Retry connection");
     }
@@ -75,10 +75,10 @@ void BluetoothExComponent::read_from_bluetooth()
     if (connected_ == false) return;
     while (elapsed_time(timer) < conf_rx_timeout_)
     {
-        while (!valid_data && this->available())
+        while (!valid_data && this->serialbt_.available())
         {
             uint8_t byte;
-            if (!this->read_byte(&byte)) continue;
+            if (!this->serialbt_.read_byte(&byte)) continue;
             if (rx_parser_.parse_byte(byte)) valid_data = true;
             if (validate_data() == ERR_NONE) valid_data = true;
             timer = get_time();
@@ -197,13 +197,13 @@ void BluetoothExComponent::write_tx_cmd()
 
 void BluetoothExComponent::write_data(const uint8_t data)
 {
-    this->write_byte(data);
+    this->serialbt_.write_byte(data);
     ESP_LOGD(TAG, "Write byte-> 0x%02X", data);
 }
 
 void BluetoothExComponent::write_data(const std::vector<uint8_t> &data)
 {
-    this->write_array(data);
+    this->serialbt_.write_array(data);
     ESP_LOGD(TAG, "Write array-> %s", to_hex_string(data).c_str());
 }
 
@@ -219,7 +219,7 @@ void BluetoothExComponent::push_tx_data_late(const tx_data data)
 
 void BluetoothExComponent::write_flush(const unsigned long timer)
 {
-    this->flush();
+    this->serialbt_.flush();
     ESP_LOGD(TAG, "Flushing... (%lums)", elapsed_time(timer));
 }
 
