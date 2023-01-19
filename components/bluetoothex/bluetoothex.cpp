@@ -77,8 +77,7 @@ void BluetoothExComponent::read_from_bluetooth()
     {
         while (!valid_data && this->serialbt_.available())
         {
-            uint8_t byte;
-            if (!this->serialbt_.read_byte(&byte)) continue;
+            uint8_t byte = this->serialbt_.read();
             if (rx_parser_.parse_byte(byte)) valid_data = true;
             if (validate_data() == ERR_NONE) valid_data = true;
             timer = get_time();
@@ -197,13 +196,13 @@ void BluetoothExComponent::write_tx_cmd()
 
 void BluetoothExComponent::write_data(const uint8_t data)
 {
-    this->serialbt_.write_byte(data);
+    this->serialbt_.write(data);
     ESP_LOGD(TAG, "Write byte-> 0x%02X", data);
 }
 
 void BluetoothExComponent::write_data(const std::vector<uint8_t> &data)
 {
-    this->serialbt_.write_array(data);
+    this->serialbt_.write(&data[0], data.size());
     ESP_LOGD(TAG, "Write array-> %s", to_hex_string(data).c_str());
 }
 
