@@ -1,2 +1,2 @@
 #pragma once
-#define BLUETOOTHEX_VERSION "1.5.1-230103"
+#define BLUETOOTHEX_VERSION "1.0.0-230119"
