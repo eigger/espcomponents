@@ -20,7 +20,7 @@ from .const import CONF_DEVICE_NAME, CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEA
     CONF_TX_CTRL_PIN, CONF_TX_DELAY
 
 _LOGGER = logging.getLogger(__name__)
-AUTO_LOAD = ["text_sensor"]
+AUTO_LOAD = ["text_sensor", "BluetoothSerial"]
 CODEOWNERS = ["@eigger"]
 DEPENDENCIES = ["BluetoothSerial"]
 bluetoothex_ns = cg.esphome_ns.namespace('bluetoothex')
