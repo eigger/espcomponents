@@ -22,7 +22,7 @@ from .const import CONF_DEVICE_NAME, CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEA
 _LOGGER = logging.getLogger(__name__)
 AUTO_LOAD = ["text_sensor"]
 CODEOWNERS = ["@eigger"]
-DEPENDENCIES = ["BluetoothSerial"]
+#DEPENDENCIES = [""]
 bluetoothex_ns = cg.esphome_ns.namespace('bluetoothex')
 BluetoothExComponent = bluetoothex_ns.class_('BluetoothExComponent', cg.Component)
 BluetoothExWriteAction = bluetoothex_ns.class_('BluetoothExWriteAction', automation.Action)
