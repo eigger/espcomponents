@@ -6,7 +6,7 @@ from esphome.components import text_sensor
 from esphome.components.text_sensor import register_text_sensor
 from esphome import automation, pins, core
 from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
-    CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, ICON_NEW_BOX
+    CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, ICON_NEW_BOX, CONF_MAC_ADDRESS
 from esphome.core import coroutine
 from esphome.util import SimpleRegistry
 from .const import CONF_DEVICE_NAME, CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTER, \
@@ -86,6 +86,7 @@ def command_hex_schema(value):
 CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.GenerateID(): cv.declare_id(BluetoothExComponent),
     cv.Required(CONF_DEVICE_NAME): cv.string,
+    cv.Required(CONF_MAC_ADDRESS): cv.mac_address,
     cv.Optional(CONF_RX_TIMEOUT, default="10ms"): cv.All(
         cv.positive_time_period_milliseconds,
         cv.Range(max=core.TimePeriod(milliseconds=2000)),
@@ -135,7 +136,8 @@ async def to_code(config):
         sens = cg.new_Pvariable(config[CONF_ERROR][CONF_ID])
         await register_text_sensor(sens, config[CONF_ERROR])
         cg.add(var.set_error(sens))
-    
+    if CONF_DEVICE_NAME in config:
+        cg.add(var.set_address(config[CONF_MAC_ADDRESS].as_hex))
     if CONF_DEVICE_NAME in config:
         cg.add(var.set_device_name(config[CONF_DEVICE_NAME]))
     if CONF_RX_TIMEOUT in config:

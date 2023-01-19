@@ -36,11 +36,8 @@ void BluetoothExComponent::setup()
     if (rx_footer_.has_value()) rx_parser_.add_footers(rx_footer_.value());
     if (this->error_) this->error_->publish_state("None");
     if (this->version_) this->version_->publish_state(BLUETOOTHEX_VERSION);
-    serialbt_.begin("BT_DEVICE", true);
-    
-    //connected_ = serialbt_.connect(device_name_.value().c_str());
-    uint8_t address[6]  = {0xB1,0x21,0x81,0x35,0xC6,0xCE};
-    connected_ = serialbt_.connect(address);
+    serialbt_.begin(device_name_.value().c_str(), true);
+    connected_ = serialbt_.connect(address_);
     if(!connected_) while(!serialbt_.connected(10000));
     serialbt_.disconnect();
     serialbt_.connect();
@@ -50,7 +47,7 @@ void BluetoothExComponent::setup()
 
 void BluetoothExComponent::loop()
 {
-    //connect_to_device();
+    connect_to_device();
     read_from_bluetooth();
     publish_to_devices();
     write_to_bluetooth();
@@ -231,6 +228,16 @@ void BluetoothExComponent::write_flush(const unsigned long timer)
 void BluetoothExComponent::register_device(BluetoothExDevice *device)
 {
     devices_.push_back(device);
+}
+
+void BluetoothExComponent::set_address(uint64_t address)
+{
+    this->address_[0] = (address >> 40) & 0xFF;
+    this->address_[1] = (address >> 32) & 0xFF;
+    this->address_[2] = (address >> 24) & 0xFF;
+    this->address_[3] = (address >> 16) & 0xFF;
+    this->address_[4] = (address >> 8) & 0xFF;
+    this->address_[5] = (address >> 0) & 0xFF; 
 }
 
 void BluetoothExComponent::set_tx_delay(uint16_t tx_delay)

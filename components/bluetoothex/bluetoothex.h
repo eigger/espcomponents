@@ -40,6 +40,7 @@ class BluetoothExComponent : public Component
 {
 public:
     BluetoothExComponent() = default;
+    void set_address(uint64_t address);
     void set_device_name(std::string name) { device_name_ = name; }
     void set_rx_header(std::vector<uint8_t> header);
     void set_rx_footer(std::vector<uint8_t> footer);
@@ -93,6 +94,7 @@ protected:
     uint16_t conf_tx_retry_cnt_{3};
 
     optional<std::string> device_name_{};
+    uint8_t address_[6];
     optional<std::vector<uint8_t>> rx_header_{};
     optional<std::vector<uint8_t>> rx_footer_{};
     optional<std::vector<uint8_t>> tx_header_{};
