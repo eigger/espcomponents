@@ -205,12 +205,12 @@ async def to_code(config):
 # A schema to use for all BluetoothEx devices, all BluetoothEx integrations must extend this!
 BLUETOOTHEX_DEVICE_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_BLUETOOTHEX_ID): cv.use_id(BluetoothExComponent),
-    cv.Required(CONF_FILTER): state_schema,
+    cv.Optional(CONF_FILTER): state_schema,
     cv.Optional(CONF_SUB_FILTER): state_schema,
-    cv.Required(CONF_STATE_ON): state_schema,
-    cv.Required(CONF_STATE_OFF): state_schema,
-    cv.Required(CONF_COMMAND_ON): cv.templatable(command_hex_schema),
-    cv.Required(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_STATE_ON): state_schema,
+    cv.Optional(CONF_STATE_OFF): state_schema,
+    cv.Optional(CONF_COMMAND_ON): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_UPDATE): command_hex_schema,
     cv.Optional(CONF_STATE_RESPONSE): state_schema,
 }).extend(cv.polling_component_schema('60s'))

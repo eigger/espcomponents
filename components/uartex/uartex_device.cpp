@@ -130,7 +130,7 @@ bool UARTExDevice::parse_data(const std::vector<uint8_t> &data)
     else
         rx_response_ = false;
 
-    if (!validate(data, &filter_.value())) return false;
+    if (filter_.has_value() && !validate(data, &filter_.value())) return false;
     else if (sub_filter_.has_value() && !validate(data, &sub_filter_.value())) return false;
 
     if (state_off_.has_value() && validate(data, &state_off_.value()))
