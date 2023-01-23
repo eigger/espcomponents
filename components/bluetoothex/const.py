@@ -1,7 +1,8 @@
 # coding=utf-8
 """Constants used by esphome."""
 
-CONF_UARTEX_ID = 'uartex_id'
+CONF_BLUETOOTHEX_ID = 'bluetoothex_id'
+CONF_DEVICE_NAME = "device_name"
 CONF_RX_TIMEOUT = 'rx_timeout'
 CONF_TX_DELAY = 'tx_delay'
 CONF_TX_TIMEOUT = 'tx_timeout'

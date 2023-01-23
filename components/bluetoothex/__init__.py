@@ -2,16 +2,16 @@ from email.policy import default
 import logging
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import uart, text_sensor
+from esphome.components import text_sensor
 from esphome.components.text_sensor import register_text_sensor
 from esphome import automation, pins, core
 from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
-    CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, ICON_NEW_BOX
+    CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, ICON_NEW_BOX, CONF_MAC_ADDRESS
 from esphome.core import coroutine
 from esphome.util import SimpleRegistry
-from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTER, \
+from .const import CONF_DEVICE_NAME, CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTER, \
     CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, CONF_RX_CHECKSUM_2, CONF_TX_CHECKSUM_2, \
-    CONF_UARTEX_ID, CONF_ERROR, \
+    CONF_BLUETOOTHEX_ID, CONF_ERROR, \
     CONF_ACK, \
     CONF_SUB_FILTER, CONF_FILTER, CONF_MASK, \
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
@@ -22,18 +22,18 @@ from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTE
 _LOGGER = logging.getLogger(__name__)
 AUTO_LOAD = ["text_sensor"]
 CODEOWNERS = ["@eigger"]
-DEPENDENCIES = ["uart"]
-uartex_ns = cg.esphome_ns.namespace('uartex')
-UARTExComponent = uartex_ns.class_('UARTExComponent', cg.Component, uart.UARTDevice)
-UARTExWriteAction = uartex_ns.class_('UARTExWriteAction', automation.Action)
-cmd_t = uartex_ns.class_('cmd_t')
+#DEPENDENCIES = [""]
+bluetoothex_ns = cg.esphome_ns.namespace('bluetoothex')
+BluetoothExComponent = bluetoothex_ns.class_('BluetoothExComponent', cg.Component)
+BluetoothExWriteAction = bluetoothex_ns.class_('BluetoothExWriteAction', automation.Action)
+cmd_t = bluetoothex_ns.class_('cmd_t')
 uint16_const = cg.uint16.operator('const')
 uint8_const = cg.uint8.operator('const')
 uint8_ptr_const = uint8_const.operator('ptr')
 
 MULTI_CONF = False
 
-Checksum = uartex_ns.enum("Checksum")
+Checksum = bluetoothex_ns.enum("Checksum")
 CHECKSUMS = {
     "NONE": Checksum.CHECKSUM_NONE,
     "XOR": Checksum.CHECKSUM_XOR,
@@ -82,9 +82,11 @@ def command_hex_schema(value):
         return COMMAND_HEX_SCHEMA(value)
     return shorthand_command_hex(value)
 
-# UARTEx Schema
+# BluetoothEx Schema
 CONFIG_SCHEMA = cv.All(cv.Schema({
-    cv.GenerateID(): cv.declare_id(UARTExComponent),
+    cv.GenerateID(): cv.declare_id(BluetoothExComponent),
+    cv.Required(CONF_DEVICE_NAME): cv.string,
+    cv.Required(CONF_MAC_ADDRESS): cv.mac_address,
     cv.Optional(CONF_RX_TIMEOUT, default="10ms"): cv.All(
         cv.positive_time_period_milliseconds,
         cv.Range(max=core.TimePeriod(milliseconds=2000)),
@@ -107,7 +109,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_TX_CHECKSUM, default="none"): validate_checksum,
     cv.Optional(CONF_RX_CHECKSUM_2, default="none"): validate_checksum,
     cv.Optional(CONF_TX_CHECKSUM_2, default="none"): validate_checksum,
-    cv.Optional(CONF_VERSION, default={CONF_NAME: "UartEX Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
+    cv.Optional(CONF_VERSION, default={CONF_NAME: "BluetoothEX Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
         cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
@@ -119,14 +121,13 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         cv.Optional(CONF_ICON, default="mdi:alert-circle"): cv.icon,
         cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
     }),
-}).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA)
+}).extend(cv.COMPONENT_SCHEMA)
 )
 
 async def to_code(config):
-    cg.add_global(uartex_ns.using)
+    cg.add_global(bluetoothex_ns.using)
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
-    await uart.register_uart_device(var, config)
     if CONF_VERSION in config:
         sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
         await register_text_sensor(sens, config[CONF_VERSION])
@@ -135,7 +136,10 @@ async def to_code(config):
         sens = cg.new_Pvariable(config[CONF_ERROR][CONF_ID])
         await register_text_sensor(sens, config[CONF_ERROR])
         cg.add(var.set_error(sens))
-    
+    if CONF_DEVICE_NAME in config:
+        cg.add(var.set_address(config[CONF_MAC_ADDRESS].as_hex))
+    if CONF_DEVICE_NAME in config:
+        cg.add(var.set_device_name(config[CONF_DEVICE_NAME]))
     if CONF_RX_TIMEOUT in config:
         cg.add(var.set_rx_timeout(config[CONF_RX_TIMEOUT]))
     if CONF_TX_DELAY in config:
@@ -198,15 +202,15 @@ async def to_code(config):
         else:
             cg.add(var.set_tx_checksum_2(data))
 
-# A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
-UARTEX_DEVICE_SCHEMA = cv.Schema({
-    cv.GenerateID(CONF_UARTEX_ID): cv.use_id(UARTExComponent),
-    cv.Required(CONF_FILTER): state_schema,
+# A schema to use for all BluetoothEx devices, all BluetoothEx integrations must extend this!
+BLUETOOTHEX_DEVICE_SCHEMA = cv.Schema({
+    cv.GenerateID(CONF_BLUETOOTHEX_ID): cv.use_id(BluetoothExComponent),
+    cv.Optional(CONF_FILTER): state_schema,
     cv.Optional(CONF_SUB_FILTER): state_schema,
-    cv.Required(CONF_STATE_ON): state_schema,
-    cv.Required(CONF_STATE_OFF): state_schema,
-    cv.Required(CONF_COMMAND_ON): cv.templatable(command_hex_schema),
-    cv.Required(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_STATE_ON): state_schema,
+    cv.Optional(CONF_STATE_OFF): state_schema,
+    cv.Optional(CONF_COMMAND_ON): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_UPDATE): command_hex_schema,
     cv.Optional(CONF_STATE_RESPONSE): state_schema,
 }).extend(cv.polling_component_schema('60s'))
@@ -221,8 +225,8 @@ STATE_NUM_SCHEMA = cv.Schema({
 HEX_SCHEMA_REGISTRY = SimpleRegistry()
 
 @coroutine
-def register_uartex_device(var, config):
-    paren = yield cg.get_variable(config[CONF_UARTEX_ID])
+def register_bluetoothex_device(var, config):
+    paren = yield cg.get_variable(config[CONF_BLUETOOTHEX_ID])
     cg.add(paren.register_device(var))
     yield var
 
@@ -292,12 +296,12 @@ def command_hex_expression(conf):
         yield data
 
 
-@automation.register_action('uartex.write', UARTExWriteAction, cv.maybe_simple_value({
-    cv.GenerateID(): cv.use_id(UARTExComponent),
+@automation.register_action('bluetoothex.write', BluetoothExWriteAction, cv.maybe_simple_value({
+    cv.GenerateID(): cv.use_id(BluetoothExComponent),
     cv.Required(CONF_DATA): cv.templatable(validate_hex_data),
     cv.Optional(CONF_ACK, default=[]): validate_hex_data
 }, key=CONF_DATA))
-def uartex_write_to_code(config, action_id, template_arg, args):
+def bluetoothex_write_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
     yield cg.register_parented(var, config[CONF_ID])
     data = config[CONF_DATA]

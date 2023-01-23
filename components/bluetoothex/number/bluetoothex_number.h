@@ -1,15 +1,15 @@
 #pragma once
 
-#include "esphome/components/uartex/uartex_device.h"
+#include "esphome/components/bluetoothex/bluetoothex_device.h"
 #include "esphome/components/number/number.h"
 
 namespace esphome {
-namespace uartex {
+namespace bluetoothex {
 
-class UARTExNumber : public number::Number, public UARTExDevice 
+class BluetoothExNumber : public number::Number, public BluetoothExDevice 
 {
 public:
-    UARTExNumber() { device_name_ = &this->name_; }
+    BluetoothExNumber() { device_name_ = &this->name_; }
     void dump_config() override;
     void setup() override;
     void publish(const std::vector<uint8_t>& data) override;
@@ -25,5 +25,5 @@ protected:
     cmd_t command_number_{};
 };
 
-}  // namespace uartex
+}  // namespace bluetoothex
 }  // namespace esphome

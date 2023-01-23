@@ -5,13 +5,13 @@
 #include "esphome/core/automation.h"
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
-#include "esphome/components/uart/uart.h"
 #include "esphome/components/text_sensor/text_sensor.h"
-#include "uartex_device.h"
+#include "bluetoothex_device.h"
+#include "BluetoothSerial.h"
 #include "parser.h"
 #include "version.h"
 namespace esphome {
-namespace uartex {
+namespace bluetoothex {
 
 enum ValidateCode {
     ERR_NONE,
@@ -32,14 +32,16 @@ enum Checksum {
 
 struct tx_data
 {
-    UARTExDevice* device;
+    BluetoothExDevice* device;
     const cmd_t* cmd;
 };
 
-class UARTExComponent : public uart::UARTDevice, public Component
+class BluetoothExComponent : public Component
 {
 public:
-    UARTExComponent() = default;
+    BluetoothExComponent() = default;
+    void set_address(uint64_t address);
+    void set_device_name(std::string name) { device_name_ = name; }
     void set_rx_header(std::vector<uint8_t> header);
     void set_rx_footer(std::vector<uint8_t> footer);
     void set_tx_header(std::vector<uint8_t> header);
@@ -66,7 +68,7 @@ public:
     void push_tx_data(const tx_data data);
     void push_tx_data_late(const tx_data data);
     void write_flush(const unsigned long timer);
-    void register_device(UARTExDevice *device);
+    void register_device(BluetoothExDevice *device);
     void set_tx_delay(uint16_t tx_delay);
     void set_tx_timeout(uint16_t timeout);
     void set_tx_retry_cnt(uint16_t tx_retry_cnt);
@@ -76,20 +78,23 @@ public:
     void ack_tx_data(bool ok);
     void clear_tx_data();
     const cmd_t* tx_cmd();
-    UARTExDevice* tx_device();
+    BluetoothExDevice* tx_device();
     unsigned long elapsed_time(const unsigned long timer);
     unsigned long get_time();
 
     void set_version(text_sensor::TextSensor *version) { version_ = version; }
     void set_error(text_sensor::TextSensor *error) { error_ = error; }
 protected:
-
-    std::vector<UARTExDevice *> devices_{};
+    BluetoothSerial serialbt_;
+    bool connected_{false};
+    std::vector<BluetoothExDevice *> devices_{};
     uint16_t conf_rx_timeout_{10};
     uint16_t conf_tx_delay_{50};
     uint16_t conf_tx_timeout_{50};
     uint16_t conf_tx_retry_cnt_{3};
 
+    optional<std::string> device_name_{};
+    uint8_t address_[6];
     optional<std::vector<uint8_t>> rx_header_{};
     optional<std::vector<uint8_t>> rx_footer_{};
     optional<std::vector<uint8_t>> tx_header_{};
@@ -108,17 +113,19 @@ protected:
     ValidateCode validate_data();
     bool publish_error(ValidateCode error_code);
     ValidateCode error_code_{ValidateCode::ERR_NONE};
-    void read_from_uart();
+    void connect_to_device();
+    void read_from_bluetooth();
     void publish_to_devices();
     bool validate_ack();
     void publish_data();
 
-    void write_to_uart();
+    void write_to_bluetooth();
     bool retry_tx_cmd();
     void write_tx_data();
     void pop_tx_data();
 
     unsigned long rx_time_{0};
+    unsigned long disconnected_time_{0};
     std::queue<tx_data> tx_queue_{};
     std::queue<tx_data> tx_queue_late_{};
 
@@ -132,5 +139,5 @@ protected:
     text_sensor::TextSensor *error_{nullptr};
 };
 
-} // namespace uartex
+} // namespace bluetoothex
 } // namespace esphome

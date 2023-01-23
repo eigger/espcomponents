@@ -1,12 +1,12 @@
-#include "uartex.h"
+#include "bluetoothex.h"
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/application.h"
 
 namespace esphome {
-namespace uartex {
-static const char *TAG = "uartex";
-void UARTExComponent::dump_config()
+namespace bluetoothex {
+static const char *TAG = "bluetoothex";
+void BluetoothExComponent::dump_config()
 {
     ESP_LOGCONFIG(TAG, "  RX Receive Timeout: %d", conf_rx_timeout_);
     ESP_LOGCONFIG(TAG, "  TX Transmission Timeout: %d", conf_tx_timeout_);
@@ -21,7 +21,7 @@ void UARTExComponent::dump_config()
     ESP_LOGCONFIG(TAG, "  Device count: %d", devices_.size());
 }
 
-void UARTExComponent::setup()
+void BluetoothExComponent::setup()
 {
     if (this->tx_ctrl_pin_)
     {
@@ -35,28 +35,52 @@ void UARTExComponent::setup()
     if (rx_header_.has_value()) rx_parser_.add_headers(rx_header_.value());
     if (rx_footer_.has_value()) rx_parser_.add_footers(rx_footer_.value());
     if (this->error_) this->error_->publish_state("None");
-    if (this->version_) this->version_->publish_state(UARTEX_VERSION);
+    if (this->version_) this->version_->publish_state(BLUETOOTHEX_VERSION);
+    serialbt_.begin(device_name_.value().c_str(), true);
+    connected_ = serialbt_.connect(address_);
+    if(!connected_) while(!serialbt_.connected(10000));
+    serialbt_.disconnect();
+    serialbt_.connect();
+    disconnected_time_ = get_time();
     ESP_LOGI(TAG, "Initaialize.");
 }
 
-void UARTExComponent::loop()
+void BluetoothExComponent::loop()
 {
-    read_from_uart();
+    connect_to_device();
+    read_from_bluetooth();
     publish_to_devices();
-    write_to_uart();
+    write_to_bluetooth();
 }
 
-void UARTExComponent::read_from_uart()
+void BluetoothExComponent::connect_to_device()
+{
+    connected_ = serialbt_.connected(10000);
+    if (connected_)
+    {
+        disconnected_time_ = get_time();
+        return;
+    }
+    if (elapsed_time(disconnected_time_) > 10000)
+    {
+        serialbt_.disconnect();
+        serialbt_.connect();
+        disconnected_time_ = get_time();
+        ESP_LOGI(TAG, "Retry connection");
+    }
+}
+
+void BluetoothExComponent::read_from_bluetooth()
 {
     rx_parser_.clear();
     bool valid_data = false;
     unsigned long timer = get_time();
+    if (connected_ == false) return;
     while (elapsed_time(timer) < conf_rx_timeout_)
     {
-        while (!valid_data && this->available())
+        while (!valid_data && this->serialbt_.available())
         {
-            uint8_t byte;
-            if (!this->read_byte(&byte)) continue;
+            uint8_t byte = this->serialbt_.read();
             if (rx_parser_.parse_byte(byte)) valid_data = true;
             if (validate_data() == ERR_NONE) valid_data = true;
             timer = get_time();
@@ -66,7 +90,7 @@ void UARTExComponent::read_from_uart()
     }
 }
 
-void UARTExComponent::publish_to_devices()
+void BluetoothExComponent::publish_to_devices()
 {
     if (rx_parser_.buffer().size() == 0) return;
     if (publish_error(validate_data()) == true) return;
@@ -75,7 +99,7 @@ void UARTExComponent::publish_to_devices()
     rx_time_ = get_time();
 }
 
-bool UARTExComponent::validate_ack()
+bool BluetoothExComponent::validate_ack()
 {
     if (!is_have_tx_cmd()) return false;
     if (tx_device() == nullptr) return false;
@@ -86,10 +110,10 @@ bool UARTExComponent::validate_ack()
     return false;
 }
 
-void UARTExComponent::publish_data()
+void BluetoothExComponent::publish_data()
 {
     bool found = false;
-    for (UARTExDevice* device : this->devices_)
+    for (BluetoothExDevice* device : this->devices_)
     {
         if (device->parse_data(rx_parser_.data()))
         {
@@ -104,9 +128,9 @@ void UARTExComponent::publish_data()
 #endif
 }
 
-void UARTExComponent::pop_tx_data()
+void BluetoothExComponent::pop_tx_data()
 {
-    for (UARTExDevice* device : this->devices_)
+    for (BluetoothExDevice* device : this->devices_)
     {
         const cmd_t *cmd = device->pop_tx_cmd();
         if (cmd == nullptr) continue;
@@ -115,7 +139,7 @@ void UARTExComponent::pop_tx_data()
     }
 }
 
-void UARTExComponent::write_to_uart()
+void BluetoothExComponent::write_to_bluetooth()
 {
     if (elapsed_time(rx_time_) < conf_tx_delay_) return;
     if (elapsed_time(tx_time_) < conf_tx_delay_) return;
@@ -124,7 +148,7 @@ void UARTExComponent::write_to_uart()
     write_tx_data();
 }
 
-bool UARTExComponent::retry_tx_cmd()
+bool BluetoothExComponent::retry_tx_cmd()
 {
     if (!is_have_tx_cmd()) return false;
     if (conf_tx_retry_cnt_ <= tx_retry_cnt_)
@@ -140,7 +164,7 @@ bool UARTExComponent::retry_tx_cmd()
     return true;
 }
 
-void UARTExComponent::write_tx_data()
+void BluetoothExComponent::write_tx_data()
 {
     pop_tx_data();
     if (!tx_queue_.empty())
@@ -157,7 +181,7 @@ void UARTExComponent::write_tx_data()
     }
 }
 
-void UARTExComponent::write_tx_cmd()
+void BluetoothExComponent::write_tx_cmd()
 {
     unsigned long timer = get_time();
     if (tx_ctrl_pin_) tx_ctrl_pin_->digital_write(true);
@@ -173,71 +197,81 @@ void UARTExComponent::write_tx_cmd()
     if (tx_cmd()->ack.size() == 0) ack_tx_data(true);
 }
 
-void UARTExComponent::write_data(const uint8_t data)
+void BluetoothExComponent::write_data(const uint8_t data)
 {
-    this->write_byte(data);
+    this->serialbt_.write(data);
     ESP_LOGD(TAG, "Write byte-> 0x%02X", data);
 }
 
-void UARTExComponent::write_data(const std::vector<uint8_t> &data)
+void BluetoothExComponent::write_data(const std::vector<uint8_t> &data)
 {
-    this->write_array(data);
+    this->serialbt_.write(&data[0], data.size());
     ESP_LOGD(TAG, "Write array-> %s", to_hex_string(data).c_str());
 }
 
-void UARTExComponent::push_tx_data(const tx_data data)
+void BluetoothExComponent::push_tx_data(const tx_data data)
 {
     tx_queue_.push(data);
 }
 
-void UARTExComponent::push_tx_data_late(const tx_data data)
+void BluetoothExComponent::push_tx_data_late(const tx_data data)
 {
     tx_queue_late_.push(data);
 }
 
-void UARTExComponent::write_flush(const unsigned long timer)
+void BluetoothExComponent::write_flush(const unsigned long timer)
 {
-    this->flush();
+    this->serialbt_.flush();
     ESP_LOGD(TAG, "Flushing... (%lums)", elapsed_time(timer));
 }
 
-void UARTExComponent::register_device(UARTExDevice *device)
+void BluetoothExComponent::register_device(BluetoothExDevice *device)
 {
     devices_.push_back(device);
 }
 
-void UARTExComponent::set_tx_delay(uint16_t tx_delay)
+void BluetoothExComponent::set_address(uint64_t address)
+{
+    this->address_[0] = (address >> 40) & 0xFF;
+    this->address_[1] = (address >> 32) & 0xFF;
+    this->address_[2] = (address >> 24) & 0xFF;
+    this->address_[3] = (address >> 16) & 0xFF;
+    this->address_[4] = (address >> 8) & 0xFF;
+    this->address_[5] = (address >> 0) & 0xFF; 
+}
+
+void BluetoothExComponent::set_tx_delay(uint16_t tx_delay)
 {
     conf_tx_delay_ = tx_delay;
 }
 
-void UARTExComponent::set_tx_timeout(uint16_t timeout)
+void BluetoothExComponent::set_tx_timeout(uint16_t timeout)
 {
     conf_tx_timeout_ = timeout;
 }
 
-void UARTExComponent::set_tx_retry_cnt(uint16_t tx_retry_cnt)
+void BluetoothExComponent::set_tx_retry_cnt(uint16_t tx_retry_cnt)
 {
     conf_tx_retry_cnt_ = tx_retry_cnt;
 }
 
-void UARTExComponent::set_rx_timeout(uint16_t timeout)
+void BluetoothExComponent::set_rx_timeout(uint16_t timeout)
 {
     conf_rx_timeout_ = timeout;
 }
 
-void UARTExComponent::set_tx_ctrl_pin(InternalGPIOPin *pin)
+void BluetoothExComponent::set_tx_ctrl_pin(InternalGPIOPin *pin)
 {
     tx_ctrl_pin_ = pin;
 }
 
-bool UARTExComponent::is_have_tx_cmd()
+bool BluetoothExComponent::is_have_tx_cmd()
 {
     if (tx_data_.cmd) return true;
     return false;
 }
 
-void UARTExComponent::ack_tx_data(bool ok)
+void BluetoothExComponent::ack_tx_data(bool ok)
 {
     if (tx_data_.device)
     {
@@ -247,34 +281,34 @@ void UARTExComponent::ack_tx_data(bool ok)
     clear_tx_data();
 }
 
-void UARTExComponent::clear_tx_data()
+void BluetoothExComponent::clear_tx_data()
 {
     tx_data_.device = nullptr;
     tx_data_.cmd = nullptr;
     tx_retry_cnt_ = 0;
 }
 
-const cmd_t* UARTExComponent::tx_cmd()
+const cmd_t* BluetoothExComponent::tx_cmd()
 {
     return tx_data_.cmd;
 }
 
-UARTExDevice* UARTExComponent::tx_device()
+BluetoothExDevice* BluetoothExComponent::tx_device()
 {
     return tx_data_.device;
 }
 
-unsigned long UARTExComponent::elapsed_time(const unsigned long timer)
+unsigned long BluetoothExComponent::elapsed_time(const unsigned long timer)
 {
     return millis() - timer;
 }
 
-unsigned long UARTExComponent::get_time()
+unsigned long BluetoothExComponent::get_time()
 {
     return millis();
 }
 
-ValidateCode UARTExComponent::validate_data()
+ValidateCode BluetoothExComponent::validate_data()
 {
     if (rx_parser_.data().size() == 0)
     {
@@ -301,7 +335,7 @@ ValidateCode UARTExComponent::validate_data()
     return ERR_NONE;
 }
 
-bool UARTExComponent::publish_error(ValidateCode error_code)
+bool BluetoothExComponent::publish_error(ValidateCode error_code)
 {
     bool error = true;
     switch(error_code)
@@ -335,71 +369,71 @@ bool UARTExComponent::publish_error(ValidateCode error_code)
     return error;
 }
 
-void UARTExComponent::set_rx_header(std::vector<uint8_t> header)
+void BluetoothExComponent::set_rx_header(std::vector<uint8_t> header)
 {
     rx_header_ = header;
 }
 
-void UARTExComponent::set_rx_footer(std::vector<uint8_t> footer)
+void BluetoothExComponent::set_rx_footer(std::vector<uint8_t> footer)
 {
     rx_footer_ = footer;
 }
 
-void UARTExComponent::set_tx_header(std::vector<uint8_t> header)
+void BluetoothExComponent::set_tx_header(std::vector<uint8_t> header)
 {
     tx_header_ = header;
 }
 
-void UARTExComponent::set_tx_footer(std::vector<uint8_t> footer)
+void BluetoothExComponent::set_tx_footer(std::vector<uint8_t> footer)
 {
     tx_footer_ = footer;
 }
 
-void UARTExComponent::set_rx_checksum(Checksum checksum)
+void BluetoothExComponent::set_rx_checksum(Checksum checksum)
 {
     rx_checksum_ = checksum;
 }
 
-void UARTExComponent::set_rx_checksum_2(Checksum checksum)
+void BluetoothExComponent::set_rx_checksum_2(Checksum checksum)
 {
     rx_checksum_2_ = checksum;
 }
 
-void UARTExComponent::set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f)
+void BluetoothExComponent::set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f)
 {
     rx_checksum_f_ = f;
     rx_checksum_ = CHECKSUM_CUSTOM;
 }
 
-void UARTExComponent::set_rx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)> &&f)
+void BluetoothExComponent::set_rx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)> &&f)
 {
     rx_checksum_f_2_ = f;
     rx_checksum_2_ = CHECKSUM_CUSTOM;
 }
 
-void UARTExComponent::set_tx_checksum(Checksum checksum)
+void BluetoothExComponent::set_tx_checksum(Checksum checksum)
 {
     tx_checksum_ = checksum;
 }
 
-void UARTExComponent::set_tx_checksum_2(Checksum checksum)
+void BluetoothExComponent::set_tx_checksum_2(Checksum checksum)
 {
     tx_checksum_2_ = checksum;
 }
 
-void UARTExComponent::set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f)
+void BluetoothExComponent::set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f)
 {
     tx_checksum_f_ = f;
     tx_checksum_ = CHECKSUM_CUSTOM;
 }
 
-void UARTExComponent::set_tx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)> &&f)
+void BluetoothExComponent::set_tx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)> &&f)
 {
     tx_checksum_f_2_ = f;
     tx_checksum_2_ = CHECKSUM_CUSTOM;
 }
 
-uint8_t UARTExComponent::get_rx_checksum(const std::vector<uint8_t> &data) const
+uint8_t BluetoothExComponent::get_rx_checksum(const std::vector<uint8_t> &data) const
 {
     if (this->rx_checksum_f_.has_value())
     {
@@ -433,7 +467,7 @@ uint8_t UARTExComponent::get_rx_checksum(const std::vector<uint8_t> &data) const
 }
 
 
-uint8_t UARTExComponent::get_rx_checksum_2(const std::vector<uint8_t> &data) const
+uint8_t BluetoothExComponent::get_rx_checksum_2(const std::vector<uint8_t> &data) const
 {
     uint8_t checksum = get_rx_checksum(data);
     if (this->rx_checksum_f_2_.has_value())
@@ -469,7 +503,7 @@ uint8_t UARTExComponent::get_rx_checksum_2(const std::vector<uint8_t> &data) con
     }
 }
 
-uint8_t UARTExComponent::get_tx_checksum(const std::vector<uint8_t> &data) const
+uint8_t BluetoothExComponent::get_tx_checksum(const std::vector<uint8_t> &data) const
 {
     if (this->tx_checksum_f_.has_value())
     {
@@ -503,7 +537,7 @@ uint8_t UARTExComponent::get_tx_checksum(const std::vector<uint8_t> &data) const
 }
 
 
-uint8_t UARTExComponent::get_tx_checksum_2(const std::vector<uint8_t> &data) const
+uint8_t BluetoothExComponent::get_tx_checksum_2(const std::vector<uint8_t> &data) const
 {
     uint8_t checksum = get_tx_checksum(data);
     if (this->tx_checksum_f_2_.has_value())
@@ -538,5 +572,5 @@ uint8_t UARTExComponent::get_tx_checksum_2(const std::vector<uint8_t> &data) con
         return crc;
     }
 }
-}  // namespace uartex
+}  // namespace bluetoothex
 }  // namespace esphome

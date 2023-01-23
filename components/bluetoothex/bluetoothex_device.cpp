@@ -1,21 +1,21 @@
-#include "uartex_device.h"
+#include "bluetoothex_device.h"
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/application.h"
 
 namespace esphome {
-namespace uartex {
+namespace bluetoothex {
 
-static const char *TAG = "uartex";
+static const char *TAG = "bluetoothex";
 
-void UARTExDevice::update()
+void BluetoothExDevice::update()
 {
     if (!command_update_.has_value()) return;
     ESP_LOGD(TAG, "'%s' update(): Request current state...", device_name_->c_str());
     push_tx_cmd(&command_update_.value());
 }
 
-void UARTExDevice::dump_uartex_device_config(const char *TAG)
+void BluetoothExDevice::dump_bluetoothex_device_config(const char *TAG)
 {
     ESP_LOGCONFIG(TAG, "  Filter: %s, offset: %d", to_hex_string(filter_.value().data).c_str(), filter_.value().offset);
     if (sub_filter_.has_value())
@@ -41,71 +41,71 @@ void UARTExDevice::dump_uartex_device_config(const char *TAG)
     LOG_UPDATE_INTERVAL(this);
 }
 
-void UARTExDevice::set_filter(state_t filter)
+void BluetoothExDevice::set_filter(state_t filter)
 {
     filter_ = filter;
 }
 
-void UARTExDevice::set_sub_filter(state_t sub_filter)
+void BluetoothExDevice::set_sub_filter(state_t sub_filter)
 {
     sub_filter_ = sub_filter;
 }
 
-void UARTExDevice::set_state_on(state_t state_on)
+void BluetoothExDevice::set_state_on(state_t state_on)
 {
     state_on_ = state_on;
 }
 
-void UARTExDevice::set_state_off(state_t state_off)
+void BluetoothExDevice::set_state_off(state_t state_off)
 {
     state_off_ = state_off;
 }
 
-void UARTExDevice::set_command_on(cmd_t command_on)
+void BluetoothExDevice::set_command_on(cmd_t command_on)
 {
     command_on_ = command_on;
 }
 
-void UARTExDevice::set_command_on(std::function<cmd_t()> command_on_func)
+void BluetoothExDevice::set_command_on(std::function<cmd_t()> command_on_func)
 {
     command_on_func_ = command_on_func;
 }
 
-const cmd_t *UARTExDevice::get_command_on()
+const cmd_t *BluetoothExDevice::get_command_on()
 {
     if (command_on_func_.has_value())
         command_on_ = (*command_on_func_)();
     return &command_on_.value();
 }
 
-void UARTExDevice::set_command_off(cmd_t command_off)
+void BluetoothExDevice::set_command_off(cmd_t command_off)
 {
     command_off_ = command_off;
 }
 
-void UARTExDevice::set_command_off(std::function<cmd_t()> command_off_func)
+void BluetoothExDevice::set_command_off(std::function<cmd_t()> command_off_func)
 {
     command_off_func_ = command_off_func;
 }
 
-const cmd_t *UARTExDevice::get_command_off()
+const cmd_t *BluetoothExDevice::get_command_off()
 {
     if (command_off_func_.has_value())
         command_off_ = (*command_off_func_)();
     return &command_off_.value();
 }
 
-void UARTExDevice::set_command_update(cmd_t command_update)
+void BluetoothExDevice::set_command_update(cmd_t command_update)
 {
     command_update_ = command_update;
 }
 
-void UARTExDevice::set_state_response(state_t state_response)
+void BluetoothExDevice::set_state_response(state_t state_response)
 {
     state_response_ = state_response;
 }
 
-const cmd_t *UARTExDevice::pop_tx_cmd()
+const cmd_t *BluetoothExDevice::pop_tx_cmd()
 {
     if (state_response_.has_value() && !rx_response_) return nullptr;
     rx_response_ = false;
@@ -115,15 +115,15 @@ const cmd_t *UARTExDevice::pop_tx_cmd()
     return cmd;
 }
 
-void UARTExDevice::ack_ok()
+void BluetoothExDevice::ack_ok()
 {   
 }
 
-void UARTExDevice::ack_ng()
+void BluetoothExDevice::ack_ng()
 {
 }
 
-bool UARTExDevice::parse_data(const std::vector<uint8_t> &data)
+bool BluetoothExDevice::parse_data(const std::vector<uint8_t> &data)
 {
     if (state_response_.has_value() && validate(data, &state_response_.value()))
         rx_response_ = true;
@@ -147,19 +147,19 @@ bool UARTExDevice::parse_data(const std::vector<uint8_t> &data)
     return true;
 }
 
-void UARTExDevice::push_tx_cmd(const cmd_t *cmd)
+void BluetoothExDevice::push_tx_cmd(const cmd_t *cmd)
 {
     if (cmd->data.size() == 0) return;
     tx_cmd_queue_.push(cmd);
 }
 
-bool UARTExDevice::equal(const std::vector<uint8_t> &data1, const std::vector<uint8_t> &data2, const uint16_t offset)
+bool BluetoothExDevice::equal(const std::vector<uint8_t> &data1, const std::vector<uint8_t> &data2, const uint16_t offset)
 {
     if (data1.size() - offset < data2.size()) return false;
     return std::equal(data1.begin() + offset, data1.begin() + offset + data2.size(), data2.begin());
 }
 
-const std::vector<uint8_t> UARTExDevice::masked_data(const std::vector<uint8_t> &data, const state_t *state)
+const std::vector<uint8_t> BluetoothExDevice::masked_data(const std::vector<uint8_t> &data, const state_t *state)
 {
     std::vector<uint8_t> masked_data;
     masked_data.resize(data.size());
@@ -171,14 +171,14 @@ const std::vector<uint8_t> UARTExDevice::masked_data(const std::vector<uint8_t> 
     return masked_data;
 }
 
-bool UARTExDevice::validate(const std::vector<uint8_t> &data, const state_t *state)
+bool BluetoothExDevice::validate(const std::vector<uint8_t> &data, const state_t *state)
 {
     if (state->mask.size() == 0)    return equal(data, state->data, state->offset) ? !state->inverted : state->inverted;
     else                            return equal(masked_data(data, state), state->data, state->offset) ? !state->inverted : state->inverted;
     return false;
 }
 
-float UARTExDevice::state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
+float BluetoothExDevice::state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
 {
     unsigned int val = 0;
     for (uint16_t i = state.offset, len = 0; i < data.size() && len < state.length; i++, len++)
@@ -202,5 +202,5 @@ std::string to_hex_string(const std::vector<unsigned char> &data)
     return res;
 }
 
-}  // namespace uartex
+}  // namespace bluetoothex
 }  // namespace esphome
