@@ -16,6 +16,10 @@ divoom_ns = cg.esphome_ns.namespace("divoom")
 divoom = divoom_ns.class_(
     "DivoomDisplay", cg.PollingComponent, display.DisplayBuffer
 )
+
+Divoom16x16 = divoom_ns.class_("Divoom16x16", divoom)
+Divoom11x11 = divoom_ns.class_("Divoom11x11", divoom)
+
 DivoomModel = divoom_ns.enum("DivoomModel")
 
 MODELS = {
@@ -39,7 +43,11 @@ CONFIG_SCHEMA = cv.All(
 
 
 async def to_code(config):
-    rhs = divoom.new()
+    if config[CONF_MODEL] == "16X16":
+        lcd_type = Divoom16x16
+    if config[CONF_MODEL] == "11X11":
+        lcd_type = Divoom11x11
+    rhs = lcd_type.new()
     var = cg.Pvariable(config[CONF_ID], rhs)
 
     await cg.register_component(var, config)

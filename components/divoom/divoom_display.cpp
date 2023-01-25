@@ -22,17 +22,7 @@ void DivoomDisplay::update() {
 
 void DivoomDisplay::setup()
 {
-    if (model_ == DivoomModel::DIVOOM11)
-    {
-        this->width_ = 11;
-        this->height_ = 11;
-    }
-    else
-    {
-        this->width_ = 16;
-        this->height_ = 16;
-    }
-    buffer_ = std::vector<Color>(this->width_ * this->height_, Color::BLACK);
+    this->initialize();
     rx_parser_.set_checksum_len(2);
     rx_parser_.add_header(DIVOOM_HEADER);
     rx_parser_.add_footer(DIVOOM_FOOTER);
@@ -201,6 +191,18 @@ void DivoomDisplay::write_protocol(const std::vector<uint8_t> &data)
     buffer.push_back((checksum >> 8) & 0xFF);
     buffer.push_back(DIVOOM_FOOTER);
     write_data(buffer);
+}
+
+void Divoom16x16::initialize() {
+    this->width_ = 16;
+    this->height_ = 16;
+    buffer_ = std::vector<Color>(this->width_ * this->height_, Color::BLACK);
+}
+
+void Divoom11x11::initialize() {
+    this->width_ = 11;
+    this->height_ = 11;
+    buffer_ = std::vector<Color>(this->width_ * this->height_, Color::BLACK);
 }
 
 }  // namespace divoom

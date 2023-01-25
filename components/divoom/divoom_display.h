@@ -20,6 +20,7 @@ class DivoomDisplay : public PollingComponent, public display::DisplayBuffer
 public:
     void set_model(DivoomModel model) { this->model_ = model; }
     float get_setup_priority() const { return setup_priority::PROCESSOR; }
+    display::DisplayType get_display_type() override { return display::DisplayType::DISPLAY_TYPE_COLOR; }
     virtual void initialize() = 0;
 
     void update() override;
@@ -58,6 +59,18 @@ protected:
 
     void write_data(const std::vector<uint8_t> &data);
     void write_protocol(const std::vector<uint8_t> &data);
+};
+
+class Divoom16x16 : public DivoomDisplay
+{
+public:
+    void initialize() override;
+};
+
+class Divoom11x11 : public DivoomDisplay
+{
+public:
+    void initialize() override;
 };
 
 }  // namespace divoom
