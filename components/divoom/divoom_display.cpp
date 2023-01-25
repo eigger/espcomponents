@@ -122,7 +122,7 @@ void DivoomDisplay::display_() {
         uint8_t g = (color.g * 0x0F) / 0xFF;
         uint8_t b = (color.b * 0x0F) / 0xFF;
         if (debug) ESP_LOGI(TAG, "Pixel r%d,g%d,b%d", r, g, b);
-        debug = false;
+        
         if (first)
         {
             first = false;
@@ -141,6 +141,8 @@ void DivoomDisplay::display_() {
             protocol[protocol.size() - 1] += (b << 0x0F);
             protocol[protocol.size() - 2] += (r << 0x0F);
         }
+        if (debug) ESP_LOGI(TAG, "array-> %s", to_hex_string(protocol).c_str());
+        debug = false;
     }
     write_protocol(protocol);
 }
@@ -175,7 +177,7 @@ void DivoomDisplay::write_data(const std::vector<uint8_t> &data)
 {
     if (!connected_) return;
     this->serialbt_.write(&data[0], data.size());
-    ESP_LOGI(TAG, "Write array-> %s", to_hex_string(data).c_str());
+    //ESP_LOGI(TAG, "Write array-> %s", to_hex_string(data).c_str());
 }
 
 std::string DivoomDisplay::to_hex_string(const std::vector<unsigned char> &data)
