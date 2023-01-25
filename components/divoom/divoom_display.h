@@ -60,17 +60,5 @@ protected:
     void write_protocol(const std::vector<uint8_t> &data);
 };
 
-class Divoom16x16 : public DivoomDisplay
-{
-public:
-    void initialize() override;
-};
-
-class Divoom11x11 : public DivoomDisplay
-{
-public:
-    void initialize() override;
-};
-
 }  // namespace divoom
 }  // namespace esphome
