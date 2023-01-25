@@ -158,7 +158,7 @@ void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color) 
 
   uint32_t pos = (y * width_) + x;
   buffer_[pos] = color;
-  ESP_LOGI(TAG, "Pixel %d,%d=%d", x, y, color);
+  ESP_LOGI(TAG, "Pixel %d,%d=r%d,g%d,b%d", x, y, color.r, color.g, color.b);
 }
 
 // should return the total size: return this->get_width_internal() * this->get_height_internal() * 2 // 16bit color
