@@ -1,12 +1,10 @@
 #pragma once
 
 #include "esphome/core/component.h"
-#include "esphome/components/spi/spi.h"
 #include "esphome/components/display/display_buffer.h"
 #include "BluetoothSerial.h"
 #include "parser.h"
 #include "divoom_defines.h"
-#include "divoom_init.h"
 
 namespace esphome {
 namespace divoom {
