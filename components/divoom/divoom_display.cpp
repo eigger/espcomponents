@@ -129,7 +129,7 @@ void DivoomDisplay::display_() {
             protocol.push_back(0x00);
             protocol.push_back(0x00);
             protocol[protocol.size() - 2] = r;
-            protocol[protocol.size() - 2] += (g << 0x0F);
+            protocol[protocol.size() - 2] += (g << 4);
             protocol[protocol.size() - 1] = b;
             //G[0]R[0] R[1]B[0] B[1]G[1]
         }
@@ -138,8 +138,8 @@ void DivoomDisplay::display_() {
             first = true;
             protocol.push_back(0x00);
             protocol[protocol.size() - 1] = g;
-            protocol[protocol.size() - 1] += (b << 0x0F);
-            protocol[protocol.size() - 2] += (r << 0x0F);
+            protocol[protocol.size() - 1] += (b << 4);
+            protocol[protocol.size() - 2] += (r << 4);
         }
         if (debug) ESP_LOGI(TAG, "array-> %s", to_hex_string(protocol).c_str());
         debug = false;
