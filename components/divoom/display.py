@@ -23,8 +23,8 @@ Divoom11x11 = divoom_ns.class_("Divoom11x11", divoom)
 DivoomModel = divoom_ns.enum("DivoomModel")
 
 MODELS = {
-    "16x16": DivoomModel.DIVOOM16,
-    "11x11": DivoomModel.DIVOOM11,
+    "16X16": DivoomModel.DIVOOM16,
+    "11X11": DivoomModel.DIVOOM11,
 }
 
 Divoom_MODEL = cv.enum(MODELS, upper=True, space="_")
@@ -43,9 +43,9 @@ CONFIG_SCHEMA = cv.All(
 
 
 async def to_code(config):
-    if config[CONF_MODEL] == "16x16":
+    if config[CONF_MODEL] == "16X16":
         lcd_type = Divoom16x16
-    if config[CONF_MODEL] == "11x11":
+    if config[CONF_MODEL] == "11X11":
         lcd_type = Divoom11x11
     rhs = lcd_type.new()
     var = cg.Pvariable(config[CONF_ID], rhs)
