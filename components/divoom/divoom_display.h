@@ -19,6 +19,7 @@ class DivoomDisplay : public PollingComponent, public display::DisplayBuffer
 {
 public:
     void set_model(DivoomModel model) { this->model_ = model; }
+    float get_setup_priority() const { return setup_priority::PROCESSOR; }
     virtual void initialize() = 0;
 
     void update() override;

@@ -15,8 +15,6 @@ void DivoomDisplay::dump_config() {
     LOG_UPDATE_INTERVAL(this);
 }
 
-float DivoomDisplay::get_setup_priority() const { return setup_priority::PROCESSOR; }
-
 void DivoomDisplay::update() {
     this->do_update_();
     this->display_();
