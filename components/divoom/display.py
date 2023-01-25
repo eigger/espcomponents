@@ -39,7 +39,8 @@ CONFIG_SCHEMA = cv.All(
 
 
 async def to_code(config):
-    var = cg.Pvariable(config[CONF_ID])
+    rhs = divoom.new()
+    var = cg.Pvariable(config[CONF_ID], rhs)
 
     await cg.register_component(var, config)
     await display.register_display(var, config)
