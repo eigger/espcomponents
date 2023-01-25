@@ -136,7 +136,7 @@ async def to_code(config):
         sens = cg.new_Pvariable(config[CONF_ERROR][CONF_ID])
         await register_text_sensor(sens, config[CONF_ERROR])
         cg.add(var.set_error(sens))
-    if CONF_DEVICE_NAME in config:
+    if CONF_MAC_ADDRESS in config:
         cg.add(var.set_address(config[CONF_MAC_ADDRESS].as_hex))
     if CONF_DEVICE_NAME in config:
         cg.add(var.set_device_name(config[CONF_DEVICE_NAME]))
