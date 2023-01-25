@@ -59,3 +59,4 @@ async def to_code(config):
             config[CONF_LAMBDA], [(display.DisplayBufferRef, "it")], return_type=cg.void
         )
         cg.add(var.set_writer(lambda_))
+    cg.add_library("BluetoothSerial")
