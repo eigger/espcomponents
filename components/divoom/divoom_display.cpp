@@ -139,6 +139,8 @@ void DivoomDisplay::display_() {
             protocol[protocol.size() - 2] += (r << 0x0F);
         }
     }
+    write_protocol(protocol);
+    ESP_LOGI(TAG, "Display Update");
 }
 
 void DivoomDisplay::fill(Color color) {
