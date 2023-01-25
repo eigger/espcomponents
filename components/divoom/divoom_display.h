@@ -59,6 +59,7 @@ protected:
 
     void write_data(const std::vector<uint8_t> &data);
     void write_protocol(const std::vector<uint8_t> &data);
+    std::string to_hex_string(const std::vector<unsigned char> &data);
 };
 
 class Divoom16x16 : public DivoomDisplay
