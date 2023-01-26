@@ -115,14 +115,11 @@ void DivoomDisplay::display_() {
     old_buffer_ = buffer_;
     std::vector<uint8_t> protocol = {0x44, 0x00, 0x0A, 0x0A, 0x04};
     bool first = true;
-    bool debug = true;
     for(Color color : buffer_)
     {
         uint8_t r = (color.r * 0x0F) / 0xFF;
         uint8_t g = (color.g * 0x0F) / 0xFF;
         uint8_t b = (color.b * 0x0F) / 0xFF;
-        if (debug) ESP_LOGI(TAG, "Pixel r%d,g%d,b%d", r, g, b);
-        
         if (first)
         {
             first = false;
@@ -141,8 +138,6 @@ void DivoomDisplay::display_() {
             protocol[protocol.size() - 1] += (b << 4);
             protocol[protocol.size() - 2] += (r << 4);
         }
-        if (debug) ESP_LOGI(TAG, "array-> %s", to_hex_string(protocol).c_str());
-        debug = false;
     }
     write_protocol(protocol);
 }
@@ -177,7 +172,7 @@ void DivoomDisplay::write_data(const std::vector<uint8_t> &data)
 {
     if (!connected_) return;
     this->serialbt_.write(&data[0], data.size());
-    //ESP_LOGI(TAG, "Write array-> %s", to_hex_string(data).c_str());
+    ESP_LOGI(TAG, "Write array-> %s", to_hex_string(data).c_str());
 }
 
 std::string DivoomDisplay::to_hex_string(const std::vector<unsigned char> &data)
@@ -214,7 +209,27 @@ void DivoomDisplay::write_protocol(const std::vector<uint8_t> &data)
     buffer.push_back((checksum >> 8) & 0xFF);
 
     protocol.push_back(DIVOOM_HEADER);
-    for(uint8_t temp : convert_to_data_protocol(buffer)) protocol.push_back(temp);
+    for(uint8_t temp : buffer)
+    {
+        switch(temp)
+        {
+        case 0x01:
+            protocol.push_back(0x03);
+            protocol.push_back(0x04);
+            break;
+        case 0x02:
+            protocol.push_back(0x03);
+            protocol.push_back(0x05);
+            break;
+        case 0x03:
+            protocol.push_back(0x03);
+            protocol.push_back(0x06);
+            break;
+        default:
+            protocol.push_back(temp);
+            break;
+        }
+    }
     protocol.push_back(DIVOOM_FOOTER);
     write_data(protocol);
 }
