@@ -124,7 +124,7 @@ void DivoomDisplay::display_()
         {
             palette.push_back(color);
             pixels.push_back(palette.size() - 1);
-            ESP_LOGI(TAG, "idx%d r%d g%d b%d", palette.size() - 1, color.r, color.g, color.b);
+            //ESP_LOGI(TAG, "idx%d r%d g%d b%d", palette.size() - 1, color.r, color.g, color.b);
         }
         else
         {
@@ -186,13 +186,10 @@ void DivoomDisplay::display_()
 
 void DivoomDisplay::fill(Color color)
 {
-    // for (int w = 0; w < width_; w++)
-    // {
-    //     for (int h = 0; h < height_; h++)
-    //     {
-    //         image_buffer_[w][h] = color;
-    //     }
-    // }
+    for (int i = 0; i < image_buffer_.size(); i++)
+    {
+        image_buffer_[i] = color;
+    }
 }
 
 void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color)
@@ -208,7 +205,7 @@ void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color)
 
     uint32_t pos = (y * width_) + x;
     image_buffer_[pos] = color;
-    ESP_LOGI(TAG, "pos%d r%d g%d b%d", pos, color.r, color.g, color.b);
+    //ESP_LOGI(TAG, "pos%d r%d g%d b%d", pos, color.r, color.g, color.b);
 }
 
 // should return the total size: return this->get_width_internal() * this->get_height_internal() * 2 // 16bit color
@@ -222,7 +219,7 @@ void DivoomDisplay::write_data(const std::vector<uint8_t> &data)
 {
     if (!connected_) return;
     this->serialbt_.write(&data[0], data.size());
-    ESP_LOGI(TAG, "Write array-> %s", to_hex_string(data).c_str());
+    ESP_LOGV(TAG, "Write array-> %s", to_hex_string(data).c_str());
 }
 
 std::string DivoomDisplay::to_hex_string(const std::vector<unsigned char> &data)
