@@ -32,9 +32,7 @@ void DivoomDisplay::setup()
     // if (this->version_) this->version_->publish_state(BLUETOOTHEX_VERSION);
     serialbt_.begin("ESPHOME", true);
     connected_ = serialbt_.connect(address_);
-    if (!connected_)
-        while (!serialbt_.connected(10000))
-            ;
+    if (!connected_) while (!serialbt_.connected(10000));
     serialbt_.disconnect();
     serialbt_.connect();
     disconnected_time_ = get_time();
@@ -79,19 +77,16 @@ void DivoomDisplay::read_from_bluetooth()
     rx_parser_.clear();
     bool valid_data = false;
     unsigned long timer = get_time();
-    if (connected_ == false)
-        return;
+    if (connected_ == false) return;
     while (elapsed_time(timer) < 10)
     {
         while (!valid_data && this->serialbt_.available())
         {
             uint8_t byte = this->serialbt_.read();
-            if (rx_parser_.parse_byte(byte))
-                valid_data = true;
+            if (rx_parser_.parse_byte(byte)) valid_data = true;
             timer = get_time();
         }
-        if (valid_data)
-            break;
+        if (valid_data) break;
         delay(1);
     }
 }
@@ -205,97 +200,97 @@ void DivoomDisplay::fill(Color color)
             image_buffer_[w][h] = color;
         }
     }
+}
 
-    void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color)
+void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color)
+{
+    if (x >= this->get_width_internal() || x < 0 || y >= this->get_height_internal() || y < 0)
+        return;
+
+    // low and high watermark may speed up drawing from buffer
+    this->x_low_ = (x < this->x_low_) ? x : this->x_low_;
+    this->y_low_ = (y < this->y_low_) ? y : this->y_low_;
+    this->x_high_ = (x > this->x_high_) ? x : this->x_high_;
+    this->y_high_ = (y > this->y_high_) ? y : this->y_high_;
+
+    uint32_t pos = (y * width_) + x;
+    image_buffer_[x][y] = color;
+}
+
+// should return the total size: return this->get_width_internal() * this->get_height_internal() * 2 // 16bit color
+// values per bit is huge
+uint32_t DivoomDisplay::get_buffer_length_() { return this->get_width_internal() * this->get_height_internal(); }
+
+int DivoomDisplay::get_width_internal() { return this->width_; }
+int DivoomDisplay::get_height_internal() { return this->height_; }
+
+void DivoomDisplay::write_data(const std::vector<uint8_t> &data)
+{
+    if (!connected_) return;
+    this->serialbt_.write(&data[0], data.size());
+    ESP_LOGI(TAG, "Write array-> %s", to_hex_string(data).c_str());
+}
+
+std::string DivoomDisplay::to_hex_string(const std::vector<unsigned char> &data)
+{
+    char buf[20];
+    std::string res;
+    for (uint16_t i = 0; i < data.size(); i++)
     {
-        if (x >= this->get_width_internal() || x < 0 || y >= this->get_height_internal() || y < 0)
-            return;
-
-        // low and high watermark may speed up drawing from buffer
-        this->x_low_ = (x < this->x_low_) ? x : this->x_low_;
-        this->y_low_ = (y < this->y_low_) ? y : this->y_low_;
-        this->x_high_ = (x > this->x_high_) ? x : this->x_high_;
-        this->y_high_ = (y > this->y_high_) ? y : this->y_high_;
-
-        uint32_t pos = (y * width_) + x;
-        image_buffer_[x][y] = color;
-    }
-
-    // should return the total size: return this->get_width_internal() * this->get_height_internal() * 2 // 16bit color
-    // values per bit is huge
-    uint32_t DivoomDisplay::get_buffer_length_() { return this->get_width_internal() * this->get_height_internal(); }
-
-    int DivoomDisplay::get_width_internal() { return this->width_; }
-    int DivoomDisplay::get_height_internal() { return this->height_; }
-
-    void DivoomDisplay::write_data(const std::vector<uint8_t> &data)
-    {
-        if (!connected_)
-            return;
-        this->serialbt_.write(&data[0], data.size());
-        ESP_LOGI(TAG, "Write array-> %s", to_hex_string(data).c_str());
-    }
-
-    std::string DivoomDisplay::to_hex_string(const std::vector<unsigned char> &data)
-    {
-        char buf[20];
-        std::string res;
-        for (uint16_t i = 0; i < data.size(); i++)
-        {
-            sprintf(buf, "0x%02X ", data[i]);
-            res += buf;
-        }
-        sprintf(buf, "(%d byte)", data.size());
+        sprintf(buf, "0x%02X ", data[i]);
         res += buf;
-        return res;
     }
+    sprintf(buf, "(%d byte)", data.size());
+    res += buf;
+    return res;
+}
 
-    void DivoomDisplay::write_protocol(const std::vector<uint8_t> &data)
+void DivoomDisplay::write_protocol(const std::vector<uint8_t> &data)
+{
+    std::vector<uint8_t> buffer;
+    uint32_t checksum = 0;
+    buffer.push_back(DIVOOM_HEADER);
+    uint32_t length = data.size() + 2;
+    buffer.push_back(length & 0xFF);
+    buffer.push_back((length >> 8) & 0xFF);
+    checksum += length & 0xFF;
+    checksum += (length >> 8) & 0xFF;
+    for (uint8_t temp : data)
     {
-        std::vector<uint8_t> buffer;
-        uint32_t checksum = 0;
-        buffer.push_back(DIVOOM_HEADER);
-        uint32_t length = data.size() + 2;
-        buffer.push_back(length & 0xFF);
-        buffer.push_back((length >> 8) & 0xFF);
-        checksum += length & 0xFF;
-        checksum += (length >> 8) & 0xFF;
-        for (uint8_t temp : data)
-        {
-            buffer.push_back(temp);
-            checksum += temp;
-        }
-        buffer.push_back(checksum & 0xFF);
-        buffer.push_back((checksum >> 8) & 0xFF);
-        buffer.push_back(DIVOOM_FOOTER);
-        write_data(buffer);
+        buffer.push_back(temp);
+        checksum += temp;
     }
+    buffer.push_back(checksum & 0xFF);
+    buffer.push_back((checksum >> 8) & 0xFF);
+    buffer.push_back(DIVOOM_FOOTER);
+    write_data(buffer);
+}
 
-    void Divoom16x16::initialize()
+void Divoom16x16::initialize()
+{
+    this->width_ = 16;
+    this->height_ = 16;
+    for (int w = 0; w < width_; w++)
     {
-        this->width_ = 16;
-        this->height_ = 16;
-        for (int w = 0; w < width_; w++)
+        for (int h = 0; h < height_; h++)
         {
-            for (int h = 0; h < height_; h++)
-            {
-                image_buffer_[w][h] = Color::BLACK;
-            }
-        }
-    }
-
-    void Divoom11x11::initialize()
-    {
-        this->width_ = 11;
-        this->height_ = 11;
-        for (int w = 0; w < width_; w++)
-        {
-            for (int h = 0; h < height_; h++)
-            {
-                image_buffer_[w][h] = Color::BLACK;
-            }
+            image_buffer_[w][h] = Color::BLACK;
         }
     }
+}
+
+void Divoom11x11::initialize()
+{
+    this->width_ = 11;
+    this->height_ = 11;
+    for (int w = 0; w < width_; w++)
+    {
+        for (int h = 0; h < height_; h++)
+        {
+            image_buffer_[w][h] = Color::BLACK;
+        }
+    }
+}
 
 } // namespace divoom
 }  // namespace esphome
