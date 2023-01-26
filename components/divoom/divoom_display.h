@@ -59,6 +59,7 @@ protected:
 
     void write_data(const std::vector<uint8_t> &data);
     void write_protocol(const std::vector<uint8_t> &data);
+    std::vector<uint8_t> convert_to_data_protocol(const std::vector<uint8_t> &data);
     std::string to_hex_string(const std::vector<unsigned char> &data);
 };
 

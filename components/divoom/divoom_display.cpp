@@ -197,8 +197,9 @@ std::string DivoomDisplay::to_hex_string(const std::vector<unsigned char> &data)
 void DivoomDisplay::write_protocol(const std::vector<uint8_t> &data)
 {
     std::vector<uint8_t> buffer;
+    std::vector<uint8_t> protocol;
     uint32_t checksum = 0;
-    buffer.push_back(DIVOOM_HEADER);
+    
     uint32_t length = data.size() + 2;
     buffer.push_back(length & 0xFF);
     buffer.push_back((length >> 8) & 0xFF);
@@ -211,8 +212,35 @@ void DivoomDisplay::write_protocol(const std::vector<uint8_t> &data)
     }
     buffer.push_back(checksum & 0xFF);
     buffer.push_back((checksum >> 8) & 0xFF);
-    buffer.push_back(DIVOOM_FOOTER);
-    write_data(buffer);
+
+    protocol.push_back(DIVOOM_HEADER);
+    for(uint8_t temp : convert_to_data_protocol(buffer)) protocol.push_back(temp);
+    protocol.push_back(DIVOOM_FOOTER);
+    write_data(protocol);
+}
+
+std::vector<uint8_t> DivoomDisplay::convert_to_data_protocol(const std::vector<uint8_t> &data)
+{
+    std::vector<uint8_t> buffer;
+    for(uint8_t temp : data)
+    {
+        switch(temp)
+        {
+        case 0x01:
+            buffer.push_back({0x03, 0x04});
+            break;
+        case 0x02:
+            buffer.push_back({0x03, 0x05});
+            break;
+        case 0x03:
+            buffer.push_back({0x03, 0x06});
+            break;
+        default:
+            buffer.push_back(temp);
+            break;
+        }
+    }
+    return buffer;
 }
 
 void Divoom16x16::initialize() {
