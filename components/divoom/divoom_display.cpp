@@ -112,7 +112,7 @@ void DivoomDisplay::display_() {
     this->y_high_ = 0;
     
     //if (std::equal(buffer_.begin(), buffer_.end(), old_buffer_.begin())) return;
-    old_buffer_ = buffer_;
+    //old_buffer_ = buffer_;
     std::vector<uint8_t> protocol = {0x44, 0x00, 0x0A, 0x0A, 0x04};
     bool first = true;
     for(Color color : buffer_)
@@ -126,7 +126,7 @@ void DivoomDisplay::display_() {
             protocol.push_back(0x00);
             protocol.push_back(0x00);
             protocol[protocol.size() - 2] = r;
-            protocol[protocol.size() - 2] += (g << 4);
+            protocol[protocol.size() - 2] += ((g << 4) & 0XF0);
             protocol[protocol.size() - 1] = b;
             //G[0]R[0] R[1]B[0] B[1]G[1]
         }
@@ -135,8 +135,8 @@ void DivoomDisplay::display_() {
             first = true;
             protocol.push_back(0x00);
             protocol[protocol.size() - 1] = g;
-            protocol[protocol.size() - 1] += (b << 4);
-            protocol[protocol.size() - 2] += (r << 4);
+            protocol[protocol.size() - 1] += ((b << 4) & 0xF0);
+            protocol[protocol.size() - 2] += ((r << 4) & 0xF0);
         }
     }
     write_protocol(protocol);
@@ -144,10 +144,10 @@ void DivoomDisplay::display_() {
 
 void DivoomDisplay::fill(Color color)
 {
-    for(int i = 0 ; i < buffer_.size(); i++)
-    {
-        buffer_[i] = color;
-    }
+    // for(int i = 0 ; i < buffer_.size(); i++)
+    // {
+    //     buffer_[i] = color;
+    // }
 }
 
 void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color) {
@@ -162,7 +162,7 @@ void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color) 
 
   uint32_t pos = (y * width_) + x;
   buffer_[pos] = color;
-  //ESP_LOGI(TAG, "Pixel %d,%d=r%d,g%d,b%d", x, y, color.r, color.g, color.b);
+  ESP_LOGI(TAG, "Pixel %d,%d=r%d,g%d,b%d", x, y, color.r, color.g, color.b);
 }
 
 // should return the total size: return this->get_width_internal() * this->get_height_internal() * 2 // 16bit color
@@ -176,7 +176,7 @@ void DivoomDisplay::write_data(const std::vector<uint8_t> &data)
 {
     if (!connected_) return;
     this->serialbt_.write(&data[0], data.size());
-    ESP_LOGI(TAG, "Write array-> %s", to_hex_string(data).c_str());
+    //ESP_LOGI(TAG, "Write array-> %s", to_hex_string(data).c_str());
 }
 
 std::string DivoomDisplay::to_hex_string(const std::vector<unsigned char> &data)
