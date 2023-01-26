@@ -211,23 +211,24 @@ void DivoomDisplay::write_protocol(const std::vector<uint8_t> &data)
     {
         switch(temp)
         {
-        case 0x01:
-            protocol.push_back(0x03);
-            protocol.push_back(0x04);
-            break;
-        case 0x02:
-            protocol.push_back(0x03);
-            protocol.push_back(0x05);
-            break;
-        case 0x03:
-            protocol.push_back(0x03);
-            protocol.push_back(0x06);
-            break;
+        // case 0x01:
+        //     protocol.push_back(0x03);
+        //     protocol.push_back(0x04);
+        //     break;
+        // case 0x02:
+        //     protocol.push_back(0x03);
+        //     protocol.push_back(0x05);
+        //     break;
+        // case 0x03:
+        //     protocol.push_back(0x03);
+        //     protocol.push_back(0x06);
+        //     break;
         default:
             protocol.push_back(temp);
             break;
         }
     }
+    protocol.push_back(temp);
     protocol.push_back(DIVOOM_FOOTER);
     write_data(protocol);
 }
