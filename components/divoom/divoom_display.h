@@ -43,8 +43,7 @@ protected:
     unsigned long disconnected_time_{0};
     Parser rx_parser_{};
     DivoomModel model_;
-    std::vector<Color> buffer_;
-    std::vector<Color> old_buffer_;
+    Color image_buffer_[32][32];
     uint8_t address_[6];
     int16_t width_{16};  ///< Display width as modified by current rotation
     int16_t height_{16}; ///< Display height as modified by current rotation
@@ -59,7 +58,6 @@ protected:
 
     void write_data(const std::vector<uint8_t> &data);
     void write_protocol(const std::vector<uint8_t> &data);
-    std::vector<uint8_t> convert_to_data_protocol(const std::vector<uint8_t> &data);
     std::string to_hex_string(const std::vector<unsigned char> &data);
 };
 
