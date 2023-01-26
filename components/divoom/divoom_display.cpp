@@ -119,7 +119,7 @@ void DivoomDisplay::display_()
     this->y_high_ = 0;
 
     // create palette and pixel array
-    std::vector<int> pixels;
+    std::vector<uint8_t> pixels;
     std::vector<Color> palette;
     for (int y = 0; y < this->height_; y++)
     {
@@ -144,21 +144,21 @@ void DivoomDisplay::display_()
     int nbytes = ceil((256 * bitwidth) / 8.);
     std::vector<uint8_t> encoded_pixels;
     std::string encoded_byte;
-    for (int i : pixels)
+    int idx = 0;
+    uint8_t pixel = 0x00;
+    std::vector<uint8_t> encoded_data;
+    for (uint8_t pixel_idx : pixels)
     {
-        encoded_byte = std::bitset<8>(i).to_string() + encoded_byte;
-        if (encoded_byte.length() >= 8)
+        pixel += (pixel_idx << idx);
+        idx += 2;
+        if (idx >= 8)
         {
-            encoded_pixels.push_back(std::bitset<8>(encoded_byte.substr(encoded_byte.length() - 8)).to_ulong());
-            encoded_byte = encoded_byte.substr(0, encoded_byte.length() - 8);
+            encoded_data.push_back(pixel);
+            pixel = 0;
+            idx = 0;
         }
     }
 
-    std::vector<uint8_t> encoded_data;
-    for (uint8_t data : encoded_pixels)
-    {
-        encoded_data.push_back(data > 0 ? 0x01 : 0x00);
-    }
     // encode palette
     std::vector<uint8_t> encoded_palette;
     for (Color color : palette)
