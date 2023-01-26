@@ -194,10 +194,10 @@ void DivoomDisplay::write_protocol(const std::vector<uint8_t> &data)
     std::vector<uint8_t> buffer;
     std::vector<uint8_t> protocol;
     uint32_t checksum = 0;
-    
+    protocol.push_back(DIVOOM_HEADER);
     uint32_t length = data.size() + 2;
-    buffer.push_back(length & 0xFF);
-    buffer.push_back((length >> 8) & 0xFF);
+    protocol.push_back(length & 0xFF);
+    protocol.push_back((length >> 8) & 0xFF);
     checksum += length & 0xFF;
     checksum += (length >> 8) & 0xFF;
     for(uint8_t temp : data)
@@ -207,8 +207,6 @@ void DivoomDisplay::write_protocol(const std::vector<uint8_t> &data)
     }
     buffer.push_back(checksum & 0xFF);
     buffer.push_back((checksum >> 8) & 0xFF);
-
-    protocol.push_back(DIVOOM_HEADER);
     for(uint8_t temp : buffer)
     {
         switch(temp)
