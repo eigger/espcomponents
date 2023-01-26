@@ -138,7 +138,7 @@ void DivoomDisplay::display_()
     for (uint8_t pixel_idx : pixels)
     {
         pixel += (pixel_idx << idx);
-        idx += 2;
+        idx += 1;
         if (idx >= 8)
         {
             encoded_data.push_back(pixel);
