@@ -43,7 +43,7 @@ protected:
     unsigned long disconnected_time_{0};
     Parser rx_parser_{};
     DivoomModel model_;
-    Color image_buffer_[32][32];
+    std::vector<Color> image_buffer_;
     uint8_t address_[6];
     int16_t width_{16};  ///< Display width as modified by current rotation
     int16_t height_{16}; ///< Display height as modified by current rotation

@@ -25,6 +25,7 @@ void DivoomDisplay::update()
 void DivoomDisplay::setup()
 {
     this->initialize();
+    image_buffer_ = std::vector<Color>(width_ * height_, Color::BLACK);
     rx_parser_.set_checksum_len(2);
     rx_parser_.add_header(DIVOOM_HEADER);
     rx_parser_.add_footer(DIVOOM_FOOTER);
@@ -116,29 +117,20 @@ void DivoomDisplay::display_()
     // create palette and pixel array
     std::vector<uint8_t> pixels;
     std::vector<Color> palette;
-    for (int y = 0; y < this->height_; y++)
+    for(Color color : image_buffer_)
     {
-        for (int x = 0; x < this->width_; x++)
+        auto it = std::find(palette.begin(), palette.end(), color);
+        if (it == palette.end())
         {
-            Color color = image_buffer_[x][y];
-            auto it = std::find(palette.begin(), palette.end(), color);
-            if (it == palette.end())
-            {
-                palette.push_back(color);
-                pixels.push_back(palette.size() - 1);
-            }
-            else
-            {
-                pixels.push_back(std::distance(palette.begin(), it));
-            }
+            palette.push_back(color);
+            pixels.push_back(palette.size() - 1);
+        }
+        else
+        {
+            pixels.push_back(it - palette.begin());
         }
     }
 
-    // encode pixels
-    int bitwidth = ceil(log2(palette.size()));
-    int nbytes = ceil((256 * bitwidth) / 8.);
-    std::vector<uint8_t> encoded_pixels;
-    std::string encoded_byte;
     int idx = 0;
     uint8_t pixel = 0x00;
     std::vector<uint8_t> encoded_data;
@@ -214,7 +206,7 @@ void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color)
     this->y_high_ = (y > this->y_high_) ? y : this->y_high_;
 
     uint32_t pos = (y * width_) + x;
-    image_buffer_[x][y] = color;
+    image_buffer_[pos] = color;
 }
 
 // should return the total size: return this->get_width_internal() * this->get_height_internal() * 2 // 16bit color
@@ -270,26 +262,12 @@ void Divoom16x16::initialize()
 {
     this->width_ = 16;
     this->height_ = 16;
-    for (int w = 0; w < width_; w++)
-    {
-        for (int h = 0; h < height_; h++)
-        {
-            image_buffer_[w][h] = Color::BLACK;
-        }
-    }
 }
 
 void Divoom11x11::initialize()
 {
     this->width_ = 11;
     this->height_ = 11;
-    for (int w = 0; w < width_; w++)
-    {
-        for (int h = 0; h < height_; h++)
-        {
-            image_buffer_[w][h] = Color::BLACK;
-        }
-    }
 }
 
 } // namespace divoom
