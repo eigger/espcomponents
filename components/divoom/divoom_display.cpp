@@ -125,7 +125,7 @@ void DivoomDisplay::display_()
     {
         for (int x = 0; x < this->width_; x++)
         {
-            Color color image_buffer_[x][y];
+            Color color = image_buffer_[x][y];
             auto it = std::find(palette.begin(), palette.end(), color);
             if (it == palette.end())
             {
