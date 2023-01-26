@@ -228,7 +228,6 @@ void DivoomDisplay::write_protocol(const std::vector<uint8_t> &data)
             break;
         }
     }
-    protocol.push_back(temp);
     protocol.push_back(DIVOOM_FOOTER);
     write_data(protocol);
 }
