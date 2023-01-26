@@ -124,6 +124,7 @@ void DivoomDisplay::display_()
         {
             palette.push_back(color);
             pixels.push_back(palette.size() - 1);
+            ESP_LOGI(TAG, "idx%d r%d g%d b%d", palette.size() - 1, color.r, color.g, color.b);
         }
         else
         {
@@ -207,6 +208,7 @@ void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color)
 
     uint32_t pos = (y * width_) + x;
     image_buffer_[pos] = color;
+    ESP_LOGI(TAG, "pos%d r%d g%d b%d", pos, color.r, color.g, color.b);
 }
 
 // should return the total size: return this->get_width_internal() * this->get_height_internal() * 2 // 16bit color
