@@ -142,8 +142,12 @@ void DivoomDisplay::display_() {
     write_protocol(protocol);
 }
 
-void DivoomDisplay::fill(Color color) {
-
+void DivoomDisplay::fill(Color color)
+{
+    for(int i = 0 ; i < buffer_.size(); i++)
+    {
+        buffer_[i] = color;
+    }
 }
 
 void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color) {
