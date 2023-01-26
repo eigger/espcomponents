@@ -170,7 +170,7 @@ void DivoomDisplay::display_()
     protocol.push_back(0x00);
     protocol.push_back(0x00);
     protocol.push_back(0x00);
-    protocol.push_back(encoded_palette.size());
+    protocol.push_back(palette.size());
 
     for (uint8_t data : encoded_palette)
     {
