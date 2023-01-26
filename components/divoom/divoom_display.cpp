@@ -227,13 +227,16 @@ std::vector<uint8_t> DivoomDisplay::convert_to_data_protocol(const std::vector<u
         switch(temp)
         {
         case 0x01:
-            buffer.push_back({0x03, 0x04});
+            buffer.push_back(0x03);
+            buffer.push_back(0x04);
             break;
         case 0x02:
-            buffer.push_back({0x03, 0x05});
+            buffer.push_back(0x03);
+            buffer.push_back(0x05);
             break;
         case 0x03:
-            buffer.push_back({0x03, 0x06});
+            buffer.push_back(0x03);
+            buffer.push_back(0x06);
             break;
         default:
             buffer.push_back(temp);
