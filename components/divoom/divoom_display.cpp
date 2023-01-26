@@ -193,13 +193,13 @@ void DivoomDisplay::display_()
 
 void DivoomDisplay::fill(Color color)
 {
-    for (int w = 0; w < width_; w++)
-    {
-        for (int h = 0; h < height_; h++)
-        {
-            image_buffer_[w][h] = color;
-        }
-    }
+    // for (int w = 0; w < width_; w++)
+    // {
+    //     for (int h = 0; h < height_; h++)
+    //     {
+    //         image_buffer_[w][h] = color;
+    //     }
+    // }
 }
 
 void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color)
