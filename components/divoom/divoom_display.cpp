@@ -32,7 +32,11 @@ void DivoomDisplay::setup()
     if (this->version_) this->version_->publish_state(VERSION);
     if (this->bt_status_) this->bt_status_->publish_state(false);
     if (this->select_time_) this->select_time_->add_on_state_callback(std::bind(&DivoomDisplay::select_time_callback, this, std::placeholders::_1, std::placeholders::_2));
-    if (this->brightness_) this->brightness_->add_on_state_callback(std::bind(&DivoomDisplay::brightness_callback, this, std::placeholders::_1));
+    if (this->brightness_)
+    {
+        this->brightness_->add_on_state_callback(std::bind(&DivoomDisplay::brightness_callback, this, std::placeholders::_1));
+        this->brightness_->publish_state(100);
+    }
     serialbt_.begin("ESPHOME", true);
     connected_ = serialbt_.connect(address_);
     // if (!connected_) while (!serialbt_.connected(10000));
@@ -265,7 +269,7 @@ void DivoomDisplay::select_time_callback(std::string value, size_t index)
 void DivoomDisplay::set_divoom_brightness(uint8_t value)
 {
     std::vector<uint8_t> protocol;
-    protocol.push_back(0x32);
+    protocol.push_back(0x74);
     protocol.push_back(value);
     write_protocol(protocol);
 }

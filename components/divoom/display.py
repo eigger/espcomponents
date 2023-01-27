@@ -110,8 +110,8 @@ async def to_code(config):
     if CONF_BRIGHTNESS in config:
         sens = cg.new_Pvariable(config[CONF_BRIGHTNESS][CONF_ID])
         await number.register_number(sens, config[CONF_BRIGHTNESS],
-            min_value = 0x00,
-            max_value = 0xFF,
+            min_value = 0,
+            max_value = 100,
             step = 0x01)
         cg.add(var.set_brightness(sens))
     if CONF_LAMBDA in config:
