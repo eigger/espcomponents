@@ -33,7 +33,7 @@ void DivoomDisplay::setup()
     if (this->bt_status_)
     {
         this->bt_status_->publish_state(false);
-        this->bt_status_->add_on_state_callback(select_time_callback);
+        this->bt_status_->add_on_state_callback(std::bind(&DivoomDisplay::select_time_callback));
     }
     serialbt_.begin("ESPHOME", true);
     connected_ = serialbt_.connect(address_);
