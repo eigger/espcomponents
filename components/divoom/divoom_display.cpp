@@ -34,7 +34,7 @@ void DivoomDisplay::setup()
     if (this->select_time_) 
     {
         this->select_time_->add_on_state_callback(std::bind(&DivoomDisplay::select_time_callback, this, std::placeholders::_1, std::placeholders::_2));
-        this->select_time_->publish_state(this->select_time_->at(0));
+        this->select_time_->publish_state(this->select_time_->at(0).value());
     }
     if (this->brightness_)
     {
