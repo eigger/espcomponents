@@ -55,7 +55,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_SELECT_TIME, default={CONF_NAME: "Select Time"}):  select.SELECT_SCHEMA.extend(
             {
                 cv.GenerateID(): cv.declare_id(select.Select),
-                cv.Optional(CONF_OPTION, default="one two tree"): cv.templatable(cv.string_strict),
+                #cv.Optional(CONF_OPTION, default="one two tree"): cv.templatable(cv.string_strict),
             }),
         }
     )
@@ -86,7 +86,7 @@ async def to_code(config):
         cg.add(var.set_bt_status(sens))
     if CONF_SELECT_TIME in config:
         sens = cg.new_Pvariable(config[CONF_SELECT_TIME][CONF_ID], SelectTime.new())
-        await select.register_select(sens, config[CONF_SELECT_TIME])
+        await select.register_select(sens, config[CONF_SELECT_TIME], options=["one", "two"])
         cg.add(var.set_select_time(sens))
     if CONF_LAMBDA in config:
         lambda_ = await cg.process_lambda(
