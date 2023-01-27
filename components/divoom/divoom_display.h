@@ -41,6 +41,7 @@ public:
     void set_select_time(select::Select *select_time) { select_time_ = select_time; }
     void select_time_callback(std::string value, size_t index);
     void set_brightness(number::Number *brightness) { brightness_ = brightness; }
+    void set_divoom_brightness(uint8_t value);
     void brightness_callback(float value);
 protected:
     void draw_absolute_pixel_internal(int x, int y, Color color) override;
