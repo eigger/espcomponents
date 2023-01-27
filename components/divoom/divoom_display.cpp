@@ -239,17 +239,19 @@ void DivoomDisplay::write_protocol(const std::vector<uint8_t> &data)
 // EE: Show Temperature: 00 to not display it, 01 to show it
 // CC: Show Calendar: 00 to not display it, 01 to show it
 // RRGGBB: Color of the clock in Hex
-void DivoomDisplay::turn_divoom_into_clock()
+void DivoomDisplay::turn_divoom_into_clock(uint8_t type)
 {
     std::vector<uint8_t> protocol;
     protocol.push_back(0x45);
     protocol.push_back(0x00);
+    protocol.push_back(0x01);
+    protocol.push_back(type);
     write_protocol(protocol);
 }
 
 void DivoomDisplay::select_time_callback(std::string value, size_t index)
 {
-    ESP_LOGI(TAG, "time Callback.%s", value);
+    turn_divoom_into_clock(index);
 }
 
 void Divoom16x16::initialize()

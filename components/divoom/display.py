@@ -87,7 +87,13 @@ async def to_code(config):
     if CONF_SELECT_TIME in config:
         #, SelectTime.new()
         sens = cg.new_Pvariable(config[CONF_SELECT_TIME][CONF_ID])
-        await select.register_select(sens, config[CONF_SELECT_TIME], options=["one", "two"])
+        await select.register_select(sens, config[CONF_SELECT_TIME], options=[
+            "Full screen", 
+            "Rainbow", 
+            "With Box",
+            "Analog Square", 
+            "Full Screen negative",
+            "Analog Round"])
         cg.add(var.set_select_time(sens))
     if CONF_LAMBDA in config:
         lambda_ = await cg.process_lambda(

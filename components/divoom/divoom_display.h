@@ -43,7 +43,7 @@ public:
 protected:
     void draw_absolute_pixel_internal(int x, int y, Color color) override;
     void draw_image_to_divoom(const std::vector<Color> &image);
-    void turn_divoom_into_clock();
+    void turn_divoom_into_clock(uint8_t type);
     void display_();
     void connect_to_device();
     void read_from_bluetooth();
