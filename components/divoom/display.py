@@ -48,7 +48,7 @@ CONFIG_SCHEMA = cv.All(
                 cv.GenerateID(): cv.declare_id(binary_sensor.BinarySensor),
                 #cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
                 cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
-                cv.Optional(CONF_DEVICE_CLASS, default="connectivity"): cv.device_class,
+                cv.Optional(CONF_DEVICE_CLASS, default="connectivity"): binary_sensor.validate_device_class,
             }),
         }
     )
