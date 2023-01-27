@@ -75,7 +75,7 @@ async def to_code(config):
         cg.add(var.set_version(sens))
     if CONF_STATUS in config:
         sens = cg.new_Pvariable(config[CONF_STATUS][CONF_ID])
-        await binary_sensor.new_binary_sensor(sens, config[CONF_STATUS])
+        await binary_sensor.register_binary_sensor(sens, config[CONF_STATUS])
         cg.add(var.set_bt_status(sens))
     if CONF_LAMBDA in config:
         lambda_ = await cg.process_lambda(
