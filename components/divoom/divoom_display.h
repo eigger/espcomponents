@@ -102,7 +102,7 @@ public:
 class Brightness : public number::Number
 {
 public:
-    void control(const float &value)
+    void control(float value)
     {
         this->state = value;
         this->publish_state(value);
