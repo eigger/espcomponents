@@ -66,8 +66,6 @@ void DivoomDisplay::connect_to_device()
     }
     if (connected_)
     {
-        serialbt_.disconnect();
-        serialbt_.connect();
         disconnected_time_ = get_time();
         return;
     }
