@@ -13,7 +13,7 @@ from esphome.const import (
     CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, CONF_DEVICE_CLASS, ICON_NEW_BOX, CONF_STATUS
 )
 CONF_SELECT_TIME = "select_time"
-AUTO_LOAD = ["text_sensor"]
+AUTO_LOAD = ["text_sensor", "select"]
 CODEOWNERS = ["@eigger"]
 divoom_ns = cg.esphome_ns.namespace("divoom")
 divoom = divoom_ns.class_(
