@@ -31,7 +31,11 @@ void DivoomDisplay::setup()
     rx_parser_.add_footer(DIVOOM_FOOTER);
     if (this->version_) this->version_->publish_state(VERSION);
     if (this->bt_status_) this->bt_status_->publish_state(false);
-    if (this->select_time_) this->select_time_->add_on_state_callback(std::bind(&DivoomDisplay::select_time_callback, this, std::placeholders::_1, std::placeholders::_2));
+    if (this->select_time_) 
+    {
+        this->select_time_->add_on_state_callback(std::bind(&DivoomDisplay::select_time_callback, this, std::placeholders::_1, std::placeholders::_2));
+        this->select_time_->publish_state(this->select_time_->at(0));
+    }
     if (this->brightness_)
     {
         this->brightness_->add_on_state_callback(std::bind(&DivoomDisplay::brightness_callback, this, std::placeholders::_1));
