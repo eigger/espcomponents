@@ -244,12 +244,15 @@ void DivoomDisplay::turn_divoom_into_clock(uint8_t type)
     std::vector<uint8_t> protocol;
     protocol.push_back(0x45);
     protocol.push_back(0x00);
-    protocol.push_back(0x01);
+    protocol.push_back(0x01);   //0: 12h, 1: 24h
     protocol.push_back(type);
-    protocol.push_back(0x01);
-    protocol.push_back(0x00);
-    protocol.push_back(0x00);
-    protocol.push_back(0x00);
+    protocol.push_back(0x00);   //Cloud
+    protocol.push_back(0x00);   //Temp
+    protocol.push_back(0x00);   //Cal
+    protocol.push_back(0x00);   //Img
+    protocol.push_back(0xFF);   //R
+    protocol.push_back(0xFF);   //G
+    protocol.push_back(0xFF);   //B
     write_protocol(protocol);
 }
 
