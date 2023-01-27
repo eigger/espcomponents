@@ -9,7 +9,7 @@ from esphome.const import (
     CONF_MODEL,
     CONF_PAGES,
     CONF_MAC_ADDRESS,
-    CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, ICON_NEW_BOX, CONF_STATUS
+    CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, CONF_DEVICE_CLASS, ICON_NEW_BOX, CONF_STATUS
 )
 
 AUTO_LOAD = ["text_sensor"]
@@ -46,8 +46,9 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_STATUS, default={CONF_NAME: "BT Status"}):  binary_sensor.binary_sensor_schema.extend(
             {
                 cv.GenerateID(): cv.declare_id(binary_sensor.BinarySensor),
-                cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
+                #cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
                 cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
+                cv.Optional(CONF_DEVICE_CLASS, default="connectivity"): cv.device_class,
             }),
         }
     )
