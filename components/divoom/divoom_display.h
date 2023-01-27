@@ -38,10 +38,7 @@ public:
     void set_version(text_sensor::TextSensor *version) { version_ = version; }
     void set_bt_status(binary_sensor::BinarySensor *bt_status) { bt_status_ = bt_status; } 
     void set_select_time(select::Select *select_time) { select_time_ = select_time; }
-    void select_time_callback(std::string value, size_t index)
-    {
-        ESP_LOGI(TAG, "time Callback.%s", value);
-    }
+    void select_time_callback(std::string value, size_t index);
     //void add_on_state_callback(std::function<void(std::string, size_t)> &&callback);
 protected:
     void draw_absolute_pixel_internal(int x, int y, Color color) override;
