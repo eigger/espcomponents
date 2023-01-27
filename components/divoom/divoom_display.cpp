@@ -246,6 +246,10 @@ void DivoomDisplay::turn_divoom_into_clock(uint8_t type)
     protocol.push_back(0x00);
     protocol.push_back(0x01);
     protocol.push_back(type);
+    protocol.push_back(0x01);
+    protocol.push_back(0x00);
+    protocol.push_back(0x00);
+    protocol.push_back(0x00);
     write_protocol(protocol);
 }
 
