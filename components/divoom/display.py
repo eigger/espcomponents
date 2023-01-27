@@ -1,7 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome import pins
-from esphome.components import display, text_sensor, binary_sensor, select
+from esphome.components import display, text_sensor, binary_sensor, select, number
 from esphome.components.text_sensor import register_text_sensor
 from esphome.const import (
     CONF_ID,
@@ -12,8 +12,9 @@ from esphome.const import (
     CONF_OPTION,
     CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, CONF_DEVICE_CLASS, ICON_NEW_BOX, CONF_STATUS
 )
-CONF_SELECT_TIME = "select_time"
-AUTO_LOAD = ["text_sensor", "select"]
+CONF_TYPE = "type"
+CONF_BRIGHTNESS = "brightness"
+AUTO_LOAD = ["text_sensor", "select", "binary_sensor", "number"]
 CODEOWNERS = ["@eigger"]
 divoom_ns = cg.esphome_ns.namespace("divoom")
 divoom = divoom_ns.class_(
@@ -23,6 +24,7 @@ divoom = divoom_ns.class_(
 Divoom16x16 = divoom_ns.class_("Divoom16x16", divoom)
 Divoom11x11 = divoom_ns.class_("Divoom11x11", divoom)
 SelectTime = divoom_ns.class_("SelectTime", divoom)
+Brightness = divoom_ns.class_("Brightness", divoom)
 
 DivoomModel = divoom_ns.enum("DivoomModel")
 
@@ -52,10 +54,13 @@ CONFIG_SCHEMA = cv.All(
                 cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
                 cv.Optional(CONF_DEVICE_CLASS, default="connectivity"): binary_sensor.validate_device_class,
             }),
-            cv.Optional(CONF_SELECT_TIME, default={CONF_NAME: "Select Time"}):  select.SELECT_SCHEMA.extend(
+            cv.Optional(CONF_TYPE, default={CONF_NAME: "Type"}):  select.SELECT_SCHEMA.extend(
             {
                 cv.GenerateID(): cv.declare_id(SelectTime),
-                #cv.Optional(CONF_OPTION, default="one two tree"): cv.templatable(cv.string_strict),
+            }),
+            cv.Optional(CONF_BRIGHTNESS, default={CONF_NAME: "Brightness"}):  number.NUMBER_SCHEMA.extend(
+            {
+                cv.GenerateID(): cv.declare_id(Brightness),
             }),
         }
     )
@@ -84,10 +89,9 @@ async def to_code(config):
         sens = cg.new_Pvariable(config[CONF_STATUS][CONF_ID])
         await binary_sensor.register_binary_sensor(sens, config[CONF_STATUS])
         cg.add(var.set_bt_status(sens))
-    if CONF_SELECT_TIME in config:
-        #, SelectTime.new()
-        sens = cg.new_Pvariable(config[CONF_SELECT_TIME][CONF_ID])
-        await select.register_select(sens, config[CONF_SELECT_TIME], options=[
+    if CONF_TYPE in config:
+        sens = cg.new_Pvariable(config[CONF_TYPE][CONF_ID])
+        await select.register_select(sens, config[CONF_TYPE], options=[
             "Type1", 
             "Type2", 
             "Type3",
@@ -103,6 +107,13 @@ async def to_code(config):
             "Type13",
             "Type14"])
         cg.add(var.set_select_time(sens))
+    if CONF_BRIGHTNESS in config:
+        sens = cg.new_Pvariable(config[CONF_BRIGHTNESS][CONF_ID])
+        await number.register_number(sens, config[CONF_BRIGHTNESS],
+            min_value = 0x00,
+            max_value = 0xFF,
+            step = 0x01)
+        cg.add(var.set_brightness(sens))
     if CONF_LAMBDA in config:
         lambda_ = await cg.process_lambda(
             config[CONF_LAMBDA], [(display.DisplayBufferRef, "it")], return_type=cg.void

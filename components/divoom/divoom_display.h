@@ -5,6 +5,7 @@
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/select/select.h"
+#include "esphome/components/number/number.h"
 #include "BluetoothSerial.h"
 #include "parser.h"
 #include "divoom_defines.h"
@@ -39,7 +40,8 @@ public:
     void set_bt_status(binary_sensor::BinarySensor *bt_status) { bt_status_ = bt_status; } 
     void set_select_time(select::Select *select_time) { select_time_ = select_time; }
     void select_time_callback(std::string value, size_t index);
-    //void add_on_state_callback(std::function<void(std::string, size_t)> &&callback);
+    void set_brightness(number::Number *brightness) { brightness_ = brightness; }
+    void brightness_callback(float value);
 protected:
     void draw_absolute_pixel_internal(int x, int y, Color color) override;
     void draw_image_to_divoom(const std::vector<Color> &image);
@@ -72,6 +74,7 @@ protected:
     text_sensor::TextSensor *version_{nullptr};
     binary_sensor::BinarySensor *bt_status_{nullptr};
     select::Select *select_time_{nullptr};
+    number::Number *brightness_{nullptr};
 };
 
 class Divoom16x16 : public DivoomDisplay
@@ -90,6 +93,16 @@ class SelectTime : public select::Select
 {
 public:
     void control(const std::string &value)
+    {
+        this->state = value;
+        this->publish_state(value);
+    }
+};
+
+class Brightness : public number::Number
+{
+public:
+    void control(const float &value)
     {
         this->state = value;
         this->publish_state(value);

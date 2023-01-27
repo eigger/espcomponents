@@ -59,7 +59,7 @@ void DivoomDisplay::set_address(uint64_t address)
 
 void DivoomDisplay::connect_to_device()
 {
-    connected_ = serialbt_.connected(10000);
+    connected_ = serialbt_.connected(10);
     if (connected_ != status_)
     {
         status_ = connected_;
@@ -246,7 +246,7 @@ void DivoomDisplay::turn_divoom_into_clock(uint8_t type)
     protocol.push_back(0x00);
     protocol.push_back(0x01);   //0: 12h, 1: 24h
     protocol.push_back(type);
-    protocol.push_back(0x00);   //Cloud
+    protocol.push_back(0x01);   //Time
     protocol.push_back(0x00);   //Temp
     protocol.push_back(0x00);   //Cal
     protocol.push_back(0x00);   //Img
@@ -259,6 +259,11 @@ void DivoomDisplay::turn_divoom_into_clock(uint8_t type)
 void DivoomDisplay::select_time_callback(std::string value, size_t index)
 {
     turn_divoom_into_clock(index);
+}
+
+void DivoomDisplay::brightness_callback(float value)
+{
+
 }
 
 void Divoom16x16::initialize()
