@@ -30,7 +30,11 @@ void DivoomDisplay::setup()
     rx_parser_.add_header(DIVOOM_HEADER);
     rx_parser_.add_footer(DIVOOM_FOOTER);
     if (this->version_) this->version_->publish_state(VERSION);
-    if (this->bt_status_) this->bt_status_->publish_state(false);
+    if (this->bt_status_)
+    {
+        this->bt_status_->publish_state(false);
+        this->add_on_state_callback(select_time_callback);
+    }
     serialbt_.begin("ESPHOME", true);
     connected_ = serialbt_.connect(address_);
     // if (!connected_) while (!serialbt_.connected(10000));
