@@ -33,9 +33,9 @@ void DivoomDisplay::setup()
     if (this->bt_status_) this->bt_status_->publish_state(false);
     serialbt_.begin("ESPHOME", true);
     connected_ = serialbt_.connect(address_);
-    if (!connected_) while (!serialbt_.connected(10000));
-    serialbt_.disconnect();
-    serialbt_.connect();
+    // if (!connected_) while (!serialbt_.connected(10000));
+    // serialbt_.disconnect();
+    // serialbt_.connect();
     disconnected_time_ = get_time();
     ESP_LOGI(TAG, "Initaialize.");
 }
@@ -66,6 +66,8 @@ void DivoomDisplay::connect_to_device()
     }
     if (connected_)
     {
+        serialbt_.disconnect();
+        serialbt_.connect();
         disconnected_time_ = get_time();
         return;
     }
