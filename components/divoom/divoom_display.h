@@ -41,6 +41,7 @@ public:
 protected:
     void draw_absolute_pixel_internal(int x, int y, Color color) override;
     void draw_image_to_divoom(const std::vector<Color> &image);
+    void turn_divoom_into_clock();
     void display_();
     void connect_to_device();
     void read_from_bluetooth();
@@ -86,7 +87,7 @@ public:
 class SelectTime : public select::Select
 {
 public:
-    control(const std::string &value)
+    void control(const std::string &value)
     {
 
     }

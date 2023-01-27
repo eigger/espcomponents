@@ -111,7 +111,7 @@ void DivoomDisplay::display_()
 {
     if (image_buffer_.size() == old_image_buffer_.size())
     {
-        if (std::equal(image_buffer_.begin(), image_buffer_.end(), old_image_buffer_.begin()))) return;
+        if (std::equal(image_buffer_.begin(), image_buffer_.end(), old_image_buffer_.begin())) return;
     }
     old_image_buffer_ = image_buffer_;
     draw_image_to_divoom(image_buffer_);
