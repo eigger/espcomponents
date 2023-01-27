@@ -2,6 +2,8 @@
 
 #include "esphome/core/component.h"
 #include "esphome/components/display/display_buffer.h"
+#include "esphome/components/text_sensor/text_sensor.h"
+#include "esphome/components/binary_sensor/binary_sensor.h"
 #include "BluetoothSerial.h"
 #include "parser.h"
 #include "divoom_defines.h"
@@ -21,18 +23,22 @@ public:
     void set_model(DivoomModel model) { this->model_ = model; }
     float get_setup_priority() const { return setup_priority::PROCESSOR; }
     display::DisplayType get_display_type() override { return display::DisplayType::DISPLAY_TYPE_COLOR; }
+    uint32_t get_buffer_length_() { return this->get_width_internal() * this->get_height_internal(); }
+    int get_width_internal() { return this->width_; }
+    int get_height_internal() { return this->height_; }
+
     virtual void initialize() = 0;
 
     void update() override;
-
-    void fill(Color color) override;
-
     void dump_config() override;
     void setup() override;
     void loop() override;
     void set_address(uint64_t address);
+    void set_version(text_sensor::TextSensor *version) { version_ = version; }
+    void set_bt_status(binary_sensor::BinarySensor *bt_status) { bt_status_ = bt_status; } 
 protected:
     void draw_absolute_pixel_internal(int x, int y, Color color) override;
+    void draw_image_to_divoom(const std::vector<Color> &image);
     void display_();
     void connect_to_device();
     void read_from_bluetooth();
@@ -40,6 +46,7 @@ protected:
     unsigned long get_time();
     BluetoothSerial serialbt_;
     bool connected_{false};
+    bool status_{false};
     unsigned long disconnected_time_{0};
     Parser rx_parser_{};
     DivoomModel model_;
@@ -52,13 +59,12 @@ protected:
     uint16_t x_high_{0};
     uint16_t y_high_{0};
 
-    uint32_t get_buffer_length_();
-    int get_width_internal() override;
-    int get_height_internal() override;
-
     void write_data(const std::vector<uint8_t> &data);
     void write_protocol(const std::vector<uint8_t> &data);
     std::string to_hex_string(const std::vector<unsigned char> &data);
+
+    text_sensor::TextSensor *version_{nullptr};
+    binary_sensor::BinarySensor *bt_status_{nullptr};
 };
 
 class Divoom16x16 : public DivoomDisplay

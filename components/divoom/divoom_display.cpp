@@ -12,7 +12,7 @@ static const char *const TAG = "divoom";
 void DivoomDisplay::dump_config()
 {
     LOG_DISPLAY("", "divoom", this);
-    ESP_LOGCONFIG(TAG, "  Width: %d, Height: %d,  Rotation: %d", this->width_, this->height_, this->rotation_);
+    ESP_LOGCONFIG(TAG, "  Width: %d, Height: %d", this->width_, this->height_);
     LOG_UPDATE_INTERVAL(this);
 }
 
@@ -29,8 +29,8 @@ void DivoomDisplay::setup()
     rx_parser_.set_checksum_len(2);
     rx_parser_.add_header(DIVOOM_HEADER);
     rx_parser_.add_footer(DIVOOM_FOOTER);
-    // if (this->error_) this->error_->publish_state("None");
-    // if (this->version_) this->version_->publish_state(BLUETOOTHEX_VERSION);
+    if (this->version_) this->version_->publish_state(VERSION);
+    if (this->bt_status_) this->bt_status_->publish_state(false);
     serialbt_.begin("ESPHOME", true);
     connected_ = serialbt_.connect(address_);
     if (!connected_) while (!serialbt_.connected(10000));
@@ -59,6 +59,11 @@ void DivoomDisplay::set_address(uint64_t address)
 void DivoomDisplay::connect_to_device()
 {
     connected_ = serialbt_.connected(10000);
+    if (connected_ != status_)
+    {
+        status_ = connected_;
+        if (this->bt_status_) this->bt_status_->publish_state(status_);
+    }
     if (connected_)
     {
         disconnected_time_ = get_time();
@@ -104,116 +109,70 @@ unsigned long DivoomDisplay::get_time()
 
 void DivoomDisplay::display_()
 {
-    // we will only update the changed window to the display
-    uint16_t w = this->x_high_ - this->x_low_ + 1;
-    uint16_t h = this->y_high_ - this->y_low_ + 1;
+    draw_image_to_divoom(image_buffer_);
+}
 
-    // invalidate watermarks
-    this->x_low_ = this->width_;
-    this->y_low_ = this->height_;
-    this->x_high_ = 0;
-    this->y_high_ = 0;
-
-    // create palette and pixel array
-    std::vector<uint8_t> pixels;
+void DivoomDisplay::draw_image_to_divoom(const std::vector<Color> &image)
+{
     std::vector<Color> palette;
-    for(Color color : image_buffer_)
+    std::vector<uint8_t> palette_index_list;
+    std::vector<uint8_t> pixel_data;
+    std::vector<uint8_t> palette_data;
+    std::vector<uint8_t> protocol;
+    for(Color color : image)
     {
+        uint8_t index = palette.size();
         auto it = std::find(palette.begin(), palette.end(), color);
-        if (it == palette.end())
-        {
-            palette.push_back(color);
-            pixels.push_back(palette.size() - 1);
-            //ESP_LOGI(TAG, "idx%d r%d g%d b%d", palette.size() - 1, color.r, color.g, color.b);
-        }
-        else
-        {
-            pixels.push_back(it - palette.begin());
-        }
+        if (it == palette.end())    palette.push_back(color);
+        else                        index = it - palette.begin();
+        palette_index_list.push_back(index);
     }
 
-    int idx = 0;
+    int offset = 0;
     uint8_t pixel = 0x00;
-    std::vector<uint8_t> encoded_data;
-    for (uint8_t pixel_idx : pixels)
+    for (uint8_t index : palette_index_list)
     {
-        pixel += (pixel_idx << idx);
-        idx += 1;
-        if (idx >= 8)
+        pixel += (index << offset++);
+        if (offset >= 8)
         {
-            encoded_data.push_back(pixel);
+            pixel_data.push_back(pixel);
             pixel = 0;
-            idx = 0;
+            offset = 0;
         }
     }
 
-    // encode palette
-    std::vector<uint8_t> encoded_palette;
     for (Color color : palette)
     {
-        encoded_palette.push_back(color.r);
-        encoded_palette.push_back(color.g);
-        encoded_palette.push_back(color.b);
+        palette_data.push_back(color.r);
+        palette_data.push_back(color.g);
+        palette_data.push_back(color.b);
     }
-
-    std::vector<uint8_t> protocol;
-    uint16_t frame_size = 7 + encoded_palette.size() + encoded_data.size();
+    uint16_t size = 7 + palette_data.size() + pixel_data.size();
     protocol.push_back(0x44);
     protocol.push_back(0x00);
     protocol.push_back(0x0A);
     protocol.push_back(0x0A);
     protocol.push_back(0x04);
-
     protocol.push_back(0xAA);
-    protocol.push_back(frame_size & 0xff);
-    protocol.push_back((frame_size >> 8) & 0xff);
+    protocol.push_back(size & 0xff);
+    protocol.push_back((size >> 8) & 0xff);
     protocol.push_back(0x00);
     protocol.push_back(0x00);
     protocol.push_back(0x00);
     protocol.push_back(palette.size());
-
-    for (uint8_t data : encoded_palette)
-    {
-        protocol.push_back(data);
-    }
-
-    for (uint8_t data : encoded_data)
-    {
-        protocol.push_back(data);
-    }
+    protocol.insert(protocol.end(), palette_data.begin(), palette_data.end());
+    protocol.insert(protocol.end(), pixel_data.begin(), pixel_data.end());
     write_protocol(protocol);
-}
-
-void DivoomDisplay::fill(Color color)
-{
-    for (int i = 0; i < image_buffer_.size(); i++)
-    {
-        image_buffer_[i] = color;
-    }
 }
 
 void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color)
 {
-    if (x >= this->get_width_internal() || x < 0 || y >= this->get_height_internal() || y < 0)
-        return;
-
-    // low and high watermark may speed up drawing from buffer
-    this->x_low_ = (x < this->x_low_) ? x : this->x_low_;
-    this->y_low_ = (y < this->y_low_) ? y : this->y_low_;
-    this->x_high_ = (x > this->x_high_) ? x : this->x_high_;
-    this->y_high_ = (y > this->y_high_) ? y : this->y_high_;
-
+    if (x >= this->get_width_internal() || x < 0) return;
+    if (y >= this->get_height_internal() || y < 0) return;
     uint32_t pos = (y * width_) + x;
     image_buffer_[pos] = color;
     //ESP_LOGI(TAG, "pos%d r%d g%d b%d", pos, color.r, color.g, color.b);
 }
-
-// should return the total size: return this->get_width_internal() * this->get_height_internal() * 2 // 16bit color
-// values per bit is huge
-uint32_t DivoomDisplay::get_buffer_length_() { return this->get_width_internal() * this->get_height_internal(); }
-
-int DivoomDisplay::get_width_internal() { return this->width_; }
-int DivoomDisplay::get_height_internal() { return this->height_; }
 
 void DivoomDisplay::write_data(const std::vector<uint8_t> &data)
 {
