@@ -1,7 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome import pins
-from esphome.components import display, text_sensor, binary_sensor
+from esphome.components import display, text_sensor, binary_sensor, select
 from esphome.components.text_sensor import register_text_sensor
 from esphome.const import (
     CONF_ID,
@@ -11,7 +11,7 @@ from esphome.const import (
     CONF_MAC_ADDRESS,
     CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, CONF_DEVICE_CLASS, ICON_NEW_BOX, CONF_STATUS
 )
-
+CONF_SELECT_TIME = "select_time"
 AUTO_LOAD = ["text_sensor"]
 CODEOWNERS = ["@eigger"]
 divoom_ns = cg.esphome_ns.namespace("divoom")
@@ -21,6 +21,7 @@ divoom = divoom_ns.class_(
 
 Divoom16x16 = divoom_ns.class_("Divoom16x16", divoom)
 Divoom11x11 = divoom_ns.class_("Divoom11x11", divoom)
+SelectTime = divoom_ns.class_("SelectTime", divoom)
 
 DivoomModel = divoom_ns.enum("DivoomModel")
 
@@ -50,6 +51,10 @@ CONFIG_SCHEMA = cv.All(
                 cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
                 cv.Optional(CONF_DEVICE_CLASS, default="connectivity"): binary_sensor.validate_device_class,
             }),
+            cv.Optional(CONF_SELECT_TIME, default={CONF_NAME: "Select Time"}):  select.SELECT_SCHEMA.extend(
+            {
+                cv.GenerateID(): cv.declare_id(select.Select),
+            }),
         }
     )
     .extend(cv.polling_component_schema("1s")),
@@ -77,6 +82,10 @@ async def to_code(config):
         sens = cg.new_Pvariable(config[CONF_STATUS][CONF_ID])
         await binary_sensor.register_binary_sensor(sens, config[CONF_STATUS])
         cg.add(var.set_bt_status(sens))
+    if CONF_SELECT_TIME in config:
+        sens = cg.new_Pvariable(config[CONF_SELECT_TIME][CONF_ID], SelectTime.new())
+        await select.register_select(sens, config[CONF_SELECT_TIME])
+        cg.add(var.set_select_time(sens))
     if CONF_LAMBDA in config:
         lambda_ = await cg.process_lambda(
             config[CONF_LAMBDA], [(display.DisplayBufferRef, "it")], return_type=cg.void

@@ -109,6 +109,11 @@ unsigned long DivoomDisplay::get_time()
 
 void DivoomDisplay::display_()
 {
+    if (image_buffer_.size() == old_image_buffer_.size())
+    {
+        if (std::equal(image_buffer_.begin(), image_buffer_.end(), old_image_buffer_.begin()))) return;
+    }
+    old_image_buffer_ = image_buffer_;
     draw_image_to_divoom(image_buffer_);
 }
 
@@ -214,6 +219,31 @@ void DivoomDisplay::write_protocol(const std::vector<uint8_t> &data)
     buffer.push_back((checksum >> 8) & 0xFF);
     buffer.push_back(DIVOOM_FOOTER);
     write_data(buffer);
+}
+
+
+// Full String: 450001 TT XX WW EE CC RRGGBB
+
+// 450001: Fixed AFAIK
+// TT: Type of clock
+
+// 00: Full screen
+// 01: Rainbow
+// 02: With Box
+// 03: Analog Square
+// 04: Full Screen negative
+// 05: Analog Round
+// XX: Show Time: 00 to not display it, 01 to show it
+// WW: Show Weather: 00 to not display it, 01 to show it
+// EE: Show Temperature: 00 to not display it, 01 to show it
+// CC: Show Calendar: 00 to not display it, 01 to show it
+// RRGGBB: Color of the clock in Hex
+void DivoomDisplay::turn_divoom_into_clock()
+{
+    std::vector<uint8_t> protocol;
+    protocol.push_back(0x45);
+    protocol.push_back(0x00);
+    write_protocol(protocol);
 }
 
 void Divoom16x16::initialize()

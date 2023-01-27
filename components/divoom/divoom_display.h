@@ -4,6 +4,7 @@
 #include "esphome/components/display/display_buffer.h"
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
+#include "esphome/components/select/select.h"
 #include "BluetoothSerial.h"
 #include "parser.h"
 #include "divoom_defines.h"
@@ -36,6 +37,7 @@ public:
     void set_address(uint64_t address);
     void set_version(text_sensor::TextSensor *version) { version_ = version; }
     void set_bt_status(binary_sensor::BinarySensor *bt_status) { bt_status_ = bt_status; } 
+    void set_select_time(select::Select *select_time) { select_time_ = select_time; }
 protected:
     void draw_absolute_pixel_internal(int x, int y, Color color) override;
     void draw_image_to_divoom(const std::vector<Color> &image);
@@ -51,6 +53,7 @@ protected:
     Parser rx_parser_{};
     DivoomModel model_;
     std::vector<Color> image_buffer_;
+    std::vector<Color> old_image_buffer_;
     uint8_t address_[6];
     int16_t width_{16};  ///< Display width as modified by current rotation
     int16_t height_{16}; ///< Display height as modified by current rotation
@@ -65,6 +68,7 @@ protected:
 
     text_sensor::TextSensor *version_{nullptr};
     binary_sensor::BinarySensor *bt_status_{nullptr};
+    select::Select *select_time_{nullptr};
 };
 
 class Divoom16x16 : public DivoomDisplay
@@ -77,6 +81,15 @@ class Divoom11x11 : public DivoomDisplay
 {
 public:
     void initialize() override;
+};
+
+class SelectTime : public select::Select
+{
+public:
+    control(const std::string &value)
+    {
+
+    }
 };
 
 }  // namespace divoom
