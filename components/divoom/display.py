@@ -55,7 +55,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_SELECT_TIME, default={CONF_NAME: "Select Time"}):  select.SELECT_SCHEMA.extend(
             {
                 cv.GenerateID(): cv.declare_id(select.Select),
-                cv.Optional(CONF_OPTION, default=["one", "two"]): cv.templatable(cv.string_strict),
+                cv.Optional(CONF_OPTION, default=("one", "two")): cv.templatable(cv.string_strict),
             }),
         }
     )
