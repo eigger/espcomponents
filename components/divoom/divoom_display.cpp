@@ -31,8 +31,7 @@ void DivoomDisplay::setup()
     rx_parser_.add_footer(DIVOOM_FOOTER);
     if (this->version_) this->version_->publish_state(VERSION);
     if (this->bt_status_) this->bt_status_->publish_state(false);
-    select_time_callback_ = select_time_callback;
-    if (this->select_time_) this->select_time_->add_on_state_callback(select_time_callback_);
+    if (this->select_time_) this->select_time_->add_on_state_callback(std::bind(&DivoomDisplay::select_time_callback, this, std::placeholders::_1, std::placeholders::_2));
     serialbt_.begin("ESPHOME", true);
     connected_ = serialbt_.connect(address_);
     // if (!connected_) while (!serialbt_.connected(10000));

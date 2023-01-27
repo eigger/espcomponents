@@ -72,7 +72,6 @@ protected:
     text_sensor::TextSensor *version_{nullptr};
     binary_sensor::BinarySensor *bt_status_{nullptr};
     select::Select *select_time_{nullptr};
-    optional<std::function<void(std::string, size_t)>> select_time_callback_{};
 };
 
 class Divoom16x16 : public DivoomDisplay
