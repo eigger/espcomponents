@@ -54,7 +54,7 @@ CONFIG_SCHEMA = cv.All(
             }),
             cv.Optional(CONF_SELECT_TIME, default={CONF_NAME: "Select Time"}):  select.SELECT_SCHEMA.extend(
             {
-                cv.GenerateID(): cv.declare_id(select.Select),
+                cv.GenerateID(): cv.declare_id(SelectTime),
                 #cv.Optional(CONF_OPTION, default="one two tree"): cv.templatable(cv.string_strict),
             }),
         }
@@ -85,7 +85,8 @@ async def to_code(config):
         await binary_sensor.register_binary_sensor(sens, config[CONF_STATUS])
         cg.add(var.set_bt_status(sens))
     if CONF_SELECT_TIME in config:
-        sens = cg.new_Pvariable(config[CONF_SELECT_TIME][CONF_ID], SelectTime.new())
+        #, SelectTime.new()
+        sens = cg.new_Pvariable(config[CONF_SELECT_TIME][CONF_ID])
         await select.register_select(sens, config[CONF_SELECT_TIME], options=["one", "two"])
         cg.add(var.set_select_time(sens))
     if CONF_LAMBDA in config:
