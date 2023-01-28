@@ -206,6 +206,7 @@ void DivoomDisplay::display_()
     if (width_shift_offset_ > this->x_high_) width_shift_offset_ = 0;
     this->x_high_ = 0;
     this->y_high_ = 0;
+    display_buffer_.clear();
     if (image_buffer_.size() == old_image_buffer_.size())
     {
         if (std::equal(image_buffer_.begin(), image_buffer_.end(), old_image_buffer_.begin())) return;
@@ -275,8 +276,8 @@ void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color)
     uint32_t pos = (y * width_) + x;
     while(display_buffer_.size() <= pos) display_buffer_.push_back(Color::BLACK);
     display_buffer_[pos] = color;
-    if (this->x_high < x) this->x_high = x;
-    if (this->y_high < y) this->y_high = y;
+    if (this->x_high_ < x) this->x_high_ = x;
+    if (this->y_high_ < y) this->y_high_ = y;
     //ESP_LOGI(TAG, "pos%d r%d g%d b%d", pos, color.r, color.g, color.b);
 }
 
