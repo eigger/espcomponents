@@ -237,7 +237,7 @@ void DivoomDisplay::shift_image()
 void DivoomDisplay::display_()
 {
     if (!connected_) return;
-    if (true)
+    if (false)
     {
         for(std::vector<Color> buffer : animation_buffer_) buffer.clear();
         animation_buffer_.clear();
