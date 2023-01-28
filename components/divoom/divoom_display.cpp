@@ -257,7 +257,7 @@ void DivoomDisplay::display_()
             if (idx++ > 9) break;
         }
         clear_display_buffer();
-        draw_animation_to_divoom(animation_buffer_, 100);
+        draw_animation_to_divoom(animation_buffer_, 500);
     }
     else
     {
@@ -373,7 +373,7 @@ void DivoomDisplay::write_data(const std::vector<uint8_t> &data)
 {
     if (!connected_) return;
     this->serialbt_.write(&data[0], data.size());
-    ESP_LOGV(TAG, "Write array-> %s", to_hex_string(data).c_str());
+    ESP_LOGI(TAG, "Write array-> %s", to_hex_string(data).c_str());
 }
 
 std::string DivoomDisplay::to_hex_string(const std::vector<unsigned char> &data)
