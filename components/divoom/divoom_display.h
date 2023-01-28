@@ -56,6 +56,7 @@ protected:
     void draw_image_to_divoom(const std::vector<Color> &image);
     void turn_divoom_into_clock(uint8_t type);
     void clear_display_buffer();
+    void shift_image();
     void display_();
     void connect_to_device();
     bool found_divoom();
@@ -73,7 +74,7 @@ protected:
     std::vector<Color> old_image_buffer_;
     //std::vector<Color> display_buffer_;
     Color display_buffer_[MAX_WIDTH][MAX_HEIGHT];
-    uint32_t width_shift_offset_{0};
+    int32_t width_shift_offset_{0};
     uint8_t address_[6];
     std::string address_str_;
     int16_t width_{16};  ///< Display width as modified by current rotation

@@ -26,6 +26,7 @@ void DivoomDisplay::setup()
 {
     this->initialize();
     image_buffer_ = std::vector<Color>(this->width_ * this->height_, Color::BLACK);
+    width_shift_offset_ = -this->width_;
     clear_display_buffer();
     rx_parser_.set_checksum_len(2);
     rx_parser_.add_header(DIVOOM_HEADER);
@@ -205,17 +206,18 @@ void DivoomDisplay::clear_display_buffer()
     this->y_high_ = 0;
 }
 
-void DivoomDisplay::display_()
+void DivoomDisplay::shift_image()
 {
-    if (!connected_) return;
+    int32_t offset = width_shift_offset_;
+    if (this->x_high_ <= this->width_) offset = 0;
     for (int x = 0; x < this->width_; x++)
     {
         for (int y = 0; y < this->height_; y++)
         {
             uint32_t pos = (y * width_) + x;
-            if (x + width_shift_offset_ < MAX_WIDTH)
+            if (x + offset >= 0 && x + offset < MAX_WIDTH)
             {
-                image_buffer_[pos] = display_buffer_[x + width_shift_offset_][y];
+                image_buffer_[pos] = display_buffer_[x + offset][y];
             }
             else
             {
@@ -225,7 +227,13 @@ void DivoomDisplay::display_()
         }
     }
     if (this->x_high_ > this->width_) width_shift_offset_++;
-    if (width_shift_offset_ > this->x_high_ + 1) width_shift_offset_ = 0;
+    if (width_shift_offset_ > this->x_high_ + 1) width_shift_offset_ = -this->width_;
+
+}
+void DivoomDisplay::display_()
+{
+    if (!connected_) return;
+    shift_image();
     clear_display_buffer();
     if (image_buffer_.size() == old_image_buffer_.size())
     {
