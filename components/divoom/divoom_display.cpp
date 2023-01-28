@@ -254,7 +254,7 @@ void DivoomDisplay::display_()
                 }
             }
             animation_buffer_.push_back(image);
-            if (idx++ > 3) break;
+            if (idx++ > 9) break;
         }
         clear_display_buffer();
         draw_animation_to_divoom(animation_buffer_, 100);
