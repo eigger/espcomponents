@@ -135,9 +135,9 @@ bool DivoomDisplay::found_divoom()
     {
         BTAdvertisedDevice *device = bt_device_list_->getDevice(i);
         ESP_LOGI(TAG, "%s ----- %s  %s %d", address_str_.c_str(), device->getAddress().toString().c_str(), device->getName().c_str(), device->getRSSI());
+        if (address_str_ == device->getAddress().toString()) return true;
     }
     return false;
-    return true;
 }
 
 void DivoomDisplay::read_from_bluetooth()
