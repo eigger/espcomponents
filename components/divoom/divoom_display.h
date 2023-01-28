@@ -54,7 +54,7 @@ public:
 protected:
     void draw_absolute_pixel_internal(int x, int y, Color color) override;
     void draw_image_to_divoom(const std::vector<Color> &image);
-    void draw_animation_to_divoom(std::vector<std::vector<Color>> &images, uint16_t time);
+    void draw_animation_to_divoom(const std::vector<std::vector<Color>> &images, uint16_t time);
     std::vector<uint8_t> get_single_image_data(const std::vector<Color> &image, uint16_t time = 0x00);
     void turn_divoom_into_clock(uint8_t type);
     void clear_display_buffer();
