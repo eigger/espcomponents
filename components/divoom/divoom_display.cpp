@@ -84,7 +84,7 @@ void DivoomDisplay::connect_to_device()
         ESP_LOGI(TAG, "BT_INIT -> DISCOVERY");
         break;
     case BT_DISCOVERY:
-        if (elapsed_time(timer_) < 20000) break;
+        if (elapsed_time(timer_) < 10000) break;
         if (found_divoom() == false)
         {
             ESP_LOGI(TAG, "BT_DISCOVERY -> INIT");
