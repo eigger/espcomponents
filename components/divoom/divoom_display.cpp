@@ -192,7 +192,7 @@ unsigned long DivoomDisplay::get_time()
 
 void DivoomDisplay::display_()
 {
-    uint16_t offset = width_shift_offset;
+    uint16_t offset = width_shift_offset_;
     for (int x = offset; x < this->width_ + offset; offset++)
     {
         for (int y = 0; y < this->height_; y++)
@@ -202,10 +202,10 @@ void DivoomDisplay::display_()
             image_buffer_[img_pos] = display_buffer_[pos];
         }
     }
-    if (this->x_high > this->width_) width_shift_offset++;
-    if (width_shift_offset > this->x_high) width_shift_offset = 0;
-    this->x_high = 0;
-    this->y_high = 0;
+    if (this->x_high_ > this->width_) width_shift_offset_++;
+    if (width_shift_offset_ > this->x_high_) width_shift_offset_ = 0;
+    this->x_high_ = 0;
+    this->y_high_ = 0;
     if (image_buffer_.size() == old_image_buffer_.size())
     {
         if (std::equal(image_buffer_.begin(), image_buffer_.end(), old_image_buffer_.begin())) return;
