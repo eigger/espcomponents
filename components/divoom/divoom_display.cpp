@@ -42,7 +42,7 @@ void DivoomDisplay::setup()
         this->brightness_->publish_state(100);
     }
     serialbt_.begin("ESPHOME", true);
-    connected_ = serialbt_.connect(address_);
+    // connected_ = serialbt_.connect(address_);
     // if (!connected_) while (!serialbt_.connected(10000));
     // serialbt_.disconnect();
     // serialbt_.connect();
