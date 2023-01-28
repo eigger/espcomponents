@@ -93,13 +93,14 @@ void DivoomDisplay::connect_to_device()
             break;
         }
         ESP_LOGI(TAG, "BT_DISCOVERY -> CONNECTING");
+        sleep(10);
         bt_job_ = BT_CONNECTING;
         serialbt_.disconnect();
         serialbt_.connect(address_);
         timer_ = get_time();
         break;
     case BT_CONNECTING:
-        if (elapsed_time(timer_) > 5000)
+        if (elapsed_time(timer_) > 10000)
         {
             ESP_LOGI(TAG, "BT_CONNECTING -> INIT");
             bt_job_ = BT_INIT;
