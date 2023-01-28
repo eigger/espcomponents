@@ -207,7 +207,6 @@ void DivoomDisplay::clear_display_buffer()
 
 void DivoomDisplay::display_()
 {
-    // return;
     // uint16_t offset = width_shift_offset_;
     // for (int y = 0; y < this->height_; y++)
     // {
@@ -218,6 +217,14 @@ void DivoomDisplay::display_()
     //         ESP_LOGI(TAG, "pos%d x%d y%d offset%d", pos, x, y, offset);
     //     }
     // }
+    for (int x = 0; x < this->width_; x++)
+    {
+        for (int y = 0; y < this->height_; y++)
+        {
+            uint32_t pos = (y * width_) + x;
+            image_buffer_[pos] = display_buffer_[x][y];
+        }
+    }
     if (this->x_high_ > this->width_) width_shift_offset_++;
     if (width_shift_offset_ > this->x_high_) width_shift_offset_ = 0;
     clear_display_buffer();
@@ -289,7 +296,7 @@ void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color)
     if (x >= MAX_WIDTH) return;
     if (y >= this->get_height_internal() || y < 0) return;
     uint32_t pos = (y * width_) + x;
-    image_buffer_[pos] = color;
+    //image_buffer_[pos] = color;
     display_buffer_[x][y] = color;
     if (this->x_high_ < x) this->x_high_ = x;
     if (this->y_high_ < y) this->y_high_ = y;
