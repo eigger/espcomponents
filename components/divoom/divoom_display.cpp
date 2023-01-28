@@ -129,11 +129,11 @@ void DivoomDisplay::connect_to_device()
 bool DivoomDisplay::found_divoom()
 {
     serialbt_.discoverAsyncStop();
-    if (btDeviceList->getCount() == 0) return false;
+    if (bt_device_list_->getCount() == 0) return false;
         
-    for (int i = 0; i < btDeviceList->getCount(); i++)
+    for (int i = 0; i < bt_device_list_->getCount(); i++)
     {
-        BTAdvertisedDevice *device = btDeviceList->getDevice(i);
+        BTAdvertisedDevice *device = bt_device_list_->getDevice(i);
         ESP_LOGI(TAG, "%s ----- %s  %s %d", address_str_.c_str(), device->getAddress().toString().c_str(), device->getName().c_str(), device->getRSSI());
     }
     return false;
