@@ -207,22 +207,12 @@ void DivoomDisplay::clear_display_buffer()
 
 void DivoomDisplay::display_()
 {
-    // uint16_t offset = width_shift_offset_;
-    // for (int y = 0; y < this->height_; y++)
-    // {
-    //     for (int x = 0; x < this->width_; x++)
-    //     {
-    //         uint32_t pos = (y * width_) + x;
-    //         image_buffer_[pos] = display_buffer_[x + offset][y];
-    //         ESP_LOGI(TAG, "pos%d x%d y%d offset%d", pos, x, y, offset);
-    //     }
-    // }
     for (int x = 0; x < this->width_; x++)
     {
         for (int y = 0; y < this->height_; y++)
         {
             uint32_t pos = (y * width_) + x;
-            image_buffer_[pos] = display_buffer_[x][y];
+            image_buffer_[pos] = display_buffer_[x + width_shift_offset_][y];
         }
     }
     if (this->x_high_ > this->width_) width_shift_offset_++;
