@@ -41,7 +41,6 @@ void DivoomDisplay::setup()
         this->brightness_->add_on_state_callback(std::bind(&DivoomDisplay::brightness_callback, this, std::placeholders::_1));
         this->brightness_->publish_state(100);
     }
-    serialbt_.begin("ESPHOME", true);
     ESP_LOGI(TAG, "Initaialize.");
 }
 
@@ -78,6 +77,7 @@ void DivoomDisplay::connect_to_device()
     case BT_INIT:
         timer_ = get_time();
         connected_ = false;
+        serialbt_.begin("ESPHOME", true);
         bt_device_list_ = serialbt_.getScanResults();
         serialbt_.discoverAsync(nullptr);
         bt_job_ = BT_DISCOVERY;
@@ -122,6 +122,7 @@ void DivoomDisplay::connect_to_device()
         }
         if (elapsed_time(timer_) > 5000)
         {
+            serialbt_.unpairDevice(address_);
             serialbt_.disconnect();
             if (this->bt_status_) this->bt_status_->publish_state(connected_);
             ESP_LOGI(TAG, "BT_CONNECTED -> INIT");
@@ -141,7 +142,11 @@ bool DivoomDisplay::found_divoom()
     {
         BTAdvertisedDevice *device = bt_device_list_->getDevice(i);
         ESP_LOGI(TAG, "%s ----- %s  %s %d", address_str_.c_str(), device->getAddress().toString().c_str(), device->getName().c_str(), device->getRSSI());
-        if (address_str_ == device->getAddress().toString() && device->getName().size() > 0) return true;
+        if (address_str_ == device->getAddress().toString() && device->getName().size() > 0)
+        {
+            serialbt_.discoverClear();
+            return true;
+        }
     }
     return false;
 }
