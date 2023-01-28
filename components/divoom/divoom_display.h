@@ -63,7 +63,6 @@ protected:
     unsigned long elapsed_time(const unsigned long timer);
     unsigned long get_time();
     BluetoothSerial serialbt_;
-    BTScanResults* bt_device_list_{nullptr};
     BTJob bt_job_{BT_INIT};
     bool connected_{false};
     unsigned long timer_{0};

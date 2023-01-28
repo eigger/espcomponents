@@ -41,6 +41,7 @@ void DivoomDisplay::setup()
         this->brightness_->add_on_state_callback(std::bind(&DivoomDisplay::brightness_callback, this, std::placeholders::_1));
         this->brightness_->publish_state(100);
     }
+    serialbt_.begin("ESPHOME", true);
     ESP_LOGI(TAG, "Initaialize.");
 }
 
@@ -77,14 +78,12 @@ void DivoomDisplay::connect_to_device()
     case BT_INIT:
         timer_ = get_time();
         connected_ = false;
-        serialbt_.begin("ESPHOME", true);
-        bt_device_list_ = serialbt_.getScanResults();
         serialbt_.discoverAsync(nullptr);
         bt_job_ = BT_DISCOVERY;
         ESP_LOGI(TAG, "BT_INIT -> DISCOVERY");
         break;
     case BT_DISCOVERY:
-        if (elapsed_time(timer_) < 20000) break;
+        if (elapsed_time(timer_) < 5000) break;
         if (found_divoom() == false)
         {
             ESP_LOGI(TAG, "BT_DISCOVERY -> INIT");
@@ -98,7 +97,7 @@ void DivoomDisplay::connect_to_device()
         timer_ = get_time();
         break;
     case BT_CONNECTING:
-        if (elapsed_time(timer_) > 20000)
+        if (elapsed_time(timer_) > 5000)
         {
             ESP_LOGI(TAG, "BT_CONNECTING -> INIT");
             bt_job_ = BT_INIT;
@@ -122,9 +121,7 @@ void DivoomDisplay::connect_to_device()
         }
         if (elapsed_time(timer_) > 5000)
         {
-            serialbt_.unpairDevice(address_);
             serialbt_.disconnect();
-            serialbt_.end();
             if (this->bt_status_) this->bt_status_->publish_state(connected_);
             ESP_LOGI(TAG, "BT_CONNECTED -> INIT");
             bt_job_ = BT_INIT;
@@ -137,11 +134,11 @@ void DivoomDisplay::connect_to_device()
 bool DivoomDisplay::found_divoom()
 {
     serialbt_.discoverAsyncStop();
-    if (bt_device_list_->getCount() == 0) return false;
-        
-    for (int i = 0; i < bt_device_list_->getCount(); i++)
+    BTScanResults* scan_result = serialbt_.getScanResults();
+    if (scan_result->getCount() == 0) return false;
+    for (int i = 0; i < scan_result->getCount(); i++)
     {
-        BTAdvertisedDevice *device = bt_device_list_->getDevice(i);
+        BTAdvertisedDevice *device = scan_result->getDevice(i);
         ESP_LOGI(TAG, "%s ----- %s  %s %d", address_str_.c_str(), device->getAddress().toString().c_str(), device->getName().c_str(), device->getRSSI());
         if (address_str_ == device->getAddress().toString() && device->getName().size() > 0)
         {
