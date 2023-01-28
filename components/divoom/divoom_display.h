@@ -10,9 +10,6 @@
 #include "parser.h"
 #include "divoom_defines.h"
 
-#undef READY_TIMEOUT
-#define READY_TIMEOUT 500
-
 namespace esphome {
 namespace divoom {
 
@@ -21,6 +18,14 @@ enum DivoomModel
     DIVOOM16 = 0,
     DIVOOM11,
 };
+
+enum BTJob
+{
+    BT_INIT = 0,
+    BT_DISCOVERY,
+    BT_CONNECTING,
+    BT_CONNECTED
+}
 
 class DivoomDisplay : public PollingComponent, public display::DisplayBuffer
 {
@@ -52,18 +57,21 @@ protected:
     void turn_divoom_into_clock(uint8_t type);
     void display_();
     void connect_to_device();
+    bool found_divoom();
     void read_from_bluetooth();
     unsigned long elapsed_time(const unsigned long timer);
     unsigned long get_time();
     BluetoothSerial serialbt_;
+    BTScanResults* bt_device_list_{nullptr};
+    BTJob bt_job_{BT_INIT};
     bool connected_{false};
-    bool status_{false};
-    unsigned long disconnected_time_{0};
+    unsigned long timer_{0};
     Parser rx_parser_{};
     DivoomModel model_;
     std::vector<Color> image_buffer_;
     std::vector<Color> old_image_buffer_;
     uint8_t address_[6];
+    String address_str_;
     int16_t width_{16};  ///< Display width as modified by current rotation
     int16_t height_{16}; ///< Display height as modified by current rotation
     uint16_t x_low_{0};

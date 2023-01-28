@@ -42,11 +42,6 @@ void DivoomDisplay::setup()
         this->brightness_->publish_state(100);
     }
     serialbt_.begin("ESPHOME", true);
-    // connected_ = serialbt_.connect(address_);
-    // if (!connected_) while (!serialbt_.connected(10000));
-    // serialbt_.disconnect();
-    // serialbt_.connect();
-    disconnected_time_ = get_time();
     ESP_LOGI(TAG, "Initaialize.");
 }
 
@@ -64,28 +59,85 @@ void DivoomDisplay::set_address(uint64_t address)
     this->address_[3] = (address >> 16) & 0xFF;
     this->address_[4] = (address >> 8) & 0xFF;
     this->address_[5] = (address >> 0) & 0xFF;
+    this->address_str_ = String(this->address_[0], HEX);
+    this->address_str_ += String(":") + String(this->address_[1], HEX);
+    this->address_str_ += String(":") + String(this->address_[2], HEX);
+    this->address_str_ += String(":") + String(this->address_[3], HEX);
+    this->address_str_ += String(":") + String(this->address_[4], HEX);
+    this->address_str_ += String(":") + String(this->address_[5], HEX);
 }
 
 void DivoomDisplay::connect_to_device()
 {
-    connected_ = serialbt_.connected(10);
-    if (connected_ != status_)
+    switch(bt_job_)
     {
-        status_ = connected_;
-        if (this->bt_status_) this->bt_status_->publish_state(status_);
-    }
-    if (connected_)
-    {
-        disconnected_time_ = get_time();
-        return;
-    }
-    if (elapsed_time(disconnected_time_) > 10000)
-    {
+    case BT_INIT:
+        timer_ = get_time();
+        connected_ = false;
+        if (this->bt_status_) this->bt_status_->publish_state(connected_);
+        bt_device_list_ = serialbt_.getScanResults();
+        serialbt_.discoverAsync(nullptr);
+        bt_job_ = BT_DISCOVERY;
+        ESP_LOGI(TAG, "BT_INIT -> DISCOVERY");
+        break;
+    case BT_DISCOVERY:
+        if (elapsed_time(timer_) < 10000) break;
+        if (found_divoom() == false)
+        {
+            ESP_LOGI(TAG, "BT_DISCOVERY -> INIT");
+            bt_job_ = BT_INIT;
+            break;
+        }
+        ESP_LOGI(TAG, "BT_DISCOVERY -> CONNECTING");
+        bt_job_ = BT_CONNECTING;
         serialbt_.disconnect();
         serialbt_.connect(address_);
-        disconnected_time_ = get_time();
-        ESP_LOGI(TAG, "Retry connection");
+        timer_ = get_time();
+        break;
+    case BT_CONNECTING:
+        if (elapsed_time(timer_) > 10000)
+        {
+            ESP_LOGI(TAG, "BT_CONNECTING -> INIT");
+            bt_job_ = BT_INIT;
+            break;
+        }
+        if (serialbt_.connected())
+        {
+            connected_ = true;
+            if (this->bt_status_) this->bt_status_->publish_state(connected_);
+            ESP_LOGI(TAG, "BT_CONNECTING -> CONNECTED");
+            bt_job_ = BT_CONNECTED;
+            break;
+        }
+        break;
+    case BT_CONNECTED:
+        if (serialbt_.connected())
+        {
+            timer_ = get_time();
+            break;
+        }
+        if (elapsed_time(timer_) > 10000)
+        {
+            ESP_LOGI(TAG, "BT_CONNECTED -> INIT");
+            bt_job_ = BT_INIT;
+            break;
+        }
+        break;
     }
+}
+
+bool DivoomDisplay::found_divoom()
+{
+    serialbt_.discoverAsyncStop();
+    if (btDeviceList->getCount() == 0) return false;
+        
+    for (int i = 0; i < btDeviceList->getCount(); i++)
+    {
+        BTAdvertisedDevice *device = btDeviceList->getDevice(i);
+        ESP_LOGI(TAG, "%s ----- %s  %s %d", address_str_.c_str(), device->getAddress().toString().c_str(), device->getName().c_str(), device->getRSSI());
+    }
+    return false;
+    return true;
 }
 
 void DivoomDisplay::read_from_bluetooth()
