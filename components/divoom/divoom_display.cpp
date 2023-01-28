@@ -192,6 +192,7 @@ unsigned long DivoomDisplay::get_time()
 
 void DivoomDisplay::display_()
 {
+    return;
     uint16_t offset = width_shift_offset_;
     image_buffer_.clear();
     for (int y = 0; y < this->height_; y++)
