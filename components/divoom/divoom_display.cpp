@@ -295,7 +295,7 @@ void DivoomDisplay::draw_animation_to_divoom(const std::vector<std::vector<Color
         delay_time += time;
     }
     
-    uin32_t size = image_data.size();
+    uint32_t size = image_data.size();
     protocol.push_back(0x49);
     protocol.push_back(size & 0xff);
     protocol.push_back((size >> 8) & 0xff);
