@@ -82,7 +82,7 @@ void DivoomDisplay::connect_to_device()
     if (elapsed_time(disconnected_time_) > 10000)
     {
         serialbt_.disconnect();
-        serialbt_.connect();
+        serialbt_.connect(address_);
         disconnected_time_ = get_time();
         ESP_LOGI(TAG, "Retry connection");
     }
