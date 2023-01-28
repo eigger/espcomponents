@@ -78,14 +78,13 @@ void DivoomDisplay::connect_to_device()
     case BT_INIT:
         timer_ = get_time();
         connected_ = false;
-        if (this->bt_status_) this->bt_status_->publish_state(connected_);
         bt_device_list_ = serialbt_.getScanResults();
         serialbt_.discoverAsync(nullptr);
         bt_job_ = BT_DISCOVERY;
         ESP_LOGI(TAG, "BT_INIT -> DISCOVERY");
         break;
     case BT_DISCOVERY:
-        if (elapsed_time(timer_) < 10000) break;
+        if (elapsed_time(timer_) < 20000) break;
         if (found_divoom() == false)
         {
             ESP_LOGI(TAG, "BT_DISCOVERY -> INIT");
@@ -121,9 +120,10 @@ void DivoomDisplay::connect_to_device()
             timer_ = get_time();
             break;
         }
-        if (elapsed_time(timer_) > 10000)
+        if (elapsed_time(timer_) > 5000)
         {
             serialbt_.disconnect();
+            if (this->bt_status_) this->bt_status_->publish_state(connected_);
             ESP_LOGI(TAG, "BT_CONNECTED -> INIT");
             bt_job_ = BT_INIT;
             break;
