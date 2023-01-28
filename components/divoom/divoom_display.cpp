@@ -84,7 +84,7 @@ void DivoomDisplay::connect_to_device()
         ESP_LOGI(TAG, "BT_INIT -> DISCOVERY");
         break;
     case BT_DISCOVERY:
-        if (elapsed_time(timer_) < 5000) break;
+        if (elapsed_time(timer_) < 20000) break;
         if (found_divoom() == false)
         {
             ESP_LOGI(TAG, "BT_DISCOVERY -> INIT");
@@ -285,12 +285,12 @@ void DivoomDisplay::draw_image_to_divoom(const std::vector<Color> &image)
 void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color)
 {
     if (x < 0) return;
-    if (x >= this->get_width_internal()) return;
+    //if (x >= this->get_width_internal()) return;
     if (x >= MAX_WIDTH) return;
     if (y >= this->get_height_internal() || y < 0) return;
     uint32_t pos = (y * width_) + x;
     image_buffer_[pos] = color;
-    //display_buffer_[x][y] = color;
+    display_buffer_[x][y] = color;
     if (this->x_high_ < x) this->x_high_ = x;
     if (this->y_high_ < y) this->y_high_ = y;
     //ESP_LOGI(TAG, "pos%d r%d g%d b%d", pos, color.r, color.g, color.b);
