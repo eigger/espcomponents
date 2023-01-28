@@ -283,7 +283,7 @@ void DivoomDisplay::draw_image_to_divoom(const std::vector<Color> &image)
     send_protocol(protocol);
 }
 
-void DivoomDisplay::draw_animation_to_divoom(const std::vector<std::vector<Color>> &images, uint16_t time)
+void DivoomDisplay::draw_animation_to_divoom(std::vector<std::vector<Color>> &images, uint16_t time)
 {
     std::vector<uint8_t> protocol;
     std::vector<uint8_t> image_data;
