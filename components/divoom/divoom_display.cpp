@@ -77,11 +77,9 @@ void DivoomDisplay::connect_to_device()
     case BT_INIT:
         timer_ = get_time();
         connected_ = false;
-        if (!serialbt_) delete serialbt_;
-        serialbt_ = new BluetoothSerial();
-        serialbt_->begin("ESPHOME", true);
-        bt_device_list_ = serialbt_->getScanResults();
-        serialbt_->discoverAsync(nullptr);
+        serialbt_.begin("ESPHOME", true);
+        bt_device_list_ = serialbt_.getScanResults();
+        serialbt_.discoverAsync(nullptr);
         bt_job_ = BT_DISCOVERY;
         ESP_LOGI(TAG, "BT_INIT -> DISCOVERY");
         break;
@@ -95,8 +93,8 @@ void DivoomDisplay::connect_to_device()
         }
         ESP_LOGI(TAG, "BT_DISCOVERY -> CONNECTING");
         bt_job_ = BT_CONNECTING;
-        serialbt_->disconnect();
-        serialbt_->connect(address_);
+        serialbt_.disconnect();
+        serialbt_.connect(address_);
         timer_ = get_time();
         break;
     case BT_CONNECTING:
@@ -106,7 +104,7 @@ void DivoomDisplay::connect_to_device()
             bt_job_ = BT_INIT;
             break;
         }
-        if (serialbt_->connected())
+        if (serialbt_.connected())
         {
             connected_ = true;
             if (this->bt_status_) this->bt_status_->publish_state(connected_);
@@ -116,7 +114,7 @@ void DivoomDisplay::connect_to_device()
         }
         break;
     case BT_CONNECTED:
-        connected_ = serialbt_->connected();
+        connected_ = serialbt_.connected();
         if (connected_)
         {
             timer_ = get_time();
@@ -124,8 +122,9 @@ void DivoomDisplay::connect_to_device()
         }
         if (elapsed_time(timer_) > 5000)
         {
-            serialbt_->unpairDevice(address_);
-            serialbt_->disconnect();
+            serialbt_.unpairDevice(address_);
+            serialbt_.disconnect();
+            serialbt_.end();
             if (this->bt_status_) this->bt_status_->publish_state(connected_);
             ESP_LOGI(TAG, "BT_CONNECTED -> INIT");
             bt_job_ = BT_INIT;
@@ -137,7 +136,7 @@ void DivoomDisplay::connect_to_device()
 
 bool DivoomDisplay::found_divoom()
 {
-    serialbt_->discoverAsyncStop();
+    serialbt_.discoverAsyncStop();
     if (bt_device_list_->getCount() == 0) return false;
         
     for (int i = 0; i < bt_device_list_->getCount(); i++)
@@ -146,7 +145,7 @@ bool DivoomDisplay::found_divoom()
         ESP_LOGI(TAG, "%s ----- %s  %s %d", address_str_.c_str(), device->getAddress().toString().c_str(), device->getName().c_str(), device->getRSSI());
         if (address_str_ == device->getAddress().toString() && device->getName().size() > 0)
         {
-            serialbt_->discoverClear();
+            serialbt_.discoverClear();
             return true;
         }
     }
@@ -161,9 +160,9 @@ void DivoomDisplay::read_from_bluetooth()
     if (connected_ == false) return;
     while (elapsed_time(timer) < 10)
     {
-        while (!valid_data && this->serialbt_->available())
+        while (!valid_data && this->serialbt_.available())
         {
-            uint8_t byte = this->serialbt_->read();
+            uint8_t byte = this->serialbt_.read();
             if (rx_parser_.parse_byte(byte)) valid_data = true;
             timer = get_time();
         }
@@ -270,7 +269,7 @@ void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color)
 void DivoomDisplay::write_data(const std::vector<uint8_t> &data)
 {
     if (!connected_) return;
-    this->serialbt_->write(&data[0], data.size());
+    this->serialbt_.write(&data[0], data.size());
     ESP_LOGV(TAG, "Write array-> %s", to_hex_string(data).c_str());
 }
 
