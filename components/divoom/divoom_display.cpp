@@ -233,17 +233,79 @@ void DivoomDisplay::shift_image()
 void DivoomDisplay::display_()
 {
     if (!connected_) return;
-    shift_image();
-    clear_display_buffer();
-    if (image_buffer_.size() == old_image_buffer_.size())
+    if (true)
     {
-        if (std::equal(image_buffer_.begin(), image_buffer_.end(), old_image_buffer_.begin())) return;
+        for(std::vector<Color> buffer : animation_buffer_) buffer.clear();
+        animation_buffer_.clear();
+        for (int32_t offset = -this->width_ ; offset <= this->x_high_ ; offset += 2)
+        {
+            std::vector<Color> image;
+            for (int x = 0; x < this->width_; x++)
+            {
+                for (int y = 0; y < this->height_; y++)
+                {
+                    Color color = Color::BLACK;
+                    if (x + offset >= 0 && x + offset < MAX_WIDTH)
+                    {
+                        color = display_buffer_[x + offset][y];
+                    }
+                    image.push_back(color);
+                }
+            }
+            animation_buffer_.push_back(image);
+        }
+        clear_display_buffer();
+        draw_animation_to_divoom(animation_buffer_, 100);
     }
-    old_image_buffer_ = image_buffer_;
-    draw_image_to_divoom(image_buffer_);
+    else
+    {
+        shift_image();
+        clear_display_buffer();
+        if (image_buffer_.size() == old_image_buffer_.size())
+        {
+            if (std::equal(image_buffer_.begin(), image_buffer_.end(), old_image_buffer_.begin())) return;
+        }
+        old_image_buffer_ = image_buffer_;
+        draw_image_to_divoom(image_buffer_);
+    }
 }
 
 void DivoomDisplay::draw_image_to_divoom(const std::vector<Color> &image)
+{
+    std::vector<uint8_t> protocol;
+    std::vector<uint8_t> image_data = get_single_image_data(image);
+    protocol.push_back(0x44);
+    protocol.push_back(0x00);
+    protocol.push_back(0x0A);
+    protocol.push_back(0x0A);
+    protocol.push_back(0x04);
+    protocol.insert(protocol.end(), image_data.begin(), image_data.end());
+    send_protocol(protocol);
+}
+
+void DivoomDisplay::draw_animation_to_divoom(const std::vector<std::vector<Color>> &images, uint16_t time)
+{
+    std::vector<uint8_t> protocol;
+    std::vector<uint8_t> image_data;
+    uint16_t delay_time = 0;
+    for(std::vector<Color> image : images)
+    {
+        std::vector<uint8_t> data = get_single_image_data(image, delay_time);
+        image_data.insert(image_data.end(), data.begin(), data.end());
+        delay_time += time;
+    }
+    
+    uin32_t size = image_data.size();
+    protocol.push_back(0x49);
+    protocol.push_back(size & 0xff);
+    protocol.push_back((size >> 8) & 0xff);
+    protocol.push_back(0x00);
+    protocol.push_back(0x00);
+    protocol.insert(protocol.end(), image_data.begin(), image_data.end());
+    send_protocol(protocol);
+}
+
+std::vector<uint8_t> get_single_image_data(const std::vector<Color> &image, uint16_t time = 0x00)
 {
     std::vector<Color> palette;
     std::vector<uint8_t> palette_index_list;
@@ -279,21 +341,16 @@ void DivoomDisplay::draw_image_to_divoom(const std::vector<Color> &image)
         palette_data.push_back(color.b);
     }
     uint16_t size = 7 + palette_data.size() + pixel_data.size();
-    protocol.push_back(0x44);
-    protocol.push_back(0x00);
-    protocol.push_back(0x0A);
-    protocol.push_back(0x0A);
-    protocol.push_back(0x04);
     protocol.push_back(0xAA);
     protocol.push_back(size & 0xff);
     protocol.push_back((size >> 8) & 0xff);
     protocol.push_back(0x00);
-    protocol.push_back(0x00);
-    protocol.push_back(0x00);
+    protocol.push_back(time & 0xff);
+    protocol.push_back((time >> 8) & 0xff);
     protocol.push_back(palette.size());
     protocol.insert(protocol.end(), palette_data.begin(), palette_data.end());
     protocol.insert(protocol.end(), pixel_data.begin(), pixel_data.end());
-    send_protocol(protocol);
+    return protocol;
 }
 
 void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color)
