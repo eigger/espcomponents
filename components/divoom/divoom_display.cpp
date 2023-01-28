@@ -214,12 +214,12 @@ void DivoomDisplay::display_()
         {
             uint32_t pos = (y * width_) + x;
             image_buffer_[pos] = display_buffer_[x + offset][y];
+            ESP_LOGI(TAG, "pos%d x%d y%d offset%d", pos, x, y, offset);
         }
     }
     if (this->x_high_ > this->width_) width_shift_offset_++;
     if (width_shift_offset_ > this->x_high_) width_shift_offset_ = 0;
     clear_display_buffer();
-    return;
     if (image_buffer_.size() == old_image_buffer_.size())
     {
         if (std::equal(image_buffer_.begin(), image_buffer_.end(), old_image_buffer_.begin())) return;
