@@ -71,7 +71,7 @@ protected:
     std::vector<Color> image_buffer_;
     std::vector<Color> old_image_buffer_;
     uint8_t address_[6];
-    String address_str_;
+    std::string address_str_;
     int16_t width_{16};  ///< Display width as modified by current rotation
     int16_t height_{16}; ///< Display height as modified by current rotation
     uint16_t x_low_{0};
