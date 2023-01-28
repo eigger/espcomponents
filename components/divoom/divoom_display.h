@@ -10,6 +10,9 @@
 #include "parser.h"
 #include "divoom_defines.h"
 
+#undef READY_TIMEOUT
+#define READY_TIMEOUT 500
+
 namespace esphome {
 namespace divoom {
 
