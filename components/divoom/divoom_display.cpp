@@ -25,7 +25,6 @@ void DivoomDisplay::update()
 void DivoomDisplay::setup()
 {
     this->initialize();
-    image_buffer_ = std::vector<Color>(width_ * height_, Color::BLACK);
     rx_parser_.set_checksum_len(2);
     rx_parser_.add_header(DIVOOM_HEADER);
     rx_parser_.add_footer(DIVOOM_FOOTER);
@@ -193,6 +192,20 @@ unsigned long DivoomDisplay::get_time()
 
 void DivoomDisplay::display_()
 {
+    uint16_t offset = width_shift_offset;
+    for (int x = offset; x < this->width_ + offset; offset++)
+    {
+        for (int y = 0; y < this->height_; y++)
+        {
+            uint32_t pos = (y * width_) + x;
+            uint32_t img_pos = (y * width_) + (x - offset);
+            image_buffer_[img_pos] = display_buffer_[pos];
+        }
+    }
+    if (this->x_high > this->width_) width_shift_offset++;
+    if (width_shift_offset > this->x_high) width_shift_offset = 0;
+    this->x_high = 0;
+    this->y_high = 0;
     if (image_buffer_.size() == old_image_buffer_.size())
     {
         if (std::equal(image_buffer_.begin(), image_buffer_.end(), old_image_buffer_.begin())) return;
@@ -256,10 +269,14 @@ void DivoomDisplay::draw_image_to_divoom(const std::vector<Color> &image)
 
 void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color)
 {
-    if (x >= this->get_width_internal() || x < 0) return;
+    if (x < 0) return;
+    //if (x >= this->get_width_internal()) return;
     if (y >= this->get_height_internal() || y < 0) return;
     uint32_t pos = (y * width_) + x;
-    image_buffer_[pos] = color;
+    while(display_buffer_.size() <= pos) display_buffer_.push_back(Color::BLACK);
+    display_buffer_[pos] = color;
+    if (this->x_high < x) this->x_high = x;
+    if (this->y_high < y) this->y_high = y;
     //ESP_LOGI(TAG, "pos%d r%d g%d b%d", pos, color.r, color.g, color.b);
 }
 

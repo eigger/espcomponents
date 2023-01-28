@@ -70,6 +70,8 @@ protected:
     DivoomModel model_;
     std::vector<Color> image_buffer_;
     std::vector<Color> old_image_buffer_;
+    std::vector<Color> display_buffer_;
+    uint16_t width_shift_offset_{0};
     uint8_t address_[6];
     std::string address_str_;
     int16_t width_{16};  ///< Display width as modified by current rotation
