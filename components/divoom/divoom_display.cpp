@@ -199,7 +199,7 @@ void DivoomDisplay::display_()
         for (int x = offset; x < this->width_ + offset; offset++)
         {
             uint32_t pos = (y * width_) + x;
-            if (display_buffer_[pos].size() <= pos) image_buffer_.push_back(Color::BLACK);
+            if (display_buffer_.size() <= pos) image_buffer_.push_back(Color::BLACK);
             else image_buffer_.push_back(display_buffer_[pos]);
         }
     }
