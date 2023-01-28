@@ -64,7 +64,7 @@ void DivoomDisplay::set_address(uint64_t address)
     for (int i = 0; i < 6; i++)
     {
         char buf[20];
-        sprintf(buf, "%02x", this->address_[0]);
+        sprintf(buf, "%02x", this->address_[i]);
         if (i > 0) this->address_str_ += ":";
         this->address_str_ += buf;
     }
