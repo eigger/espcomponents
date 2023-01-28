@@ -99,7 +99,7 @@ void DivoomDisplay::connect_to_device()
         timer_ = get_time();
         break;
     case BT_CONNECTING:
-        if (elapsed_time(timer_) > 10000)
+        if (elapsed_time(timer_) > 20000)
         {
             ESP_LOGI(TAG, "BT_CONNECTING -> INIT");
             bt_job_ = BT_INIT;
@@ -141,7 +141,7 @@ bool DivoomDisplay::found_divoom()
     {
         BTAdvertisedDevice *device = bt_device_list_->getDevice(i);
         ESP_LOGI(TAG, "%s ----- %s  %s %d", address_str_.c_str(), device->getAddress().toString().c_str(), device->getName().c_str(), device->getRSSI());
-        if (address_str_ == device->getAddress().toString()) return true;
+        if (address_str_ == device->getAddress().toString() && device->getName().size() > 0) return true;
     }
     return false;
 }
