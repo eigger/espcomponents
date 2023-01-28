@@ -25,7 +25,7 @@ enum BTJob
     BT_DISCOVERY,
     BT_CONNECTING,
     BT_CONNECTED
-}
+};
 
 class DivoomDisplay : public PollingComponent, public display::DisplayBuffer
 {
