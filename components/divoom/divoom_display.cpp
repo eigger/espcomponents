@@ -290,7 +290,8 @@ void DivoomDisplay::draw_animation_to_divoom(const std::vector<std::vector<Color
     uint16_t delay_time = 0;
     for(auto image : images)
     {
-        std::vector<uint8_t> data = get_single_image_data(image, delay_time);
+        std::vector<Color> temp = image;
+        std::vector<uint8_t> data = get_single_image_data(temp, delay_time);
         image_data.insert(image_data.end(), data.begin(), data.end());
         delay_time += time;
     }
