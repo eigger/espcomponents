@@ -49,6 +49,7 @@ void DivoomDisplay::loop()
 {
     connect_to_device();
     read_from_bluetooth();
+    write_to_bluetooth();
 }
 
 void DivoomDisplay::set_address(uint64_t address)
@@ -114,13 +115,15 @@ void DivoomDisplay::connect_to_device()
         }
         break;
     case BT_CONNECTED:
-        if (serialbt_.connected())
+        connected_ = serialbt_.connected();
+        if (connected_)
         {
             timer_ = get_time();
             break;
         }
         if (elapsed_time(timer_) > 10000)
         {
+            serialbt_.disconnect();
             ESP_LOGI(TAG, "BT_CONNECTED -> INIT");
             bt_job_ = BT_INIT;
             break;
@@ -160,6 +163,19 @@ void DivoomDisplay::read_from_bluetooth()
         if (valid_data) break;
         delay(1);
     }
+}
+
+void DivoomDisplay::write_to_bluetooth()
+{
+    if (connected_ == false) return;
+
+    if (!protocol_queue_.empty())
+    {
+        std::vector<uint8_t> protocol = protocol_queue_.front();
+        protocol_queue_.pop();
+        write_protocol(protocol);
+    }
+
 }
 
 unsigned long DivoomDisplay::elapsed_time(const unsigned long timer)
@@ -232,7 +248,7 @@ void DivoomDisplay::draw_image_to_divoom(const std::vector<Color> &image)
     protocol.push_back(palette.size());
     protocol.insert(protocol.end(), palette_data.begin(), palette_data.end());
     protocol.insert(protocol.end(), pixel_data.begin(), pixel_data.end());
-    write_protocol(protocol);
+    send_protocol(protocol);
 }
 
 void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color)
@@ -286,6 +302,11 @@ void DivoomDisplay::write_protocol(const std::vector<uint8_t> &data)
     write_data(buffer);
 }
 
+void DivoomDisplay::send_protocol(const std::vector<uint8_t> &data)
+{
+    protocol_queue_.push(data);
+}
+
 
 // Full String: 450001 TT XX WW EE CC RRGGBB
 
@@ -317,7 +338,7 @@ void DivoomDisplay::turn_divoom_into_clock(uint8_t type)
     protocol.push_back(0xFF);   //R
     protocol.push_back(0xFF);   //G
     protocol.push_back(0xFF);   //B
-    write_protocol(protocol);
+    send_protocol(protocol);
 }
 
 void DivoomDisplay::select_time_callback(std::string value, size_t index)
@@ -330,7 +351,7 @@ void DivoomDisplay::set_divoom_brightness(uint8_t value)
     std::vector<uint8_t> protocol;
     protocol.push_back(0x74);
     protocol.push_back(value);
-    write_protocol(protocol);
+    send_protocol(protocol);
 }
 
 void DivoomDisplay::brightness_callback(float value)

@@ -59,6 +59,7 @@ protected:
     void connect_to_device();
     bool found_divoom();
     void read_from_bluetooth();
+    void write_to_bluetooth();
     unsigned long elapsed_time(const unsigned long timer);
     unsigned long get_time();
     BluetoothSerial serialbt_;
@@ -81,7 +82,10 @@ protected:
 
     void write_data(const std::vector<uint8_t> &data);
     void write_protocol(const std::vector<uint8_t> &data);
+    void send_protocol(const std::vector<uint8_t> &data);
     std::string to_hex_string(const std::vector<unsigned char> &data);
+
+    std::queue<std::vector<uint8_t>> protocol_queue_;
 
     text_sensor::TextSensor *version_{nullptr};
     binary_sensor::BinarySensor *bt_status_{nullptr};
