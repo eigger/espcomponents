@@ -207,17 +207,17 @@ void DivoomDisplay::clear_display_buffer()
 
 void DivoomDisplay::display_()
 {
-    return;
-    uint16_t offset = width_shift_offset_;
-    for (int y = 0; y < this->height_; y++)
-    {
-        for (int x = 0; x < this->width_; x++)
-        {
-            uint32_t pos = (y * width_) + x;
-            image_buffer_[pos] = display_buffer_[x + offset][y];
-            ESP_LOGI(TAG, "pos%d x%d y%d offset%d", pos, x, y, offset);
-        }
-    }
+    // return;
+    // uint16_t offset = width_shift_offset_;
+    // for (int y = 0; y < this->height_; y++)
+    // {
+    //     for (int x = 0; x < this->width_; x++)
+    //     {
+    //         uint32_t pos = (y * width_) + x;
+    //         image_buffer_[pos] = display_buffer_[x + offset][y];
+    //         ESP_LOGI(TAG, "pos%d x%d y%d offset%d", pos, x, y, offset);
+    //     }
+    // }
     if (this->x_high_ > this->width_) width_shift_offset_++;
     if (width_shift_offset_ > this->x_high_) width_shift_offset_ = 0;
     clear_display_buffer();
@@ -285,10 +285,12 @@ void DivoomDisplay::draw_image_to_divoom(const std::vector<Color> &image)
 void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color)
 {
     if (x < 0) return;
-    //if (x >= this->get_width_internal()) return;
+    if (x >= this->get_width_internal()) return;
     if (x >= MAX_WIDTH) return;
     if (y >= this->get_height_internal() || y < 0) return;
-    display_buffer_[x][y] = color;
+    uint32_t pos = (y * width_) + x;
+    image_buffer_[pos] = color;
+    //display_buffer_[x][y] = color;
     if (this->x_high_ < x) this->x_high_ = x;
     if (this->y_high_ < y) this->y_high_ = y;
     //ESP_LOGI(TAG, "pos%d r%d g%d b%d", pos, color.r, color.g, color.b);
