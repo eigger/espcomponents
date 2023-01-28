@@ -207,6 +207,7 @@ void DivoomDisplay::clear_display_buffer()
 
 void DivoomDisplay::display_()
 {
+    return;
     uint16_t offset = width_shift_offset_;
     for (int y = 0; y < this->height_; y++)
     {
