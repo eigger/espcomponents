@@ -237,6 +237,7 @@ void DivoomDisplay::display_()
     {
         for(std::vector<Color> buffer : animation_buffer_) buffer.clear();
         animation_buffer_.clear();
+        int idx = 0;
         for (int32_t offset = -this->width_ ; offset <= this->x_high_ ; offset += 2)
         {
             std::vector<Color> image;
@@ -253,6 +254,7 @@ void DivoomDisplay::display_()
                 }
             }
             animation_buffer_.push_back(image);
+            if (idx++ > 3) break;
         }
         clear_display_buffer();
         draw_animation_to_divoom(animation_buffer_, 100);
