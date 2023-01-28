@@ -207,7 +207,7 @@ void DivoomDisplay::clear_display_buffer()
 void DivoomDisplay::display_()
 {
     uint16_t offset = width_shift_offset_;
-    std::vector<uint8_t> buffer = std::vector<uint8_t>(this->width_ * this->height_, Color::BLACK);
+    std::vector<Color> buffer(this->width_ * this->height_, Color::BLACK);
     for (int y = 0; y < this->height_; y++)
     {
         for (int x = 0; x < this->width_; x++)
