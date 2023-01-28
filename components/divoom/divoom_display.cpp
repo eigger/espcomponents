@@ -288,10 +288,9 @@ void DivoomDisplay::draw_animation_to_divoom(const std::vector<std::vector<Color
     std::vector<uint8_t> protocol;
     std::vector<uint8_t> image_data;
     uint16_t delay_time = 0;
-    for(auto image : images)
+    for(std::vector<Color> image : images)
     {
-        std::vector<Color> temp = image;
-        std::vector<uint8_t> data = get_single_image_data(temp, delay_time);
+        std::vector<uint8_t> data = get_single_image_data(image, delay_time);
         image_data.insert(image_data.end(), data.begin(), data.end());
         delay_time += time;
     }
@@ -306,7 +305,7 @@ void DivoomDisplay::draw_animation_to_divoom(const std::vector<std::vector<Color
     send_protocol(protocol);
 }
 
-std::vector<uint8_t> get_single_image_data(const std::vector<Color> &image, uint16_t time = 0x00)
+std::vector<uint8_t> get_single_image_data(const std::vector<Color> &image, uint16_t time)
 {
     std::vector<Color> palette;
     std::vector<uint8_t> palette_index_list;
