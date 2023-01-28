@@ -193,13 +193,14 @@ unsigned long DivoomDisplay::get_time()
 void DivoomDisplay::display_()
 {
     uint16_t offset = width_shift_offset_;
-    for (int x = offset; x < this->width_ + offset; offset++)
+    std::vector<uint8_t> buffer;
+    for (int y = 0; y < this->height_; y++)
     {
-        for (int y = 0; y < this->height_; y++)
+        for (int x = offset; x < this->width_ + offset; offset++)
         {
             uint32_t pos = (y * width_) + x;
-            uint32_t img_pos = (y * width_) + (x - offset);
-            image_buffer_[img_pos] = display_buffer_[pos];
+            if (x > this->x_high_) buffer.push_back(Color::BLACK);
+            else buffer.push_back(display_buffer_[pos]);
         }
     }
     if (this->x_high_ > this->width_) width_shift_offset_++;
@@ -207,12 +208,12 @@ void DivoomDisplay::display_()
     this->x_high_ = 0;
     this->y_high_ = 0;
     display_buffer_.clear();
-    if (image_buffer_.size() == old_image_buffer_.size())
+    if (buffer.size() == old_image_buffer_.size())
     {
-        if (std::equal(image_buffer_.begin(), image_buffer_.end(), old_image_buffer_.begin())) return;
+        if (std::equal(buffer.begin(), buffer.end(), old_image_buffer_.begin())) return;
     }
-    old_image_buffer_ = image_buffer_;
-    draw_image_to_divoom(image_buffer_);
+    old_image_buffer_ = buffer;
+    draw_image_to_divoom(buffer);
 }
 
 void DivoomDisplay::draw_image_to_divoom(const std::vector<Color> &image)
