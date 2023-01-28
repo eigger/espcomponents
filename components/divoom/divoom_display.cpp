@@ -207,12 +207,21 @@ void DivoomDisplay::clear_display_buffer()
 
 void DivoomDisplay::display_()
 {
+    if (!connected_) return;
     for (int x = 0; x < this->width_; x++)
     {
         for (int y = 0; y < this->height_; y++)
         {
             uint32_t pos = (y * width_) + x;
-            image_buffer_[pos] = display_buffer_[x + width_shift_offset_][y];
+            if (x + width_shift_offset_ < MAX_WIDTH)
+            {
+                image_buffer_[pos] = display_buffer_[x + width_shift_offset_][y];
+            }
+            else
+            {
+                image_buffer_[pos] = Color::BLACK;
+            }
+            
         }
     }
     if (this->x_high_ > this->width_) width_shift_offset_++;
