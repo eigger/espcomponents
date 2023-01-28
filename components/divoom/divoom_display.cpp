@@ -43,7 +43,9 @@ void DivoomDisplay::setup()
         this->brightness_->add_on_state_callback(std::bind(&DivoomDisplay::brightness_callback, this, std::placeholders::_1));
         this->brightness_->publish_state(100);
     }
+    sleep(100);
     serialbt_.begin("ESPHOME", true);
+    sleep(100);
     ESP_LOGI(TAG, "Initaialize.");
 }
 
@@ -125,6 +127,7 @@ void DivoomDisplay::connect_to_device()
         if (elapsed_time(timer_) > 5000)
         {
             serialbt_.disconnect();
+            sleep(100);
             if (this->bt_status_) this->bt_status_->publish_state(connected_);
             ESP_LOGI(TAG, "BT_CONNECTED -> INIT");
             bt_job_ = BT_INIT;
