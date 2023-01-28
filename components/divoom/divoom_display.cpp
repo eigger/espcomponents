@@ -59,12 +59,15 @@ void DivoomDisplay::set_address(uint64_t address)
     this->address_[3] = (address >> 16) & 0xFF;
     this->address_[4] = (address >> 8) & 0xFF;
     this->address_[5] = (address >> 0) & 0xFF;
-    this->address_str_ = std::format("{x}", this->address_[0]);
-    this->address_str_ += std::format("{:x}", this->address_[1]);
-    this->address_str_ += std::format("{:x}", this->address_[2]);
-    this->address_str_ += std::format("{:x}", this->address_[3]);
-    this->address_str_ += std::format("{:x}", this->address_[4]);
-    this->address_str_ += std::format("{:x}", this->address_[5]);
+
+    this->address_str_ = "";
+    for (int i = 0; i < 6; i++)
+    {
+        char buf[20];
+        sprintf(buf, "%02x", this->address_[0]);
+        if (i > 0) this->address_str_ += ":";
+        this->address_str_ += buf;
+    }
 }
 
 void DivoomDisplay::connect_to_device()
