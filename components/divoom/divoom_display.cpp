@@ -193,7 +193,7 @@ unsigned long DivoomDisplay::get_time()
 void DivoomDisplay::display_()
 {
     uint16_t offset = width_shift_offset_;
-    std::vector<uint8_t> buffer;
+    std::vector<Color> buffer;
     for (int y = 0; y < this->height_; y++)
     {
         for (int x = offset; x < this->width_ + offset; offset++)
