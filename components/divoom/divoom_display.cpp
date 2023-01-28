@@ -225,7 +225,7 @@ void DivoomDisplay::display_()
         }
     }
     if (this->x_high_ > this->width_) width_shift_offset_++;
-    if (width_shift_offset_ > this->x_high_) width_shift_offset_ = 0;
+    if (width_shift_offset_ > this->x_high_ + 1) width_shift_offset_ = 0;
     clear_display_buffer();
     if (image_buffer_.size() == old_image_buffer_.size())
     {
