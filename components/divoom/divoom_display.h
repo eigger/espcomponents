@@ -15,17 +15,30 @@ namespace divoom {
 
 enum DivoomModel
 {
-    DIVOOM16 = 0,
+    DITOO = 0,
     DIVOOM11,
 };
 
-enum BTJob
+enum BTStatus
 {
     BT_INIT = 0,
     BT_DISCOVERY,
     BT_CONNECTING,
     BT_CONNECTED
 };
+
+struct ColorMap
+{
+    uint32_t x;
+    uint32_t y;
+    Color color;
+    ColorMap(uint32_t x, uint32_y, Color color)
+    {
+        this->x = x;
+        this->y = y;
+        this->color = color;
+    }
+}
 
 class DivoomDisplay : public PollingComponent, public display::DisplayBuffer
 {
@@ -44,8 +57,9 @@ public:
     void setup() override;
     void loop() override;
     void set_address(uint64_t address);
+    void set_address(std::string address);
     void set_version(text_sensor::TextSensor *version) { version_ = version; }
-    void set_bt_status(binary_sensor::BinarySensor *bt_status) { bt_status_ = bt_status; } 
+    void set_bt_connected(binary_sensor::BinarySensor *bt_connected) { bt_connected_ = bt_connected; } 
     void set_select_time(select::Select *select_time) { select_time_ = select_time; }
     void select_time_callback(std::string value, size_t index);
     void set_brightness(number::Number *brightness) { brightness_ = brightness; }
@@ -67,7 +81,7 @@ protected:
     unsigned long elapsed_time(const unsigned long timer);
     unsigned long get_time();
     BluetoothSerial serialbt_;
-    BTJob bt_job_{BT_INIT};
+    BTStatus bt_status_{BT_INIT};
     bool connected_{false};
     unsigned long timer_{0};
     Parser rx_parser_{};
@@ -75,8 +89,7 @@ protected:
     std::vector<Color> image_buffer_;
     std::vector<Color> old_image_buffer_;
     std::vector<std::vector<Color>> animation_buffer_;
-    //std::vector<Color> display_buffer_;
-    Color display_buffer_[MAX_WIDTH][MAX_HEIGHT];
+    std::unordered_map<<uint32_t, ColorMap> display_map_;
     int32_t width_shift_offset_{0};
     uint8_t address_[6];
     std::string address_str_;
@@ -95,12 +108,12 @@ protected:
     std::queue<std::vector<uint8_t>> protocol_queue_;
 
     text_sensor::TextSensor *version_{nullptr};
-    binary_sensor::BinarySensor *bt_status_{nullptr};
+    binary_sensor::BinarySensor *bt_connected_{nullptr};
     select::Select *select_time_{nullptr};
     number::Number *brightness_{nullptr};
 };
 
-class Divoom16x16 : public DivoomDisplay
+class DivoomDitoo : public DivoomDisplay
 {
 public:
     void initialize() override;

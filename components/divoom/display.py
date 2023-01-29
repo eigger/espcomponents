@@ -21,7 +21,7 @@ divoom = divoom_ns.class_(
     "DivoomDisplay", cg.PollingComponent, display.DisplayBuffer
 )
 
-Divoom16x16 = divoom_ns.class_("Divoom16x16", divoom)
+DivoomDitoo = divoom_ns.class_("DivoomDitoo", divoom)
 Divoom11x11 = divoom_ns.class_("Divoom11x11", divoom)
 SelectTime = divoom_ns.class_("SelectTime", divoom)
 Brightness = divoom_ns.class_("Brightness", divoom)
@@ -29,7 +29,7 @@ Brightness = divoom_ns.class_("Brightness", divoom)
 DivoomModel = divoom_ns.enum("DivoomModel")
 
 MODELS = {
-    "16X16": DivoomModel.DIVOOM16,
+    "ditoo": DivoomModel.DITOO,
     "11X11": DivoomModel.DIVOOM11,
 }
 
@@ -39,7 +39,7 @@ CONFIG_SCHEMA = cv.All(
     display.FULL_DISPLAY_SCHEMA.extend(
         {
             cv.GenerateID(): cv.declare_id(divoom),
-            cv.Required(CONF_MODEL): Divoom_MODEL,
+            cv.Optional(CONF_MODEL, default="ditoo"): Divoom_MODEL,
             cv.Required(CONF_MAC_ADDRESS): cv.mac_address,
             cv.Optional(CONF_VERSION, default={CONF_NAME: "Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
             {
@@ -70,8 +70,8 @@ CONFIG_SCHEMA = cv.All(
 
 
 async def to_code(config):
-    if config[CONF_MODEL] == "16X16":
-        lcd_type = Divoom16x16
+    if config[CONF_MODEL] == "ditoo":
+        lcd_type = DivoomDitoo
     if config[CONF_MODEL] == "11X11":
         lcd_type = Divoom11x11
     rhs = lcd_type.new()
@@ -81,6 +81,7 @@ async def to_code(config):
     await display.register_display(var, config)
     cg.add(var.set_model(config[CONF_MODEL]))
     cg.add(var.set_address(config[CONF_MAC_ADDRESS].as_hex))
+    cg.add(var.set_address(config[CONF_MAC_ADDRESS]))
     if CONF_VERSION in config:
         sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
         await register_text_sensor(sens, config[CONF_VERSION])
@@ -88,7 +89,7 @@ async def to_code(config):
     if CONF_STATUS in config:
         sens = cg.new_Pvariable(config[CONF_STATUS][CONF_ID])
         await binary_sensor.register_binary_sensor(sens, config[CONF_STATUS])
-        cg.add(var.set_bt_status(sens))
+        cg.add(var.set_bt_connected(sens))
     if CONF_TYPE in config:
         sens = cg.new_Pvariable(config[CONF_TYPE][CONF_ID])
         await select.register_select(sens, config[CONF_TYPE], options=[
