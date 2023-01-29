@@ -316,7 +316,7 @@ void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color)
     if (x >= MAX_WIDTH) return;
     if (y >= this->get_height_internal() || y < 0) return;
     uint32_t pos = (y * width_) + x;
-    display_map_.insert(std::pair<<uint32_t, ColorMap>(pos, ColorMap(x, y, color)));
+    display_map_.insert(std::pair<uint32_t, ColorMap>(pos, ColorMap(x, y, color)));
     if (this->x_high_ < x) this->x_high_ = x;
     if (this->y_high_ < y) this->y_high_ = y;
 }
