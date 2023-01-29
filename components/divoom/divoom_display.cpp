@@ -26,7 +26,7 @@ void DivoomDisplay::update()
 void DivoomDisplay::setup()
 {
     this->initialize();
-    //width_shift_offset_ = -this->width_;
+    width_shift_offset_ = 0;
     clear_display_buffer();
     rx_parser_.set_checksum_len(2);
     rx_parser_.add_header(DIVOOM_HEADER);
