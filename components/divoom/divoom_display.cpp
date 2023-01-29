@@ -3,6 +3,7 @@
 #include "esphome/core/application.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/hal.h"
+#include <numeric>
 
 namespace esphome {
 namespace divoom {
