@@ -81,7 +81,7 @@ async def to_code(config):
     await display.register_display(var, config)
     cg.add(var.set_model(config[CONF_MODEL]))
     cg.add(var.set_address(config[CONF_MAC_ADDRESS].as_hex))
-    cg.add(var.set_address(config[CONF_MAC_ADDRESS]))
+    cg.add(var.set_address(config[CONF_MAC_ADDRESS].as_string))
     if CONF_VERSION in config:
         sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
         await register_text_sensor(sens, config[CONF_VERSION])
