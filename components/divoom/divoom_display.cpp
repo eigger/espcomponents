@@ -26,7 +26,7 @@ void DivoomDisplay::update()
 void DivoomDisplay::setup()
 {
     this->initialize();
-    width_shift_offset_ = 0;
+    width_shift_offset_ = -this->width_;
     image_buffer_.resize(this->width_ * this->height_);
     clear_display_buffer();
     rx_parser_.set_checksum_len(2);
@@ -199,7 +199,7 @@ Color DivoomDisplay::get_display_color(int x, int y)
             return point.color;
         }
     }
-    return Color::BLACK;
+    return background_color_;
 }
 
 void DivoomDisplay::shift_image()
@@ -327,6 +327,7 @@ void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color)
 
 void DivoomDisplay::add_color_point(ColorPoint point)
 {
+    if (point.color == background_color_) return;
     for (int i = 0; i < display_list_.size(); i++)
     {
         if (display_list_[i].x == point.x && display_list_[i].y == point.y)
