@@ -203,10 +203,10 @@ void DivoomDisplay::shift_image()
     if (this->x_high_ <= this->width_) offset = 0;
     for (auto map : display_map_)
     {
-        uint32_t x = map.second.x;
-        if (x + offset >= 0 && x + offset < this->width_)
+        int32_t x = map.second.x + offset;
+        if (x >= 0 && x < width_)
         {
-            uint32_t pos = (map.second.y * width_) + x + offset;
+            uint32_t pos = (map.second.y * width_) + x;
             image_buffer_[pos] = map.second.color;
         }
     }
