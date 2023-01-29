@@ -27,6 +27,7 @@ void DivoomDisplay::setup()
 {
     this->initialize();
     width_shift_offset_ = 0;
+    image_buffer_.resize(this->width_ * this->height_);
     clear_display_buffer();
     rx_parser_.set_checksum_len(2);
     rx_parser_.add_header(DIVOOM_HEADER);
@@ -188,19 +189,25 @@ void DivoomDisplay::clear_display_buffer()
     this->y_high_ = 0;
 }
 
+Color DivoomDisplay::get_display_color(int x, int y)
+{
+    for (ColorPoint point : display_list_)
+    {
+        if (point.x == x && point.y == y) return point.color;
+    }
+    return Color::BLACK;
+}
+
 void DivoomDisplay::shift_image()
 {
     int32_t offset = width_shift_offset_;
-    image_buffer_ = std::vector<Color>(this->width_ * this->height_, Color::BLACK);
     if (this->x_high_ <= this->width_) offset = 0;
-    offset = 0;
-    for (ColorPoint point : display_list_)
+    for (int x = 0; x < this->width_; x++)
     {
-        int x = point.x + offset;
-        uint32_t pos = (point.y * width_) + x;
-        if (x >= 0 && x < width_ && pos >= 0 && pos < width_ * height_)
+        for (int y = 0; y < this->height_; y++)
         {
-            image_buffer_[pos] = point.color;
+            uint32_t pos = (y * width_) + x;
+            image_buffer_[pos] = get_display_color(x + offset, y);
         }
     }
     if (this->x_high_ > this->width_) width_shift_offset_++;

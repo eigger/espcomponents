@@ -71,6 +71,7 @@ protected:
     std::vector<uint8_t> get_single_image_data(const std::vector<Color> &image, uint16_t time = 0);
     void turn_divoom_into_clock(uint8_t type);
     void clear_display_buffer();
+    Color get_display_color(int x, int y);
     void shift_image();
     void display_();
     void connect_to_device();
