@@ -89,6 +89,7 @@ protected:
     DivoomModel model_;
     std::vector<Color> image_buffer_;
     std::vector<ColorPoint> display_list_;
+    std::vector<Color> old_image_buffer_;
     Color background_color_{Color::BLACK};
     int32_t width_shift_offset_{0};
     uint8_t address_[6];
