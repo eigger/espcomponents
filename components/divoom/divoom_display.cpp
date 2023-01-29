@@ -183,7 +183,7 @@ unsigned long DivoomDisplay::get_time()
 
 void DivoomDisplay::clear_display_buffer()
 {
-    //display_list_.clear();
+    display_list_.clear();
     this->x_high_ = 0;
     this->y_high_ = 0;
 }
