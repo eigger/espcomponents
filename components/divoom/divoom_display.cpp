@@ -183,7 +183,7 @@ unsigned long DivoomDisplay::get_time()
 
 void DivoomDisplay::clear_display_buffer()
 {
-    display_list_.clear();
+    //display_list_.clear();
     this->x_high_ = 0;
     this->y_high_ = 0;
 }
@@ -193,15 +193,15 @@ void DivoomDisplay::shift_image()
     int32_t offset = width_shift_offset_;
     image_buffer_ = std::vector<Color>(this->width_ * this->height_, Color::BLACK);
     if (this->x_high_ <= this->width_) offset = 0;
-    for (ColorPoint point : display_list_)
-    {
-        int x = point.x + offset;
-        if (x >= 0 && x < width_)
-        {
-            uint32_t pos = (point.y * width_) + x;
-            image_buffer_[pos] = point.color;
-        }
-    }
+    // for (ColorPoint point : display_list_)
+    // {
+    //     int x = point.x + offset;
+    //     if (x >= 0 && x < width_)
+    //     {
+    //         uint32_t pos = (point.y * width_) + x;
+    //         image_buffer_[pos] = point.color;
+    //     }
+    // }
     if (this->x_high_ > this->width_) width_shift_offset_++;
     if (width_shift_offset_ > this->x_high_ + 1) width_shift_offset_ = -this->width_;
 
@@ -307,7 +307,7 @@ void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color)
     if (x < 0) return;
     //if (x >= this->get_width_internal()) return;
     if (y >= this->get_height_internal() || y < 0) return;
-    display_list_.push_back(ColorPoint(x, y, color));
+    //display_list_.push_back(ColorPoint(x, y, color));
     if (this->x_high_ < x) this->x_high_ = x;
     if (this->y_high_ < y) this->y_high_ = y;
 }
