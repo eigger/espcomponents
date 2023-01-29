@@ -9,6 +9,7 @@
 #include "BluetoothSerial.h"
 #include "parser.h"
 #include "divoom_defines.h"
+#include <unordered_map>
 
 namespace esphome {
 namespace divoom {
@@ -32,7 +33,7 @@ struct ColorMap
     uint32_t x;
     uint32_t y;
     Color color;
-    ColorMap(uint32_t x, uint32_y, Color color)
+    ColorMap(uint32_t x, uint32_t y, Color color)
     {
         this->x = x;
         this->y = y;
