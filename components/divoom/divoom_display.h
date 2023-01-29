@@ -57,7 +57,6 @@ public:
     void setup() override;
     void loop() override;
     void set_address(uint64_t address);
-    void set_address_str(std::string address);
     void set_version(text_sensor::TextSensor *version) { version_ = version; }
     void set_bt_connected(binary_sensor::BinarySensor *bt_connected) { bt_connected_ = bt_connected; } 
     void set_select_time(select::Select *select_time) { select_time_ = select_time; }
@@ -92,7 +91,7 @@ protected:
     std::unordered_map<<uint32_t, ColorMap> display_map_;
     int32_t width_shift_offset_{0};
     uint8_t address_[6];
-    optional<std::string> address_str_{};
+    std::string address_str_;
     int16_t width_{16};  ///< Display width as modified by current rotation
     int16_t height_{16}; ///< Display height as modified by current rotation
     uint16_t x_low_{0};
