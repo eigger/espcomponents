@@ -284,9 +284,11 @@ std::vector<uint8_t> DivoomDisplay::get_single_image_data(const std::vector<Colo
 
     int offset = 0;
     uint8_t pixel = 0x00;
+    uint8_t bitwidth = ceil(log10(palette.size()) / log10(2));
     for (uint8_t index : palette_index_list)
     {
-        pixel += (index << offset++);
+        pixel += (index << offset);
+        offset += bitwidth;
         if (offset >= 8)
         {
             pixel_data.push_back(pixel);
