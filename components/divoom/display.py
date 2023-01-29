@@ -30,10 +30,10 @@ DivoomModel = divoom_ns.enum("DivoomModel")
 
 MODELS = {
     "ditoo": DivoomModel.DITOO,
-    "11X11": DivoomModel.DIVOOM11,
+    "11x11": DivoomModel.DIVOOM11,
 }
 
-Divoom_MODEL = cv.enum(MODELS, upper=True, space="_")
+Divoom_MODEL = cv.enum(MODELS, upper=False, space="_")
 
 CONFIG_SCHEMA = cv.All(
     display.FULL_DISPLAY_SCHEMA.extend(
