@@ -72,7 +72,7 @@ void DivoomDisplay::set_address(uint64_t address)
     // }
 }
 
-void DivoomDisplay::set_address(std::string address)
+void DivoomDisplay::set_address_str(std::string address)
 {
     this->address_str_ = address;
 }
@@ -145,8 +145,8 @@ bool DivoomDisplay::found_divoom()
     for (int i = 0; i < scan_result->getCount(); i++)
     {
         BTAdvertisedDevice *device = scan_result->getDevice(i);
-        ESP_LOGI(TAG, "%s ----- %s  %s %d", address_str_.c_str(), device->getAddress().toString().c_str(), device->getName().c_str(), device->getRSSI());
-        if (address_str_ == device->getAddress().toString() && device->getName().size() > 0) return true;
+        ESP_LOGI(TAG, "----- %s  %s %d", device->getAddress().toString().c_str(), device->getName().c_str(), device->getRSSI());
+        if (address_str_.value() == device->getAddress().toString() && device->getName().size() > 0) return true;
     }
     return false;
 }
