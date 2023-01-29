@@ -28,16 +28,14 @@ enum BTStatus
     BT_CONNECTED
 };
 
-struct ColorMap
+struct Point
 {
     uint32_t x;
     uint32_t y;
-    Color color;
-    ColorMap(uint32_t x, uint32_t y, Color color)
+    Point(uint32_t x, uint32_t y)
     {
         this->x = x;
         this->y = y;
-        this->color = color;
     }
 };
 
@@ -89,7 +87,7 @@ protected:
     std::vector<Color> image_buffer_;
     std::vector<Color> old_image_buffer_;
     std::vector<std::vector<Color>> animation_buffer_;
-    std::unordered_map<uint32_t, ColorMap> display_map_;
+    std::unordered_map<Point, Color> display_map_;
     int32_t width_shift_offset_{0};
     uint8_t address_[6];
     std::string address_str_;

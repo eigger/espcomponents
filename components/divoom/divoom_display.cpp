@@ -203,11 +203,11 @@ void DivoomDisplay::shift_image()
     if (this->x_high_ <= this->width_) offset = 0;
     for (auto map : display_map_)
     {
-        int32_t x = map.second.x + offset;
+        int32_t x = map.first.x + offset;
         if (x >= 0 && x < width_)
         {
-            uint32_t pos = (map.second.y * width_) + x;
-            image_buffer_[pos] = map.second.color;
+            uint32_t pos = (map.first.y * width_) + x;
+            image_buffer_[pos] = map.second;
         }
     }
     if (this->x_high_ > this->width_) width_shift_offset_++;
@@ -316,8 +316,7 @@ void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color)
     //if (x >= this->get_width_internal()) return;
     if (x >= MAX_WIDTH) return;
     if (y >= this->get_height_internal() || y < 0) return;
-    uint32_t pos = (y * width_) + x;
-    display_map_.insert(std::pair<uint32_t, ColorMap>(pos, ColorMap(x, y, color)));
+    display_map_.insert(std::pair<Point, Color>(Point(x, y), color));
     if (this->x_high_ < x) this->x_high_ = x;
     if (this->y_high_ < y) this->y_high_ = y;
 }
