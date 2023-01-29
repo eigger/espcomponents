@@ -66,6 +66,7 @@ public:
     void brightness_callback(float value);
 protected:
     void draw_absolute_pixel_internal(int x, int y, Color color) override;
+    void add_color_point(ColorPoint point);
     void draw_image_to_divoom(const std::vector<Color> &image);
     void draw_animation_to_divoom(const std::vector<std::vector<Color>> &images, uint16_t time);
     std::vector<uint8_t> get_single_image_data(const std::vector<Color> &image, uint16_t time = 0);
