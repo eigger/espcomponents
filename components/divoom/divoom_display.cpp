@@ -193,7 +193,11 @@ Color DivoomDisplay::get_display_color(int x, int y)
 {
     for (ColorPoint point : display_list_)
     {
-        if (point.x == x && point.y == y) return point.color;
+        if (point.x == x && point.y == y)
+        {
+            ESP_LOGI(TAG, "Color %d %d r%d g%d b%d", point.x, point.y, point.color.r, point.color.g, point.color.b);
+            return point.color;
+        }
     }
     return Color::BLACK;
 }
