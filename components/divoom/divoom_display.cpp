@@ -3,7 +3,6 @@
 #include "esphome/core/application.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/hal.h"
-#include <numeric>
 
 namespace esphome {
 namespace divoom {
@@ -169,14 +168,6 @@ void DivoomDisplay::read_from_bluetooth()
 void DivoomDisplay::write_to_bluetooth()
 {
     if (connected_ == false) return;
-
-    if (!protocol_queue_.empty())
-    {
-        std::vector<uint8_t> protocol = protocol_queue_.front();
-        protocol_queue_.pop();
-        write_protocol(protocol);
-    }
-
 }
 
 unsigned long DivoomDisplay::elapsed_time(const unsigned long timer)
@@ -360,10 +351,6 @@ void DivoomDisplay::write_protocol(const std::vector<uint8_t> &data)
     write_data(buffer);
 }
 
-void DivoomDisplay::send_protocol(const std::vector<uint8_t> &data)
-{
-    protocol_queue_.push(data);
-}
 
 
 // Full String: 450001 TT XX WW EE CC RRGGBB
@@ -396,7 +383,7 @@ void DivoomDisplay::turn_divoom_into_clock(uint8_t type)
     protocol.push_back(0xFF);   //R
     protocol.push_back(0xFF);   //G
     protocol.push_back(0xFF);   //B
-    send_protocol(protocol);
+    write_protocol(protocol);
 }
 
 void DivoomDisplay::select_time_callback(std::string value, size_t index)
@@ -409,7 +396,7 @@ void DivoomDisplay::set_divoom_brightness(uint8_t value)
     std::vector<uint8_t> protocol;
     protocol.push_back(0x74);
     protocol.push_back(value);
-    send_protocol(protocol);
+    write_protocol(protocol);
 }
 
 void DivoomDisplay::brightness_callback(float value)

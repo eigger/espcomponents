@@ -9,7 +9,6 @@
 #include "BluetoothSerial.h"
 #include "parser.h"
 #include "divoom_defines.h"
-#include <unordered_map>
 
 namespace esphome {
 namespace divoom {
@@ -87,8 +86,6 @@ protected:
     Parser rx_parser_{};
     DivoomModel model_;
     std::vector<Color> image_buffer_;
-    std::vector<Color> old_image_buffer_;
-    std::vector<std::vector<Color>> animation_buffer_;
     std::vector<ColorPoint> display_list_;
     int32_t width_shift_offset_{0};
     uint8_t address_[6];
@@ -102,10 +99,7 @@ protected:
 
     void write_data(const std::vector<uint8_t> &data);
     void write_protocol(const std::vector<uint8_t> &data);
-    void send_protocol(const std::vector<uint8_t> &data);
     std::string to_hex_string(const std::vector<unsigned char> &data);
-
-    std::queue<std::vector<uint8_t>> protocol_queue_;
 
     text_sensor::TextSensor *version_{nullptr};
     binary_sensor::BinarySensor *bt_connected_{nullptr};
