@@ -320,7 +320,7 @@ void HOT DivoomDisplay::draw_absolute_pixel_internal(int x, int y, Color color)
     //if (x >= this->get_width_internal()) return;
     if (y >= this->get_height_internal() || y < 0) return;
     add_color_point(ColorPoint(x, y, color));
-    //ESP_LOGI(TAG, "Color %d %d r%d g%d b%d", x, y, color.r, color.g, color.b);
+    ESP_LOGI(TAG, "Color %d %d r%d g%d b%d", x, y, color.r, color.g, color.b);
     if (this->x_high_ < x) this->x_high_ = x;
     if (this->y_high_ < y) this->y_high_ = y;
 }
