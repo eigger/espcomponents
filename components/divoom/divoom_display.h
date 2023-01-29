@@ -39,7 +39,7 @@ struct ColorMap
         this->y = y;
         this->color = color;
     }
-}
+};
 
 class DivoomDisplay : public PollingComponent, public display::DisplayBuffer
 {
