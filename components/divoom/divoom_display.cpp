@@ -332,12 +332,10 @@ void DivoomDisplay::add_color_point(ColorPoint point)
         if (display_list_[i].x == point.x && display_list_[i].y == point.y)
         {
             display_list_[i].color = point.color;
-        }
-        else
-        {
-            display_list_.push_back(point);
+            return;
         }
     }
+    display_list_.push_back(point);
 }
 
 void DivoomDisplay::write_data(const std::vector<uint8_t> &data)
