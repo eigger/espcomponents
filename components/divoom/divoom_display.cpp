@@ -193,6 +193,7 @@ void DivoomDisplay::shift_image()
     int32_t offset = width_shift_offset_;
     image_buffer_ = std::vector<Color>(this->width_ * this->height_, Color::BLACK);
     if (this->x_high_ <= this->width_) offset = 0;
+    offset = 0;
     for (ColorPoint point : display_list_)
     {
         int x = point.x + offset;
@@ -216,7 +217,7 @@ void DivoomDisplay::display_()
     //     if (std::equal(image_buffer_.begin(), image_buffer_.end(), old_image_buffer_.begin())) return;
     // }
     // old_image_buffer_ = image_buffer_;
-    //draw_image_to_divoom(image_buffer_);
+    draw_image_to_divoom(image_buffer_);
 }
 
 void DivoomDisplay::draw_image_to_divoom(const std::vector<Color> &image)
