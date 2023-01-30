@@ -230,15 +230,12 @@ void DivoomDisplay::shift_image()
 void DivoomDisplay::display_()
 {
     if (!connected_) return;
+    if (is_display_empty()) width_shift_offset_ = -this->width_;
     shift_image();
     clear_display_buffer();
     if (image_buffer_.size() == old_image_buffer_.size())
     {
-        if (std::equal(image_buffer_.begin(), image_buffer_.end(), old_image_buffer_.begin()))
-        {
-            if (is_display_empty()) width_shift_offset_ = -this->width_;
-            return;
-        }
+        if (std::equal(image_buffer_.begin(), image_buffer_.end(), old_image_buffer_.begin())) return;
     }
     old_image_buffer_ = image_buffer_;
     draw_image_to_divoom(image_buffer_);
