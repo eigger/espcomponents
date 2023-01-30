@@ -202,6 +202,15 @@ Color DivoomDisplay::get_display_color(int x, int y)
     return background_color_;
 }
 
+bool DivoomDisplay::is_display_empty()
+{
+    for (ColorPoint point : display_list_)
+    {
+        if (point.color != background_color_) return false;
+    }
+    return true;
+}
+
 void DivoomDisplay::shift_image()
 {
     int32_t offset = width_shift_offset_;
@@ -227,7 +236,7 @@ void DivoomDisplay::display_()
     {
         if (std::equal(image_buffer_.begin(), image_buffer_.end(), old_image_buffer_.begin()))
         {
-            width_shift_offset_ = -this->width_;
+            if (is_display_empty()) width_shift_offset_ = -this->width_;
             return;
         }
     }

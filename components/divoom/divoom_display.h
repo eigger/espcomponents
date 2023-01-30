@@ -73,6 +73,7 @@ protected:
     void turn_divoom_into_clock(uint8_t type);
     void clear_display_buffer();
     Color get_display_color(int x, int y);
+    bool is_display_empty();
     void shift_image();
     void display_();
     void connect_to_device();
