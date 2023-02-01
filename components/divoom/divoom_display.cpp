@@ -100,7 +100,7 @@ void DivoomDisplay::connect_to_device()
         timer_ = get_time();
         break;
     case BT_CONNECTING:
-        if (elapsed_time(timer_) > 10000)
+        if (elapsed_time(timer_) > 60000)
         {
             ESP_LOGI(TAG, "BT_CONNECTING -> INIT");
             bt_status_ = BT_INIT;
