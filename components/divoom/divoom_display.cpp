@@ -302,8 +302,8 @@ std::vector<uint8_t> DivoomDisplay::get_single_image_data(const std::vector<Colo
         if (offset >= 8)
         {
             pixel_data.push_back(pixel);
-            pixel = 0;
-            offset = 0;
+            pixel = (index >> (offset - 8));
+            offset = offset - 8;
         }
     }
 
