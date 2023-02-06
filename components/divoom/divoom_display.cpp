@@ -302,9 +302,13 @@ std::vector<uint8_t> DivoomDisplay::get_single_image_data(const std::vector<Colo
         if (offset >= 8)
         {
             pixel_data.push_back(pixel);
-            pixel = (index >> (offset - 8));
+            pixel = (index >> (bitwidth - (offset - 8)));
             offset = offset - 8;
         }
+    }
+    if (offset > 0)
+    {
+        pixel_data.push_back(pixel);
     }
 
     for (Color color : palette)
