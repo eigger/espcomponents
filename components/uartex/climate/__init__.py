@@ -18,7 +18,7 @@ UARTExClimate = uartex_ns.class_('UARTExClimate', climate.Climate, cg.Component)
 
 CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExClimate),
-    cv.Optional(CONF_SENSOR): cv.use_id(sensor.Sensor),
+    cv.Optional(CONF_SENSOR): cv.declare_id(sensor.Sensor),
     cv.Optional(CONF_STATE_TEMPERATURE_CURRENT): cv.templatable(STATE_NUM_SCHEMA),
     cv.Required(CONF_STATE_TEMPERATURE_TARGET): cv.templatable(STATE_NUM_SCHEMA),
     cv.Optional(CONF_STATE_AUTO): state_schema,

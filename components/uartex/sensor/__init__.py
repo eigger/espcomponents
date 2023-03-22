@@ -14,7 +14,7 @@ UARTExSensor = uartex_ns.class_(
 
 CONFIG_SCHEMA = cv.All(sensor.SENSOR_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExSensor),
-    cv.GenerateID(CONF_UARTEX_ID): cv.use_id(UARTExComponent),
+    cv.GenerateID(CONF_UARTEX_ID): cv.declare_id(UARTExComponent),
     cv.Required(CONF_FILTER): state_schema,
     cv.Optional(CONF_SUB_FILTER): state_schema,
     cv.Optional(CONF_COMMAND_UPDATE): command_hex_schema,
