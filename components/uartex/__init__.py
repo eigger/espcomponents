@@ -31,7 +31,7 @@ uint16_const = cg.uint16.operator('const')
 uint8_const = cg.uint8.operator('const')
 uint8_ptr_const = uint8_const.operator('ptr')
 
-MULTI_CONF = False
+MULTI_CONF = True
 
 Checksum = uartex_ns.enum("Checksum")
 CHECKSUMS = {
@@ -41,7 +41,7 @@ CHECKSUMS = {
 }
 
 def _uartex_declare_type(value):
-    return cv.declare_id(UARTExComponent)(value)
+    return cv.use_id(UARTExComponent)(value)
 
 def validate_hex_data(value):
     if isinstance(value, list):
