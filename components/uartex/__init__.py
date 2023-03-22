@@ -203,7 +203,7 @@ async def to_code(config):
 
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
 UARTEX_DEVICE_SCHEMA = cv.Schema({
-    cv.GenerateID(CONF_UARTEX_ID): cv.declare_id(UARTExComponent),
+    cv.GenerateID(CONF_UARTEX_ID): _uartex_declare_type,
     cv.Required(CONF_FILTER): state_schema,
     cv.Optional(CONF_SUB_FILTER): state_schema,
     cv.Required(CONF_STATE_ON): state_schema,
