@@ -3,12 +3,12 @@ import esphome.config_validation as cv
 from esphome.components import climate, uartex, sensor
 from esphome.const import CONF_ID, CONF_SENSOR, CONF_OFFSET
 from .. import uartex_ns, command_hex_schema, STATE_NUM_SCHEMA, cmd_t, uint8_ptr_const, uint16_const, \
-    command_hex_expression, state_schema, state_hex_expression
+    command_hex_expression, state_schema, state_hex_expression, _uartex_declare_type
 from ..const import CONF_STATE_TEMPERATURE_CURRENT, CONF_STATE_TEMPERATURE_TARGET, \
     CONF_STATE_AUTO, CONF_STATE_HEAT, CONF_STATE_COOL, CONF_STATE_AWAY, \
     CONF_COMMAND_AUTO, CONF_COMMAND_HEAT, CONF_COMMAND_COOL, CONF_COMMAND_AWAY, \
     CONF_COMMAND_TEMPERATURE, CONF_LENGTH, CONF_PRECISION, \
-    CONF_COMMAND_ON, CONF_STATE_ON, CONF_COMMAND_HOME
+    CONF_COMMAND_ON, CONF_STATE_ON, CONF_COMMAND_HOME, CONF_UARTEX_ID
 
 
 AUTO_LOAD = ['sensor']
@@ -18,6 +18,7 @@ UARTExClimate = uartex_ns.class_('UARTExClimate', climate.Climate, cg.Component)
 
 CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExClimate),
+    cv.GenerateID(CONF_UARTEX_ID): _uartex_declare_type,
     cv.Optional(CONF_SENSOR): cv.declare_id(sensor.Sensor),
     cv.Optional(CONF_STATE_TEMPERATURE_CURRENT): cv.templatable(STATE_NUM_SCHEMA),
     cv.Required(CONF_STATE_TEMPERATURE_TARGET): cv.templatable(STATE_NUM_SCHEMA),

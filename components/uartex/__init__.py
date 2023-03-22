@@ -40,6 +40,9 @@ CHECKSUMS = {
     "ADD": Checksum.CHECKSUM_ADD,
 }
 
+def _uartex_declare_type(value):
+    return cv.declare_id(UARTExComponent)(value)
+
 def validate_hex_data(value):
     if isinstance(value, list):
         return cv.Schema([cv.hex_uint8_t])(value)

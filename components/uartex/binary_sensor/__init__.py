@@ -3,8 +3,8 @@ import esphome.config_validation as cv
 from esphome import automation
 from esphome.components import binary_sensor, uartex
 from esphome.const import CONF_ID
-from .. import uartex_ns
-from ..const import CONF_COMMAND_ON, CONF_COMMAND_OFF
+from .. import uartex_ns, _uartex_declare_type
+from ..const import CONF_COMMAND_ON, CONF_COMMAND_OFF, CONF_UARTEX_ID
 
 DEPENDENCIES = ['uartex']
 UARTExBinarySensor = uartex_ns.class_('UARTExBinarySensor', binary_sensor.BinarySensor,
@@ -12,6 +12,7 @@ UARTExBinarySensor = uartex_ns.class_('UARTExBinarySensor', binary_sensor.Binary
 
 CONFIG_SCHEMA = binary_sensor.BINARY_SENSOR_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExBinarySensor),
+    cv.GenerateID(CONF_UARTEX_ID): _uartex_declare_type,
 }).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Binary Sensor do not support command_on!"),
     cv.Optional(CONF_COMMAND_OFF): cv.invalid("UARTEx Binary Sensor do not support command_off!")
