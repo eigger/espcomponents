@@ -31,7 +31,7 @@ uint16_const = cg.uint16.operator('const')
 uint8_const = cg.uint8.operator('const')
 uint8_ptr_const = uint8_const.operator('ptr')
 
-MULTI_CONF = True
+MULTI_CONF = False
 
 Checksum = uartex_ns.enum("Checksum")
 CHECKSUMS = {
