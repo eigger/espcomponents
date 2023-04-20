@@ -22,8 +22,9 @@ void UARTExLightOutput::publish_state(bool state)
 {
     if (light_state_ == nullptr || state == this->state_)return;
     this->state_ = state;
-    this->light_state_->remote_values.set_state(state);
-    if (api::global_api_server->is_connected()) api::global_api_server->on_light_update(this->light_state_);
+    auto call = light_state_->make_call();
+    call.set_state(state);
+    call.perform();
 }
 
 }  // namespace uartex
