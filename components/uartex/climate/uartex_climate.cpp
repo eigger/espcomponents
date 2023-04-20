@@ -8,7 +8,7 @@ static const char *TAG = "uartex.climate";
 
 void UARTExClimate::dump_config()
 {
-    ESP_LOGCONFIG(TAG, "UARTEx Climate '%s':", device_name_->c_str());
+    ESP_LOGCONFIG(TAG, "UARTEx Climate '%s':", get_name()->c_str());
     dump_uartex_device_config(TAG);
 }
 
@@ -169,7 +169,7 @@ void UARTExClimate::control(const climate::ClimateCall &call)
             }
             else if (this->command_heat_.has_value() && this->command_cool_.has_value())
             {
-                ESP_LOGW(TAG, "'%s' Auto mode not support.", this->device_name_->c_str());
+                ESP_LOGW(TAG, "'%s' Auto mode not support.", get_name()->c_str());
             }
             else if (this->command_heat_.has_value())
             {

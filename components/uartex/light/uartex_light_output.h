@@ -19,7 +19,6 @@ public:
 
     void set_light(light::LightState *light)
     {
-        device_name_ = &light->get_name();
         light_ = light;
     }
 

@@ -10,7 +10,7 @@ static const char *TAG = "uartex.light";
 
 void UARTExLightOutput::dump_config()
 {
-    ESP_LOGCONFIG(TAG, "UARTEx LightOutput(Binary) '%s':", device_name_->c_str());
+    ESP_LOGCONFIG(TAG, "UARTEx LightOutput(Binary) '%s':", get_name()->c_str());
     dump_uartex_device_config(TAG);
 }
 

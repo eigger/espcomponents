@@ -9,7 +9,6 @@ namespace uartex {
 class UARTExLock : public lock::Lock, public UARTExDevice 
 {
 public:
-    UARTExLock() { device_name_ = &this->name_; }
     void dump_config() override;
     void setup() override;
     void publish(const std::vector<uint8_t>& data) override;
