@@ -38,7 +38,6 @@ public:
 protected:
     bool state_{false};
     light::LightState *light_state_{nullptr};
-
     void publish_state(bool state);
 };
 
