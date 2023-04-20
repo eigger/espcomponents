@@ -11,7 +11,7 @@ static const char *TAG = "uartex";
 void UARTExDevice::update()
 {
     if (!command_update_.has_value()) return;
-    ESP_LOGD(TAG, "'%s' update(): Request current state...", get_name()->c_str());
+    ESP_LOGD(TAG, "'%s' update(): Request current state...", get_name().c_str());
     push_tx_cmd(&command_update_.value());
 }
 

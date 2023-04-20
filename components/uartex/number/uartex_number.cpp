@@ -8,7 +8,7 @@ static const char *TAG = "uartex.number";
 
 void UARTExNumber::dump_config()
 {
-    ESP_LOGCONFIG(TAG, "UARTEx Number '%s':", get_name()->c_str());
+    ESP_LOGCONFIG(TAG, "UARTEx Number '%s':", get_name().c_str());
     dump_uartex_device_config(TAG);
 }
 
