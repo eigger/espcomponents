@@ -17,10 +17,7 @@ public:
         return true;
     }
 
-    void set_light(light::LightState *light)
-    {
-        light_ = light;
-    }
+    void setup_state(light::LightState *state) override { this->light_state_ = state; }
 
     light::LightTraits get_traits() override
     {
@@ -40,7 +37,7 @@ public:
 
 protected:
     bool state_{false};
-    light::LightState *light_{nullptr};
+    light::LightState *light_state_{nullptr};
 
     void publish_state(bool state);
 };
