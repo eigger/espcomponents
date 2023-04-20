@@ -9,7 +9,6 @@ namespace uartex {
 class UARTExSwitch : public switch_::Switch, public UARTExDevice 
 {
 public:
-    UARTExSwitch() { device_name_ = &this->name_; }
     void dump_config() override;
     void publish(const std::vector<uint8_t>& data) override;
     bool publish(bool state) override { publish_state(state); return true; }

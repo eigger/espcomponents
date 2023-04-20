@@ -64,7 +64,7 @@ public:
     float get_setup_priority() const override { return setup_priority::DATA; }
 
 protected:
-    const std::string *device_name_;
+
     optional<state_t> filter_{};
     optional<state_t> sub_filter_{};
     optional<state_t> state_on_{};

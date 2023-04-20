@@ -31,7 +31,7 @@ uint16_const = cg.uint16.operator('const')
 uint8_const = cg.uint8.operator('const')
 uint8_ptr_const = uint8_const.operator('ptr')
 
-MULTI_CONF = False
+MULTI_CONF = True
 
 Checksum = uartex_ns.enum("Checksum")
 CHECKSUMS = {
@@ -39,6 +39,9 @@ CHECKSUMS = {
     "XOR": Checksum.CHECKSUM_XOR,
     "ADD": Checksum.CHECKSUM_ADD,
 }
+
+def _uartex_declare_type(value):
+    return cv.use_id(UARTExComponent)(value)
 
 def validate_hex_data(value):
     if isinstance(value, list):
@@ -200,7 +203,7 @@ async def to_code(config):
 
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
 UARTEX_DEVICE_SCHEMA = cv.Schema({
-    cv.GenerateID(CONF_UARTEX_ID): cv.use_id(UARTExComponent),
+    cv.GenerateID(CONF_UARTEX_ID): _uartex_declare_type,
     cv.Required(CONF_FILTER): state_schema,
     cv.Optional(CONF_SUB_FILTER): state_schema,
     cv.Required(CONF_STATE_ON): state_schema,

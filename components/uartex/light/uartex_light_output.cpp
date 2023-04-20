@@ -10,7 +10,7 @@ static const char *TAG = "uartex.light";
 
 void UARTExLightOutput::dump_config()
 {
-    ESP_LOGCONFIG(TAG, "UARTEx LightOutput(Binary) '%s':", device_name_->c_str());
+    ESP_LOGCONFIG(TAG, "UARTEx LightOutput(Binary) '%s':", light_state_->get_name().c_str());
     dump_uartex_device_config(TAG);
 }
 
@@ -20,10 +20,10 @@ void UARTExLightOutput::publish(const std::vector<uint8_t>& data)
 
 void UARTExLightOutput::publish_state(bool state)
 {
-    if (light_ == nullptr || state == this->state_)return;
+    if (light_state_ == nullptr || state == this->state_)return;
     this->state_ = state;
-    this->light_->remote_values.set_state(state);
-    if (api::global_api_server->is_connected()) api::global_api_server->on_light_update(this->light_);
+    this->light_state_->remote_values.set_state(state);
+    if (api::global_api_server->is_connected()) api::global_api_server->on_light_update(this->light_state_);
 }
 
 }  // namespace uartex

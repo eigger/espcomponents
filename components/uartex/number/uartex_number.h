@@ -9,7 +9,6 @@ namespace uartex {
 class UARTExNumber : public number::Number, public UARTExDevice 
 {
 public:
-    UARTExNumber() { device_name_ = &this->name_; }
     void dump_config() override;
     void setup() override;
     void publish(const std::vector<uint8_t>& data) override;

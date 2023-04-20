@@ -15,13 +15,7 @@ CONFIG_SCHEMA = light.BINARY_LIGHT_SCHEMA.extend({
 
 def to_code(config):
     var = cg.new_Pvariable(config[CONF_OUTPUT_ID])
-    light_var = cg.new_Pvariable(config[CONF_ID], config[CONF_NAME], var)
-    cg.add(var.set_light(light_var))
-
-    cg.add(cg.App.register_light(light_var))
     yield cg.register_component(var, config)
     del config[CONF_UPDATE_INTERVAL]
-    yield cg.register_component(light_var, config)
-    yield light.setup_light_core_(light_var, var, config)
-
+    yield light.register_light(var, config)
     yield uartex.register_uartex_device(var, config)
