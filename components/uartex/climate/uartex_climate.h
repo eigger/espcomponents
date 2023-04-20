@@ -11,6 +11,7 @@ namespace uartex {
 class UARTExClimate : public climate::Climate, public UARTExDevice
 {
 public:
+    UARTExClimate() : Climate(), UARTExDevice() {}
     void dump_config() override;
     void setup() override;
     void publish(const std::vector<uint8_t>& data) override;
