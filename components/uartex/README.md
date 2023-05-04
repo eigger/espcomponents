@@ -5,7 +5,6 @@ external_components:
   - source:
       type: git
       url: https://github.com/eigger/espcomponents/
-      #ref: dev
     components: [ uartex ]
     refresh: always
 
@@ -16,11 +15,7 @@ uart:
   stop_bits: 1
   rx_pin: GPIO32
   tx_pin: GPIO26
-
-#  rx_pin: GPIO22
-#  tx_pin: GPIO19
-#  tx_pin: GPIO01 #esp8266
-#  rx_pin: GPIO03 #esp8266
+  debug:
 
 uartex:
   rx_timeout: 10ms    #해당시간안에 수신되는 데이터를 하나의 데이터로 처리
@@ -238,6 +233,7 @@ climate:
                 {0x0C, 0x01, 0x01, (uint8_t)x},
                 {0x0C, 0x01}
              };
+
 button:
   - platform: uartex
     name: "Button1"
