@@ -24,7 +24,6 @@ public:
 
     unsigned long elapsed_time(const unsigned long timer);
     unsigned long get_time();
-    void control(float value) override;
     void set_version(text_sensor::TextSensor *version) { version_ = version; }
     void set_125(sensor::Sensor *band) { band125_ = band; }
     void set_250(sensor::Sensor *band) { band250_ = band; }
