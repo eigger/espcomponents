@@ -13,7 +13,7 @@
 namespace esphome {
 namespace microphone_fft {
 
-class MicrophoneFFT : public i2s_audio::I2SAudioMicrophone, public Component
+class MicrophoneFFT : public i2s_audio::I2SAudioMicrophone
 {
 public:
     MicrophoneFFT() = default;
