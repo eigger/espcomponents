@@ -14,7 +14,7 @@ void MicrophoneFFT::setup()
 {
     if (this->version_) this->version_->publish_state(VERSION);
     FFT = arduinoFFT();
-    add_data_callback(callback_);
+    add_data_callback(std::bind(&MicrophoneFFT::callback_, this, std::placeholders::_1));
     ESP_LOGI(TAG, "Initaialize.");
 }
 
