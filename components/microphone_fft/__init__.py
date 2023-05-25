@@ -76,7 +76,8 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
 
 async def to_code(config):
     cg.add_global(microphone_fft_ns.using)
-    var = cg.new_Pvariable(config[CONF_ID])
+    var = cg.Pvariable(config[CONF_ID], MicrophoneFFT.new())
+    #var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await register_microphone(var, config)
     if CONF_VERSION in config:
