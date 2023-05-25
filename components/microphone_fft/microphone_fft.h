@@ -7,13 +7,13 @@
 #include "esphome/core/hal.h"
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/components/sensor/sensor.h"
-#include "esphome/components/microphone/microphone.h"
+#include "esphome/components/i2s_audio/microphone/i2s_audio_microphone.h"
 #include <arduinoFFT.h>
 #include "version.h"
 namespace esphome {
 namespace microphone_fft {
 
-class MicrophoneFFT : public microphone::Microphone, public Component
+class MicrophoneFFT : public i2s_audio::I2SAudioMicrophone, public Component
 {
 public:
     MicrophoneFFT() = default;
