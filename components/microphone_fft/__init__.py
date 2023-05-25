@@ -70,7 +70,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         cv.GenerateID(): cv.declare_id(sensor.Sensor),
         cv.Optional(CONF_ICON, default="mdi:sine-wave"): cv.icon,
     }),
-}).extend(cv.COMPONENT_SCHEMA).extend(microphone.CONFIG_SCHEMA)
+}).extend(cv.COMPONENT_SCHEMA).extend(microphone.BASE_SCHEMA)
 )
 
 async def to_code(config):
