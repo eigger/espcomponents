@@ -17,7 +17,7 @@ AUTO_LOAD = ["text_sensor", "sensor"]
 CODEOWNERS = ["@eigger"]
 DEPENDENCIES = ["i2s_audio"]
 microphone_fft_ns = cg.esphome_ns.namespace('microphone_fft')
-MicrophoneFFT = microphone_fft_ns.class_('MicrophoneFFT', cg.Component, microphone.I2SAudioMicrophone)
+MicrophoneFFT = microphone_fft_ns.class_('MicrophoneFFT', microphone.I2SAudioMicrophone)
 
 MULTI_CONF = False
 
