@@ -5,6 +5,7 @@ import esphome.config_validation as cv
 from esphome.components import text_sensor, sensor
 from esphome.components.text_sensor import register_text_sensor
 from esphome.components.i2s_audio import microphone
+from esphome.components.microphone import register_microphone
 from esphome import automation, pins, core
 from esphome.const import CONF_ID, CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, CONF_UNIT_OF_MEASUREMENT, ICON_NEW_BOX, CONF_MIN_VALUE, CONF_MAX_VALUE, CONF_STEP 
 from esphome.core import coroutine
@@ -77,7 +78,7 @@ async def to_code(config):
     cg.add_global(microphone_fft_ns.using)
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
-    await microphone.register_microphone(var, config)
+    await register_microphone(var, config)
     if CONF_VERSION in config:
         sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
         await register_text_sensor(sens, config[CONF_VERSION])
