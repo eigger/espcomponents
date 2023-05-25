@@ -17,7 +17,7 @@ AUTO_LOAD = ["text_sensor", "sensor"]
 CODEOWNERS = ["@eigger"]
 DEPENDENCIES = ["i2s_audio"]
 microphone_fft_ns = cg.esphome_ns.namespace('microphone_fft')
-MicrophoneFFT = microphone_fft_ns.class_('MicrophoneFFT', microphone.I2SAudioMicrophone)
+MicrophoneFFT = microphone_fft_ns.class_('MicrophoneFFT', cg.Component, microphone.I2SAudioMicrophone)
 
 MULTI_CONF = False
 
@@ -71,13 +71,13 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         cv.GenerateID(): cv.declare_id(sensor.Sensor),
         cv.Optional(CONF_ICON, default="mdi:sine-wave"): cv.icon,
     }),
-}).extend(cv.COMPONENT_SCHEMA).extend(microphone.BASE_SCHEMA)
+}).extend(cv.COMPONENT_SCHEMA).extend(microphone.CONFIG_SCHEMA)
 )
 
 async def to_code(config):
     cg.add_global(microphone_fft_ns.using)
-    var = cg.Pvariable(config[CONF_ID], MicrophoneFFT.new())
-    #var = cg.new_Pvariable(config[CONF_ID])
+    #var = cg.Pvariable(config[CONF_ID], MicrophoneFFT.new())
+    var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await register_microphone(var, config)
     if CONF_VERSION in config:
