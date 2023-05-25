@@ -20,8 +20,8 @@ MicrophoneFFT = microphone_fft_ns.class_('MicrophoneFFT', cg.Component, micropho
 MULTI_CONF = False
 
 # microphone_fft Schema
-
-CONFIG_SCHEMA = cv.All({
+CONFIG_SCHEMA = cv.All(cv.Schema({
+    cv.GenerateID(): cv.declare_id(MicrophoneFFT),
     cv.Optional(CONF_VERSION, default={CONF_NAME: "Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
@@ -70,6 +70,7 @@ CONFIG_SCHEMA = cv.All({
         cv.Optional(CONF_ICON, default="mdi:sine-wave"): cv.icon,
     }),
 }).extend(cv.COMPONENT_SCHEMA).extend(microphone.MICROPHONE_SCHEMA)
+)
 
 async def to_code(config):
     cg.add_global(microphone_fft_ns.using)
