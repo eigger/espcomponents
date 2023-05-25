@@ -2,7 +2,7 @@ from email.policy import default
 import logging
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import microphone, text_sensor, sensor
+from esphome.components import i2s_audio, text_sensor, sensor, microphone
 from esphome.components.text_sensor import register_text_sensor
 from esphome import automation, pins, core
 from esphome.const import CONF_ID, CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, CONF_UNIT_OF_MEASUREMENT, ICON_NEW_BOX, CONF_MIN_VALUE, CONF_MAX_VALUE, CONF_STEP 
@@ -13,9 +13,9 @@ from .const import CONF_125, CONF_250, CONF_500, CONF_1K, CONF_2K, CONF_4K, CONF
 _LOGGER = logging.getLogger(__name__)
 AUTO_LOAD = ["text_sensor", "sensor"]
 CODEOWNERS = ["@eigger"]
-DEPENDENCIES = ["microphone"]
+DEPENDENCIES = ["i2s_audio"]
 microphone_fft_ns = cg.esphome_ns.namespace('microphone_fft')
-MicrophoneFFT = microphone_fft_ns.class_('MicrophoneFFT', cg.Component, microphone.Microphone)
+MicrophoneFFT = microphone_fft_ns.class_('MicrophoneFFT', cg.Component, i2s_audio.I2SAudioMicrophone)
 
 MULTI_CONF = False
 
