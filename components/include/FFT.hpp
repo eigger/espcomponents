@@ -41,13 +41,31 @@ std::vector<double> GetFrequencyDomain(const std::vector<uint8_t> &data)
     return result;
 }
 
-double GetMaxFrequency(const std::vector<uint8_t> &data, uint8_t amplitude = 50, uint16_t sampling_frequency = 16000)
+uint16_t PDM2PCMSingle(uint8_t pdmSample)
+{
+    // PDM 샘플을 PCM 샘플로 변환하는 공식을 적용
+    // 예제에서는 8비트 PDM 데이터를 16비트 PCM 데이터로 변환하는 예시입니다.
+    return (uint16_t)pdmSample << 8;
+}
+
+std::vector<uint16_t> PDM2PCM(const std::vector<uint8_t> &dpm_data, int offset = 4)
+{
+    std::vector<uint16_t> pcm_data;
+    for (size_t i = 0; i < dpm_data.size() / offset; i++)
+    {
+        pcm_data.push_back(pdm2pcm_single(dpm_data[i * offset]));
+    }
+    return pcm_data;
+}
+
+
+double GetMaxFrequency(const std::vector<uint16_t> &data, uint8_t amplitude = 50, uint16_t sampling_frequency = 16000)
 {
     std::vector<double> vReal;
     std::vector<double> vImag;
     for (uint16_t i = 0; i < data.size(); i++)
     {
-        vReal.push_back(data[i] << 8);
+        vReal.push_back((double)data[i]);
         vImag.push_back(0.0);
     }
 
