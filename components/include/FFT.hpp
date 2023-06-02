@@ -1,44 +1,17 @@
 #include "esphome.h"
 #include <arduinoFFT.h>
 
-arduinoFFT FFT = arduinoFFT();
-
-std::vector<double> GetFrequencyDomain(const std::vector<uint8_t> &data)
+void ShowDoubleLog(std::string name, const std::vector<double> &data)
 {
-    const uint8_t amplitude = 150;
-    std::vector<double> vReal;
-    std::vector<double> vImag;
-    int bands[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-    for (uint16_t i = 0; i < data.size(); i++) {
-        vReal.push_back(data[i] << 8);
-        vImag.push_back(0.0); //Imaginary part must be zeroed in case of looping to avoid wrong calculations and overflows
+    std::string res;
+    char temp[20]; 
+    for (const auto& byte : data)
+    {
+        memset(temp, 0, sizeof(temp));
+        sprintf(temp, "%.1lf ", byte);
+        res.append(temp);
     }
-
-    FFT.Windowing(&vReal[0], data.size(), FFT_WIN_TYP_HAMMING, FFT_FORWARD);
-    FFT.Compute(&vReal[0], &vImag[0], data.size(), FFT_FORWARD);
-    FFT.ComplexToMagnitude(&vReal[0], &vImag[0], data.size());
-    for (int i = 0; i < 8; i++) {
-        bands[i] = 0;
-    }
-  
-    for (int i = 2; i < (data.size()/2); i++){ // Don't use sample 0 and only first SAMPLES/2 are usable. Each array eleement represents a frequency and its value the amplitude.
-        if (vReal[i] > 2000) { // Add a crude noise filter, 10 x amplitude or more
-        if (i<=2 )             bands[0] = max(bands[0], (int)(vReal[i]/amplitude)); // 125Hz
-        if (i >3   && i<=5 )   bands[1] = max(bands[1], (int)(vReal[i]/amplitude)); // 250Hz
-        if (i >5   && i<=7 )   bands[2] = max(bands[2], (int)(vReal[i]/amplitude)); // 500Hz
-        if (i >7   && i<=15 )  bands[3] = max(bands[3], (int)(vReal[i]/amplitude)); // 1000Hz
-        if (i >15  && i<=30 )  bands[4] = max(bands[4], (int)(vReal[i]/amplitude)); // 2000Hz
-        if (i >30  && i<=53 )  bands[5] = max(bands[5], (int)(vReal[i]/amplitude)); // 4000Hz
-        if (i >53  && i<=200 ) bands[6] = max(bands[6], (int)(vReal[i]/amplitude)); // 8000Hz
-        if (i >200           ) bands[7] = max(bands[7], (int)(vReal[i]/amplitude)); // 16000Hz
-        }
-    }
-
-    std::vector<double> result;
-    for (int i = 0; i < 8; i++) {
-        result.push_back(bands[i]);
-    }
-    return result;
+    ESP_LOGD(name.c_str(), res.c_str());
 }
 
 uint16_t PDM2PCMSingle(uint8_t pdmSample)
@@ -63,19 +36,23 @@ double GetMaxFrequency(const std::vector<uint16_t> &data, uint8_t amplitude = 50
 {
     std::vector<double> vReal;
     std::vector<double> vImag;
-    for (uint16_t i = 0; i < data.size(); i++)
+    for (uint16_t i = 0; i < data.size(); i += 2)
     {
         vReal.push_back((double)data[i]);
         vImag.push_back(0.0);
     }
-
-    FFT.Windowing(&vReal[0], data.size(), FFT_WIN_TYP_HAMMING, FFT_FORWARD);
-    FFT.Compute(&vReal[0], &vImag[0], data.size(), FFT_FORWARD);
-    FFT.ComplexToMagnitude(&vReal[0], &vImag[0], data.size());
+    arduinoFFT FFT = arduinoFFT(&vReal[0], &vImag[0], vReal.size(), sampling_frequency);
+    ShowDoubleLog("RAW", vReal);
+    FFT.Windowing(FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+    ShowDoubleLog("WINDOWING", vReal);
+    FFT.Compute(FFT_FORWARD);
+    ShowDoubleLog("COMPUTE", vReal);
+    FFT.ComplexToMagnitude();
+    ShowDoubleLog("MAGNITUDE", vReal);
 
     double maxAmplitude = 0;
     int maxIndex = 0;
-    for (int i = 2; i < (data.size() / 2); i++)
+    for (int i = 2; i < (vReal.size() / 2); i++)
     {
         if (vReal[i] > maxAmplitude && vReal[i] > amplitude)
         {
@@ -84,7 +61,8 @@ double GetMaxFrequency(const std::vector<uint16_t> &data, uint8_t amplitude = 50
         }
     }
 
-    double frequency = maxIndex * (sampling_frequency / data.size());
+    double frequency = maxIndex * (sampling_frequency / vReal.size());
+    //frequency = FFT.MajorPeak();
     return frequency;
 }
 
@@ -127,3 +105,4 @@ std::string ScaleNameFromFrequency(double frequency)
     }
     return scaleNames[closestIndex];
 }
+
