@@ -42,13 +42,13 @@ double GetMaxFrequency(const std::vector<uint16_t> &data, uint8_t amplitude = 50
         vImag.push_back(0.0);
     }
     arduinoFFT FFT = arduinoFFT(&vReal[0], &vImag[0], vReal.size(), sampling_frequency);
-    ShowDoubleLog("RAW", vReal);
+    //ShowDoubleLog("RAW", vReal);
     FFT.Windowing(FFT_WIN_TYP_HAMMING, FFT_FORWARD);
-    ShowDoubleLog("WINDOWING", vReal);
+    //ShowDoubleLog("WINDOWING", vReal);
     FFT.Compute(FFT_FORWARD);
-    ShowDoubleLog("COMPUTE", vReal);
+    //ShowDoubleLog("COMPUTE", vReal);
     FFT.ComplexToMagnitude();
-    ShowDoubleLog("MAGNITUDE", vReal);
+    //ShowDoubleLog("MAGNITUDE", vReal);
 
     double maxAmplitude = 0;
     int maxIndex = 0;
