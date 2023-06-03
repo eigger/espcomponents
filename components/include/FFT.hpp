@@ -26,7 +26,7 @@ std::vector<uint16_t> PDM2PCM(const std::vector<uint8_t> &dpm_data, int offset =
     std::vector<uint16_t> pcm_data;
     for (size_t i = 0; i < dpm_data.size() / offset; i++)
     {
-        pcm_data.push_back(pdm2pcm_single(dpm_data[i * offset]));
+        pcm_data.push_back(PDM2PCMSingle(dpm_data[i * offset]));
     }
     return pcm_data;
 }
