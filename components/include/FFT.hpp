@@ -14,16 +14,16 @@ void ShowDoubleLog(std::string name, const std::vector<double> &data)
     ESP_LOGD(name.c_str(), res.c_str());
 }
 
-uint16_t PDM2PCMSingle(uint8_t pdmSample)
+int16_t PDM2PCMSingle(uint8_t pdmSample)
 {
     // PDM 샘플을 PCM 샘플로 변환하는 공식을 적용
     // 예제에서는 8비트 PDM 데이터를 16비트 PCM 데이터로 변환하는 예시입니다.
-    return (uint16_t)pdmSample << 8;
+    return (int16_t)pdmSample << 8;
 }
 
-std::vector<uint16_t> PDM2PCM(const std::vector<uint8_t> &dpm_data, int offset = 4)
+std::vector<int16_t> PDM2PCM(const std::vector<uint8_t> &dpm_data, int offset = 4)
 {
-    std::vector<uint16_t> pcm_data;
+    std::vector<int16_t> pcm_data;
     for (size_t i = 0; i < dpm_data.size() / offset; i++)
     {
         pcm_data.push_back(PDM2PCMSingle(dpm_data[i * offset]));
@@ -32,7 +32,7 @@ std::vector<uint16_t> PDM2PCM(const std::vector<uint8_t> &dpm_data, int offset =
 }
 
 
-double GetMaxFrequency(const std::vector<uint16_t> &data, uint8_t amplitude = 50, uint16_t sampling_frequency = 16000)
+double GetMaxFrequency(const std::vector<int16_t> &data, uint8_t amplitude = 50, uint16_t sampling_frequency = 16000)
 {
     std::vector<double> vReal;
     std::vector<double> vImag;
