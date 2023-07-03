@@ -1,5 +1,8 @@
 ### add esphome *.yaml
-```
+<details>
+    <summary>예제</summary>
+
+  ```
 
 external_components:
   - source:
@@ -286,3 +289,5 @@ number:
                 {0x0F, 0x01}
              };
 ```
+</details>
+
