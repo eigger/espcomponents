@@ -586,7 +586,7 @@
           data: [0x79, 0xBC, 0x08, 0x02, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x61, 0xFF, 0xFF, 0xFF, 0x24, 0x00, 0xB9, 0xE4]
 </details>
 <details>
-    <summary>현대통신(imuz) yaml</summary>
+    <summary>현대통신 (imazu) yaml</summary>
 
     external_components:
       - source:
@@ -1193,4 +1193,368 @@
                     {0x0B, 0x01, 0x18, 0x02, 0x45, 0x15, (uint8_t)x, 0x00},
                     {0x0D, 0x01, 0x18, 0x04, 0x45, 0x15, (uint8_t)x, 0x01}
                  };
+</details>
+
+<details>
+    <summary>삼성SDS (홈넷) yaml</summary>
+    
+    external_components:
+      - source:
+          type: git
+          url: https://github.com/eigger/espcomponents/
+        components: [ uartex ]
+    
+    uart:
+      baud_rate: 9600 #Required
+      data_bits: 8    #Option(default: 8)
+      parity: EVEN       #Option(default: 0)
+      stop_bits: 1    #Option(default: 1)
+      rx_pin: GPIO22
+      tx_pin: GPIO19
+      
+    # RS485 Component (for ttl to rs485 module)
+    #  - esp8266: UART0 (TX: GPIO1, RX: GPIO3)
+    #  - esp32: UART2 (TX: GPIO17, RX: GPIO16)
+    uartex:
+      rx_timeout: 10ms     #Option(default: 10ms) -> 수신 메시지 대기시간 (10ms 미만으로 수신된 메시지만 한 패킷으로 판단)
+      tx_delay: 50ms #Option(default: 50ms) -> 발신 메시지 전송 간격 (패킷 수신 후 50ms 대기 후 전송)
+      tx_timeout: 50ms    #Option(default: 50ms) -> 발신 메시지 Ack 대기시간
+      tx_retry_cnt: 3 #Option(default: 3)    -> 발신 메시지 Ack 없을 경우 재시도 횟수
+      
+      rx_header: [0xB0]
+    
+      rx_checksum: !lambda |-
+        // @param: const uint8_t *data, const unsigned short len
+        // @return: uint8_t
+        uint8_t crc = 0xB0;
+        for(size_t i=0; i<len; i++)
+          crc ^= data[i];
+        if (data[0] < 0x7C) crc ^= 0x80;
+        return crc;
+        
+      tx_checksum: !lambda |-
+        // @param: const uint8_t *data, const unsigned short len
+        // @return: uint8_t
+        uint8_t crc = 0x00;
+        for(size_t i=0; i<len; i++)
+          crc ^= data[i];
+        crc ^= 0x80;
+        return crc;
+      
+    text_sensor:
+     - platform: uartex
+       name: "GAS Status"
+       filter: [0x41]
+       #command_update: [0xAB, 0x41, 0x00]
+       #update_interval: 60s
+       lambda: |-
+          // @param: const uint8_t *data, const unsigned short len
+          // @return: const char*
+          {
+            if (len > 0)
+            {
+              if (data[1] == 0x01) return "잠김";
+              else if (data[1] == 0x00) return "열림";
+            }
+            return "에러";
+          }
+    
+    #on:Open, off,Lock
+    switch:
+     - platform: uartex
+       name: "GAS"
+       icon: "mdi:valve"
+       filter: [0x41]
+       state_on:
+         offset: 1
+         data: [0x00]
+       state_off:
+         offset: 1
+         data: [0x01]
+       command_on:
+         data: [0xAB, 0x78, 0x00]
+         ack: [0x78]
+       command_off:
+         data: [0xAB, 0x78, 0x00]
+         ack: [0x78]      
+    
+    
+    light:
+      - platform: uartex
+        name: "ROOM1"
+        filter: [0x79, 0x31]
+        state_on:
+          offset: 2
+          data: [0x01]
+          mask: [0x01]
+        state_off:
+          offset: 2
+          data: [0x00]
+          mask: [0x01]
+        command_on:
+          data: [0xAC, 0x7A, 0x01, 0x01]
+          ack: [0x7A, 0x01, 0x01]
+        command_off:
+          data: [0xAC, 0x7A, 0x01, 0x00]
+          ack: [0x7A, 0x01, 0x00]
+          
+      - platform: uartex
+        name: "ROOM2"
+        filter: [0x79, 0x31]
+        state_on:
+          offset: 2
+          data: [0x02]
+          mask: [0x02]
+        state_off:
+          offset: 2
+          data: [0x00]
+          mask: [0x02]
+        command_on:
+          data: [0xAC, 0x7A, 0x02, 0x01]
+          ack: [0x7A, 0x02, 0x01]
+        command_off:
+          data: [0xAC, 0x7A, 0x02, 0x00]
+          ack: [0x7A, 0x02, 0x00]
+          
+      - platform: uartex
+        name: "ROOM3"
+        filter: [0x79, 0x31]
+        state_on:
+          offset: 2
+          data: [0x04]
+          mask: [0x04]
+        state_off:
+          offset: 2
+          data: [0x00]
+          mask: [0x04]
+        command_on:
+          data: [0xAC, 0x7A, 0x03, 0x01]
+          ack: [0x7A, 0x03, 0x01]
+        command_off:
+          data: [0xAC, 0x7A, 0x03, 0x00]
+          ack: [0x7A, 0x03, 0x00]
+          
+      - platform: uartex
+        name: "ROOM4"
+        filter: [0x79, 0x24]
+        state_on:
+          offset: 2
+          data: [0x01]
+          mask: [0x01]
+        state_off:
+          offset: 2
+          data: [0x00]
+          mask: [0x01]
+        command_on:
+          data: [0xAC, 0x7A, 0x04, 0x01]
+          ack: [0x7A, 0x04, 0x01]
+        command_off:
+          data: [0xAC, 0x7A, 0x04, 0x00]
+          ack: [0x7A, 0x04, 0x00]
+          
+      - platform: uartex
+        name: "ROOM5"
+        filter: [0x79, 0x24]
+        state_on:
+          offset: 2
+          data: [0x02]
+          mask: [0x02]
+        state_off:
+          offset: 2
+          data: [0x00]
+          mask: [0x02]
+        command_on:
+          data: [0xAC, 0x7A, 0x05, 0x01]
+          ack: [0x7A, 0x05, 0x01]
+        command_off:
+          data: [0xAC, 0x7A, 0x05, 0x00]
+          ack: [0x7A, 0x05, 0x00]
+    
+    
+    climate:
+      - platform: uartex
+        name: "ROOM1 Heater"
+        visual:
+          min_temperature: 5 °C
+          max_temperature: 40 °C
+          temperature_step: 1 °C
+        filter: [0x7C, 0x01]
+        state_temperature_current: #Required (현재온도 State, RS485 Sensor 설정 참고, sensor:로 대체 가능)
+          offset: 4
+          length: 1
+          precision: 0
+        state_temperature_target: #Required (설정온도 State)
+          offset: 3
+          length: 1
+          precision: 0
+        state_off: #Required (끄기 상태)
+          offset: 2
+          data: [0x00]
+          mask: [0x01]
+        state_heat: #Option (난방모드, 냉방모드: state_cool, 자동모드: state_auto)
+          offset: 2
+          data: [0x01]
+          mask: [0x01]
+          #inverted: false
+        #state_away: #Option (외출모드)
+        #  offset: 2
+        #  data: [0x07]
+        command_off: #Required (끄기 명령)
+          data: [0xAE, 0x7D, 0x01, 0x00, 0x00, 0x00, 0x00]
+          ack: [0x7D, 0x01, 0x00]
+        command_heat: #Option (난방모드 켜기)
+          data: [0xAE, 0x7D, 0x01, 0x01, 0x00, 0x00, 0x00]
+          ack: [0x7D, 0x01, 0x01]
+        #command_away: #Option (외출모드)
+        #  data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x07, 0x00]
+        #  ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x07, 0x07]
+        #command_home: #Option (재실모드)
+        #  data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x01, 0x00]
+        #  ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x01, 0x01]
+        command_temperature: !lambda |-  #Required (온도 조절)
+          // @param: const float x
+          return {
+                    {0xAE, 0x7F, 0x01, (uint8_t)x, 0x00, 0x00, 0x00},
+                    {0x7F, 0x01, (uint8_t)x}
+                 };
+    
+    
+      - platform: uartex
+        name: "ROOM2 Heater"
+        visual:
+          min_temperature: 5 °C
+          max_temperature: 40 °C
+          temperature_step: 1 °C
+        filter: [0x7C, 0x02]
+        state_temperature_current: #Required (현재온도 State, RS485 Sensor 설정 참고, sensor:로 대체 가능)
+          offset: 4
+          length: 1
+          precision: 0
+        state_temperature_target: #Required (설정온도 State)
+          offset: 3
+          length: 1
+          precision: 0
+        state_off: #Required (끄기 상태)
+          offset: 2
+          data: [0x00]
+          mask: [0x01]
+        state_heat: #Option (난방모드, 냉방모드: state_cool, 자동모드: state_auto)
+          offset: 2
+          data: [0x01]
+          mask: [0x01]
+          #inverted: false
+        #state_away: #Option (외출모드)
+        #  offset: 2
+        #  data: [0x07]
+        command_off: #Required (끄기 명령)
+          data: [0xAE, 0x7D, 0x02, 0x00, 0x00, 0x00, 0x00]
+          ack: [0x7D, 0x02, 0x00]
+        command_heat: #Option (난방모드 켜기)
+          data: [0xAE, 0x7D, 0x02, 0x01, 0x00, 0x00, 0x00]
+          ack: [0x7D, 0x02, 0x01]
+        #command_away: #Option (외출모드)
+        #  data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x07, 0x00]
+        #  ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x07, 0x07]
+        #command_home: #Option (재실모드)
+        #  data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x01, 0x00]
+        #  ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x01, 0x01]
+        command_temperature: !lambda |-  #Required (온도 조절)
+          // @param: const float x
+          return {
+                    {0xAE, 0x7F, 0x02, (uint8_t)x, 0x00, 0x00, 0x00},
+                    {0x7F, 0x02, (uint8_t)x}
+                 };
+    
+      - platform: uartex
+        name: "ROOM3 Heater"
+        visual:
+          min_temperature: 5 °C
+          max_temperature: 40 °C
+          temperature_step: 1 °C
+        filter: [0x7C, 0x03]
+        state_temperature_current: #Required (현재온도 State, RS485 Sensor 설정 참고, sensor:로 대체 가능)
+          offset: 4
+          length: 1
+          precision: 0
+        state_temperature_target: #Required (설정온도 State)
+          offset: 3
+          length: 1
+          precision: 0
+        state_off: #Required (끄기 상태)
+          offset: 2
+          data: [0x00]
+          mask: [0x01]
+        state_heat: #Option (난방모드, 냉방모드: state_cool, 자동모드: state_auto)
+          offset: 2
+          data: [0x01]
+          mask: [0x01]
+          #inverted: false
+        #state_away: #Option (외출모드)
+        #  offset: 2
+        #  data: [0x07]
+        command_off: #Required (끄기 명령)
+          data: [0xAE, 0x7D, 0x03, 0x00, 0x00, 0x00, 0x00]
+          ack: [0x7D, 0x03, 0x00]
+        command_heat: #Option (난방모드 켜기)
+          data: [0xAE, 0x7D, 0x03, 0x01, 0x00, 0x00, 0x00]
+          ack: [0x7D, 0x03, 0x01]
+        #command_away: #Option (외출모드)
+        #  data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x07, 0x00]
+        #  ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x07, 0x07]
+        #command_home: #Option (재실모드)
+        #  data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x01, 0x00]
+        #  ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x01, 0x01]
+        command_temperature: !lambda |-  #Required (온도 조절)
+          // @param: const float x
+          return {
+                    {0xAE, 0x7F, 0x03, (uint8_t)x, 0x00, 0x00, 0x00},
+                    {0x7F, 0x03, (uint8_t)x}
+                 };
+    
+      - platform: uartex
+        name: "ROOM4 Heater"
+        visual:
+          min_temperature: 5 °C
+          max_temperature: 40 °C
+          temperature_step: 1 °C
+        filter: [0x7C, 0x04]
+        state_temperature_current: #Required (현재온도 State, RS485 Sensor 설정 참고, sensor:로 대체 가능)
+          offset: 4
+          length: 1
+          precision: 0
+        state_temperature_target: #Required (설정온도 State)
+          offset: 3
+          length: 1
+          precision: 0
+        state_off: #Required (끄기 상태)
+          offset: 2
+          data: [0x00]
+          mask: [0x01]
+        state_heat: #Option (난방모드, 냉방모드: state_cool, 자동모드: state_auto)
+          offset: 2
+          data: [0x01]
+          mask: [0x01]
+          #inverted: false
+        #state_away: #Option (외출모드)
+        #  offset: 2
+        #  data: [0x07]
+        command_off: #Required (끄기 명령)
+          data: [0xAE, 0x7D, 0x04, 0x00, 0x00, 0x00, 0x00]
+          ack: [0x7D, 0x04, 0x00]
+        command_heat: #Option (난방모드 켜기)
+          data: [0xAE, 0x7D, 0x04, 0x01, 0x00, 0x00, 0x00]
+          ack: [0x7D, 0x04, 0x01]
+        #command_away: #Option (외출모드)
+        #  data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x07, 0x00]
+        #  ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x07, 0x07]
+        #command_home: #Option (재실모드)
+        #  data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x01, 0x00]
+        #  ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x01, 0x01]
+        command_temperature: !lambda |-  #Required (온도 조절)
+          // @param: const float x
+          return {
+                    {0xAE, 0x7F, 0x04, (uint8_t)x, 0x00, 0x00, 0x00},
+                    {0x7F, 0x04, (uint8_t)x}
+                 };
+
 </details>
