@@ -1,292 +1,1560 @@
 ### add esphome *.yaml
-```
-
-external_components:
-  - source:
-      type: git
-      url: https://github.com/eigger/espcomponents/
-      #ref: dev
-    components: [ uartex ]
-    refresh: always
-
-uart:
-  baud_rate: 9600
-  data_bits: 8
-  parity: NONE
-  stop_bits: 1
-  rx_pin: GPIO32
-  tx_pin: GPIO26
-
-#  rx_pin: GPIO22
-#  tx_pin: GPIO19
-#  tx_pin: GPIO01 #esp8266
-#  rx_pin: GPIO03 #esp8266
-
-uartex:
-  rx_timeout: 10ms    #해당시간안에 수신되는 데이터를 하나의 데이터로 처리
-  tx_delay: 50ms      #데이터 수신후 설정된 시간후 명령 전송
-  tx_timeout: 50ms    #명렁 전송후 ACK 응답까지 대기 시간
-  tx_retry_cnt: 3     #ACK수신까지 명려어 재전송
-  
-  rx_header: [0xFE]   #수신 시작문자
-  rx_footer: [0xEE]   #수신 끝문자
-  tx_header: [0xFE]   #송신 시작문자
-  tx_footer: [0xEE]   #송신 끝문자
-  #rx_checksum: add
-  #rx_checksum: !lambda |-
-  #  // @param: const uint8_t *data, const unsigned short len
-  #  // @return: uint8_t
-  #  uint8_t crc = 0x00;
-  #  for(num_t i=0; i<len; i++)
-  #    crc += data[i];
-  #  return crc;
+<details>
+    <summary>예제 yaml</summary>
     
-  #tx_checksum: add
-  #tx_checksum: !lambda |-
-  #  // @param: const uint8_t *data, const unsigned short len
-  #  // @return: uint8_t
-  #  uint8_t crc = 0x00;
-  #  for(num_t i=0; i<len; i++)
-  #    crc += data[i];
-  #  return crc;
-  
-# 0xFE 0x06 0x01 0x?? 0x?? ack e=0xEE  
-text_sensor:
-  - platform: uartex
-    name: TextSensor1
-    filter: [0x06, 0x01]
-    lambda: |-
-      // @param: const uint8_t *data, const unsigned short len
-      // @return: const char*
-      {
-        String str = "데이터: ";
-        for(int i = 0; i < len; i++)
-        {
-          str += String(data[i], HEX);
-        }
-        return str.c_str();
-      }
+    external_components:
+      - source:
+          type: git
+          url: https://github.com/eigger/espcomponents/
+        components: [ uartex ]
+        refresh: always
+    
+    uart:
+      baud_rate: 9600
+      data_bits: 8
+      parity: NONE
+      stop_bits: 1
+      rx_pin: GPIO32
+      tx_pin: GPIO26
+      debug:
+    
+    uartex:
+      rx_timeout: 10ms    #해당시간안에 수신되는 데이터를 하나의 데이터로 처리
+      tx_delay: 50ms      #데이터 수신후 설정된 시간후 명령 전송
+      tx_timeout: 50ms    #명렁 전송후 ACK 응답까지 대기 시간
+      tx_retry_cnt: 3     #ACK수신까지 명려어 재전송
+      
+      rx_header: [0xFE]   #수신 시작문자
+      rx_footer: [0xEE]   #수신 끝문자
+      tx_header: [0xFE]   #송신 시작문자
+      tx_footer: [0xEE]   #송신 끝문자
+      #rx_checksum: add
+      #rx_checksum: !lambda |-
+      #  // @param: const uint8_t *data, const unsigned short len
+      #  // @return: uint8_t
+      #  uint8_t crc = 0x00;
+      #  for(num_t i=0; i<len; i++)
+      #    crc += data[i];
+      #  return crc;
+        
+      #tx_checksum: add
+      #tx_checksum: !lambda |-
+      #  // @param: const uint8_t *data, const unsigned short len
+      #  // @return: uint8_t
+      #  uint8_t crc = 0x00;
+      #  for(num_t i=0; i<len; i++)
+      #    crc += data[i];
+      #  return crc;
+      
+    # 0xFE 0x06 0x01 0x?? 0x?? ack e=0xEE  
+    text_sensor:
+      - platform: uartex
+        name: TextSensor1
+        filter: [0x06, 0x01]
+        lambda: |-
+          // @param: const uint8_t *data, const unsigned short len
+          // @return: const char*
+          {
+            String str = "데이터: ";
+            for(int i = 0; i < len; i++)
+            {
+              str += String(data[i], HEX);
+            }
+            return str.c_str();
+          }
+    
+      
+    # offset                0    1    2    3    
+    # state_on:     0xFE 0x07 0x01 0x01 0x01  ack 0xEE
+    # state_off:    0xFE 0x07 0x01 0x00 0x01  ack 0xEE
+    # speed low:    0xFE 0x07 0x01 0x01 0x01  ack 0xEE
+    # speed mid:    0xFE 0x07 0x01 0x01 0x02  ack 0xEE
+    # speed high:   0xFE 0x07 0x01 0x01 0x03  ack 0xEE
+    fan:
+      - platform: uartex
+        name: "Fan1"
+        filter: [0x07, 0x01]
+        state_on:
+          offset: 2
+          data: [0x01]
+        state_off:
+          offset: 2
+          data: [0x00]
+        command_on:
+          data: [0x07, 0x01, 0x01]
+          ack: [0x07, 0x01]
+        command_off:
+          data: [0x07, 0x01, 0x00]
+          ack: [0x07, 0x01]
+        command_speed: !lambda |-
+          // @param: const float x
+          return {
+                    {0x07, 0x01, 0x01, (uint8_t)x},
+                    {0x07, 0x01}
+                 };
+        state_speed: !lambda |-
+          // @param: const uint8_t *data, const unsigned short len
+          // @return: const float
+          {
+            return data[3];
+          }
+    
+    
+    
+    # offset                0    1    2        
+    # state_on:     0xFE 0x08 0x01 0x01  ack 0xEE
+    # state_off:    0xFE 0x08 0x01 0x00  ack 0xEE
+    switch:
+      - platform: uartex
+        name: "Switch1"
+        filter: [0x08, 0x01]
+        state_on:
+          offset: 2
+          data: [0x01]
+        state_off:
+          offset: 2
+          data: [0x00]
+        command_on:
+          data: [0x08, 0x01, 0x01]
+          ack: [0x08, 0x01]
+        command_off:
+          data: [0x08, 0x01, 0x00]
+          ack: [0x08, 0x01]
+      
+    # offset                0    1    2        
+    # state_on:     0xFE 0x09 0x01 0x01  ack 0xEE
+    # state_off:    0xFE 0x09 0x01 0x00  ack 0xEE  
+    binary_sensor:
+      - platform: uartex
+        name: Binary_Sensor1
+        filter: [0x09, 0x01]
+        state_on:
+          offset: 2
+          data: [0x01]
+        state_off:
+          offset: 2
+          data: [0x00]
+    
+    # offset                    0    1    2        
+    # state_number:     0xFE 0x08 0x01 0x0A  ack 0xEE
+    #                                  = 10
+    sensor:
+      - platform: uartex
+        name: Sensor1
+        filter: [0x0A, 0x01]
+        state_number:
+          offset: 2
+          length: 1
+          precision: 0
+    
+    # offset                0    1    2        
+    # state_on:     0xFE 0x0B 0x01 0x01  ack 0xEE
+    # state_off:    0xFE 0x0B 0x01 0x00  ack 0xEE  
+    light:
+      - platform: uartex
+        name: "Light1"
+        filter: [0x0B, 0x01]
+        state_on:
+          offset: 2
+          data: [0x01]
+        state_off:
+          offset: 2
+          data: [0x00]
+        command_on:
+          data: [0x0B, 0x01, 0x01]
+          ack: [0x0B, 0x01]
+        command_off:
+          data: [0x0B, 0x01, 0x00]
+          ack: [0x0B, 0x01]
+    
+    climate:
+      - platform: uartex
+        name: "Climate2"
+        visual:
+          min_temperature: 5 °C
+          max_temperature: 30 °C
+          temperature_step: 1 °C
+        filter: [0x0C, 0x01]
+        state_temperature_current:
+          offset: 4
+          length: 1
+          precision: 0
+        state_temperature_target:
+          offset: 3
+          length: 1
+          precision: 0
+        state_off:
+          offset: 2
+          data: [0x01]
+        state_cool:
+          offset: 2
+          data: [0x00]
+        command_off: 
+          data: [0x0C, 0x01, 0x00]
+          ack: [0x0C, 0x01]
+        command_cool:
+          data: [0x0C, 0x01, 0x01]
+          ack: [0x0C, 0x01]
+        command_temperature: !lambda |-
+          // @param: const float x
+          return {
+                    {0x0C, 0x01, 0x01, (uint8_t)x},
+                    {0x0C, 0x01}
+                 };
+      - platform: uartex
+        name: "Climate1"
+        visual:
+          min_temperature: 5 °C
+          max_temperature: 30 °C
+          temperature_step: 1 °C
+        filter: [0x0C, 0x01]
+        state_temperature_current:
+          offset: 4
+          length: 1
+          precision: 0
+        state_temperature_target:
+          offset: 3
+          length: 1
+          precision: 0
+        state_off:
+          offset: 2
+          data: [0x01]
+        state_heat:
+          offset: 2
+          data: [0x00]
+        command_off: 
+          data: [0x0C, 0x01, 0x00]
+          ack: [0x0C, 0x01]
+        command_heat:
+          data: [0x0C, 0x01, 0x01]
+          ack: [0x0C, 0x01]
+        command_temperature: !lambda |-
+          // @param: const float x
+          return {
+                    {0x0C, 0x01, 0x01, (uint8_t)x},
+                    {0x0C, 0x01}
+                 };
+    
+    button:
+      - platform: uartex
+        name: "Button1"
+        icon: "mdi:elevator"
+        command_on: 
+          data: [0x0D, 0x01, 0x01]
+          ack: [0x0D, 0x01]
+    
+    lock:
+      - platform: uartex
+        name: "Lock1"
+        filter: [0x0E, 0x01]
+        state_locked:
+          offset: 2
+          data: [0x01]
+        state_unlocked:
+          offset: 2
+          data: [0x00]
+        state_locking:
+          offset: 2
+          data: [0x02]
+        state_unlocking:
+          offset: 2
+          data: [0x03]
+        state_jammed:
+          offset: 2
+          data: [0x04]
+        command_lock:
+          data: [0x0E, 0x01, 0x01]
+          ack: [0x0E, 0x01]
+        command_unlock:
+          data: [0x0E, 0x01, 0x00]
+          ack: [0x0E, 0x01]
+    
+    number:
+      - platform: uartex
+        name: "Number1"
+        filter: [0x0F, 0x01]
+        max_value: 10
+        min_value: 1
+        step: 1
+        state_number:
+          offset: 2
+          length: 1
+          precision: 0
+        command_number: !lambda |-
+          // @param: const float x
+          return {
+                    {0x0F, 0x01, 0x01, (uint8_t)x},
+                    {0x0F, 0x01}
+                 };
+</details>
+<details>
+    <summary>코콤 yaml</summary>
+    
+    external_components:
+      - source:
+          type: git
+          url: https://github.com/eigger/espcomponents/
+        components: [ uartex ]
+        refresh: always
+    
+    uart:
+      baud_rate: 9600
+      data_bits: 8
+      parity: NONE
+      stop_bits: 1
+      rx_pin: GPIO22
+      tx_pin: GPIO19
+    
+    uartex:
+      rx_timeout: 10ms
+      tx_delay: 50ms
+      tx_timeout: 50ms
+      tx_retry_cnt: 3
+    
+      rx_header: [0xAA, 0x55]
+      rx_footer: [0x0D, 0x0D]
+      tx_header: [0xAA, 0x55]
+      tx_footer: [0x0D, 0x0D]
+    
+      rx_checksum: add
+      tx_checksum: add
+      
+    sensor:
+      - platform: uartex
+        name: Elevator Floors
+        icon: "mdi:elevator"
+        filter: [0x30, 0xbc, 0x00, 0x44, 0x00]
+        state_number:
+          offset: 9
+          length: 1
+          precision: 0
+    
+    light:
+      - platform: uartex
+        name: "Livingroom1"
+        id: livingroom1
+        filter: [0x30, 0xdc, 0x00, 0x0e, 0x00]
+        state_on:
+          offset: 8
+          data: [0xff]
+        state_off:
+          offset: 8
+          data: [0x00]
+        command_on: !lambda |-
+          uint8_t light2 = id(livingroom2).current_values.is_on() ? 0xff : 0x00;
+          return {
+                    {0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x00, 0xff, light2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+                    {0x30, 0xdc}
+                 };
+        command_off: !lambda |-
+          uint8_t light2 = id(livingroom2).current_values.is_on() ? 0xff : 0x00;
+          return {
+                    {0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x00, 0x00, light2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, 
+                    {0x30, 0xdc}
+                 };
+        #command_state: [0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x3a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+        #update_interval: 300s
+    
+      - platform: uartex
+        name: "Livingroom2"
+        id: livingroom2
+        filter: [0x30, 0xdc, 0x00, 0x0e, 0x00]
+        state_on:
+          offset: 9
+          data: [0xff]
+        state_off:
+          offset: 9
+          data: [0x00]
+        command_on: !lambda |-
+          uint8_t light1 = id(livingroom1).current_values.is_on() ? 0xff : 0x00;
+            return {{0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x00, light1, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc}};
+        command_off: !lambda |-
+          uint8_t light1 = id(livingroom1).current_values.is_on() ? 0xff : 0x00;
+            return {{0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x00, light1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc}};
+    
+    
+    climate:
+      - platform: uartex
+        name: "Livingroom Heater"
+        visual:
+          min_temperature: 5 °C
+          max_temperature: 30 °C
+          temperature_step: 1 °C
+        filter: [0x30, 0xdc, 0x00, 0x36, 0x00]
+        state_temperature_current:
+          offset: 12
+          length: 1
+          precision: 0
+        state_temperature_target:
+          offset: 10
+          length: 1
+          precision: 0
+        state_off:
+          offset: 8
+          data: [0x01]
+        state_heat:
+          offset: 8
+          data: [0x11]
+        command_off: 
+          data: [0x30, 0xbc, 0x00, 0x36, 0x00, 0x01, 0x00, 0x00, 0x01, 0x00, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00]
+          ack: [0x30, 0xdc]
+        command_heat:
+          data: [0x30, 0xbc, 0x00, 0x36, 0x00, 0x01, 0x00, 0x00, 0x11, 0x00, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00]
+          ack: [0x30, 0xdc]
+        command_temperature: !lambda |-
+          // @param: const float x
+          return {
+                    {0x30, 0xbc, 0x00, 0x36, 0x00, 0x01, 0x00, 0x00, 0x11, 0x00, (uint8_t)x, 0x00, 0x00, 0x00, 0x00, 0x00},
+                    {0x30, 0xdc}
+                 };
+        #command_state: [0x30, 0xbc, 0x00, 0x36, 0x00, 0x01, 0x00, 0x3a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+        #update_interval: 300s
+    
+      - platform: uartex
+        name: "Mainroom Heater"
+        visual:
+          min_temperature: 5 °C
+          max_temperature: 30 °C
+          temperature_step: 1 °C
+        filter: [0x30, 0xdc, 0x00, 0x36, 0x01]
+        state_temperature_current:
+          offset: 12
+          length: 1
+          precision: 0
+        state_temperature_target:
+          offset: 10
+          length: 1
+          precision: 0
+        state_off:
+          offset: 8
+          data: [0x01]
+        state_heat:
+          offset: 8
+          data: [0x11]
+        command_off:
+          data: [0x30, 0xbc, 0x00, 0x36, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00]
+          ack: [0x30, 0xdc]
+        command_heat:
+          data: [0x30, 0xbc, 0x00, 0x36, 0x01, 0x01, 0x00, 0x00, 0x11, 0x00, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00]
+          ack: [0x30, 0xdc]
+        command_temperature: !lambda |-
+          // @param: const float x
+          return {{0x30, 0xbc, 0x00, 0x36, 0x01, 0x01, 0x00, 0x00, 0x11, 0x00, (uint8_t)x, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc}};
+        #command_state: [0x30, 0xbc, 0x00, 0x36, 0x01, 0x01, 0x00, 0x3a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+        #update_interval: 300s
+    
+      - platform: uartex
+        name: "Computer Heater"
+        visual:
+          min_temperature: 5 °C
+          max_temperature: 30 °C
+          temperature_step: 1 °C
+        filter: [0x30, 0xdc, 0x00, 0x36, 0x02]
+        state_temperature_current:
+          offset: 12
+          length: 1
+          precision: 0
+        state_temperature_target:
+          offset: 10
+          length: 1
+          precision: 0
+        state_off:
+          offset: 8
+          data: [0x01]
+        state_heat:
+          offset: 8
+          data: [0x11]
+        command_off:
+          data: [0x30, 0xbc, 0x00, 0x36, 0x02, 0x01, 0x00, 0x00, 0x01, 0x00, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00]
+          ack: [0x30, 0xdc]
+        command_heat:
+          data: [0x30, 0xbc, 0x00, 0x36, 0x02, 0x01, 0x00, 0x00, 0x11, 0x00, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00]
+          ack: [0x30, 0xdc]
+        command_temperature: !lambda |-
+          // @param: const float x
+          return {{0x30, 0xbc, 0x00, 0x36, 0x02, 0x01, 0x00, 0x00, 0x11, 0x00, (uint8_t)x, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc}};
+        #command_state: [0x30, 0xbc, 0x00, 0x36, 0x02, 0x01, 0x00, 0x3a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+        #update_interval: 300s
+    
+      - platform: uartex
+        name: "Smallroom Heater"
+        visual:
+          min_temperature: 5 °C
+          max_temperature: 30 °C
+          temperature_step: 1 °C
+        filter: [0x30, 0xdc, 0x00, 0x36, 0x03]
+        state_temperature_current:
+          offset: 12
+          length: 1
+          precision: 0
+        state_temperature_target:
+          offset: 10
+          length: 1
+          precision: 0
+        state_off:
+          offset: 8
+          data: [0x01]
+        state_heat:
+          offset: 8
+          data: [0x11]
+        command_off: 
+          data: [0x30, 0xbc, 0x00, 0x36, 0x03, 0x01, 0x00, 0x00, 0x01, 0x00, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00]
+          ack: [0x30, 0xdc]
+        command_heat: 
+          data: [0x30, 0xbc, 0x00, 0x36, 0x03, 0x01, 0x00, 0x00, 0x11, 0x00, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00]
+          ack: [0x30, 0xdc]
+        command_temperature: !lambda |-
+          // @param: const float x
+          return {{0x30, 0xbc, 0x00, 0x36, 0x03, 0x01, 0x00, 0x00, 0x11, 0x00, (uint8_t)x, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc}};
+        #command_state: [0x30, 0xbc, 0x00, 0x36, 0x03, 0x01, 0x00, 0x3a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+        #update_interval: 300s
+    
+    button:
+      - platform: uartex
+        name: "Elevator"
+        icon: "mdi:elevator"
+        command_on: 
+          data: [0x30, 0xbc, 0x00, 0x44, 0x00, 0x01, 0x00, 0x01, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+          ack: [0x30, 0xdc]
+</details>
+<details>
+    <summary>코콤 (주방TV - 공용현관) yaml</summary>
+    
+    external_components:
+      - source:
+          type: git
+          url: https://github.com/eigger/espcomponents/
+        components: [ uartex ]
+        refresh: always
+   
+    uart:
+      baud_rate: 9600
+      data_bits: 8
+      parity: NONE
+      stop_bits: 1
+      rx_pin: GPIO22
+      tx_pin: GPIO19
+      
+    uartex:
+      rx_timeout: 10ms
+      tx_delay: 50ms
+      tx_timeout: 50ms
+      tx_retry_cnt: 3
+    
+      rx_header: [0xAA, 0x55]
+      rx_footer: [0x0D, 0x0D]
+      tx_header: [0xAA, 0x55]
+      tx_footer: [0x0D, 0x0D]
+        
+    binary_sensor:
+    # 0xAA 0x55 0x7A 0x9E 0x02 0x02 0x00 0xFF 0xFF 0xFF 0xFF 0x31 0xFF 0xFF 0xFF 0x01 0x01 0x29 0xF6 0x0D 0x0D
+    # 0xAA 0x55 0x7A 0x9E 0x02 0x02 0x00 0xFF 0xFF 0xFF 0xFF 0x31 0xFF 0xFF 0xFF 0x02 0x00 0x6C 0x84 0x0D 0x0D
+      - platform: uartex
+        name: "Door Bell"
+        icon: "mdi:bell-ring"
+        filter: [0x7A, 0x9E, 0x02, 0x02]
+        state_on:
+          offset: 13
+          data: [0x01, 0x01]
+        state_off:
+          offset: 13
+          data: [0x02, 0x00]
+    
+    # 0xAA 0x55 0x7A 0x9E 0x02 0x08 0x00 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0x01 0x01 0x0A 0x27 0x0D 0x0D
+    # 0xAA 0x55 0x7A 0x9E 0x02 0x08 0x00 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0x02 0x00 0x4F 0x55 0x0D 0x0D
+      - platform: uartex
+        name: "Door Bell Common"
+        icon: "mdi:bell-ring"
+        filter: [0x7A, 0x9E, 0x02, 0x08]
+        state_on:
+          offset: 13
+          data: [0x01, 0x01]
+        state_off:
+          offset: 13
+          data: [0x02, 0x00]
+    
+    button:
+      - platform: uartex
+        name: "Door Call"
+        icon: "mdi:phone"
+        command_on: 
+          data: [0x79, 0xBC, 0x08, 0x02, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x61, 0xFF, 0xFF, 0xFF, 0x03, 0x00, 0x26, 0x95]
+      - platform: uartex
+        name: "Door Open"
+        icon: "mdi:door-sliding-open"
+        command_on: 
+          data: [0x79, 0xBC, 0x08, 0x02, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x61, 0xFF, 0xFF, 0xFF, 0x24, 0x00, 0xB9, 0xE4]
+</details>
+<details>
+    <summary>현대통신 (imazu) yaml</summary>
 
-  
-# offset                0    1    2    3    
-# state_on:     0xFE 0x07 0x01 0x01 0x01  ack 0xEE
-# state_off:    0xFE 0x07 0x01 0x00 0x01  ack 0xEE
-# speed low:    0xFE 0x07 0x01 0x01 0x01  ack 0xEE
-# speed mid:    0xFE 0x07 0x01 0x01 0x02  ack 0xEE
-# speed high:   0xFE 0x07 0x01 0x01 0x03  ack 0xEE
-fan:
-  - platform: uartex
-    name: "Fan1"
-    filter: [0x07, 0x01]
-    state_on:
-      offset: 2
-      data: [0x01]
-    state_off:
-      offset: 2
-      data: [0x00]
-    command_on:
-      data: [0x07, 0x01, 0x01]
-      ack: [0x07, 0x01]
-    command_off:
-      data: [0x07, 0x01, 0x00]
-      ack: [0x07, 0x01]
-    command_speed: !lambda |-
-      // @param: const float x
-      return {
-                {0x07, 0x01, 0x01, (uint8_t)x},
-                {0x07, 0x01}
-             };
-    state_speed: !lambda |-
-      // @param: const uint8_t *data, const unsigned short len
-      // @return: const float
-      {
-        return data[3];
-      }
+    external_components:
+      - source:
+          type: git
+          url: https://github.com/eigger/espcomponents/
+        components: [ uartex ]
+        refresh: always
+    
+    uart:
+      baud_rate: 9600
+      data_bits: 8
+      parity: NONE
+      stop_bits: 1
+      rx_pin: GPIO03
+      tx_pin: GPIO01
+      
+    uartex:
+      rx_timeout: 10ms
+      tx_delay: 50ms
+      tx_timeout: 100ms
+      tx_retry_cnt: 3
+    
+      rx_header: [0xF7]
+      rx_footer: [0xEE]
+      tx_header: [0xF7]
+      tx_footer: [0xEE]
+    
+      rx_checksum: xor
+      tx_checksum: xor
+      
+    sensor:
+      - platform: uartex
+        name: Livingroom Power Socket 1
+        unit_of_measurement: "W"
+        filter: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x11, 0x00] #Required
+        state_number:
+          offset: 8 # 위치
+          length: 2 # 길이
+          precision: 0 # 소수점
+        
+      - platform: uartex
+        name: Livingroom Power Socket 2
+        unit_of_measurement: "W"
+        filter: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x12, 0x00]
+        state_number:
+          offset: 8
+          length: 2 
+          precision: 0 
+      - platform: uartex
+        name: ROOM1 Power Socket 1
+        unit_of_measurement: "W"
+        filter: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x21, 0x00]
+        state_number:
+          offset: 8
+          length: 2 
+          precision: 0 
+      - platform: uartex
+        name: ROOM1 Power Socket 2
+        unit_of_measurement: "W"
+        filter: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x22, 0x00]
+        state_number:
+          offset: 8
+          length: 2
+          precision: 0
+    
+    
+    
+    # RS485 Switch
+    switch:
+      # 안방1 콘센트
+      # 켜기
+      #  0xf7, 0x0b, 0x01, 0x1f, 0x02, 0x40, 0x21, 0x01, 0x00, 0x80, 0xee
+      #  0xf7, 0x0b, 0x01, 0x1f, 0x04, 0x40, 0x21, 0x01, 0x01, 0x87, 0xee (ack)
+      # 끄기
+      #  0xf7, 0x0b, 0x01, 0x1f, 0x02, 0x40, 0x21, 0x02, 0x00, 0x83, 0xee
+      #  0xf7, 0x0b, 0x01, 0x1f, 0x04, 0x40, 0x21, 0x02, 0x02, 0x87, 0xee (ack)
+      # 켜기상태-> 0xF7 0x12 0x01 0x1F 0x04 0x40 0x21 0x00 0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x01 0x9E 0xEE
+      # 끄기상태-> 0xF7 0x12 0x01 0x1F 0x04 0x40 0x21 0x00 0x02 0x00 0x00 0x00 0x00 0x00 0x00 0x01 0x9D 0xEE
+      - platform: uartex
+        name: "ROOM1 Power Socket 1"
+        icon: "mdi:power-socket-eu"
+        filter: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x21, 0x00]
+        state_on:
+          offset: 7
+          data: [0x01]
+        state_off:
+          offset: 7
+          data: [0x02]
+        command_on:
+          data: [0x0b, 0x01, 0x1f, 0x02, 0x40, 0x21, 0x01, 0x00]
+          ack: [0x0b, 0x01, 0x1f, 0x04, 0x40, 0x21, 0x01, 0x01]
+        command_off:
+          data: [0x0b, 0x01, 0x1f, 0x02, 0x40, 0x21, 0x02, 0x00]
+          ack: [0x0b, 0x01, 0x1f, 0x04, 0x40, 0x21, 0x02, 0x02]
+      
+      # 안방2 콘센트
+      - platform: uartex
+        name: "ROOM1 Power Socket 2"
+        icon: "mdi:power-socket-eu"
+        filter: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x22, 0x00]
+        state_on:
+          offset: 7
+          data: [0x01]
+        state_off:
+          offset: 7
+          data: [0x02]
+        command_on:
+          data: [0x0b, 0x01, 0x1f, 0x02, 0x40, 0x22, 0x01, 0x00]
+          ack: [0x0b, 0x01, 0x1f, 0x04, 0x40, 0x22, 0x01, 0x01]
+        command_off:
+          data: [0x0b, 0x01, 0x1f, 0x02, 0x40, 0x22, 0x02, 0x00]
+          ack: [0x0b, 0x01, 0x1f, 0x04, 0x40, 0x22, 0x02, 0x02]
+    
+      # 거실1 콘센트
+      - platform: uartex
+        name: "Livingroom Power Socket 1"
+        icon: "mdi:power-socket-eu"
+        filter: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x11, 0x00]
+        state_on:
+          offset: 7
+          data: [0x01]
+        state_off:
+          offset: 7
+          data: [0x02]
+        command_on:
+          data: [0x0b, 0x01, 0x1f, 0x02, 0x40, 0x11, 0x01, 0x00]
+          ack: [0x0b, 0x01, 0x1f, 0x04, 0x40, 0x11, 0x01, 0x01]
+        command_off:
+          data: [0x0b, 0x01, 0x1f, 0x02, 0x40, 0x11, 0x02, 0x00]
+          ack: [0x0b, 0x01, 0x1f, 0x04, 0x40, 0x11, 0x02, 0x02]
+    
+      # 거실2 콘센트
+      - platform: uartex
+        name: "Livingroom Power Socket 2"
+        icon: "mdi:power-socket-eu"
+        filter: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x12, 0x00]
+        state_on:
+          offset: 7
+          data: [0x01]
+        state_off:
+          offset: 7
+          data: [0x02]
+        command_on:
+          data: [0x0b, 0x01, 0x1f, 0x02, 0x40, 0x12, 0x01, 0x00]
+          ack: [0x0b, 0x01, 0x1f, 0x04, 0x40, 0x12, 0x01, 0x01]
+        command_off:
+          data: [0x0b, 0x01, 0x1f, 0x02, 0x40, 0x12, 0x02, 0x00]
+          ack: [0x0b, 0x01, 0x1f, 0x04, 0x40, 0x12, 0x02, 0x02]
+    
+    
+    
+    # RS485 Light(like Binary Light)
+    light:
+      # [안방1]
+      # 켜짐 상태-> 0xf7, 0x0b, 0x01, 0x19, 0x04, 0x40, 0x21, 0x00, 0x01, 0x80, 0xee
+      # 꺼짐 상태-> 0xf7, 0x0b, 0x01, 0x19, 0x04, 0x40, 0x21, 0x00, 0x02, 0x83, 0xee
+      # 켜짐 명령-> 0xf7, 0x0b, 0x01, 0x19, 0x02, 0x40, 0x21, 0x01, 0x00, 0x86, 0xee
+      # 꺼짐 명령-> 0xf7, 0x0b, 0x01, 0x19, 0x02, 0x40, 0x21, 0x02, 0x00, 0x85, 0xee
+      - platform: uartex
+        name: "ROOM1 1"
+        filter: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x21, 0x00]
+        # sub_filter:
+        #   offset: 5
+        #   data: [0x21]
+        state_on:
+          offset: 7
+          data: [0x01]
+        state_off:
+          offset: 7
+          data: [0x02]
+        command_on:
+          data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x21, 0x01, 0x00]
+          ack: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x21, 0x01, 0x01]
+        command_off:
+          data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x21, 0x02, 0x00]
+          ack: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x21, 0x02, 0x02]
+        
+      # [안방2]
+      # 켜짐 상태-> 0xf7, 0x0b, 0x01, 0x19, 0x04, 0x40, 0x22, 0x00, 0x01, 0x83, 0xee
+      # 꺼짐 상태-> 0xf7, 0x0b, 0x01, 0x19, 0x04, 0x40, 0x22, 0x00, 0x02, 0x80, 0xee
+      # 켜짐 명령-> 0xf7, 0x0b, 0x01, 0x19, 0x02, 0x40, 0x22, 0x01, 0x00, 0x85, 0xee
+      # 꺼짐 명령-> 0xf7, 0x0b, 0x01, 0x19, 0x02, 0x40, 0x22, 0x02, 0x00, 0x86, 0xee
+      - platform: uartex
+        name: "ROOM1 2"
+        filter: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x22, 0x00]
+        # sub_filter:
+        #   offset: 5
+        #   data: [0x22]
+        state_on:
+          offset: 7
+          data: [0x01]
+        state_off:
+          offset: 7
+          data: [0x02]
+        command_on:
+          data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x22, 0x01, 0x00]
+          ack: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x22, 0x01, 0x01]
+        command_off: 
+          data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x22, 0x02, 0x00]
+          ack: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x22, 0x02, 0x02]
+    
+      # [발코니]  -- Template(lambda) 사용 예제
+      # 켜짐 상태-> 0xf7, 0x0b, 0x01, 0x19, 0x04, 0x40, 0x23, 0x00, 0x01, 0x82, 0xee
+      # 꺼짐 상태-> 0xf7, 0x0b, 0x01, 0x19, 0x04, 0x40, 0x23, 0x00, 0x02, 0x81, 0xee
+      # 켜짐 명령-> 0xf7, 0x0b, 0x01, 0x19, 0x02, 0x40, 0x23, 0x01, 0x00, 0x84, 0xee
+      # 꺼짐 명령-> 0xf7, 0x0b, 0x01, 0x19, 0x02, 0x40, 0x23, 0x02, 0x00, 0x87, 0xee
+      - platform: uartex
+        name: Balcony
+        filter: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x23, 0x00]
+        state_on:
+          offset: 7
+          data: [0x01]
+        state_off:
+          offset: 7
+          data: [0x02]
+        command_on:
+          data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x23, 0x01, 0x00]
+          ack: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x23, 0x01, 0x01]
+        command_off: 
+          data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x23, 0x02, 0x00]
+          ack: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x23, 0x02, 0x02]
+        # command_on: !lambda |-
+        #   uint8_t flag = id(balcony).state ? 0x02 : 0x01;
+        #   return {
+        #             {0x0b, 0x01, 0x19, 0x02, 0x40, 0x23, flag, 0x00},
+        #             {0x0b, 0x01, 0x19, 0x04, 0x40, 0x23, 0x01, 0x01}
+        #          };
+        # command_off: !lambda |-
+        #   uint8_t flag = id(balcony).state ? 0x02 : 0x01;
+        #   return {
+        #             {0x0b, 0x01, 0x19, 0x02, 0x40, 0x23, flag, 0x00},
+        #             {0x0b, 0x01, 0x19, 0x04, 0x40, 0x23, 0x02, 0x02}
+        #          };
+    
+      # [거실1]
+      # 켜짐 상태-> 0xf7, 0x0b, 0x01, 0x19, 0x04, 0x40, 0x11, 0x00, 0x01, 0xb0, 0xee
+      # 꺼짐 상태-> 0xf7, 0x0b, 0x01, 0x19, 0x04, 0x40, 0x11, 0x00, 0x02, 0xb3, 0xee
+      # 켜짐 명령-> 0xf7, 0x0b, 0x01, 0x19, 0x02, 0x40, 0x11, 0x01, 0x00, 0xb6, 0xee
+      # 꺼짐 명령-> 0xf7, 0x0b, 0x01, 0x19, 0x02, 0x40, 0x11, 0x02, 0x00, 0xb5, 0xee
+      - platform: uartex
+        name: "Livingroom1"
+        filter: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x11, 0x00]
+        state_on:
+          offset: 7
+          data: [0x01]
+        state_off:
+          offset: 7
+          data: [0x02]
+        command_on:
+          data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x11, 0x01, 0x00]
+          ack: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x11, 0x01, 0x01]
+        command_off:
+          data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x11, 0x02, 0x00]
+          ack: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x11, 0x02, 0x02]
+    
+      # [거실2]
+      # 켜짐 상태-> 0xf7, 0x0b, 0x01, 0x19, 0x04, 0x40, 0x12, 0x00, 0x01, 0xb3, 0xee
+      # 꺼짐 상태-> 0xf7, 0x0b, 0x01, 0x19, 0x04, 0x40, 0x12, 0x00, 0x02, 0xb0, 0xee
+      # 켜짐 명령-> 0xf7, 0x0b, 0x01, 0x19, 0x02, 0x40, 0x12, 0x01, 0x00, 0xb5, 0xee
+      # 꺼짐 명령-> 0xf7, 0x0b, 0x01, 0x19, 0x02, 0x40, 0x12, 0x02, 0x00, 0xb6, 0xee
+      - platform: uartex
+        name: "Livingroom2"
+        filter: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x12, 0x00]
+        state_on:
+          offset: 7
+          data: [0x01]
+        state_off:
+          offset: 7
+          data: [0x02]
+        command_on:
+          data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x12, 0x01, 0x00]
+          ack: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x12, 0x01, 0x01]
+        command_off:
+          data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x12, 0x02, 0x00]
+          ack: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x12, 0x02, 0x02]
+    
+      # [통로]
+      # 켜짐 상태-> 0xf7, 0x0b, 0x01, 0x19, 0x04, 0x40, 0x13, 0x00, 0x01, 0xb2, 0xee
+      # 꺼짐 상태-> 0xf7, 0x0b, 0x01, 0x19, 0x04, 0x40, 0x13, 0x00, 0x02, 0xb1, 0xee
+      # 켜짐 명령-> 0xf7, 0x0b, 0x01, 0x19, 0x02, 0x40, 0x13, 0x01, 0x00, 0xb4, 0xee
+      # 꺼짐 명령-> 0xf7, 0x0b, 0x01, 0x19, 0x02, 0x40, 0x13, 0x02, 0x00, 0xb7, 0xee
+      - platform: uartex
+        name: "Livingroom3"
+        filter: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x13, 0x00]
+        state_on:
+          offset: 7
+          data: [0x01]
+        state_off:
+          offset: 7
+          data: [0x02]
+        command_on:
+          data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x13, 0x01, 0x00]
+          ack: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x13, 0x01, 0x01]
+        command_off:
+          data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x13, 0x02, 0x00]
+          ack: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x13, 0x02, 0x02]
+    
+      # [비상등]
+      # 켜짐 상태-> 0xf7, 0x0b, 0x01, 0x19, 0x04, 0x40, 0x14, 0x00, 0x01, 0xb5, 0xee
+      # 꺼짐 상태-> 0xf7, 0x0b, 0x01, 0x19, 0x04, 0x40, 0x14, 0x00, 0x02, 0xb6, 0xee
+      # 켜짐 명령-> 0xf7, 0x0b, 0x01, 0x19, 0x02, 0x40, 0x14, 0x01, 0x00, 0xb3, 0xee
+      # 꺼짐 명령-> 0xf7, 0x0b, 0x01, 0x19, 0x02, 0x40, 0x14, 0x02, 0x00, 0xb0, 0xee
+      - platform: uartex
+        name: "Livingroom4"
+        filter: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x14, 0x00]
+        state_on:
+          offset: 7
+          data: [0x01]
+        state_off:
+          offset: 7
+          data: [0x02]
+        command_on:
+          data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x14, 0x01, 0x00]
+          ack: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x14, 0x01, 0x01]
+        command_off:
+          data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x14, 0x02, 0x00]
+          ack: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x14, 0x02, 0x02]
+    
+    
+    
+    
+    # RS485 Fan
+    fan:
+      # [환기]
+      # 켜짐(강) 상태-> 0xf7, 0x0c, 0x01, 0x2b, 0x04, 0x40, 0x11, 0x00, 0x01, 0x07, 0x82, 0xee
+      # 켜짐(중) 상태-> 0xf7, 0x0c, 0x01, 0x2b, 0x04, 0x40, 0x11, 0x00, 0x01, 0x03, 0x86, 0xee
+      # 켜짐(약) 상태-> 0xf7, 0x0c, 0x01, 0x2b, 0x04, 0x40, 0x11, 0x00, 0x01, 0x01, 0x84, 0xee
+      # 꺼짐     상태-> 0xf7, 0x0c, 0x01, 0x2b, 0x04, 0x40, 0x11, 0x00, 0x02, 0x00, 0x86, 0xee
+      # 켜짐(강) 명령-> 0xf7, 0x0b, 0x01, 0x2b, 0x02, 0x40, 0x11, 0x01, 0x00, 0x84, 0xee
+      # 켜짐(중) 명령-> 0xf7, 0x0b, 0x01, 0x2b, 0x02, 0x42, 0x11, 0x03, 0x00, 0x84, 0xee
+      # 켜짐(약) 명령-> 0xf7, 0x0b, 0x01, 0x2b, 0x02, 0x42, 0x11, 0x01, 0x00, 0x86, 0xee
+      # 꺼짐     명령-> 0xf7, 0x0b, 0x01, 0x2b, 0x02, 0x40, 0x11, 0x02, 0x00, 0x87, 0xee
+      - platform: uartex
+        name: "Ventilation"
+        speed_cnt: 3
+        filter: [0x0c, 0x01, 0x2b, 0x04, 0x40, 0x11, 0x00]
+        state_on:
+          offset: 7
+          data: [0x01]
+        state_off:
+          offset: 7
+          data: [0x02]
+        command_on:
+          data: [0x0b, 0x01, 0x2b, 0x02, 0x40, 0x11, 0x01, 0x00]
+          ack: [0x0c, 0x01, 0x2b, 0x04, 0x40, 0x11, 0x01, 0x01, 0x07]
+        command_off:
+          data: [0x0b, 0x01, 0x2b, 0x02, 0x40, 0x11, 0x02, 0x00]
+          ack: [0x0c, 0x01, 0x2b, 0x04, 0x40, 0x11, 0x02, 0x02, 0x00]
+        command_speed: !lambda |-
+          // @param: const float x
+          {
+            if (x == 3) return { {0x0b, 0x01, 0x2b, 0x02, 0x40, 0x11, 0x01, 0x00}, {0x0c, 0x01, 0x2b, 0x04, 0x40, 0x11, 0x01, 0x01, 0x07} };
+            else if (x == 2) return { {0x0b, 0x01, 0x2b, 0x02, 0x42, 0x11, 0x03, 0x00}, {0x0c, 0x01, 0x2b, 0x04, 0x40, 0x11, 0x01, 0x01, 0x03} };
+            else if (x == 1) return { {0x0b, 0x01, 0x2b, 0x02, 0x42, 0x11, 0x01, 0x00}, {0x0c, 0x01, 0x2b, 0x04, 0x40, 0x11, 0x01, 0x01, 0x01} };
+            else return {};
+          }
+        state_speed: !lambda |-
+          // @param: const uint8_t *data, const unsigned short len
+          // @return: const float
+          {
+            if (data[8] == 0x07) return 3;
+            else if (data[8] == 0x03) return 2;
+            else if (data[8] == 0x01) return 1;
+            else return 0;
+          }
+        # speed: #Option(high, medium, low) -> 없으면 Binary Fan
+        #   high:
+        #     state:
+        #       offset: 7
+        #       data: [0x01, 0x07]
+        #     command:
+        #       data: [0x0b, 0x01, 0x2b, 0x02, 0x40, 0x11, 0x01, 0x00]
+        #       ack: [0x0c, 0x01, 0x2b, 0x04, 0x40, 0x11, 0x01, 0x01, 0x07]
+        #   medium:
+        #     state:
+        #       offset: 7
+        #       data: [0x01, 0x03]
+        #     command:
+        #       data: [0x0b, 0x01, 0x2b, 0x02, 0x42, 0x11, 0x03, 0x00]
+        #       ack: [0x0c, 0x01, 0x2b, 0x04, 0x40, 0x11, 0x01, 0x01, 0x03]
+        #   low:
+        #     state:
+        #       offset: 7
+        #       data: [0x01, 0x01]
+        #     command:
+        #       data: [0x0b, 0x01, 0x2b, 0x02, 0x42, 0x11, 0x01, 0x00]
+        #       ack: [0x0c, 0x01, 0x2b, 0x04, 0x40, 0x11, 0x01, 0x01, 0x01]
+    
+    
+    
+    # RS485 Climate
+    climate:
+      # [거실 난방] 0x11
+      # 상태 요청: 0xF7, 0x0B, 0x01, 0x18, 0x01, 0x45, 0x11, 0x00, 0x00, 0xB0, 0xEE
+      # 켜짐 상태: 0xF7, 0x0D, 0x01, 0x18, 0x04, 0x45, 0x11, 0x00, (0x01, 0x1B, 0x17), 0xBE, 0xEE (상태, 현재온도, 설정온도)
+      # 꺼짐 상태: 0xF7, 0x0D, 0x01, 0x18, 0x04, 0x45, 0x11, 0x00, (0x04, 0x1B, 0x17), 0xBB, 0xEE (상태, 현재온도, 설정온도)
+      # 외출 상태: 0xF7, 0x0D, 0x01, 0x18, 0x04, 0x45, 0x11, 0x00, (0x07, 0x1B, 0x17), 0xB9, 0xEE
+      # 켜짐 명령: 0xF7, 0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x01, 0x00, 0xB1, 0xEE
+      #      ACK: 0xF7, 0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x01, 0x01, 0x1B, 0x17, 0xBC, 0xEE
+      # 꺼짐 명령: 0xF7, 0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x04, 0x00, 0xB4, 0xEE
+      #      ACK: 0xF7, 0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x04, 0x04, 0x1B, 0x17, 0xBC, 0xEE
+      # 온도 조절: 0xF7, 0x0B, 0x01, 0x18, 0x02, 0x45, 0x11, (0x18), 0x00, 0xA7, 0xEE (온도 24도 설정)
+      #      ACK: 0xF7, 0x0D, 0x01, 0x18, 0x04, 0x45, 0x11, (0x18), 0x01, (0x1A, 0x18), 0xA8, 0xEE
+      - platform: uartex
+        name: "Livingroom Heater"
+        visual:
+          min_temperature: 5 °C
+          max_temperature: 40 °C
+          temperature_step: 1 °C
+        filter: [0x0D, 0x01, 0x18, 0x04, 0x45, 0x11, 0x00]
+        state_temperature_current: #Required (현재온도 State, RS485 Sensor 설정 참고, sensor:로 대체 가능)
+          offset: 8
+          length: 1
+          precision: 0
+        state_temperature_target: #Required (설정온도 State)
+          offset: 9
+          length: 1
+          precision: 0
+        state_off: #Required (끄기 상태)
+          offset: 7
+          data: [0x04]
+        state_heat: #Option (난방모드, 냉방모드: state_cool, 자동모드: state_auto)
+          offset: 7
+          data: [0x01]
+        state_away: #Option (외출모드)
+          offset: 7
+          data: [0x07]
+        command_off: #Required (끄기 명령)
+          data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x04, 0x00]
+          ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x04, 0x04]
+        command_heat: #Option (난방모드 켜기)
+          data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x01, 0x00]
+          ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x01, 0x01]
+        command_away: #Option (외출 켜기)
+          data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x07, 0x00]
+          ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x07, 0x07]
+        command_temperature: !lambda |-  #Required (온도 조절)
+          // @param: const float x
+          return {
+                    {0x0B, 0x01, 0x18, 0x02, 0x45, 0x11, (uint8_t)x, 0x00},
+                    {0x0D, 0x01, 0x18, 0x04, 0x45, 0x11, (uint8_t)x, 0x01}
+                 };
+    
+      # [안방] 0x12
+      - platform: uartex
+        name: "Room1 Heater"
+        visual:
+          min_temperature: 5 °C
+          max_temperature: 40 °C
+          temperature_step: 1 °C
+        filter: [0x0D, 0x01, 0x18, 0x04, 0x45, 0x12, 0x00]
+        state_temperature_current:
+          offset: 8
+          length: 1
+          precision: 0
+        state_temperature_target:
+          offset: 9
+          length: 1
+          precision: 0
+        state_off:
+          offset: 7
+          data: [0x04]
+        state_heat:
+          offset: 7
+          data: [0x01]
+        state_away:
+          offset: 7
+          data: [0x07]
+        command_off: #Required (끄기 명령)
+          data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x12, 0x04, 0x00]
+          ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x12, 0x04, 0x04]
+        command_heat: #Option (난방모드 켜기)
+          data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x12, 0x01, 0x00]
+          ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x12, 0x01, 0x01]
+        command_away: #Option (외출 켜기)
+          data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x12, 0x07, 0x00]
+          ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x12, 0x07, 0x07]
+        command_temperature: !lambda |-  #Required (온도 조절)
+          // @param: const float x
+          return {
+                    {0x0B, 0x01, 0x18, 0x02, 0x45, 0x12, (uint8_t)x, 0x00},
+                    {0x0D, 0x01, 0x18, 0x04, 0x45, 0x12, (uint8_t)x, 0x01}
+                 };
+    
+      # [컴퓨터방] 0x13
+      - platform: uartex
+        name: "Computer Room Heater"
+        visual:
+          min_temperature: 5 °C
+          max_temperature: 40 °C
+          temperature_step: 1 °C
+        filter: [0x0D, 0x01, 0x18, 0x04, 0x45, 0x13, 0x00]
+        state_temperature_current:
+          offset: 8
+          length: 1
+          precision: 0
+        state_temperature_target:
+          offset: 9
+          length: 1
+          precision: 0
+        state_off:
+          offset: 7
+          data: [0x04]
+        state_heat:
+          offset: 7
+          data: [0x01]
+        state_away:
+          offset: 7
+          data: [0x07]
+        command_off: #Required (끄기 명령)
+          data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x13, 0x04, 0x00]
+          ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x13, 0x04, 0x04]
+        command_heat: #Option (난방모드 켜기)
+          data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x13, 0x01, 0x00]
+          ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x13, 0x01, 0x01]
+        command_away: #Option (외출 켜기)
+          data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x13, 0x07, 0x00]
+          ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x13, 0x07, 0x07]
+        command_temperature: !lambda |-  #Required (온도 조절)
+          // @param: const float x
+          return {
+                    {0x0B, 0x01, 0x18, 0x02, 0x45, 0x13, (uint8_t)x, 0x00},
+                    {0x0D, 0x01, 0x18, 0x04, 0x45, 0x13, (uint8_t)x, 0x01}
+                 };
+    
+      # [작은방] 0x14
+      - platform: uartex
+        name: "Room2 Heater"
+        visual:
+          min_temperature: 5 °C
+          max_temperature: 40 °C
+          temperature_step: 1 °C
+        filter: [0x0D, 0x01, 0x18, 0x04, 0x45, 0x14, 0x00]
+        state_temperature_current:
+          offset: 8
+          length: 1
+          precision: 0
+        state_temperature_target:
+          offset: 9
+          length: 1
+          precision: 0
+        state_off:
+          offset: 7
+          data: [0x04]
+        state_heat:
+          offset: 7
+          data: [0x01]
+        state_away:
+          offset: 7
+          data: [0x07]
+        command_off: #Required (끄기 명령)
+          data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x14, 0x04, 0x00]
+          ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x14, 0x04, 0x04]
+        command_heat: #Option (난방모드 켜기)
+          data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x14, 0x01, 0x00]
+          ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x14, 0x01, 0x01]
+        command_away: #Option (외출 켜기)
+          data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x14, 0x07, 0x00]
+          ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x14, 0x07, 0x07]
+        command_temperature: !lambda |-  #Required (온도 조절)
+          // @param: const float x
+          return {
+                    {0x0B, 0x01, 0x18, 0x02, 0x45, 0x14, (uint8_t)x, 0x00},
+                    {0x0D, 0x01, 0x18, 0x04, 0x45, 0x14, (uint8_t)x, 0x01}
+                 };
+    
+      # [펜트리] 0x15
+      - platform: uartex
+        name: "Pantry Heater"
+        visual:
+          min_temperature: 18 °C
+          max_temperature: 30 °C
+          temperature_step: 1 °C
+        filter: [0x0D, 0x01, 0x18, 0x04, 0x45, 0x15, 0x00]
+        state_temperature_current:
+          offset: 8
+          length: 1
+          precision: 0
+        state_temperature_target:
+          offset: 9
+          length: 1
+          precision: 0
+        state_off:
+          offset: 7
+          data: [0x04]
+        state_heat:
+          offset: 7
+          data: [0x01]
+        state_away:
+          offset: 7
+          data: [0x07]
+        command_off: #Required (끄기 명령)
+          data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x15, 0x04, 0x00]
+          ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x15, 0x04, 0x04]
+        command_heat: #Option (난방모드 켜기)
+          data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x15, 0x01, 0x00]
+          ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x15, 0x01, 0x01]
+        command_away: #Option (외출 켜기)
+          data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x15, 0x07, 0x00]
+          ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x15, 0x07, 0x07]
+        command_temperature: !lambda |-  #Required (온도 조절)
+          // @param: const float x
+          return {
+                    {0x0B, 0x01, 0x18, 0x02, 0x45, 0x15, (uint8_t)x, 0x00},
+                    {0x0D, 0x01, 0x18, 0x04, 0x45, 0x15, (uint8_t)x, 0x01}
+                 };
+</details>
 
+<details>
+    <summary>삼성SDS (홈넷) yaml</summary>
+    
+    external_components:
+      - source:
+          type: git
+          url: https://github.com/eigger/espcomponents/
+        components: [ uartex ]
+    
+    uart:
+      baud_rate: 9600 #Required
+      data_bits: 8    #Option(default: 8)
+      parity: EVEN       #Option(default: 0)
+      stop_bits: 1    #Option(default: 1)
+      rx_pin: GPIO22
+      tx_pin: GPIO19
+      
+    # RS485 Component (for ttl to rs485 module)
+    #  - esp8266: UART0 (TX: GPIO1, RX: GPIO3)
+    #  - esp32: UART2 (TX: GPIO17, RX: GPIO16)
+    uartex:
+      rx_timeout: 10ms     #Option(default: 10ms) -> 수신 메시지 대기시간 (10ms 미만으로 수신된 메시지만 한 패킷으로 판단)
+      tx_delay: 50ms #Option(default: 50ms) -> 발신 메시지 전송 간격 (패킷 수신 후 50ms 대기 후 전송)
+      tx_timeout: 50ms    #Option(default: 50ms) -> 발신 메시지 Ack 대기시간
+      tx_retry_cnt: 3 #Option(default: 3)    -> 발신 메시지 Ack 없을 경우 재시도 횟수
+      
+      rx_header: [0xB0]
+    
+      rx_checksum: !lambda |-
+        // @param: const uint8_t *data, const unsigned short len
+        // @return: uint8_t
+        uint8_t crc = 0xB0;
+        for(size_t i=0; i<len; i++)
+          crc ^= data[i];
+        if (data[0] < 0x7C) crc ^= 0x80;
+        return crc;
+        
+      tx_checksum: !lambda |-
+        // @param: const uint8_t *data, const unsigned short len
+        // @return: uint8_t
+        uint8_t crc = 0x00;
+        for(size_t i=0; i<len; i++)
+          crc ^= data[i];
+        crc ^= 0x80;
+        return crc;
+      
+    text_sensor:
+     - platform: uartex
+       name: "GAS Status"
+       filter: [0x41]
+       #command_update: [0xAB, 0x41, 0x00]
+       #update_interval: 60s
+       lambda: |-
+          // @param: const uint8_t *data, const unsigned short len
+          // @return: const char*
+          {
+            if (len > 0)
+            {
+              if (data[1] == 0x01) return "잠김";
+              else if (data[1] == 0x00) return "열림";
+            }
+            return "에러";
+          }
+    
+    #on:Open, off,Lock
+    switch:
+     - platform: uartex
+       name: "GAS"
+       icon: "mdi:valve"
+       filter: [0x41]
+       state_on:
+         offset: 1
+         data: [0x00]
+       state_off:
+         offset: 1
+         data: [0x01]
+       command_on:
+         data: [0xAB, 0x78, 0x00]
+         ack: [0x78]
+       command_off:
+         data: [0xAB, 0x78, 0x00]
+         ack: [0x78]      
+    
+    
+    light:
+      - platform: uartex
+        name: "ROOM1"
+        filter: [0x79, 0x31]
+        state_on:
+          offset: 2
+          data: [0x01]
+          mask: [0x01]
+        state_off:
+          offset: 2
+          data: [0x00]
+          mask: [0x01]
+        command_on:
+          data: [0xAC, 0x7A, 0x01, 0x01]
+          ack: [0x7A, 0x01, 0x01]
+        command_off:
+          data: [0xAC, 0x7A, 0x01, 0x00]
+          ack: [0x7A, 0x01, 0x00]
+          
+      - platform: uartex
+        name: "ROOM2"
+        filter: [0x79, 0x31]
+        state_on:
+          offset: 2
+          data: [0x02]
+          mask: [0x02]
+        state_off:
+          offset: 2
+          data: [0x00]
+          mask: [0x02]
+        command_on:
+          data: [0xAC, 0x7A, 0x02, 0x01]
+          ack: [0x7A, 0x02, 0x01]
+        command_off:
+          data: [0xAC, 0x7A, 0x02, 0x00]
+          ack: [0x7A, 0x02, 0x00]
+          
+      - platform: uartex
+        name: "ROOM3"
+        filter: [0x79, 0x31]
+        state_on:
+          offset: 2
+          data: [0x04]
+          mask: [0x04]
+        state_off:
+          offset: 2
+          data: [0x00]
+          mask: [0x04]
+        command_on:
+          data: [0xAC, 0x7A, 0x03, 0x01]
+          ack: [0x7A, 0x03, 0x01]
+        command_off:
+          data: [0xAC, 0x7A, 0x03, 0x00]
+          ack: [0x7A, 0x03, 0x00]
+          
+      - platform: uartex
+        name: "ROOM4"
+        filter: [0x79, 0x24]
+        state_on:
+          offset: 2
+          data: [0x01]
+          mask: [0x01]
+        state_off:
+          offset: 2
+          data: [0x00]
+          mask: [0x01]
+        command_on:
+          data: [0xAC, 0x7A, 0x04, 0x01]
+          ack: [0x7A, 0x04, 0x01]
+        command_off:
+          data: [0xAC, 0x7A, 0x04, 0x00]
+          ack: [0x7A, 0x04, 0x00]
+          
+      - platform: uartex
+        name: "ROOM5"
+        filter: [0x79, 0x24]
+        state_on:
+          offset: 2
+          data: [0x02]
+          mask: [0x02]
+        state_off:
+          offset: 2
+          data: [0x00]
+          mask: [0x02]
+        command_on:
+          data: [0xAC, 0x7A, 0x05, 0x01]
+          ack: [0x7A, 0x05, 0x01]
+        command_off:
+          data: [0xAC, 0x7A, 0x05, 0x00]
+          ack: [0x7A, 0x05, 0x00]
+    
+    
+    climate:
+      - platform: uartex
+        name: "ROOM1 Heater"
+        visual:
+          min_temperature: 5 °C
+          max_temperature: 40 °C
+          temperature_step: 1 °C
+        filter: [0x7C, 0x01]
+        state_temperature_current: #Required (현재온도 State, RS485 Sensor 설정 참고, sensor:로 대체 가능)
+          offset: 4
+          length: 1
+          precision: 0
+        state_temperature_target: #Required (설정온도 State)
+          offset: 3
+          length: 1
+          precision: 0
+        state_off: #Required (끄기 상태)
+          offset: 2
+          data: [0x00]
+          mask: [0x01]
+        state_heat: #Option (난방모드, 냉방모드: state_cool, 자동모드: state_auto)
+          offset: 2
+          data: [0x01]
+          mask: [0x01]
+          #inverted: false
+        #state_away: #Option (외출모드)
+        #  offset: 2
+        #  data: [0x07]
+        command_off: #Required (끄기 명령)
+          data: [0xAE, 0x7D, 0x01, 0x00, 0x00, 0x00, 0x00]
+          ack: [0x7D, 0x01, 0x00]
+        command_heat: #Option (난방모드 켜기)
+          data: [0xAE, 0x7D, 0x01, 0x01, 0x00, 0x00, 0x00]
+          ack: [0x7D, 0x01, 0x01]
+        #command_away: #Option (외출모드)
+        #  data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x07, 0x00]
+        #  ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x07, 0x07]
+        #command_home: #Option (재실모드)
+        #  data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x01, 0x00]
+        #  ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x01, 0x01]
+        command_temperature: !lambda |-  #Required (온도 조절)
+          // @param: const float x
+          return {
+                    {0xAE, 0x7F, 0x01, (uint8_t)x, 0x00, 0x00, 0x00},
+                    {0x7F, 0x01, (uint8_t)x}
+                 };
+    
+    
+      - platform: uartex
+        name: "ROOM2 Heater"
+        visual:
+          min_temperature: 5 °C
+          max_temperature: 40 °C
+          temperature_step: 1 °C
+        filter: [0x7C, 0x02]
+        state_temperature_current: #Required (현재온도 State, RS485 Sensor 설정 참고, sensor:로 대체 가능)
+          offset: 4
+          length: 1
+          precision: 0
+        state_temperature_target: #Required (설정온도 State)
+          offset: 3
+          length: 1
+          precision: 0
+        state_off: #Required (끄기 상태)
+          offset: 2
+          data: [0x00]
+          mask: [0x01]
+        state_heat: #Option (난방모드, 냉방모드: state_cool, 자동모드: state_auto)
+          offset: 2
+          data: [0x01]
+          mask: [0x01]
+          #inverted: false
+        #state_away: #Option (외출모드)
+        #  offset: 2
+        #  data: [0x07]
+        command_off: #Required (끄기 명령)
+          data: [0xAE, 0x7D, 0x02, 0x00, 0x00, 0x00, 0x00]
+          ack: [0x7D, 0x02, 0x00]
+        command_heat: #Option (난방모드 켜기)
+          data: [0xAE, 0x7D, 0x02, 0x01, 0x00, 0x00, 0x00]
+          ack: [0x7D, 0x02, 0x01]
+        #command_away: #Option (외출모드)
+        #  data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x07, 0x00]
+        #  ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x07, 0x07]
+        #command_home: #Option (재실모드)
+        #  data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x01, 0x00]
+        #  ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x01, 0x01]
+        command_temperature: !lambda |-  #Required (온도 조절)
+          // @param: const float x
+          return {
+                    {0xAE, 0x7F, 0x02, (uint8_t)x, 0x00, 0x00, 0x00},
+                    {0x7F, 0x02, (uint8_t)x}
+                 };
+    
+      - platform: uartex
+        name: "ROOM3 Heater"
+        visual:
+          min_temperature: 5 °C
+          max_temperature: 40 °C
+          temperature_step: 1 °C
+        filter: [0x7C, 0x03]
+        state_temperature_current: #Required (현재온도 State, RS485 Sensor 설정 참고, sensor:로 대체 가능)
+          offset: 4
+          length: 1
+          precision: 0
+        state_temperature_target: #Required (설정온도 State)
+          offset: 3
+          length: 1
+          precision: 0
+        state_off: #Required (끄기 상태)
+          offset: 2
+          data: [0x00]
+          mask: [0x01]
+        state_heat: #Option (난방모드, 냉방모드: state_cool, 자동모드: state_auto)
+          offset: 2
+          data: [0x01]
+          mask: [0x01]
+          #inverted: false
+        #state_away: #Option (외출모드)
+        #  offset: 2
+        #  data: [0x07]
+        command_off: #Required (끄기 명령)
+          data: [0xAE, 0x7D, 0x03, 0x00, 0x00, 0x00, 0x00]
+          ack: [0x7D, 0x03, 0x00]
+        command_heat: #Option (난방모드 켜기)
+          data: [0xAE, 0x7D, 0x03, 0x01, 0x00, 0x00, 0x00]
+          ack: [0x7D, 0x03, 0x01]
+        #command_away: #Option (외출모드)
+        #  data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x07, 0x00]
+        #  ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x07, 0x07]
+        #command_home: #Option (재실모드)
+        #  data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x01, 0x00]
+        #  ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x01, 0x01]
+        command_temperature: !lambda |-  #Required (온도 조절)
+          // @param: const float x
+          return {
+                    {0xAE, 0x7F, 0x03, (uint8_t)x, 0x00, 0x00, 0x00},
+                    {0x7F, 0x03, (uint8_t)x}
+                 };
+    
+      - platform: uartex
+        name: "ROOM4 Heater"
+        visual:
+          min_temperature: 5 °C
+          max_temperature: 40 °C
+          temperature_step: 1 °C
+        filter: [0x7C, 0x04]
+        state_temperature_current: #Required (현재온도 State, RS485 Sensor 설정 참고, sensor:로 대체 가능)
+          offset: 4
+          length: 1
+          precision: 0
+        state_temperature_target: #Required (설정온도 State)
+          offset: 3
+          length: 1
+          precision: 0
+        state_off: #Required (끄기 상태)
+          offset: 2
+          data: [0x00]
+          mask: [0x01]
+        state_heat: #Option (난방모드, 냉방모드: state_cool, 자동모드: state_auto)
+          offset: 2
+          data: [0x01]
+          mask: [0x01]
+          #inverted: false
+        #state_away: #Option (외출모드)
+        #  offset: 2
+        #  data: [0x07]
+        command_off: #Required (끄기 명령)
+          data: [0xAE, 0x7D, 0x04, 0x00, 0x00, 0x00, 0x00]
+          ack: [0x7D, 0x04, 0x00]
+        command_heat: #Option (난방모드 켜기)
+          data: [0xAE, 0x7D, 0x04, 0x01, 0x00, 0x00, 0x00]
+          ack: [0x7D, 0x04, 0x01]
+        #command_away: #Option (외출모드)
+        #  data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x07, 0x00]
+        #  ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x07, 0x07]
+        #command_home: #Option (재실모드)
+        #  data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x01, 0x00]
+        #  ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x01, 0x01]
+        command_temperature: !lambda |-  #Required (온도 조절)
+          // @param: const float x
+          return {
+                    {0xAE, 0x7F, 0x04, (uint8_t)x, 0x00, 0x00, 0x00},
+                    {0x7F, 0x04, (uint8_t)x}
+                 };
 
-
-# offset                0    1    2        
-# state_on:     0xFE 0x08 0x01 0x01  ack 0xEE
-# state_off:    0xFE 0x08 0x01 0x00  ack 0xEE
-switch:
-  - platform: uartex
-    name: "Switch1"
-    filter: [0x08, 0x01]
-    state_on:
-      offset: 2
-      data: [0x01]
-    state_off:
-      offset: 2
-      data: [0x00]
-    command_on:
-      data: [0x08, 0x01, 0x01]
-      ack: [0x08, 0x01]
-    command_off:
-      data: [0x08, 0x01, 0x00]
-      ack: [0x08, 0x01]
-  
-# offset                0    1    2        
-# state_on:     0xFE 0x09 0x01 0x01  ack 0xEE
-# state_off:    0xFE 0x09 0x01 0x00  ack 0xEE  
-binary_sensor:
-  - platform: uartex
-    name: Binary_Sensor1
-    filter: [0x09, 0x01]
-    state_on:
-      offset: 2
-      data: [0x01]
-    state_off:
-      offset: 2
-      data: [0x00]
-
-# offset                    0    1    2        
-# state_number:     0xFE 0x08 0x01 0x0A  ack 0xEE
-#                                  = 10
-sensor:
-  - platform: uartex
-    name: Sensor1
-    filter: [0x0A, 0x01]
-    state_number:
-      offset: 2
-      length: 1
-      precision: 0
-
-# offset                0    1    2        
-# state_on:     0xFE 0x0B 0x01 0x01  ack 0xEE
-# state_off:    0xFE 0x0B 0x01 0x00  ack 0xEE  
-light:
-  - platform: uartex
-    name: "Light1"
-    filter: [0x0B, 0x01]
-    state_on:
-      offset: 2
-      data: [0x01]
-    state_off:
-      offset: 2
-      data: [0x00]
-    command_on:
-      data: [0x0B, 0x01, 0x01]
-      ack: [0x0B, 0x01]
-    command_off:
-      data: [0x0B, 0x01, 0x00]
-      ack: [0x0B, 0x01]
-
-climate:
-  - platform: uartex
-    name: "Climate2"
-    visual:
-      min_temperature: 5 °C
-      max_temperature: 30 °C
-      temperature_step: 1 °C
-    filter: [0x0C, 0x01]
-    state_temperature_current:
-      offset: 4
-      length: 1
-      precision: 0
-    state_temperature_target:
-      offset: 3
-      length: 1
-      precision: 0
-    state_off:
-      offset: 2
-      data: [0x01]
-    state_cool:
-      offset: 2
-      data: [0x00]
-    command_off: 
-      data: [0x0C, 0x01, 0x00]
-      ack: [0x0C, 0x01]
-    command_cool:
-      data: [0x0C, 0x01, 0x01]
-      ack: [0x0C, 0x01]
-    command_temperature: !lambda |-
-      // @param: const float x
-      return {
-                {0x0C, 0x01, 0x01, (uint8_t)x},
-                {0x0C, 0x01}
-             };
-  - platform: uartex
-    name: "Climate1"
-    visual:
-      min_temperature: 5 °C
-      max_temperature: 30 °C
-      temperature_step: 1 °C
-    filter: [0x0C, 0x01]
-    state_temperature_current:
-      offset: 4
-      length: 1
-      precision: 0
-    state_temperature_target:
-      offset: 3
-      length: 1
-      precision: 0
-    state_off:
-      offset: 2
-      data: [0x01]
-    state_heat:
-      offset: 2
-      data: [0x00]
-    command_off: 
-      data: [0x0C, 0x01, 0x00]
-      ack: [0x0C, 0x01]
-    command_heat:
-      data: [0x0C, 0x01, 0x01]
-      ack: [0x0C, 0x01]
-    command_temperature: !lambda |-
-      // @param: const float x
-      return {
-                {0x0C, 0x01, 0x01, (uint8_t)x},
-                {0x0C, 0x01}
-             };
-button:
-  - platform: uartex
-    name: "Button1"
-    icon: "mdi:elevator"
-    command_on: 
-      data: [0x0D, 0x01, 0x01]
-      ack: [0x0D, 0x01]
-
-lock:
-  - platform: uartex
-    name: "Lock1"
-    filter: [0x0E, 0x01]
-    state_locked:
-      offset: 2
-      data: [0x01]
-    state_unlocked:
-      offset: 2
-      data: [0x00]
-    state_locking:
-      offset: 2
-      data: [0x02]
-    state_unlocking:
-      offset: 2
-      data: [0x03]
-    state_jammed:
-      offset: 2
-      data: [0x04]
-    command_lock:
-      data: [0x0E, 0x01, 0x01]
-      ack: [0x0E, 0x01]
-    command_unlock:
-      data: [0x0E, 0x01, 0x00]
-      ack: [0x0E, 0x01]
-
-number:
-  - platform: uartex
-    name: "Number1"
-    filter: [0x0F, 0x01]
-    max_value: 10
-    min_value: 1
-    step: 1
-    state_number:
-      offset: 2
-      length: 1
-      precision: 0
-    command_number: !lambda |-
-      // @param: const float x
-      return {
-                {0x0F, 0x01, 0x01, (uint8_t)x},
-                {0x0F, 0x01}
-             };
-```
+</details>
