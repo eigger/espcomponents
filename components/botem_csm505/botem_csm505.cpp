@@ -13,8 +13,8 @@ void BotemCSM505Component::dump_config()
 
 void BotemCSM505Component::setup()
 {
-    rx_parser_.add_headers({ 0x5E, 0x5B });
-    rx_parser_.add_footers({ 0x5D, 0x0D });
+    rx_parser_.add_headers({ '^', '[' });
+    rx_parser_.add_footers({ ']', '\r' });
     if (this->error_) this->error_->publish_state("None");
     if (this->version_) this->version_->publish_state(VERSION);
     this->publish_state(0);
@@ -49,41 +49,24 @@ void BotemCSM505Component::read_from_uart()
 
 void BotemCSM505Component::publish_data()
 {
-    if (rx_parser_.buffer().size() == 0) return;
     if (validate_data() == false) return;
-    if (rx_parser_.data().size() < 3) return;
-    switch(rx_parser_.data()[2])
+    if (rx_parser_.data()[2] == '1')
     {
-    //In
-    case 0x31:
         if (this->state < this->traits.get_max_value())
         {
             this->state += this->traits.get_step();
             this->publish_state(this->state);
             if (this->count_) this->count_->publish_state(this->state);
         }
-        break;
-    //Out
-    case 0x32:
-
+    }
+    else if (rx_parser_.data()[2] == '2')
+    {
         if (this->state > this->traits.get_min_value())
         {
             this->state -= this->traits.get_step();
             this->publish_state(this->state);
             if (this->count_) this->count_->publish_state(this->state);
         }
-        break;
-    //Rx Error
-    case 0x38:
-        if (this->error_) this->error_->publish_state("Rx Error");
-        break;
-    //Tx Error
-    case 0x39:
-        if (this->error_) this->error_->publish_state("Tx Error");
-        break;
-    //Unknown
-    default:
-        break;
     }
 }
 
@@ -109,22 +92,39 @@ unsigned long BotemCSM505Component::get_time()
 
 bool BotemCSM505Component::validate_data()
 {
-    if (rx_parser_.data().size() == 0)
+    if (rx_parser_.data().size() != 3)
     {
-        //ESP_LOGW(TAG, "[Read] Size error: %s", to_hex_string(rx_parser_.buffer()).c_str());
         if (this->error_) this->error_->publish_state("Size Error");
         return false;
     }
     if (rx_parser_.parse_header() == false)
     {
-        //ESP_LOGW(TAG, "[Read] Header error: %s", to_hex_string(rx_parser_.buffer()).c_str());
         if (this->error_) this->error_->publish_state("Header Error");
         return false;
     }
     if (rx_parser_.parse_footer() == false)
     {
-        //ESP_LOGW(TAG, "[Read] Footer error: %s", to_hex_string(rx_parser_.buffer()).c_str());
         if (this->error_) this->error_->publish_state("Footer Error");
+        return false;
+    }
+    if (rx_parser_.data()[0] != '0' || rx_parser_.data()[1] != '0')
+    {
+        if (this->error_) this->error_->publish_state("Format Error");
+        return false;
+    }
+    if (rx_parser_.data()[2] != '8')
+    {
+        if (this->error_) this->error_->publish_state("Rx Error");
+        return false;
+    }
+    if (rx_parser_.data()[2] != '9')
+    {
+        if (this->error_) this->error_->publish_state("Tx Error");
+        return false;
+    }
+    if (rx_parser_.data()[2] != '1' && rx_parser_.data()[2] != '2')
+    {
+        if (this->error_) this->error_->publish_state("Format Error");
         return false;
     }
     if (this->error_) this->error_->publish_state("None");
