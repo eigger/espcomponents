@@ -13,8 +13,8 @@ void BotemCSM505Component::dump_config()
 
 void BotemCSM505Component::setup()
 {
-    rx_parser_.add_headers({ '^', '[' });
-    rx_parser_.add_footers({ ']', '\r' });
+    rx_parser_.add_headers({ 0x5E, 0x5B });
+    rx_parser_.add_footers({ 0x5D, 0x0D });
     if (this->error_) this->error_->publish_state("None");
     if (this->version_) this->version_->publish_state(VERSION);
     this->publish_state(0);
@@ -49,6 +49,7 @@ void BotemCSM505Component::read_from_uart()
 
 void BotemCSM505Component::publish_data()
 {
+    if (rx_parser_.buffer().size() == 0) return;
     if (validate_data() == false) return;
     if (rx_parser_.data()[2] == '1')
     {
