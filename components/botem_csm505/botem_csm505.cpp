@@ -113,12 +113,12 @@ bool BotemCSM505Component::validate_data()
         if (this->error_) this->error_->publish_state("Format Error");
         return false;
     }
-    if (rx_parser_.data()[2] != '8')
+    if (rx_parser_.data()[2] == '8')
     {
         if (this->error_) this->error_->publish_state("Rx Error");
         return false;
     }
-    if (rx_parser_.data()[2] != '9')
+    if (rx_parser_.data()[2] == '9')
     {
         if (this->error_) this->error_->publish_state("Tx Error");
         return false;
