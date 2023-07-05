@@ -40,7 +40,7 @@ CONFIG_SCHEMA = cv.All(number.NUMBER_SCHEMA.extend({
         cv.Optional(CONF_ICON, default="mdi:alert-circle"): cv.icon,
         cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
     }),
-    cv.Optional(CONF_COUNT, default={CONF_NAME: "Count"}): sensor.SENSOR_SCHEMA.extend(
+    cv.Optional(CONF_COUNT, default={CONF_NAME: "People Count"}): sensor.SENSOR_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(sensor.Sensor),
         cv.Optional(CONF_ICON, default="mdi:account"): cv.icon,

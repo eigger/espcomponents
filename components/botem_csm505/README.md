@@ -1,4 +1,27 @@
 ### add esphome *.yaml
 ```
+#0x5E 0x5B 0x30 0x30 0x31 0x5D 0x0D In
+#0x5E 0x5B 0x30 0x30 0x32 0x5D 0x0D Out
+#0x5E 0x5B 0x30 0x30 0x38 0x5D 0x0D Rx Error
+#0x5E 0x5B 0x30 0x30 0x39 0x5D 0x0D Tx Error
 
+external_components:
+  - source:
+      type: git
+      url: https://github.com/eigger/espcomponents/
+      ref: dev
+    components: [ botem_csm505 ]
+    refresh: always
+
+uart:
+  baud_rate: 9600
+  data_bits: 8
+  parity: NONE
+  stop_bits: 1
+  rx_pin: GPIO32
+  tx_pin: GPIO26
+  
+botem_csm505:
+  name: ${node_name} People Set
+  max_value: 10
 ```
