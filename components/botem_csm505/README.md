@@ -6,12 +6,8 @@
 #0x5E 0x5B 0x30 0x30 0x39 0x5D 0x0D Tx Error
 
 external_components:
-  - source:
-      type: git
-      url: https://github.com/eigger/espcomponents/
-      ref: dev
+  - source: github://eigger/espcomponents
     components: [ botem_csm505 ]
-    refresh: always
 
 uart:
   baud_rate: 9600

@@ -3,9 +3,6 @@
 [![ESPHome Logo](https://esphome.io/_images/logo-text.png)](https://esphome.io/)
 ```
 external_components:
-  - source:
-      type: git
-      url: https://github.com/eigger/espcomponents/
+  - source: github://eigger/espcomponents
     components: [ uartex ]
-    refresh: always
 ```
