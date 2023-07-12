@@ -3,11 +3,8 @@
     <summary>예제 yaml</summary>
     
     external_components:
-      - source:
-          type: git
-          url: https://github.com/eigger/espcomponents/
+      - source: github://eigger/espcomponents
         components: [ uartex ]
-        refresh: always
     
     uart:
       baud_rate: 9600
@@ -291,11 +288,8 @@
     <summary>코콤 yaml</summary>
     
     external_components:
-      - source:
-          type: git
-          url: https://github.com/eigger/espcomponents/
+      - source: github://eigger/espcomponents
         components: [ uartex ]
-        refresh: always
     
     uart:
       baud_rate: 9600
@@ -521,11 +515,8 @@
     <summary>코콤 (주방TV - 공용현관) yaml</summary>
     
     external_components:
-      - source:
-          type: git
-          url: https://github.com/eigger/espcomponents/
+      - source: github://eigger/espcomponents
         components: [ uartex ]
-        refresh: always
    
     uart:
       baud_rate: 9600
@@ -589,11 +580,8 @@
     <summary>현대통신 (imazu) yaml</summary>
 
     external_components:
-      - source:
-          type: git
-          url: https://github.com/eigger/espcomponents/
+      - source: github://eigger/espcomponents
         components: [ uartex ]
-        refresh: always
     
     uart:
       baud_rate: 9600
@@ -1199,9 +1187,7 @@
     <summary>삼성SDS (홈넷) yaml</summary>
     
     external_components:
-      - source:
-          type: git
-          url: https://github.com/eigger/espcomponents/
+      - source: github://eigger/espcomponents
         components: [ uartex ]
     
     uart:
