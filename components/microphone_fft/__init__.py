@@ -24,7 +24,7 @@ MicrophoneFFT = microphone_fft_ns.class_('MicrophoneFFT', microphone.I2SAudioMic
 MULTI_CONF = False
 
 # microphone_fft Schema
-CONFIG_SCHEMA = cv.All(cv.Schema({
+CONFIG_SCHEMA = microphone.I2SAudioMicrophone.CONFIG_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(MicrophoneFFT),
     cv.Optional(CONF_VERSION, default={CONF_NAME: "Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
@@ -38,8 +38,9 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         cv.Optional(CONF_ICON, default="mdi:sine-wave"): cv.icon,
         #cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
     }),
-}).extend(microphone.I2SAudioMicrophone.CONFIG_SCHEMA)
-)
+})
+
+
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
