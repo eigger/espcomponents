@@ -25,7 +25,6 @@ MULTI_CONF = False
 
 # microphone_fft Schema
 CONFIG_SCHEMA = microphone.I2SAudioMicrophone.CONFIG_SCHEMA.extend({
-    cv.GenerateID(): cv.declare_id(MicrophoneFFT),
     cv.Optional(CONF_VERSION, default={CONF_NAME: "Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
