@@ -4,9 +4,8 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import text_sensor, sensor, esp32
 from esphome.components.text_sensor import register_text_sensor
-from esphome.components.i2s_audio import microphone, I2SAudioMicrophone, CONF_I2S_AUDIO_ID, CONF_I2S_DIN_PIN
+from esphome.components.i2s_audio import microphone, CONF_I2S_AUDIO_ID, CONF_I2S_DIN_PIN
 from esphome.components.i2s_audio.microphone import CONF_ADC_TYPE, CONF_ADC_PIN, CONF_PDM, CONF_BITS_PER_SAMPLE
-from esphome.components.i2s_audio.microphone import microphone as i2s_microphone
 from esphome.components.microphone import register_microphone
 from esphome.components.adc import ESP32_VARIANT_ADC1_PIN_TO_CHANNEL, validate_adc_pin
 from esphome import automation, pins, core
@@ -39,7 +38,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         cv.Optional(CONF_ICON, default="mdi:sine-wave"): cv.icon,
         #cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
     }),
-}).extend(i2s_microphone.CONFIG_SCHEMA)
+}).extend(microphone.I2SAudioMicrophone.CONFIG_SCHEMA)
 )
 
 async def to_code(config):
