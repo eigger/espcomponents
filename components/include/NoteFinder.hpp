@@ -8,7 +8,7 @@ class NoteFinder
 {
 public:
     double Frequency;
-    double Value;
+    double Amplitude;
     std::string Note;
     int Octave;
     NoteFinder(const std::vector<int16_t> &data, int sampling_freq = 16000)
@@ -26,7 +26,7 @@ public:
         FFT.Windowing(FFT_WIN_TYP_HAMMING, FFT_FORWARD);
         FFT.Compute(FFT_FORWARD);
         FFT.ComplexToMagnitude();
-        FFT.MajorPeak(&Frequency, &Value);
+        FFT.MajorPeak(&Frequency, &Amplitude);
 
         double A4 = 440.0;
         double C0 = A4 * std::pow(2, -4.75);
