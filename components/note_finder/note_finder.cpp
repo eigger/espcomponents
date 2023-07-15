@@ -19,7 +19,7 @@ void NoteFinderComponent::setup()
 }
 
 
-void NoteFinderComponent::callback_(const std::vector<uint16_t> &data)
+void NoteFinderComponent::callback_(const std::vector<int16_t> &data)
 {
     int sampling_freq = 16000;
     double frequency = 0.0;

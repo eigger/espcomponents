@@ -33,7 +33,7 @@ public:
     void set_amplitude(sensor::Sensor *amplitude) { amplitude_ = amplitude; }
 
 protected:
-    void callback_(const std::vector<uint16_t> &data);
+    void callback_(const std::vector<int16_t> &data);
     text_sensor::TextSensor *version_{nullptr};
     text_sensor::TextSensor *note_{nullptr};
     sensor::Sensor *frequency_{nullptr};
