@@ -38,7 +38,7 @@ void NoteFinderComponent::callback_(const std::vector<int16_t> &data)
     FFT.Compute(FFT_FORWARD);
     FFT.ComplexToMagnitude();
     FFT.MajorPeak(&frequency, &amplitude);
-    if (this->state > amplitude) return;
+    //if (this->state > amplitude) return;
     double A4 = 440.0;
     double C0 = A4 * std::pow(2, -4.75);
     //std::array<std::string, 12> noteNames = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
@@ -58,13 +58,13 @@ void NoteFinderComponent::callback_(const std::vector<int16_t> &data)
     if (this->note_) this->note_->publish_state(noteNames[n]);
 }
 
-void NoteFinderComponent::control(float value)
-{
-    if (this->state != value)
-    {
-        this->state = value;
-    }
-}
+// void NoteFinderComponent::control(float value)
+// {
+//     if (this->state != value)
+//     {
+//         this->state = value;
+//     }
+// }
 
 unsigned long NoteFinderComponent::elapsed_time(const unsigned long timer)
 {

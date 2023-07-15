@@ -17,7 +17,7 @@ AUTO_LOAD = ["text_sensor", "number"]
 CODEOWNERS = ["@eigger"]
 DEPENDENCIES = ["microphone"]
 note_finder_ns = cg.esphome_ns.namespace('note_finder')
-NoteFinderComponent = note_finder_ns.class_('NoteFinderComponent', number.Number, cg.Component, microphone.I2SAudioMicrophone)
+NoteFinderComponent = note_finder_ns.class_('NoteFinderComponent', cg.Component, microphone.I2SAudioMicrophone)
 
 MULTI_CONF = False
 
@@ -53,12 +53,12 @@ async def to_code(config):
     cg.add_global(note_finder_ns.using)
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
-    await number.register_number(            
-        var,
-        config,
-        min_value = config[CONF_MIN_VALUE],
-        max_value = config[CONF_MAX_VALUE],
-        step = config[CONF_STEP],)
+    # await number.register_number(            
+    #     var,
+    #     config,
+    #     min_value = config[CONF_MIN_VALUE],
+    #     max_value = config[CONF_MAX_VALUE],
+    #     step = config[CONF_STEP],)
     await register_microphone(var, config)
     if CONF_VERSION in config:
         sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
