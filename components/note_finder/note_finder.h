@@ -14,7 +14,7 @@
 namespace esphome {
 namespace note_finder {
 
-class NoteFinderComponent : public i2s_audio::I2SAudioMicrophone, public number::Number, public Component
+class NoteFinderComponent : public i2s_audio::I2SAudioMicrophone, public number::Number
 {
 public:
     NoteFinderComponent() = default;
