@@ -14,7 +14,7 @@
 namespace esphome {
 namespace note_finder {
 
-class NoteFinderComponent : public i2s_audio::I2SAudioMicrophone//, public number::Number
+class NoteFinderComponent : public i2s_audio::I2SAudioMicrophone, public number::Number
 {
 public:
     NoteFinderComponent() = default;
@@ -25,7 +25,7 @@ public:
 
     unsigned long elapsed_time(const unsigned long timer);
     unsigned long get_time();
-    //void control(float value) override;
+    void control(float value) override;
     void set_version(text_sensor::TextSensor *version) { version_ = version; }
     void set_note(text_sensor::TextSensor *note) { note_ = note; }
     void set_frequency(sensor::Sensor *frequency) { frequency_ = frequency; }
