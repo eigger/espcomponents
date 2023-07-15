@@ -28,7 +28,7 @@ CONFIG_SCHEMA = cv.All(number.NUMBER_SCHEMA.extend({
     cv.Required(CONF_MAX_VALUE): cv.float_,
     cv.Optional(CONF_MIN_VALUE, default=0): cv.float_,
     cv.Optional(CONF_STEP, default=1): cv.float_,
-    cv.Optional(CONF_UNIT_OF_MEASUREMENT, default="Max Amplitude"): cv.string,
+    cv.Optional(CONF_UNIT_OF_MEASUREMENT, default=""): cv.string,
 }).extend({
     cv.Optional(CONF_VERSION, default={CONF_NAME: "Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
@@ -53,13 +53,13 @@ async def to_code(config):
     cg.add_global(note_finder_ns.using)
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
-    await register_microphone(var, config)
     await number.register_number(            
         var,
         config,
         min_value = config[CONF_MIN_VALUE],
         max_value = config[CONF_MAX_VALUE],
         step = config[CONF_STEP],)
+    await register_microphone(var, config)
     if CONF_VERSION in config:
         sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
         await register_text_sensor(sens, config[CONF_VERSION])
