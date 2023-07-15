@@ -54,12 +54,12 @@ async def to_code(config):
     rhs = NoteFinderComponent.new()
     var = cg.Pvariable(config[CONF_ID], rhs)
     await cg.register_component(var, config)
-    await number.register_number(            
-        var,
-        config,
-        min_value = config[CONF_MIN_VALUE],
-        max_value = config[CONF_MAX_VALUE],
-        step = config[CONF_STEP],)
+    # await number.register_number(            
+    #     var,
+    #     config,
+    #     min_value = config[CONF_MIN_VALUE],
+    #     max_value = config[CONF_MAX_VALUE],
+    #     step = config[CONF_STEP],)
     await register_microphone(var, config)
     if CONF_VERSION in config:
         sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
