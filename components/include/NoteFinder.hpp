@@ -9,8 +9,6 @@ class NoteFinder
 public:
     double Frequency;
     double Amplitude;
-    double MaxFrequency;
-    double MaxAmplitude;
     std::string Note;
     int Octave;
     int SamplingFrequency;
@@ -18,8 +16,6 @@ public:
     {
         Frequency = 0;
         Amplitude = 0;
-        MaxFrequency = 0;
-        MaxAmplitude = 0;
         SamplingFrequency = samplingFrequency;
     }
 
@@ -37,17 +33,7 @@ public:
         FFT.Compute(FFT_FORWARD);
         FFT.ComplexToMagnitude();
         FFT.MajorPeak(&Frequency, &Amplitude);
-        if (Amplitude < minAmplitude)
-        {
-            MaxAmplitude = 0;
-            return false;
-        }
-        if (Amplitude <= MaxAmplitude)
-        {
-            return false;
-        }
-        MaxAmplitude = Amplitude;
-        MaxFrequency = Frequency;
+        if (Amplitude < minAmplitude) return false;
         return true;
     }
 
