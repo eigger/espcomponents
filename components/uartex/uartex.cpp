@@ -131,8 +131,7 @@ bool UARTExComponent::retry_tx_cmd()
     {
         ack_tx_data(false);
         ESP_LOGD(TAG, "Retry fail.");
-        if (this->error_ && error_code_ != ERR_ACK) this->error_->publish_state("Ack Error");
-        error_code_ = ERR_ACK;
+        publish_error(ERR_ACK);
         return false;
     }
     ESP_LOGD(TAG, "Retry count: %d", tx_retry_cnt_);
@@ -325,6 +324,10 @@ bool UARTExComponent::publish_error(ValidateCode error_code)
     case ERR_CHECKSUM_2:
         ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(rx_parser_.buffer()).c_str());
         if (this->error_ && error_code_ != ERR_CHECKSUM_2) this->error_->publish_state("Checksum2 Error");
+        break;
+    case ERR_ACK:
+        ESP_LOGW(TAG, "[Read] Ack error: %s", to_hex_string(rx_parser_.buffer()).c_str());
+        if (this->error_ && error_code_ != ERR_ACK) this->error_->publish_state("Ack Error");
         break;
     case ERR_NONE:
         if (this->error_ && error_code_ != ERR_NONE) this->error_->publish_state("None");
