@@ -32,12 +32,11 @@ uint8_const = cg.uint8.operator('const')
 uint8_ptr_const = uint8_const.operator('ptr')
 
 MULTI_CONF = True
-ChecksumClass = uartex_ns.class_('CHECKSUM')
 Checksum = uartex_ns.enum("CHECKSUM")
 CHECKSUMS = {
-    "NONE": Checksum.ChecksumClass.NONE,
-    "XOR": Checksum.ChecksumClass.XOR,
-    "ADD": Checksum.ChecksumClass.ADD,
+    "NONE": Checksum.CHECKSUM.NONE,
+    "XOR": Checksum.CHECKSUM.XOR,
+    "ADD": Checksum.CHECKSUM.ADD,
 }
 
 def _uartex_declare_type(value):
