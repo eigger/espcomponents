@@ -28,8 +28,8 @@ void UARTExComponent::setup()
         this->tx_ctrl_pin_->setup();
         this->tx_ctrl_pin_->digital_write(false);
     }
-    if (rx_checksum_) rx_parser_.set_checksum_len(1);
-    if (rx_checksum_2_) rx_parser_.set_checksum_len(2);
+    if (rx_checksum_ != CHECKSUM::NONE) rx_parser_.set_checksum_len(1);
+    if (rx_checksum_2_ != CHECKSUM::NONE) rx_parser_.set_checksum_len(2);
     rx_time_ = get_time();
     tx_time_ = get_time();
     if (rx_header_.has_value()) rx_parser_.add_headers(rx_header_.value());
@@ -288,12 +288,12 @@ ERROR UARTExComponent::validate_data()
         return ERROR::FOOTER;
     }
     uint8_t crc = get_rx_checksum(rx_parser_.data());
-    if (rx_checksum_ && crc != rx_parser_.get_checksum())
+    if (rx_checksum_ != CHECKSUM::NONE && crc != rx_parser_.get_checksum())
     {
         return ERROR::CHECKSUM;
     }
     crc = get_rx_checksum_2(rx_parser_.data());
-    if (rx_checksum_2_ && crc != rx_parser_.get_checksum_2())
+    if (rx_checksum_2_ != CHECKSUM::NONE && crc != rx_parser_.get_checksum_2())
     {
         return ERROR::CHECKSUM_2;
     }
