@@ -31,7 +31,7 @@ public:
         bool binary;
         state->current_values_as_binary(&binary);
         if (binary == this->state_) return;
-        push_tx_cmd(binary ? this->get_command_on() : this->get_command_off());
+        enqueue_tx_cmd(binary ? this->get_command_on() : this->get_command_off());
         this->state_ = binary;
     }
 

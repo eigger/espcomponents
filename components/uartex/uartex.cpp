@@ -69,21 +69,27 @@ void UARTExComponent::read_from_uart()
 void UARTExComponent::publish_to_devices()
 {
     if (rx_parser_.buffer().size() == 0) return;
-    if (publish_error(validate_data()) == true) return;
-    if (validate_ack()) return;
+    ERROR error = validate_data();
+    if (error != ERROR_NONE)
+    {
+        publish_error(error);
+        return;
+    }
+    publish_error(ERROR_NONE);
+    verify_ack();
     publish_data();
     rx_time_ = get_time();
 }
 
-bool UARTExComponent::validate_ack()
+bool UARTExComponent::verify_ack()
 {
-    if (!is_have_tx_cmd()) return false;
+    if (!is_have_tx_data()) return false;
     if (tx_device() == nullptr) return false;
     if (!tx_device()->equal(rx_parser_.data(), tx_cmd()->ack)) return false;
-    ack_tx_data(true);
+    ack_response(true);
+    clear_tx_data();
     ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", to_hex_string(rx_parser_.buffer()).c_str(), elapsed_time(tx_time_));
-    //return true;
-    return false;
+    return true;
 }
 
 void UARTExComponent::publish_data()
@@ -104,14 +110,17 @@ void UARTExComponent::publish_data()
 #endif
 }
 
-void UARTExComponent::pop_tx_data()
+void UARTExComponent::dequeue_tx_data_from_devices()
 {
     for (UARTExDevice* device : this->devices_)
     {
-        const cmd_t *cmd = device->pop_tx_cmd();
+        const cmd_t *cmd = device->dequeue_tx_cmd();
         if (cmd == nullptr) continue;
-        if (cmd->ack.size() == 0)   push_tx_data_late({device, cmd});
-        else                        push_tx_data({device, cmd});
+        enqueue_tx_data({device, cmd}, false);
+
+        const cmd_t *cmd_low_priority = device->dequeue_tx_cmd_low_priority();
+        if (cmd == cmd_low_priority) continue;
+        enqueue_tx_data({device, cmd_low_priority}, true);                    
     }
 }
 
@@ -120,16 +129,17 @@ void UARTExComponent::write_to_uart()
     if (elapsed_time(rx_time_) < conf_tx_delay_) return;
     if (elapsed_time(tx_time_) < conf_tx_delay_) return;
     if (elapsed_time(tx_time_) < conf_tx_timeout_) return;
-    if (retry_tx_cmd()) return;
+    if (retry_tx_data()) return;
     write_tx_data();
 }
 
-bool UARTExComponent::retry_tx_cmd()
+bool UARTExComponent::retry_tx_data()
 {
-    if (!is_have_tx_cmd()) return false;
+    if (!is_have_tx_data()) return false;
     if (conf_tx_retry_cnt_ <= tx_retry_cnt_)
     {
-        ack_tx_data(false);
+        ack_response(false);
+        clear_tx_data();
         ESP_LOGD(TAG, "Retry fail.");
         publish_error(ERROR_ACK);
         return false;
@@ -141,17 +151,17 @@ bool UARTExComponent::retry_tx_cmd()
 
 void UARTExComponent::write_tx_data()
 {
-    pop_tx_data();
+    dequeue_tx_data_from_devices();
     if (!tx_queue_.empty())
     {
         tx_data_ = tx_queue_.front();
         tx_queue_.pop();
         write_tx_cmd();
     }
-    else if (!tx_queue_late_.empty())
+    else if (!tx_queue_low_priority_.empty())
     {
-        tx_data_ = tx_queue_late_.front();
-        tx_queue_late_.pop();
+        tx_data_ = tx_queue_low_priority_.front();
+        tx_queue_low_priority_.pop();
         write_tx_cmd();
     }
 }
@@ -169,7 +179,11 @@ void UARTExComponent::write_tx_cmd()
     if (tx_ctrl_pin_) tx_ctrl_pin_->digital_write(false);
     tx_retry_cnt_++;
     tx_time_ = get_time();
-    if (tx_cmd()->ack.size() == 0) ack_tx_data(true);
+    if (tx_cmd()->ack.size() == 0)
+    {
+        ack_response(true);
+        clear_tx_data();
+    }
 }
 
 void UARTExComponent::write_data(const uint8_t data)
@@ -184,14 +198,10 @@ void UARTExComponent::write_data(const std::vector<uint8_t> &data)
     ESP_LOGD(TAG, "Write array-> %s", to_hex_string(data).c_str());
 }
 
-void UARTExComponent::push_tx_data(const tx_data data)
+void UARTExComponent::enqueue_tx_data(const tx_data_t data, bool low_priority)
 {
-    tx_queue_.push(data);
-}
-
-void UARTExComponent::push_tx_data_late(const tx_data data)
-{
-    tx_queue_late_.push(data);
+    if (low_priority) tx_queue_low_priority_.push(data);
+    else tx_queue_.push(data);
 }
 
 void UARTExComponent::write_flush(const unsigned long timer)
@@ -230,20 +240,19 @@ void UARTExComponent::set_tx_ctrl_pin(InternalGPIOPin *pin)
     tx_ctrl_pin_ = pin;
 }
 
-bool UARTExComponent::is_have_tx_cmd()
+bool UARTExComponent::is_have_tx_data()
 {
     if (tx_data_.cmd) return true;
     return false;
 }
 
-void UARTExComponent::ack_tx_data(bool ok)
+void UARTExComponent::ack_response(bool ok)
 {
     if (tx_data_.device)
     {
         if (ok) tx_data_.device->ack_ok();
         else    tx_data_.device->ack_ng();
     }
-    clear_tx_data();
 }
 
 void UARTExComponent::clear_tx_data()
