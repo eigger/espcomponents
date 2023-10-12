@@ -13,21 +13,21 @@
 namespace esphome {
 namespace uartex {
 
-enum ValidateCode {
-    ERR_NONE,
-    ERR_SIZE,
-    ERR_HEADER,
-    ERR_FOOTER,
-    ERR_CHECKSUM,
-    ERR_CHECKSUM_2,
-    ERR_ACK
+enum class ERROR {
+    NONE,
+    SIZE,
+    HEADER,
+    FOOTER,
+    CHECKSUM,
+    CHECKSUM_2,
+    ACK
 };
 
-enum Checksum {
-    CHECKSUM_NONE,
-    CHECKSUM_CUSTOM,
-    CHECKSUM_XOR,
-    CHECKSUM_ADD
+enum class CHECKSUM {
+    NONE,
+    CUSTOM,
+    XOR,
+    ADD
 };
 
 struct tx_data
@@ -44,12 +44,12 @@ public:
     void set_rx_footer(std::vector<uint8_t> footer);
     void set_tx_header(std::vector<uint8_t> header);
     void set_tx_footer(std::vector<uint8_t> footer);
-    void set_rx_checksum(Checksum checksum);
-    void set_rx_checksum_2(Checksum checksum);
+    void set_rx_checksum(CHECKSUM checksum);
+    void set_rx_checksum_2(CHECKSUM checksum);
     void set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f);
     void set_rx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)> &&f);
-    void set_tx_checksum(Checksum checksum);
-    void set_tx_checksum_2(Checksum checksum);
+    void set_tx_checksum(CHECKSUM checksum);
+    void set_tx_checksum_2(CHECKSUM checksum);
     void set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f);
     void set_tx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)> &&f);
     uint8_t get_rx_checksum(const std::vector<uint8_t> &data) const;
@@ -95,19 +95,19 @@ protected:
     optional<std::vector<uint8_t>> tx_header_{};
     optional<std::vector<uint8_t>> tx_footer_{};
 
-    Checksum rx_checksum_{CHECKSUM_NONE};
-    Checksum rx_checksum_2_{CHECKSUM_NONE};
+    CHECKSUM rx_checksum_{CHECKSUM::NONE};
+    CHECKSUM rx_checksum_2_{CHECKSUM::NONE};
     optional<std::function<uint8_t(const uint8_t *data, const uint16_t len)>> rx_checksum_f_{};
     optional<std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)>> rx_checksum_f_2_{};
  
-    Checksum tx_checksum_{CHECKSUM_NONE};
-    Checksum tx_checksum_2_{CHECKSUM_NONE};
+    CHECKSUM tx_checksum_{CHECKSUM::NONE};
+    CHECKSUM tx_checksum_2_{CHECKSUM::NONE};
     optional<std::function<uint8_t(const uint8_t *data, const uint16_t len)>> tx_checksum_f_{};
     optional<std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)>> tx_checksum_f_2_{};
 
-    ValidateCode validate_data();
-    bool publish_error(ValidateCode error_code);
-    ValidateCode error_code_{ValidateCode::ERR_NONE};
+    ERROR validate_data();
+    bool publish_error(ERROR error_code);
+    ERROR error_code_{ERROR::NONE};
     void read_from_uart();
     void publish_to_devices();
     bool validate_ack();
