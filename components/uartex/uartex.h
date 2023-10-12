@@ -13,28 +13,21 @@
 namespace esphome {
 namespace uartex {
 
-enum class ERROR {
-    NONE,
-    SIZE,
-    HEADER,
-    FOOTER,
-    CHECKSUM,
-    CHECKSUM_2,
-    ACK
+enum ERROR {
+    ERROR_NONE,
+    ERROR_SIZE,
+    ERROR_HEADER,
+    ERROR_FOOTER,
+    ERROR_CHECKSUM,
+    ERROR_CHECKSUM_2,
+    ERROR_ACK
 };
 
-enum class CHECKSUM {
-    NONE,
-    CUSTOM,
-    XOR,
-    ADD
-};
-
-enum Checksum {
-    CHECKSUM_NONE = (int)CHECKSUM::NONE,
-    CHECKSUM_CUSTOM = (int)CHECKSUM::CUSTOM,
-    CHECKSUM_XOR = (int)CHECKSUM::XOR,
-    CHECKSUM_ADD = (int)CHECKSUM::ADD
+enum CHECKSUM {
+    CHECKSUM_NONE,
+    CHECKSUM_CUSTOM,
+    CHECKSUM_XOR,
+    CHECKSUM_ADD
 };
 
 struct tx_data
@@ -102,19 +95,19 @@ protected:
     optional<std::vector<uint8_t>> tx_header_{};
     optional<std::vector<uint8_t>> tx_footer_{};
 
-    CHECKSUM rx_checksum_{CHECKSUM::NONE};
-    CHECKSUM rx_checksum_2_{CHECKSUM::NONE};
+    CHECKSUM rx_checksum_{CHECKSUM_NONE};
+    CHECKSUM rx_checksum_2_{CHECKSUM_NONE};
     optional<std::function<uint8_t(const uint8_t *data, const uint16_t len)>> rx_checksum_f_{};
     optional<std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)>> rx_checksum_f_2_{};
  
-    CHECKSUM tx_checksum_{CHECKSUM::NONE};
-    CHECKSUM tx_checksum_2_{CHECKSUM::NONE};
+    CHECKSUM tx_checksum_{CHECKSUM_NONE};
+    CHECKSUM tx_checksum_2_{CHECKSUM_NONE};
     optional<std::function<uint8_t(const uint8_t *data, const uint16_t len)>> tx_checksum_f_{};
     optional<std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)>> tx_checksum_f_2_{};
 
     ERROR validate_data();
     bool publish_error(ERROR error_code);
-    ERROR error_code_{ERROR::NONE};
+    ERROR error_code_{ERROR_NONE};
     void read_from_uart();
     void publish_to_devices();
     bool validate_ack();

@@ -28,8 +28,8 @@ void UARTExComponent::setup()
         this->tx_ctrl_pin_->setup();
         this->tx_ctrl_pin_->digital_write(false);
     }
-    if (rx_checksum_ != CHECKSUM::NONE) rx_parser_.set_checksum_len(1);
-    if (rx_checksum_2_ != CHECKSUM::NONE) rx_parser_.set_checksum_len(2);
+    if (rx_checksum_ != CHECKSUM_NONE) rx_parser_.set_checksum_len(1);
+    if (rx_checksum_2_ != CHECKSUM_NONE) rx_parser_.set_checksum_len(2);
     rx_time_ = get_time();
     tx_time_ = get_time();
     if (rx_header_.has_value()) rx_parser_.add_headers(rx_header_.value());
@@ -58,7 +58,7 @@ void UARTExComponent::read_from_uart()
             if (this->read_byte(&byte))
             {
                 if (rx_parser_.parse_byte(byte)) return;
-                if (validate_data() == ERROR::NONE) return;
+                if (validate_data() == ERROR_NONE) return;
                 timer = get_time();
             }
         }
@@ -131,7 +131,7 @@ bool UARTExComponent::retry_tx_cmd()
     {
         ack_tx_data(false);
         ESP_LOGD(TAG, "Retry fail.");
-        publish_error(ERROR::ACK);
+        publish_error(ERROR_ACK);
         return false;
     }
     ESP_LOGD(TAG, "Retry count: %d", tx_retry_cnt_);
@@ -162,8 +162,8 @@ void UARTExComponent::write_tx_cmd()
     if (tx_ctrl_pin_) tx_ctrl_pin_->digital_write(true);
     if (tx_header_.has_value()) write_data(tx_header_.value());
     write_data(tx_cmd()->data);
-    if (tx_checksum_ != CHECKSUM::NONE) write_data(get_tx_checksum(tx_cmd()->data));
-    if (tx_checksum_2_ != CHECKSUM::NONE) write_data(get_tx_checksum_2(tx_cmd()->data));
+    if (tx_checksum_ != CHECKSUM_NONE) write_data(get_tx_checksum(tx_cmd()->data));
+    if (tx_checksum_2_ != CHECKSUM_NONE) write_data(get_tx_checksum_2(tx_cmd()->data));
     if (tx_footer_.has_value()) write_data(tx_footer_.value());
     write_flush(timer);
     if (tx_ctrl_pin_) tx_ctrl_pin_->digital_write(false);
@@ -277,27 +277,27 @@ ERROR UARTExComponent::validate_data()
 {
     if (rx_parser_.data().size() == 0)
     {
-        return ERROR::SIZE;
+        return ERROR_SIZE;
     }
     if (rx_header_.has_value() && rx_parser_.parse_header() == false)
     {
-        return ERROR::HEADER;
+        return ERROR_HEADER;
     }
     if (rx_footer_.has_value() && rx_parser_.parse_footer() == false)
     {
-        return ERROR::FOOTER;
+        return ERROR_FOOTER;
     }
     uint8_t crc = get_rx_checksum(rx_parser_.data());
-    if (rx_checksum_ != CHECKSUM::NONE && crc != rx_parser_.get_checksum())
+    if (rx_checksum_ != CHECKSUM_NONE && crc != rx_parser_.get_checksum())
     {
-        return ERROR::CHECKSUM;
+        return ERROR_CHECKSUM;
     }
     crc = get_rx_checksum_2(rx_parser_.data());
-    if (rx_checksum_2_ != CHECKSUM::NONE && crc != rx_parser_.get_checksum_2())
+    if (rx_checksum_2_ != CHECKSUM_NONE && crc != rx_parser_.get_checksum_2())
     {
-        return ERROR::CHECKSUM_2;
+        return ERROR_CHECKSUM_2;
     }
-    return ERROR::NONE;
+    return ERROR_NONE;
 }
 
 bool UARTExComponent::publish_error(ERROR error_code)
@@ -305,32 +305,32 @@ bool UARTExComponent::publish_error(ERROR error_code)
     bool error = true;
     switch(error_code)
     {
-    case ERROR::SIZE:
+    case ERROR_SIZE:
         ESP_LOGW(TAG, "[Read] Size error: %s", to_hex_string(rx_parser_.buffer()).c_str());
-        if (this->error_ && error_code_ != ERROR::SIZE) this->error_->publish_state("Size Error");
+        if (this->error_ && error_code_ != ERROR_SIZE) this->error_->publish_state("Size Error");
         break;
-    case ERROR::HEADER:
+    case ERROR_HEADER:
         ESP_LOGW(TAG, "[Read] Header error: %s", to_hex_string(rx_parser_.buffer()).c_str());
-        if (this->error_ && error_code_ != ERROR::HEADER) this->error_->publish_state("Header Error");
+        if (this->error_ && error_code_ != ERROR_HEADER) this->error_->publish_state("Header Error");
         break;
-    case ERROR::FOOTER:
+    case ERROR_FOOTER:
         ESP_LOGW(TAG, "[Read] Footer error: %s", to_hex_string(rx_parser_.buffer()).c_str());
-        if (this->error_ && error_code_ != ERROR::FOOTER) this->error_->publish_state("Footer Error");
+        if (this->error_ && error_code_ != ERROR_FOOTER) this->error_->publish_state("Footer Error");
         break;
-    case ERROR::CHECKSUM:
+    case ERROR_CHECKSUM:
         ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(rx_parser_.buffer()).c_str());
-        if (this->error_ && error_code_ != ERROR::CHECKSUM) this->error_->publish_state("Checksum Error");
+        if (this->error_ && error_code_ != ERROR_CHECKSUM) this->error_->publish_state("Checksum Error");
         break;
-    case ERROR::CHECKSUM_2:
+    case ERROR_CHECKSUM_2:
         ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(rx_parser_.buffer()).c_str());
-        if (this->error_ && error_code_ != ERROR::CHECKSUM_2) this->error_->publish_state("Checksum2 Error");
+        if (this->error_ && error_code_ != ERROR_CHECKSUM_2) this->error_->publish_state("Checksum2 Error");
         break;
-    case ERROR::ACK:
+    case ERROR_ACK:
         ESP_LOGW(TAG, "[Read] Ack error: %s", to_hex_string(rx_parser_.buffer()).c_str());
-        if (this->error_ && error_code_ != ERROR::ACK) this->error_->publish_state("Ack Error");
+        if (this->error_ && error_code_ != ERROR_ACK) this->error_->publish_state("Ack Error");
         break;
-    case ERROR::NONE:
-        if (this->error_ && error_code_ != ERROR::NONE) this->error_->publish_state("None");
+    case ERROR_NONE:
+        if (this->error_ && error_code_ != ERROR_NONE) this->error_->publish_state("None");
         error = false;
         break;
     }
@@ -371,13 +371,13 @@ void UARTExComponent::set_rx_checksum_2(CHECKSUM checksum)
 void UARTExComponent::set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f)
 {
     rx_checksum_f_ = f;
-    rx_checksum_ = CHECKSUM::CUSTOM;
+    rx_checksum_ = CHECKSUM_CUSTOM;
 }
 
 void UARTExComponent::set_rx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)> &&f)
 {
     rx_checksum_f_2_ = f;
-    rx_checksum_2_ = CHECKSUM::CUSTOM;
+    rx_checksum_2_ = CHECKSUM_CUSTOM;
 }
 
 void UARTExComponent::set_tx_checksum(CHECKSUM checksum)
@@ -393,13 +393,13 @@ void UARTExComponent::set_tx_checksum_2(CHECKSUM checksum)
 void UARTExComponent::set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f)
 {
     tx_checksum_f_ = f;
-    tx_checksum_ = CHECKSUM::CUSTOM;
+    tx_checksum_ = CHECKSUM_CUSTOM;
 }
 
 void UARTExComponent::set_tx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)> &&f)
 {
     tx_checksum_f_2_ = f;
-    tx_checksum_2_ = CHECKSUM::CUSTOM;
+    tx_checksum_2_ = CHECKSUM_CUSTOM;
 }
 
 uint8_t UARTExComponent::get_rx_checksum(const std::vector<uint8_t> &data) const
@@ -413,22 +413,22 @@ uint8_t UARTExComponent::get_rx_checksum(const std::vector<uint8_t> &data) const
         uint8_t crc = 0;
         switch(rx_checksum_)
         {
-        case CHECKSUM::ADD:
+        case CHECKSUM_ADD:
             if (this->rx_header_.has_value())
             {
                 for (uint8_t byte : this->rx_header_.value()) { crc += byte; }
             }
             for (uint8_t byte : data) { crc += byte; }
             break;
-        case CHECKSUM::XOR:
+        case CHECKSUM_XOR:
             if (this->rx_header_.has_value())
             {
                 for (uint8_t byte : this->rx_header_.value()) { crc ^= byte; }
             }
             for (uint8_t byte : data) { crc ^= byte; }
             break;
-        case CHECKSUM::NONE:
-        case CHECKSUM::CUSTOM:
+        case CHECKSUM_NONE:
+        case CHECKSUM_CUSTOM:
             break;
         }
         return crc;
@@ -448,7 +448,7 @@ uint8_t UARTExComponent::get_rx_checksum_2(const std::vector<uint8_t> &data) con
         uint8_t crc = 0;
         switch(rx_checksum_2_)
         {
-        case CHECKSUM::ADD:
+        case CHECKSUM_ADD:
             if (this->rx_header_.has_value())
             {
                 for (uint8_t byte : this->rx_header_.value()) { crc += byte; }
@@ -456,7 +456,7 @@ uint8_t UARTExComponent::get_rx_checksum_2(const std::vector<uint8_t> &data) con
             for (uint8_t byte : data) { crc += byte; }
             crc += checksum;
             break;
-        case CHECKSUM::XOR:
+        case CHECKSUM_XOR:
             if (this->rx_header_.has_value())
             {
                 for (uint8_t byte : this->rx_header_.value()) { crc ^= byte; }
@@ -464,8 +464,8 @@ uint8_t UARTExComponent::get_rx_checksum_2(const std::vector<uint8_t> &data) con
             for (uint8_t byte : data) { crc ^= byte; }
             crc ^= checksum;
             break;
-        case CHECKSUM::NONE:
-        case CHECKSUM::CUSTOM:
+        case CHECKSUM_NONE:
+        case CHECKSUM_CUSTOM:
             break;
         }
         return crc;
@@ -483,22 +483,22 @@ uint8_t UARTExComponent::get_tx_checksum(const std::vector<uint8_t> &data) const
         uint8_t crc = 0;
         switch(tx_checksum_)
         {
-        case CHECKSUM::ADD:
+        case CHECKSUM_ADD:
             if (this->tx_header_.has_value())
             {
                 for (uint8_t byte : this->tx_header_.value()) { crc += byte; }
             }
             for (uint8_t byte : data) { crc += byte; }
             break;
-        case CHECKSUM::XOR:
+        case CHECKSUM_XOR:
             if (this->tx_header_.has_value())
             {
                 for (uint8_t byte : this->tx_header_.value()) { crc ^= byte; }
             }
             for (uint8_t byte : data) { crc ^= byte; }
             break;
-        case CHECKSUM::NONE:
-        case CHECKSUM::CUSTOM:
+        case CHECKSUM_NONE:
+        case CHECKSUM_CUSTOM:
             break;
         }
         return crc;
@@ -518,7 +518,7 @@ uint8_t UARTExComponent::get_tx_checksum_2(const std::vector<uint8_t> &data) con
         uint8_t crc = 0;
         switch(tx_checksum_2_)
         {
-        case CHECKSUM::ADD:
+        case CHECKSUM_ADD:
             if (this->tx_header_.has_value())
             {
                 for (uint8_t byte : this->tx_header_.value()) { crc += byte; }
@@ -526,7 +526,7 @@ uint8_t UARTExComponent::get_tx_checksum_2(const std::vector<uint8_t> &data) con
             for (uint8_t byte : data) { crc += byte; }
             crc += checksum;
             break;
-        case CHECKSUM::XOR:
+        case CHECKSUM_XOR:
             if (this->tx_header_.has_value())
             {
                 for (uint8_t byte : this->tx_header_.value()) { crc ^= byte; }
@@ -534,8 +534,8 @@ uint8_t UARTExComponent::get_tx_checksum_2(const std::vector<uint8_t> &data) con
             for (uint8_t byte : data) { crc ^= byte; }
             crc ^= checksum;
             break;
-        case CHECKSUM::NONE:
-        case CHECKSUM::CUSTOM:
+        case CHECKSUM_NONE:
+        case CHECKSUM_CUSTOM:
             break;
         }
         return crc;
