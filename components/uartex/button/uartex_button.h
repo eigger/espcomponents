@@ -12,7 +12,7 @@ public:
     void dump_config() override;
     void publish(const std::vector<uint8_t>& data) override;
     bool publish(bool state) override { return true; }
-    void press_action() override { push_tx_cmd(this->get_command_on()); }
+    void press_action() override { enqueue_tx_cmd(this->get_command_on()); }
 
 protected:
 };

@@ -11,7 +11,7 @@ static const char *TAG = "uartex";
 void UARTExDevice::update()
 {
     if (!command_update_.has_value()) return;
-    push_tx_cmd(&command_update_.value());
+    enqueue_tx_cmd(&command_update_.value(), true);
 }
 
 void UARTExDevice::dump_uartex_device_config(const char *TAG)
@@ -104,13 +104,23 @@ void UARTExDevice::set_state_response(state_t state_response)
     state_response_ = state_response;
 }
 
-const cmd_t *UARTExDevice::pop_tx_cmd()
+const cmd_t *UARTExDevice::dequeue_tx_cmd()
 {
     if (state_response_.has_value() && !rx_response_) return nullptr;
     rx_response_ = false;
     if (tx_cmd_queue_.size() == 0) return nullptr;
     const cmd_t *cmd = tx_cmd_queue_.front();
     tx_cmd_queue_.pop();
+    return cmd;
+}
+
+const cmd_t *UARTExDevice::dequeue_tx_cmd_low_priority()
+{
+    if (state_response_.has_value() && !rx_response_) return nullptr;
+    rx_response_ = false;
+    if (tx_cmd_queue_low_priority_.size() == 0) return nullptr;
+    const cmd_t *cmd = tx_cmd_queue_low_priority_.front();
+    tx_cmd_queue_low_priority_.pop();
     return cmd;
 }
 
@@ -146,10 +156,11 @@ bool UARTExDevice::parse_data(const std::vector<uint8_t> &data)
     return true;
 }
 
-void UARTExDevice::push_tx_cmd(const cmd_t *cmd)
+void UARTExDevice::enqueue_tx_cmd(const cmd_t *cmd, bool low_priority)
 {
     if (cmd->data.size() == 0) return;
-    tx_cmd_queue_.push(cmd);
+    if (low_priority) tx_cmd_queue_low_priority_.push(cmd);
+    else tx_cmd_queue_.push(cmd);
 }
 
 bool UARTExDevice::equal(const std::vector<uint8_t> &data1, const std::vector<uint8_t> &data2, const uint16_t offset)
