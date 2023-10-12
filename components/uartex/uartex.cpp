@@ -162,8 +162,8 @@ void UARTExComponent::write_tx_cmd()
     if (tx_ctrl_pin_) tx_ctrl_pin_->digital_write(true);
     if (tx_header_.has_value()) write_data(tx_header_.value());
     write_data(tx_cmd()->data);
-    if (tx_checksum_) write_data(get_tx_checksum(tx_cmd()->data));
-    if (tx_checksum_2_) write_data(get_tx_checksum_2(tx_cmd()->data));
+    if (tx_checksum_ != CHECKSUM::NONE) write_data(get_tx_checksum(tx_cmd()->data));
+    if (tx_checksum_2_ != CHECKSUM::NONE) write_data(get_tx_checksum_2(tx_cmd()->data));
     if (tx_footer_.has_value()) write_data(tx_footer_.value());
     write_flush(timer);
     if (tx_ctrl_pin_) tx_ctrl_pin_->digital_write(false);
