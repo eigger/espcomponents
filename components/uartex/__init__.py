@@ -35,9 +35,9 @@ MULTI_CONF = True
 
 Checksum = uartex_ns.enum("CHECKSUM")
 CHECKSUMS = {
-    "NONE": Checksum.CHECKSUM.NONE,
-    "XOR": Checksum.CHECKSUM.XOR,
-    "ADD": Checksum.CHECKSUM.ADD,
+    "NONE": Checksum.NONE,
+    "XOR": Checksum.XOR,
+    "ADD": Checksum.ADD,
 }
 
 def _uartex_declare_type(value):
