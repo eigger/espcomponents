@@ -33,7 +33,7 @@ uint8_ptr_const = uint8_const.operator('ptr')
 
 MULTI_CONF = True
 
-Checksum = uartex_ns.enum("CHECKSUM")
+Checksum = uartex_ns.class_("CHECKSUM")
 CHECKSUMS = {
     "NONE": Checksum.NONE,
     "XOR": Checksum.XOR,
