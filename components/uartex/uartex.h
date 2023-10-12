@@ -64,7 +64,7 @@ public:
     void write_data(const std::vector<uint8_t> &data);
     void write_tx_cmd();
     void enqueue_tx_data(const tx_data_t data, bool low_priority = false);
-    void write_flush(const unsigned long timer);
+    void write_flush();
     void register_device(UARTExDevice *device);
     void set_tx_delay(uint16_t tx_delay);
     void set_tx_timeout(uint16_t timeout);
@@ -72,7 +72,7 @@ public:
     void set_rx_timeout(uint16_t timeout);
     void set_tx_ctrl_pin(InternalGPIOPin *pin);
     bool is_have_tx_data();
-    void ack_response(bool ok);
+    void tx_data_response(bool ok);
     void clear_tx_data();
     const cmd_t* tx_cmd();
     UARTExDevice* tx_device();

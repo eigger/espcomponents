@@ -86,8 +86,7 @@ bool UARTExComponent::verify_ack()
     if (!is_have_tx_data()) return false;
     if (tx_device() == nullptr) return false;
     if (!tx_device()->equal(rx_parser_.data(), tx_cmd()->ack)) return false;
-    ack_response(true);
-    clear_tx_data();
+    tx_data_response(true);
     ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", to_hex_string(rx_parser_.buffer()).c_str(), elapsed_time(tx_time_));
     return true;
 }
@@ -138,8 +137,7 @@ bool UARTExComponent::retry_tx_data()
     if (!is_have_tx_data()) return false;
     if (conf_tx_retry_cnt_ <= tx_retry_cnt_)
     {
-        ack_response(false);
-        clear_tx_data();
+        tx_data_response(false);
         ESP_LOGD(TAG, "Retry fail.");
         publish_error(ERROR_ACK);
         return false;
@@ -175,15 +173,11 @@ void UARTExComponent::write_tx_cmd()
     if (tx_checksum_ != CHECKSUM_NONE) write_data(get_tx_checksum(tx_cmd()->data));
     if (tx_checksum_2_ != CHECKSUM_NONE) write_data(get_tx_checksum_2(tx_cmd()->data));
     if (tx_footer_.has_value()) write_data(tx_footer_.value());
-    write_flush(timer);
+    write_flush();
     if (tx_ctrl_pin_) tx_ctrl_pin_->digital_write(false);
     tx_retry_cnt_++;
     tx_time_ = get_time();
-    if (tx_cmd()->ack.size() == 0)
-    {
-        ack_response(true);
-        clear_tx_data();
-    }
+    if (tx_cmd()->ack.size() == 0) tx_data_response(true);
 }
 
 void UARTExComponent::write_data(const uint8_t data)
@@ -204,10 +198,10 @@ void UARTExComponent::enqueue_tx_data(const tx_data_t data, bool low_priority)
     else tx_queue_.push(data);
 }
 
-void UARTExComponent::write_flush(const unsigned long timer)
+void UARTExComponent::write_flush()
 {
     this->flush();
-    ESP_LOGD(TAG, "Flushing... (%lums)", elapsed_time(timer));
+    ESP_LOGD(TAG, "Flush.");
 }
 
 void UARTExComponent::register_device(UARTExDevice *device)
@@ -246,13 +240,14 @@ bool UARTExComponent::is_have_tx_data()
     return false;
 }
 
-void UARTExComponent::ack_response(bool ok)
+void UARTExComponent::tx_data_response(bool ok)
 {
     if (tx_data_.device)
     {
         if (ok) tx_data_.device->ack_ok();
         else    tx_data_.device->ack_ng();
     }
+    clear_tx_data();
 }
 
 void UARTExComponent::clear_tx_data()
