@@ -126,12 +126,12 @@ const cmd_t *UARTExDevice::dequeue_tx_cmd_low_priority()
 
 void UARTExDevice::ack_ok()
 {
-        ESP_LOGD(TAG, "Ack ok");   
+    ESP_LOGD(TAG, "Ack ok");   
 }
 
 void UARTExDevice::ack_ng()
 {
-        ESP_LOGD(TAG, "Ack ng");
+    ESP_LOGD(TAG, "Ack ng");
 }
 
 bool UARTExDevice::parse_data(const std::vector<uint8_t> &data)

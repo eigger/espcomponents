@@ -118,7 +118,7 @@ void UARTExComponent::dequeue_tx_data_from_devices()
         enqueue_tx_data({device, cmd}, false);
 
         const cmd_t *cmd_low_priority = device->dequeue_tx_cmd_low_priority();
-        if (cmd == cmd_low_priority) continue;
+        if (cmd_low_priority == nullptr) continue;
         enqueue_tx_data({device, cmd_low_priority}, true);                    
     }
 }
