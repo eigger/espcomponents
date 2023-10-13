@@ -255,7 +255,6 @@ void UARTExComponent::clear_tx_data()
     tx_data_.device = nullptr;
     tx_data_.cmd = nullptr;
     tx_retry_cnt_ = 0;
-    ESP_LOGD(TAG, "Clear tx data");
 }
 
 const cmd_t* UARTExComponent::tx_cmd()
