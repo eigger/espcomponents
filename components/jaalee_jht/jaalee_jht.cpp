@@ -62,8 +62,8 @@ bool JaaleeJHT::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
     auto humidity = (mnf_data.data[7] << 8) + mnf_data.data[8];
     auto temperature = (mnf_data.data[9] << 8) + mnf_data.data[10];
 
-    temperature = round(175.72 * temperature / 65536 - 46.85);
-    humidity = round(125.0 * humidity / 65536 - 6);
+    temperature = round((175.72 * temperature / 65536 - 46.85) * 100.0) / 100.0;
+    humidity = round((125.0 * humidity / 65536 - 6) * 100.0) / 100.0;
 
     // Send temperature only if the value is set
     if (this->temperature_ != nullptr) {
