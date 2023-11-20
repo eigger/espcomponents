@@ -107,7 +107,7 @@ void DivoomDisplay::connect_to_device()
         }
         ESP_LOGI(TAG, "BT_DISCOVERY -> CONNECTING");
         bt_status_ = BT_CONNECTING;
-        serialbt_.disconnect();
+        //serialbt_.disconnect();
         serialbt_.connect(address_);
         timer_ = get_time();
         break;
