@@ -4,6 +4,7 @@
 #include "esphome/core/helpers.h"
 #include "esphome/core/hal.h"
 #include <numeric>
+#include <map>
 
 namespace esphome {
 namespace divoom {
@@ -81,7 +82,10 @@ void DivoomDisplay::connect_to_device()
     case BT_INIT:
         timer_ = get_time();
         connected_ = false;
-        serialbt_.discoverAsync(nullptr);
+        serialbt_.discoverAsync([](BTAdvertisedDevice* pDevice) {
+
+            ESP_LOGI(TAG, ">>>>>>>>>>>Found a new device asynchronously: %s", pDevice->toString().c_str());
+        } );
         bt_status_ = BT_DISCOVERY;
         ESP_LOGI(TAG, "BT_INIT -> DISCOVERY");
         break;
@@ -95,8 +99,8 @@ void DivoomDisplay::connect_to_device()
         }
         ESP_LOGI(TAG, "BT_DISCOVERY -> CONNECTING");
         bt_status_ = BT_CONNECTING;
-        serialbt_.disconnect();
-        serialbt_.connect(address_);
+        //serialbt_.disconnect();
+        //serialbt_.connect(address_);
         timer_ = get_time();
         break;
     case BT_CONNECTING:
@@ -143,7 +147,17 @@ bool DivoomDisplay::found_divoom()
     {
         BTAdvertisedDevice *device = scan_result->getDevice(i);
         ESP_LOGI(TAG, "----- %s  %s %d", device->getAddress().toString().c_str(), device->getName().c_str(), device->getRSSI());
-        if (address_str_ == device->getAddress().toString() && device->getName().size() > 0) return true;
+        if (address_str_ == device->getAddress().toString() && device->getName().size() > 0)
+        {
+            std::map<int, std::string> channels = serialbt_.getChannels(device->getAddress());
+            if(channels.size() > 0)
+            {
+                BTAddress addr = device->getAddress();
+                int channel = channels.begin()->first;
+                serialbt_.connect(addr, channel, ESP_SPP_SEC_NONE, ESP_SPP_ROLE_SLAVE);
+                return true;
+            }
+        }
     }
     return false;
 }
