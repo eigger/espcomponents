@@ -90,7 +90,7 @@ void DivoomDisplay::connect_to_device()
         ESP_LOGI(TAG, "BT_INIT -> DISCOVERY");
         break;
     case BT_DISCOVERY:
-        if (elapsed_time(timer_) < 10000) break;
+        if (elapsed_time(timer_) < 20000) break;
         if (found_divoom() == false)
         {
             ESP_LOGI(TAG, "BT_DISCOVERY -> INIT");
@@ -99,12 +99,12 @@ void DivoomDisplay::connect_to_device()
         }
         ESP_LOGI(TAG, "BT_DISCOVERY -> CONNECTING");
         bt_status_ = BT_CONNECTING;
-        //serialbt_.disconnect();
-        //serialbt_.connect(address_);
+        serialbt_.disconnect();
+        serialbt_.connect(address_);
         timer_ = get_time();
         break;
     case BT_CONNECTING:
-        if (elapsed_time(timer_) > 60000)
+        if (elapsed_time(timer_) > 80000)
         {
             ESP_LOGI(TAG, "BT_CONNECTING -> INIT");
             bt_status_ = BT_INIT;
@@ -149,14 +149,15 @@ bool DivoomDisplay::found_divoom()
         ESP_LOGI(TAG, "----- %s  %s %d", device->getAddress().toString().c_str(), device->getName().c_str(), device->getRSSI());
         if (address_str_ == device->getAddress().toString() && device->getName().size() > 0)
         {
-            std::map<int, std::string> channels = serialbt_.getChannels(device->getAddress());
-            if(channels.size() > 0)
-            {
-                BTAddress addr = device->getAddress();
-                int channel = channels.begin()->first;
-                serialbt_.connect(addr, channel, ESP_SPP_SEC_NONE, ESP_SPP_ROLE_SLAVE);
-                return true;
-            }
+            return true;
+            // std::map<int, std::string> channels = serialbt_.getChannels(device->getAddress());
+            // if(channels.size() > 0)
+            // {
+            //     BTAddress addr = device->getAddress();
+            //     int channel = channels.begin()->first;
+            //     serialbt_.connect(addr, channel, ESP_SPP_SEC_NONE, ESP_SPP_ROLE_SLAVE);
+            //     return true;
+            // }
         }
     }
     return false;
