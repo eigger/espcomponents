@@ -64,8 +64,11 @@ bool JaaleeJHT::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
 
     int digits = 2;
     double multiplier = pow(10.0, digits);
-    temperature = round((175.72 * temperature / 65536 - 46.85) * multiplier) / multiplier;
-    humidity = round((125.0 * humidity / 65536 - 6) * multiplier) / multiplier;
+    // temperature = round((175.72 * temperature / 65536 - 46.85) * multiplier) / multiplier;
+    // humidity = round((125.0 * humidity / 65536 - 6) * multiplier) / multiplier;
+    //http://sensor.jaalee.com/scan_api.html
+    temperature = round((temperature / 65536) * 175 - 45) * multiplier) / multiplier;
+    humidity = round((humidity / 65536) * 100) * multiplier) / multiplier;
 
     // Send temperature only if the value is set
     if (this->temperature_ != nullptr) {

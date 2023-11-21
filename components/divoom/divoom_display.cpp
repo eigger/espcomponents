@@ -4,7 +4,9 @@
 #include "esphome/core/helpers.h"
 #include "esphome/core/hal.h"
 #include <numeric>
+#include <limits>
 
+#ifdef USE_ESP32
 namespace esphome {
 namespace divoom {
 
@@ -14,6 +16,9 @@ void DivoomDisplay::dump_config()
 {
     LOG_DISPLAY("", "divoom", this);
     ESP_LOGCONFIG(TAG, "  Width: %d, Height: %d", this->width_, this->height_);
+    ESP_LOGCONFIG(TAG, "  MAC address        : %s", this->parent_->address_str().c_str());
+    ESP_LOGCONFIG(TAG, "  Service UUID       : %s", this->service_uuid_.to_string().c_str());
+    ESP_LOGCONFIG(TAG, "  Characteristic UUID: %s", this->char_uuid_.to_string().c_str());
     LOG_UPDATE_INTERVAL(this);
 }
 
@@ -29,9 +34,6 @@ void DivoomDisplay::setup()
     width_shift_offset_ = -this->width_;
     image_buffer_.resize(this->width_ * this->height_);
     clear_display_buffer();
-    rx_parser_.set_checksum_len(2);
-    rx_parser_.add_header(DIVOOM_HEADER);
-    rx_parser_.add_footer(DIVOOM_FOOTER);
     if (this->version_) this->version_->publish_state(VERSION);
     if (this->bt_connected_) this->bt_connected_->publish_state(false);
     if (this->select_time_) 
@@ -50,126 +52,44 @@ void DivoomDisplay::setup()
 
 void DivoomDisplay::loop()
 {
-    connect_to_device();
-    read_from_bluetooth();
-    write_to_bluetooth();
 }
 
-void DivoomDisplay::set_address(uint64_t address)
-{
-    this->address_[0] = (address >> 40) & 0xFF;
-    this->address_[1] = (address >> 32) & 0xFF;
-    this->address_[2] = (address >> 24) & 0xFF;
-    this->address_[3] = (address >> 16) & 0xFF;
-    this->address_[4] = (address >> 8) & 0xFF;
-    this->address_[5] = (address >> 0) & 0xFF;
 
-    this->address_str_ = "";
-    for (int i = 0; i < 6; i++)
-    {
-        char buf[20];
-        sprintf(buf, "%02x", this->address_[i]);
-        if (i > 0) this->address_str_ += ":";
-        this->address_str_ += buf;
-    }
-}
-
-void DivoomDisplay::connect_to_device()
+void DivoomDisplay::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param)
 {
-    switch(bt_status_)
+    switch (event) 
     {
-    case BT_INIT:
-        timer_ = get_time();
+    case ESP_GATTC_OPEN_EVT:
+        connected_ = true;
+        if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
+        this->client_state_ = espbt::ClientState::ESTABLISHED;
+        ESP_LOGW(TAG, "[%s] Connected successfully!", this->char_uuid_.to_string().c_str());
+        break;
+    case ESP_GATTC_DISCONNECT_EVT:
         connected_ = false;
-        serialbt_.discoverAsync(nullptr);
-        bt_status_ = BT_DISCOVERY;
-        ESP_LOGI(TAG, "BT_INIT -> DISCOVERY");
+        if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
+        ESP_LOGW(TAG, "[%s] Disconnected", this->char_uuid_.to_string().c_str());
+        this->client_state_ = espbt::ClientState::IDLE;
         break;
-    case BT_DISCOVERY:
-        if (elapsed_time(timer_) < 10000) break;
-        if (found_divoom() == false)
+    case ESP_GATTC_WRITE_CHAR_EVT: 
+        if (param->write.status == 0)
         {
-            ESP_LOGI(TAG, "BT_DISCOVERY -> INIT");
-            bt_status_ = BT_INIT;
             break;
         }
-        ESP_LOGI(TAG, "BT_DISCOVERY -> CONNECTING");
-        bt_status_ = BT_CONNECTING;
-        serialbt_.disconnect();
-        serialbt_.connect(address_);
-        timer_ = get_time();
-        break;
-    case BT_CONNECTING:
-        if (elapsed_time(timer_) > 60000)
+        auto *chr = this->parent()->get_characteristic(this->service_uuid_, this->char_uuid_);
+        if (chr == nullptr) 
         {
-            ESP_LOGI(TAG, "BT_CONNECTING -> INIT");
-            bt_status_ = BT_INIT;
+            ESP_LOGW(TAG, "[%s] Characteristic not found.", this->char_uuid_.to_string().c_str());
             break;
         }
-        if (serialbt_.connected())
+        if (param->write.handle == chr->handle)
         {
-            connected_ = true;
-            if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
-            ESP_LOGI(TAG, "BT_CONNECTING -> CONNECTED");
-            bt_status_ = BT_CONNECTED;
-            break;
+            ESP_LOGW(TAG, "[%s] Write error, status=%d", this->char_uuid_.to_string().c_str(), param->write.status);
         }
         break;
-    case BT_CONNECTED:
-        connected_ = serialbt_.connected();
-        if (connected_)
-        {
-            timer_ = get_time();
-            break;
-        }
-        if (elapsed_time(timer_) > 5000)
-        {
-            serialbt_.disconnect();
-            if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
-            ESP_LOGI(TAG, "BT_CONNECTED -> INIT");
-            bt_status_ = BT_INIT;
-            break;
-        }
+    default:
         break;
     }
-}
-
-bool DivoomDisplay::found_divoom()
-{
-    serialbt_.discoverAsyncStop();
-    BTScanResults* scan_result = serialbt_.getScanResults();
-    if (scan_result->getCount() == 0) return false;
-    for (int i = 0; i < scan_result->getCount(); i++)
-    {
-        BTAdvertisedDevice *device = scan_result->getDevice(i);
-        ESP_LOGI(TAG, "----- %s  %s %d", device->getAddress().toString().c_str(), device->getName().c_str(), device->getRSSI());
-        if (address_str_ == device->getAddress().toString() && device->getName().size() > 0) return true;
-    }
-    return false;
-}
-
-void DivoomDisplay::read_from_bluetooth()
-{
-    rx_parser_.clear();
-    bool valid_data = false;
-    unsigned long timer = get_time();
-    if (connected_ == false) return;
-    while (elapsed_time(timer) < 10)
-    {
-        while (!valid_data && this->serialbt_.available())
-        {
-            uint8_t byte = this->serialbt_.read();
-            if (rx_parser_.parse_byte(byte)) valid_data = true;
-            timer = get_time();
-        }
-        if (valid_data) break;
-        delay(1);
-    }
-}
-
-void DivoomDisplay::write_to_bluetooth()
-{
-    if (connected_ == false) return;
 }
 
 unsigned long DivoomDisplay::elapsed_time(const unsigned long timer)
@@ -357,8 +277,25 @@ void DivoomDisplay::add_color_point(ColorPoint point)
 
 void DivoomDisplay::write_data(const std::vector<uint8_t> &data)
 {
-    if (!connected_) return;
-    this->serialbt_.write(&data[0], data.size());
+    if (this->client_state_ != espbt::ClientState::ESTABLISHED)
+    {
+        ESP_LOGW(TAG, "[%s] Not connected to BLE client.  State update can not be written.", this->char_uuid_.to_string().c_str());
+        return;
+    }
+    auto *chr = this->parent()->get_characteristic(this->service_uuid_, this->char_uuid_);
+    if (chr == nullptr)
+    {
+        ESP_LOGW(TAG, "[%s] Characteristic not found.  State update can not be written.", this->char_uuid_.to_string().c_str());
+        return;
+    }
+    if (this->require_response_)
+    {
+        chr->write_value(&data[0], data.size(), ESP_GATT_WRITE_TYPE_RSP);
+    } 
+    else 
+    {
+        chr->write_value(&data[0], data.size(), ESP_GATT_WRITE_TYPE_NO_RSP);
+    }
     ESP_LOGI(TAG, "Write array-> %s", to_hex_string(data).c_str());
 }
 
@@ -379,20 +316,45 @@ std::string DivoomDisplay::to_hex_string(const std::vector<unsigned char> &data)
 void DivoomDisplay::write_protocol(const std::vector<uint8_t> &data)
 {
     std::vector<uint8_t> buffer;
-    uint32_t length = data.size() + 2;
+    std::vector<uint8_t> option;
+    if (this->require_response_)
+    {
+        option.push_back(0x01);
+        option.push_back(packet_number_ & 0xFF);
+        option.push_back((packet_number_ >> 8) & 0xFF);
+        option.push_back((packet_number_ >> 16) & 0xFF);
+        option.push_back((packet_number_ >> 24) & 0xFF);
+        if (packet_number_ >= std::numeric_limits<uint32_t>::max())
+        {
+            packet_number_ = 1;
+        }
+        else 
+        {
+            packet_number_++;
+        }
+    }
+    else
+    {
+        option.push_back(0x00);
+    }
+    uint16_t length = data.size() + option.size() + 2; //data + checksum
     uint8_t length_low = length & 0xFF;
     uint8_t length_high = (length >> 8) & 0xFF;
-    uint32_t checksum = std::accumulate(data.begin(), data.end(), length_high + length_low);
+    uint16_t checksum = std::accumulate(data.begin(), data.end(), 0);
+    checksum += std::accumulate(option.begin(), option.end(), length_high + length_low);
     uint8_t checksum_low = checksum & 0xFF;
     uint8_t checksum_high = (checksum >> 8) & 0xFF; 
-    buffer.push_back(DIVOOM_HEADER);
+
+    buffer.push_back(0xFE);
+    buffer.push_back(0xEF);
+    buffer.push_back(0xAA);
+    buffer.push_back(0x55);
     buffer.push_back(length_low);
     buffer.push_back(length_high);
+    buffer.insert(buffer.end(), option.begin(), option.end());
     buffer.insert(buffer.end(), data.begin(), data.end());
     buffer.push_back(checksum_low);
     buffer.push_back(checksum_high);
-    buffer.push_back(DIVOOM_FOOTER);
-    write_data(buffer);
 }
 
 
@@ -462,3 +424,4 @@ void Divoom11x11::initialize()
 
 } // namespace divoom
 }  // namespace esphome
+#endif
