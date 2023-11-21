@@ -9,7 +9,7 @@ static const char *const TAG = "bbq10_keyboard";
 void BBQ10Keyboard::setup()
 {
     ESP_LOGCONFIG(TAG, "Setting up BBQ10Keyboard...");
-    this->write_command(_REG_RST);
+    reset();
     if (this->brightness_)
     {
         this->brightness_->add_on_state_callback(std::bind(&BBQ10Keyboard::brightness_callback, this, std::placeholders::_1));
@@ -21,7 +21,7 @@ void BBQ10Keyboard::setup()
     }
     if (this->keyState_)
     {
-        this->keyState_->publish_state(key_state_string(oldEvent_.key));
+        this->keyState_->publish_state(key_state_string(oldEvent_.state));
     }
 }
 
@@ -33,7 +33,7 @@ void BBQ10Keyboard::dump_config()
 void BBQ10Keyboard::loop()
 {
     if (keyCount() == 0) return;
-    const BBQ10Keyboard::KeyEvent event = keyEvent();
+    KeyEvent event = keyEvent();
     if (event.key != oldEvent_.key || event.state != oldEvent_.state)
     {
         if (this->key_)
@@ -42,25 +42,31 @@ void BBQ10Keyboard::loop()
         }
         if (this->keyState_)
         {
-            this->keyState_->publish_state(key_state_string(event.key));
+            this->keyState_->publish_state(key_state_string(event.state));
         }
     }
     oldEvent_ = event;
 }
 
-uint8_t BBQ10Keyboard::status() const
+void BBQ10Keyboard::reset()
+{
+    uint8_t data[1] = { _REG_RST };
+    this->write(data, 1);
+}
+
+uint8_t BBQ10Keyboard::status()
 {
     uint8_t value = 0;
     read_reg_(_REG_KEY, &value);
     return value;
 }
 
-uint8_t BBQ10Keyboard::keyCount() const
+uint8_t BBQ10Keyboard::keyCount()
 {
     return status() & KEY_COUNT_MASK;
 }
 
-BBQ10Keyboard::KeyEvent BBQ10Keyboard::keyEvent() const
+KeyEvent BBQ10Keyboard::keyEvent()
 {
     KeyEvent event = { .key = '\0', .state = StateIdle };
     if (keyCount() == 0) return event;
@@ -71,7 +77,7 @@ BBQ10Keyboard::KeyEvent BBQ10Keyboard::keyEvent() const
     return event;
 }
 
-float BBQ10Keyboard::backlight() const
+float BBQ10Keyboard::backlight()
 {
     uint8_t value = 0;
     read_reg_(_REG_BKL, &value);

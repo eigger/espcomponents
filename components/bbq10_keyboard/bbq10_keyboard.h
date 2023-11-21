@@ -70,7 +70,11 @@ public:
     void loop() override;
     float get_setup_priority() const override { return setup_priority::HARDWARE; }
     void dump_config() override;
-
+    void reset();
+    uint8_t status();
+    uint8_t keyCount();
+    KeyEvent keyEvent();
+    float backlight();
     void set_key(text_sensor::TextSensor *key) { key_ = key; }
     void set_key_state(text_sensor::TextSensor *state) { keyState_ = state; }
     void set_brightness(number::Number *brightness) { brightness_ = brightness; }
