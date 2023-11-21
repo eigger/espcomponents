@@ -8,7 +8,6 @@ from esphome.const import (
     CONF_LAMBDA,
     CONF_MODEL,
     CONF_PAGES,
-    CONF_MAC_ADDRESS,
     CONF_OPTION,
     CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, CONF_DEVICE_CLASS, 
     ICON_NEW_BOX, CONF_STATUS, CONF_CHARACTERISTIC_UUID, CONF_SERVICE_UUID
@@ -123,7 +122,6 @@ async def to_code(config):
         cg.add(var.set_char_uuid128(uuid128))
     cg.add(var.set_require_response(config[CONF_REQUIRE_RESPONSE]))
     cg.add(var.set_model(config[CONF_MODEL]))
-    cg.add(var.set_address(config[CONF_MAC_ADDRESS].as_hex))
     if CONF_VERSION in config:
         sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
         await register_text_sensor(sens, config[CONF_VERSION])
