@@ -37,7 +37,7 @@ struct ColorPoint
     }
 };
 
-class DivoomDisplay : public PollingComponent, public display::DisplayBuffer, public BLEClientNode
+class DivoomDisplay : public PollingComponent, public display::DisplayBuffer, public ble_client::BLEClientNode
 {
 public:
     void set_model(DivoomModel model) { this->model_ = model; }
