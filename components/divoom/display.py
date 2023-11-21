@@ -43,8 +43,8 @@ CONFIG_SCHEMA = cv.All(
     display.FULL_DISPLAY_SCHEMA.extend(
         {
             cv.GenerateID(): cv.declare_id(divoom),
-            cv.Required(CONF_SERVICE_UUID): esp32_ble_tracker.bt_uuid,
-            cv.Required(CONF_CHARACTERISTIC_UUID): esp32_ble_tracker.bt_uuid,
+            cv.Optional(CONF_SERVICE_UUID, default="49535343-FE7D-4AE5-8FA9-9FAFD205E455"): esp32_ble_tracker.bt_uuid,
+            cv.Optional(CONF_CHARACTERISTIC_UUID, default="49535343-8841-43F4-A8D4-ECBE34729BB3"): esp32_ble_tracker.bt_uuid,
             cv.Optional(CONF_REQUIRE_RESPONSE, default=False): cv.boolean,
             cv.Optional(CONF_MODEL, default="ditoo"): Divoom_MODEL,
             cv.Optional(CONF_VERSION, default={CONF_NAME: "Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
