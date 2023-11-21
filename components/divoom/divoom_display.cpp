@@ -66,6 +66,7 @@ void DivoomDisplay::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_
         break;
     case ESP_GATTC_DISCONNECT_EVT:
         connected_ = false;
+        old_image_buffer_.clear();
         if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
         ESP_LOGW(TAG, "[%s] Disconnected", this->char_uuid_.to_string().c_str());
         this->client_state_ = espbt::ClientState::IDLE;
