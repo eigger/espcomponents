@@ -17,11 +17,15 @@ void BBQ10Keyboard::setup()
     }
     if (this->key_)
     {
-        this->key_->publish_state(key_string(oldEvent_.key));
+        this->key_->publish_state("");
     }
     if (this->keyState_)
     {
-        this->keyState_->publish_state(key_state_string(oldEvent_.state));
+        this->keyState_->publish_state("");
+    }
+    if (this->pressedKey_)
+    {
+        this->pressedKey_->publish_state("");
     }
 }
 
@@ -32,10 +36,12 @@ void BBQ10Keyboard::dump_config()
 
 void BBQ10Keyboard::loop()
 {
-    if (keyCount() == 0) return;
-    KeyEvent event = keyEvent();
-    if (event.key != oldEvent_.key || event.state != oldEvent_.state)
+    if (key_count() == 0) return;
+    uint16_t value = key_value();
+    if (value != keyValue_)
     {
+        KeyEvent event = key_event(value);
+        update_key(event);
         if (this->key_)
         {
             this->key_->publish_state(key_string(event.key));
@@ -44,8 +50,18 @@ void BBQ10Keyboard::loop()
         {
             this->keyState_->publish_state(key_state_string(event.state));
         }
+        if (this->pressedKey_)
+        {
+            std::string str;
+            for (const auto& pair : keyMap_)
+            {
+                if (str.size() > 0) str += "+";
+                str += key_string(pair.first);
+            }
+            this->pressedKey_->publish_state(str);
+        }
     }
-    oldEvent_ = event;
+    keyValue_ = value;
 }
 
 void BBQ10Keyboard::reset()
@@ -54,27 +70,26 @@ void BBQ10Keyboard::reset()
     this->write(data, 1);
 }
 
-uint8_t BBQ10Keyboard::status()
+uint8_t BBQ10Keyboard::key_count()
 {
     uint8_t value = 0;
     read_reg_(_REG_KEY, &value);
-    return value;
+    return value & KEY_COUNT_MASK;
 }
 
-uint8_t BBQ10Keyboard::keyCount()
-{
-    return status() & KEY_COUNT_MASK;
-}
-
-KeyEvent BBQ10Keyboard::keyEvent()
+KeyEvent BBQ10Keyboard::key_event(uint16_t value)
 {
     KeyEvent event = { .key = '\0', .state = StateIdle };
-    if (keyCount() == 0) return event;
-    uint16_t value = 0;
-    read_reg16_(_REG_FIF, &value);
     event.key = value >> 8;
     event.state = KeyState(value & 0xFF);
     return event;
+}
+
+uint16_t BBQ10Keyboard::key_value()
+{
+    uint16_t value = 0;
+    read_reg16_(_REG_FIF, &value);
+    return value;
 }
 
 float BBQ10Keyboard::backlight()
@@ -129,6 +144,18 @@ std::string BBQ10Keyboard::key_state_string(KeyState state)
         return "Release";
     }
     return "Idle"; 
+}
+
+void BBQ10Keyboard::update_key(KeyEvent event)
+{
+    if (event.state == StatePress || event.state == StateLongPress)
+    {
+        keyMap_[event.key] = event.state;
+    }
+    else
+    {
+        keyMap_.erase(event.key);
+    }
 }
 
 }  // namespace bbq10_keyboard

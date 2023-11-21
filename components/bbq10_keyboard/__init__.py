@@ -10,6 +10,7 @@ from esphome.const import (
 CONF_BRIGHTNESS = "brightness"
 CONF_KEY = "key"
 CONF_KEY_STATE = "key_state"
+CONF_PRESSED_KEY = "pressed_key"
 AUTO_LOAD = ["text_sensor", "number"]
 CODEOWNERS = ["@eigger"]
 DEPENDENCIES = ["i2c"]
@@ -28,6 +29,10 @@ CONFIG_SCHEMA = (
                 cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
             }),
             cv.Optional(CONF_KEY_STATE, default={CONF_NAME: "KeyState"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
+            {
+                cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
+            }),
+            cv.Optional(CONF_PRESSED_KEY, default={CONF_NAME: "PressedKey"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
             {
                 cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
             }),
@@ -54,11 +59,15 @@ async def to_code(config):
         sens = cg.new_Pvariable(config[CONF_KEY_STATE][CONF_ID])
         await register_text_sensor(sens, config[CONF_KEY_STATE])
         cg.add(var.set_key_state(sens))
+    if CONF_PRESSED_KEY in config:
+        sens = cg.new_Pvariable(config[CONF_PRESSED_KEY][CONF_ID])
+        await register_text_sensor(sens, config[CONF_PRESSED_KEY])
+        cg.add(var.set_pressed_key(sens))
     if CONF_BRIGHTNESS in config:
         sens = cg.new_Pvariable(config[CONF_BRIGHTNESS][CONF_ID])
         await number.register_number(sens, config[CONF_BRIGHTNESS],
             min_value = 0,
             max_value = 100,
-            step = 0x01)
+            step = 1)
         cg.add(var.set_brightness(sens))
 

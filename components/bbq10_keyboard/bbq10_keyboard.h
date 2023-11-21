@@ -5,6 +5,7 @@
 #include "esphome/components/i2c/i2c.h"
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/components/number/number.h"
+#include <unordered_map>
 
 namespace esphome {
 namespace bbq10_keyboard {
@@ -71,12 +72,13 @@ public:
     float get_setup_priority() const override { return setup_priority::HARDWARE; }
     void dump_config() override;
     void reset();
-    uint8_t status();
-    uint8_t keyCount();
-    KeyEvent keyEvent();
+    uint8_t key_count();
+    KeyEvent key_event(uint16_t value);
+    uint16_t key_value();
     float backlight();
     void set_key(text_sensor::TextSensor *key) { key_ = key; }
     void set_key_state(text_sensor::TextSensor *state) { keyState_ = state; }
+    void set_pressed_key(text_sensor::TextSensor *key) { pressedKey_ = key; }
     void set_brightness(number::Number *brightness) { brightness_ = brightness; }
     void set_backlight(float value);
     void brightness_callback(float value);
@@ -88,11 +90,14 @@ protected:
     bool write_reg_(uint8_t reg, uint8_t value);
     std::string key_string(char key);
     std::string key_state_string(KeyState state);
+    void update_key(KeyEvent event);
 
     text_sensor::TextSensor *key_{nullptr};
     text_sensor::TextSensor *keyState_{nullptr};
+    text_sensor::TextSensor *pressedKey_{nullptr};
     number::Number *brightness_{nullptr};
-    KeyEvent oldEvent_{ .key = '\0', .state = StateIdle };
+    uint16_t keyValue_{0};
+    std::unordered_map<char, KeyState> keyMap_;
 };
 
 class Brightness : public number::Number
