@@ -46,7 +46,6 @@ void DivoomDisplay::setup()
         this->brightness_->add_on_state_callback(std::bind(&DivoomDisplay::brightness_callback, this, std::placeholders::_1));
         this->brightness_->publish_state(100);
     }
-    serialbt_.begin("ESPHOME", true);
     ESP_LOGI(TAG, "Initaialize.");
 }
 
@@ -86,8 +85,6 @@ void DivoomDisplay::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_
         {
             ESP_LOGW(TAG, "[%s] Write error, status=%d", this->char_uuid_.to_string().c_str(), param->write.status);
         }
-        break;
-    default:
         break;
     }
 }
