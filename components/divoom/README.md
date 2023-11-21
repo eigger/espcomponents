@@ -59,9 +59,7 @@ text:
 
 display:
   - platform: divoom
-    service_uuid: '49535343-FE7D-4AE5-8FA9-9FAFD205E455'
-    characteristic_uuid: '49535343-8841-43F4-A8D4-ECBE34729BB3'
-    update_interval: 30s
+    update_interval: 100ms
     lambda: |-
       std::string message = id(id_text).state;
       if (message.size() > 0)
