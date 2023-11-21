@@ -99,8 +99,8 @@ protected:
     uint16_t x_high_{0};
     uint16_t y_high_{0};
 
-    void write_data(const std::vector<uint8_t> &data);
-    void write_protocol(const std::vector<uint8_t> &data);
+    void write_data(std::vector<uint8_t> &data);
+    void write_protocol(std::vector<uint8_t> &data);
     std::string to_hex_string(const std::vector<unsigned char> &data);
 
     text_sensor::TextSensor *version_{nullptr};

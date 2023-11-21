@@ -272,7 +272,7 @@ void DivoomDisplay::add_color_point(ColorPoint point)
     display_list_.push_back(point);
 }
 
-void DivoomDisplay::write_data(const std::vector<uint8_t> &data)
+void DivoomDisplay::write_data(std::vector<uint8_t> &data)
 {
     if (this->client_state_ != espbt::ClientState::ESTABLISHED)
     {
@@ -287,11 +287,11 @@ void DivoomDisplay::write_data(const std::vector<uint8_t> &data)
     }
     if (this->require_response_)
     {
-        chr->write_value(data.data(), data.size(), ESP_GATT_WRITE_TYPE_RSP);
+        chr->write_value(&data[0], data.size(), ESP_GATT_WRITE_TYPE_RSP);
     } 
     else 
     {
-        chr->write_value(data.data(), data.size(), ESP_GATT_WRITE_TYPE_NO_RSP);
+        chr->write_value(&data[0], data.size(), ESP_GATT_WRITE_TYPE_NO_RSP);
     }
     ESP_LOGI(TAG, "Write array-> %s", to_hex_string(data).c_str());
 }
@@ -310,7 +310,7 @@ std::string DivoomDisplay::to_hex_string(const std::vector<unsigned char> &data)
     return res;
 }
 
-void DivoomDisplay::write_protocol(const std::vector<uint8_t> &data)
+void DivoomDisplay::write_protocol(std::vector<uint8_t> &data)
 {
     std::vector<uint8_t> buffer;
     std::vector<uint8_t> option;
@@ -352,6 +352,7 @@ void DivoomDisplay::write_protocol(const std::vector<uint8_t> &data)
     buffer.insert(buffer.end(), data.begin(), data.end());
     buffer.push_back(checksum_low);
     buffer.push_back(checksum_high);
+    write_data(buffer);
 }
 
 
