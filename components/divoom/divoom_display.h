@@ -6,25 +6,21 @@
 #include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/select/select.h"
 #include "esphome/components/number/number.h"
-#include "BluetoothSerial.h"
-#include "parser.h"
-#include "divoom_defines.h"
+#include "esphome/components/ble_client/ble_client.h"
+#include "esphome/components/esp32_ble_tracker/esp32_ble_tracker.h"
+#include "version.h"
 
+
+#ifdef USE_ESP32
+#include <esp_gattc_api.h>
 namespace esphome {
 namespace divoom {
 
+namespace espbt = esphome::esp32_ble_tracker;
 enum DivoomModel
 {
     DITOO = 0,
     DIVOOM11,
-};
-
-enum BTStatus
-{
-    BT_INIT = 0,
-    BT_DISCOVERY,
-    BT_CONNECTING,
-    BT_CONNECTED
 };
 
 struct ColorPoint
@@ -40,7 +36,7 @@ struct ColorPoint
     }
 };
 
-class DivoomDisplay : public PollingComponent, public display::DisplayBuffer
+class DivoomDisplay : public PollingComponent, public display::DisplayBuffer, public ble_client::BLEClientNode
 {
 public:
     void set_model(DivoomModel model) { this->model_ = model; }
@@ -56,7 +52,14 @@ public:
     void dump_config() override;
     void setup() override;
     void loop() override;
-    void set_address(uint64_t address);
+    void set_service_uuid16(uint16_t uuid) { this->service_uuid_ = espbt::ESPBTUUID::from_uint16(uuid); }
+    void set_service_uuid32(uint32_t uuid) { this->service_uuid_ = espbt::ESPBTUUID::from_uint32(uuid); }
+    void set_service_uuid128(uint8_t *uuid) { this->service_uuid_ = espbt::ESPBTUUID::from_raw(uuid); }
+    void set_char_uuid16(uint16_t uuid) { this->char_uuid_ = espbt::ESPBTUUID::from_uint16(uuid); }
+    void set_char_uuid32(uint32_t uuid) { this->char_uuid_ = espbt::ESPBTUUID::from_uint32(uuid); }
+    void set_char_uuid128(uint8_t *uuid) { this->char_uuid_ = espbt::ESPBTUUID::from_raw(uuid); }
+    void gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param) override;
+    void set_require_response(bool response) { this->require_response_ = response; }
     void set_version(text_sensor::TextSensor *version) { version_ = version; }
     void set_bt_connected(binary_sensor::BinarySensor *bt_connected) { bt_connected_ = bt_connected; } 
     void set_select_time(select::Select *select_time) { select_time_ = select_time; }
@@ -76,25 +79,17 @@ protected:
     bool is_display_empty();
     void shift_image();
     void display_();
-    void connect_to_device();
-    bool found_divoom();
-    void read_from_bluetooth();
-    void write_to_bluetooth();
     unsigned long elapsed_time(const unsigned long timer);
     unsigned long get_time();
-    BluetoothSerial serialbt_;
-    BTStatus bt_status_{BT_INIT};
     bool connected_{false};
     unsigned long timer_{0};
-    Parser rx_parser_{};
     DivoomModel model_;
     std::vector<Color> image_buffer_;
     std::vector<ColorPoint> display_list_;
     std::vector<Color> old_image_buffer_;
     Color background_color_{Color::BLACK};
     int32_t width_shift_offset_{0};
-    uint8_t address_[6];
-    std::string address_str_;
+    uint32_t packet_number_{1}; 
     int16_t width_{16};  ///< Display width as modified by current rotation
     int16_t height_{16}; ///< Display height as modified by current rotation
     uint16_t x_low_{0};
@@ -102,14 +97,19 @@ protected:
     uint16_t x_high_{0};
     uint16_t y_high_{0};
 
-    void write_data(const std::vector<uint8_t> &data);
-    void write_protocol(const std::vector<uint8_t> &data);
+    void write_data(std::vector<uint8_t> &data);
+    void write_protocol(std::vector<uint8_t> &data);
     std::string to_hex_string(const std::vector<unsigned char> &data);
 
     text_sensor::TextSensor *version_{nullptr};
     binary_sensor::BinarySensor *bt_connected_{nullptr};
     select::Select *select_time_{nullptr};
     number::Number *brightness_{nullptr};
+
+    bool require_response_;
+    espbt::ESPBTUUID service_uuid_;
+    espbt::ESPBTUUID char_uuid_;
+    espbt::ClientState client_state_;
 };
 
 class DivoomDitoo : public DivoomDisplay
@@ -146,3 +146,4 @@ public:
 
 }  // namespace divoom
 }  // namespace esphome
+#endif

@@ -1,24 +1,28 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome import pins
-from esphome.components import display, text_sensor, binary_sensor, select, number
+from esphome.components import ble_client, esp32_ble_tracker, display, text_sensor, binary_sensor, select, number
 from esphome.components.text_sensor import register_text_sensor
 from esphome.const import (
     CONF_ID,
     CONF_LAMBDA,
     CONF_MODEL,
     CONF_PAGES,
-    CONF_MAC_ADDRESS,
     CONF_OPTION,
-    CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, CONF_DEVICE_CLASS, ICON_NEW_BOX, CONF_STATUS
+    CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, CONF_DEVICE_CLASS, 
+    ICON_NEW_BOX, CONF_STATUS, CONF_CHARACTERISTIC_UUID, CONF_SERVICE_UUID
 )
+
 CONF_TYPE = "type"
 CONF_BRIGHTNESS = "brightness"
+CONF_REQUIRE_RESPONSE = "require_response"
+
 AUTO_LOAD = ["text_sensor", "select", "binary_sensor", "number"]
+DEPENDENCIES = ["ble_client"]
 CODEOWNERS = ["@eigger"]
 divoom_ns = cg.esphome_ns.namespace("divoom")
 divoom = divoom_ns.class_(
-    "DivoomDisplay", cg.PollingComponent, display.DisplayBuffer
+    "DivoomDisplay", cg.PollingComponent, display.DisplayBuffer, ble_client.BLEClientNode
 )
 
 DivoomDitoo = divoom_ns.class_("DivoomDitoo", divoom)
@@ -39,8 +43,10 @@ CONFIG_SCHEMA = cv.All(
     display.FULL_DISPLAY_SCHEMA.extend(
         {
             cv.GenerateID(): cv.declare_id(divoom),
+            cv.Optional(CONF_SERVICE_UUID, default="49535343-FE7D-4AE5-8FA9-9FAFD205E455"): esp32_ble_tracker.bt_uuid,
+            cv.Optional(CONF_CHARACTERISTIC_UUID, default="49535343-8841-43F4-A8D4-ECBE34729BB3"): esp32_ble_tracker.bt_uuid,
+            cv.Optional(CONF_REQUIRE_RESPONSE, default=False): cv.boolean,
             cv.Optional(CONF_MODEL, default="ditoo"): Divoom_MODEL,
-            cv.Required(CONF_MAC_ADDRESS): cv.mac_address,
             cv.Optional(CONF_VERSION, default={CONF_NAME: "Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
             {
                 cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
@@ -64,7 +70,8 @@ CONFIG_SCHEMA = cv.All(
             }),
         }
     )
-    .extend(cv.polling_component_schema("1s")),
+    .extend(cv.polling_component_schema("1s"))
+    .extend(ble_client.BLE_CLIENT_SCHEMA),
     cv.has_at_most_one_key(CONF_PAGES, CONF_LAMBDA),
 )
 
@@ -79,8 +86,42 @@ async def to_code(config):
 
     await cg.register_component(var, config)
     await display.register_display(var, config)
+    await ble_client.register_ble_node(var, config)
+    if len(config[CONF_SERVICE_UUID]) == len(esp32_ble_tracker.bt_uuid16_format):
+        cg.add(
+            var.set_service_uuid16(esp32_ble_tracker.as_hex(config[CONF_SERVICE_UUID]))
+        )
+    elif len(config[CONF_SERVICE_UUID]) == len(esp32_ble_tracker.bt_uuid32_format):
+        cg.add(
+            var.set_service_uuid32(esp32_ble_tracker.as_hex(config[CONF_SERVICE_UUID]))
+        )
+    elif len(config[CONF_SERVICE_UUID]) == len(esp32_ble_tracker.bt_uuid128_format):
+        uuid128 = esp32_ble_tracker.as_reversed_hex_array(config[CONF_SERVICE_UUID])
+        cg.add(var.set_service_uuid128(uuid128))
+
+    if len(config[CONF_CHARACTERISTIC_UUID]) == len(esp32_ble_tracker.bt_uuid16_format):
+        cg.add(
+            var.set_char_uuid16(
+                esp32_ble_tracker.as_hex(config[CONF_CHARACTERISTIC_UUID])
+            )
+        )
+    elif len(config[CONF_CHARACTERISTIC_UUID]) == len(
+        esp32_ble_tracker.bt_uuid32_format
+    ):
+        cg.add(
+            var.set_char_uuid32(
+                esp32_ble_tracker.as_hex(config[CONF_CHARACTERISTIC_UUID])
+            )
+        )
+    elif len(config[CONF_CHARACTERISTIC_UUID]) == len(
+        esp32_ble_tracker.bt_uuid128_format
+    ):
+        uuid128 = esp32_ble_tracker.as_reversed_hex_array(
+            config[CONF_CHARACTERISTIC_UUID]
+        )
+        cg.add(var.set_char_uuid128(uuid128))
+    cg.add(var.set_require_response(config[CONF_REQUIRE_RESPONSE]))
     cg.add(var.set_model(config[CONF_MODEL]))
-    cg.add(var.set_address(config[CONF_MAC_ADDRESS].as_hex))
     if CONF_VERSION in config:
         sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
         await register_text_sensor(sens, config[CONF_VERSION])
@@ -119,4 +160,3 @@ async def to_code(config):
             config[CONF_LAMBDA], [(display.DisplayRef, "it")], return_type=cg.void
         )
         cg.add(var.set_writer(lambda_))
-    cg.add_library("BluetoothSerial", None)
