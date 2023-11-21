@@ -8,7 +8,6 @@
 #include "esphome/components/number/number.h"
 #include "esphome/components/ble_client/ble_client.h"
 #include "esphome/components/esp32_ble_tracker/esp32_ble_tracker.h"
-#include "parser.h"
 #include "version.h"
 
 
@@ -84,7 +83,6 @@ protected:
     unsigned long get_time();
     bool connected_{false};
     unsigned long timer_{0};
-    Parser rx_parser_{};
     DivoomModel model_;
     std::vector<Color> image_buffer_;
     std::vector<ColorPoint> display_list_;
