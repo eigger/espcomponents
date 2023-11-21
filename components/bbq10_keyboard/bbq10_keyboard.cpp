@@ -41,7 +41,7 @@ void BBQ10Keyboard::loop()
     if (value != keyValue_)
     {
         KeyEvent event = key_event(value);
-        update_key(event);
+        update_key_map(event);
         if (this->key_)
         {
             this->key_->publish_state(key_string(event.key));
@@ -52,13 +52,7 @@ void BBQ10Keyboard::loop()
         }
         if (this->pressedKey_)
         {
-            std::string str;
-            for (const auto& pair : keyMap_)
-            {
-                if (str.size() > 0) str += "+";
-                str += key_string(pair.first);
-            }
-            this->pressedKey_->publish_state(str);
+            this->pressedKey_->publish_state(key_map_string(keyMap_));
         }
     }
     keyValue_ = value;
@@ -146,7 +140,18 @@ std::string BBQ10Keyboard::key_state_string(KeyState state)
     return "Idle"; 
 }
 
-void BBQ10Keyboard::update_key(KeyEvent event)
+std::string BBQ10Keyboard::key_map_string(std::unordered_map<char, KeyState> map)
+{
+    std::string str;
+    for (const auto& pair : map)
+    {
+        if (str.size() > 0) str += "+";
+        str += key_string(pair.first);
+    }
+    return str;
+}
+
+void BBQ10Keyboard::update_key_map(KeyEvent event)
 {
     if (event.state == StatePress || event.state == StateLongPress)
     {

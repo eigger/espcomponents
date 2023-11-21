@@ -90,7 +90,8 @@ protected:
     bool write_reg_(uint8_t reg, uint8_t value);
     std::string key_string(char key);
     std::string key_state_string(KeyState state);
-    void update_key(KeyEvent event);
+    std::string key_map_string(std::unordered_map<char, KeyState> map);
+    void update_key_map(KeyEvent event);
 
     text_sensor::TextSensor *key_{nullptr};
     text_sensor::TextSensor *keyState_{nullptr};
