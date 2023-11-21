@@ -287,11 +287,11 @@ void DivoomDisplay::write_data(const std::vector<uint8_t> &data)
     }
     if (this->require_response_)
     {
-        chr->write_value(&data[0], data.size(), ESP_GATT_WRITE_TYPE_RSP);
+        chr->write_value(data.data(), data.size(), ESP_GATT_WRITE_TYPE_RSP);
     } 
     else 
     {
-        chr->write_value(&data[0], data.size(), ESP_GATT_WRITE_TYPE_NO_RSP);
+        chr->write_value(data.data(), data.size(), ESP_GATT_WRITE_TYPE_NO_RSP);
     }
     ESP_LOGI(TAG, "Write array-> %s", to_hex_string(data).c_str());
 }
