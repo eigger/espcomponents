@@ -275,18 +275,18 @@ void DivoomDisplay::add_color_point(ColorPoint point)
     display_list_.push_back(point);
 }
 
-void DivoomDisplay::write_data(std::vector<uint8_t> &data)
+bool DivoomDisplay::write_data(std::vector<uint8_t> &data)
 {
     if (this->client_state_ != espbt::ClientState::ESTABLISHED)
     {
         ESP_LOGW(TAG, "[%s] Not connected to BLE client.  State update can not be written.", this->char_uuid_.to_string().c_str());
-        return;
+        return false;
     }
     auto *chr = this->parent()->get_characteristic(this->service_uuid_, this->char_uuid_);
     if (chr == nullptr)
     {
         ESP_LOGW(TAG, "[%s] Characteristic not found.  State update can not be written.", this->char_uuid_.to_string().c_str());
-        return;
+        return false;
     }
     if (this->require_response_)
     {
@@ -297,6 +297,7 @@ void DivoomDisplay::write_data(std::vector<uint8_t> &data)
         chr->write_value(&data[0], data.size(), ESP_GATT_WRITE_TYPE_NO_RSP);
     }
     ESP_LOGI(TAG, "Write array-> %s", to_hex_string(data).c_str());
+    return true;
 }
 
 std::string DivoomDisplay::to_hex_string(const std::vector<unsigned char> &data)
@@ -313,7 +314,7 @@ std::string DivoomDisplay::to_hex_string(const std::vector<unsigned char> &data)
     return res;
 }
 
-void DivoomDisplay::write_protocol(std::vector<uint8_t> &data)
+bool DivoomDisplay::write_protocol(std::vector<uint8_t> &data)
 {
     std::vector<uint8_t> buffer;
     std::vector<uint8_t> option;
@@ -355,7 +356,7 @@ void DivoomDisplay::write_protocol(std::vector<uint8_t> &data)
     buffer.insert(buffer.end(), data.begin(), data.end());
     buffer.push_back(checksum_low);
     buffer.push_back(checksum_high);
-    write_data(buffer);
+    return write_data(buffer);
 }
 
 
@@ -406,7 +407,7 @@ void DivoomDisplay::set_divoom_brightness(uint8_t value)
     write_protocol(protocol);
 }
 
-void DivoomDisplay::set_divoom_time(uint8_t hours, uint8_t minutes, uint8_t seconds)
+bool DivoomDisplay::set_divoom_time(uint8_t hours, uint8_t minutes, uint8_t seconds)
 {
     std::vector<uint8_t> protocol;
     protocol.push_back(0x18);
@@ -418,7 +419,7 @@ void DivoomDisplay::set_divoom_time(uint8_t hours, uint8_t minutes, uint8_t seco
     protocol.push_back(minutes);
     protocol.push_back(seconds);
     protocol.push_back(0x05);
-    write_protocol(protocol);
+    return write_protocol(protocol);
 }
 
 
@@ -435,8 +436,7 @@ void DivoomDisplay::sync_time_()
         return;
     }
     time.recalc_timestamp_utc(true);  // calculate timestamp of local time
-    set_divoom_time(time.hour, time.minute, time.second);
-    synced_time_ = true;
+    synced_time_ = set_divoom_time(time.hour, time.minute, time.second);
 }
 
 

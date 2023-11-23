@@ -67,7 +67,7 @@ public:
     void select_time_callback(std::string value, size_t index);
     void set_brightness(number::Number *brightness) { brightness_ = brightness; }
     void set_divoom_brightness(uint8_t value);
-    void set_divoom_time(uint8_t hours, uint8_t minutes, uint8_t seconds);
+    bool set_divoom_time(uint8_t hours, uint8_t minutes, uint8_t seconds);
     void brightness_callback(float value);
     void set_time(time::RealTimeClock *time) { this->time_ = time; };
 
@@ -101,8 +101,8 @@ protected:
     uint16_t x_high_{0};
     uint16_t y_high_{0};
 
-    void write_data(std::vector<uint8_t> &data);
-    void write_protocol(std::vector<uint8_t> &data);
+    bool write_data(std::vector<uint8_t> &data);
+    bool write_protocol(std::vector<uint8_t> &data);
     std::string to_hex_string(const std::vector<unsigned char> &data);
 
     text_sensor::TextSensor *version_{nullptr};
