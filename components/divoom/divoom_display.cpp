@@ -62,6 +62,9 @@ void DivoomDisplay::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_
         connected_ = true;
         if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
         this->client_state_ = espbt::ClientState::ESTABLISHED;
+#ifdef USE_TIME
+        this->sync_time_();
+#endif
         ESP_LOGW(TAG, "[%s] Connected successfully!", this->char_uuid_.to_string().c_str());
         break;
     case ESP_GATTC_DISCONNECT_EVT:
@@ -403,6 +406,37 @@ void DivoomDisplay::set_divoom_brightness(uint8_t value)
     protocol.push_back(value);
     write_protocol(protocol);
 }
+
+void DivoomDisplay::set_divoom_time(uint8_t hours, uint8_t minutes, uint8_t seconds)
+{
+    std::vector<uint8_t> protocol;
+    protocol.push_back(0x18);
+    protocol.push_back(0x11);
+    protocol.push_back(0x14);
+    protocol.push_back(0x0B);
+    protocol.push_back(0x1C);
+    protocol.push_back(hours);
+    protocol.push_back(minutes);
+    protocol.push_back(seconds);
+    protocol.push_back(0x05);
+    write_protocol(protocol);
+}
+
+
+#ifdef USE_TIME
+void DivoomDisplay::sync_time_()
+{
+    if (this->time_ == nullptr) return;
+    auto time = this->time_->now();
+    if (!time.is_valid())
+    {
+        ESP_LOGW(TAG, "[%s] Time is not yet valid.  Time can not be synced.", this->parent_->address_str().c_str());
+        return;
+    }
+    time.recalc_timestamp_utc(true);  // calculate timestamp of local time
+    set_divoom_time(time.hour, time.minute, time.second);
+}
+#endif
 
 void DivoomDisplay::brightness_callback(float value)
 {
