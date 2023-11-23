@@ -117,6 +117,7 @@ protected:
 
     void sync_time_();
     time::RealTimeClock *time_{nullptr};
+    bool synced_time_{false};
 };
 
 class DivoomDitoo : public DivoomDisplay

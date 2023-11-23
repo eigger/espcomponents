@@ -24,6 +24,7 @@ void DivoomDisplay::dump_config()
 
 void DivoomDisplay::update()
 {
+    this->sync_time_();
     this->do_update_();
     this->display_();
 }
@@ -62,11 +63,11 @@ void DivoomDisplay::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_
         connected_ = true;
         if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
         this->client_state_ = espbt::ClientState::ESTABLISHED;
-        this->sync_time_();
         ESP_LOGW(TAG, "[%s] Connected successfully!", this->char_uuid_.to_string().c_str());
         break;
     case ESP_GATTC_DISCONNECT_EVT:
         connected_ = false;
+        synced_time_ = false;
         old_image_buffer_.clear();
         if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
         ESP_LOGW(TAG, "[%s] Disconnected", this->char_uuid_.to_string().c_str());
@@ -424,6 +425,8 @@ void DivoomDisplay::set_divoom_time(uint8_t hours, uint8_t minutes, uint8_t seco
 
 void DivoomDisplay::sync_time_()
 {
+    if (synced_time_) return;
+    if (!connected_) return;
     if (this->time_ == nullptr) return;
     auto time = this->time_->now();
     if (!time.is_valid())
@@ -433,6 +436,7 @@ void DivoomDisplay::sync_time_()
     }
     time.recalc_timestamp_utc(true);  // calculate timestamp of local time
     set_divoom_time(time.hour, time.minute, time.second);
+    synced_time_ = true;
 }
 
 
