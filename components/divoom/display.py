@@ -1,14 +1,14 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome import pins
-from esphome.components import ble_client, esp32_ble_tracker, display, text_sensor, binary_sensor, select, number
+from esphome.components import ble_client, esp32_ble_tracker, display, text_sensor, binary_sensor, select, number, time
 from esphome.components.text_sensor import register_text_sensor
 from esphome.const import (
     CONF_ID,
     CONF_LAMBDA,
     CONF_MODEL,
     CONF_PAGES,
-    CONF_OPTION,
+    CONF_TIME_ID,
     CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, CONF_DEVICE_CLASS, 
     ICON_NEW_BOX, CONF_STATUS, CONF_CHARACTERISTIC_UUID, CONF_SERVICE_UUID
 )
@@ -47,6 +47,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_CHARACTERISTIC_UUID, default="49535343-8841-43F4-A8D4-ECBE34729BB3"): esp32_ble_tracker.bt_uuid,
             cv.Optional(CONF_REQUIRE_RESPONSE, default=False): cv.boolean,
             cv.Optional(CONF_MODEL, default="ditoo"): Divoom_MODEL,
+            cv.Optional(CONF_TIME_ID): cv.use_id(time.RealTimeClock),
             cv.Optional(CONF_VERSION, default={CONF_NAME: "Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
             {
                 cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
@@ -122,6 +123,9 @@ async def to_code(config):
         cg.add(var.set_char_uuid128(uuid128))
     cg.add(var.set_require_response(config[CONF_REQUIRE_RESPONSE]))
     cg.add(var.set_model(config[CONF_MODEL]))
+    if CONF_TIME_ID in config:
+        time_ = await cg.get_variable(config[CONF_TIME_ID])
+        cg.add(var.set_time(time_))
     if CONF_VERSION in config:
         sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
         await register_text_sensor(sens, config[CONF_VERSION])

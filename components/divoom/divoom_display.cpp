@@ -46,11 +46,13 @@ void DivoomDisplay::setup()
         this->brightness_->add_on_state_callback(std::bind(&DivoomDisplay::brightness_callback, this, std::placeholders::_1));
         this->brightness_->publish_state(100);
     }
+    timer_ = get_time();
     ESP_LOGI(TAG, "Initaialize.");
 }
 
 void DivoomDisplay::loop()
 {
+    this->sync_time_();
 }
 
 
@@ -66,6 +68,7 @@ void DivoomDisplay::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_
         break;
     case ESP_GATTC_DISCONNECT_EVT:
         connected_ = false;
+        synced_time_ = false;
         old_image_buffer_.clear();
         if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
         ESP_LOGW(TAG, "[%s] Disconnected", this->char_uuid_.to_string().c_str());
@@ -273,18 +276,18 @@ void DivoomDisplay::add_color_point(ColorPoint point)
     display_list_.push_back(point);
 }
 
-void DivoomDisplay::write_data(std::vector<uint8_t> &data)
+bool DivoomDisplay::write_data(std::vector<uint8_t> &data)
 {
     if (this->client_state_ != espbt::ClientState::ESTABLISHED)
     {
         ESP_LOGW(TAG, "[%s] Not connected to BLE client.  State update can not be written.", this->char_uuid_.to_string().c_str());
-        return;
+        return false;
     }
     auto *chr = this->parent()->get_characteristic(this->service_uuid_, this->char_uuid_);
     if (chr == nullptr)
     {
         ESP_LOGW(TAG, "[%s] Characteristic not found.  State update can not be written.", this->char_uuid_.to_string().c_str());
-        return;
+        return false;
     }
     if (this->require_response_)
     {
@@ -295,6 +298,7 @@ void DivoomDisplay::write_data(std::vector<uint8_t> &data)
         chr->write_value(&data[0], data.size(), ESP_GATT_WRITE_TYPE_NO_RSP);
     }
     ESP_LOGI(TAG, "Write array-> %s", to_hex_string(data).c_str());
+    return true;
 }
 
 std::string DivoomDisplay::to_hex_string(const std::vector<unsigned char> &data)
@@ -311,7 +315,7 @@ std::string DivoomDisplay::to_hex_string(const std::vector<unsigned char> &data)
     return res;
 }
 
-void DivoomDisplay::write_protocol(std::vector<uint8_t> &data)
+bool DivoomDisplay::write_protocol(std::vector<uint8_t> &data)
 {
     std::vector<uint8_t> buffer;
     std::vector<uint8_t> option;
@@ -353,7 +357,7 @@ void DivoomDisplay::write_protocol(std::vector<uint8_t> &data)
     buffer.insert(buffer.end(), data.begin(), data.end());
     buffer.push_back(checksum_low);
     buffer.push_back(checksum_high);
-    write_data(buffer);
+    return write_data(buffer);
 }
 
 
@@ -403,6 +407,49 @@ void DivoomDisplay::set_divoom_brightness(uint8_t value)
     protocol.push_back(value);
     write_protocol(protocol);
 }
+
+bool DivoomDisplay::set_divoom_time(uint8_t hours, uint8_t minutes, uint8_t seconds)
+{
+    std::vector<uint8_t> protocol;
+    protocol.push_back(0x18);
+    protocol.push_back(0x11);
+    protocol.push_back(0x14);
+    protocol.push_back(0x0B);
+    protocol.push_back(0x1C);
+    protocol.push_back(hours);
+    protocol.push_back(minutes);
+    protocol.push_back(seconds);
+    protocol.push_back(0x05);
+    return write_protocol(protocol);
+}
+
+
+
+void DivoomDisplay::sync_time_()
+{
+
+    if (!connected_) return;
+    if (this->time_ == nullptr) return;
+    if (synced_time_)
+    {
+        if (elapsed_time(timer_) < 1000) return;
+    }
+    else
+    {
+        if (elapsed_time(timer_) < 1000 * 60 * 60 * 24) return;
+    }
+
+    timer_ = get_time();
+    auto time = this->time_->now();
+    if (!time.is_valid())
+    {
+        ESP_LOGW(TAG, "[%s] Time is not yet valid.  Time can not be synced.", this->parent_->address_str().c_str());
+        return;
+    }
+    time.recalc_timestamp_utc(true);  // calculate timestamp of local time
+    synced_time_ = set_divoom_time(time.hour, time.minute, time.second);
+}
+
 
 void DivoomDisplay::brightness_callback(float value)
 {

@@ -57,9 +57,19 @@ text:
     mode: text
     id: id_text
 
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: Asia/Seoul
+    servers: 
+      - 0.pool.ntp.org
+      - 1.pool.ntp.org
+      - 2.pool.ntp.org
+
 display:
   - platform: divoom
     update_interval: 100ms
+    time_id: sntp_time
     lambda: |-
       std::string message = id(id_text).state;
       if (message.size() > 0)
