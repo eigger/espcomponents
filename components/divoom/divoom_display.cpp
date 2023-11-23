@@ -24,7 +24,6 @@ void DivoomDisplay::dump_config()
 
 void DivoomDisplay::update()
 {
-    this->sync_time_();
     this->do_update_();
     this->display_();
 }
@@ -47,11 +46,13 @@ void DivoomDisplay::setup()
         this->brightness_->add_on_state_callback(std::bind(&DivoomDisplay::brightness_callback, this, std::placeholders::_1));
         this->brightness_->publish_state(100);
     }
+    timer_ = get_time();
     ESP_LOGI(TAG, "Initaialize.");
 }
 
 void DivoomDisplay::loop()
 {
+    this->sync_time_();
 }
 
 
@@ -426,9 +427,19 @@ bool DivoomDisplay::set_divoom_time(uint8_t hours, uint8_t minutes, uint8_t seco
 
 void DivoomDisplay::sync_time_()
 {
-    if (synced_time_) return;
+
     if (!connected_) return;
     if (this->time_ == nullptr) return;
+    if (synced_time_)
+    {
+        if (elapsed_time(timer_) < 1000) return;
+    }
+    else
+    {
+        if (elapsed_time(timer_) < 1000 * 60 * 60 * 24) return;
+    }
+
+    timer_ = get_time();
     auto time = this->time_->now();
     if (!time.is_valid())
     {
