@@ -8,14 +8,12 @@
 #include "esphome/components/number/number.h"
 #include "esphome/components/ble_client/ble_client.h"
 #include "esphome/components/esp32_ble_tracker/esp32_ble_tracker.h"
+#include "esphome/components/time/real_time_clock.h"
 #include "version.h"
 
 
 #ifdef USE_ESP32
 #include <esp_gattc_api.h>
-#ifdef USE_TIME
-#include "esphome/components/time/real_time_clock.h"
-#endif
 namespace esphome {
 namespace divoom {
 
@@ -71,9 +69,8 @@ public:
     void set_divoom_brightness(uint8_t value);
     void set_divoom_time(uint8_t hours, uint8_t minutes, uint8_t seconds);
     void brightness_callback(float value);
-#ifdef USE_TIME
     void set_time(time::RealTimeClock *time) { this->time_ = time; };
-#endif
+
 protected:
     void draw_absolute_pixel_internal(int x, int y, Color color) override;
     void add_color_point(ColorPoint point);
@@ -117,10 +114,9 @@ protected:
     espbt::ESPBTUUID service_uuid_;
     espbt::ESPBTUUID char_uuid_;
     espbt::ClientState client_state_;
-#ifdef USE_TIME
+
     void sync_time_();
     time::RealTimeClock *time_{nullptr};
-#endif
 };
 
 class DivoomDitoo : public DivoomDisplay

@@ -62,9 +62,7 @@ void DivoomDisplay::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_
         connected_ = true;
         if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
         this->client_state_ = espbt::ClientState::ESTABLISHED;
-#ifdef USE_TIME
         this->sync_time_();
-#endif
         ESP_LOGW(TAG, "[%s] Connected successfully!", this->char_uuid_.to_string().c_str());
         break;
     case ESP_GATTC_DISCONNECT_EVT:
@@ -423,7 +421,7 @@ void DivoomDisplay::set_divoom_time(uint8_t hours, uint8_t minutes, uint8_t seco
 }
 
 
-#ifdef USE_TIME
+
 void DivoomDisplay::sync_time_()
 {
     if (this->time_ == nullptr) return;
@@ -436,7 +434,7 @@ void DivoomDisplay::sync_time_()
     time.recalc_timestamp_utc(true);  // calculate timestamp of local time
     set_divoom_time(time.hour, time.minute, time.second);
 }
-#endif
+
 
 void DivoomDisplay::brightness_callback(float value)
 {
