@@ -1,4 +1,10 @@
 ### add esphome *.yaml
+Protocol : http://docin.divoom-gz.com/web/#/5/146
+
+Wrtie : service_uuid: '49535343-FE7D-4AE5-8FA9-9FAFD205E455' characteristic_uuid: '49535343-8841-43F4-A8D4-ECBE34729BB3'
+
+Read : service_uuid: '49535343-FE7D-4AE5-8FA9-9FAFD205E455' characteristic_uuid: '49535343-6DAA-4D02-ABF6-19569ACA69FE'
+
 ```
 external_components:
   - source: github://eigger/espcomponents
