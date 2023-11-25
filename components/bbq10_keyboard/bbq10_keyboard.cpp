@@ -27,12 +27,16 @@ void BBQ10Keyboard::loop()
     if (value != keyValue_)
     {
         keyValue_ = value;
+        if (this->key_)
+        {
+            ESP_LOGI(TAG, "Key: 0x%2x", value);
+            this->key_->publish_state(key_string(value));
+        }
         if (value != 0)
         {
-            if (this->key_)
+            if (this->last_key_)
             {
-                ESP_LOGI(TAG, "Key: 0x%x", value);
-                this->key_->publish_state(key_string(value));
+                this->last_key_->publish_state(key_string(value));
             }
         }
     }

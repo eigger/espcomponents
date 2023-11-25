@@ -16,6 +16,7 @@ public:
     float get_setup_priority() const override { return setup_priority::HARDWARE; }
     void dump_config() override;
     void set_key(text_sensor::TextSensor *key) { key_ = key; }
+    void set_last_key(text_sensor::TextSensor *key) { last_key_ = key; }
 protected:
     // read a given register
     bool read_reg_(uint8_t reg, uint8_t *value);
@@ -24,6 +25,7 @@ protected:
     bool write_reg_(uint8_t reg, uint8_t value);
     std::string key_string(uint8_t key);
     text_sensor::TextSensor *key_{nullptr};
+    text_sensor::TextSensor *last_key_{nullptr};
     uint8_t keyValue_{0};
 };
 

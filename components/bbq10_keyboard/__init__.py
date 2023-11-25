@@ -9,6 +9,7 @@ from esphome.const import (
 )
 
 CONF_KEY = "key"
+CONF_LAST_KEY = "last_key"
 AUTO_LOAD = ["text_sensor"]
 CODEOWNERS = ["@eigger"]
 DEPENDENCIES = ["i2c"]
@@ -26,6 +27,9 @@ CONFIG_SCHEMA = (
             #     cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
             # }),
             cv.Optional(CONF_KEY, default={CONF_NAME: "Key Value"}): text_sensor.text_sensor_schema(
+                icon=ICON_MEMORY
+            ),
+            cv.Optional(CONF_LAST_KEY, default={CONF_NAME: "Last Key Value"}): text_sensor.text_sensor_schema(
                 icon=ICON_MEMORY
             ),
         }
@@ -46,4 +50,6 @@ async def to_code(config):
     if CONF_KEY in config:
         sens = await text_sensor.new_text_sensor(config[CONF_KEY])
         cg.add(var.set_key(sens))
-
+    if CONF_LAST_KEY in config:
+        sens = await text_sensor.new_text_sensor(config[CONF_LAST_KEY])
+        cg.add(var.set_last_key(sens))
