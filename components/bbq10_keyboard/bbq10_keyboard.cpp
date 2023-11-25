@@ -58,6 +58,15 @@ bool BBQ10Keyboard::write_reg_(uint8_t reg, uint8_t value)
 
 std::string BBQ10Keyboard::key_string(uint8_t key)
 {
+    switch(key)
+    {
+    case 0x08:
+        return "BS";
+    case 0x0C:
+        return "ALT+C";
+    case 0x0D:
+        return "Enter";
+    }
     return std::string(1, key);
 }
 
