@@ -9,10 +9,10 @@ static const char *const TAG = "bbq10_keyboard";
 void BBQ10Keyboard::setup()
 {
     ESP_LOGCONFIG(TAG, "Setting up BBQ10Keyboard...");
-    if (this->key_)
-    {
-        this->key_->publish_state("");
-    }
+    // if (this->key_)
+    // {
+    //     this->key_->publish_state("");
+    // }
 }
 
 void BBQ10Keyboard::dump_config()
@@ -27,10 +27,13 @@ void BBQ10Keyboard::loop()
     if (value != keyValue_)
     {
         keyValue_ = value;
-        if (this->key_)
+        if (value != 0)
         {
-            ESP_LOGI(TAG, "Key: 0x%x", value);
-            this->key_->publish_state(key_string(value));
+            if (this->key_)
+            {
+                ESP_LOGI(TAG, "Key: 0x%x", value);
+                this->key_->publish_state(key_string(value));
+            }
         }
     }
 }
