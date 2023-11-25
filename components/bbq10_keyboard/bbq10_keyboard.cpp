@@ -60,8 +60,8 @@ void BBQ10Keyboard::loop()
 
 void BBQ10Keyboard::reset()
 {
-    uint8_t data[1] = { _REG_RST };
-    this->write(data, 1);
+    this->write_byte(_REG_RST);
+    delay(100);
 }
 
 uint8_t BBQ10Keyboard::key_count()
