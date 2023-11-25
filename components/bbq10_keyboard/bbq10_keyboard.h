@@ -4,8 +4,6 @@
 #include "esphome/core/hal.h"
 #include "esphome/components/i2c/i2c.h"
 #include "esphome/components/text_sensor/text_sensor.h"
-#include "esphome/components/number/number.h"
-#include <unordered_map>
 
 namespace esphome {
 namespace bbq10_keyboard {
