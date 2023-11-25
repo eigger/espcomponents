@@ -2,6 +2,6 @@
 
 namespace esphome {
 namespace divoom {
-#define VERSION "3.0.0-231121"
+#define VERSION "3.1.0-231123"
 }  // namespace divoom
 }  // namespace esphome
