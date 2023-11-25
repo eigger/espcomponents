@@ -25,7 +25,7 @@ CONFIG_SCHEMA = (
             # {
             #     cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
             # }),
-            cv.Required(CONF_KEY, default={CONF_NAME: "Key Value"}): text_sensor.text_sensor_schema(
+            cv.Optional(CONF_KEY, default={CONF_NAME: "Key Value"}): text_sensor.text_sensor_schema(
                 icon=ICON_MEMORY
             ),
         }
