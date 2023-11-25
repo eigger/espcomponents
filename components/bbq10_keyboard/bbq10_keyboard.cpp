@@ -60,7 +60,7 @@ void BBQ10Keyboard::loop()
 
 void BBQ10Keyboard::reset()
 {
-    this->write_byte(_REG_RST);
+    this->write_reg_(0, _REG_RST);
     delay(100);
 }
 
