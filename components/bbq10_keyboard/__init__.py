@@ -5,6 +5,7 @@ from esphome.components.text_sensor import register_text_sensor
 from esphome.const import (
     CONF_ID,
     CONF_NAME,
+    ENTITY_CATEGORY_NONE,
 )
 
 CONF_KEY = "key"
@@ -24,7 +25,9 @@ CONFIG_SCHEMA = (
             # {
             #     cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
             # }),
-            cv.Optional(CONF_KEY, default="Key"): text_sensor.TEXT_SENSOR_SCHEMA,
+            cv.Required(CONF_KEY): text_sensor.TEXT_SENSOR_SCHEMA(
+                entity_category=ENTITY_CATEGORY_NONE
+            ),
         }
     )
     .extend(cv.COMPONENT_SCHEMA)
