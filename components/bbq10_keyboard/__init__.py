@@ -4,6 +4,7 @@ from esphome.components import i2c, number, text_sensor
 from esphome.components.text_sensor import register_text_sensor
 from esphome.const import (
     CONF_ID,
+    CONF_NAME,
     ICON_MEMORY
 )
 
@@ -24,7 +25,7 @@ CONFIG_SCHEMA = (
             # {
             #     cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
             # }),
-            cv.Required(CONF_KEY): text_sensor.text_sensor_schema(
+            cv.Required(CONF_KEY, default={CONF_NAME: "Key Value"}): text_sensor.text_sensor_schema(
                 icon=ICON_MEMORY
             ),
         }
