@@ -23,7 +23,7 @@ Brightness = bbq10_keyboard_ns.class_("Brightness", BBQ10Keyboard)
 CONFIG_SCHEMA = (
     cv.Schema(
         {
-            cv.Required(CONF_ID): cv.declare_id(BBQ10Keyboard),
+            cv.GenerateID(): cv.declare_id(BBQ10Keyboard),
             cv.Optional(CONF_KEY, default={CONF_NAME: "Key"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
             {
                 cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
