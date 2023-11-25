@@ -60,13 +60,18 @@ void BBQ10Keyboard::loop()
 
 void BBQ10Keyboard::reset()
 {
-    this->write_reg_(0, _REG_RST);
-    delay(100);
+    // this->write_reg_(_REG_RST, 0);
+    // delay(100);
 }
 
 uint8_t BBQ10Keyboard::key_count()
 {
     uint8_t value = 0;
+    read_reg_(0, &value);
+    if (value != 0)
+    {
+        ESP_LOGI(TAG, "Key: %c", value);
+    }
     read_reg_(_REG_KEY, &value);
     return value & KEY_COUNT_MASK;
 }
