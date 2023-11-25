@@ -65,9 +65,9 @@ std::string BBQ10Keyboard::key_string(uint8_t key)
     switch(key)
     {
     case 0x08:
-        return "BS";
+        return "Bs";
     case 0x0C:
-        return "ALT+C";
+        return "Alt+c";
     case 0x0D:
         return "Enter";
     }
