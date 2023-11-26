@@ -1,11 +1,9 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import i2c, number, text_sensor
-from esphome.components.text_sensor import register_text_sensor
+from esphome.components import i2c, text_sensor
 from esphome.const import (
     CONF_ID,
-    CONF_NAME,
-    ICON_MEMORY
+    CONF_NAME
 )
 
 CONF_KEY = "key"
@@ -22,15 +20,11 @@ CONFIG_SCHEMA = (
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(BBQ10Keyboard),
-            # cv.Optional(CONF_KEY, default={CONF_NAME: "Key"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
-            # {
-            #     cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
-            # }),
-            cv.Optional(CONF_KEY, default={CONF_NAME: "Key Value"}): text_sensor.text_sensor_schema(
-                icon=ICON_MEMORY
+            cv.Optional(CONF_KEY, default={CONF_NAME: "Key"}): text_sensor.text_sensor_schema(
+                icon="mdi:chevron-right"
             ),
-            cv.Optional(CONF_LAST_KEY, default={CONF_NAME: "Last Key Value"}): text_sensor.text_sensor_schema(
-                icon=ICON_MEMORY
+            cv.Optional(CONF_LAST_KEY, default={CONF_NAME: "Last Key"}): text_sensor.text_sensor_schema(
+                icon="mdi:keyboard"
             ),
         }
     )
@@ -43,10 +37,6 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await i2c.register_i2c_device(var, config)
-    # if CONF_KEY in config:
-    #     sens = cg.new_Pvariable(config[CONF_KEY][CONF_ID])
-    #     await register_text_sensor(sens, config[CONF_KEY])
-    #     cg.add(var.set_key(sens))
     if CONF_KEY in config:
         sens = await text_sensor.new_text_sensor(config[CONF_KEY])
         cg.add(var.set_key(sens))

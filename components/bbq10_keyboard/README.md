@@ -11,5 +11,8 @@ i2c:
 
 bbq10_keyboard:
   key:
+    name: Key
+  last_key:
+    name: Last Key
 
 ```
