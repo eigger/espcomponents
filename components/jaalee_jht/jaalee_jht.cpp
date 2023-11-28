@@ -33,10 +33,6 @@ bool JaaleeJHT::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
         ESP_LOGD(TAG, "parse_device(): unknown MAC address.");
         return false;
     }
-    if (!device.get_service_datas().empty()) {
-        ESP_LOGD(TAG, "parse_device(): service_data is expected to be empty");
-        return false;
-    }
     auto mnf_datas = device.get_manufacturer_datas();
     if (mnf_datas.size() != 1) {
         ESP_LOGD(TAG, "parse_device(): manufacturer_datas is expected to have a single element - size(%d)", mnf_datas.size());
