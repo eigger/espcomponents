@@ -30,29 +30,29 @@ bool JaaleeJHT::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
 // [20:56:26][VV][esp32_ble_tracker:622]:     Data: 64.07.33.C1.2A.A7.FC.67.84.76.9E (11)
 // [20:56:26][VV][esp32_ble_tracker:625]: Adv data: 02.01.04.1B.FF.4C.00.02.15.EB.EF.D0.83.70.A2.47.C8.98.37.E7.B5.63.4D.F5.25.67.84.76.9E.CB.64.03.03.25.F5.0E.16.25.F5.64.07.33.C1.2A.A7.FC.67.84.76.9E (50)
     if (device.address_uint64() != this->address_) {
-        ESP_LOGVV(TAG, "parse_device(): unknown MAC address.");
+        ESP_LOGD(TAG, "parse_device(): unknown MAC address.");
         return false;
     }
     if (device.get_address_type() != BLE_ADDR_TYPE_PUBLIC) {
-        ESP_LOGVV(TAG, "parse_device(): address is not public");
+        ESP_LOGD(TAG, "parse_device(): address is not public");
         return false;
     }
     if (!device.get_service_datas().empty()) {
-        ESP_LOGVV(TAG, "parse_device(): service_data is expected to be empty");
+        ESP_LOGD(TAG, "parse_device(): service_data is expected to be empty");
         return false;
     }
     auto mnf_datas = device.get_manufacturer_datas();
     if (mnf_datas.size() != 1) {
-        ESP_LOGVV(TAG, "parse_device(): manufacturer_datas is expected to have a single element");
+        ESP_LOGD(TAG, "parse_device(): manufacturer_datas is expected to have a single element - size(%d)", mnf_datas.size());
         return false;
     }
     auto mnf_data = mnf_datas[0];
     if (mnf_data.uuid.get_uuid().len != ESP_UUID_LEN_16) {
-        ESP_LOGVV(TAG, "parse_device(): manufacturer data element is expected to have uuid of length 16");
+        ESP_LOGD(TAG, "parse_device(): manufacturer data element is expected to have uuid of length 16");
         return false;
     }
     if (mnf_data.data.size() != 11) {
-        ESP_LOGVV(TAG, "parse_device(): manufacturer data element length is expected to be of length 11");
+        ESP_LOGD(TAG, "parse_device(): manufacturer data element length is expected to be of length 11");
         return false;
     }
 
