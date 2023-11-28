@@ -43,25 +43,16 @@ bool JaaleeJHT::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
         ESP_LOGD(TAG, "parse_device(): manufacturer data element is expected to have uuid of length 16");
         return false;
     }
-    if (mnf_data.data.size() != 11) {
-        ESP_LOGD(TAG, "parse_device(): manufacturer data element length is expected to be of length 11");
-
-        std::string hexString;
-        char buffer[4];
-        for (auto data : mnf_data.data)
-        {
-            snprintf(buffer, sizeof(buffer), "%02x ", data);
-            hexString += buffer;
-        }
-        ESP_LOGD(TAG, "parse_device(): %s", hexString.c_str());
+    if (mnf_data.data.size() != 24) {
+        ESP_LOGD(TAG, "parse_device(): manufacturer data element length is expected to be of length 24");
         return false;
     }
 
-
+    //02 15 eb ef d0 83 70 a2 47 c8 98 37 e7 b5 63 4d f5 25 68 47 86 96 cc 64 
     // Create empty variables to pass automatic checks
-    auto battery_level = mnf_data.data[0];
-    auto humidity = (mnf_data.data[7] << 8) + mnf_data.data[8];
-    auto temperature = (mnf_data.data[9] << 8) + mnf_data.data[10];
+    auto battery_level = mnf_data.data[23];
+    auto humidity = (mnf_data.data[18] << 8) + mnf_data.data[19];
+    auto temperature = (mnf_data.data[20] << 8) + mnf_data.data[21];
 
     int digits = 2;
     double multiplier = pow(10.0, digits);
