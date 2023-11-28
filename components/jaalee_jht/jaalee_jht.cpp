@@ -45,6 +45,13 @@ bool JaaleeJHT::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
     }
     if (mnf_data.data.size() != 11) {
         ESP_LOGD(TAG, "parse_device(): manufacturer data element length is expected to be of length 11");
+
+        std::string hexString;
+        for (auto data : mnf_data.data)
+        {
+            hexString += std::format("{:02x}", data);
+        }
+        ESP_LOGD(TAG, "parse_device(): %s", hexString.c_str());
         return false;
     }
 
