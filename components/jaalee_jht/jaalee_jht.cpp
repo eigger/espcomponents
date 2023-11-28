@@ -51,15 +51,17 @@ bool JaaleeJHT::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
     //02 15 eb ef d0 83 70 a2 47 c8 98 37 e7 b5 63 4d f5 25 68 47 86 96 cc 64 
     // Create empty variables to pass automatic checks
     uint8_t battery_level = mnf_data.data[23];
+    uint8_t rssi_ = mnf_data.data[22];
     uint16_t temperature_ = (mnf_data.data[18] << 8) + mnf_data.data[19];
     uint16_t humidity_ = (mnf_data.data[20] << 8) + mnf_data.data[21];
-
+    
     int digits = 2;
     double multiplier = pow(10.0, digits);
 
     //http://sensor.jaalee.com/scan_api.html
     float temperature = round(((temperature_ / 65535.0) * 175 - 45) * multiplier) / multiplier;
     float humidity = round(((humidity_ / 65535.0) * 100) * multiplier) / multiplier;
+    float rssi = (int8_t)rssi_;
     // Send temperature only if the value is set
     if (this->temperature_ != nullptr) {
         this->temperature_->publish_state(temperature);
@@ -70,7 +72,9 @@ bool JaaleeJHT::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
     if (this->battery_level_ != nullptr) {
         this->battery_level_->publish_state(battery_level);
     }
-    
+    if (this->signal_strength_ != nullptr) {
+        this->signal_strength_->publish_state(device.get_rssi());
+    }
     return true;
 }
 
