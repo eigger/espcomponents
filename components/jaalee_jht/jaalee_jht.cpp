@@ -51,8 +51,8 @@ bool JaaleeJHT::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
     //02 15 eb ef d0 83 70 a2 47 c8 98 37 e7 b5 63 4d f5 25 68 47 86 96 cc 64 
     // Create empty variables to pass automatic checks
     uint8_t battery_level = mnf_data.data[23];
-    uint16_t humidity_ = (mnf_data.data[18] << 8) + mnf_data.data[19];
-    uint16_t temperature_ = (mnf_data.data[20] << 8) + mnf_data.data[21];
+    uint16_t temperature_ = (mnf_data.data[18] << 8) + mnf_data.data[19];
+    uint16_t humidity_ = (mnf_data.data[20] << 8) + mnf_data.data[21];
 
     int digits = 2;
     double multiplier = pow(10.0, digits);
