@@ -33,10 +33,6 @@ bool JaaleeJHT::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
         ESP_LOGD(TAG, "parse_device(): unknown MAC address.");
         return false;
     }
-    if (device.get_address_type() != BLE_ADDR_TYPE_PUBLIC) {
-        ESP_LOGD(TAG, "parse_device(): address is not public");
-        return false;
-    }
     if (!device.get_service_datas().empty()) {
         ESP_LOGD(TAG, "parse_device(): service_data is expected to be empty");
         return false;
