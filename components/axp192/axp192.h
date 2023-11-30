@@ -29,7 +29,7 @@ public:
   void set_battery_state(binary_sensor::BinarySensor *battery_state) { battery_state_ = battery_state; }
   void set_battery_charging(binary_sensor::BinarySensor *battery_charging) { battery_charging_ = battery_charging; }
   void set_brightness(float brightness) { brightness_ = brightness; }
-
+  void set_backlight_only_charging(bool backlight) { backlight_only_charging_ = backlight }
   // ========== INTERNAL METHODS ==========
   // (In most use cases you won't need these)
   void setup() override;
@@ -43,6 +43,7 @@ protected:
     binary_sensor::BinarySensor *battery_charging_;
     float brightness_{1.0f};
     float curr_brightness_{-1.0f};
+    bool backlight_only_charging_{false};
 
     /**
      * LDO2: Display backlight

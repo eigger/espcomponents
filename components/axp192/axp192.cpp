@@ -22,25 +22,32 @@ float AXP192Component::get_setup_priority() const { return setup_priority::DATA;
 
 void AXP192Component::update() {
 
-    if (this->batterylevel_sensor_ != nullptr) {
-      // To be fixed
-      // This is not giving the right value - mostly there to have some sample sensor...
-      float vbat = GetBatVoltage();
-      float batterylevel = 100.0 * ((vbat - 3.0) / (4.1 - 3.0));
+    if (this->batterylevel_sensor_ != nullptr)
+    {
+        // To be fixed
+        // This is not giving the right value - mostly there to have some sample sensor...
+        float vbat = GetBatVoltage();
+        float batterylevel = 100.0 * ((vbat - 3.0) / (4.1 - 3.0));
 
-      ESP_LOGD(TAG, "Got Battery Level=%f (%f)", batterylevel, vbat);
-      if (batterylevel > 100.) {
-        batterylevel = 100;
-      }
-      this->batterylevel_sensor_->publish_state(batterylevel);
+        ESP_LOGD(TAG, "Got Battery Level=%f (%f)", batterylevel, vbat);
+        if (batterylevel > 100.) {
+            batterylevel = 100;
+        }
+        this->batterylevel_sensor_->publish_state(batterylevel);
     }
     if (this->battery_state_ != nullptr)
     {
         battery_state_->publish_state(GetBatState());
     }
+    bool charging = GetBatCharging();
     if (this->battery_charging_ != nullptr)
     {
-        battery_charging_->publish_state(GetBatCharging());
+        battery_charging_->publish_state(charging);
+    }
+    if (backlight_only_charging_)
+    {
+        if (charging)   Write1Byte(0x28, 0xcc);
+        else            Write1Byte(0x28, 0x00);
     }
     UpdateBrightness();
 }

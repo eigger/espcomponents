@@ -7,6 +7,7 @@ from esphome.const import CONF_ID,\
 DEPENDENCIES = ['i2c']
 CONF_BATTERY_STATE = 'battery_state'
 CONF_BATTERY_CHARGING = 'battery_charging'
+CONF_BACKLIGHT_ONLY_CHARGING = 'backlight_only_charging'
 axp192_ns = cg.esphome_ns.namespace('axp192')
 
 AXP192Component = axp192_ns.class_('AXP192Component', cg.PollingComponent, i2c.I2CDevice)
@@ -27,6 +28,7 @@ CONFIG_SCHEMA = cv.Schema({
         entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
     ),
     cv.Optional(CONF_BRIGHTNESS, default=1.0): cv.percentage,
+    cv.Optional(CONF_BACKLIGHT_ONLY_CHARGING, default=False): cv.boolean,
 }).extend(cv.polling_component_schema('60s')).extend(i2c.i2c_device_schema(0x77))
 
 
@@ -53,3 +55,7 @@ def to_code(config):
     if CONF_BRIGHTNESS in config:
         conf = config[CONF_BRIGHTNESS]
         cg.add(var.set_brightness(conf))
+
+    if CONF_BACKLIGHT_ONLY_CHARGING in config:
+        conf = config[CONF_BACKLIGHT_ONLY_CHARGING]
+        cg.add(var.set_backlight_only_charging(conf))
