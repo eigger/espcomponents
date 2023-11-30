@@ -20,7 +20,6 @@ CONFIG_SCHEMA = cv.Schema({
         entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
     ),
     cv.Optional(CONF_BATTERY_STATE): binary_sensor.binary_sensor_schema(
-        device_class=DEVICE_CLASS_BATTERY,
         entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
     ),
     cv.Optional(CONF_BRIGHTNESS, default=1.0): cv.percentage,
