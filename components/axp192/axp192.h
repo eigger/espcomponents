@@ -29,7 +29,7 @@ public:
   void set_battery_state(binary_sensor::BinarySensor *battery_state) { battery_state_ = battery_state; }
   void set_battery_charging(binary_sensor::BinarySensor *battery_charging) { battery_charging_ = battery_charging; }
   void set_brightness(float brightness) { brightness_ = brightness; }
-  void set_backlight_only_charging(bool backlight) { backlight_only_charging_ = backlight }
+  void set_backlight_only_charging(bool backlight) { backlight_only_charging_ = backlight; }
   // ========== INTERNAL METHODS ==========
   // (In most use cases you won't need these)
   void setup() override;
