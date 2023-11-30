@@ -38,7 +38,10 @@ void AXP192Component::update() {
     {
         battery_state_->publish_state(GetBatState());
     }
-
+    if (this->battery_charging_ != nullptr)
+    {
+        battery_charging_->publish_state(GetBatCharging());
+    }
     UpdateBrightness();
 }
 
@@ -189,6 +192,14 @@ void AXP192Component::UpdateBrightness()
 bool AXP192Component::GetBatState()
 {
     if( Read8bit(0x01) | 0x20 )
+        return true;
+    else
+        return false;
+}
+
+bool AXP192Component::GetBatCharging()
+{
+    if( Read8bit(0x01) | 0x40 )
         return true;
     else
         return false;

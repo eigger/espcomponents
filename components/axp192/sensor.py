@@ -6,6 +6,7 @@ from esphome.const import CONF_ID,\
 
 DEPENDENCIES = ['i2c']
 CONF_BATTERY_STATE = 'battery_state'
+CONF_BATTERY_CHARGING = 'battery_charging'
 axp192_ns = cg.esphome_ns.namespace('axp192')
 
 AXP192Component = axp192_ns.class_('AXP192Component', cg.PollingComponent, i2c.I2CDevice)
@@ -20,6 +21,9 @@ CONFIG_SCHEMA = cv.Schema({
         entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
     ),
     cv.Optional(CONF_BATTERY_STATE): binary_sensor.binary_sensor_schema(
+        entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+    ),
+    cv.Optional(CONF_BATTERY_CHARGING): binary_sensor.binary_sensor_schema(
         entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
     ),
     cv.Optional(CONF_BRIGHTNESS, default=1.0): cv.percentage,
@@ -40,6 +44,11 @@ def to_code(config):
         conf = config[CONF_BATTERY_STATE]
         sens = yield binary_sensor.new_binary_sensor(conf)
         cg.add(var.set_battery_state(sens))
+
+    if CONF_BATTERY_CHARGING in config:
+        conf = config[CONF_BATTERY_CHARGING]
+        sens = yield binary_sensor.new_binary_sensor(conf)
+        cg.add(var.set_battery_charging(sens))
 
     if CONF_BRIGHTNESS in config:
         conf = config[CONF_BRIGHTNESS]

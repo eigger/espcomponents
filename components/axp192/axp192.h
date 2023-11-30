@@ -27,6 +27,7 @@ class AXP192Component : public PollingComponent, public i2c::I2CDevice {
 public:
   void set_batterylevel_sensor(sensor::Sensor *batterylevel_sensor) { batterylevel_sensor_ = batterylevel_sensor; }
   void set_battery_state(binary_sensor::BinarySensor *battery_state) { battery_state_ = battery_state; }
+  void set_battery_charging(binary_sensor::BinarySensor *battery_charging) { battery_charging_ = battery_charging; }
   void set_brightness(float brightness) { brightness_ = brightness; }
 
   // ========== INTERNAL METHODS ==========
@@ -39,6 +40,7 @@ public:
 protected:
     sensor::Sensor *batterylevel_sensor_;
     binary_sensor::BinarySensor *battery_state_;
+    binary_sensor::BinarySensor *battery_charging_;
     float brightness_{1.0f};
     float curr_brightness_{-1.0f};
 
@@ -52,6 +54,7 @@ protected:
     void  begin(bool disableLDO2 = false, bool disableLDO3 = false, bool disableRTC = false, bool disableDCDC1 = false, bool disableDCDC3 = false);
     void  UpdateBrightness();
     bool  GetBatState();
+    bool GetBatCharging();
     uint8_t  GetBatData();
   
     void  EnableCoulombcounter(void);
