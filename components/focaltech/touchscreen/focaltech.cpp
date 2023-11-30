@@ -35,7 +35,7 @@ void FocalTechTouchscreen::setup() {
 
 void FocalTechTouchscreen::loop() {
     uint16_t x, y;
-    if (getTouch(x, y))
+    if (getPoint(x, y))
     {
         TouchPoint tp;
         switch (this->rotation_) {
@@ -194,7 +194,9 @@ void FocalTechTouchscreen::disableAutoCalibration(void)
 
 void FocalTechTouchscreen::getLibraryVersion(uint16_t &version)
 {
-    read_reg16_(FOCALTECH_REGISTER_LIB_VERSIONH, version);
+    uint16_t value = 0;
+    read_reg16_(FOCALTECH_REGISTER_LIB_VERSIONH, &value);
+    version = value;
 }
 
 void FocalTechTouchscreen::enableINT(void)
@@ -218,11 +220,11 @@ bool FocalTechTouchscreen::getPoint(uint16_t &x, uint16_t &y)
 {
     if (this->is_failed()) return false;
     uint8_t buffer[5];
-    if (this->read_byts(FOCALTECH_REGISTER_STATUS, buffer, 5)) {
+    if (this->read_bytes(FOCALTECH_REGISTER_STATUS, buffer, 5)) {
         if (buffer[0] == 0 || buffer[0] > 2) {
             return false;
         }
-        event = (EventFlag_t)(buffer[1] & 0xC0);
+        //event = (EventFlag_t)(buffer[1] & 0xC0);
         x = (buffer[1] & 0x0F) << 8 | buffer[2];
         y =  (buffer[3] & 0x0F) << 8 | buffer[4];
 
