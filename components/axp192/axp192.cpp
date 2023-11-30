@@ -191,7 +191,7 @@ void AXP192Component::UpdateBrightness()
 
 bool AXP192Component::GetBatState()
 {
-    if( Read8bit(0x01) | 0x20 )
+    if( Read8bit(0x01) & 0x20 )
         return true;
     else
         return false;
@@ -199,7 +199,7 @@ bool AXP192Component::GetBatState()
 
 bool AXP192Component::GetBatCharging()
 {
-    if( Read8bit(0x01) | 0x40 )
+    if( Read8bit(0x01) & 0x40 )
         return true;
     else
         return false;
