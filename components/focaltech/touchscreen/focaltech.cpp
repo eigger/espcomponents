@@ -14,11 +14,12 @@ void FocalTechTouchscreen::setup() {
     ESP_LOGCONFIG(TAG, "Setting up FocalTech Touchscreen...");
 
     // Register interrupt pin
-    this->interrupt_pin_->pin_mode(gpio::FLAG_INPUT | gpio::FLAG_PULLUP);
-    this->interrupt_pin_->setup();
-    this->store_.pin = this->interrupt_pin_->to_isr();
-    this->interrupt_pin_->attach_interrupt(FocalTechTouchscreenStore::gpio_intr, &this->store_,
-                                            gpio::INTERRUPT_FALLING_EDGE);
+    if (this->interrupt_pin_ != nullptr) {
+        this->interrupt_pin_->pin_mode(gpio::FLAG_INPUT | gpio::FLAG_PULLUP);
+        this->interrupt_pin_->setup();
+        this->store_.pin = this->interrupt_pin_->to_isr();
+        this->interrupt_pin_->attach_interrupt(FocalTechTouchscreenStore::gpio_intr, &this->store_, gpio::INTERRUPT_FALLING_EDGE);
+    }
 
     // Perform reset if necessary
     if (this->reset_pin_ != nullptr) {
