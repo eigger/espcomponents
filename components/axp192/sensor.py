@@ -1,11 +1,11 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import i2c, sensor
+from esphome.components import i2c, sensor, binary_sensor
 from esphome.const import CONF_ID,\
     CONF_BATTERY_LEVEL, CONF_BRIGHTNESS, UNIT_PERCENT, DEVICE_CLASS_BATTERY, STATE_CLASS_MEASUREMENT, ENTITY_CATEGORY_DIAGNOSTIC
 
 DEPENDENCIES = ['i2c']
-
+CONF_BATTERY_STATE = 'battery_state'
 axp192_ns = cg.esphome_ns.namespace('axp192')
 
 AXP192Component = axp192_ns.class_('AXP192Component', cg.PollingComponent, i2c.I2CDevice)
@@ -15,6 +15,11 @@ CONFIG_SCHEMA = cv.Schema({
     cv.Optional(CONF_BATTERY_LEVEL): sensor.sensor_schema(
         unit_of_measurement=UNIT_PERCENT,
         accuracy_decimals=0,
+        device_class=DEVICE_CLASS_BATTERY,
+        state_class=STATE_CLASS_MEASUREMENT,
+        entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+    ),
+    cv.Optional(CONF_BATTERY_STATE): binary_sensor.binary_sensor_schema(
         device_class=DEVICE_CLASS_BATTERY,
         state_class=STATE_CLASS_MEASUREMENT,
         entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
@@ -32,6 +37,11 @@ def to_code(config):
         conf = config[CONF_BATTERY_LEVEL]
         sens = yield sensor.new_sensor(conf)
         cg.add(var.set_batterylevel_sensor(sens))
+
+    if CONF_BATTERY_STATE in config:
+        conf = config[CONF_BATTERY_STATE]
+        sens = yield binary_sensor.new_binary_sensor(conf)
+        cg.add(var.set_battery_state(sens))
 
     if CONF_BRIGHTNESS in config:
         conf = config[CONF_BRIGHTNESS]

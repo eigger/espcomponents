@@ -3,6 +3,7 @@
 
 #include "esphome/core/component.h"
 #include "esphome/components/sensor/sensor.h"
+#include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/i2c/i2c.h"
 
 namespace esphome {
@@ -25,6 +26,7 @@ namespace axp192 {
 class AXP192Component : public PollingComponent, public i2c::I2CDevice {
 public:
   void set_batterylevel_sensor(sensor::Sensor *batterylevel_sensor) { batterylevel_sensor_ = batterylevel_sensor; }
+  void set_battery_state(binary_sensor::BinarySensor *battery_state) { battery_state_ = battery_state; }
   void set_brightness(float brightness) { brightness_ = brightness; }
 
   // ========== INTERNAL METHODS ==========
@@ -36,6 +38,7 @@ public:
 
 protected:
     sensor::Sensor *batterylevel_sensor_;
+    binary_sensor::BinarySensor *battery_state_;
     float brightness_{1.0f};
     float curr_brightness_{-1.0f};
 

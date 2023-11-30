@@ -34,6 +34,10 @@ void AXP192Component::update() {
       }
       this->batterylevel_sensor_->publish_state(batterylevel);
     }
+    if (this->battery_state_ != nullptr)
+    {
+        battery_state_->publish_state(GetBatState());
+    }
 
     UpdateBrightness();
 }
