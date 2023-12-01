@@ -5,37 +5,49 @@
 namespace esphome {
 namespace axp192 {
 
-static const char *TAG = "axp192.sensor";
+static const char *TAG = "axp192";
 
 void AXP192Component::setup() 
 {
-  begin(false, false, false, false, false);
+    begin(false, false, false, false, false);
+    if (this->brightness_)
+    {
+        this->brightness_->add_on_state_callback(std::bind(&AXP192Component::brightness_callback, this, std::placeholders::_1));
+        this->brightness_->publish_state(100);
+    }
 }
 
 void AXP192Component::dump_config() {
-  ESP_LOGCONFIG(TAG, "AXP192:");
-  LOG_I2C_DEVICE(this);
-  LOG_SENSOR("  ", "Battery Level", this->batterylevel_sensor_);
+    ESP_LOGCONFIG(TAG, "AXP192:");
+    LOG_I2C_DEVICE(this);
+    LOG_SENSOR("  ", "Battery Level", this->batterylevel_sensor_);
 }
 
 float AXP192Component::get_setup_priority() const { return setup_priority::DATA; }
 
-void AXP192Component::update() {
+void AXP192Component::update()
+{
+    if (this->batterylevel_sensor_ != nullptr)
+    {
+        // To be fixed
+        // This is not giving the right value - mostly there to have some sample sensor...
+        float vbat = GetBatVoltage();
+        float batterylevel = 100.0 * ((vbat - 3.0) / (4.1 - 3.0));
 
-    if (this->batterylevel_sensor_ != nullptr) {
-      // To be fixed
-      // This is not giving the right value - mostly there to have some sample sensor...
-      float vbat = GetBatVoltage();
-      float batterylevel = 100.0 * ((vbat - 3.0) / (4.1 - 3.0));
-
-      ESP_LOGD(TAG, "Got Battery Level=%f (%f)", batterylevel, vbat);
-      if (batterylevel > 100.) {
-        batterylevel = 100;
-      }
-      this->batterylevel_sensor_->publish_state(batterylevel);
+        ESP_LOGD(TAG, "Got Battery Level=%f (%f)", batterylevel, vbat);
+        if (batterylevel > 100.) {
+            batterylevel = 100;
+        }
+        this->batterylevel_sensor_->publish_state(batterylevel);
     }
-
-    UpdateBrightness();
+    if (this->battery_state_ != nullptr)
+    {
+        battery_state_->publish_state(GetBatState());
+    }
+    if (this->battery_charging_ != nullptr)
+    {
+        battery_charging_->publish_state(GetBatCharging());
+    }
 }
 
 
@@ -160,31 +172,31 @@ void AXP192Component::ReadBuff( uint8_t Addr , uint8_t Size , uint8_t *Buff )
     this->read_bytes(Addr, Buff, Size);
 }
 
-void AXP192Component::UpdateBrightness()
+void AXP192Component::brightness_callback(float value)
 {
-    ESP_LOGD(TAG, "Brightness=%f (Curr: %f)", brightness_, curr_brightness_);
-    if (brightness_ == curr_brightness_)
-    {
-        return;
-    }
-    curr_brightness_ = brightness_;
-
+    float brightness = value / 100.0;
     const uint8_t c_min = 7;
     const uint8_t c_max = 12;
-    auto ubri = c_min + static_cast<uint8_t>(brightness_ * (c_max - c_min));
-    
+    auto ubri = c_min + static_cast<uint8_t>(brightness * (c_max - c_min));
     if (ubri > c_max) 
     {
         ubri = c_max;
     }
     uint8_t buf = Read8bit( 0x28 );
     Write1Byte( 0x28 , ((buf & 0x0f) | (ubri << 4)) );
-    //SetLDO2(true);
 }
 
 bool AXP192Component::GetBatState()
 {
-    if( Read8bit(0x01) | 0x20 )
+    if( Read8bit(0x01) & 0x20 )
+        return true;
+    else
+        return false;
+}
+
+bool AXP192Component::GetBatCharging()
+{
+    if( Read8bit(0x01) & 0x40 )
         return true;
     else
         return false;
@@ -528,6 +540,8 @@ void AXP192Component::SetAdcState(bool state)
 {
     Write1Byte(0x82, state ? 0xff : 0x00);
 }
+
+
 }
 }
 
