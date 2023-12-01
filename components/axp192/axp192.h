@@ -4,6 +4,7 @@
 #include "esphome/core/component.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
+#include "esphome/components/number/number.h"
 #include "esphome/components/i2c/i2c.h"
 
 namespace esphome {
@@ -25,25 +26,24 @@ namespace axp192 {
 
 class AXP192Component : public PollingComponent, public i2c::I2CDevice {
 public:
-  void set_batterylevel_sensor(sensor::Sensor *batterylevel_sensor) { batterylevel_sensor_ = batterylevel_sensor; }
-  void set_battery_state(binary_sensor::BinarySensor *battery_state) { battery_state_ = battery_state; }
-  void set_battery_charging(binary_sensor::BinarySensor *battery_charging) { battery_charging_ = battery_charging; }
-  void set_brightness(float brightness) { brightness_ = brightness; }
-  void set_backlight_only_charging(bool backlight) { backlight_only_charging_ = backlight; }
-  // ========== INTERNAL METHODS ==========
-  // (In most use cases you won't need these)
-  void setup() override;
-  void dump_config() override;
-  float get_setup_priority() const override;
-  void update() override;
+    void set_batterylevel_sensor(sensor::Sensor *batterylevel_sensor) { batterylevel_sensor_ = batterylevel_sensor; }
+    void set_battery_state(binary_sensor::BinarySensor *battery_state) { battery_state_ = battery_state; }
+    void set_battery_charging(binary_sensor::BinarySensor *battery_charging) { battery_charging_ = battery_charging; }
+    void set_brightness(number::Number *brightness) { brightness_ = brightness; }
+
+    // ========== INTERNAL METHODS ==========
+    // (In most use cases you won't need these)
+    void setup() override;
+    void dump_config() override;
+    float get_setup_priority() const override;
+    void update() override;
+    void brightness_callback(float value);
 
 protected:
     sensor::Sensor *batterylevel_sensor_;
     binary_sensor::BinarySensor *battery_state_;
     binary_sensor::BinarySensor *battery_charging_;
-    float brightness_{1.0f};
-    float curr_brightness_{-1.0f};
-    bool backlight_only_charging_{false};
+    number::Number *brightness_{nullptr};
 
     /**
      * LDO2: Display backlight
@@ -53,7 +53,6 @@ protected:
      * DCDC3: Use unknown
      */
     void  begin(bool disableLDO2 = false, bool disableLDO3 = false, bool disableRTC = false, bool disableDCDC1 = false, bool disableDCDC3 = false);
-    void  UpdateBrightness();
     bool  GetBatState();
     bool GetBatCharging();
     uint8_t  GetBatData();
@@ -115,6 +114,16 @@ protected:
     uint32_t Read32bit( uint8_t Addr );
     void ReadBuff( uint8_t Addr , uint8_t Size , uint8_t *Buff );
 }; 
+
+class Brightness : public number::Number
+{
+public:
+    void control(float value)
+    {
+        this->state = value;
+        this->publish_state(value);
+    }
+};
 
 }
 }
