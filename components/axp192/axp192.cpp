@@ -15,6 +15,10 @@ void AXP192Component::setup()
         this->brightness_->add_on_state_callback(std::bind(&AXP192Component::brightness_callback, this, std::placeholders::_1));
         this->brightness_->publish_state(100);
     }
+    if (this->poweroff_)
+    {
+        this->poweroff_->add_on_press_callback(std::bind(&AXP192Component::poweroff_callback, this));
+    }
 }
 
 void AXP192Component::dump_config() {
@@ -187,6 +191,11 @@ void AXP192Component::brightness_callback(float value)
     buf |= (ubri << 4);
     Write1Byte(0x28, buf);
     ESP_LOGD(TAG, "Brightness value: %f, brightness: %f, buf: 0x%x", value, brightness, buf);
+}
+
+void AXP192Component::poweroff_callback()
+{
+    PowerOff();
 }
 
 bool AXP192Component::GetBatState()
