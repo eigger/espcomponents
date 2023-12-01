@@ -174,7 +174,6 @@ void AXP192Component::ReadBuff( uint8_t Addr , uint8_t Size , uint8_t *Buff )
 
 void AXP192Component::brightness_callback(float value)
 {
-    return;
     float brightness = value / 100.0;
     const uint8_t c_min = 7;
     const uint8_t c_max = 12;
