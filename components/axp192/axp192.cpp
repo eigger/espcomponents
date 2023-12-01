@@ -186,6 +186,7 @@ void AXP192Component::brightness_callback(float value)
     buf &= 0x0F;
     buf |= (ubri << 4);
     Write1Byte(0x28, buf);
+    ESP_LOGD(TAG, "Brightness value: %f, brightness: %f, buf: 0x%x", value, brightness, buf);
 }
 
 bool AXP192Component::GetBatState()
