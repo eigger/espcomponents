@@ -28,7 +28,7 @@ CONFIG_SCHEMA = cv.Schema({
     cv.Optional(CONF_BATTERY_CHARGING): binary_sensor.binary_sensor_schema(
         entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
     ),
-    cv.Optional(CONF_BRIGHTNESS, default={CONF_NAME: "Brightness"}): number.NUMBER_SCHEMA.extend(
+    cv.Optional(CONF_BRIGHTNESS): number.NUMBER_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(Brightness),
     }),
