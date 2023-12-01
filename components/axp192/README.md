@@ -13,12 +13,11 @@ i2c:
      scl: GPIO22
      scan: true
      
-sensor:
-  - platform: axp192
-    address: 0x34
-    i2c_id: bus_a
-    update_interval: 30s
-    battery_level:
-      id: "id_batterylevel"
-      internal: True
+axp192:
+  address: 0x34
+  i2c_id: bus_a
+  update_interval: 30s
+  battery_level:
+    id: "id_batterylevel"
+    internal: True
 ```
