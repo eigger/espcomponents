@@ -12,8 +12,8 @@ CONF_POWEROFF = 'poweroff'
 
 axp192_ns = cg.esphome_ns.namespace('axp192')
 AXP192Component = axp192_ns.class_('AXP192Component', cg.PollingComponent, i2c.I2CDevice)
-Brightness = axp192_ns.class_("Brightness", AXP192Component)
-Poweroff = axp192_ns.class_("Poweroff", AXP192Component)
+Brightness = axp192_ns.class_("Brightness", number.Number)
+Poweroff = axp192_ns.class_("Poweroff", button.Button)
 
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(AXP192Component),
