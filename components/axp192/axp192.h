@@ -40,9 +40,9 @@ public:
     void brightness_callback(float value);
 
 protected:
-    sensor::Sensor *batterylevel_sensor_;
-    binary_sensor::BinarySensor *battery_state_;
-    binary_sensor::BinarySensor *battery_charging_;
+    sensor::Sensor *batterylevel_sensor_{nullptr};
+    binary_sensor::BinarySensor *battery_state_{nullptr};
+    binary_sensor::BinarySensor *battery_charging_{nullptr};
     number::Number *brightness_{nullptr};
 
     /**

@@ -44,10 +44,9 @@ void AXP192Component::update()
     {
         battery_state_->publish_state(GetBatState());
     }
-    bool charging = GetBatCharging();
     if (this->battery_charging_ != nullptr)
     {
-        battery_charging_->publish_state(charging);
+        battery_charging_->publish_state(GetBatCharging());
     }
 }
 
