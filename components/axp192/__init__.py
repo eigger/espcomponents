@@ -32,11 +32,11 @@ CONFIG_SCHEMA = cv.Schema({
     ),
     cv.Optional(CONF_BRIGHTNESS): number.NUMBER_SCHEMA.extend(
     {
-        cv.GenerateID(): cv.declare_id(number.Number),
+        cv.GenerateID(): cv.declare_id(Brightness),
     }),
     cv.Optional(CONF_POWEROFF): button.BUTTON_SCHEMA.extend(
     {
-        cv.GenerateID(): cv.declare_id(button.Button),
+        cv.GenerateID(): cv.declare_id(Poweroff),
     }),
 }).extend(cv.polling_component_schema("60s")).extend(i2c.i2c_device_schema(0x34))
 
