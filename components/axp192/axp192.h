@@ -5,6 +5,7 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/number/number.h"
+#include "esphome/components/button/button.h"
 #include "esphome/components/i2c/i2c.h"
 
 namespace esphome {
@@ -30,7 +31,7 @@ public:
     void set_battery_state(binary_sensor::BinarySensor *battery_state) { battery_state_ = battery_state; }
     void set_battery_charging(binary_sensor::BinarySensor *battery_charging) { battery_charging_ = battery_charging; }
     void set_brightness(number::Number *brightness) { brightness_ = brightness; }
-
+    void set_poweroff(button::Button *poweroff) { poweroff_ = poweroff; }
     // ========== INTERNAL METHODS ==========
     // (In most use cases you won't need these)
     void setup() override;
@@ -38,12 +39,14 @@ public:
     float get_setup_priority() const override;
     void update() override;
     void brightness_callback(float value);
+    void poweroff_callback();
 
 protected:
     sensor::Sensor *batterylevel_sensor_{nullptr};
     binary_sensor::BinarySensor *battery_state_{nullptr};
     binary_sensor::BinarySensor *battery_charging_{nullptr};
     number::Number *brightness_{nullptr};
+    button::Button *poweroff_{nullptr};
 
     /**
      * LDO2: Display backlight
@@ -125,7 +128,15 @@ public:
     }
 };
 
-}
-}
+class Poweroff : public button::Button
+{
+public:
+    void press_action() override
+    {
 
+    }
+};
+
+}
+}
 #endif
