@@ -8,11 +8,11 @@ static const char *const TAG = "lilygo_t_keyboard";
 
 void LilygoTKeyboard::setup()
 {
-    for (byte row : rows_)
+    for (int row : rows_)
     {
         pinMode(row, INPUT);
     }
-    for (byte col : cols_)
+    for (int col : cols_)
     {
         pinMode(col, INPUT_PULLUP);
     }
@@ -33,12 +33,12 @@ void LilygoTKeyboard::readKey()
 {
     for (size_t colIndex = 0; colIndex < cols_.size(); colIndex++)
     {
-        byte curCol = cols[colIndex];
+        int curCol = cols[colIndex];
         pinMode(curCol, OUTPUT);
         digitalWrite(curCol, LOW);
         for (size_t rowIndex = 0; rowIndex < rows_.size(); rowIndex++)
         {
-            byte rowCol = rows[rowIndex];
+            int rowCol = rows[rowIndex];
             pinMode(rowCol, INPUT_PULLUP);
             delay(1);
             bool keyPressed = (digitalRead(rowCol) == LOW);

@@ -23,8 +23,8 @@ protected:
     void on_release_key(int key);
     text_sensor::TextSensor *key_{nullptr};
     text_sensor::TextSensor *last_key_{nullptr};
-    std::vector<byte> rows_{0, 3, 18, 12, 11, 6, 7};
-    std::vector<byte> cols_{1, 4, 5, 19, 13};
+    std::vector<int> rows_{0, 3, 18, 12, 11, 6, 7};
+    std::vector<int> cols_{1, 4, 5, 19, 13};
     bool lastPressedKey_[MAX_KEY]();
 };
 
