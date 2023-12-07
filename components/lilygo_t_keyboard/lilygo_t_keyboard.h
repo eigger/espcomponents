@@ -61,8 +61,8 @@ public:
     void loop() override;
     float get_setup_priority() const override { return setup_priority::HARDWARE; }
     void dump_config() override;
-    void set_key(text_sensor::TextSensor *key) { key_ = key; }
-    void set_last_key(text_sensor::TextSensor *key) { last_key_ = key; }
+    void set_press_key(text_sensor::TextSensor *key) { press_key_ = key; }
+    void set_release_key(text_sensor::TextSensor *key) { release_key_ = key; }
 protected:
 
     void readKey();
@@ -70,8 +70,8 @@ protected:
     void on_release_key(int key);
     std::string key_to_string(int key);
 
-    text_sensor::TextSensor *key_{nullptr};
-    text_sensor::TextSensor *last_key_{nullptr};
+    text_sensor::TextSensor *press_key_{nullptr};
+    text_sensor::TextSensor *release_key_{nullptr};
     std::vector<int> rows_{0, 3, 18, 12, 11, 6, 7};
     std::vector<int> cols_{1, 4, 5, 19, 13};
     bool lastPressedKey_[MAX_KEY];

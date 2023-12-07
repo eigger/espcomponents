@@ -20,8 +20,8 @@ void LilygoTKeyboard::setup()
     {
         lastPressedKey_[i] = false;
     }
-    if (key_ != nullptr) key_->publish_state("None");
-    if (last_key_ != nullptr) last_key_->publish_state("None");
+    if (press_key_ != nullptr) press_key_->publish_state("None");
+    if (release_key_ != nullptr) release_key_->publish_state("None");
     ESP_LOGCONFIG(TAG, "Setting up LilygoTKeyboard...");
 }
 
@@ -65,20 +65,14 @@ void LilygoTKeyboard::on_press_key(int key)
 {
     ESP_LOGV(TAG, "press key (%d)", key);
     if (key == KEY_LSHIFT || key == KEY_RSHIFT || key == KEY_SYM || key == KEY_ALT) return;
-    if (key_ != nullptr) key_->publish_state(key_to_string(key));
-    if (last_key_ != nullptr) last_key_->publish_state(key_to_string(key));
+    if (press_key_ != nullptr) press_key_->publish_state(key_to_string(key));
 }
 
 void LilygoTKeyboard::on_release_key(int key)
 {
     ESP_LOGV(TAG, "release key (%d)", key);
     if (key == KEY_LSHIFT || key == KEY_RSHIFT || key == KEY_SYM || key == KEY_ALT) return;
-    for (int i = 0 ; i < MAX_KEY; i++)
-    {
-        if (key == KEY_LSHIFT || key == KEY_RSHIFT || key == KEY_SYM || key == KEY_ALT) continue;
-        if (lastPressedKey_[i]) return;
-    }
-    if (key_ != nullptr) key_->publish_state("None");
+    if (release_key_ != nullptr) release_key_->publish_state(key_to_string(key));
 }
 
 std::string LilygoTKeyboard::key_to_string(int key)
