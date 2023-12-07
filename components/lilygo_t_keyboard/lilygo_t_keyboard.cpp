@@ -63,7 +63,7 @@ void LilygoTKeyboard::readKey()
 
 void LilygoTKeyboard::on_press_key(int key)
 {
-    ESP_LOGD(TAG, "press key (%d)", key);
+    ESP_LOGV(TAG, "press key (%d)", key);
     if (key == KEY_LSHIFT || key == KEY_RSHIFT || key == KEY_SYM) return;
     add_key(key);
     publish_key();
@@ -72,7 +72,7 @@ void LilygoTKeyboard::on_press_key(int key)
 
 void LilygoTKeyboard::on_release_key(int key)
 {
-    ESP_LOGD(TAG, "release key (%d)", key);
+    ESP_LOGV(TAG, "release key (%d)", key);
     if (key == KEY_LSHIFT || key == KEY_RSHIFT || key == KEY_SYM) return;
     remove_key(key);
     publish_key();
@@ -207,6 +207,7 @@ void LilygoTKeyboard::publish_key()
         if (str.size() > 0) str += "+";
         str += key_to_string(key);
     }
+    if (str.size() == 0) str += "None";
     if (key_ != nullptr) key_->publish_state(str);
 }
 
