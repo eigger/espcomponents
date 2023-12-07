@@ -37,12 +37,12 @@ void LilygoTKeyboard::readKey()
 {
     for (size_t colIndex = 0; colIndex < cols_.size(); colIndex++)
     {
-        int curCol = cols[colIndex];
+        int curCol = cols_[colIndex];
         pinMode(curCol, OUTPUT);
         digitalWrite(curCol, LOW);
         for (size_t rowIndex = 0; rowIndex < rows_.size(); rowIndex++)
         {
-            int rowCol = rows[rowIndex];
+            int rowCol = rows_[rowIndex];
             pinMode(rowCol, INPUT_PULLUP);
             delay(1);
             bool keyPressed = (digitalRead(rowCol) == LOW);
