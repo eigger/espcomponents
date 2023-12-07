@@ -64,14 +64,18 @@ void LilygoTKeyboard::readKey()
 void LilygoTKeyboard::on_press_key(int key)
 {
     ESP_LOGD(TAG, "press key (%d)", key);
-    if (key_ != nullptr) key_->publish_state(key_to_string(key));
+    if (key == KEY_LSHIFT || key == KEY_RSHIFT || key == KEY_SYM) return;
+    add_key(key);
+    publish_key();
     if (last_key_ != nullptr) last_key_->publish_state(key_to_string(key));
 }
 
 void LilygoTKeyboard::on_release_key(int key)
 {
     ESP_LOGD(TAG, "release key (%d)", key);
-    if (key_ != nullptr) key_->publish_state("None");    
+    if (key == KEY_LSHIFT || key == KEY_RSHIFT || key == KEY_SYM) return;
+    remove_key(key);
+    publish_key();
 }
 
 std::string LilygoTKeyboard::key_to_string(int key)
@@ -177,6 +181,33 @@ std::string LilygoTKeyboard::key_to_string(int key)
         return lastPressedKey_[KEY_LSHIFT] || lastPressedKey_[KEY_RSHIFT] ? "K" : "k";
     }
     return "";
+}
+
+bool LilygoTKeyboard::contains_key(int key)
+{
+    return std::find(pressedKey_.begin(), pressedKey_.end(), key) != pressedKey_.end();
+}
+
+void LilygoTKeyboard::add_key(int key)
+{
+    if (!contains_key(key)) pressedKey_.push_back(key);
+}
+
+void LilygoTKeyboard::remove_key(int key)
+{
+    auto position = std::find(pressedKey_.begin(), pressedKey_.end(), key);
+    if (position != pressedKey_.end()) pressedKey_.erase(position); // 값 제거
+}
+
+void LilygoTKeyboard::publish_key()
+{
+    std::string str;
+    for (int key : pressedKey_)
+    {
+        if (str.size() > 0) str += "+";
+        str += key_to_string(key);
+    }
+    if (key_ != nullptr) key_->publish_state(str);
 }
 
 }  // namespace lilygo_t_keyboard
