@@ -30,7 +30,7 @@ void LilygoTKeyboard::dump_config()
 
 void LilygoTKeyboard::loop()
 {
-
+    readKey();
 }
 
 void LilygoTKeyboard::readKey()
