@@ -5,6 +5,10 @@ external_components:
     components: [ lilygo_t_keyboard ]
 
 lilygo_t_keyboard:
+  press_key:
+    name: press key
+  release_key:
+    name: release key
 
 
 ```
