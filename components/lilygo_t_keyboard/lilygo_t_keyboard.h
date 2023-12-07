@@ -1,5 +1,5 @@
 #pragma once
-
+#include "esphome.h"
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
 #include "esphome/components/text_sensor/text_sensor.h"
@@ -25,7 +25,7 @@ protected:
     text_sensor::TextSensor *last_key_{nullptr};
     std::vector<int> rows_{0, 3, 18, 12, 11, 6, 7};
     std::vector<int> cols_{1, 4, 5, 19, 13};
-    bool lastPressedKey_[MAX_KEY]();
+    bool lastPressedKey_[MAX_KEY];
 };
 
 }  // namespace lilygo_t_keyboard

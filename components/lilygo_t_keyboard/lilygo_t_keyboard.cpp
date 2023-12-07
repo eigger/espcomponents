@@ -16,6 +16,10 @@ void LilygoTKeyboard::setup()
     {
         pinMode(col, INPUT_PULLUP);
     }
+    for (int i = 0 ; i < MAX_KEY; i++)
+    {
+        lastPressedKey_[i] = false;
+    }
     ESP_LOGCONFIG(TAG, "Setting up LilygoTKeyboard...");
 }
 
