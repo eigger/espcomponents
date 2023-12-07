@@ -69,15 +69,11 @@ protected:
     void on_press_key(int key);
     void on_release_key(int key);
     std::string key_to_string(int key);
-    bool contains_key(int key);
-    void add_key(int key);
-    void remove_key(int key);
-    void publish_key();
+
     text_sensor::TextSensor *key_{nullptr};
     text_sensor::TextSensor *last_key_{nullptr};
     std::vector<int> rows_{0, 3, 18, 12, 11, 6, 7};
     std::vector<int> cols_{1, 4, 5, 19, 13};
-    std::vector<int> pressedKey_;
     bool lastPressedKey_[MAX_KEY];
 };
 
