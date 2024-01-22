@@ -28,7 +28,7 @@ void IP5306::setup() {
     }
     if (this->poweroff_)
     {
-        this->poweroff_->add_on_press_callback(std::bind(&AXP192Component::poweroff_callback, this));
+        this->poweroff_->add_on_press_callback(std::bind(&IP5306::poweroff_callback, this));
     }
 }
 
