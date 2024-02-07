@@ -116,9 +116,16 @@ void PrintTVOC(display::Display& it, int x, int y, BaseFont *font, Color color, 
     it.printf(x, y, font, tvoc_color, align, "%.0lf", round(tvoc));
 }
 
+double ToRadian(double angle)
+{
+    double pi = 3.14159265358979323846;
+    return angle * (pi / 180);
+}
+
 Line GetRotatedLine(float angle, float radius)
 {
-    float radian = angle * (PI / 180);
+    double pi = 3.14159265358979323846;
+    float radian = ToRadian(angle);
     Line line;
     line.Point1.X = radius * cos(radian);
     line.Point2.X = radius * cos(radian) * -1;
@@ -148,8 +155,9 @@ int GetXFromLine(Line line, int y)
 
 void PrintRollPitch(display::Display& it, int x, int y, BaseFont *font, Color color, TextAlign align, float roll_angle, float pitch_angle, float radius)
 {
-    float roll_radian = roll_angle * (PI / 180);
-    float pitch_radian = pitch_angle * (PI / 180);
+    double pi = 3.14159265358979323846;
+    float roll_radian = ToRadian(roll_angle);
+    float pitch_radian = ToRadian(pitch_angle);
     Color roll_color = color;
     Color pitch_color = color;
     Color roll_pitch_color = color;
