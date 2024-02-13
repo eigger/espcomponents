@@ -29,7 +29,6 @@ void UARTExComponent::setup()
         this->tx_ctrl_pin_->digital_write(false);
     }
     if (rx_checksum_ != CHECKSUM_NONE) rx_parser_.set_checksum_len(1);
-    if (rx_checksum_2_ != CHECKSUM_NONE) rx_parser_.set_checksum_len(2);
     rx_time_ = get_time();
     tx_time_ = get_time();
     if (rx_header_.has_value()) rx_parser_.add_headers(rx_header_.value());
