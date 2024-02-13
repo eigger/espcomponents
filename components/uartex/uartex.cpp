@@ -405,7 +405,7 @@ const std::vector<uint8_t> UARTExComponent::get_rx_checksum(const std::vector<ui
     std::vector<uint8_t> checksum;
     if (this->rx_checksum_f_.has_value())
     {
-        crc = (*rx_checksum_f_)(&data[0], data.size())
+        crc = (*rx_checksum_f_)(&data[0], data.size());
         checksum.push_back(crc);
         if (this->rx_checksum_f_2_.has_value())
         {
@@ -446,7 +446,7 @@ const std::vector<uint8_t> UARTExComponent::get_tx_checksum(const std::vector<ui
     std::vector<uint8_t> checksum;
     if (this->tx_checksum_f_.has_value())
     {
-        crc = (*tx_checksum_f_)(&data[0], data.size())
+        crc = (*tx_checksum_f_)(&data[0], data.size());
         checksum.push_back(crc);
         if (this->tx_checksum_f_2_.has_value())
         {
