@@ -10,7 +10,7 @@ from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
 from esphome.core import coroutine
 from esphome.util import SimpleRegistry
 from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTER, \
-    CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, \
+    CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, CONF_RX_CHECKSUM_2, CONF_TX_CHECKSUM_2, \
     CONF_UARTEX_ID, CONF_ERROR, \
     CONF_ACK, \
     CONF_STATE, CONF_MASK, \
@@ -107,6 +107,8 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_TX_FOOTER): validate_hex_data,
     cv.Optional(CONF_RX_CHECKSUM, default="none"): validate_checksum,
     cv.Optional(CONF_TX_CHECKSUM, default="none"): validate_checksum,
+    cv.Optional(CONF_RX_CHECKSUM_2, default="none"): validate_checksum,
+    cv.Optional(CONF_TX_CHECKSUM_2, default="none"): validate_checksum,
     cv.Optional(CONF_VERSION, default={CONF_NAME: "UartEX Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
@@ -135,7 +137,6 @@ async def to_code(config):
         sens = cg.new_Pvariable(config[CONF_ERROR][CONF_ID])
         await register_text_sensor(sens, config[CONF_ERROR])
         cg.add(var.set_error(sens))
-    
     if CONF_RX_TIMEOUT in config:
         cg.add(var.set_rx_timeout(config[CONF_RX_TIMEOUT]))
     if CONF_TX_DELAY in config:
@@ -161,7 +162,7 @@ async def to_code(config):
             template_ = await cg.process_lambda(data,
                                                 [(uint8_ptr_const, 'data'),
                                                  (uint16_const, 'len')],
-                                                return_type=[cg.uint8])
+                                                return_type=cg.uint8)
             cg.add(var.set_rx_checksum_lambda(template_))
         else:
             cg.add(var.set_rx_checksum(data))
@@ -171,11 +172,32 @@ async def to_code(config):
             template_ = await cg.process_lambda(data,
                                                 [(uint8_ptr_const, 'data'),
                                                  (uint16_const, 'len')],
-                                                return_type=[cg.uint8])
+                                                return_type=cg.uint8)
             cg.add(var.set_tx_checksum_lambda(template_))
         else:
             cg.add(var.set_tx_checksum(data))
-
+    if CONF_RX_CHECKSUM_2 in config:
+        data = config[CONF_RX_CHECKSUM_2]
+        if cg.is_template(data):
+            template_ = await cg.process_lambda(data,
+                                                [(uint8_ptr_const, 'data'),
+                                                 (uint16_const, 'len'),
+                                                 (uint8_const, 'checksum')],
+                                                return_type=cg.uint8)
+            cg.add(var.set_rx_checksum_2_lambda(template_))
+        else:
+            cg.add(var.set_rx_checksum_2(data))
+    if CONF_TX_CHECKSUM_2 in config:
+        data = config[CONF_TX_CHECKSUM_2]
+        if cg.is_template(data):
+            template_ = await cg.process_lambda(data,
+                                                [(uint8_ptr_const, 'data'),
+                                                 (uint16_const, 'len'),
+                                                 (uint8_const, 'checksum')],
+                                                return_type=cg.uint8)
+            cg.add(var.set_tx_checksum_2_lambda(template_))
+        else:
+            cg.add(var.set_tx_checksum_2(data))
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
 UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_UARTEX_ID): _uartex_declare_type,

@@ -23,7 +23,6 @@ public:
 	bool parse_header();
 	bool parse_footer();
 	void set_checksum_len(size_t len);
-	const std::vector<unsigned char> get_checksum();
 	
 private:
 	std::vector<unsigned char> header_;

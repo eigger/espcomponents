@@ -88,9 +88,3 @@ void Parser::set_checksum_len(size_t len)
 {
 	checksum_len_ = len;
 }
-
-const std::vector<unsigned char> Parser::get_checksum()
-{
-	if (checksum_len_ < 1 || buffer_.size() < header_.size() + footer_.size() + checksum_len_) return std::vector<unsigned char>();
-	return std::vector<unsigned char>(buffer_.end() - footer_.size() - checksum_len_, buffer_.end() - footer_.size());
-}

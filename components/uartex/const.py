@@ -13,6 +13,8 @@ CONF_TX_HEADER = 'tx_header'
 CONF_TX_FOOTER = 'tx_footer'
 CONF_RX_CHECKSUM = 'rx_checksum'
 CONF_TX_CHECKSUM = 'tx_checksum'
+CONF_RX_CHECKSUM_2 = 'rx_checksum2'
+CONF_TX_CHECKSUM_2 = 'tx_checksum2'
 CONF_MASK = 'mask'
 CONF_ERROR = 'error'
 
