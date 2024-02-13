@@ -47,7 +47,7 @@
     text_sensor:
       - platform: uartex
         name: TextSensor1
-        filter: [0x06, 0x01]
+        state: [0x06, 0x01]
         lambda: |-
           // @param: const uint8_t *data, const unsigned short len
           // @return: const char*
@@ -70,7 +70,7 @@
     fan:
       - platform: uartex
         name: "Fan1"
-        filter: [0x07, 0x01]
+        state: [0x07, 0x01]
         state_on:
           offset: 2
           data: [0x01]
@@ -104,7 +104,7 @@
     switch:
       - platform: uartex
         name: "Switch1"
-        filter: [0x08, 0x01]
+        state: [0x08, 0x01]
         state_on:
           offset: 2
           data: [0x01]
@@ -124,7 +124,7 @@
     binary_sensor:
       - platform: uartex
         name: Binary_Sensor1
-        filter: [0x09, 0x01]
+        state: [0x09, 0x01]
         state_on:
           offset: 2
           data: [0x01]
@@ -138,7 +138,7 @@
     sensor:
       - platform: uartex
         name: Sensor1
-        filter: [0x0A, 0x01]
+        state: [0x0A, 0x01]
         state_number:
           offset: 2
           length: 1
@@ -150,7 +150,7 @@
     light:
       - platform: uartex
         name: "Light1"
-        filter: [0x0B, 0x01]
+        state: [0x0B, 0x01]
         state_on:
           offset: 2
           data: [0x01]
@@ -171,7 +171,7 @@
           min_temperature: 5 °C
           max_temperature: 30 °C
           temperature_step: 1 °C
-        filter: [0x0C, 0x01]
+        state: [0x0C, 0x01]
         state_temperature_current:
           offset: 4
           length: 1
@@ -204,7 +204,7 @@
           min_temperature: 5 °C
           max_temperature: 30 °C
           temperature_step: 1 °C
-        filter: [0x0C, 0x01]
+        state: [0x0C, 0x01]
         state_temperature_current:
           offset: 4
           length: 1
@@ -243,7 +243,7 @@
     lock:
       - platform: uartex
         name: "Lock1"
-        filter: [0x0E, 0x01]
+        state: [0x0E, 0x01]
         state_locked:
           offset: 2
           data: [0x01]
@@ -269,7 +269,7 @@
     number:
       - platform: uartex
         name: "Number1"
-        filter: [0x0F, 0x01]
+        state: [0x0F, 0x01]
         max_value: 10
         min_value: 1
         step: 1
@@ -317,7 +317,7 @@
       - platform: uartex
         name: Elevator Floors
         icon: "mdi:elevator"
-        filter: [0x30, 0xbc, 0x00, 0x44, 0x00]
+        state: [0x30, 0xbc, 0x00, 0x44, 0x00]
         state_number:
           offset: 9
           length: 1
@@ -327,7 +327,7 @@
       - platform: uartex
         name: "Livingroom1"
         id: livingroom1
-        filter: [0x30, 0xdc, 0x00, 0x0e, 0x00]
+        state: [0x30, 0xdc, 0x00, 0x0e, 0x00]
         state_on:
           offset: 8
           data: [0xff]
@@ -352,7 +352,7 @@
       - platform: uartex
         name: "Livingroom2"
         id: livingroom2
-        filter: [0x30, 0xdc, 0x00, 0x0e, 0x00]
+        state: [0x30, 0xdc, 0x00, 0x0e, 0x00]
         state_on:
           offset: 9
           data: [0xff]
@@ -374,7 +374,7 @@
           min_temperature: 5 °C
           max_temperature: 30 °C
           temperature_step: 1 °C
-        filter: [0x30, 0xdc, 0x00, 0x36, 0x00]
+        state: [0x30, 0xdc, 0x00, 0x36, 0x00]
         state_temperature_current:
           offset: 12
           length: 1
@@ -410,7 +410,7 @@
           min_temperature: 5 °C
           max_temperature: 30 °C
           temperature_step: 1 °C
-        filter: [0x30, 0xdc, 0x00, 0x36, 0x01]
+        state: [0x30, 0xdc, 0x00, 0x36, 0x01]
         state_temperature_current:
           offset: 12
           length: 1
@@ -443,7 +443,7 @@
           min_temperature: 5 °C
           max_temperature: 30 °C
           temperature_step: 1 °C
-        filter: [0x30, 0xdc, 0x00, 0x36, 0x02]
+        state: [0x30, 0xdc, 0x00, 0x36, 0x02]
         state_temperature_current:
           offset: 12
           length: 1
@@ -476,7 +476,7 @@
           min_temperature: 5 °C
           max_temperature: 30 °C
           temperature_step: 1 °C
-        filter: [0x30, 0xdc, 0x00, 0x36, 0x03]
+        state: [0x30, 0xdc, 0x00, 0x36, 0x03]
         state_temperature_current:
           offset: 12
           length: 1
@@ -543,7 +543,7 @@
       - platform: uartex
         name: "Door Bell"
         icon: "mdi:bell-ring"
-        filter: [0x7A, 0x9E, 0x02, 0x02]
+        state: [0x7A, 0x9E, 0x02, 0x02]
         state_on:
           offset: 13
           data: [0x01, 0x01]
@@ -556,7 +556,7 @@
       - platform: uartex
         name: "Door Bell Common"
         icon: "mdi:bell-ring"
-        filter: [0x7A, 0x9E, 0x02, 0x08]
+        state: [0x7A, 0x9E, 0x02, 0x08]
         state_on:
           offset: 13
           data: [0x01, 0x01]
@@ -609,7 +609,7 @@
       - platform: uartex
         name: Livingroom Power Socket 1
         unit_of_measurement: "W"
-        filter: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x11, 0x00] #Required
+        state: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x11, 0x00] #Required
         state_number:
           offset: 8 # 위치
           length: 2 # 길이
@@ -618,7 +618,7 @@
       - platform: uartex
         name: Livingroom Power Socket 2
         unit_of_measurement: "W"
-        filter: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x12, 0x00]
+        state: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x12, 0x00]
         state_number:
           offset: 8
           length: 2 
@@ -626,7 +626,7 @@
       - platform: uartex
         name: ROOM1 Power Socket 1
         unit_of_measurement: "W"
-        filter: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x21, 0x00]
+        state: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x21, 0x00]
         state_number:
           offset: 8
           length: 2 
@@ -634,7 +634,7 @@
       - platform: uartex
         name: ROOM1 Power Socket 2
         unit_of_measurement: "W"
-        filter: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x22, 0x00]
+        state: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x22, 0x00]
         state_number:
           offset: 8
           length: 2
@@ -656,7 +656,7 @@
       - platform: uartex
         name: "ROOM1 Power Socket 1"
         icon: "mdi:power-socket-eu"
-        filter: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x21, 0x00]
+        state: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x21, 0x00]
         state_on:
           offset: 7
           data: [0x01]
@@ -674,7 +674,7 @@
       - platform: uartex
         name: "ROOM1 Power Socket 2"
         icon: "mdi:power-socket-eu"
-        filter: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x22, 0x00]
+        state: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x22, 0x00]
         state_on:
           offset: 7
           data: [0x01]
@@ -692,7 +692,7 @@
       - platform: uartex
         name: "Livingroom Power Socket 1"
         icon: "mdi:power-socket-eu"
-        filter: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x11, 0x00]
+        state: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x11, 0x00]
         state_on:
           offset: 7
           data: [0x01]
@@ -710,7 +710,7 @@
       - platform: uartex
         name: "Livingroom Power Socket 2"
         icon: "mdi:power-socket-eu"
-        filter: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x12, 0x00]
+        state: [0x12, 0x01, 0x1F, 0x04, 0x40, 0x12, 0x00]
         state_on:
           offset: 7
           data: [0x01]
@@ -735,10 +735,7 @@
       # 꺼짐 명령-> 0xf7, 0x0b, 0x01, 0x19, 0x02, 0x40, 0x21, 0x02, 0x00, 0x85, 0xee
       - platform: uartex
         name: "ROOM1 1"
-        filter: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x21, 0x00]
-        # sub_filter:
-        #   offset: 5
-        #   data: [0x21]
+        state: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x21, 0x00]
         state_on:
           offset: 7
           data: [0x01]
@@ -759,10 +756,7 @@
       # 꺼짐 명령-> 0xf7, 0x0b, 0x01, 0x19, 0x02, 0x40, 0x22, 0x02, 0x00, 0x86, 0xee
       - platform: uartex
         name: "ROOM1 2"
-        filter: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x22, 0x00]
-        # sub_filter:
-        #   offset: 5
-        #   data: [0x22]
+        state: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x22, 0x00]
         state_on:
           offset: 7
           data: [0x01]
@@ -783,7 +777,7 @@
       # 꺼짐 명령-> 0xf7, 0x0b, 0x01, 0x19, 0x02, 0x40, 0x23, 0x02, 0x00, 0x87, 0xee
       - platform: uartex
         name: Balcony
-        filter: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x23, 0x00]
+        state: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x23, 0x00]
         state_on:
           offset: 7
           data: [0x01]
@@ -816,7 +810,7 @@
       # 꺼짐 명령-> 0xf7, 0x0b, 0x01, 0x19, 0x02, 0x40, 0x11, 0x02, 0x00, 0xb5, 0xee
       - platform: uartex
         name: "Livingroom1"
-        filter: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x11, 0x00]
+        state: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x11, 0x00]
         state_on:
           offset: 7
           data: [0x01]
@@ -837,7 +831,7 @@
       # 꺼짐 명령-> 0xf7, 0x0b, 0x01, 0x19, 0x02, 0x40, 0x12, 0x02, 0x00, 0xb6, 0xee
       - platform: uartex
         name: "Livingroom2"
-        filter: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x12, 0x00]
+        state: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x12, 0x00]
         state_on:
           offset: 7
           data: [0x01]
@@ -858,7 +852,7 @@
       # 꺼짐 명령-> 0xf7, 0x0b, 0x01, 0x19, 0x02, 0x40, 0x13, 0x02, 0x00, 0xb7, 0xee
       - platform: uartex
         name: "Livingroom3"
-        filter: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x13, 0x00]
+        state: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x13, 0x00]
         state_on:
           offset: 7
           data: [0x01]
@@ -879,7 +873,7 @@
       # 꺼짐 명령-> 0xf7, 0x0b, 0x01, 0x19, 0x02, 0x40, 0x14, 0x02, 0x00, 0xb0, 0xee
       - platform: uartex
         name: "Livingroom4"
-        filter: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x14, 0x00]
+        state: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x14, 0x00]
         state_on:
           offset: 7
           data: [0x01]
@@ -910,7 +904,7 @@
       - platform: uartex
         name: "Ventilation"
         speed_cnt: 3
-        filter: [0x0c, 0x01, 0x2b, 0x04, 0x40, 0x11, 0x00]
+        state: [0x0c, 0x01, 0x2b, 0x04, 0x40, 0x11, 0x00]
         state_on:
           offset: 7
           data: [0x01]
@@ -984,7 +978,7 @@
           min_temperature: 5 °C
           max_temperature: 40 °C
           temperature_step: 1 °C
-        filter: [0x0D, 0x01, 0x18, 0x04, 0x45, 0x11, 0x00]
+        state: [0x0D, 0x01, 0x18, 0x04, 0x45, 0x11, 0x00]
         state_temperature_current: #Required (현재온도 State, RS485 Sensor 설정 참고, sensor:로 대체 가능)
           offset: 8
           length: 1
@@ -1025,7 +1019,7 @@
           min_temperature: 5 °C
           max_temperature: 40 °C
           temperature_step: 1 °C
-        filter: [0x0D, 0x01, 0x18, 0x04, 0x45, 0x12, 0x00]
+        state: [0x0D, 0x01, 0x18, 0x04, 0x45, 0x12, 0x00]
         state_temperature_current:
           offset: 8
           length: 1
@@ -1066,7 +1060,7 @@
           min_temperature: 5 °C
           max_temperature: 40 °C
           temperature_step: 1 °C
-        filter: [0x0D, 0x01, 0x18, 0x04, 0x45, 0x13, 0x00]
+        state: [0x0D, 0x01, 0x18, 0x04, 0x45, 0x13, 0x00]
         state_temperature_current:
           offset: 8
           length: 1
@@ -1107,7 +1101,7 @@
           min_temperature: 5 °C
           max_temperature: 40 °C
           temperature_step: 1 °C
-        filter: [0x0D, 0x01, 0x18, 0x04, 0x45, 0x14, 0x00]
+        state: [0x0D, 0x01, 0x18, 0x04, 0x45, 0x14, 0x00]
         state_temperature_current:
           offset: 8
           length: 1
@@ -1148,7 +1142,7 @@
           min_temperature: 18 °C
           max_temperature: 30 °C
           temperature_step: 1 °C
-        filter: [0x0D, 0x01, 0x18, 0x04, 0x45, 0x15, 0x00]
+        state: [0x0D, 0x01, 0x18, 0x04, 0x45, 0x15, 0x00]
         state_temperature_current:
           offset: 8
           length: 1
@@ -1230,7 +1224,7 @@
     text_sensor:
      - platform: uartex
        name: "GAS Status"
-       filter: [0x41]
+       state: [0x41]
        #command_update: [0xAB, 0x41, 0x00]
        #update_interval: 60s
        lambda: |-
@@ -1250,7 +1244,7 @@
      - platform: uartex
        name: "GAS"
        icon: "mdi:valve"
-       filter: [0x41]
+       state: [0x41]
        state_on:
          offset: 1
          data: [0x00]
@@ -1268,7 +1262,7 @@
     light:
       - platform: uartex
         name: "ROOM1"
-        filter: [0x79, 0x31]
+        state: [0x79, 0x31]
         state_on:
           offset: 2
           data: [0x01]
@@ -1286,7 +1280,7 @@
           
       - platform: uartex
         name: "ROOM2"
-        filter: [0x79, 0x31]
+        state: [0x79, 0x31]
         state_on:
           offset: 2
           data: [0x02]
@@ -1304,7 +1298,7 @@
           
       - platform: uartex
         name: "ROOM3"
-        filter: [0x79, 0x31]
+        state: [0x79, 0x31]
         state_on:
           offset: 2
           data: [0x04]
@@ -1322,7 +1316,7 @@
           
       - platform: uartex
         name: "ROOM4"
-        filter: [0x79, 0x24]
+        state: [0x79, 0x24]
         state_on:
           offset: 2
           data: [0x01]
@@ -1340,7 +1334,7 @@
           
       - platform: uartex
         name: "ROOM5"
-        filter: [0x79, 0x24]
+        state: [0x79, 0x24]
         state_on:
           offset: 2
           data: [0x02]
@@ -1364,7 +1358,7 @@
           min_temperature: 5 °C
           max_temperature: 40 °C
           temperature_step: 1 °C
-        filter: [0x7C, 0x01]
+        state: [0x7C, 0x01]
         state_temperature_current: #Required (현재온도 State, RS485 Sensor 설정 참고, sensor:로 대체 가능)
           offset: 4
           length: 1
@@ -1411,7 +1405,7 @@
           min_temperature: 5 °C
           max_temperature: 40 °C
           temperature_step: 1 °C
-        filter: [0x7C, 0x02]
+        state: [0x7C, 0x02]
         state_temperature_current: #Required (현재온도 State, RS485 Sensor 설정 참고, sensor:로 대체 가능)
           offset: 4
           length: 1
@@ -1457,7 +1451,7 @@
           min_temperature: 5 °C
           max_temperature: 40 °C
           temperature_step: 1 °C
-        filter: [0x7C, 0x03]
+        state: [0x7C, 0x03]
         state_temperature_current: #Required (현재온도 State, RS485 Sensor 설정 참고, sensor:로 대체 가능)
           offset: 4
           length: 1
@@ -1503,7 +1497,7 @@
           min_temperature: 5 °C
           max_temperature: 40 °C
           temperature_step: 1 °C
-        filter: [0x7C, 0x04]
+        state: [0x7C, 0x04]
         state_temperature_current: #Required (현재온도 State, RS485 Sensor 설정 참고, sensor:로 대체 가능)
           offset: 4
           length: 1

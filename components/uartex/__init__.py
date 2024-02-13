@@ -13,7 +13,7 @@ from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTE
     CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, CONF_RX_CHECKSUM_2, CONF_TX_CHECKSUM_2, \
     CONF_UARTEX_ID, CONF_ERROR, \
     CONF_ACK, \
-    CONF_SUB_FILTER, CONF_FILTER, CONF_MASK, \
+    CONF_STATE, CONF_MASK, \
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
     CONF_COMMAND_UPDATE, CONF_RX_TIMEOUT, CONF_TX_TIMEOUT, CONF_TX_RETRY_CNT, \
     CONF_STATE_RESPONSE, CONF_LENGTH, CONF_PRECISION, \
@@ -203,8 +203,7 @@ async def to_code(config):
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
 UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_UARTEX_ID): _uartex_declare_type,
-    cv.Required(CONF_FILTER): state_schema,
-    cv.Optional(CONF_SUB_FILTER): state_schema,
+    cv.Required(CONF_STATE): state_schema,
     cv.Required(CONF_STATE_ON): state_schema,
     cv.Required(CONF_STATE_OFF): state_schema,
     cv.Required(CONF_COMMAND_ON): cv.templatable(command_hex_schema),
@@ -228,13 +227,9 @@ def register_uartex_device(var, config):
     cg.add(paren.register_device(var))
     yield var
 
-    if CONF_FILTER in config:
-        filter = yield state_hex_expression(config[CONF_FILTER])
-        cg.add(var.set_filter(filter))
-
-    if CONF_SUB_FILTER in config:
-        sub_filter = yield state_hex_expression(config[CONF_SUB_FILTER])
-        cg.add(var.set_sub_filter(sub_filter))
+    if CONF_STATE in config:
+        state = yield state_hex_expression(config[CONF_STATE])
+        cg.add(var.set_state(state))
 
     if CONF_STATE_ON in config:
         state_on = yield state_hex_expression(config[CONF_STATE_ON])

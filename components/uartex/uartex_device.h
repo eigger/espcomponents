@@ -37,8 +37,7 @@ class UARTExDevice : public PollingComponent
 public:
     void update() override;
     void dump_uartex_device_config(const char *TAG);
-    void set_filter(state_t filter);
-    void set_sub_filter(state_t sub_filter);
+    void set_state(state_t state);
     void set_state_on(state_t state_on);
     void set_state_off(state_t state_off);
     void set_command_on(cmd_t command_on);
@@ -66,8 +65,7 @@ public:
 
 protected:
 
-    optional<state_t> filter_{};
-    optional<state_t> sub_filter_{};
+    optional<state_t> state_{};
     optional<state_t> state_on_{};
     optional<state_t> state_off_{};
     optional<cmd_t> command_on_{};
