@@ -10,7 +10,7 @@ from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
 from esphome.core import coroutine
 from esphome.util import SimpleRegistry
 from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTER, \
-    CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, CONF_RX_CHECKSUM_2, CONF_TX_CHECKSUM_2, \
+    CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, \
     CONF_UARTEX_ID, CONF_ERROR, \
     CONF_ACK, \
     CONF_STATE, CONF_MASK, \
