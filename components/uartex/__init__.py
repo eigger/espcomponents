@@ -1,5 +1,3 @@
-from email.policy import default
-import logging
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import uart, text_sensor
@@ -19,7 +17,6 @@ from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTE
     CONF_STATE_RESPONSE, CONF_LENGTH, CONF_PRECISION, \
     CONF_TX_CTRL_PIN, CONF_TX_DELAY
 
-_LOGGER = logging.getLogger(__name__)
 AUTO_LOAD = ["text_sensor"]
 CODEOWNERS = ["@eigger"]
 DEPENDENCIES = ["uart"]
