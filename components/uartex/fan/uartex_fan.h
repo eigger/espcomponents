@@ -20,17 +20,17 @@ public:
         return false; 
     }
     void control(const fan::FanCall &call) override;
-    void set_speed_count(uint16_t count) { speed_count_ = count; }
-    void set_state_speed(std::function<optional<float>(const uint8_t *data, const uint16_t len)> f) { state_speed_func_ = f; }
-    void set_command_speed(std::function<cmd_t(const float x)> f) { command_speed_func_ = f; }
+    void set_speed_count(uint16_t count) { this->speed_count_ = count; }
+    void set_state_speed(std::function<optional<float>(const uint8_t *data, const uint16_t len)> f) { this->state_speed_func_ = f; }
+    void set_command_speed(std::function<cmd_t(const float x)> f) { this->command_speed_func_ = f; }
 protected:
     fan::FanTraits get_traits() override
     {
         fan::FanTraits traits{};
-        if (speed_count_ > 0)
+        if (this->speed_count_ > 0)
         {
             traits.set_speed(true);
-            traits.set_supported_speed_count(speed_count_);
+            traits.set_supported_speed_count(this->speed_count_);
         }
         return traits;
     }

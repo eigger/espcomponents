@@ -40,7 +40,7 @@ void UARTExClimate::setup()
                                                 {
                                                     this->current_temperature = state;
                                                     // current temperature changed, publish state
-                                                    this->publish_state();
+                                                    publish_state();
                                                 });
         this->current_temperature = this->sensor_->state;
     }
@@ -51,48 +51,48 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
 {
     bool changed = false;
     // turn off
-    if (this->state_off_.has_value() && validate(data, &state_off_.value()))
+    if (this->state_off_.has_value() && validate(data, &this->state_off_.value()))
     {
-        if (mode != climate::CLIMATE_MODE_OFF)
+        if (this->mode != climate::CLIMATE_MODE_OFF)
         {
-            mode = climate::CLIMATE_MODE_OFF;
+            this->mode = climate::CLIMATE_MODE_OFF;
             changed = true;
         }
     }
     // heat mode
-    else if (this->state_heat_.has_value() && validate(data, &state_heat_.value()))
+    else if (this->state_heat_.has_value() && validate(data, &this->state_heat_.value()))
     {
-        if (mode != climate::CLIMATE_MODE_HEAT)
+        if (this->mode != climate::CLIMATE_MODE_HEAT)
         {
-            mode = climate::CLIMATE_MODE_HEAT;
+            this->mode = climate::CLIMATE_MODE_HEAT;
             changed = true;
         }
     }
     // cool mode
-    else if (this->state_cool_.has_value() && validate(data, &state_cool_.value()))
+    else if (this->state_cool_.has_value() && validate(data, &this->state_cool_.value()))
     {
-        if (mode != climate::CLIMATE_MODE_COOL)
+        if (this->mode != climate::CLIMATE_MODE_COOL)
         {
-            mode = climate::CLIMATE_MODE_COOL;
+            this->mode = climate::CLIMATE_MODE_COOL;
             changed = true;
         }
     }
     // auto mode
-    else if (this->state_auto_.has_value() && validate(data, &state_auto_.value()))
+    else if (this->state_auto_.has_value() && validate(data, &this->state_auto_.value()))
     {
-        if (mode != climate::CLIMATE_MODE_AUTO)
+        if (this->mode != climate::CLIMATE_MODE_AUTO)
         {
-            mode = climate::CLIMATE_MODE_AUTO;
+            this->mode = climate::CLIMATE_MODE_AUTO;
             changed = true;
         }
     }
     // away
     if (this->state_away_.has_value())
     {
-        bool is_away = *preset == climate::CLIMATE_PRESET_AWAY ? true : false;
-        if (is_away != validate(data, &state_away_.value()))
+        bool is_away = *this->preset == climate::CLIMATE_PRESET_AWAY ? true : false;
+        if (is_away != validate(data, &this->state_away_.value()))
         {
-            *preset = is_away == true ? climate::CLIMATE_PRESET_HOME : climate::CLIMATE_PRESET_AWAY;
+            *this->preset = is_away == true ? climate::CLIMATE_PRESET_HOME : climate::CLIMATE_PRESET_AWAY;
             changed = true;
         }
     }
@@ -140,24 +140,24 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
         }
     }
 
-    if (changed) this->publish_state();
+    if (changed) publish_state();
 }
 
 void UARTExClimate::control(const climate::ClimateCall &call)
 {
     // Set mode
-    if (call.get_mode().has_value() && mode != *call.get_mode())
+    if (call.get_mode().has_value() && this->mode != *call.get_mode())
     {
-        mode = *call.get_mode();
-        if (mode == climate::CLIMATE_MODE_OFF)
+        this->mode = *call.get_mode();
+        if (this->mode == climate::CLIMATE_MODE_OFF)
         {
-            enqueue_tx_cmd(this->get_command_off());
+            enqueue_tx_cmd(get_command_off());
         }
-        else if (mode == climate::CLIMATE_MODE_HEAT && this->command_heat_.has_value())
+        else if (this->mode == climate::CLIMATE_MODE_HEAT && this->command_heat_.has_value())
         {
             enqueue_tx_cmd(&this->command_heat_.value());
         }
-        else if (mode == climate::CLIMATE_MODE_COOL && this->command_cool_.has_value())
+        else if (this->mode == climate::CLIMATE_MODE_COOL && this->command_cool_.has_value())
         {
             enqueue_tx_cmd(&this->command_cool_.value());
         }
@@ -174,12 +174,12 @@ void UARTExClimate::control(const climate::ClimateCall &call)
             else if (this->command_heat_.has_value())
             {
                 enqueue_tx_cmd(&this->command_heat_.value());
-                mode = climate::CLIMATE_MODE_HEAT;
+                this->mode = climate::CLIMATE_MODE_HEAT;
             }
             else if (this->command_cool_.has_value())
             {
                 enqueue_tx_cmd(&this->command_cool_.value());
-                mode = climate::CLIMATE_MODE_COOL;
+                this->mode = climate::CLIMATE_MODE_COOL;
             }
         }
     }
@@ -193,10 +193,10 @@ void UARTExClimate::control(const climate::ClimateCall &call)
     }
 
     // Set away
-    if (this->command_away_.has_value() && call.get_preset().has_value() && *preset != *call.get_preset())
+    if (this->command_away_.has_value() && call.get_preset().has_value() && *this->preset != *call.get_preset())
     {
-        *preset = *call.get_preset();
-        if (*preset == climate::CLIMATE_PRESET_AWAY)
+        *this->preset = *call.get_preset();
+        if (*this->preset == climate::CLIMATE_PRESET_AWAY)
         {
             enqueue_tx_cmd(&this->command_away_.value());
         }
@@ -204,24 +204,24 @@ void UARTExClimate::control(const climate::ClimateCall &call)
         {
             enqueue_tx_cmd(&this->command_home_.value());
         }
-        else if (mode == climate::CLIMATE_MODE_OFF)
+        else if (this->mode == climate::CLIMATE_MODE_OFF)
         {
             enqueue_tx_cmd(this->get_command_off());
         }
-        else if (mode == climate::CLIMATE_MODE_HEAT && this->command_heat_.has_value())
+        else if (this->mode == climate::CLIMATE_MODE_HEAT && this->command_heat_.has_value())
         {
             enqueue_tx_cmd(&this->command_heat_.value());
         }
-        else if (mode == climate::CLIMATE_MODE_COOL && this->command_cool_.has_value())
+        else if (this->mode == climate::CLIMATE_MODE_COOL && this->command_cool_.has_value())
         {
             enqueue_tx_cmd(&this->command_cool_.value());
         }
-        else if (mode == climate::CLIMATE_MODE_AUTO && this->command_auto_.has_value())
+        else if (this->mode == climate::CLIMATE_MODE_AUTO && this->command_auto_.has_value())
         {
             enqueue_tx_cmd(&this->command_auto_.value());
         }
     }
-    this->publish_state();
+    publish_state();
 }
 
 }  // namespace uartex

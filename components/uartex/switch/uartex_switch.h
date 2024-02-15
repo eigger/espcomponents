@@ -16,7 +16,7 @@ public:
     void write_state(bool state) override 
     {
         if(state == this->state) return;
-        enqueue_tx_cmd(state ? this->get_command_on() : this->get_command_off());
+        enqueue_tx_cmd(state ? get_command_on() : get_command_off());
         publish_state(state);
     }
 

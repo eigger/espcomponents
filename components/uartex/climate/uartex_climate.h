@@ -18,53 +18,56 @@ public:
     bool publish(bool state) override { return false; }
 
     void set_sensor(sensor::Sensor *sensor) { this->sensor_ = sensor; }
-    void set_state_current(std::function<optional<float>(const uint8_t *data, const uint16_t len)> f) { state_current_func_ = f; }
-    void set_state_current(state_num_t state_current) { state_current_ = state_current; }
-    void set_state_target(std::function<optional<float>(const uint8_t *data, const uint16_t len)> f) { state_target_func_ = f; }
-    void set_state_target(state_num_t state_target) { state_target_ = state_target; }
+    void set_state_current(std::function<optional<float>(const uint8_t *data, const uint16_t len)> f) { this->state_current_func_ = f; }
+    void set_state_current(state_num_t state) { this->state_current_ = state; }
+    void set_state_target(std::function<optional<float>(const uint8_t *data, const uint16_t len)> f) { this->state_target_func_ = f; }
+    void set_state_target(state_num_t state) { this->state_target_ = state; }
     void set_state_auto(state_t state)
     {
-        state_auto_ = state;
-        supports_auto_ = true;
+        this->state_auto_ = state;
+        this->supports_auto_ = true;
     }
     void set_state_cool(state_t state)
     {
-        state_cool_ = state;
-        supports_cool_ = true;
+        this->state_cool_ = state;
+        this->supports_cool_ = true;
     }
     void set_state_heat(state_t state)
     {
-        state_heat_ = state;
-        supports_heat_ = true;
+        this->state_heat_ = state;
+        this->supports_heat_ = true;
     }
     void set_state_away(state_t state)
     {
-        state_away_ = state;
-        supports_away_ = true;
+        this->state_away_ = state;
+        this->supports_away_ = true;
     }
 
-    void set_command_temperature(std::function<cmd_t(const float x)> f) { command_temperature_func_ = f; }
+    void set_command_temperature(std::function<cmd_t(const float x)> f) { this->command_temperature_func_ = f; }
     void set_command_auto(cmd_t cmd)
     {
-        command_auto_ = cmd;
-        supports_auto_ = true;
+        this->command_auto_ = cmd;
+        this->supports_auto_ = true;
     }
     void set_command_cool(cmd_t cmd)
     {
-        command_cool_ = cmd;
-        supports_cool_ = true;
+        this->command_cool_ = cmd;
+        this->supports_cool_ = true;
     }
     void set_command_heat(cmd_t cmd)
     {
-        command_heat_ = cmd;
-        supports_heat_ = true;
+        this->command_heat_ = cmd;
+        this->supports_heat_ = true;
     }
     void set_command_away(cmd_t cmd)
     {
-        command_away_ = cmd;
-        supports_away_ = true;
+        this->command_away_ = cmd;
+        this->supports_away_ = true;
     }
-    void set_command_home(cmd_t cmd) { command_home_ = cmd; }
+    void set_command_home(cmd_t cmd)
+    {
+        this->command_home_ = cmd;
+    }
 
 protected:
     /// Override control to change settings of the climate device.

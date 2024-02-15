@@ -44,17 +44,17 @@ void UARTExFan::control(const fan::FanCall &call)
         changed_direction = true;
     }
       
-    if (command_on_.has_value() && this->state && changed_state) enqueue_tx_cmd(&this->command_on_.value());
+    if (this->command_on_.has_value() && this->state && changed_state) enqueue_tx_cmd(&this->command_on_.value());
     if (changed_speed)
     {
         if (this->command_speed_func_.has_value())
         {
-            command_speed_ = (*this->command_speed_func_)((float)this->speed);
-            enqueue_tx_cmd(&command_speed_);
+            this->command_speed_ = (*this->command_speed_func_)((float)this->speed);
+            enqueue_tx_cmd(&this->command_speed_);
         }
     }
-    if (command_off_.has_value() && !this->state && changed_state) enqueue_tx_cmd(&this->command_off_.value());
-    this->publish_state();
+    if (this->command_off_.has_value() && !this->state && changed_state) enqueue_tx_cmd(&this->command_off_.value());
+    publish_state();
 }
 
 void UARTExFan::publish(const std::vector<uint8_t>& data)
@@ -65,7 +65,7 @@ void UARTExFan::publish(const std::vector<uint8_t>& data)
         if (val.has_value() && this->speed != (int)val.value())
         {
             this->speed = (int)val.value();
-            this->publish_state();
+            publish_state();
         }
     }
 }

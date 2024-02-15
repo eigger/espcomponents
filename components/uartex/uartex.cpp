@@ -8,17 +8,17 @@ namespace uartex {
 static const char *TAG = "uartex";
 void UARTExComponent::dump_config()
 {
-    ESP_LOGCONFIG(TAG, "  RX Receive Timeout: %d", conf_rx_timeout_);
-    ESP_LOGCONFIG(TAG, "  TX Transmission Timeout: %d", conf_tx_timeout_);
-    ESP_LOGCONFIG(TAG, "  TX Retry Count: %d", conf_tx_retry_cnt_);
-    if (tx_ctrl_pin_)   LOG_PIN("  TX Ctrl Pin: ", tx_ctrl_pin_);
-    if (rx_header_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_header: %s", to_hex_string(rx_header_.value()).c_str());
-    if (rx_footer_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_footer: %s", to_hex_string(rx_footer_.value()).c_str());
-    if (tx_header_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_header: %s", to_hex_string(tx_header_.value()).c_str());
-    if (tx_footer_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_footer: %s", to_hex_string(tx_footer_.value()).c_str());
-    ESP_LOGCONFIG(TAG, "  Data rx_checksum: %d", rx_checksum_);
-    ESP_LOGCONFIG(TAG, "  Data tx_checksum: %d", tx_checksum_);
-    ESP_LOGCONFIG(TAG, "  Device count: %d", devices_.size());
+    ESP_LOGCONFIG(TAG, "  RX Receive Timeout: %d", this->conf_rx_timeout_);
+    ESP_LOGCONFIG(TAG, "  TX Transmission Timeout: %d", this->conf_tx_timeout_);
+    ESP_LOGCONFIG(TAG, "  TX Retry Count: %d", this->conf_tx_retry_cnt_);
+    if (this->tx_ctrl_pin_)   LOG_PIN("  TX Ctrl Pin: ", this->tx_ctrl_pin_);
+    if (this->rx_header_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_header: %s", to_hex_string(this->rx_header_.value()).c_str());
+    if (this->rx_footer_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_footer: %s", to_hex_string(this->rx_footer_.value()).c_str());
+    if (this->tx_header_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_header: %s", to_hex_string(this->tx_header_.value()).c_str());
+    if (this->tx_footer_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_footer: %s", to_hex_string(this->tx_footer_.value()).c_str());
+    ESP_LOGCONFIG(TAG, "  Data rx_checksum: %d", this->rx_checksum_);
+    ESP_LOGCONFIG(TAG, "  Data tx_checksum: %d", this->tx_checksum_);
+    ESP_LOGCONFIG(TAG, "  Device count: %d", this->devices_.size());
 }
 
 void UARTExComponent::setup()
@@ -28,12 +28,12 @@ void UARTExComponent::setup()
         this->tx_ctrl_pin_->setup();
         this->tx_ctrl_pin_->digital_write(false);
     }
-    if (rx_checksum_ != CHECKSUM_NONE) rx_parser_.set_checksum_len(1);
-    if (rx_checksum_2_ != CHECKSUM_NONE) rx_parser_.set_checksum_len(2);
-    rx_time_ = get_time();
-    tx_time_ = get_time();
-    if (rx_header_.has_value()) rx_parser_.add_headers(rx_header_.value());
-    if (rx_footer_.has_value()) rx_parser_.add_footers(rx_footer_.value());
+    if (this->rx_checksum_ != CHECKSUM_NONE) this->rx_parser_.set_checksum_len(1);
+    if (this->rx_checksum_2_ != CHECKSUM_NONE) this->rx_parser_.set_checksum_len(2);
+    this->rx_time_ = get_time();
+    this->tx_time_ = get_time();
+    if (this->rx_header_.has_value()) this->rx_parser_.add_headers(this->rx_header_.value());
+    if (this->rx_footer_.has_value()) this->rx_parser_.add_footers(this->rx_footer_.value());
     if (this->error_) this->error_->publish_state("None");
     if (this->version_) this->version_->publish_state(UARTEX_VERSION);
     ESP_LOGI(TAG, "Initaialize.");
@@ -48,16 +48,16 @@ void UARTExComponent::loop()
 
 void UARTExComponent::read_from_uart()
 {
-    rx_parser_.clear();
+    this->rx_parser_.clear();
     unsigned long timer = get_time();
-    while (elapsed_time(timer) < conf_rx_timeout_)
+    while (elapsed_time(timer) < this->conf_rx_timeout_)
     {
         while (this->available())
         {
             uint8_t byte;
             if (this->read_byte(&byte))
             {
-                if (rx_parser_.parse_byte(byte)) return;
+                if (this->rx_parser_.parse_byte(byte)) return;
                 if (validate_data() == ERROR_NONE) return;
                 timer = get_time();
             }
@@ -68,7 +68,7 @@ void UARTExComponent::read_from_uart()
 
 void UARTExComponent::publish_to_devices()
 {
-    if (rx_parser_.buffer().size() == 0) return;
+    if (this->rx_parser_.buffer().size() == 0) return;
     ERROR error = validate_data();
     if (error != ERROR_NONE)
     {
@@ -78,16 +78,16 @@ void UARTExComponent::publish_to_devices()
     publish_error(ERROR_NONE);
     verify_ack();
     publish_data();
-    rx_time_ = get_time();
+    this->rx_time_ = get_time();
 }
 
 bool UARTExComponent::verify_ack()
 {
     if (!is_have_tx_data()) return false;
     if (tx_device() == nullptr) return false;
-    if (!tx_device()->equal(rx_parser_.data(), tx_cmd()->ack)) return false;
+    if (!tx_device()->equal(this->rx_parser_.data(), tx_cmd()->ack)) return false;
     tx_data_response(true);
-    ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", to_hex_string(rx_parser_.buffer()).c_str(), elapsed_time(tx_time_));
+    ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", to_hex_string(this->rx_parser_.buffer()).c_str(), elapsed_time(this->tx_time_));
     return true;
 }
 
@@ -96,16 +96,16 @@ void UARTExComponent::publish_data()
     bool found = false;
     for (UARTExDevice* device : this->devices_)
     {
-        if (device->parse_data(rx_parser_.data()))
+        if (device->parse_data(this->rx_parser_.data()))
         {
             found = true;
         }
     }
 #ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
-    ESP_LOGVV(TAG, "Receive data-> %s, Gap Time: %lums", to_hex_string(rx_parser_.buffer()).c_str(), elapsed_time(rx_time_));
+    ESP_LOGVV(TAG, "Receive data-> %s, Gap Time: %lums", to_hex_string(this->rx_parser_.buffer()).c_str(), elapsed_time(this->rx_time_));
 #endif
 #ifdef ESPHOME_LOG_HAS_VERBOSE
-    if (!found) ESP_LOGV(TAG, "Notfound data-> %s", to_hex_string(rx_parser_.buffer()).c_str());
+    if (!found) ESP_LOGV(TAG, "Notfound data-> %s", to_hex_string(this->rx_parser_.buffer()).c_str());
 #endif
 }
 
@@ -123,9 +123,9 @@ void UARTExComponent::dequeue_tx_data_from_devices()
 
 void UARTExComponent::write_to_uart()
 {
-    if (elapsed_time(rx_time_) < conf_tx_delay_) return;
-    if (elapsed_time(tx_time_) < conf_tx_delay_) return;
-    if (elapsed_time(tx_time_) < conf_tx_timeout_) return;
+    if (elapsed_time(this->rx_time_) < this->conf_tx_delay_) return;
+    if (elapsed_time(this->tx_time_) < this->conf_tx_delay_) return;
+    if (elapsed_time(this->tx_time_) < this->conf_tx_timeout_) return;
     if (retry_tx_data()) return;
     write_tx_data();
 }
@@ -133,14 +133,14 @@ void UARTExComponent::write_to_uart()
 bool UARTExComponent::retry_tx_data()
 {
     if (!is_have_tx_data()) return false;
-    if (conf_tx_retry_cnt_ <= tx_retry_cnt_)
+    if (this->conf_tx_retry_cnt_ <= this->tx_retry_cnt_)
     {
         tx_data_response(false);
         ESP_LOGD(TAG, "Retry fail.");
         publish_error(ERROR_ACK);
         return false;
     }
-    ESP_LOGD(TAG, "Retry count: %d", tx_retry_cnt_);
+    ESP_LOGD(TAG, "Retry count: %d", this->tx_retry_cnt_);
     write_tx_cmd();
     return true;
 }
@@ -148,16 +148,16 @@ bool UARTExComponent::retry_tx_data()
 void UARTExComponent::write_tx_data()
 {
     dequeue_tx_data_from_devices();
-    if (!tx_queue_.empty())
+    if (!this->tx_queue_.empty())
     {
-        tx_data_ = tx_queue_.front();
-        tx_queue_.pop();
+        this->tx_data_ = this->tx_queue_.front();
+        this->tx_queue_.pop();
         write_tx_cmd();
     }
-    else if (!tx_queue_low_priority_.empty())
+    else if (!this->tx_queue_low_priority_.empty())
     {
-        tx_data_ = tx_queue_low_priority_.front();
-        tx_queue_low_priority_.pop();
+        this->tx_data_ = this->tx_queue_low_priority_.front();
+        this->tx_queue_low_priority_.pop();
         write_tx_cmd();
     }
 }
@@ -165,15 +165,15 @@ void UARTExComponent::write_tx_data()
 void UARTExComponent::write_tx_cmd()
 {
     unsigned long timer = get_time();
-    if (tx_ctrl_pin_) tx_ctrl_pin_->digital_write(true);
-    if (tx_header_.has_value()) write_data(tx_header_.value());
+    if (this->tx_ctrl_pin_) this->tx_ctrl_pin_->digital_write(true);
+    if (this->tx_header_.has_value()) write_data(this->tx_header_.value());
     write_data(tx_cmd()->data);
-    if (tx_checksum_ != CHECKSUM_NONE || tx_checksum_2_ != CHECKSUM_NONE) write_data(get_tx_checksum(tx_cmd()->data));
-    if (tx_footer_.has_value()) write_data(tx_footer_.value());
+    if (this->tx_checksum_ != CHECKSUM_NONE || this->tx_checksum_2_ != CHECKSUM_NONE) write_data(get_tx_checksum(tx_cmd()->data));
+    if (this->tx_footer_.has_value()) write_data(this->tx_footer_.value());
     write_flush();
-    if (tx_ctrl_pin_) tx_ctrl_pin_->digital_write(false);
-    tx_retry_cnt_++;
-    tx_time_ = get_time();
+    if (this->tx_ctrl_pin_) this->tx_ctrl_pin_->digital_write(false);
+    this->tx_retry_cnt_++;
+    this->tx_time_ = get_time();
     if (tx_cmd()->ack.size() == 0) tx_data_response(true);
 }
 
@@ -191,8 +191,8 @@ void UARTExComponent::write_data(const std::vector<uint8_t> &data)
 
 void UARTExComponent::enqueue_tx_data(const tx_data_t data, bool low_priority)
 {
-    if (low_priority) tx_queue_low_priority_.push(data);
-    else tx_queue_.push(data);
+    if (low_priority) this->tx_queue_low_priority_.push(data);
+    else this->tx_queue_.push(data);
 }
 
 void UARTExComponent::write_flush()
@@ -203,65 +203,65 @@ void UARTExComponent::write_flush()
 
 void UARTExComponent::register_device(UARTExDevice *device)
 {
-    devices_.push_back(device);
+    this->devices_.push_back(device);
 }
 
 void UARTExComponent::set_tx_delay(uint16_t tx_delay)
 {
-    conf_tx_delay_ = tx_delay;
+    this->conf_tx_delay_ = tx_delay;
 }
 
 void UARTExComponent::set_tx_timeout(uint16_t timeout)
 {
-    conf_tx_timeout_ = timeout;
+    this->conf_tx_timeout_ = timeout;
 }
 
 void UARTExComponent::set_tx_retry_cnt(uint16_t tx_retry_cnt)
 {
-    conf_tx_retry_cnt_ = tx_retry_cnt;
+    this->conf_tx_retry_cnt_ = tx_retry_cnt;
 }
 
 void UARTExComponent::set_rx_timeout(uint16_t timeout)
 {
-    conf_rx_timeout_ = timeout;
+    this->conf_rx_timeout_ = timeout;
 }
 
 void UARTExComponent::set_tx_ctrl_pin(InternalGPIOPin *pin)
 {
-    tx_ctrl_pin_ = pin;
+    this->tx_ctrl_pin_ = pin;
 }
 
 bool UARTExComponent::is_have_tx_data()
 {
-    if (tx_data_.cmd) return true;
+    if (this->tx_data_.cmd) return true;
     return false;
 }
 
 void UARTExComponent::tx_data_response(bool ok)
 {
-    if (tx_data_.device)
+    if (this->tx_data_.device)
     {
-        if (ok) tx_data_.device->ack_ok();
-        else    tx_data_.device->ack_ng();
+        if (ok) this->tx_data_.device->ack_ok();
+        else    this->tx_data_.device->ack_ng();
     }
     clear_tx_data();
 }
 
 void UARTExComponent::clear_tx_data()
 {
-    tx_data_.device = nullptr;
-    tx_data_.cmd = nullptr;
-    tx_retry_cnt_ = 0;
+    this->tx_data_.device = nullptr;
+    this->tx_data_.cmd = nullptr;
+    this->tx_retry_cnt_ = 0;
 }
 
 const cmd_t* UARTExComponent::tx_cmd()
 {
-    return tx_data_.cmd;
+    return this->tx_data_.cmd;
 }
 
 UARTExDevice* UARTExComponent::tx_device()
 {
-    return tx_data_.device;
+    return this->tx_data_.device;
 }
 
 unsigned long UARTExComponent::elapsed_time(const unsigned long timer)
@@ -276,19 +276,19 @@ unsigned long UARTExComponent::get_time()
 
 ERROR UARTExComponent::validate_data()
 {
-    if (rx_parser_.data().size() == 0)
+    if (this->rx_parser_.data().size() == 0)
     {
         return ERROR_SIZE;
     }
-    if (rx_header_.has_value() && rx_parser_.parse_header() == false)
+    if (this->rx_header_.has_value() && this->rx_parser_.parse_header() == false)
     {
         return ERROR_HEADER;
     }
-    if (rx_footer_.has_value() && rx_parser_.parse_footer() == false)
+    if (this->rx_footer_.has_value() && this->rx_parser_.parse_footer() == false)
     {
         return ERROR_FOOTER;
     }
-    if ((rx_checksum_ != CHECKSUM_NONE || rx_checksum_2_ != CHECKSUM_NONE) && !rx_parser_.validate(get_rx_checksum(rx_parser_.data())))
+    if ((this->rx_checksum_ != CHECKSUM_NONE || this->rx_checksum_2_ != CHECKSUM_NONE) && !this->rx_parser_.validate(get_rx_checksum(this->rx_parser_.data())))
     {
         return ERROR_CHECKSUM;
     }
@@ -301,121 +301,121 @@ bool UARTExComponent::publish_error(ERROR error_code)
     switch(error_code)
     {
     case ERROR_SIZE:
-        ESP_LOGW(TAG, "[Read] Size error: %s", to_hex_string(rx_parser_.buffer()).c_str());
-        if (this->error_ && error_code_ != ERROR_SIZE) this->error_->publish_state("Size Error");
+        ESP_LOGW(TAG, "[Read] Size error: %s", to_hex_string(this->rx_parser_.buffer()).c_str());
+        if (this->error_ && this->error_code_ != ERROR_SIZE) this->error_->publish_state("Size Error");
         break;
     case ERROR_HEADER:
-        ESP_LOGW(TAG, "[Read] Header error: %s", to_hex_string(rx_parser_.buffer()).c_str());
-        if (this->error_ && error_code_ != ERROR_HEADER) this->error_->publish_state("Header Error");
+        ESP_LOGW(TAG, "[Read] Header error: %s", to_hex_string(this->rx_parser_.buffer()).c_str());
+        if (this->error_ && this->error_code_ != ERROR_HEADER) this->error_->publish_state("Header Error");
         break;
     case ERROR_FOOTER:
-        ESP_LOGW(TAG, "[Read] Footer error: %s", to_hex_string(rx_parser_.buffer()).c_str());
-        if (this->error_ && error_code_ != ERROR_FOOTER) this->error_->publish_state("Footer Error");
+        ESP_LOGW(TAG, "[Read] Footer error: %s", to_hex_string(this->rx_parser_.buffer()).c_str());
+        if (this->error_ && this->error_code_ != ERROR_FOOTER) this->error_->publish_state("Footer Error");
         break;
     case ERROR_CHECKSUM:
-        ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(rx_parser_.buffer()).c_str());
-        if (this->error_ && error_code_ != ERROR_CHECKSUM) this->error_->publish_state("Checksum Error");
+        ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(this->rx_parser_.buffer()).c_str());
+        if (this->error_ && this->error_code_ != ERROR_CHECKSUM) this->error_->publish_state("Checksum Error");
         break;
     case ERROR_ACK:
-        ESP_LOGW(TAG, "[Read] Ack error: %s", to_hex_string(rx_parser_.buffer()).c_str());
-        if (this->error_ && error_code_ != ERROR_ACK) this->error_->publish_state("Ack Error");
+        ESP_LOGW(TAG, "[Read] Ack error: %s", to_hex_string(this->rx_parser_.buffer()).c_str());
+        if (this->error_ && this->error_code_ != ERROR_ACK) this->error_->publish_state("Ack Error");
         break;
     case ERROR_NONE:
-        if (this->error_ && error_code_ != ERROR_NONE) this->error_->publish_state("None");
+        if (this->error_ && this->error_code_ != ERROR_NONE) this->error_->publish_state("None");
         error = false;
         break;
     }
-    error_code_ = error_code;
+    this->error_code_ = error_code;
     return error;
 }
 
 void UARTExComponent::set_rx_header(std::vector<uint8_t> header)
 {
-    rx_header_ = header;
+    this->rx_header_ = header;
 }
 
 void UARTExComponent::set_rx_footer(std::vector<uint8_t> footer)
 {
-    rx_footer_ = footer;
+    this->rx_footer_ = footer;
 }
 
 void UARTExComponent::set_tx_header(std::vector<uint8_t> header)
 {
-    tx_header_ = header;
+    this->tx_header_ = header;
 }
 
 void UARTExComponent::set_tx_footer(std::vector<uint8_t> footer)
 {
-    tx_footer_ = footer;
+    this->tx_footer_ = footer;
 }
 
 void UARTExComponent::set_rx_checksum(CHECKSUM checksum)
 {
-    rx_checksum_ = checksum;
+    this->rx_checksum_ = checksum;
 }
 
 void UARTExComponent::set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f)
 {
-    rx_checksum_f_ = f;
-    rx_checksum_ = CHECKSUM_CUSTOM;
+    this->rx_checksum_f_ = f;
+    this->rx_checksum_ = CHECKSUM_CUSTOM;
 }
 
 void UARTExComponent::set_tx_checksum(CHECKSUM checksum)
 {
-    tx_checksum_ = checksum;
+    this->tx_checksum_ = checksum;
 }
 
 void UARTExComponent::set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f)
 {
-    tx_checksum_f_ = f;
-    tx_checksum_ = CHECKSUM_CUSTOM;
+    this->tx_checksum_f_ = f;
+    this->tx_checksum_ = CHECKSUM_CUSTOM;
 }
 
 void UARTExComponent::set_rx_checksum_2(CHECKSUM checksum)
 {
-    rx_checksum_2_ = checksum;
+    this->rx_checksum_2_ = checksum;
 }
 
 void UARTExComponent::set_rx_checksum_2_lambda(std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)> &&f)
 {
-    rx_checksum_f_2_ = f;
-    rx_checksum_2_ = CHECKSUM_CUSTOM;
+    this->rx_checksum_f_2_ = f;
+    this->rx_checksum_2_ = CHECKSUM_CUSTOM;
 }
 
 void UARTExComponent::set_tx_checksum_2(CHECKSUM checksum)
 {
-    tx_checksum_2_ = checksum;
+    this->tx_checksum_2_ = checksum;
 }
 
 void UARTExComponent::set_tx_checksum_2_lambda(std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)> &&f)
 {
-    tx_checksum_f_2_ = f;
-    tx_checksum_2_ = CHECKSUM_CUSTOM;
+    this->tx_checksum_f_2_ = f;
+    this->tx_checksum_2_ = CHECKSUM_CUSTOM;
 }
 
 std::vector<uint8_t> UARTExComponent::get_rx_checksum(const std::vector<uint8_t> &data)
 {
     if (this->rx_checksum_f_.has_value())
     {
-        uint8_t crc = (*rx_checksum_f_)(&data[0], data.size());
+        uint8_t crc = (*this->rx_checksum_f_)(&data[0], data.size());
         return { crc };
     }
     else if (this->rx_checksum_f_2_.has_value())
     {
-        return (*rx_checksum_f_2_)(&data[0], data.size());
+        return (*this->rx_checksum_f_2_)(&data[0], data.size());
     }
     else
     {
         std::vector<uint8_t> header;
-        if (rx_header_.has_value()) header = rx_header_.value();
-        if (rx_checksum_ != CHECKSUM_NONE)
+        if (this->rx_header_.has_value()) header = this->rx_header_.value();
+        if (this->rx_checksum_ != CHECKSUM_NONE)
         {
-            uint8_t crc = get_checksum(rx_checksum_, header, data) & 0xFF;
+            uint8_t crc = get_checksum(this->rx_checksum_, header, data) & 0xFF;
             return { crc };
         }
-        else if (rx_checksum_2_ != CHECKSUM_NONE)
+        else if (this->rx_checksum_2_ != CHECKSUM_NONE)
         {
-            uint16_t crc = get_checksum(rx_checksum_2_, header, data);
+            uint16_t crc = get_checksum(this->rx_checksum_2_, header, data);
             return { (uint8_t)(crc >> 8), (uint8_t)(crc & 0xFF) };
         }
     }
@@ -426,25 +426,25 @@ std::vector<uint8_t> UARTExComponent::get_tx_checksum(const std::vector<uint8_t>
 {
     if (this->tx_checksum_f_.has_value())
     {
-        uint8_t crc = (*tx_checksum_f_)(&data[0], data.size());
+        uint8_t crc = (*this->tx_checksum_f_)(&data[0], data.size());
         return { crc };
     }
     else if (this->tx_checksum_f_2_.has_value())
     {
-        return (*tx_checksum_f_2_)(&data[0], data.size());
+        return (*this->tx_checksum_f_2_)(&data[0], data.size());
     }
     else
     {
         std::vector<uint8_t> header;
-        if (tx_header_.has_value()) header = tx_header_.value();
-        if (tx_checksum_ != CHECKSUM_NONE)
+        if (this->tx_header_.has_value()) header = this->tx_header_.value();
+        if (this->tx_checksum_ != CHECKSUM_NONE)
         {
-            uint8_t crc = get_checksum(tx_checksum_, header, data) & 0xFF;
+            uint8_t crc = get_checksum(this->tx_checksum_, header, data) & 0xFF;
             return { crc };
         }
-        else if (tx_checksum_2_ != CHECKSUM_NONE)
+        else if (this->tx_checksum_2_ != CHECKSUM_NONE)
         {
-            uint16_t crc = get_checksum(tx_checksum_2_, header, data);
+            uint16_t crc = get_checksum(this->tx_checksum_2_, header, data);
             return { (uint8_t)(crc >> 8), (uint8_t)(crc & 0xFF) };
         }
     }

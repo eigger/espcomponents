@@ -17,7 +17,7 @@ void UARTExTextSensor::publish(const std::vector<uint8_t>& data)
     if (this->f_.has_value())
     {
         optional<const char*> val = (*this->f_)(&data[0], data.size());
-        if(val.has_value() && this->raw_state != val.value()) this->publish_state(val.value());
+        if(val.has_value() && this->raw_state != val.value()) publish_state(val.value());
     }
 }
 
