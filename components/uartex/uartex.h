@@ -51,8 +51,11 @@ public:
     void set_tx_checksum_2(CHECKSUM checksum);
     void set_rx_checksum_2_lambda(std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)> &&f);
     void set_tx_checksum_2_lambda(std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)> &&f);
-    const std::vector<uint8_t> get_rx_checksum(const std::vector<uint8_t> &data) const;
-    const std::vector<uint8_t> get_tx_checksum(const std::vector<uint8_t> &data) const;
+    void set_version(text_sensor::TextSensor *version) { version_ = version; }
+    void set_error(text_sensor::TextSensor *error) { error_ = error; }
+    std::vector<uint8_t> get_rx_checksum(const std::vector<uint8_t> &data);
+    std::vector<uint8_t> get_tx_checksum(const std::vector<uint8_t> &data);
+    uint16_t get_checksum(CHECKSUM checksum, const std::vector<uint8_t> &header, const std::vector<uint8_t> &data);
     void dump_config() override;
     void setup() override;
     void loop() override;
@@ -76,8 +79,7 @@ public:
     unsigned long elapsed_time(const unsigned long timer);
     unsigned long get_time();
 
-    void set_version(text_sensor::TextSensor *version) { version_ = version; }
-    void set_error(text_sensor::TextSensor *error) { error_ = error; }
+
 protected:
 
     std::vector<UARTExDevice *> devices_{};

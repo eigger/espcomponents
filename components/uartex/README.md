@@ -26,22 +26,37 @@
       tx_header: [0xFE]   #송신 시작문자
       tx_footer: [0xEE]   #송신 끝문자
       #rx_checksum: add
-      #rx_checksum: !lambda |-
-      #  // @param: const uint8_t *data, const unsigned short len
-      #  // @return: uint8_t
-      #  uint8_t crc = 0x00;
-      #  for(num_t i=0; i<len; i++)
-      #    crc += data[i];
-      #  return crc;
-        
       #tx_checksum: add
-      #tx_checksum: !lambda |-
-      #  // @param: const uint8_t *data, const unsigned short len
-      #  // @return: uint8_t
-      #  uint8_t crc = 0x00;
-      #  for(num_t i=0; i<len; i++)
-      #    crc += data[i];
-      #  return crc;
+      #rx_checksum2: add
+      #tx_checksum2: add
+      # rx_checksum: !lambda |-
+      #   // @param: const uint8_t *data, const unsigned short len
+      #   // @return: uint8_t
+      #   uint8_t crc = 0x00;
+      #   for(int i=0; i<len; i++)
+      #     crc += data[i];
+      #   return crc;
+      # rx_checksum2: !lambda |-
+      #   // @param: const uint8_t *data, const unsigned short len
+      #   // @return: std::vector<uint8_t>
+      #   uint16_t crc = 0x00;
+      #   for(int i=0; i<len; i++)
+      #     crc += data[i];
+      #   return { crc >> 8, crc & 0xFF };      
+      # tx_checksum: !lambda |-
+      #   // @param: const uint8_t *data, const unsigned short len
+      #   // @return: uint8_t
+      #   uint8_t crc = 0x00;
+      #   for(int i=0; i<len; i++)
+      #     crc += data[i];
+      #   return crc;
+      # tx_checksum2: !lambda |-
+      #   // @param: const uint8_t *data, const unsigned short len
+      #   // @return: std::vector<uint8_t>
+      #   uint16_t crc = 0x00;
+      #   for(int i=0; i<len; i++)
+      #     crc += data[i];
+      #   return { crc >> 8, crc & 0xFF };
       
     # 0xFE 0x06 0x01 0x?? 0x?? ack e=0xEE  
     text_sensor:
