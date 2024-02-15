@@ -39,7 +39,7 @@ public:
             {
                 this->command_brightness_ = (*this->command_brightness_func_)(brightness);
                 enqueue_tx_cmd(&this->command_brightness_);
-                this->brightness = (int)brightness;
+                this->brightness_ = (int)brightness;
             }
 
         }
