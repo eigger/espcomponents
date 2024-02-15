@@ -406,7 +406,8 @@ std::vector<uint8_t> UARTExComponent::get_rx_checksum(const std::vector<uint8_t>
     }
     else
     {
-        std::vector<uint8_t> header = rx_header_.has_value() ? rx_header_.value() : {};
+        std::vector<uint8_t> header;
+        if (rx_header_.has_value()) header = rx_header_.value();
         if (rx_checksum_ != CHECKSUM_NONE)
         {
             uint8_t crc = get_checksum(rx_checksum_, header, data) & 0xFF;
@@ -434,7 +435,8 @@ std::vector<uint8_t> UARTExComponent::get_tx_checksum(const std::vector<uint8_t>
     }
     else
     {
-        std::vector<uint8_t> header = tx_header_.has_value() ? tx_header_.value() : {};
+        std::vector<uint8_t> header;
+        if (tx_header_.has_value()) header = tx_header_.value();
         if (tx_checksum_ != CHECKSUM_NONE)
         {
             uint8_t crc = get_checksum(tx_checksum_, header, data) & 0xFF;
