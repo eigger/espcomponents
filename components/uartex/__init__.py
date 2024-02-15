@@ -24,6 +24,7 @@ uartex_ns = cg.esphome_ns.namespace('uartex')
 UARTExComponent = uartex_ns.class_('UARTExComponent', cg.Component, uart.UARTDevice)
 UARTExWriteAction = uartex_ns.class_('UARTExWriteAction', automation.Action)
 cmd_t = uartex_ns.class_('cmd_t')
+vector_uint8 = uartex_ns.class_('std::vector<uint8_t>')
 uint16_const = cg.uint16.operator('const')
 uint8_const = cg.uint8.operator('const')
 uint8_ptr_const = uint8_const.operator('ptr')
@@ -179,7 +180,7 @@ async def to_code(config):
             template_ = await cg.process_lambda(data,
                                                 [(uint8_ptr_const, 'data'),
                                                  (uint16_const, 'len')],
-                                                return_type=[cg.uint8])
+                                                return_type=vector_uint8)
             cg.add(var.set_rx_checksum_2_lambda(template_))
         else:
             cg.add(var.set_rx_checksum_2(data))
@@ -189,7 +190,7 @@ async def to_code(config):
             template_ = await cg.process_lambda(data,
                                                 [(uint8_ptr_const, 'data'),
                                                  (uint16_const, 'len')],
-                                                return_type=[cg.uint8])
+                                                return_type=vector_uint8)
             cg.add(var.set_tx_checksum_2_lambda(template_))
         else:
             cg.add(var.set_tx_checksum_2(data))
