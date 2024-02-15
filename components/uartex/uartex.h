@@ -19,7 +19,6 @@ enum ERROR {
     ERROR_HEADER,
     ERROR_FOOTER,
     ERROR_CHECKSUM,
-    ERROR_CHECKSUM_2,
     ERROR_ACK
 };
 
@@ -50,8 +49,8 @@ public:
     void set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f);
     void set_rx_checksum_2(CHECKSUM checksum);
     void set_tx_checksum_2(CHECKSUM checksum);
-    void set_rx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)> &&f);
-    void set_tx_checksum_2_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)> &&f);
+    void set_rx_checksum_2_lambda(std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)> &&f);
+    void set_tx_checksum_2_lambda(std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)> &&f);
     const std::vector<uint8_t> get_rx_checksum(const std::vector<uint8_t> &data) const;
     const std::vector<uint8_t> get_tx_checksum(const std::vector<uint8_t> &data) const;
     void dump_config() override;
@@ -99,8 +98,8 @@ protected:
 
     CHECKSUM rx_checksum_2_{CHECKSUM_NONE};
     CHECKSUM tx_checksum_2_{CHECKSUM_NONE};
-    optional<std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)>> rx_checksum_f_2_{};
-    optional<std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t checksum)>> tx_checksum_f_2_{};
+    optional<std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)>> rx_checksum_f_2_{};
+    optional<std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)>> tx_checksum_f_2_{};
 
     ERROR validate_data();
     bool publish_error(ERROR error_code);

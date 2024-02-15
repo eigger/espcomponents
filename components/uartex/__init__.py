@@ -102,10 +102,10 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_RX_FOOTER): validate_hex_data,
     cv.Optional(CONF_TX_HEADER): validate_hex_data,
     cv.Optional(CONF_TX_FOOTER): validate_hex_data,
-    cv.Optional(CONF_RX_CHECKSUM, default="none"): validate_checksum,
-    cv.Optional(CONF_TX_CHECKSUM, default="none"): validate_checksum,
-    cv.Optional(CONF_RX_CHECKSUM_2, default="none"): validate_checksum,
-    cv.Optional(CONF_TX_CHECKSUM_2, default="none"): validate_checksum,
+    cv.Optional(CONF_RX_CHECKSUM): validate_checksum,
+    cv.Optional(CONF_TX_CHECKSUM): validate_checksum,
+    cv.Optional(CONF_RX_CHECKSUM_2): validate_checksum,
+    cv.Optional(CONF_TX_CHECKSUM_2): validate_checksum,
     cv.Optional(CONF_VERSION, default={CONF_NAME: "UartEX Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
@@ -118,7 +118,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         cv.Optional(CONF_ICON, default="mdi:alert-circle"): cv.icon,
         cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
     }),
-}).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA)
+}).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA), cv.has_exactly_one_key(CONF_RX_CHECKSUM, CONF_RX_CHECKSUM_2), cv.has_exactly_one_key(CONF_TX_CHECKSUM, CONF_TX_CHECKSUM_2)
 )
 
 async def to_code(config):
@@ -178,9 +178,8 @@ async def to_code(config):
         if cg.is_template(data):
             template_ = await cg.process_lambda(data,
                                                 [(uint8_ptr_const, 'data'),
-                                                 (uint16_const, 'len'),
-                                                 (uint8_const, 'checksum')],
-                                                return_type=cg.uint8)
+                                                 (uint16_const, 'len')],
+                                                return_type=[cg.uint8])
             cg.add(var.set_rx_checksum_2_lambda(template_))
         else:
             cg.add(var.set_rx_checksum_2(data))
@@ -189,9 +188,8 @@ async def to_code(config):
         if cg.is_template(data):
             template_ = await cg.process_lambda(data,
                                                 [(uint8_ptr_const, 'data'),
-                                                 (uint16_const, 'len'),
-                                                 (uint8_const, 'checksum')],
-                                                return_type=cg.uint8)
+                                                 (uint16_const, 'len')],
+                                                return_type=[cg.uint8])
             cg.add(var.set_tx_checksum_2_lambda(template_))
         else:
             cg.add(var.set_tx_checksum_2(data))
