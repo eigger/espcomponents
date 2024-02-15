@@ -76,7 +76,7 @@ bool Parser::parse_footer()
 const std::vector<unsigned char> Parser::data()
 {
 	size_t offset = checksum_len_;
-	if (buffer_.size() < header_.size() + footer_.size() + offset) return std::vector<unsigned char>();
+	if (buffer_.size() < header_.size() + footer_.size() + offset) return {};
 	return std::vector<unsigned char>(buffer_.begin() + header_.size(), buffer_.end() - footer_.size() - offset);
 }
 

@@ -445,7 +445,7 @@ std::vector<uint8_t> UARTExComponent::get_tx_checksum(const std::vector<uint8_t>
         else if (tx_checksum_2_ != CHECKSUM_NONE)
         {
             uint16_t crc = get_checksum(tx_checksum_2_, header, data);
-            return { crc >> 8, crc & 0xFF };
+            return { (uint8_t)(crc >> 8), (uint8_t)(crc & 0xFF) };
         }
     }
     return {};
