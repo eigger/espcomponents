@@ -58,7 +58,7 @@ void UARTExDevice::set_command_on(cmd_t command)
     this->command_on_ = command;
 }
 
-void UARTExDevice::set_command_on(std::function<cmd_t(const uint8_t *data, const uint16_t len)> func)
+void UARTExDevice::set_command_on(std::function<cmd_t(const uint8_t *state, const uint16_t len)> func)
 {
     this->command_on_func_ = func;
 }
@@ -75,7 +75,7 @@ void UARTExDevice::set_command_off(cmd_t command)
     this->command_off_ = command;
 }
 
-void UARTExDevice::set_command_off(std::function<cmd_t(const uint8_t *data, const uint16_t len)> func)
+void UARTExDevice::set_command_off(std::function<cmd_t(const uint8_t *state, const uint16_t len)> func)
 {
     this->command_off_func_ = func;
 }
