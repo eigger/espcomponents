@@ -41,10 +41,10 @@ public:
     void set_state_on(state_t state);
     void set_state_off(state_t state);
     void set_command_on(cmd_t command);
-    void set_command_on(std::function<cmd_t()> func);
+    void set_command_on(std::function<cmd_t(const uint8_t *data, const uint16_t len)> func);
     const cmd_t* get_command_on();
     void set_command_off(cmd_t command);
-    void set_command_off(std::function<cmd_t()> func);
+    void set_command_off(std::function<cmd_t(const uint8_t *data, const uint16_t len)> func);
     const cmd_t* get_command_off();
     void set_command_update(cmd_t command);
     void set_state_response(state_t state);
@@ -62,16 +62,16 @@ public:
     virtual void publish(const std::vector<uint8_t>& data);
     virtual bool publish(bool state) = 0;
     float get_setup_priority() const override { return setup_priority::DATA; }
-    const std::vector<uint8_t> last_state();
+
 protected:
 
     optional<state_t> state_{};
     optional<state_t> state_on_{};
     optional<state_t> state_off_{};
     optional<cmd_t> command_on_{};
-    optional<std::function<cmd_t()>> command_on_func_{};
+    optional<std::function<cmd_t(const uint8_t *data, const uint16_t len)>> command_on_func_{};
     optional<cmd_t> command_off_{};
-    optional<std::function<cmd_t()>> command_off_func_{};
+    optional<std::function<cmd_t(const uint8_t *data, const uint16_t len)>> command_off_func_{};
     optional<cmd_t> command_update_;
     optional<state_t> state_response_{};
     bool rx_response_{false};

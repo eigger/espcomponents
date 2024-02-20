@@ -58,7 +58,7 @@ void UARTExDevice::set_command_on(cmd_t command)
     this->command_on_ = command;
 }
 
-void UARTExDevice::set_command_on(std::function<cmd_t()> func)
+void UARTExDevice::set_command_on(std::function<cmd_t(const uint8_t *data, const uint16_t len)> func)
 {
     this->command_on_func_ = func;
 }
@@ -66,7 +66,7 @@ void UARTExDevice::set_command_on(std::function<cmd_t()> func)
 const cmd_t *UARTExDevice::get_command_on()
 {
     if (this->command_on_func_.has_value())
-        this->command_on_ = (*this->command_on_func_)();
+        this->command_on_ = (*this->command_on_func_)(&last_state_[0], last_state_.size());
     return &this->command_on_.value();
 }
 
@@ -75,7 +75,7 @@ void UARTExDevice::set_command_off(cmd_t command)
     this->command_off_ = command;
 }
 
-void UARTExDevice::set_command_off(std::function<cmd_t()> func)
+void UARTExDevice::set_command_off(std::function<cmd_t(const uint8_t *data, const uint16_t len)> func)
 {
     this->command_off_func_ = func;
 }
@@ -83,7 +83,7 @@ void UARTExDevice::set_command_off(std::function<cmd_t()> func)
 const cmd_t *UARTExDevice::get_command_off()
 {
     if (this->command_off_func_.has_value())
-        this->command_off_ = (*this->command_off_func_)();
+        this->command_off_ = (*this->command_off_func_)(&last_state_[0], last_state_.size());
     return &this->command_off_.value();
 }
 
@@ -197,10 +197,6 @@ float UARTExDevice::state_to_float(const std::vector<uint8_t>& data, const state
     return val / powf(10, state.precision);
 }
 
-const std::vector<uint8_t> UARTExDevice::last_state()
-{
-    return last_state_;
-}
 std::string to_hex_string(const std::vector<unsigned char> &data)
 {
     char buf[20];
