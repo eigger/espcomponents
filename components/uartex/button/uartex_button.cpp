@@ -12,9 +12,5 @@ void UARTExButton::dump_config()
     dump_uartex_device_config(TAG);
 }
 
-void UARTExButton::publish(const std::vector<uint8_t>& data)
-{
-}
-
 }  // namespace uartex
 }  // namespace esphome

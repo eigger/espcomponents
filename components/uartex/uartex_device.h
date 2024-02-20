@@ -59,10 +59,10 @@ public:
     float state_to_float(const std::vector<uint8_t>& data, const state_num_t state);
 
     bool parse_data(const std::vector<uint8_t>& data);
-    virtual void publish(const std::vector<uint8_t>& data) = 0;
+    virtual void publish(const std::vector<uint8_t>& data);
     virtual bool publish(bool state) = 0;
     float get_setup_priority() const override { return setup_priority::DATA; }
-
+    const std::vector<uint8_t> last_state();
 protected:
 
     optional<state_t> state_{};
@@ -77,6 +77,7 @@ protected:
     bool rx_response_{false};
     std::queue<const cmd_t*> tx_cmd_queue_{};
     std::queue<const cmd_t*> tx_cmd_queue_low_priority_{};
+    std::vector<uint8_t> last_state_{};
 };
 
 std::string to_hex_string(const std::vector<unsigned char>& data);

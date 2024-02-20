@@ -150,6 +150,11 @@ bool UARTExDevice::parse_data(const std::vector<uint8_t> &data)
     return true;
 }
 
+void UARTExDevice::publish(const std::vector<uint8_t>& data)
+{
+    last_state_ = data;
+}
+
 void UARTExDevice::enqueue_tx_cmd(const cmd_t *cmd, bool low_priority)
 {
     if (cmd->data.size() == 0) return;
@@ -192,6 +197,10 @@ float UARTExDevice::state_to_float(const std::vector<uint8_t>& data, const state
     return val / powf(10, state.precision);
 }
 
+const std::vector<uint8_t> UARTExDevice::last_state()
+{
+    return last_state_;
+}
 std::string to_hex_string(const std::vector<unsigned char> &data)
 {
     char buf[20];

@@ -59,6 +59,7 @@ void UARTExFan::control(const fan::FanCall &call)
 
 void UARTExFan::publish(const std::vector<uint8_t>& data)
 {
+    UARTExDevice::publish(data);
     if (this->state_speed_func_.has_value())
     {
         optional<float> val = (*this->state_speed_func_)(&data[0], data.size());

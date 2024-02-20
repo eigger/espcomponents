@@ -14,10 +14,6 @@ void UARTExLightOutput::dump_config()
     dump_uartex_device_config(TAG);
 }
 
-void UARTExLightOutput::publish(const std::vector<uint8_t>& data)
-{
-}
-
 void UARTExLightOutput::publish_state(bool state)
 {
     if (light_state_ == nullptr || state == this->state_)return;

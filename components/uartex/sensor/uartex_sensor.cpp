@@ -14,6 +14,7 @@ void UARTExSensor::dump_config()
 
 void UARTExSensor::publish(const std::vector<uint8_t>& data) 
 {
+    UARTExDevice::publish(data);
     if (this->f_.has_value())
     {
         optional<float> val = (*this->f_)(&data[0], data.size());

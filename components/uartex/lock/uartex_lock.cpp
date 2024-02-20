@@ -25,6 +25,7 @@ void UARTExLock::setup()
 void UARTExLock::publish(const std::vector<uint8_t>& data)
 {
     bool changed = false;
+    UARTExDevice::publish(data);
     if (this->state_locked_.has_value() && validate(data, &this->state_locked_.value()))
     {
         this->state = lock::LOCK_STATE_LOCKED;

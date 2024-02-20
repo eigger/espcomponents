@@ -10,7 +10,6 @@ class UARTExLightOutput : public light::LightOutput, public UARTExDevice
 {
 public:
     void dump_config() override;
-    void publish(const std::vector<uint8_t>& data) override;
     bool publish(bool state) override { publish_state(state); return true; }
 
     void setup_state(light::LightState *state) override { this->light_state_ = state; }
