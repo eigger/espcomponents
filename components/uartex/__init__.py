@@ -235,7 +235,7 @@ def register_uartex_device(var, config):
     if CONF_COMMAND_ON in config:
         data = config[CONF_COMMAND_ON]
         if cg.is_template(data):
-            command_on = yield cg.templatable(data, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cmd_t)
+            command_on = yield cg.templatable(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], cmd_t)
             cg.add(var.set_command_on(command_on))
         else:
             command_on = yield command_hex_expression(config[CONF_COMMAND_ON])
@@ -244,7 +244,7 @@ def register_uartex_device(var, config):
     if CONF_COMMAND_OFF in config:
         data = config[CONF_COMMAND_OFF]
         if cg.is_template(data):
-            command_off = yield cg.templatable(data, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cmd_t)
+            command_off = yield cg.templatable(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], cmd_t)
             cg.add(var.set_command_off(command_off))
         else:
             command_off = yield command_hex_expression(config[CONF_COMMAND_OFF])
