@@ -53,6 +53,7 @@ public:
     const cmd_t* dequeue_tx_cmd_low_priority();
     void ack_ok();
     void ack_ng();
+    bool parse_data(const std::vector<uint8_t>& data);
     bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,  const uint16_t offset = 0);
     const std::vector<uint8_t> masked_data(const std::vector<uint8_t> &data, const state_t *state);
     bool validate(const std::vector<uint8_t>& data, const state_t *state);
@@ -60,7 +61,6 @@ public:
 
 protected:
     float get_setup_priority() const override { return setup_priority::DATA; }
-    bool parse_data(const std::vector<uint8_t>& data);
     virtual void publish(const std::vector<uint8_t>& data);
     virtual void publish(const bool state);
     
