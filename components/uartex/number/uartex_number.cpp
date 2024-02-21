@@ -42,15 +42,13 @@ void UARTExNumber::publish(const std::vector<uint8_t>& data)
 
 void UARTExNumber::control(float value)
 {
+    if (this->state == value) return;
+    this->state = value;
     if (this->command_number_func_.has_value())
     {
-        if (this->state != value)
-        {
-            this->command_number_ = (*this->command_number_func_)(value);
-            enqueue_tx_cmd(&this->command_number_);
-        }
+        this->command_number_ = (*this->command_number_func_)(this->state);
+        enqueue_tx_cmd(&this->command_number_);
     }
-    this->state = value;
     publish_state(value);
 }
 

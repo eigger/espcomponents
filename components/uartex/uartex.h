@@ -70,10 +70,10 @@ public:
     void set_tx_ctrl_pin(InternalGPIOPin *pin);
 
 protected:
-    bool is_have_tx_data();
-    void tx_data_response(bool ok);
+    bool is_tx_cmd_pending();
+    void tx_cmd_result(bool result);
     void clear_tx_data();
-    const cmd_t* tx_cmd();
+    cmd_t* current_tx_cmd();
     void write_tx_cmd();
     void enqueue_tx_data(const tx_data_t data, bool low_priority = false);
     ERROR validate_data();
@@ -110,7 +110,7 @@ protected:
     ERROR error_code_{ERROR_NONE};
     std::queue<tx_data_t> tx_queue_{};
     std::queue<tx_data_t> tx_queue_low_priority_{};
-    tx_data_t tx_data_{nullptr, nullptr};
+    tx_data_t current_tx_data_{nullptr, nullptr};
     unsigned long rx_time_{0};
     unsigned long tx_time_{0};
     uint16_t tx_retry_cnt_{0};

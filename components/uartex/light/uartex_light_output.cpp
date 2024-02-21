@@ -45,11 +45,17 @@ void UARTExLightOutput::write_state(light::LightState *state)
         state->current_values_as_brightness(&brightness);
         if ((int)brightness != this->brightness_)
         {
-            this->command_brightness_ = (*this->command_brightness_func_)(brightness);
-            enqueue_tx_cmd(&this->command_brightness_);
             this->brightness_ = (int)brightness;
+            enqueue_tx_cmd(get_command_brightness());
         }
     }
+}
+
+cmd_t *UARTExLightOutput::get_command_brightness()
+{
+    if (this->command_brightness_func_.has_value())
+        this->command_brightness_ = (*this->command_brightness_func_)(this->brightness_);
+    return &this->command_brightness_.value();
 }
 
 }  // namespace uartex

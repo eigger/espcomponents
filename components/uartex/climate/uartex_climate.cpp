@@ -206,7 +206,7 @@ void UARTExClimate::control(const climate::ClimateCall &call)
         }
         else if (this->mode == climate::CLIMATE_MODE_OFF)
         {
-            enqueue_tx_cmd(this->get_command_off());
+            enqueue_tx_cmd(get_command_off());
         }
         else if (this->mode == climate::CLIMATE_MODE_HEAT && this->command_heat_.has_value())
         {

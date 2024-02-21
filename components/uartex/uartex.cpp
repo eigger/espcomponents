@@ -77,9 +77,9 @@ void UARTExComponent::publish_to_devices()
 
 bool UARTExComponent::verify_ack()
 {
-    if (!is_have_tx_data()) return false;
-    if (!equal(this->rx_parser_.data(), tx_cmd()->ack)) return false;
-    tx_data_response(true);
+    if (!is_tx_cmd_pending()) return false;
+    if (!equal(this->rx_parser_.data(), current_tx_cmd()->ack)) return false;
+    tx_cmd_result(true);
     ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", to_hex_string(this->rx_parser_.buffer()).c_str(), elapsed_time(this->tx_time_));
     return true;
 }
@@ -125,10 +125,10 @@ void UARTExComponent::write_to_uart()
 
 bool UARTExComponent::retry_tx_data()
 {
-    if (!is_have_tx_data()) return false;
+    if (!is_tx_cmd_pending()) return false;
     if (this->conf_tx_retry_cnt_ <= this->tx_retry_cnt_)
     {
-        tx_data_response(false);
+        tx_cmd_result(false);
         ESP_LOGD(TAG, "Retry fail.");
         publish_error(ERROR_ACK);
         return false;
@@ -143,13 +143,13 @@ void UARTExComponent::write_tx_data()
     dequeue_tx_data_from_devices();
     if (!this->tx_queue_.empty())
     {
-        this->tx_data_ = this->tx_queue_.front();
+        this->current_tx_data_ = this->tx_queue_.front();
         this->tx_queue_.pop();
         write_tx_cmd();
     }
     else if (!this->tx_queue_low_priority_.empty())
     {
-        this->tx_data_ = this->tx_queue_low_priority_.front();
+        this->current_tx_data_ = this->tx_queue_low_priority_.front();
         this->tx_queue_low_priority_.pop();
         write_tx_cmd();
     }
@@ -160,14 +160,14 @@ void UARTExComponent::write_tx_cmd()
     unsigned long timer = get_time();
     if (this->tx_ctrl_pin_) this->tx_ctrl_pin_->digital_write(true);
     if (this->tx_header_.has_value()) write_data(this->tx_header_.value());
-    write_data(tx_cmd()->data);
-    if (this->tx_checksum_ != CHECKSUM_NONE || this->tx_checksum_2_ != CHECKSUM_NONE) write_data(get_tx_checksum(tx_cmd()->data));
+    write_data(current_tx_cmd()->data);
+    if (this->tx_checksum_ != CHECKSUM_NONE || this->tx_checksum_2_ != CHECKSUM_NONE) write_data(get_tx_checksum(current_tx_cmd()->data));
     if (this->tx_footer_.has_value()) write_data(this->tx_footer_.value());
     write_flush();
     if (this->tx_ctrl_pin_) this->tx_ctrl_pin_->digital_write(false);
     this->tx_retry_cnt_++;
     this->tx_time_ = get_time();
-    if (tx_cmd()->ack.size() == 0) tx_data_response(true);
+    if (current_tx_cmd()->ack.size() == 0) tx_cmd_result(true);
 }
 
 void UARTExComponent::write_data(const uint8_t data)
@@ -224,27 +224,27 @@ void UARTExComponent::set_tx_ctrl_pin(InternalGPIOPin *pin)
     this->tx_ctrl_pin_ = pin;
 }
 
-bool UARTExComponent::is_have_tx_data()
+bool UARTExComponent::is_tx_cmd_pending()
 {
-    if (this->tx_data_.cmd) return true;
+    if (current_tx_cmd()) return true;
     return false;
 }
 
-void UARTExComponent::tx_data_response(bool ok)
+void UARTExComponent::tx_cmd_result(bool result)
 {
     clear_tx_data();
 }
 
 void UARTExComponent::clear_tx_data()
 {
-    this->tx_data_.device = nullptr;
-    this->tx_data_.cmd = nullptr;
+    this->current_tx_data_.device = nullptr;
+    this->current_tx_data_.cmd = nullptr;
     this->tx_retry_cnt_ = 0;
 }
 
-const cmd_t* UARTExComponent::tx_cmd()
+cmd_t* UARTExComponent::current_tx_cmd()
 {
-    return this->tx_data_.cmd;
+    return this->current_tx_data_.cmd;
 }
 
 ERROR UARTExComponent::validate_data()
@@ -386,8 +386,7 @@ std::vector<uint8_t> UARTExComponent::get_rx_checksum(const std::vector<uint8_t>
     }
     else
     {
-        std::vector<uint8_t> header;
-        if (this->rx_header_.has_value()) header = this->rx_header_.value();
+        std::vector<uint8_t> header = this->rx_header_.value_or(std::vector<uint8_t>{});
         if (this->rx_checksum_ != CHECKSUM_NONE)
         {
             uint8_t crc = get_checksum(this->rx_checksum_, header, data) & 0xFF;
@@ -415,8 +414,7 @@ std::vector<uint8_t> UARTExComponent::get_tx_checksum(const std::vector<uint8_t>
     }
     else
     {
-        std::vector<uint8_t> header;
-        if (this->tx_header_.has_value()) header = this->tx_header_.value();
+        std::vector<uint8_t> header = this->tx_header_.value_or(std::vector<uint8_t>{});
         if (this->tx_checksum_ != CHECKSUM_NONE)
         {
             uint8_t crc = get_checksum(this->tx_checksum_, header, data) & 0xFF;
