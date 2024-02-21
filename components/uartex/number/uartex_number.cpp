@@ -44,12 +44,15 @@ void UARTExNumber::control(float value)
 {
     if (this->state == value) return;
     this->state = value;
-    if (this->command_number_func_.has_value())
-    {
-        this->command_number_ = (*this->command_number_func_)(this->state);
-        enqueue_tx_cmd(&this->command_number_);
-    }
+    if (this->command_number_func_.has_value()) enqueue_tx_cmd(get_command_number());
     publish_state(value);
+}
+
+cmd_t *UARTExNumber::get_command_number()
+{
+    if (this->command_number_func_.has_value())
+        this->command_number_ = (*this->command_number_func_)(this->state);
+    return &this->command_number_.value();
 }
 
 }  // namespace uartex
