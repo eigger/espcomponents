@@ -24,7 +24,7 @@ protected:
     int brightness_{0};
     light::LightState *light_state_{nullptr};
     optional<std::function<cmd_t(const float x)>> command_brightness_func_{};
-    cmd_t command_brightness_{};
+    optional<cmd_t> command_brightness_{};
 };
 
 }  // namespace uartex

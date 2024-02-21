@@ -24,7 +24,7 @@ protected:
     uint16_t speed_count_{0};
     optional<std::function<optional<float>(const uint8_t *data, const uint16_t len)>> state_speed_func_{};
     optional<std::function<cmd_t(const float x)>> command_speed_func_{};
-    cmd_t command_speed_{};
+    optional<cmd_t> command_speed_{};
 };
 
 }  // namespace uartex
