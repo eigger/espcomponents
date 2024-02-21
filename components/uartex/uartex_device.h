@@ -69,8 +69,8 @@ protected:
     optional<cmd_t> command_update_;
     optional<state_t> state_response_{};
     bool rx_response_{false};
-    std::queue<const cmd_t*> tx_cmd_queue_{};
-    std::queue<const cmd_t*> tx_cmd_queue_low_priority_{};
+    std::queue<cmd_t*> tx_cmd_queue_{};
+    std::queue<cmd_t*> tx_cmd_queue_low_priority_{};
     std::vector<uint8_t> last_state_{};
 };
 
