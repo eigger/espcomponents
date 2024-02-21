@@ -48,7 +48,7 @@ public:
     cmd_t* get_command_off();
     void set_command_update(cmd_t command);
     void set_state_response(state_t state);
-    void enqueue_tx_cmd(const cmd_t* cmd, bool low_priority = false);
+    void enqueue_tx_cmd(cmd_t* cmd, bool low_priority = false);
     cmd_t* dequeue_tx_cmd();
     cmd_t* dequeue_tx_cmd_low_priority();
     bool parse_data(const std::vector<uint8_t>& data);

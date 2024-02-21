@@ -138,7 +138,7 @@ void UARTExDevice::publish(const bool state)
 {
 }
 
-void UARTExDevice::enqueue_tx_cmd(const cmd_t *cmd, bool low_priority)
+void UARTExDevice::enqueue_tx_cmd(cmd_t *cmd, bool low_priority)
 {
     if (cmd->data.size() == 0) return;
     if (low_priority) this->tx_cmd_queue_low_priority_.push(cmd);
