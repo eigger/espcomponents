@@ -117,25 +117,15 @@ const cmd_t *UARTExDevice::dequeue_tx_cmd_low_priority()
     return cmd;
 }
 
-void UARTExDevice::ack_ok()
-{
-    ESP_LOGD(TAG, "Ack ok");   
-}
-
-void UARTExDevice::ack_ng()
-{
-    ESP_LOGD(TAG, "Ack ng");
-}
-
 bool UARTExDevice::parse_data(const std::vector<uint8_t> &data)
 {
-    if (this->state_response_.has_value() && validate(data, &this->state_response_.value())) this->rx_response_ = true;
+    if (this->state_response_.has_value() && verify_state(data, &this->state_response_.value())) this->rx_response_ = true;
     else this->rx_response_ = false;
 
-    if (this->state_.has_value() && !validate(data, &this->state_.value())) return false;
+    if (this->state_.has_value() && !verify_state(data, &this->state_.value())) return false;
     last_state_ = data;
-    if (this->state_off_.has_value() && validate(data, &this->state_off_.value())) publish(false);
-    if (this->state_on_.has_value() && validate(data, &this->state_on_.value())) publish(true);
+    if (this->state_off_.has_value() && verify_state(data, &this->state_off_.value())) publish(false);
+    if (this->state_on_.has_value() && verify_state(data, &this->state_on_.value())) publish(true);
     publish(data);
     return true;
 }
@@ -155,17 +145,15 @@ void UARTExDevice::enqueue_tx_cmd(const cmd_t *cmd, bool low_priority)
     else this->tx_cmd_queue_.push(cmd);
 }
 
-bool UARTExDevice::equal(const std::vector<uint8_t> &data1, const std::vector<uint8_t> &data2, const uint16_t offset)
+bool equal(const std::vector<uint8_t> &data1, const std::vector<uint8_t> &data2, const uint16_t offset)
 {
     if (data1.size() - offset < data2.size()) return false;
     return std::equal(data1.begin() + offset, data1.begin() + offset + data2.size(), data2.begin());
 }
 
-const std::vector<uint8_t> UARTExDevice::masked_data(const std::vector<uint8_t> &data, const state_t *state)
+const std::vector<uint8_t> masked_data(const std::vector<uint8_t> &data, const state_t *state)
 {
-    std::vector<uint8_t> masked_data;
-    masked_data.resize(data.size());
-    copy(data.begin(), data.end(), masked_data.begin());
+    std::vector<uint8_t> masked_data = data;
     for(size_t i = state->offset, j = 0; i < data.size() && j < state->mask.size(); i++, j++)
     {
         masked_data[i] &= state->mask[j];
@@ -173,14 +161,14 @@ const std::vector<uint8_t> UARTExDevice::masked_data(const std::vector<uint8_t> 
     return masked_data;
 }
 
-bool UARTExDevice::validate(const std::vector<uint8_t> &data, const state_t *state)
+bool verify_state(const std::vector<uint8_t> &data, const state_t *state)
 {
     if (state->mask.size() == 0)    return equal(data, state->data, state->offset) ? !state->inverted : state->inverted;
     else                            return equal(masked_data(data, state), state->data, state->offset) ? !state->inverted : state->inverted;
     return false;
 }
 
-float UARTExDevice::state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
+float state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
 {
     unsigned int val = 0;
     for (uint16_t i = state.offset, len = 0; i < data.size() && len < state.length; i++, len++)
@@ -202,6 +190,16 @@ std::string to_hex_string(const std::vector<unsigned char> &data)
     sprintf(buf, "(%d byte)", data.size());
     res += buf;
     return res;
+}
+
+unsigned long elapsed_time(const unsigned long timer)
+{
+    return millis() - timer;
+}
+
+unsigned long get_time()
+{
+    return millis();
 }
 
 }  // namespace uartex

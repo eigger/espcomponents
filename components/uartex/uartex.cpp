@@ -68,14 +68,8 @@ void UARTExComponent::read_from_uart()
 
 void UARTExComponent::publish_to_devices()
 {
-    if (this->rx_parser_.buffer().size() == 0) return;
-    ERROR error = validate_data();
-    if (error != ERROR_NONE)
-    {
-        publish_error(error);
-        return;
-    }
-    publish_error(ERROR_NONE);
+    if (!this->rx_parser_.available()) return;
+    if (!verify_data()) return;
     verify_ack();
     publish_data();
     this->rx_time_ = get_time();
@@ -84,8 +78,7 @@ void UARTExComponent::publish_to_devices()
 bool UARTExComponent::verify_ack()
 {
     if (!is_have_tx_data()) return false;
-    if (tx_device() == nullptr) return false;
-    if (!tx_device()->equal(this->rx_parser_.data(), tx_cmd()->ack)) return false;
+    if (!equal(this->rx_parser_.data(), tx_cmd()->ack)) return false;
     tx_data_response(true);
     ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", to_hex_string(this->rx_parser_.buffer()).c_str(), elapsed_time(this->tx_time_));
     return true;
@@ -239,11 +232,6 @@ bool UARTExComponent::is_have_tx_data()
 
 void UARTExComponent::tx_data_response(bool ok)
 {
-    if (this->tx_data_.device)
-    {
-        if (ok) this->tx_data_.device->ack_ok();
-        else    this->tx_data_.device->ack_ng();
-    }
     clear_tx_data();
 }
 
@@ -257,21 +245,6 @@ void UARTExComponent::clear_tx_data()
 const cmd_t* UARTExComponent::tx_cmd()
 {
     return this->tx_data_.cmd;
-}
-
-UARTExDevice* UARTExComponent::tx_device()
-{
-    return this->tx_data_.device;
-}
-
-unsigned long UARTExComponent::elapsed_time(const unsigned long timer)
-{
-    return millis() - timer;
-}
-
-unsigned long UARTExComponent::get_time()
-{
-    return millis();
 }
 
 ERROR UARTExComponent::validate_data()
@@ -288,11 +261,18 @@ ERROR UARTExComponent::validate_data()
     {
         return ERROR_FOOTER;
     }
-    if ((this->rx_checksum_ != CHECKSUM_NONE || this->rx_checksum_2_ != CHECKSUM_NONE) && !this->rx_parser_.validate(get_rx_checksum(this->rx_parser_.data())))
+    if ((this->rx_checksum_ != CHECKSUM_NONE || this->rx_checksum_2_ != CHECKSUM_NONE) && !this->rx_parser_.verify_checksum(get_rx_checksum(this->rx_parser_.data())))
     {
         return ERROR_CHECKSUM;
     }
     return ERROR_NONE;
+}
+
+bool UARTExComponent::verify_data()
+{
+    ERROR error = validate_data();
+    publish_error(error);
+    return error == ERROR_NONE;
 }
 
 bool UARTExComponent::publish_error(ERROR error_code)

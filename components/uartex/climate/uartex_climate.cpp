@@ -51,7 +51,7 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
     bool changed = false;
     UARTExDevice::publish(data);
     // turn off
-    if (this->state_off_.has_value() && validate(data, &this->state_off_.value()))
+    if (this->state_off_.has_value() && verify_state(data, &this->state_off_.value()))
     {
         if (this->mode != climate::CLIMATE_MODE_OFF)
         {
@@ -60,7 +60,7 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
         }
     }
     // heat mode
-    else if (this->state_heat_.has_value() && validate(data, &this->state_heat_.value()))
+    else if (this->state_heat_.has_value() && verify_state(data, &this->state_heat_.value()))
     {
         if (this->mode != climate::CLIMATE_MODE_HEAT)
         {
@@ -69,7 +69,7 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
         }
     }
     // cool mode
-    else if (this->state_cool_.has_value() && validate(data, &this->state_cool_.value()))
+    else if (this->state_cool_.has_value() && verify_state(data, &this->state_cool_.value()))
     {
         if (this->mode != climate::CLIMATE_MODE_COOL)
         {
@@ -78,7 +78,7 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
         }
     }
     // auto mode
-    else if (this->state_auto_.has_value() && validate(data, &this->state_auto_.value()))
+    else if (this->state_auto_.has_value() && verify_state(data, &this->state_auto_.value()))
     {
         if (this->mode != climate::CLIMATE_MODE_AUTO)
         {
@@ -90,7 +90,7 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
     if (this->state_away_.has_value())
     {
         bool is_away = *this->preset == climate::CLIMATE_PRESET_AWAY ? true : false;
-        if (is_away != validate(data, &this->state_away_.value()))
+        if (is_away != verify_state(data, &this->state_away_.value()))
         {
             *this->preset = is_away == true ? climate::CLIMATE_PRESET_HOME : climate::CLIMATE_PRESET_AWAY;
             changed = true;

@@ -47,7 +47,7 @@ bool Parser::parse_byte(const unsigned char byte)
 	return false;
 }
 
-bool Parser::validate(const std::vector<unsigned char>& checksum)
+bool Parser::verify_checksum(const std::vector<unsigned char>& checksum)
 {
 	if (checksum_len_ != checksum.size()) return false;
 	if (buffer_.size() < checksum.size()) return false;
@@ -71,6 +71,12 @@ bool Parser::parse_footer()
 	if (footer_.size() == 0) return false;
 	if (buffer_.size() < footer_.size()) return false;
 	return std::equal(buffer_.end() - footer_.size(), buffer_.end(), footer_.begin());
+}
+
+bool Parser::available()
+{
+	if (buffer_.size() == 0) return false;
+	return true;
 }
 
 const std::vector<unsigned char> Parser::data()

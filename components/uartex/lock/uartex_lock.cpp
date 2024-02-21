@@ -25,27 +25,27 @@ void UARTExLock::setup()
 void UARTExLock::publish(const std::vector<uint8_t>& data)
 {
     bool changed = false;
-    if (this->state_locked_.has_value() && validate(data, &this->state_locked_.value()))
+    if (this->state_locked_.has_value() && verify_state(data, &this->state_locked_.value()))
     {
         this->state = lock::LOCK_STATE_LOCKED;
         changed = true;
     }
-    else if (this->state_unlocked_.has_value() && validate(data, &this->state_unlocked_.value()))
+    else if (this->state_unlocked_.has_value() && verify_state(data, &this->state_unlocked_.value()))
     {
         this->state = lock::LOCK_STATE_UNLOCKED;
         changed = true;
     }
-    else if (this->state_jammed_.has_value() && validate(data, &this->state_jammed_.value()))
+    else if (this->state_jammed_.has_value() && verify_state(data, &this->state_jammed_.value()))
     {
         this->state = lock::LOCK_STATE_JAMMED;
         changed = true;
     }
-    else if (this->state_locking_.has_value() && validate(data, &this->state_locking_.value()))
+    else if (this->state_locking_.has_value() && verify_state(data, &this->state_locking_.value()))
     {
         this->state = lock::LOCK_STATE_LOCKING;
         changed = true;
     }
-    else if (this->state_unlocking_.has_value() && validate(data, &this->state_unlocking_.value()))
+    else if (this->state_unlocking_.has_value() && verify_state(data, &this->state_unlocking_.value()))
     {
         this->state = lock::LOCK_STATE_UNLOCKING;
         changed = true;
