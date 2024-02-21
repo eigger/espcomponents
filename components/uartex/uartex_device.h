@@ -42,12 +42,14 @@ public:
     void set_state_off(state_t state);
     void set_command_on(cmd_t command);
     void set_command_on(std::function<cmd_t(const uint8_t *data, const uint16_t len)> func);
-    const cmd_t* get_command_on();
     void set_command_off(cmd_t command);
     void set_command_off(std::function<cmd_t(const uint8_t *data, const uint16_t len)> func);
-    const cmd_t* get_command_off();
     void set_command_update(cmd_t command);
     void set_state_response(state_t state);
+
+protected:
+    const cmd_t* get_command_on();
+    const cmd_t* get_command_off();
     void enqueue_tx_cmd(const cmd_t* cmd, bool low_priority = false);
     const cmd_t* dequeue_tx_cmd();
     const cmd_t* dequeue_tx_cmd_low_priority();
@@ -57,14 +59,12 @@ public:
     const std::vector<uint8_t> masked_data(const std::vector<uint8_t> &data, const state_t *state);
     bool validate(const std::vector<uint8_t>& data, const state_t *state);
     float state_to_float(const std::vector<uint8_t>& data, const state_num_t state);
-
+    float get_setup_priority() const override { return setup_priority::DATA; }
     bool parse_data(const std::vector<uint8_t>& data);
     virtual void publish(const std::vector<uint8_t>& data);
-    virtual bool publish(bool state) = 0;
-    float get_setup_priority() const override { return setup_priority::DATA; }
-
+    virtual void publish(const bool state);
+    
 protected:
-
     optional<state_t> state_{};
     optional<state_t> state_on_{};
     optional<state_t> state_off_{};

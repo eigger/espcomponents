@@ -10,10 +10,9 @@ class UARTExButton : public button::Button, public UARTExDevice
 {
 public:
     void dump_config() override;
-    bool publish(bool state) override { return true; }
-    void press_action() override { enqueue_tx_cmd(get_command_on()); }
 
 protected:
+    void press_action() override { enqueue_tx_cmd(get_command_on()); }
 };
 
 }  // namespace uartex

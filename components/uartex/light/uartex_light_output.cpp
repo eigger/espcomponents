@@ -23,5 +23,34 @@ void UARTExLightOutput::publish_state(bool state)
     call.perform();
 }
 
+light::LightTraits UARTExLightOutput::get_traits()
+{
+    auto traits = light::LightTraits();
+    traits.supports_color_capability(light::ColorCapability::BRIGHTNESS);
+    return traits;
+}
+
+void UARTExLightOutput::write_state(light::LightState *state)
+{
+    bool binary;
+    state->current_values_as_binary(&binary);
+    if (binary != this->state_)
+    {
+        enqueue_tx_cmd(binary ? get_command_on() : get_command_off());
+        this->state_ = binary;
+    }
+    if (this->command_brightness_func_.has_value())
+    {
+        float brightness;
+        state->current_values_as_brightness(&brightness);
+        if ((int)brightness != this->brightness_)
+        {
+            this->command_brightness_ = (*this->command_brightness_func_)(brightness);
+            enqueue_tx_cmd(&this->command_brightness_);
+            this->brightness_ = (int)brightness;
+        }
+    }
+}
+
 }  // namespace uartex
 }  // namespace esphome

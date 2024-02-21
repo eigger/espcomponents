@@ -14,7 +14,6 @@ void UARTExTextSensor::dump_config()
 
 void UARTExTextSensor::publish(const std::vector<uint8_t>& data) 
 {
-    UARTExDevice::publish(data);
     if (this->f_.has_value())
     {
         optional<const char*> val = (*this->f_)(&data[0], data.size());

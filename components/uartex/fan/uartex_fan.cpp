@@ -13,9 +13,37 @@ void UARTExFan::dump_config()
     dump_uartex_device_config(TAG);
 }
 
-void UARTExFan::setup()
+fan::FanTraits UARTExFan::get_traits()
 {
+    fan::FanTraits traits{};
+    if (this->speed_count_ > 0)
+    {
+        traits.set_speed(true);
+        traits.set_supported_speed_count(this->speed_count_);
+    }
+    return traits;
 }
+
+void UARTExFan::publish(const std::vector<uint8_t>& data)
+{
+    if (this->state_speed_func_.has_value())
+    {
+        optional<float> val = (*this->state_speed_func_)(&data[0], data.size());
+        if (val.has_value() && this->speed != (int)val.value())
+        {
+            this->speed = (int)val.value();
+            publish_state();
+        }
+    }
+}
+
+void UARTExFan::publish(const bool state)
+{
+    if (state == this->state) return;
+    this->state = state; 
+    this->publish_state();
+}
+
 
 void UARTExFan::control(const fan::FanCall &call)
 {
@@ -55,20 +83,6 @@ void UARTExFan::control(const fan::FanCall &call)
     }
     if (this->command_off_.has_value() && !this->state && changed_state) enqueue_tx_cmd(&this->command_off_.value());
     publish_state();
-}
-
-void UARTExFan::publish(const std::vector<uint8_t>& data)
-{
-    UARTExDevice::publish(data);
-    if (this->state_speed_func_.has_value())
-    {
-        optional<float> val = (*this->state_speed_func_)(&data[0], data.size());
-        if (val.has_value() && this->speed != (int)val.value())
-        {
-            this->speed = (int)val.value();
-            publish_state();
-        }
-    }
 }
 
 }  // namespace uartex

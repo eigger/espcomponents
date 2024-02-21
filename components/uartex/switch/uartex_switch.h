@@ -10,17 +10,10 @@ class UARTExSwitch : public switch_::Switch, public UARTExDevice
 {
 public:
     void dump_config() override;
-    bool publish(bool state) override { publish_state(state); return true; }
-
-    void write_state(bool state) override 
-    {
-        if(state == this->state) return;
-        enqueue_tx_cmd(state ? get_command_on() : get_command_off());
-        publish_state(state);
-    }
 
 protected:
-
+    void publish(const bool state) override { publish_state(state); }
+    void write_state(bool state) override;
 };
 
 }  // namespace uartex

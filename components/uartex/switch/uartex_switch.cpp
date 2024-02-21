@@ -12,5 +12,12 @@ void UARTExSwitch::dump_config()
     dump_uartex_device_config(TAG);
 }
 
+void UARTExSwitch::write_state(bool state)
+{
+    if(state == this->state) return;
+    enqueue_tx_cmd(state ? get_command_on() : get_command_off());
+    publish_state(state);
+}
+
 }  // namespace uartex
 }  // namespace esphome

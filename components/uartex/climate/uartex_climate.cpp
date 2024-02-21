@@ -39,7 +39,6 @@ void UARTExClimate::setup()
         this->sensor_->add_on_state_callback([this](float state)
                                                 {
                                                     this->current_temperature = state;
-                                                    // current temperature changed, publish state
                                                     publish_state();
                                                 });
         this->current_temperature = this->sensor_->state;

@@ -129,30 +129,23 @@ void UARTExDevice::ack_ng()
 
 bool UARTExDevice::parse_data(const std::vector<uint8_t> &data)
 {
-    if (this->state_response_.has_value() && validate(data, &this->state_response_.value()))
-        this->rx_response_ = true;
-    else
-        this->rx_response_ = false;
+    if (this->state_response_.has_value() && validate(data, &this->state_response_.value())) this->rx_response_ = true;
+    else this->rx_response_ = false;
 
     if (this->state_.has_value() && !validate(data, &this->state_.value())) return false;
-
-    if (this->state_off_.has_value() && validate(data, &this->state_off_.value()))
-    {
-        if (!publish(false)) publish(data);
-        return true;
-    }
-    else if (this->state_on_.has_value() && validate(data, &this->state_on_.value()))
-    {
-        if (!publish(true)) publish(data);
-        return true;
-    }
+    last_state_ = data;
+    if (this->state_off_.has_value() && validate(data, &this->state_off_.value())) publish(false)
+    if (this->state_on_.has_value() && validate(data, &this->state_on_.value())) publish(true)
     publish(data);
     return true;
 }
 
 void UARTExDevice::publish(const std::vector<uint8_t>& data)
 {
-    last_state_ = data;
+}
+
+void UARTExDevice::publish(const bool state)
+{
 }
 
 void UARTExDevice::enqueue_tx_cmd(const cmd_t *cmd, bool low_priority)
