@@ -134,8 +134,8 @@ bool UARTExDevice::parse_data(const std::vector<uint8_t> &data)
 
     if (this->state_.has_value() && !validate(data, &this->state_.value())) return false;
     last_state_ = data;
-    if (this->state_off_.has_value() && validate(data, &this->state_off_.value())) publish(false)
-    if (this->state_on_.has_value() && validate(data, &this->state_on_.value())) publish(true)
+    if (this->state_off_.has_value() && validate(data, &this->state_off_.value())) publish(false);
+    if (this->state_on_.has_value() && validate(data, &this->state_on_.value())) publish(true);
     publish(data);
     return true;
 }
