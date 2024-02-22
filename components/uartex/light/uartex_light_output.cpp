@@ -62,6 +62,7 @@ void UARTExLightOutput::write_state(light::LightState *state)
     {
         float brightness;
         state->current_values_as_brightness(&brightness);
+        ESP_LOGD(TAG, "brightness: %d -> %d", this->brightness_, (int)brightness);
         if ((int)brightness != this->brightness_)
         {
             this->brightness_ = (int)brightness;
