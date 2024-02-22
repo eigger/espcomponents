@@ -20,7 +20,7 @@ void UARTExLightOutput::publish(const std::vector<uint8_t>& data)
     if (this->state_brightness_func_.has_value())
     {
         optional<float> val = (*this->state_brightness_func_)(&data[0], data.size());
-        if (val.has_value() && this->brightness_ != (int)val.value())
+        if (val.has_value() && this->brightness_ != (int)val.value() && val.value() > 0)
         {
             this->brightness_ = (int)val.value();
             auto call = this->light_state_->make_call();
