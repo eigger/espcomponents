@@ -39,7 +39,7 @@ public:
         this->state_away_ = state;
         this->supports_away_ = true;
     }
-    void set_command_temperature(std::function<cmd_t(const float x)> f) { this->command_temperature_func_ = f; }
+    void set_command_temperature(std::function<cmd_t(const float x, const uint8_t mode, const uint8_t preset)> f) { this->command_temperature_func_ = f; }
     void set_command_auto(cmd_t cmd)
     {
         this->command_auto_ = cmd;
@@ -84,7 +84,7 @@ protected:
     optional<state_t> state_auto_{};
     optional<state_t> state_cool_{};
     optional<state_t> state_heat_{};
-    std::function<cmd_t(const float x)> command_temperature_func_{};
+    std::function<cmd_t(const float x, const uint8_t mode, const uint8_t preset)> command_temperature_func_{};
     cmd_t command_temperature_{};
     optional<cmd_t> command_away_{};
     optional<cmd_t> command_home_{};
