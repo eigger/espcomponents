@@ -9,9 +9,7 @@ DEPENDENCIES = ['uartex']
 UARTExLightOutput = uartex_ns.class_(
     'UARTExLightOutput', light.LightOutput, cg.Component)
 
-#BRIGHTNESS_ONLY_LIGHT_SCHEMA 
-#BINARY_LIGHT_SCHEMA
-CONFIG_SCHEMA = light.BRIGHTNESS_ONLY_LIGHT_SCHEMA.extend({
+CONFIG_SCHEMA = light.BINARY_LIGHT_SCHEMA.extend({
     cv.GenerateID(CONF_OUTPUT_ID): cv.declare_id(UARTExLightOutput),
     cv.Optional(CONF_STATE_BRIGHTNESS): cv.returning_lambda,
     cv.Optional(CONF_COMMAND_BRIGHTNESS): cv.returning_lambda,
