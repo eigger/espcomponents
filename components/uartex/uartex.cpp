@@ -185,7 +185,7 @@ void UARTExComponent::write_tx_cmd()
     this->tx_retry_cnt_++;
     this->tx_time_ = get_time();
     if (current_tx_cmd()->ack.size() == 0) tx_cmd_result(true);
-    if (this->on_write_f_.has_value()) (*this->on_read_f_)(&command[0], command.size());
+    if (this->on_write_f_.has_value()) (*this->on_write_f_)(&command[0], command.size());
 }
 
 void UARTExComponent::write_data(const uint8_t data)
