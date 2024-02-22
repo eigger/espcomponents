@@ -14,6 +14,21 @@ void UARTExLightOutput::dump_config()
     dump_uartex_device_config(TAG);
 }
 
+void UARTExFan::publish(const std::vector<uint8_t>& data)
+{
+    if (this->state_brightness_func_.has_value())
+    {
+        optional<float> val = (*this->state_brightness_func_)(&data[0], data.size());
+        if (val.has_value() && this->brightness_ != (int)val.value())
+        {
+            this->brightness_ = (int)val.value();
+            auto call = light_state_->make_call();
+            call.set_brightness(this->brightness_);
+            call.perform();
+        }
+    }
+}
+
 void UARTExLightOutput::publish_state(bool state)
 {
     if (light_state_ == nullptr || state == this->state_)return;

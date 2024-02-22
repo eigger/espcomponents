@@ -35,6 +35,7 @@ CONF_STATE_JAMMED = 'state_jammed'
 CONF_STATE_LOCKING = 'state_locking'
 CONF_STATE_UNLOCKING = 'state_unlocking'
 CONF_STATE_SPEED = 'state_speed'
+CONF_STATE_BRIGHTNESS = 'state_brightness'
 
 CONF_COMMAND_UPDATE = 'command_update'
 CONF_COMMAND_ON = 'command_on'
