@@ -35,7 +35,7 @@ void UARTExLightOutput::publish_state(bool state)
 {
     if (this->light_state_ == nullptr || state == this->state_) return;
     this->state_ = state;
-    auto call = make_call();
+    auto call = this->light_state_->make_call();
     call.set_brightness_if_supported(this->brightness_);
     call.set_state(state);
     call.perform();
