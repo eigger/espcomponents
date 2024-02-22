@@ -170,10 +170,10 @@ bool verify_state(const std::vector<uint8_t> &data, const state_t *state)
 
 float state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
 {
-    int val = 0;
+    int32_t val = 0;
     for (uint16_t i = state.offset, len = 0; i < data.size() && len < state.length; i++, len++)
     {
-        val = (val << 8) | (char)data[i];
+        val = (val << 8) | (int8_t)data[i];
     }
     return val / powf(10, state.precision);
 }

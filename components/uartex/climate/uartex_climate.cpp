@@ -49,7 +49,6 @@ void UARTExClimate::setup()
 void UARTExClimate::publish(const std::vector<uint8_t>& data)
 {
     bool changed = false;
-    UARTExDevice::publish(data);
     // turn off
     if (this->state_off_.has_value() && verify_state(data, &this->state_off_.value()))
     {
