@@ -16,6 +16,7 @@ void UARTExLightOutput::dump_config()
 
 void UARTExLightOutput::publish(const std::vector<uint8_t>& data)
 {
+    if (light_state_ == nullptr)return;
     if (this->state_brightness_func_.has_value())
     {
         optional<float> val = (*this->state_brightness_func_)(&data[0], data.size());
@@ -23,7 +24,8 @@ void UARTExLightOutput::publish(const std::vector<uint8_t>& data)
         {
             this->brightness_ = (int)val.value();
             auto call = light_state_->make_call();
-            call.set_brightness(this->brightness_);
+            call.set_brightness_if_supported(this->brightness_);
+            call.set_state(this->state_);
             call.perform();
         }
     }
