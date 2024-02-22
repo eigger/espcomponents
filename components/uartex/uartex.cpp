@@ -116,7 +116,7 @@ void UARTExComponent::dequeue_tx_data_from_devices()
 
 void UARTExComponent::write_to_uart()
 {
-    if (elapsed_time(this->rx_time_) < this->conf_rx_delay_) return;
+    if (elapsed_time(this->rx_time_) < this->conf_tx_delay_) return;
     if (elapsed_time(this->tx_time_) < this->conf_tx_delay_) return;
     if (is_tx_cmd_pending() && elapsed_time(this->tx_time_) < this->conf_tx_timeout_) return;
     if (retry_tx_data()) return;
