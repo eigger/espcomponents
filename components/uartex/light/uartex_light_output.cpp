@@ -44,8 +44,8 @@ void UARTExLightOutput::publish_state(bool state)
 light::LightTraits UARTExLightOutput::get_traits()
 {
     auto traits = light::LightTraits();
-    //traits.supports_color_capability(light::ColorCapability::BRIGHTNESS);
-    traits.set_supported_color_modes({/*ColorMode::RGB, */ColorMode::BRIGHTNESS});
+    traits.supports_color_capability(light::ColorCapability::BRIGHTNESS);
+    //traits.set_supported_color_modes({/*ColorMode::RGB, */ColorMode::BRIGHTNESS});
     return traits;
 }
 
