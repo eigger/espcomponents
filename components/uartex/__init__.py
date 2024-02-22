@@ -196,10 +196,10 @@ async def to_code(config):
         else:
             cg.add(var.set_tx_checksum_2(data))
     if CONF_ON_WRITE in config:
-        templ = await cg.templatable(config[CONF_ON_WRITE], [(uint8_ptr_const, 'data'), (uint16_const, 'len')],)
+        templ = await cg.templatable(config[CONF_ON_WRITE], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], return_type=cg.void)
         cg.add(var.set_on_write(templ))
     if CONF_ON_READ in config:
-        templ = await cg.templatable(config[CONF_ON_READ], [(uint8_ptr_const, 'data'), (uint16_const, 'len')],)
+        templ = await cg.templatable(config[CONF_ON_READ], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], return_type=cg.void)
         cg.add(var.set_on_read(templ))
 
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
