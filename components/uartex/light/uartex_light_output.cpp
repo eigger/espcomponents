@@ -10,20 +10,20 @@ static const char *TAG = "uartex.light";
 
 void UARTExLightOutput::dump_config()
 {
-    ESP_LOGCONFIG(TAG, "UARTEx LightOutput(Binary) '%s':", light_state_->get_name().c_str());
+    ESP_LOGCONFIG(TAG, "UARTEx LightOutput(Binary) '%s':", this->light_state_->get_name().c_str());
     dump_uartex_device_config(TAG);
 }
 
 void UARTExLightOutput::publish(const std::vector<uint8_t>& data)
 {
-    if (light_state_ == nullptr)return;
+    if (this->light_state_ == nullptr)return;
     if (this->state_brightness_func_.has_value())
     {
         optional<float> val = (*this->state_brightness_func_)(&data[0], data.size());
         if (val.has_value() && this->brightness_ != (int)val.value())
         {
             this->brightness_ = (int)val.value();
-            auto call = light_state_->make_call();
+            auto call = this->light_state_->make_call();
             call.set_brightness_if_supported(this->brightness_);
             call.set_state(this->state_);
             call.perform();
@@ -33,9 +33,10 @@ void UARTExLightOutput::publish(const std::vector<uint8_t>& data)
 
 void UARTExLightOutput::publish_state(bool state)
 {
-    if (light_state_ == nullptr || state == this->state_)return;
+    if (this->light_state_ == nullptr || state == this->state_) return;
     this->state_ = state;
-    auto call = light_state_->make_call();
+    auto call = make_call();
+    call.set_brightness_if_supported(this->brightness_);
     call.set_state(state);
     call.perform();
 }
@@ -66,6 +67,7 @@ void UARTExLightOutput::write_state(light::LightState *state)
             enqueue_tx_cmd(get_command_brightness());
         }
     }
+    this->light_state_ = state;
 }
 
 cmd_t *UARTExLightOutput::get_command_brightness()
