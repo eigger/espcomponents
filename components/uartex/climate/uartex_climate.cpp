@@ -187,7 +187,7 @@ void UARTExClimate::control(const climate::ClimateCall &call)
     if (call.get_target_temperature().has_value() && this->target_temperature != *call.get_target_temperature())
     {
         this->target_temperature = *call.get_target_temperature();
-        this->command_temperature_ = (this->command_temperature_func_)(this->target_temperature, *call.get_mode(), *call.get_preset());
+        this->command_temperature_ = (this->command_temperature_func_)(this->target_temperature, this->mode, *this->preset);
         enqueue_tx_cmd(&this->command_temperature_);
     }
 
