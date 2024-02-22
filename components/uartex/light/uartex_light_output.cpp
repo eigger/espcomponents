@@ -64,7 +64,7 @@ void UARTExLightOutput::write_state(light::LightState *state)
     {
         float brightness;
         state->current_values_as_brightness(&brightness);
-        if ((int)(brightness * 100.0) != this->brightness_)
+        if ((int)(brightness * 100.0) != this->brightness_ && brightness > 0)
         {
             this->brightness_ = (int)(brightness * 100.0);
             enqueue_tx_cmd(get_command_brightness());
