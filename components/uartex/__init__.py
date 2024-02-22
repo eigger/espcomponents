@@ -107,8 +107,8 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_TX_CHECKSUM): validate_checksum,
     cv.Optional(CONF_RX_CHECKSUM_2): validate_checksum,
     cv.Optional(CONF_TX_CHECKSUM_2): validate_checksum,
-    cv.Optional(CONF_ON_WRITE): cv.returning_lambda,
-    cv.Optional(CONF_ON_READ): cv.returning_lambda,
+    cv.Optional(CONF_ON_WRITE): cv.lambda_,
+    cv.Optional(CONF_ON_READ): cv.lambda_,
     cv.Optional(CONF_VERSION, default={CONF_NAME: "UartEX Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
