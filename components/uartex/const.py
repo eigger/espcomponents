@@ -55,4 +55,6 @@ CONF_ACK = 'ack'
 CONF_LENGTH = 'length'
 CONF_PRECISION = 'precision'
 CONF_SPEED_CNT = 'speed_cnt'
+CONF_ON_WRITE = 'on_write'
+CONF_ON_READ = 'on_read'
 

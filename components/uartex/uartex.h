@@ -53,6 +53,8 @@ public:
     void set_tx_checksum_2_lambda(std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)> &&f);
     void set_version(text_sensor::TextSensor *version) { this->version_ = version; }
     void set_error(text_sensor::TextSensor *error) { this->error_ = error; }
+    void set_on_write(std::function<void(const uint8_t *data, const uint16_t len)> &&f) { this->on_write_f_ = f; }
+    void set_on_read(std::function<void(const uint8_t *data, const uint16_t len)> &&f){ this->on_read_f_ = f; }
     std::vector<uint8_t> get_rx_checksum(const std::vector<uint8_t> &data);
     std::vector<uint8_t> get_tx_checksum(const std::vector<uint8_t> &data);
     void dump_config() override;
@@ -107,6 +109,8 @@ protected:
     CHECKSUM tx_checksum_2_{CHECKSUM_NONE};
     optional<std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)>> rx_checksum_f_2_{};
     optional<std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)>> tx_checksum_f_2_{};
+    optional<std::function<void(const uint8_t *data, const uint16_t len)>> on_write_f_{};
+    optional<std::function<void(const uint8_t *data, const uint16_t len)>> on_read_f_{};
     ERROR error_code_{ERROR_NONE};
     std::queue<tx_data_t> tx_queue_{};
     std::queue<tx_data_t> tx_queue_low_priority_{};

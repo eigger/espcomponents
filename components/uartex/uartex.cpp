@@ -87,6 +87,7 @@ bool UARTExComponent::verify_ack()
 void UARTExComponent::publish_data()
 {
     bool found = false;
+    if (this->on_read_f_.has_value()) (*this->on_read_f_)(&this->rx_parser_.buffer()[0], this->rx_parser_.buffer().size());
     for (UARTExDevice* device : this->devices_)
     {
         if (device->parse_data(this->rx_parser_.data()))
@@ -158,16 +159,33 @@ void UARTExComponent::write_tx_data()
 void UARTExComponent::write_tx_cmd()
 {
     unsigned long timer = get_time();
+    std::vector<uint8_t> command;
     if (this->tx_ctrl_pin_) this->tx_ctrl_pin_->digital_write(true);
-    if (this->tx_header_.has_value()) write_data(this->tx_header_.value());
-    write_data(current_tx_cmd()->data);
-    if (this->tx_checksum_ != CHECKSUM_NONE || this->tx_checksum_2_ != CHECKSUM_NONE) write_data(get_tx_checksum(current_tx_cmd()->data));
-    if (this->tx_footer_.has_value()) write_data(this->tx_footer_.value());
+    if (this->tx_header_.has_value())
+    {
+        command.insert(command.end(), this->tx_header_.value().begin(), this->tx_header_.value().end());
+        //write_data(this->tx_header_.value());
+    }
+    command.insert(command.end(), current_tx_cmd()->data.begin(), current_tx_cmd()->data.end());
+    //write_data(current_tx_cmd()->data);
+    if (this->tx_checksum_ != CHECKSUM_NONE || this->tx_checksum_2_ != CHECKSUM_NONE)
+    {
+        std::vector<uint8_t> checksum = get_tx_checksum(current_tx_cmd()->data);
+        command.insert(command.end(), checksum.begin(), checksum.end());
+        //write_data(get_tx_checksum(current_tx_cmd()->data));
+    }
+    if (this->tx_footer_.has_value())
+    {
+        command.insert(command.end(), this->tx_footer_.value().begin(), this->tx_footer_.value().end());
+        //write_data(this->tx_footer_.value());
+    }
+    write_data(command);
     write_flush();
     if (this->tx_ctrl_pin_) this->tx_ctrl_pin_->digital_write(false);
     this->tx_retry_cnt_++;
     this->tx_time_ = get_time();
     if (current_tx_cmd()->ack.size() == 0) tx_cmd_result(true);
+    if (this->on_write_f_.has_value()) (*this->on_read_f_)(&command[0], command.size());
 }
 
 void UARTExComponent::write_data(const uint8_t data)

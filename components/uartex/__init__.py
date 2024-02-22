@@ -10,7 +10,7 @@ from esphome.util import SimpleRegistry
 from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTER, \
     CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, CONF_RX_CHECKSUM_2, CONF_TX_CHECKSUM_2, \
     CONF_UARTEX_ID, CONF_ERROR, \
-    CONF_ACK, \
+    CONF_ACK, CONF_ON_WRITE, CONF_ON_READ, \
     CONF_STATE, CONF_MASK, \
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
     CONF_COMMAND_UPDATE, CONF_RX_TIMEOUT, CONF_TX_TIMEOUT, CONF_TX_RETRY_CNT, \
@@ -107,6 +107,8 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_TX_CHECKSUM): validate_checksum,
     cv.Optional(CONF_RX_CHECKSUM_2): validate_checksum,
     cv.Optional(CONF_TX_CHECKSUM_2): validate_checksum,
+    cv.Optional(CONF_ON_WRITE): cv.returning_lambda,
+    cv.Optional(CONF_ON_READ): cv.returning_lambda,
     cv.Optional(CONF_VERSION, default={CONF_NAME: "UartEX Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
@@ -193,6 +195,13 @@ async def to_code(config):
             cg.add(var.set_tx_checksum_2_lambda(template_))
         else:
             cg.add(var.set_tx_checksum_2(data))
+    if CONF_ON_WRITE in config:
+        templ = yield cg.templatable(config[CONF_ON_WRITE], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.void)
+        cg.add(var.set_on_write(templ))
+    if CONF_ON_READ in config:
+        templ = yield cg.templatable(config[CONF_ON_READ], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.void)
+        cg.add(var.set_on_read(templ))
+
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
 UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_UARTEX_ID): _uartex_declare_type,
