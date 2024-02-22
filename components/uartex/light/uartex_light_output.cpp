@@ -24,7 +24,7 @@ void UARTExLightOutput::publish(const std::vector<uint8_t>& data)
         {
             this->brightness_ = (int)val.value();
             auto call = this->light_state_->make_call();
-            call.set_brightness_if_supported(this->brightness_);
+            call.set_brightness_if_supported(this->brightness_ / 100.0);
             call.set_state(this->state_);
             call.perform();
         }
@@ -36,7 +36,7 @@ void UARTExLightOutput::publish_state(bool state)
     if (this->light_state_ == nullptr || state == this->state_) return;
     this->state_ = state;
     auto call = this->light_state_->make_call();
-    call.set_brightness_if_supported(this->brightness_);
+    call.set_brightness_if_supported(this->brightness_ / 100.0);
     call.set_state(state);
     call.perform();
 }
@@ -64,9 +64,9 @@ void UARTExLightOutput::write_state(light::LightState *state)
     {
         float brightness;
         state->current_values_as_brightness(&brightness);
-        if ((int)brightness != this->brightness_)
+        if ((int)(brightness * 100.0) != this->brightness_)
         {
-            this->brightness_ = (int)brightness;
+            this->brightness_ = (int)(brightness * 100.0);
             enqueue_tx_cmd(get_command_brightness());
         }
     }
