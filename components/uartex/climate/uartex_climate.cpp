@@ -18,7 +18,7 @@ climate::ClimateTraits UARTExClimate::traits()
     traits.set_supports_current_temperature(true);
     for (auto mode : supported_mode_) traits.add_supported_mode(mode);
     for (auto mode : supported_swing_mode_) traits.add_supported_swing_mode(mode);
-    for (auto preset : supported_swing_mode_) traits.add_supported_preset(preset);
+    for (auto preset : supported_preset_) traits.add_supported_preset(preset);
     traits.set_supports_two_point_target_temperature(false);
     return traits;
 }
