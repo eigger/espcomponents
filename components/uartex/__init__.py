@@ -124,15 +124,15 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
 
 async def to_code(config):
     cg.add_global(uartex_ns.using)
-    var = cg.new_Pvariable(config[CONF_ID])
+    var = await cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
     if CONF_VERSION in config:
-        sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
+        sens = await cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
         await register_text_sensor(sens, config[CONF_VERSION])
         cg.add(var.set_version(sens))
     if CONF_ERROR in config:
-        sens = cg.new_Pvariable(config[CONF_ERROR][CONF_ID])
+        sens = await cg.new_Pvariable(config[CONF_ERROR][CONF_ID])
         await register_text_sensor(sens, config[CONF_ERROR])
         cg.add(var.set_error(sens))
     if CONF_RX_TIMEOUT in config:
@@ -302,7 +302,7 @@ async def command_hex_expression(conf):
 }, key=CONF_DATA))
 
 async def uartex_write_to_code(config, action_id, template_arg, args):
-    var = cg.new_Pvariable(action_id, template_arg)
+    var = await cg.new_Pvariable(action_id, template_arg)
     await cg.register_parented(var, config[CONF_ID])
     data = config[CONF_DATA]
 
