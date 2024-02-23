@@ -25,9 +25,6 @@ climate::ClimateTraits UARTExClimate::traits()
         traits.add_supported_preset(climate::CLIMATE_PRESET_AWAY);
         traits.add_supported_preset(climate::CLIMATE_PRESET_HOME);
     }
-    traits.set_visual_min_temperature(5);
-    traits.set_visual_max_temperature(40);
-    traits.set_visual_temperature_step(1);
     return traits;
 }
 
