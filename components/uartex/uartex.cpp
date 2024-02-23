@@ -260,7 +260,7 @@ void UARTExComponent::clear_tx_data()
     this->tx_retry_cnt_ = 0;
 }
 
-cmd_t* UARTExComponent::current_tx_cmd()
+const cmd_t* UARTExComponent::current_tx_cmd()
 {
     return this->current_tx_data_.cmd;
 }
