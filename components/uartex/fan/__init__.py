@@ -16,19 +16,19 @@ CONFIG_SCHEMA = cv.All(fan.FAN_SCHEMA.extend({
     cv.Required(CONF_COMMAND_SPEED): cv.returning_lambda,
 }).extend(uartex.UARTEX_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA))
 
-def to_code(config):
+async def to_code(config):
     var = cg.new_Pvariable(config[CONF_OUTPUT_ID])
     interval = config[CONF_UPDATE_INTERVAL]
     del config[CONF_UPDATE_INTERVAL]
     config[CONF_UPDATE_INTERVAL] = interval
-    yield cg.register_component(var, config)
-    yield fan.register_fan(var, config)
-    yield uartex.register_uartex_device(var, config)
+    await cg.register_component(var, config)
+    await fan.register_fan(var, config)
+    await uartex.register_uartex_device(var, config)
 
-    templ = yield cg.templatable(config[CONF_COMMAND_SPEED], [(cg.float_.operator('const'), 'x')], cmd_t)
+    templ = await cg.templatable(config[CONF_COMMAND_SPEED], [(cg.float_.operator('const'), 'x')], cmd_t)
     cg.add(var.set_command_speed(templ))
 
-    templ = yield cg.templatable(config[CONF_STATE_SPEED], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
+    templ = await cg.templatable(config[CONF_STATE_SPEED], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
     cg.add(var.set_state_speed(templ))
 
     if CONF_SPEED_CNT in config:

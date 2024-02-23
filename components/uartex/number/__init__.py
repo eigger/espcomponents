@@ -24,24 +24,24 @@ CONFIG_SCHEMA = cv.All(number.NUMBER_SCHEMA.extend({
 }).extend(cv.COMPONENT_SCHEMA))
 
 
-def to_code(config):
+async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
-    yield cg.register_component(var, config)
-    yield number.register_number(            
+    await cg.register_component(var, config)
+    await number.register_number(            
         var,
         config,
         min_value = config[CONF_MIN_VALUE],
         max_value = config[CONF_MAX_VALUE],
         step = config[CONF_STEP],)
-    yield uartex.register_uartex_device(var, config)
+    await uartex.register_uartex_device(var, config)
 
-    templ = yield cg.templatable(config[CONF_COMMAND_NUMBER], [(cg.float_.operator('const'), 'x')], cmd_t)
+    templ = await cg.templatable(config[CONF_COMMAND_NUMBER], [(cg.float_.operator('const'), 'x')], cmd_t)
     cg.add(var.set_command_number(templ))
  
     state = config[CONF_STATE_NUMBER]
     if cg.is_template(state):
-        templ = yield cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len'), (cg.float_, 'state')], cg.float_)
+        templ = await cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len'), (cg.float_, 'state')], cg.float_)
         cg.add(var.set_state_number(templ))
     else:
-        args = yield state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION]
+        args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION]
         cg.add(var.set_state_number(args))

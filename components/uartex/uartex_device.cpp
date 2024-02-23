@@ -97,22 +97,22 @@ void UARTExDevice::set_state_response(state_t state)
     this->state_response_ = state;
 }
 
-cmd_t *UARTExDevice::dequeue_tx_cmd()
+const cmd_t *UARTExDevice::dequeue_tx_cmd()
 {
     if (this->state_response_.has_value() && !this->rx_response_) return nullptr;
     this->rx_response_ = false;
     if (this->tx_cmd_queue_.size() == 0) return nullptr;
-    cmd_t *cmd = this->tx_cmd_queue_.front();
+    const cmd_t *cmd = this->tx_cmd_queue_.front();
     this->tx_cmd_queue_.pop();
     return cmd;
 }
 
-cmd_t *UARTExDevice::dequeue_tx_cmd_low_priority()
+const cmd_t *UARTExDevice::dequeue_tx_cmd_low_priority()
 {
     if (this->state_response_.has_value() && !this->rx_response_) return nullptr;
     this->rx_response_ = false;
     if (this->tx_cmd_queue_low_priority_.size() == 0) return nullptr;
-    cmd_t *cmd = this->tx_cmd_queue_low_priority_.front();
+    const cmd_t *cmd = this->tx_cmd_queue_low_priority_.front();
     this->tx_cmd_queue_low_priority_.pop();
     return cmd;
 }
@@ -138,7 +138,7 @@ void UARTExDevice::publish(const bool state)
 {
 }
 
-void UARTExDevice::enqueue_tx_cmd(cmd_t *cmd, bool low_priority)
+void UARTExDevice::enqueue_tx_cmd(const cmd_t *cmd, bool low_priority)
 {
     if (cmd->data.size() == 0) return;
     if (low_priority) this->tx_cmd_queue_low_priority_.push(cmd);

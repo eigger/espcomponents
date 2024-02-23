@@ -5,7 +5,6 @@ from esphome.components.text_sensor import register_text_sensor
 from esphome import automation, pins, core
 from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
     CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, ICON_NEW_BOX
-from esphome.core import coroutine
 from esphome.util import SimpleRegistry
 from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTER, \
     CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, CONF_RX_CHECKSUM_2, CONF_TX_CHECKSUM_2, \
@@ -233,52 +232,51 @@ STATE_NUM_SCHEMA = cv.Schema({
 
 HEX_SCHEMA_REGISTRY = SimpleRegistry()
 
-@coroutine
-def register_uartex_device(var, config):
-    paren = yield cg.get_variable(config[CONF_UARTEX_ID])
+async def register_uartex_device(var, config):
+    paren = await cg.get_variable(config[CONF_UARTEX_ID])
     cg.add(paren.register_device(var))
-    yield var
 
     if CONF_STATE in config:
-        state = yield state_hex_expression(config[CONF_STATE])
+        state = state_hex_expression(config[CONF_STATE])
         cg.add(var.set_state(state))
 
     if CONF_STATE_ON in config:
-        state_on = yield state_hex_expression(config[CONF_STATE_ON])
+        state_on = state_hex_expression(config[CONF_STATE_ON])
         cg.add(var.set_state_on(state_on))
 
     if CONF_STATE_OFF in config:
-        state_off = yield state_hex_expression(config[CONF_STATE_OFF])
+        state_off = state_hex_expression(config[CONF_STATE_OFF])
         cg.add(var.set_state_off(state_off))
 
     if CONF_COMMAND_ON in config:
         data = config[CONF_COMMAND_ON]
         if cg.is_template(data):
-            command_on = yield cg.templatable(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], cmd_t)
+            #command_on = await cg.templatable(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], cmd_t)
+            command_on = await cg.process_lambda(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], return_type=cmd_t)
             cg.add(var.set_command_on(command_on))
         else:
-            command_on = yield command_hex_expression(config[CONF_COMMAND_ON])
+            command_on = command_hex_expression(config[CONF_COMMAND_ON])
             cg.add(var.set_command_on(command_on))
 
     if CONF_COMMAND_OFF in config:
         data = config[CONF_COMMAND_OFF]
         if cg.is_template(data):
-            command_off = yield cg.templatable(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], cmd_t)
+            #command_off = await cg.templatable(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], cmd_t)
+            command_off = await cg.process_lambda(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], return_type=cmd_t)
             cg.add(var.set_command_off(command_off))
         else:
-            command_off = yield command_hex_expression(config[CONF_COMMAND_OFF])
+            command_off = command_hex_expression(config[CONF_COMMAND_OFF])
             cg.add(var.set_command_off(command_off))
 
     if CONF_COMMAND_UPDATE in config:
-        command_update = yield command_hex_expression(config[CONF_COMMAND_UPDATE])
+        command_update = command_hex_expression(config[CONF_COMMAND_UPDATE])
         cg.add(var.set_command_update(command_update))
     
     if CONF_STATE_RESPONSE in config:
-        state_response = yield state_hex_expression(config[CONF_STATE_RESPONSE])
+        state_response = state_hex_expression(config[CONF_STATE_RESPONSE])
         cg.add(var.set_state_response(state_response))
 
 
-@coroutine
 def state_hex_expression(conf):
     if conf is None:
         return
@@ -286,35 +284,33 @@ def state_hex_expression(conf):
     mask = conf[CONF_MASK]
     inverted = conf[CONF_INVERTED]
     offset = conf[CONF_OFFSET]
-    yield offset, inverted, data, mask
+    return offset, inverted, data, mask
 
 
-@coroutine
 def command_hex_expression(conf):
     if conf is None:
         return
     data = conf[CONF_DATA]
     if CONF_ACK in conf:
         ack = conf[CONF_ACK]
-        yield data, ack
+        return data, ack
     else:
-        yield data
-
+        return data
 
 @automation.register_action('uartex.write', UARTExWriteAction, cv.maybe_simple_value({
     cv.GenerateID(): cv.use_id(UARTExComponent),
     cv.Required(CONF_DATA): cv.templatable(validate_hex_data),
     cv.Optional(CONF_ACK, default=[]): validate_hex_data
 }, key=CONF_DATA))
-def uartex_write_to_code(config, action_id, template_arg, args):
+
+async def uartex_write_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
-    yield cg.register_parented(var, config[CONF_ID])
+    await cg.register_parented(var, config[CONF_ID])
     data = config[CONF_DATA]
 
     if cg.is_template(data):
-        templ = yield cg.templatable(data, args, cmd_t)
+        templ = await cg.templatable(data, args, cmd_t)
         cg.add(var.set_data_template(templ))
     else:
-        cmd = yield command_hex_expression(config)
+        cmd = command_hex_expression(config)
         cg.add(var.set_data_static(cmd))
-    yield var

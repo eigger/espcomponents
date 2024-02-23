@@ -8,8 +8,7 @@ from .. import uartex_ns, UARTExComponent, uint8_ptr_const, uint16_const, \
 from ..const import CONF_UARTEX_ID, CONF_STATE, CONF_COMMAND_UPDATE
 
 DEPENDENCIES = ['uartex']
-UARTExTextSensor = uartex_ns.class_(
-    'UARTExTextSensor', text_sensor.TextSensor, cg.PollingComponent)
+UARTExTextSensor = uartex_ns.class_('UARTExTextSensor', text_sensor.TextSensor, cg.PollingComponent)
 
 CONFIG_SCHEMA = cv.All(text_sensor.TEXT_SENSOR_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExTextSensor),
@@ -19,15 +18,15 @@ CONFIG_SCHEMA = cv.All(text_sensor.TEXT_SENSOR_SCHEMA.extend({
     cv.Required(CONF_LAMBDA): cv.returning_lambda,
 }).extend(cv.polling_component_schema('60s')))
 
-def to_code(config):
+async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
-    yield cg.register_component(var, config)
-    yield uartex.register_uartex_device(var, config)
+    await cg.register_component(var, config)
+    await uartex.register_uartex_device(var, config)
 
     if CONF_LAMBDA in config:
-        template_ = yield cg.process_lambda(config[CONF_LAMBDA], [(uint8_ptr_const, 'data'),
+        template_ = await cg.process_lambda(config[CONF_LAMBDA], [(uint8_ptr_const, 'data'),
                                                                   (uint16_const, 'len')],
                                             return_type=cg.optional.template(cg.const_char_ptr))
         cg.add(var.set_template(template_))
 
-    yield text_sensor.register_text_sensor(var, config)
+    await text_sensor.register_text_sensor(var, config)

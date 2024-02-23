@@ -22,20 +22,20 @@ CONFIG_SCHEMA = cv.All(sensor.SENSOR_SCHEMA.extend({
 }).extend(cv.polling_component_schema('60s')), cv.has_exactly_one_key(CONF_LAMBDA, CONF_STATE_NUMBER))
 
 
-def to_code(config):
+async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
-    yield cg.register_component(var, config)
-    yield uartex.register_uartex_device(var, config)
+    await cg.register_component(var, config)
+    await uartex.register_uartex_device(var, config)
 
     if CONF_LAMBDA in config:
-        template_ = yield cg.process_lambda(config[CONF_LAMBDA], [(uint8_ptr_const, 'data'),
+        template_ = await cg.process_lambda(config[CONF_LAMBDA], [(uint8_ptr_const, 'data'),
                                                                   (uint16_const, 'len')],
                                             return_type=cg.optional.template(float))
         cg.add(var.set_template(template_))
     if CONF_STATE_NUMBER in config:
         data = config[CONF_STATE_NUMBER]
-        data_ = yield data[CONF_OFFSET], data[CONF_LENGTH], data[CONF_PRECISION]
+        data_ = data[CONF_OFFSET], data[CONF_LENGTH], data[CONF_PRECISION]
         cg.add(var.set_state_num(data_))
         config[CONF_ACCURACY_DECIMALS] = data[CONF_PRECISION]
 
-    yield sensor.register_sensor(var, config)
+    await sensor.register_sensor(var, config)

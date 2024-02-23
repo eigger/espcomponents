@@ -32,7 +32,7 @@ enum CHECKSUM {
 struct tx_data_t
 {
     UARTExDevice* device;
-    cmd_t* cmd;
+    const cmd_t* cmd;
 };
 
 class UARTExComponent : public uart::UARTDevice, public Component
@@ -75,7 +75,7 @@ protected:
     bool is_tx_cmd_pending();
     void tx_cmd_result(bool result);
     void clear_tx_data();
-    cmd_t* current_tx_cmd();
+    const cmd_t* current_tx_cmd();
     void write_tx_cmd();
     void enqueue_tx_data(const tx_data_t data, bool low_priority = false);
     ERROR validate_data();
