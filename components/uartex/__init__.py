@@ -279,6 +279,7 @@ async def register_uartex_device(var, config):
 
 def state_hex_expression(conf):
     if conf is None:
+        raise cv.Invalid("data type error {conf}")
         return
     data = conf[CONF_DATA]
     mask = conf[CONF_MASK]
@@ -289,6 +290,7 @@ def state_hex_expression(conf):
 
 def command_hex_expression(conf):
     if conf is None:
+        raise cv.Invalid("data type error {conf}")
         return
     data = conf[CONF_DATA]
     if CONF_ACK in conf:
