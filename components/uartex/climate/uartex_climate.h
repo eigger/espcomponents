@@ -71,9 +71,9 @@ protected:
     std::unordered_map<climate::ClimateMode, optional<state_t>> state_mode_{};
     std::unordered_map<climate::ClimateSwingMode, optional<state_t>> state_swing_mode_{};
     std::unordered_map<climate::ClimatePreset, optional<state_t>> state_preset_{};
-    std::unordered_map<climate::ClimateMode, optional<cmd_t>> command_mode_{};
-    std::unordered_map<climate::ClimateSwingMode, optional<cmd_t>> command_swing_mode_{};
-    std::unordered_map<climate::ClimatePreset, optional<cmd_t>> command_preset_{};
+    std::unordered_map<climate::ClimateMode, cmd_t> command_mode_{};
+    std::unordered_map<climate::ClimateSwingMode, cmd_t> command_swing_mode_{};
+    std::unordered_map<climate::ClimatePreset, cmd_t> command_preset_{};
     sensor::Sensor *sensor_{nullptr};
     optional<std::function<optional<float>(const uint8_t *data, const uint16_t len)>> state_current_func_{};
     optional<std::function<optional<float>(const uint8_t *data, const uint16_t len)>> state_target_func_{};

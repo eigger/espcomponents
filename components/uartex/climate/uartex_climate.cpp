@@ -153,7 +153,7 @@ void UARTExClimate::control(const climate::ClimateCall &call)
             {
                 if (command.first == this->mode)
                 {
-                    enqueue_tx_cmd(&((cmd_t)command.second.value()));
+                    enqueue_tx_cmd(&command.second);
                     break;
                 }
             }
@@ -164,7 +164,7 @@ void UARTExClimate::control(const climate::ClimateCall &call)
     if (call.get_target_temperature().has_value() && this->target_temperature != *call.get_target_temperature())
     {
         this->target_temperature = *call.get_target_temperature();
-        this->command_temperature_ = (this->command_temperature_func_)(this->target_temperature, this->mode, this->preset);
+        this->command_temperature_ = (this->command_temperature_func_)(this->target_temperature, this->mode, *this->preset);
         enqueue_tx_cmd(&this->command_temperature_);
     }
 
@@ -176,7 +176,7 @@ void UARTExClimate::control(const climate::ClimateCall &call)
         {
             if (command.first == this->swing_mode)
             {
-                enqueue_tx_cmd(&((cmd_t)command.second.value()));
+                enqueue_tx_cmd(&command.second);
                 break;
             }
         }
@@ -188,9 +188,9 @@ void UARTExClimate::control(const climate::ClimateCall &call)
         this->preset = *call.get_preset();
         for(const auto& command : this->command_preset_)
         {
-            if (command.first == this->preset)
+            if (command.first == *this->preset)
             {
-                enqueue_tx_cmd(&((cmd_t)command.second.value()));
+                enqueue_tx_cmd(&command.second);
                 break;
             }
         }
