@@ -3,7 +3,7 @@ import esphome.config_validation as cv
 from esphome.components import climate, uartex, sensor
 from esphome.const import CONF_ID, CONF_SENSOR, CONF_OFFSET
 from .. import uartex_ns, command_hex_schema, STATE_NUM_SCHEMA, cmd_t, uint8_ptr_const, uint16_const, uint8_const, \
-    command_hex_expression, state_schema, state_hex_expression
+    await command_hex_expression, state_schema, await state_hex_expression
 from ..const import CONF_STATE_TEMPERATURE_CURRENT, CONF_STATE_TEMPERATURE_TARGET, \
     CONF_STATE_ON, CONF_STATE_AUTO, CONF_STATE_HEAT, CONF_STATE_COOL, CONF_STATE_FAN_ONLY, CONF_STATE_DRY, CONF_STATE_SWING_OFF, CONF_STATE_SWING_BOTH, CONF_STATE_SWING_VERTICAL, CONF_STATE_SWING_HORIZONTAL, \
     CONF_COMMAND_ON, CONF_COMMAND_AUTO, CONF_COMMAND_HEAT, CONF_COMMAND_COOL, CONF_COMMAND_FAN_ONLY, CONF_COMMAND_DRY, CONF_COMMAND_SWING_OFF, CONF_COMMAND_SWING_BOTH, CONF_COMMAND_SWING_VERTICAL, CONF_COMMAND_SWING_HORIZONTAL, \
@@ -89,105 +89,105 @@ async def to_code(config):
             args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION]
             cg.add(var.set_state_current(args))
     if CONF_STATE_COOL in config:
-        args = state_hex_expression(config[CONF_STATE_COOL])
+        args = await state_hex_expression(config[CONF_STATE_COOL])
         cg.add(var.set_state_cool(args))
     if CONF_STATE_HEAT in config:
-        args = state_hex_expression(config[CONF_STATE_HEAT])
+        args = await state_hex_expression(config[CONF_STATE_HEAT])
         cg.add(var.set_state_heat(args))
     if CONF_STATE_FAN_ONLY in config:
-        args = state_hex_expression(config[CONF_STATE_FAN_ONLY])
+        args = await state_hex_expression(config[CONF_STATE_FAN_ONLY])
         cg.add(var.set_state_fan_only(args))
     if CONF_STATE_DRY in config:
-        args = state_hex_expression(config[CONF_STATE_DRY])
+        args = await state_hex_expression(config[CONF_STATE_DRY])
         cg.add(var.set_state_dry(args))
     if CONF_STATE_AUTO in config:
-        args = state_hex_expression(config[CONF_STATE_AUTO])
+        args = await state_hex_expression(config[CONF_STATE_AUTO])
         cg.add(var.set_state_auto(args))
     if CONF_STATE_SWING_OFF in config:
-        args = state_hex_expression(config[CONF_STATE_SWING_OFF])
+        args = await state_hex_expression(config[CONF_STATE_SWING_OFF])
         cg.add(var.set_state_swing_off(args))
     if CONF_STATE_SWING_BOTH in config:
-        args = state_hex_expression(config[CONF_STATE_SWING_BOTH])
+        args = await state_hex_expression(config[CONF_STATE_SWING_BOTH])
         cg.add(var.set_state_swing_both(args))
     if CONF_STATE_SWING_VERTICAL in config:
-        args = state_hex_expression(config[CONF_STATE_SWING_VERTICAL])
+        args = await state_hex_expression(config[CONF_STATE_SWING_VERTICAL])
         cg.add(var.set_state_swing_vertical(args))
     if CONF_STATE_SWING_HORIZONTAL in config:
-        args = state_hex_expression(config[CONF_STATE_SWING_HORIZONTAL])
+        args = await state_hex_expression(config[CONF_STATE_SWING_HORIZONTAL])
         cg.add(var.set_state_swing_horizontal(args))
     if CONF_STATE_PRESET_NONE in config:
-        args = state_hex_expression(config[CONF_STATE_PRESET_NONE])
+        args = await state_hex_expression(config[CONF_STATE_PRESET_NONE])
         cg.add(var.set_state_preset_none(args))
     if CONF_STATE_PRESET_HOME in config:
-        args = state_hex_expression(config[CONF_STATE_PRESET_HOME])
+        args = await state_hex_expression(config[CONF_STATE_PRESET_HOME])
         cg.add(var.set_state_preset_home(args))
     if CONF_STATE_PRESET_AWAY in config:
-        args = state_hex_expression(config[CONF_STATE_PRESET_AWAY])
+        args = await state_hex_expression(config[CONF_STATE_PRESET_AWAY])
         cg.add(var.set_state_preset_away(args))
     if CONF_STATE_PRESET_BOOST in config:
-        args = state_hex_expression(config[CONF_STATE_PRESET_BOOST])
+        args = await state_hex_expression(config[CONF_STATE_PRESET_BOOST])
         cg.add(var.set_state_preset_boost(args))
     if CONF_STATE_PRESET_COMFORT in config:
-        args = state_hex_expression(config[CONF_STATE_PRESET_COMFORT])
+        args = await state_hex_expression(config[CONF_STATE_PRESET_COMFORT])
         cg.add(var.set_state_preset_comfort(args))
     if CONF_STATE_PRESET_ECO in config:
-        args = state_hex_expression(config[CONF_STATE_PRESET_ECO])
+        args = await state_hex_expression(config[CONF_STATE_PRESET_ECO])
         cg.add(var.set_state_preset_eco(args))
     if CONF_STATE_PRESET_SLEEP in config:
-        args = state_hex_expression(config[CONF_STATE_PRESET_SLEEP])
+        args = await state_hex_expression(config[CONF_STATE_PRESET_SLEEP])
         cg.add(var.set_state_preset_sleep(args))
     if CONF_STATE_PRESET_ACTIVITY in config:
-        args = state_hex_expression(config[CONF_STATE_PRESET_ACTIVITY])
+        args = await state_hex_expression(config[CONF_STATE_PRESET_ACTIVITY])
         cg.add(var.set_state_preset_activity(args))
     if CONF_COMMAND_COOL in config:
-        args = command_hex_expression(config[CONF_COMMAND_COOL])
+        args = await command_hex_expression(config[CONF_COMMAND_COOL])
         cg.add(var.set_command_cool(args))
     if CONF_COMMAND_HEAT in config:
-        args = command_hex_expression(config[CONF_COMMAND_HEAT])
+        args = await command_hex_expression(config[CONF_COMMAND_HEAT])
         cg.add(var.set_command_heat(args))
     if CONF_COMMAND_FAN_ONLY in config:
-        args = command_hex_expression(config[CONF_COMMAND_FAN_ONLY])
+        args = await command_hex_expression(config[CONF_COMMAND_FAN_ONLY])
         cg.add(var.set_command_fan_only(args))     
     if CONF_COMMAND_DRY in config:
-        args = command_hex_expression(config[CONF_COMMAND_DRY])
+        args = await command_hex_expression(config[CONF_COMMAND_DRY])
         cg.add(var.set_command_dry(args))        
     if CONF_COMMAND_AUTO in config:
-        args = command_hex_expression(config[CONF_COMMAND_AUTO])
+        args = await command_hex_expression(config[CONF_COMMAND_AUTO])
         cg.add(var.set_command_auto(args))
     if CONF_COMMAND_SWING_OFF in config:
-        args = command_hex_expression(config[CONF_COMMAND_SWING_OFF])
+        args = await command_hex_expression(config[CONF_COMMAND_SWING_OFF])
         cg.add(var.set_command_swing_off(args))
     if CONF_COMMAND_SWING_BOTH in config:
-        args = command_hex_expression(config[CONF_COMMAND_SWING_BOTH])
+        args = await command_hex_expression(config[CONF_COMMAND_SWING_BOTH])
         cg.add(var.set_command_swing_both(args))
     if CONF_COMMAND_SWING_VERTICAL in config:
-        args = command_hex_expression(config[CONF_COMMAND_SWING_VERTICAL])
+        args = await command_hex_expression(config[CONF_COMMAND_SWING_VERTICAL])
         cg.add(var.set_command_swing_vertical(args))
     if CONF_COMMAND_SWING_HORIZONTAL in config:
-        args = command_hex_expression(config[CONF_COMMAND_SWING_HORIZONTAL])
+        args = await command_hex_expression(config[CONF_COMMAND_SWING_HORIZONTAL])
         cg.add(var.set_command_swing_horizontal(args))
     if CONF_COMMAND_PRESET_NONE in config:
-        args = command_hex_expression(config[CONF_COMMAND_PRESET_NONE])
+        args = await command_hex_expression(config[CONF_COMMAND_PRESET_NONE])
         cg.add(var.set_command_preset_none(args))
     if CONF_COMMAND_PRESET_HOME in config:
-        args = command_hex_expression(config[CONF_COMMAND_PRESET_HOME])
+        args = await command_hex_expression(config[CONF_COMMAND_PRESET_HOME])
         cg.add(var.set_command_preset_home(args))
     if CONF_COMMAND_PRESET_AWAY in config:
-        args = command_hex_expression(config[CONF_COMMAND_PRESET_AWAY])
+        args = await command_hex_expression(config[CONF_COMMAND_PRESET_AWAY])
         cg.add(var.set_command_preset_away(args))
     if CONF_COMMAND_PRESET_BOOST in config:
-        args = command_hex_expression(config[CONF_COMMAND_PRESET_BOOST])
+        args = await command_hex_expression(config[CONF_COMMAND_PRESET_BOOST])
         cg.add(var.set_command_preset_boost(args))
     if CONF_COMMAND_PRESET_COMFORT in config:
-        args = command_hex_expression(config[CONF_COMMAND_PRESET_COMFORT])
+        args = await command_hex_expression(config[CONF_COMMAND_PRESET_COMFORT])
         cg.add(var.set_command_preset_comfort(args))
     if CONF_COMMAND_PRESET_ECO in config:
-        args = command_hex_expression(config[CONF_COMMAND_PRESET_ECO])
+        args = await command_hex_expression(config[CONF_COMMAND_PRESET_ECO])
         cg.add(var.set_command_preset_eco(args))
     if CONF_COMMAND_PRESET_SLEEP in config:
-        args = command_hex_expression(config[CONF_COMMAND_PRESET_SLEEP])
+        args = await command_hex_expression(config[CONF_COMMAND_PRESET_SLEEP])
         cg.add(var.set_command_preset_sleep(args))
     if CONF_COMMAND_PRESET_ACTIVITY in config:
-        args = command_hex_expression(config[CONF_COMMAND_PRESET_ACTIVITY])
+        args = await command_hex_expression(config[CONF_COMMAND_PRESET_ACTIVITY])
         cg.add(var.set_command_preset_activity(args))
 
