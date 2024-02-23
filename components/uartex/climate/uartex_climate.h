@@ -67,12 +67,12 @@ protected:
     std::vector<climate::ClimateMode> supported_mode_{};
     std::vector<climate::ClimateSwingMode> supported_swing_mode_{};
     std::vector<climate::ClimatePreset> supported_preset_{};
-    std::unordred_map<climate::ClimateMode, optional<state_t>> state_mode_{};
-    std::unordred_map<climate::ClimateSwingMode, optional<state_t>> state_swing_mode_{};
-    std::unordred_map<climate::ClimatePreset, optional<state_t>> state_preset_{};
-    std::unordred_map<climate::ClimateMode, optional<cmd_t>> command_mode_{};
-    std::unordred_map<climate::ClimateSwingMode, optional<cmd_t>> command_swing_mode_{};
-    std::unordred_map<climate::ClimatePreset, optional<cmd_t>> command_preset_{};
+    std::map<climate::ClimateMode, optional<state_t>> state_mode_{};
+    std::map<climate::ClimateSwingMode, optional<state_t>> state_swing_mode_{};
+    std::map<climate::ClimatePreset, optional<state_t>> state_preset_{};
+    std::map<climate::ClimateMode, optional<cmd_t>> command_mode_{};
+    std::map<climate::ClimateSwingMode, optional<cmd_t>> command_swing_mode_{};
+    std::map<climate::ClimatePreset, optional<cmd_t>> command_preset_{};
     sensor::Sensor *sensor_{nullptr};
     optional<std::function<optional<float>(const uint8_t *data, const uint16_t len)>> state_current_func_{};
     optional<std::function<optional<float>(const uint8_t *data, const uint16_t len)>> state_target_func_{};

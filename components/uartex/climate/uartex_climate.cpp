@@ -154,6 +154,7 @@ void UARTExClimate::control(const climate::ClimateCall &call)
                 if (command.first == this->mode)
                 {
                     enqueue_tx_cmd(&command.second.value());
+                    break;
                 }
             }
         }
@@ -176,6 +177,7 @@ void UARTExClimate::control(const climate::ClimateCall &call)
             if (command.first == this->swing_mode)
             {
                 enqueue_tx_cmd(&command.second.value());
+                break;
             }
         }
     }
@@ -189,6 +191,7 @@ void UARTExClimate::control(const climate::ClimateCall &call)
             if (command.first == this->preset)
             {
                 enqueue_tx_cmd(&command.second.value());
+                break;
             }
         }
     }
