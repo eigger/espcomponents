@@ -43,5 +43,5 @@ async def to_code(config):
         templ = await cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len'), (cg.float_, 'state')], cg.float_)
         cg.add(var.set_state_number(templ))
     else:
-        args = await state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION]
+        args = yield state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION]
         cg.add(var.set_state_number(args))
