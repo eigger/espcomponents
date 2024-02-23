@@ -29,7 +29,7 @@ async def to_code(config):
     #                                                               (uint16_const, 'len')],
     #                                         return_type=cg.optional.template(cg.std_string))
     #     cg.add(var.set_template(template_))
-    templ = await cg.templatable(config[CONF_COMMAND_TEXT], [(cg.std_string.operator('const'), 'str')], cmd_t)
+    templ = yield cg.templatable(config[CONF_COMMAND_TEXT], [(cg.std_string.operator('const'), 'str')], cmd_t)
     cg.add(var.set_command_text(templ))
 
     await text.register_text(var, config)
