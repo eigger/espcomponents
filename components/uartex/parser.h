@@ -16,15 +16,14 @@ public:
 	bool add_footers(const std::vector<unsigned char>& footer);
 
 	bool parse_byte(const unsigned char byte);
-	bool validate(const std::vector<unsigned char>& checksums);
+	bool verify_checksum(const std::vector<unsigned char>& checksums);
 	void clear();
 	const std::vector<unsigned char> data();
 	const std::vector<unsigned char> buffer();
 	bool parse_header();
 	bool parse_footer();
+	bool available();
 	void set_checksum_len(size_t len);
-	unsigned char get_checksum();
-	unsigned char get_checksum_2();
 	
 private:
 	std::vector<unsigned char> header_;

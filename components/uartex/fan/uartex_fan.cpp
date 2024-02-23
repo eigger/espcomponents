@@ -13,8 +13,35 @@ void UARTExFan::dump_config()
     dump_uartex_device_config(TAG);
 }
 
-void UARTExFan::setup()
+fan::FanTraits UARTExFan::get_traits()
 {
+    fan::FanTraits traits{};
+    if (this->speed_count_ > 0)
+    {
+        traits.set_speed(true);
+        traits.set_supported_speed_count(this->speed_count_);
+    }
+    return traits;
+}
+
+void UARTExFan::publish(const std::vector<uint8_t>& data)
+{
+    if (this->state_speed_func_.has_value())
+    {
+        optional<float> val = (*this->state_speed_func_)(&data[0], data.size());
+        if (val.has_value() && this->speed != (int)val.value())
+        {
+            this->speed = (int)val.value();
+            publish_state();
+        }
+    }
+}
+
+void UARTExFan::publish(const bool state)
+{
+    if (state == this->state) return;
+    this->state = state; 
+    this->publish_state();
 }
 
 void UARTExFan::control(const fan::FanCall &call)
@@ -43,31 +70,17 @@ void UARTExFan::control(const fan::FanCall &call)
         this->direction = *call.get_direction();
         changed_direction = true;
     }
-      
-    if (command_on_.has_value() && this->state && changed_state) enqueue_tx_cmd(&this->command_on_.value());
-    if (changed_speed)
-    {
-        if (this->command_speed_func_.has_value())
-        {
-            command_speed_ = (*this->command_speed_func_)((float)this->speed);
-            enqueue_tx_cmd(&command_speed_);
-        }
-    }
-    if (command_off_.has_value() && !this->state && changed_state) enqueue_tx_cmd(&this->command_off_.value());
-    this->publish_state();
+    if (this->command_on_.has_value() && this->state && changed_state) enqueue_tx_cmd(get_command_on());
+    if (this->command_speed_func_.has_value() && changed_speed) enqueue_tx_cmd(get_command_speed());
+    if (this->command_off_.has_value() && !this->state && changed_state) enqueue_tx_cmd(get_command_off());
+    publish_state();
 }
 
-void UARTExFan::publish(const std::vector<uint8_t>& data)
+cmd_t *UARTExFan::get_command_speed()
 {
-    if (this->state_speed_func_.has_value())
-    {
-        optional<float> val = (*this->state_speed_func_)(&data[0], data.size());
-        if (val.has_value() && this->speed != (int)val.value())
-        {
-            this->speed = (int)val.value();
-            this->publish_state();
-        }
-    }
+    if (this->command_speed_func_.has_value())
+        this->command_speed_ = (*this->command_speed_func_)((float)this->speed);
+    return &this->command_speed_.value();
 }
 
 }  // namespace uartex

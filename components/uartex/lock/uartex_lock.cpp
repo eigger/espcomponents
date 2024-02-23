@@ -14,43 +14,42 @@ void UARTExLock::dump_config()
 
 void UARTExLock::setup()
 {
-    //if (this->command_unlock_.has_value()) traits.set_supports_open(true);
-    if (this->state_locked_.has_value()) traits.add_supported_state(lock::LOCK_STATE_LOCKED);
-    if (this->state_unlocked_.has_value()) traits.add_supported_state(lock::LOCK_STATE_UNLOCKED);
+    if (this->state_locked_.has_value() || this->command_lock_.has_value()) traits.add_supported_state(lock::LOCK_STATE_LOCKED);
+    if (this->state_unlocked_.has_value() || this->command_unlock_.has_value()) traits.add_supported_state(lock::LOCK_STATE_UNLOCKED);
     if (this->state_jammed_.has_value()) traits.add_supported_state(lock::LOCK_STATE_JAMMED);
-    if (this->state_locking_.has_value()) traits.add_supported_state(lock::LOCK_STATE_LOCKING);
-    if (this->state_unlocking_.has_value()) traits.add_supported_state(lock::LOCK_STATE_UNLOCKING);
+    if (this->state_locked_.has_value() || this->state_locking_.has_value()) traits.add_supported_state(lock::LOCK_STATE_LOCKING);
+    if (this->state_unlocked_.has_value() || this->state_unlocking_.has_value()) traits.add_supported_state(lock::LOCK_STATE_UNLOCKING);
 }
 
 void UARTExLock::publish(const std::vector<uint8_t>& data)
 {
     bool changed = false;
-    if (state_locked_.has_value() && validate(data, &state_locked_.value()))
+    if (this->state_locked_.has_value() && verify_state(data, &this->state_locked_.value()))
     {
-        state = lock::LOCK_STATE_LOCKED;
+        this->state = lock::LOCK_STATE_LOCKED;
         changed = true;
     }
-    else if (state_unlocked_.has_value() && validate(data, &state_unlocked_.value()))
+    else if (this->state_unlocked_.has_value() && verify_state(data, &this->state_unlocked_.value()))
     {
-        state = lock::LOCK_STATE_UNLOCKED;
+        this->state = lock::LOCK_STATE_UNLOCKED;
         changed = true;
     }
-    else if (state_jammed_.has_value() && validate(data, &state_jammed_.value()))
+    else if (this->state_jammed_.has_value() && verify_state(data, &this->state_jammed_.value()))
     {
-        state = lock::LOCK_STATE_JAMMED;
+        this->state = lock::LOCK_STATE_JAMMED;
         changed = true;
     }
-    else if (state_locking_.has_value() && validate(data, &state_locking_.value()))
+    else if (this->state_locking_.has_value() && verify_state(data, &this->state_locking_.value()))
     {
-        state = lock::LOCK_STATE_LOCKING;
+        this->state = lock::LOCK_STATE_LOCKING;
         changed = true;
     }
-    else if (state_unlocking_.has_value() && validate(data, &state_unlocking_.value()))
+    else if (this->state_unlocking_.has_value() && verify_state(data, &this->state_unlocking_.value()))
     {
-        state = lock::LOCK_STATE_UNLOCKING;
+        this->state = lock::LOCK_STATE_UNLOCKING;
         changed = true;
     }
-    if (changed) this->publish_state(state);
+    if (changed) publish_state(this->state);
 }
 
 void UARTExLock::control(const lock::LockCall &call)
@@ -62,11 +61,11 @@ void UARTExLock::control(const lock::LockCall &call)
         {
         case lock::LOCK_STATE_LOCKED:
             if (this->command_lock_.has_value()) enqueue_tx_cmd(&this->command_lock_.value());
-            else this->state = lock::LOCK_STATE_UNLOCKED;
+            if (this->state_locked_.has_value()) this->state = lock::LOCK_STATE_LOCKING;
             break;
         case lock::LOCK_STATE_UNLOCKED:
             if (this->command_unlock_.has_value()) enqueue_tx_cmd(&this->command_unlock_.value());
-            else this->state = lock::LOCK_STATE_LOCKED;
+            if (this->state_unlocked_.has_value()) this->state = lock::LOCK_STATE_UNLOCKING;
             break;
         case lock::LOCK_STATE_LOCKING:
             break;        
@@ -77,7 +76,7 @@ void UARTExLock::control(const lock::LockCall &call)
         case lock::LOCK_STATE_JAMMED:
             break;
         }
-        this->publish_state(this->state);
+        publish_state(this->state);
     }
 }
 

@@ -11,13 +11,12 @@ class UARTExSensor : public sensor::Sensor, public UARTExDevice
 {
 public:
     void dump_config() override;
-    void publish(const std::vector<uint8_t>& data) override;
-    bool publish(bool state) override { return false; }
-
     void set_state_num(state_num_t state_num) { this->conf_state_num_ = state_num; }
     void set_template(std::function<optional<float>(const uint8_t *data, const uint16_t len)> &&f) { this->f_ = f; }
-    float get_setup_priority() const override { return setup_priority::DATA; }
 
+protected:
+    void publish(const std::vector<uint8_t>& data) override;
+    
 protected:
     optional<std::function<optional<float>(const uint8_t *data, const uint16_t len)>> f_{};
     optional<state_num_t> conf_state_num_{};
