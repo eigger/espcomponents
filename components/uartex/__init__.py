@@ -233,7 +233,7 @@ STATE_NUM_SCHEMA = cv.Schema({
 
 HEX_SCHEMA_REGISTRY = SimpleRegistry()
 
-@coroutine
+#@coroutine
 async def register_uartex_device(var, config):
     paren = await cg.get_variable(config[CONF_UARTEX_ID])
     cg.add(paren.register_device(var))
