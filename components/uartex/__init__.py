@@ -237,15 +237,15 @@ async def register_uartex_device(var, config):
     cg.add(paren.register_device(var))
 
     if CONF_STATE in config:
-        state = await state_hex_expression(config[CONF_STATE])
+        state = state_hex_expression(config[CONF_STATE])
         cg.add(var.set_state(state))
 
     if CONF_STATE_ON in config:
-        state_on = await state_hex_expression(config[CONF_STATE_ON])
+        state_on = state_hex_expression(config[CONF_STATE_ON])
         cg.add(var.set_state_on(state_on))
 
     if CONF_STATE_OFF in config:
-        state_off = await state_hex_expression(config[CONF_STATE_OFF])
+        state_off = state_hex_expression(config[CONF_STATE_OFF])
         cg.add(var.set_state_off(state_off))
 
     if CONF_COMMAND_ON in config:
@@ -255,7 +255,7 @@ async def register_uartex_device(var, config):
             command_on = await cg.process_lambda(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], return_type=cmd_t)
             cg.add(var.set_command_on(command_on))
         else:
-            command_on = await command_hex_expression(config[CONF_COMMAND_ON])
+            command_on = command_hex_expression(config[CONF_COMMAND_ON])
             cg.add(var.set_command_on(command_on))
 
     if CONF_COMMAND_OFF in config:
@@ -265,19 +265,19 @@ async def register_uartex_device(var, config):
             command_off = await cg.process_lambda(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], return_type=cmd_t)
             cg.add(var.set_command_off(command_off))
         else:
-            command_off = await command_hex_expression(config[CONF_COMMAND_OFF])
+            command_off = command_hex_expression(config[CONF_COMMAND_OFF])
             cg.add(var.set_command_off(command_off))
 
     if CONF_COMMAND_UPDATE in config:
-        command_update = await command_hex_expression(config[CONF_COMMAND_UPDATE])
+        command_update = command_hex_expression(config[CONF_COMMAND_UPDATE])
         cg.add(var.set_command_update(command_update))
     
     if CONF_STATE_RESPONSE in config:
-        state_response = await state_hex_expression(config[CONF_STATE_RESPONSE])
+        state_response = state_hex_expression(config[CONF_STATE_RESPONSE])
         cg.add(var.set_state_response(state_response))
 
 
-async def state_hex_expression(conf):
+def state_hex_expression(conf):
     if conf is None:
         return
     data = conf[CONF_DATA]
@@ -287,7 +287,7 @@ async def state_hex_expression(conf):
     offset, inverted, data, mask
 
 
-async def command_hex_expression(conf):
+def command_hex_expression(conf):
     if conf is None:
         return
     data = conf[CONF_DATA]
@@ -312,5 +312,5 @@ async def uartex_write_to_code(config, action_id, template_arg, args):
         templ = await cg.templatable(data, args, cmd_t)
         cg.add(var.set_data_template(templ))
     else:
-        cmd = await command_hex_expression(config)
+        cmd = command_hex_expression(config)
         cg.add(var.set_data_static(cmd))
