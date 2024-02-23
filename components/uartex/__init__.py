@@ -124,15 +124,15 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
 
 async def to_code(config):
     cg.add_global(uartex_ns.using)
-    var = await cg.new_Pvariable(config[CONF_ID])
+    var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
     if CONF_VERSION in config:
-        sens = await cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
+        sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
         await register_text_sensor(sens, config[CONF_VERSION])
         cg.add(var.set_version(sens))
     if CONF_ERROR in config:
-        sens = await cg.new_Pvariable(config[CONF_ERROR][CONF_ID])
+        sens = cg.new_Pvariable(config[CONF_ERROR][CONF_ID])
         await register_text_sensor(sens, config[CONF_ERROR])
         cg.add(var.set_error(sens))
     if CONF_RX_TIMEOUT in config:
@@ -251,7 +251,8 @@ async def register_uartex_device(var, config):
     if CONF_COMMAND_ON in config:
         data = config[CONF_COMMAND_ON]
         if cg.is_template(data):
-            command_on = await cg.templatable(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], cmd_t)
+            #command_on = await cg.templatable(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], cmd_t)
+            command_on = await cg.process_lambda(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], return_type=cmd_t)
             cg.add(var.set_command_on(command_on))
         else:
             command_on = await command_hex_expression(config[CONF_COMMAND_ON])
@@ -260,7 +261,8 @@ async def register_uartex_device(var, config):
     if CONF_COMMAND_OFF in config:
         data = config[CONF_COMMAND_OFF]
         if cg.is_template(data):
-            command_off = await cg.templatable(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], cmd_t)
+            #command_off = await cg.templatable(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], cmd_t)
+            command_off = await cg.process_lambda(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], return_type=cmd_t)
             cg.add(var.set_command_off(command_off))
         else:
             command_off = await command_hex_expression(config[CONF_COMMAND_OFF])
@@ -302,7 +304,7 @@ async def command_hex_expression(conf):
 }, key=CONF_DATA))
 
 async def uartex_write_to_code(config, action_id, template_arg, args):
-    var = await cg.new_Pvariable(action_id, template_arg)
+    var = cg.new_Pvariable(action_id, template_arg)
     await cg.register_parented(var, config[CONF_ID])
     data = config[CONF_DATA]
 

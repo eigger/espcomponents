@@ -20,7 +20,7 @@ CONFIG_SCHEMA = cv.All(text.TEXT_SCHEMA.extend({
 }).extend(cv.polling_component_schema('60s')))
 
 async def to_code(config):
-    var = await cg.new_Pvariable(config[CONF_ID])
+    var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await uartex.register_uartex_device(var, config)
 

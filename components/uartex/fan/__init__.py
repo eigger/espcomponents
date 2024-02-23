@@ -17,7 +17,7 @@ CONFIG_SCHEMA = cv.All(fan.FAN_SCHEMA.extend({
 }).extend(uartex.UARTEX_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA))
 
 async def to_code(config):
-    var = await cg.new_Pvariable(config[CONF_OUTPUT_ID])
+    var = cg.new_Pvariable(config[CONF_OUTPUT_ID])
     interval = config[CONF_UPDATE_INTERVAL]
     del config[CONF_UPDATE_INTERVAL]
     config[CONF_UPDATE_INTERVAL] = interval

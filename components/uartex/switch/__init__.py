@@ -14,7 +14,7 @@ CONFIG_SCHEMA = switch.SWITCH_SCHEMA.extend({
 
 
 async def to_code(config):
-    var = await cg.new_Pvariable(config[CONF_ID])
+    var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await switch.register_switch(var, config)
     await uartex.register_uartex_device(var, config)
