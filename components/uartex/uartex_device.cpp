@@ -180,7 +180,7 @@ float state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
 
 std::string to_hex_string(const std::vector<unsigned char> &data)
 {
-    char buf[20];
+    char buf[10];
     std::string res;
     for (uint16_t i = 0; i < data.size(); i++)
     {
@@ -188,6 +188,20 @@ std::string to_hex_string(const std::vector<unsigned char> &data)
         res += buf;
     }
     sprintf(buf, "(%d byte)", data.size());
+    res += buf;
+    return res;
+}
+
+std::string to_hex_string(const uint8_t *data, const uint16_t len)
+{
+    char buf[5];
+    std::string res;
+    for (uint16_t i = 0; i < len; i++)
+    {
+        sprintf(buf, "%02X", data[i]);
+        res += buf;
+    }
+    sprintf(buf, "(%d)", len);
     res += buf;
     return res;
 }
