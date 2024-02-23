@@ -48,9 +48,9 @@ public:
     cmd_t* get_command_off();
     void set_command_update(cmd_t command);
     void set_state_response(state_t state);
-    void enqueue_tx_cmd(cmd_t* cmd, bool low_priority = false);
-    cmd_t* dequeue_tx_cmd();
-    cmd_t* dequeue_tx_cmd_low_priority();
+    void enqueue_tx_cmd(const cmd_t* cmd, bool low_priority = false);
+    const cmd_t* dequeue_tx_cmd();
+    const cmd_t* dequeue_tx_cmd_low_priority();
     bool parse_data(const std::vector<uint8_t>& data);
 
 protected:
@@ -69,8 +69,8 @@ protected:
     optional<cmd_t> command_update_;
     optional<state_t> state_response_{};
     bool rx_response_{false};
-    std::queue<cmd_t*> tx_cmd_queue_{};
-    std::queue<cmd_t*> tx_cmd_queue_low_priority_{};
+    std::queue<const cmd_t*> tx_cmd_queue_{};
+    std::queue<const cmd_t*> tx_cmd_queue_low_priority_{};
     std::vector<uint8_t> last_state_{};
 };
 

@@ -107,10 +107,10 @@ void UARTExComponent::dequeue_tx_data_from_devices()
 {
     for (UARTExDevice* device : this->devices_)
     {
-        cmd_t *cmd = device->dequeue_tx_cmd();
+        const cmd_t *cmd = device->dequeue_tx_cmd();
         if (cmd != nullptr) enqueue_tx_data({device, cmd}, false);
         
-        cmd_t *cmd_low_priority = device->dequeue_tx_cmd_low_priority();
+        const cmd_t *cmd_low_priority = device->dequeue_tx_cmd_low_priority();
         if (cmd_low_priority != nullptr) enqueue_tx_data({device, cmd_low_priority}, true);
     }
 }

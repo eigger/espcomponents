@@ -32,7 +32,7 @@ enum CHECKSUM {
 struct tx_data_t
 {
     UARTExDevice* device;
-    cmd_t* cmd;
+    const cmd_t* cmd;
 };
 
 class UARTExComponent : public uart::UARTDevice, public Component
