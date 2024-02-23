@@ -5,7 +5,6 @@ from esphome.components.text_sensor import register_text_sensor
 from esphome import automation, pins, core
 from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
     CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, ICON_NEW_BOX
-from esphome.core import coroutine
 from esphome.util import SimpleRegistry
 from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTER, \
     CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, CONF_RX_CHECKSUM_2, CONF_TX_CHECKSUM_2, \
@@ -233,7 +232,6 @@ STATE_NUM_SCHEMA = cv.Schema({
 
 HEX_SCHEMA_REGISTRY = SimpleRegistry()
 
-#@coroutine
 async def register_uartex_device(var, config):
     paren = await cg.get_variable(config[CONF_UARTEX_ID])
     cg.add(paren.register_device(var))
@@ -277,7 +275,6 @@ async def register_uartex_device(var, config):
         cg.add(var.set_state_response(state_response))
 
 
-@coroutine
 def state_hex_expression(conf):
     if conf is None:
         return
@@ -285,20 +282,18 @@ def state_hex_expression(conf):
     mask = conf[CONF_MASK]
     inverted = conf[CONF_INVERTED]
     offset = conf[CONF_OFFSET]
-    yield offset, inverted, data, mask
+    offset, inverted, data, mask
 
 
-@coroutine
 def command_hex_expression(conf):
     if conf is None:
         return
     data = conf[CONF_DATA]
     if CONF_ACK in conf:
         ack = conf[CONF_ACK]
-        yield data, ack
+        data, ack
     else:
-        yield data
-
+        data
 
 @automation.register_action('uartex.write', UARTExWriteAction, cv.maybe_simple_value({
     cv.GenerateID(): cv.use_id(UARTExComponent),
@@ -312,8 +307,8 @@ async def uartex_write_to_code(config, action_id, template_arg, args):
     data = config[CONF_DATA]
 
     if cg.is_template(data):
-        templ = yield cg.templatable(data, args, cmd_t)
+        templ = await cg.templatable(data, args, cmd_t)
         cg.add(var.set_data_template(templ))
     else:
-        cmd = yield command_hex_expression(config)
+        cmd = await command_hex_expression(config)
         cg.add(var.set_data_static(cmd))
