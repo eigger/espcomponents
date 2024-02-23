@@ -27,30 +27,30 @@ CONFIG_SCHEMA = cv.All(lock.LOCK_SCHEMA.extend({
 }).extend(cv.COMPONENT_SCHEMA), cv.has_at_least_one_key(CONF_STATE_LOCKED, CONF_STATE_UNLOCKED), cv.has_at_least_one_key(CONF_COMMAND_LOCK, CONF_COMMAND_UNLOCK))
 
 
-def to_code(config):
+async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
-    yield cg.register_component(var, config)
-    yield lock.register_lock(var, config)
-    yield uartex.register_uartex_device(var, config)
+    await cg.register_component(var, config)
+    await lock.register_lock(var, config)
+    await uartex.register_uartex_device(var, config)
 
     if CONF_STATE_LOCKED in config:
-        args = yield state_hex_expression(config[CONF_STATE_LOCKED])
+        args = await state_hex_expression(config[CONF_STATE_LOCKED])
         cg.add(var.set_state_locked(args))
     if CONF_STATE_UNLOCKED in config:
-        args = yield state_hex_expression(config[CONF_STATE_UNLOCKED])
+        args = await state_hex_expression(config[CONF_STATE_UNLOCKED])
         cg.add(var.set_state_unlocked(args))
     if CONF_STATE_JAMMED in config:
-        args = yield state_hex_expression(config[CONF_STATE_JAMMED])
+        args = await state_hex_expression(config[CONF_STATE_JAMMED])
         cg.add(var.set_state_jammed(args))
     if CONF_STATE_LOCKING in config:
-        args = yield state_hex_expression(config[CONF_STATE_LOCKING])
+        args = await state_hex_expression(config[CONF_STATE_LOCKING])
         cg.add(var.set_state_locking(args))
     if CONF_STATE_UNLOCKING in config:
-        args = yield state_hex_expression(config[CONF_STATE_UNLOCKING])
+        args = await state_hex_expression(config[CONF_STATE_UNLOCKING])
         cg.add(var.set_state_unlocking(args))
     if CONF_COMMAND_LOCK in config:
-        args = yield command_hex_expression(config[CONF_COMMAND_LOCK])
+        args = await command_hex_expression(config[CONF_COMMAND_LOCK])
         cg.add(var.set_command_lock(args))
     if CONF_COMMAND_UNLOCK in config:
-        args = yield command_hex_expression(config[CONF_COMMAND_UNLOCK])
+        args = await command_hex_expression(config[CONF_COMMAND_UNLOCK])
         cg.add(var.set_command_unlock(args))

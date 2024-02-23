@@ -8,8 +8,7 @@ from .. import uartex_ns, UARTExComponent, uint8_ptr_const, uint16_const, cmd_t,
 from ..const import CONF_UARTEX_ID, CONF_STATE, CONF_COMMAND_UPDATE, CONF_STATE_TEXT, CONF_COMMAND_TEXT
 
 DEPENDENCIES = ['uartex']
-UARTExText = uartex_ns.class_(
-    'UARTExText', text.Text, cg.PollingComponent)
+UARTExText = uartex_ns.class_('UARTExText', text.Text, cg.PollingComponent)
 
 CONFIG_SCHEMA = cv.All(text.TEXT_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExText),
@@ -20,17 +19,17 @@ CONFIG_SCHEMA = cv.All(text.TEXT_SCHEMA.extend({
     cv.Required(CONF_COMMAND_TEXT): cv.returning_lambda,
 }).extend(cv.polling_component_schema('60s')))
 
-def to_code(config):
+async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
-    yield cg.register_component(var, config)
-    yield uartex.register_uartex_device(var, config)
+    await cg.register_component(var, config)
+    await uartex.register_uartex_device(var, config)
 
     # if CONF_STATE_TEXT in config:
-    #     template_ = yield cg.process_lambda(config[CONF_STATE_TEXT], [(uint8_ptr_const, 'data'),
+    #     template_ = yawaitield cg.process_lambda(config[CONF_STATE_TEXT], [(uint8_ptr_const, 'data'),
     #                                                               (uint16_const, 'len')],
     #                                         return_type=cg.optional.template(cg.std_string))
     #     cg.add(var.set_template(template_))
-    templ = yield cg.templatable(config[CONF_COMMAND_TEXT], [(cg.std_string.operator('const'), 'str')], cmd_t)
+    templ = await cg.templatable(config[CONF_COMMAND_TEXT], [(cg.std_string.operator('const'), 'str')], cmd_t)
     cg.add(var.set_command_text(templ))
 
-    yield text.register_text(var, config)
+    await text.register_text(var, config)
