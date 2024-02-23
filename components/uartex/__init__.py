@@ -278,22 +278,22 @@ async def register_uartex_device(var, config):
 async def state_hex_expression(conf):
     if conf is None:
         return
-    data = conf[CONF_DATA]
-    mask = conf[CONF_MASK]
-    inverted = conf[CONF_INVERTED]
-    offset = conf[CONF_OFFSET]
-    await offset, inverted, data, mask
+    data = await conf[CONF_DATA]
+    mask = await conf[CONF_MASK]
+    inverted = await conf[CONF_INVERTED]
+    offset = await conf[CONF_OFFSET]
+    offset, inverted, data, mask
 
 
 async def command_hex_expression(conf):
     if conf is None:
         return
-    data = conf[CONF_DATA]
+    data = await conf[CONF_DATA]
     if CONF_ACK in conf:
-        ack = conf[CONF_ACK]
-        await data, ack
+        ack = await conf[CONF_ACK]
+        data, ack
     else:
-        await data
+        data
 
 @automation.register_action('uartex.write', UARTExWriteAction, cv.maybe_simple_value({
     cv.GenerateID(): cv.use_id(UARTExComponent),
