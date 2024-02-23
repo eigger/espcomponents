@@ -282,7 +282,7 @@ async def state_hex_expression(conf):
     mask = conf[CONF_MASK]
     inverted = conf[CONF_INVERTED]
     offset = conf[CONF_OFFSET]
-    await offset, inverted, data, mask
+    offset, inverted, data, mask
 
 
 async def command_hex_expression(conf):
@@ -291,9 +291,9 @@ async def command_hex_expression(conf):
     data = conf[CONF_DATA]
     if CONF_ACK in conf:
         ack = conf[CONF_ACK]
-        await data, ack
+        data, ack
     else:
-        await data
+        data
 
 @automation.register_action('uartex.write', UARTExWriteAction, cv.maybe_simple_value({
     cv.GenerateID(): cv.use_id(UARTExComponent),
