@@ -234,7 +234,7 @@ HEX_SCHEMA_REGISTRY = SimpleRegistry()
 
 async def register_uartex_device(var, config):
     paren = await cg.get_variable(config[CONF_UARTEX_ID])
-    cg.add(await paren.register_device(var))
+    cg.add(paren.register_device(var))
 
     if CONF_STATE in config:
         state = await state_hex_expression(config[CONF_STATE])
