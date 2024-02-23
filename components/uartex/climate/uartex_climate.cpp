@@ -50,81 +50,47 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
             changed = true;
         }
     }
-    else if (this->state_cool_.has_value() && verify_state(data, &this->state_cool_.value()))
+    else
     {
-        if (this->mode != climate::CLIMATE_MODE_COOL)
+        for(const auto& state : this->state_mode_)
         {
-            this->mode = climate::CLIMATE_MODE_COOL;
-            changed = true;
-        }
-    }
-    else if (this->state_heat_.has_value() && verify_state(data, &this->state_heat_.value()))
-    {
-        if (this->mode != climate::CLIMATE_MODE_HEAT)
-        {
-            this->mode = climate::CLIMATE_MODE_HEAT;
-            changed = true;
-        }
-    }
-    else if (this->state_fan_only_.has_value() && verify_state(data, &this->state_fan_only_.value()))
-    {
-        if (this->mode != climate::CLIMATE_MODE_FAN_ONLY)
-        {
-            this->mode = climate::CLIMATE_MODE_FAN_ONLY;
-            changed = true;
-        }
-    }
-    else if (this->state_dry_.has_value() && verify_state(data, &this->state_dry_.value()))
-    {
-        if (this->mode != climate::CLIMATE_MODE_DRY)
-        {
-            this->mode = climate::CLIMATE_MODE_DRY;
-            changed = true;
-        }
-    }
-    else if (this->state_auto_.has_value() && verify_state(data, &this->state_auto_.value()))
-    {
-        if (this->mode != climate::CLIMATE_MODE_AUTO)
-        {
-            this->mode = climate::CLIMATE_MODE_AUTO;
-            changed = true;
+            if (verify_state(data, &state.second.value()))
+            {
+                if (this->mode != state.first)
+                {
+                    this->mode = state.first;
+                    changed = true;
+                }
+            }
         }
     }
 
     //Swing Mode
-    if (this->state_swing_off_.has_value() && verify_state(data, &this->state_swing_off_.value()))
+    for(const auto& state : this->state_swing_mode_)
     {
-        if (this->swing_mode != climate::CLIMATE_SWING_OFF)
+        if (verify_state(data, &state.second.value()))
         {
-            this->swing_mode = climate::CLIMATE_SWING_OFF;
-            changed = true;
-        }
-    }
-    else if (this->state_swing_both_.has_value() && verify_state(data, &this->state_swing_both_.value()))
-    {
-        if (this->swing_mode != climate::CLIMATE_SWING_BOTH)
-        {
-            this->swing_mode = climate::CLIMATE_SWING_BOTH;
-            changed = true;
-        }
-    }
-    else if (this->state_swing_vertical_.has_value() && verify_state(data, &this->state_swing_vertical_.value()))
-    {
-        if (this->swing_mode != climate::CLIMATE_SWING_VERTICAL)
-        {
-            this->swing_mode = climate::CLIMATE_SWING_VERTICAL;
-            changed = true;
-        }
-    }
-    else if (this->state_swing_horizontal_.has_value() && verify_state(data, &this->state_swing_horizontal_.value()))
-    {
-        if (this->swing_mode != climate::CLIMATE_SWING_HORIZONTAL)
-        {
-            this->swing_mode = climate::CLIMATE_SWING_HORIZONTAL;
-            changed = true;
+            if (this->swing_mode != state.first)
+            {
+                this->swing_mode = state.first;
+                changed = true;
+            }
         }
     }
 
+    //Preset
+    for(const auto& state : this->state_preset_)
+    {
+        if (verify_state(data, &state.second.value()))
+        {
+            if (this->preset != state.first)
+            {
+                this->preset = state.first;
+                changed = true;
+            }
+        }
+    }
+    
     // Current temperature
     if (this->sensor_ == nullptr)
     {
@@ -181,25 +147,15 @@ void UARTExClimate::control(const climate::ClimateCall &call)
         {
             enqueue_tx_cmd(get_command_off());
         }
-        else if (this->mode == climate::CLIMATE_MODE_HEAT && this->command_heat_.has_value())
+        else
         {
-            enqueue_tx_cmd(&this->command_heat_.value());
-        }
-        else if (this->mode == climate::CLIMATE_MODE_COOL && this->command_cool_.has_value())
-        {
-            enqueue_tx_cmd(&this->command_cool_.value());
-        }
-        else if (this->mode == climate::CLIMATE_MODE_FAN_ONLY && this->command_fan_only_.has_value())
-        {
-            enqueue_tx_cmd(&this->command_fan_only_.value());
-        }
-        else if (this->mode == climate::CLIMATE_MODE_DRY && this->command_dry_.has_value())
-        {
-            enqueue_tx_cmd(&this->command_dry_.value());
-        }
-        else if (this->mode == climate::CLIMATE_MODE_AUTO && this->command_auto_.has_value())
-        {
-            enqueue_tx_cmd(&this->command_auto_.value());
+            for(const auto& command : this->command_mode_)
+            {
+                if (command.first == this->mode)
+                {
+                    enqueue_tx_cmd(&command.second.value());
+                }
+            }
         }
     }
 
@@ -207,7 +163,7 @@ void UARTExClimate::control(const climate::ClimateCall &call)
     if (call.get_target_temperature().has_value() && this->target_temperature != *call.get_target_temperature())
     {
         this->target_temperature = *call.get_target_temperature();
-        this->command_temperature_ = (this->command_temperature_func_)(this->target_temperature, this->mode, *this->preset);
+        this->command_temperature_ = (this->command_temperature_func_)(this->target_temperature, this->mode, this->preset);
         enqueue_tx_cmd(&this->command_temperature_);
     }
 
@@ -215,21 +171,12 @@ void UARTExClimate::control(const climate::ClimateCall &call)
     if (call.get_swing_mode().has_value() && this->swing_mode != *call.get_swing_mode())
     {
         this->swing_mode = *call.get_swing_mode();
-        if (this->swing_mode == climate::CLIMATE_SWING_OFF && this->command_swing_off_.has_value())
+        for(const auto& command : this->command_swing_mode_)
         {
-            enqueue_tx_cmd(&this->command_swing_off_.value());
-        }
-        else if (this->swing_mode == climate::CLIMATE_SWING_BOTH && this->command_swing_both_.has_value())
-        {
-            enqueue_tx_cmd(&this->command_swing_both_.value());
-        }
-        else if (this->swing_mode == climate::CLIMATE_SWING_VERTICAL && this->command_swing_vertical_.has_value())
-        {
-            enqueue_tx_cmd(&this->command_swing_vertical_.value());
-        }
-        else if (this->swing_mode == climate::CLIMATE_SWING_HORIZONTAL && this->command_swing_horizontal_.has_value())
-        {
-            enqueue_tx_cmd(&this->command_swing_horizontal_.value());
+            if (command.first == this->swing_mode)
+            {
+                enqueue_tx_cmd(&command.second.value());
+            }
         }
     }
 
@@ -237,37 +184,12 @@ void UARTExClimate::control(const climate::ClimateCall &call)
     if (call.get_preset().has_value() && this->preset != *call.get_preset())
     {
         this->preset = *call.get_preset();
-        if (this->preset == climate::CLIMATE_PRESET_NONE && this->command_preset_none_.has_value())
+        for(const auto& command : this->command_preset_)
         {
-            enqueue_tx_cmd(&this->command_preset_none_.value());
-        }
-        else if (this->preset == climate::CLIMATE_PRESET_HOME && this->command_preset_home_.has_value())
-        {
-            enqueue_tx_cmd(&this->command_preset_home_.value());
-        }
-        else if (this->preset == climate::CLIMATE_PRESET_AWAY && this->command_preset_away_.has_value())
-        {
-            enqueue_tx_cmd(&this->command_preset_away_.value());
-        }
-        else if (this->preset == climate::CLIMATE_PRESET_BOOST && this->command_preset_boost_.has_value())
-        {
-            enqueue_tx_cmd(&this->command_preset_boost_.value());
-        }
-        else if (this->preset == climate::CLIMATE_PRESET_COMFORT && this->command_preset_comfort_.has_value())
-        {
-            enqueue_tx_cmd(&this->command_preset_comfort_.value());
-        }
-        else if (this->preset == climate::CLIMATE_PRESET_ECO && this->command_preset_eco_.has_value())
-        {
-            enqueue_tx_cmd(&this->command_preset_eco_.value());
-        }
-        else if (this->preset == climate::CLIMATE_PRESET_SLEEP && this->command_preset_sleep_.has_value())
-        {
-            enqueue_tx_cmd(&this->command_preset_sleep_.value());
-        }
-        else if (this->preset == climate::CLIMATE_PRESET_ACTIVITY && this->command_preset_activity_.has_value())
-        {
-            enqueue_tx_cmd(&this->command_preset_activity_.value());
+            if (command.first == this->preset)
+            {
+                enqueue_tx_cmd(&command.second.value());
+            }
         }
     }
     publish_state();
