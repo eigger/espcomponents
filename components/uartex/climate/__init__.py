@@ -116,7 +116,7 @@ def to_code(config):
         cg.add(var.set_command_fan_only(args))     
     if CONF_COMMAND_DRY in config:
         args = yield command_hex_expression(config[CONF_COMMAND_DRY])
-        cg.add(var.set_command_fan_dry(args))        
+        cg.add(var.set_command_dry(args))        
     if CONF_COMMAND_AUTO in config:
         args = yield command_hex_expression(config[CONF_COMMAND_AUTO])
         cg.add(var.set_command_auto(args))
