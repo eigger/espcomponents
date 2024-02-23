@@ -25,10 +25,10 @@ async def to_code(config):
     await fan.register_fan(var, config)
     await uartex.register_uartex_device(var, config)
 
-    templ = yield cg.templatable(config[CONF_COMMAND_SPEED], [(cg.float_.operator('const'), 'x')], cmd_t)
+    templ = await cg.templatable(config[CONF_COMMAND_SPEED], [(cg.float_.operator('const'), 'x')], cmd_t)
     cg.add(var.set_command_speed(templ))
 
-    templ = yield cg.templatable(config[CONF_STATE_SPEED], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
+    templ = await cg.templatable(config[CONF_STATE_SPEED], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
     cg.add(var.set_state_speed(templ))
 
     if CONF_SPEED_CNT in config:
