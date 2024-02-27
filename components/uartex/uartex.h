@@ -70,6 +70,7 @@ public:
     void set_tx_retry_cnt(uint16_t tx_retry_cnt);
     void set_rx_timeout(uint16_t timeout);
     void set_tx_ctrl_pin(InternalGPIOPin *pin);
+    void enqueue_tx_data(const tx_data_t data, bool low_priority = false);
 
 protected:
     bool is_tx_cmd_pending();
@@ -77,7 +78,6 @@ protected:
     void clear_tx_data();
     const cmd_t* current_tx_cmd();
     void write_tx_cmd();
-    void enqueue_tx_data(const tx_data_t data, bool low_priority = false);
     ERROR validate_data();
     bool verify_data();
     bool publish_error(ERROR error_code);
