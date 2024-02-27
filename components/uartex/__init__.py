@@ -315,3 +315,4 @@ async def uartex_write_to_code(config, action_id, template_arg, args):
     else:
         cmd = command_hex_expression(config)
         cg.add(var.set_data_static(cmd))
+    return var
