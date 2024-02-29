@@ -17,6 +17,8 @@ CONF_RX_CHECKSUM_2 = 'rx_checksum2'
 CONF_TX_CHECKSUM_2 = 'tx_checksum2'
 CONF_MASK = 'mask'
 CONF_ERROR = 'error'
+CONF_LOCK_TIMEOUT = 'lock_timeout'
+CONF_UNLOCK_TIMEOUT = 'unlock_timeout'
 
 CONF_STATE = 'state'
 CONF_STATE_ON = 'state_on'

@@ -21,6 +21,32 @@ void UARTExLock::setup()
     if (this->state_unlocked_.has_value() || this->state_unlocking_.has_value()) traits.add_supported_state(lock::LOCK_STATE_UNLOCKING);
 }
 
+void UARTExLock::loop()
+{
+    if (!this->state_locking_.has_value())
+    {
+        if (this->state == lock::LOCK_STATE_LOCKING)
+        {
+            if (elapsed_time(this->timer_) > conf_lock_timeout_)
+            {
+                this->state = lock::LOCK_STATE_JAMMED;
+                publish_state(this->state);
+            }
+        }
+    }
+    if (!this->state_unlocking_.has_value())
+    {
+        if (this->state == lock::LOCK_STATE_UNLOCKING)
+        {
+            if (elapsed_time(this->timer_) > conf_unlock_timeout_)
+            {
+                this->state = lock::LOCK_STATE_JAMMED;
+                publish_state(this->state);
+            }
+        }
+    }
+}
+
 void UARTExLock::publish(const std::vector<uint8_t>& data)
 {
     bool changed = false;
@@ -57,6 +83,7 @@ void UARTExLock::control(const lock::LockCall &call)
     if (this->state != *call.get_state())
     {
         this->state = *call.get_state();
+        this->timer_ = get_time();
         switch (this->state)
         {
         case lock::LOCK_STATE_LOCKED:

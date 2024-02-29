@@ -11,6 +11,7 @@ class UARTExLock : public lock::Lock, public UARTExDevice
 public:
     void dump_config() override;
     void setup() override;
+    void loop() override;
     void set_state_locked(state_t state) { this->state_locked_ = state; }
     void set_state_unlocked(state_t state) { this->state_unlocked_ = state; }
     void set_state_jammed(state_t state) { this->state_jammed_ = state; }
@@ -18,6 +19,8 @@ public:
     void set_state_unlocking(state_t state) { this->state_unlocking_ = state; }
     void set_command_lock(cmd_t cmd) { this->command_lock_ = cmd; }
     void set_command_unlock(cmd_t cmd) { this->command_unlock_ = cmd; }
+    void set_lock_timeout(uint16_t timeout) { this->conf_lock_timeout_ = timeout; }
+    void set_unlock_timeout(uint16_t timeout) { this->conf_unlock_timeout_ = timeout; }
 
 protected:
     void publish(const std::vector<uint8_t>& data) override;
@@ -31,6 +34,9 @@ protected:
     optional<state_t> state_unlocking_{};
     optional<cmd_t> command_lock_{};
     optional<cmd_t> command_unlock_{};
+    uint16_t conf_lock_timeout_{5 * 1000};
+    uint16_t conf_unlock_timeout_{5 * 1000};
+    unsigned long timer_{0};
 
 };
 
