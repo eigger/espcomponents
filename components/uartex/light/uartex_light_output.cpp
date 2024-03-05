@@ -43,10 +43,13 @@ light::LightTraits UARTExLightOutput::get_traits()
 {
     auto traits = light::LightTraits();
     std::set<light::ColorMode> color_modes;
-    color_modes.insert(light::ColorMode::ON_OFF);
     if (this->command_brightness_func_.has_value() || this->state_brightness_func_.has_value())
     {
         color_modes.insert(light::ColorMode::BRIGHTNESS);
+    }
+    else
+    {
+        color_modes.insert(light::ColorMode::ON_OFF);
     }
     traits.set_supported_color_modes(color_modes);
     return traits;
