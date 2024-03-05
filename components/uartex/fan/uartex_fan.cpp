@@ -1,6 +1,5 @@
 #include "uartex_fan.h"
 #include "esphome/core/log.h"
-#include "esphome/components/api/api_server.h"
 
 namespace esphome {
 namespace uartex {
