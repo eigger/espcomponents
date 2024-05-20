@@ -22,7 +22,7 @@ void UARTExValve::publish(const std::vector<uint8_t>& data)
     bool changed = false;
     if (this->state_position_func_.has_value())
     {
-        optional<float> val = (*this->state_speed_func_)(&data[0], data.size());
+        optional<float> val = (*this->state_position_func_)(&data[0], data.size());
         if (val.has_value() && this->position != (int)val.value())
         {
             this->position = (int)val.value();
@@ -53,7 +53,7 @@ valve::ValveTraits UARTExValve::get_traits()
 
 void UARTExValve::control(const valve::ValveCall &call)
 {
-    if (*call.get_stop())
+    if (call.get_stop())
     {
         if (this->command_stop_.has_value()) enqueue_tx_cmd(&this->command_stop_.value());
         publish_state();
@@ -67,7 +67,7 @@ void UARTExValve::control(const valve::ValveCall &call)
         }
         else if (this->position <= valve::VALVE_CLOSED)
         {
-            if (this->command_closed_.has_value()) enqueue_tx_cmd(&this->command_closed_.value());
+            if (this->command_close_.has_value()) enqueue_tx_cmd(&this->command_close_.value());
         }
         publish_state();
     }
