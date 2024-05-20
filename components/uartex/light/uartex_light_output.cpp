@@ -1,7 +1,5 @@
 #include "uartex_light_output.h"
 #include "esphome/core/log.h"
-#include "esphome/components/api/api_server.h"
-
 
 namespace esphome {
 namespace uartex {
@@ -44,10 +42,16 @@ void UARTExLightOutput::publish_state(bool state)
 light::LightTraits UARTExLightOutput::get_traits()
 {
     auto traits = light::LightTraits();
+    std::set<light::ColorMode> color_modes;
     if (this->command_brightness_func_.has_value() || this->state_brightness_func_.has_value())
     {
-        traits.set_supported_color_modes({light::ColorMode::BRIGHTNESS});
+        color_modes.insert(light::ColorMode::BRIGHTNESS);
     }
+    else
+    {
+        color_modes.insert(light::ColorMode::ON_OFF);
+    }
+    traits.set_supported_color_modes(color_modes);
     return traits;
 }
 
