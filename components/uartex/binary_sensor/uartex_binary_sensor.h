@@ -12,6 +12,7 @@ public:
     void dump_config() override;
 
 protected:
+    void setup() override;
     void publish(const bool state) override { publish_state(state); }
 };
 
