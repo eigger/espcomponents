@@ -23,7 +23,7 @@ climate::ClimateTraits UARTExClimate::traits()
     {
         traits.set_supports_current_humidity(true);
     }
-    if (this->state_target_humidity_func_.has_value() || this->state_target_humidity_.has_value() || this->command_humidity_func_.has_value())
+    if (this->state_target_humidity_func_.has_value() || this->state_target_humidity_.has_value() || this->command_humidity_func_ != nullptr)
     {
         traits.set_supports_target_humidity(true);
     }
@@ -226,8 +226,11 @@ void UARTExClimate::control(const climate::ClimateCall &call)
     if (call.get_target_humidity().has_value() && this->target_humidity != *call.get_target_humidity())
     {
         this->target_humidity = *call.get_target_humidity();
-        this->command_humidity_ = (this->command_humidity_func_)(this->target_humidity, this->mode, *this->preset);
-        enqueue_tx_cmd(&this->command_humidity_);
+        if (this->command_humidity_func_ != nullptr)
+        {
+            this->command_humidity_ = (this->command_humidity_func_)(this->target_humidity, this->mode, *this->preset);
+            enqueue_tx_cmd(&this->command_humidity_);
+        }
     }
 
     // Set swing mode
