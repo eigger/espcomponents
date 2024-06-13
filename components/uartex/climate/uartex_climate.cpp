@@ -19,7 +19,7 @@ climate::ClimateTraits UARTExClimate::traits()
     {
         traits.set_supports_current_temperature(true);
     }
-    if (tthis->state_current_humidity_func_.has_value() || this->state_current_humidity_.has_value())
+    if (this->state_current_humidity_func_.has_value() || this->state_current_humidity_.has_value())
     {
         traits.set_supports_current_humidity(true);
     }
