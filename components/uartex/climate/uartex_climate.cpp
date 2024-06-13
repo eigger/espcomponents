@@ -15,11 +15,11 @@ void UARTExClimate::dump_config()
 climate::ClimateTraits UARTExClimate::traits()
 {
     auto traits = climate::ClimateTraits();
-    if (this->sensor_ != nullptr || this->state_current_temperature_func_.has_value() || this->state_current_temperature_.has_value()
+    if (this->sensor_ != nullptr || this->state_current_temperature_func_.has_value() || this->state_current_temperature_.has_value())
     {
         traits.set_supports_current_temperature(true);
     }
-    if (tthis->state_current_humidity_func_.has_value() || this->state_current_humidity_.has_value()
+    if (tthis->state_current_humidity_func_.has_value() || this->state_current_humidity_.has_value())
     {
         traits.set_supports_current_humidity(true);
     }
