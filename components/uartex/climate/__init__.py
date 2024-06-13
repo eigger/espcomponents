@@ -23,7 +23,7 @@ CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExClimate),
     cv.Optional(CONF_SENSOR): cv.use_id(sensor.Sensor),
     cv.Optional(CONF_STATE_TEMPERATURE_CURRENT): cv.templatable(STATE_NUM_SCHEMA),
-    cv.Required(CONF_STATE_TEMPERATURE_TARGET): cv.templatable(STATE_NUM_SCHEMA),
+    cv.Optional(CONF_STATE_TEMPERATURE_TARGET): cv.templatable(STATE_NUM_SCHEMA),
     cv.Optional(CONF_STATE_HUMIDITY_CURRENT): cv.templatable(STATE_NUM_SCHEMA),
     cv.Optional(CONF_STATE_HUMIDITY_TARGET): cv.templatable(STATE_NUM_SCHEMA),
     cv.Optional(CONF_STATE_COOL): state_schema,
@@ -53,7 +53,7 @@ CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
     cv.Optional(CONF_STATE_PRESET_ECO): state_schema,
     cv.Optional(CONF_STATE_PRESET_SLEEP): state_schema,
     cv.Optional(CONF_STATE_PRESET_ACTIVITY): state_schema,
-    cv.Required(CONF_COMMAND_TEMPERATURE): cv.returning_lambda,
+    cv.Optional(CONF_COMMAND_TEMPERATURE): cv.returning_lambda,
     cv.Optional(CONF_COMMAND_HUMIDITY): cv.returning_lambda,
     cv.Optional(CONF_COMMAND_COOL): command_hex_schema,
     cv.Optional(CONF_COMMAND_HEAT): command_hex_schema,
@@ -85,7 +85,7 @@ CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
 }).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Climate do not support command_on!"),
     cv.Optional(CONF_STATE_ON): cv.invalid("UARTEx Climate do not support state_on!")
-}).extend(cv.COMPONENT_SCHEMA), cv.has_exactly_one_key(CONF_SENSOR, CONF_STATE_TEMPERATURE_CURRENT), cv.has_at_least_one_key(CONF_COMMAND_HEAT, CONF_COMMAND_COOL, CONF_COMMAND_FAN_ONLY, CONF_COMMAND_DRY, CONF_COMMAND_AUTO))
+}).extend(cv.COMPONENT_SCHEMA), cv.has_exactly_one_key(CONF_SENSOR, CONF_STATE_TEMPERATURE_CURRENT))
 
 
 async def to_code(config):
