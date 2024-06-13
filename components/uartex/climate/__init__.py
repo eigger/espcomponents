@@ -4,12 +4,14 @@ from esphome.components import climate, uartex, sensor
 from esphome.const import CONF_ID, CONF_SENSOR, CONF_OFFSET
 from .. import uartex_ns, command_hex_schema, STATE_NUM_SCHEMA, cmd_t, uint8_ptr_const, uint16_const, uint8_const, \
     command_hex_expression, state_schema, state_hex_expression
-from ..const import CONF_STATE_TEMPERATURE_CURRENT, CONF_STATE_TEMPERATURE_TARGET, \
+from ..const import CONF_STATE_TEMPERATURE_CURRENT, CONF_STATE_TEMPERATURE_TARGET, CONF_STATE_HUMIDITY_CURRENT, CONF_STATE_HUMIDITY_TARGET, \
     CONF_STATE_ON, CONF_STATE_AUTO, CONF_STATE_HEAT, CONF_STATE_COOL, CONF_STATE_FAN_ONLY, CONF_STATE_DRY, CONF_STATE_SWING_OFF, CONF_STATE_SWING_BOTH, CONF_STATE_SWING_VERTICAL, CONF_STATE_SWING_HORIZONTAL, \
     CONF_COMMAND_ON, CONF_COMMAND_AUTO, CONF_COMMAND_HEAT, CONF_COMMAND_COOL, CONF_COMMAND_FAN_ONLY, CONF_COMMAND_DRY, CONF_COMMAND_SWING_OFF, CONF_COMMAND_SWING_BOTH, CONF_COMMAND_SWING_VERTICAL, CONF_COMMAND_SWING_HORIZONTAL, \
-    CONF_COMMAND_TEMPERATURE, CONF_LENGTH, CONF_PRECISION, CONF_COMMAND_PRESET_ECO, CONF_COMMAND_PRESET_SLEEP, CONF_COMMAND_PRESET_ACTIVITY, \
+    CONF_COMMAND_TEMPERATURE, CONF_COMMAND_HUMIDITY, CONF_LENGTH, CONF_PRECISION, CONF_COMMAND_PRESET_ECO, CONF_COMMAND_PRESET_SLEEP, CONF_COMMAND_PRESET_ACTIVITY, \
     CONF_COMMAND_ON, CONF_COMMAND_PRESET_NONE, CONF_COMMAND_PRESET_HOME, CONF_COMMAND_PRESET_AWAY, CONF_COMMAND_PRESET_BOOST, CONF_COMMAND_PRESET_COMFORT, \
-    CONF_STATE_PRESET_NONE, CONF_STATE_PRESET_HOME, CONF_STATE_PRESET_AWAY, CONF_STATE_PRESET_BOOST, CONF_STATE_PRESET_COMFORT, CONF_STATE_PRESET_ECO, CONF_STATE_PRESET_SLEEP, CONF_STATE_PRESET_ACTIVITY
+    CONF_STATE_PRESET_NONE, CONF_STATE_PRESET_HOME, CONF_STATE_PRESET_AWAY, CONF_STATE_PRESET_BOOST, CONF_STATE_PRESET_COMFORT, CONF_STATE_PRESET_ECO, CONF_STATE_PRESET_SLEEP, CONF_STATE_PRESET_ACTIVITY, \
+    CONF_STATE_FAN_ON, CONF_STATE_FAN_OFF, CONF_STATE_FAN_AUTO, CONF_STATE_FAN_LOW, CONF_STATE_FAN_MEDIUM, CONF_STATE_FAN_HIGH, CONF_STATE_FAN_MIDDLE, CONF_STATE_FAN_FOCUS, CONF_STATE_FAN_DIFFUSE, CONF_STATE_FAN_QUIET, \
+    CONF_COMMAND_FAN_ON, CONF_COMMAND_FAN_OFF, CONF_COMMAND_FAN_AUTO, CONF_COMMAND_FAN_LOW, CONF_COMMAND_FAN_MEDIUM, CONF_COMMAND_FAN_HIGH, CONF_COMMAND_FAN_MIDDLE, CONF_COMMAND_FAN_FOCUS, CONF_COMMAND_FAN_DIFFUSE, CONF_COMMAND_FAN_QUIET
     
 
 AUTO_LOAD = ['sensor']
@@ -22,6 +24,8 @@ CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
     cv.Optional(CONF_SENSOR): cv.use_id(sensor.Sensor),
     cv.Optional(CONF_STATE_TEMPERATURE_CURRENT): cv.templatable(STATE_NUM_SCHEMA),
     cv.Required(CONF_STATE_TEMPERATURE_TARGET): cv.templatable(STATE_NUM_SCHEMA),
+    cv.Optional(CONF_STATE_HUMIDITY_CURRENT): cv.templatable(STATE_NUM_SCHEMA),
+    cv.Optional(CONF_STATE_HUMIDITY_TARGET): cv.templatable(STATE_NUM_SCHEMA),
     cv.Optional(CONF_STATE_COOL): state_schema,
     cv.Optional(CONF_STATE_HEAT): state_schema,
     cv.Optional(CONF_STATE_FAN_ONLY): state_schema,
@@ -31,6 +35,16 @@ CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
     cv.Optional(CONF_STATE_SWING_BOTH): state_schema,
     cv.Optional(CONF_STATE_SWING_VERTICAL): state_schema,
     cv.Optional(CONF_STATE_SWING_HORIZONTAL): state_schema,
+    cv.Optional(CONF_STATE_FAN_ON): state_schema,
+    cv.Optional(CONF_STATE_FAN_OFF): state_schema,
+    cv.Optional(CONF_STATE_FAN_AUTO): state_schema,
+    cv.Optional(CONF_STATE_FAN_LOW): state_schema,
+    cv.Optional(CONF_STATE_FAN_MEDIUM): state_schema,
+    cv.Optional(CONF_STATE_FAN_HIGH): state_schema,
+    cv.Optional(CONF_STATE_FAN_MIDDLE): state_schema,
+    cv.Optional(CONF_STATE_FAN_FOCUS): state_schema,
+    cv.Optional(CONF_STATE_FAN_DIFFUSE): state_schema,
+    cv.Optional(CONF_STATE_FAN_QUIET): state_schema,
     cv.Optional(CONF_STATE_PRESET_NONE): state_schema,
     cv.Optional(CONF_STATE_PRESET_HOME): state_schema,
     cv.Optional(CONF_STATE_PRESET_AWAY): state_schema,
@@ -40,6 +54,7 @@ CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
     cv.Optional(CONF_STATE_PRESET_SLEEP): state_schema,
     cv.Optional(CONF_STATE_PRESET_ACTIVITY): state_schema,
     cv.Required(CONF_COMMAND_TEMPERATURE): cv.returning_lambda,
+    cv.Optional(CONF_COMMAND_HUMIDITY): cv.returning_lambda,
     cv.Optional(CONF_COMMAND_COOL): command_hex_schema,
     cv.Optional(CONF_COMMAND_HEAT): command_hex_schema,
     cv.Optional(CONF_COMMAND_FAN_ONLY): command_hex_schema,
@@ -49,6 +64,16 @@ CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
     cv.Optional(CONF_COMMAND_SWING_BOTH): command_hex_schema,
     cv.Optional(CONF_COMMAND_SWING_VERTICAL): command_hex_schema,
     cv.Optional(CONF_COMMAND_SWING_HORIZONTAL): command_hex_schema,
+    cv.Optional(CONF_COMMAND_FAN_ON): command_hex_schema,
+    cv.Optional(CONF_COMMAND_FAN_OFF): command_hex_schema,
+    cv.Optional(CONF_COMMAND_FAN_AUTO): command_hex_schema,
+    cv.Optional(CONF_COMMAND_FAN_LOW): command_hex_schema,
+    cv.Optional(CONF_COMMAND_FAN_MEDIUM): command_hex_schema,
+    cv.Optional(CONF_COMMAND_FAN_HIGH): command_hex_schema,
+    cv.Optional(CONF_COMMAND_FAN_MIDDLE): command_hex_schema,
+    cv.Optional(CONF_COMMAND_FAN_FOCUS): command_hex_schema,
+    cv.Optional(CONF_COMMAND_FAN_DIFFUSE): command_hex_schema,
+    cv.Optional(CONF_COMMAND_FAN_QUIET): command_hex_schema,
     cv.Optional(CONF_COMMAND_PRESET_NONE): command_hex_schema,
     cv.Optional(CONF_COMMAND_PRESET_HOME): command_hex_schema,
     cv.Optional(CONF_COMMAND_PRESET_AWAY): command_hex_schema,
@@ -60,7 +85,7 @@ CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
 }).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Climate do not support command_on!"),
     cv.Optional(CONF_STATE_ON): cv.invalid("UARTEx Climate do not support state_on!")
-}).extend(cv.COMPONENT_SCHEMA), cv.has_exactly_one_key(CONF_SENSOR, CONF_STATE_TEMPERATURE_CURRENT), cv.has_at_least_one_key(CONF_COMMAND_HEAT, CONF_COMMAND_COOL, CONF_COMMAND_AUTO))
+}).extend(cv.COMPONENT_SCHEMA), cv.has_exactly_one_key(CONF_SENSOR, CONF_STATE_TEMPERATURE_CURRENT), cv.has_at_least_one_key(CONF_COMMAND_HEAT, CONF_COMMAND_COOL, CONF_COMMAND_FAN_ONLY, CONF_COMMAND_DRY, CONF_COMMAND_AUTO))
 
 
 async def to_code(config):
@@ -68,15 +93,28 @@ async def to_code(config):
     await cg.register_component(var, config)
     await climate.register_climate(var, config)
     await uartex.register_uartex_device(var, config)
-    templ = await cg.templatable(config[CONF_COMMAND_TEMPERATURE], [(cg.float_.operator('const'), 'x'), (uint8_const, 'mode'), (uint8_const, 'preset')], cmd_t)
-    cg.add(var.set_command_temperature(templ))
-    state = config[CONF_STATE_TEMPERATURE_TARGET]
-    if cg.is_template(state):
-        templ = await cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
-        cg.add(var.set_state_target(templ))
-    else:
-        args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION]
-        cg.add(var.set_state_target(args))
+    if CONF_COMMAND_TEMPERATURE in config:
+        templ = await cg.templatable(config[CONF_COMMAND_TEMPERATURE], [(cg.float_.operator('const'), 'x'), (uint8_const, 'mode'), (uint8_const, 'preset')], cmd_t)
+        cg.add(var.set_command_temperature(templ))
+    if CONF_COMMAND_HUMIDITY in config:
+        templ = await cg.templatable(config[CONF_COMMAND_HUMIDITY], [(cg.float_.operator('const'), 'x'), (uint8_const, 'mode'), (uint8_const, 'preset')], cmd_t)
+        cg.add(var.set_command_humidity(templ))
+    if CONF_STATE_TEMPERATURE_TARGET in config:
+        state = config[CONF_STATE_TEMPERATURE_TARGET]
+        if cg.is_template(state):
+            templ = await cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
+            cg.add(var.set_state_target_temperature(templ))
+        else:
+            args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION]
+            cg.add(var.set_state_target_temperature(args))
+    if CONF_STATE_HUMIDITY_TARGET in config:
+        state = config[CONF_STATE_HUMIDITY_TARGET]
+        if cg.is_template(state):
+            templ = await cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
+            cg.add(var.set_state_target_humidity(templ))
+        else:
+            args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION]
+            cg.add(var.set_state_target_humidity(args))
     if CONF_SENSOR in config:
         sens = await cg.get_variable(config[CONF_SENSOR])
         cg.add(var.set_sensor(sens))
@@ -84,10 +122,18 @@ async def to_code(config):
         state = config[CONF_STATE_TEMPERATURE_CURRENT]
         if cg.is_template(state):
             templ = await cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
-            cg.add(var.set_state_current(templ))
+            cg.add(var.set_state_current_temperature(templ))
         else:
             args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION]
-            cg.add(var.set_state_current(args))
+            cg.add(var.set_state_current_temperature(args))
+    if CONF_STATE_HUMIDITY_CURRENT in config:
+        state = config[CONF_STATE_HUMIDITY_CURRENT]
+        if cg.is_template(state):
+            templ = await cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
+            cg.add(var.set_state_current_humidity(templ))
+        else:
+            args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION]
+            cg.add(var.set_state_current_humidity(args))
     if CONF_STATE_COOL in config:
         args = state_hex_expression(config[CONF_STATE_COOL])
         cg.add(var.set_state_cool(args))
@@ -115,6 +161,36 @@ async def to_code(config):
     if CONF_STATE_SWING_HORIZONTAL in config:
         args = state_hex_expression(config[CONF_STATE_SWING_HORIZONTAL])
         cg.add(var.set_state_swing_horizontal(args))
+    if CONF_STATE_FAN_ON in config:
+        args = state_hex_expression(config[CONF_STATE_FAN_ON])
+        cg.add(var.set_state_fan_on(args))
+    if CONF_STATE_FAN_OFF in config:
+        args = state_hex_expression(config[CONF_STATE_FAN_OFF])
+        cg.add(var.set_state_fan_off(args))
+    if CONF_STATE_FAN_AUTO in config:
+        args = state_hex_expression(config[CONF_STATE_FAN_AUTO])
+        cg.add(var.set_state_fan_auto(args))
+    if CONF_STATE_FAN_LOW in config:
+        args = state_hex_expression(config[CONF_STATE_FAN_LOW])
+        cg.add(var.set_state_fan_low(args))
+    if CONF_STATE_FAN_MEDIUM in config:
+        args = state_hex_expression(config[CONF_STATE_FAN_MEDIUM])
+        cg.add(var.set_state_fan_medium(args))
+    if CONF_STATE_FAN_HIGH in config:
+        args = state_hex_expression(config[CONF_STATE_FAN_HIGH])
+        cg.add(var.set_state_fan_high(args))
+    if CONF_STATE_FAN_MIDDLE in config:
+        args = state_hex_expression(config[CONF_STATE_FAN_MIDDLE])
+        cg.add(var.set_state_fan_middle(args))
+    if CONF_STATE_FAN_FOCUS in config:
+        args = state_hex_expression(config[CONF_STATE_FAN_FOCUS])
+        cg.add(var.set_state_fan_focus(args))
+    if CONF_STATE_FAN_DIFFUSE in config:
+        args = state_hex_expression(config[CONF_STATE_FAN_DIFFUSE])
+        cg.add(var.set_state_fan_diffuse(args))
+    if CONF_STATE_FAN_QUIET in config:
+        args = state_hex_expression(config[CONF_STATE_FAN_QUIET])
+        cg.add(var.set_state_fan_quiet(args))
     if CONF_STATE_PRESET_NONE in config:
         args = state_hex_expression(config[CONF_STATE_PRESET_NONE])
         cg.add(var.set_state_preset_none(args))
@@ -166,6 +242,36 @@ async def to_code(config):
     if CONF_COMMAND_SWING_HORIZONTAL in config:
         args = command_hex_expression(config[CONF_COMMAND_SWING_HORIZONTAL])
         cg.add(var.set_command_swing_horizontal(args))
+    if CONF_COMMAND_FAN_ON in config:
+        args = command_hex_expression(config[CONF_COMMAND_FAN_ON])
+        cg.add(var.set_command_fan_on(args))
+    if CONF_COMMAND_FAN_OFF in config:
+        args = command_hex_expression(config[CONF_COMMAND_FAN_OFF])
+        cg.add(var.set_command_fan_off(args))
+    if CONF_COMMAND_FAN_AUTO in config:
+        args = command_hex_expression(config[CONF_COMMAND_FAN_AUTO])
+        cg.add(var.set_command_fan_auto(args))
+    if CONF_COMMAND_FAN_LOW in config:
+        args = command_hex_expression(config[CONF_COMMAND_FAN_LOW])
+        cg.add(var.set_command_fan_low(args))
+    if CONF_COMMAND_FAN_MEDIUM in config:
+        args = command_hex_expression(config[CONF_COMMAND_FAN_MEDIUM])
+        cg.add(var.set_command_fan_medium(args))
+    if CONF_COMMAND_FAN_HIGH in config:
+        args = command_hex_expression(config[CONF_COMMAND_FAN_HIGH])
+        cg.add(var.set_command_fan_high(args))
+    if CONF_COMMAND_FAN_MIDDLE in config:
+        args = command_hex_expression(config[CONF_COMMAND_FAN_MIDDLE])
+        cg.add(var.set_command_fan_middle(args))
+    if CONF_COMMAND_FAN_FOCUS in config:
+        args = command_hex_expression(config[CONF_COMMAND_FAN_FOCUS])
+        cg.add(var.set_command_fan_focus(args))
+    if CONF_COMMAND_FAN_DIFFUSE in config:
+        args = command_hex_expression(config[CONF_COMMAND_FAN_DIFFUSE])
+        cg.add(var.set_command_fan_diffuse(args))
+    if CONF_COMMAND_FAN_QUIET in config:
+        args = command_hex_expression(config[CONF_COMMAND_FAN_QUIET])
+        cg.add(var.set_command_fan_quiet(args))
     if CONF_COMMAND_PRESET_NONE in config:
         args = command_hex_expression(config[CONF_COMMAND_PRESET_NONE])
         cg.add(var.set_command_preset_none(args))

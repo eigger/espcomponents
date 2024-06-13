@@ -15,9 +15,21 @@ void UARTExClimate::dump_config()
 climate::ClimateTraits UARTExClimate::traits()
 {
     auto traits = climate::ClimateTraits();
-    traits.set_supports_current_temperature(true);
+    if (this->sensor_ != nullptr || this->state_current_temperature_func_.has_value() || this->state_current_temperature_.has_value()
+    {
+        traits.set_supports_current_temperature(true);
+    }
+    if (tthis->state_current_humidity_func_.has_value() || this->state_current_humidity_.has_value()
+    {
+        traits.set_supports_current_humidity(true);
+    }
+    if (this->state_target_humidity_func_.has_value() || this->state_target_humidity_.has_value() || this->command_humidity_func_.has_value())
+    {
+        traits.set_supports_target_humidity(true);
+    }
     for (auto mode : supported_mode_) traits.add_supported_mode(mode);
     for (auto mode : supported_swing_mode_) traits.add_supported_swing_mode(mode);
+    for (auto mode : supported_fan_mode_) traits.add_supported_fan_mode(mode);
     for (auto preset : supported_preset_) traits.add_supported_preset(preset);
     traits.set_supports_two_point_target_temperature(false);
     return traits;
@@ -36,6 +48,8 @@ void UARTExClimate::setup()
         this->current_temperature = this->sensor_->state;
     }
     else this->current_temperature = NAN;
+    this->target_humidity = NAN;
+    this->current_humidity = NAN;
 }
 
 void UARTExClimate::publish(const std::vector<uint8_t>& data)
@@ -94,18 +108,18 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
     // Current temperature
     if (this->sensor_ == nullptr)
     {
-        if (this->state_current_func_.has_value())
+        if (this->state_current_temperature_func_.has_value())
         {
-            optional<float> val = (*this->state_current_func_)(&data[0], data.size());
+            optional<float> val = (*this->state_current_temperature_func_)(&data[0], data.size());
             if (val.has_value() && this->current_temperature != val.value())
             {
                 this->current_temperature = val.value();
                 changed = true;
             }
         }
-        else if (this->state_current_.has_value() && data.size() >= (this->state_current_.value().offset + this->state_current_.value().length))
+        else if (this->state_current_temperature_.has_value() && data.size() >= (this->state_current_temperature_.value().offset + this->state_current_temperature_.value().length))
         {
-            float val = state_to_float(data, this->state_current_.value());
+            float val = state_to_float(data, this->state_current_temperature_.value());
             if (this->current_temperature != val)
             {
                 this->current_temperature = val;
@@ -115,21 +129,61 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
     }
 
     // Target temperature
-    if (this->state_target_func_.has_value())
+    if (this->state_target_temperature_func_.has_value())
     {
-        optional<float> val = (*this->state_target_func_)(&data[0], data.size());
+        optional<float> val = (*this->state_target_temperature_func_)(&data[0], data.size());
         if (val.has_value() && this->target_temperature != val.value())
         {
             this->target_temperature = val.value();
             changed = true;
         }
     }
-    else if (this->state_target_.has_value() && data.size() >= (this->state_target_.value().offset + this->state_target_.value().length))
+    else if (this->state_target_temperature_.has_value() && data.size() >= (this->state_target_temperature_.value().offset + this->state_target_temperature_.value().length))
     {
-        float val = state_to_float(data, this->state_target_.value());
+        float val = state_to_float(data, this->state_target_temperature_.value());
         if (this->target_temperature != val)
         {
             this->target_temperature = val;
+            changed = true;
+        }
+    }
+
+    // Current humidity
+    if (this->state_current_humidity_func_.has_value())
+    {
+        optional<float> val = (*this->state_current_humidity_func_)(&data[0], data.size());
+        if (val.has_value() && this->current_humidity != val.value())
+        {
+            this->current_humidity = val.value();
+            changed = true;
+        }
+    }
+    else if (this->state_current_humidity_.has_value() && data.size() >= (this->state_current_humidity_.value().offset + this->state_current_humidity_.value().length))
+    {
+        float val = state_to_float(data, this->state_current_humidity_.value());
+        if (this->current_humidity != val)
+        {
+            this->current_humidity = val;
+            changed = true;
+        }
+    }
+
+    // Target humidity
+    if (this->state_target_humidity_func_.has_value())
+    {
+        optional<float> val = (*this->state_target_humidity_func_)(&data[0], data.size());
+        if (val.has_value() && this->target_humidity != val.value())
+        {
+            this->target_humidity = val.value();
+            changed = true;
+        }
+    }
+    else if (this->state_target_humidity_.has_value() && data.size() >= (this->state_target_humidity_.value().offset + this->state_target_humidity_.value().length))
+    {
+        float val = state_to_float(data, this->state_target_humidity_.value());
+        if (this->target_humidity != val)
+        {
+            this->target_humidity = val;
             changed = true;
         }
     }
@@ -166,6 +220,14 @@ void UARTExClimate::control(const climate::ClimateCall &call)
         this->target_temperature = *call.get_target_temperature();
         this->command_temperature_ = (this->command_temperature_func_)(this->target_temperature, this->mode, *this->preset);
         enqueue_tx_cmd(&this->command_temperature_);
+    }
+
+    // Set target humidity
+    if (call.get_target_humidity().has_value() && this->target_humidity != *call.get_target_humidity())
+    {
+        this->target_humidity = *call.get_target_humidity();
+        this->command_humidity_ = (this->command_humidity_func_)(this->target_humidity, this->mode, *this->preset);
+        enqueue_tx_cmd(&this->command_humidity_);
     }
 
     // Set swing mode
