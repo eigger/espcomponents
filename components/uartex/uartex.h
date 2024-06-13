@@ -71,6 +71,7 @@ public:
     void set_rx_timeout(uint16_t timeout);
     void set_tx_ctrl_pin(InternalGPIOPin *pin);
     void enqueue_tx_data(const tx_data_t data, bool low_priority = false);
+    void write_command(cmd_t cmd);
 
 protected:
     bool is_tx_cmd_pending();
@@ -122,6 +123,7 @@ protected:
     Parser rx_parser_{};
     text_sensor::TextSensor *version_{nullptr};
     text_sensor::TextSensor *error_{nullptr};
+    optional<cmd_t> command_{};
 };
 
 } // namespace uartex
