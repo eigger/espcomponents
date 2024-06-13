@@ -209,7 +209,7 @@ void UARTExComponent::enqueue_tx_data(const tx_data_t data, bool low_priority)
 void UARTExComponent::write_command(cmd_t cmd)
 {
     command_ = cmd;
-    enqueue_tx_data({nullptr, &command_}, false);
+    enqueue_tx_data({nullptr, const &command_}, false);
 }
 
 void UARTExComponent::write_flush()
