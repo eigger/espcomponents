@@ -80,6 +80,19 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
     }
 
     //Swing Mode
+    for(const auto& state : this->state_fan_mode_)
+    {
+        if (verify_state(data, &state.second.value()))
+        {
+            if (this->fan_mode != state.first)
+            {
+                this->fan_mode = state.first;
+                changed = true;
+            }
+        }
+    }
+
+    //Fan Mode
     for(const auto& state : this->state_swing_mode_)
     {
         if (verify_state(data, &state.second.value()))
