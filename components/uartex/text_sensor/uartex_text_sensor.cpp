@@ -12,6 +12,11 @@ void UARTExTextSensor::dump_config()
     dump_uartex_device_config(TAG);
 }
 
+void UARTExTextSensor::setup()
+{
+    publish_state("");
+}
+
 void UARTExTextSensor::publish(const std::vector<uint8_t>& data) 
 {
     if (this->state_text_func_.has_value())

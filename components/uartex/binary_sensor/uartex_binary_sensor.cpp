@@ -12,5 +12,10 @@ void UARTExBinarySensor::dump_config()
     dump_uartex_device_config(TAG);
 }
 
+void UARTExBinarySensor::setup()
+{
+    publish_state(false);
+}
+
 }  // namespace uartex
 }  // namespace esphome

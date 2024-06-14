@@ -14,6 +14,7 @@ public:
     void set_template(std::function<optional<const char*>(const uint8_t *data, const uint16_t len)> &&f) { this->state_text_func_ = f; }
 
 protected:
+    void setup() override;
     void publish(const std::vector<uint8_t>& data) override;
     
 protected:
