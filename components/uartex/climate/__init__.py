@@ -57,7 +57,6 @@ CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
     cv.Optional(CONF_STATE_PRESET_ACTIVITY): state_schema,
     cv.Optional(CONF_COMMAND_TEMPERATURE): cv.returning_lambda,
     cv.Optional(CONF_COMMAND_HUMIDITY): cv.returning_lambda,
-    cv.Optional(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_COOL): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_HEAT): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_FAN_ONLY): cv.templatable(command_hex_schema),
@@ -86,6 +85,7 @@ CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
     cv.Optional(CONF_COMMAND_PRESET_SLEEP): command_hex_schema,
     cv.Optional(CONF_COMMAND_PRESET_ACTIVITY): command_hex_schema,
 }).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
+    cv.Optional(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Climate do not support command_on!"),
     cv.Optional(CONF_STATE_ON): cv.invalid("UARTEx Climate do not support state_on!")
 }).extend(cv.COMPONENT_SCHEMA), cv.has_exactly_one_key(CONF_SENSOR, CONF_STATE_TEMPERATURE_CURRENT))
@@ -218,14 +218,6 @@ async def to_code(config):
     if CONF_STATE_PRESET_ACTIVITY in config:
         args = state_hex_expression(config[CONF_STATE_PRESET_ACTIVITY])
         cg.add(var.set_state_preset_activity(args))
-    if CONF_COMMAND_OFF in config:
-        cmd = config[CONF_COMMAND_OFF]
-        if cg.is_template(cmd):
-            templ = await cg.templatable(config[CONF_COMMAND_OFF], [(climate_t_const, 'climate')], cmd_t)
-            cg.add(var.set_command_mode_off(templ))
-        else:
-            args = command_hex_expression(config[CONF_COMMAND_OFF])
-            cg.add(var.set_command_off(args))
     if CONF_COMMAND_COOL in config:
         cmd = config[CONF_COMMAND_COOL]
         if cg.is_template(cmd):
