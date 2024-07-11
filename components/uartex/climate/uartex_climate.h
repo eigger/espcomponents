@@ -11,8 +11,8 @@ namespace uartex {
 
 struct climate_t
 {
-    ClimateMode mode{CLIMATE_MODE_OFF};
-    ClimateAction action{CLIMATE_ACTION_OFF};
+    climate::ClimateMode mode{climate::CLIMATE_MODE_OFF};
+    climate::ClimateAction action{climate::CLIMATE_ACTION_OFF};
     float current_temperature{NAN};
     float current_humidity{NAN};
     union {
@@ -23,10 +23,10 @@ struct climate_t
         };
     };
     float target_humidity;
-    optional<ClimateFanMode> fan_mode;
-    ClimateSwingMode swing_mode;
+    optional<climate::ClimateFanMode> fan_mode;
+    climate::ClimateSwingMode swing_mode;
     optional<std::string> custom_fan_mode;
-    optional<ClimatePreset> preset;
+    optional<climate::ClimatePreset> preset;
     optional<std::string> custom_preset;
 };
 
