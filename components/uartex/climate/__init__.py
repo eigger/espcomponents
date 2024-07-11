@@ -18,8 +18,8 @@ AUTO_LOAD = ['sensor']
 DEPENDENCIES = ['uartex']
 
 UARTExClimate = uartex_ns.class_('UARTExClimate', climate.Climate, cg.Component)
-climate_t = uartex_ns.class_('climate_t')
-climate_t_const = uartex_ns.class_('const climate_t')
+climate_t = uartex_ns.struct('climate_t')
+climate_t_const = climate_t.operator('const')
 
 CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExClimate),
