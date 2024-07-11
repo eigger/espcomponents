@@ -51,8 +51,8 @@ public:
     void set_state_preset_eco(state_t state) { this->state_preset_[climate::CLIMATE_PRESET_ECO] = state; set_supported_preset(climate::CLIMATE_PRESET_ECO); }
     void set_state_preset_sleep(state_t state) { this->state_preset_[climate::CLIMATE_PRESET_SLEEP] = state; set_supported_preset(climate::CLIMATE_PRESET_SLEEP); }
     void set_state_preset_activity(state_t state) { this->state_preset_[climate::CLIMATE_PRESET_ACTIVITY] = state; set_supported_preset(climate::CLIMATE_PRESET_ACTIVITY); }
-    void set_command_temperature(std::function<cmd_t(const float x, const uint8_t mode, const uint8_t preset)> f) { this->command_temperature_func_ = f; }
-    void set_command_humidity(std::function<cmd_t(const float x, const uint8_t mode, const uint8_t preset)> f) { this->command_humidity_func_ = f; }
+    void set_command_temperature(std::function<cmd_t(const float x, const climate::Climate& climate)> f) { this->command_temperature_func_ = f; }
+    void set_command_humidity(std::function<cmd_t(const float x, const climate::Climate& climate)> f) { this->command_humidity_func_ = f; }
     void set_command_cool(cmd_t cmd) { this->command_mode_[climate::CLIMATE_MODE_COOL] = cmd; set_supported_mode(climate::CLIMATE_MODE_COOL); }
     void set_command_heat(cmd_t cmd) { this->command_mode_[climate::CLIMATE_MODE_HEAT] = cmd; set_supported_mode(climate::CLIMATE_MODE_HEAT); }
     void set_command_fan_only(cmd_t cmd) { this->command_mode_[climate::CLIMATE_MODE_FAN_ONLY] = cmd; set_supported_mode(climate::CLIMATE_MODE_FAN_ONLY); }
@@ -109,14 +109,14 @@ protected:
     optional<std::function<optional<float>(const uint8_t *data, const uint16_t len)>> state_target_temperature_func_{};
     optional<state_num_t> state_current_temperature_{};
     optional<state_num_t> state_target_temperature_{};
-    std::function<cmd_t(const float x, const uint8_t mode, const uint8_t preset)> command_temperature_func_{};
+    std::function<cmd_t(const float x, const climate::Climate& climate)> command_temperature_func_{};
     cmd_t command_temperature_{};
 
     optional<std::function<optional<float>(const uint8_t *data, const uint16_t len)>> state_current_humidity_func_{};
     optional<std::function<optional<float>(const uint8_t *data, const uint16_t len)>> state_target_humidity_func_{};
     optional<state_num_t> state_current_humidity_{};
     optional<state_num_t> state_target_humidity_{};
-    std::function<cmd_t(const float x, const uint8_t mode, const uint8_t preset)> command_humidity_func_{};
+    std::function<cmd_t(const float x, const climate::Climate& climate)> command_humidity_func_{};
     cmd_t command_humidity_{};
 };
 
