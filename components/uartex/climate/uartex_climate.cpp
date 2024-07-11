@@ -233,7 +233,7 @@ void UARTExClimate::control(const climate::ClimateCall &call)
         this->target_temperature = *call.get_target_temperature();
         if (this->command_temperature_func_ != nullptr)
         {
-            this->command_temperature_ = (this->command_temperature_func_)(this->target_temperature, this->mode, *this->preset);
+            this->command_temperature_ = (this->command_temperature_func_)(this->target_temperature, *this);
             enqueue_tx_cmd(&this->command_temperature_);
         }
     }
@@ -244,7 +244,7 @@ void UARTExClimate::control(const climate::ClimateCall &call)
         this->target_humidity = *call.get_target_humidity();
         if (this->command_humidity_func_ != nullptr)
         {
-            this->command_humidity_ = (this->command_humidity_func_)(this->target_humidity, this->mode, *this->preset);
+            this->command_humidity_ = (this->command_humidity_func_)(this->target_humidity, *this);
             enqueue_tx_cmd(&this->command_humidity_);
         }
     }
