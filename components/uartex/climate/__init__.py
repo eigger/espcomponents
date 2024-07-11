@@ -222,7 +222,7 @@ async def to_code(config):
         cmd = config[CONF_COMMAND_OFF]
         if cg.is_template(cmd):
             templ = await cg.templatable(config[CONF_COMMAND_OFF], [(climate_t_const, 'climate')], cmd_t)
-            cg.add(var.set_command_off(templ))
+            cg.add(var.set_command_mode_off(templ))
         else:
             args = command_hex_expression(config[CONF_COMMAND_OFF])
             cg.add(var.set_command_off(args))

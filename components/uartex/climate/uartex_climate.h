@@ -74,7 +74,7 @@ public:
     void set_state_preset_activity(state_t state) { this->state_preset_[climate::CLIMATE_PRESET_ACTIVITY] = state; set_supported_preset(climate::CLIMATE_PRESET_ACTIVITY); }
     void set_command_temperature(std::function<cmd_t(const float x, const climate_t climate)> f) { this->command_temperature_func_ = f; }
     void set_command_humidity(std::function<cmd_t(const float x, const climate_t climate)> f) { this->command_humidity_func_ = f; }
-    void set_command_off(std::function<cmd_t(const climate_t climate)> f) { this->command_mode_func_[climate::CLIMATE_MODE_OFF] = f; }
+    void set_command_mode_off(std::function<cmd_t(const climate_t climate)> f) { this->command_mode_func_[climate::CLIMATE_MODE_OFF] = f; }
     void set_command_cool(std::function<cmd_t(const climate_t climate)> f) { this->command_mode_func_[climate::CLIMATE_MODE_COOL] = f; set_supported_mode(climate::CLIMATE_MODE_COOL); }
     void set_command_heat(std::function<cmd_t(const climate_t climate)> f) { this->command_mode_func_[climate::CLIMATE_MODE_HEAT] = f; set_supported_mode(climate::CLIMATE_MODE_HEAT); }
     void set_command_fan_only(std::function<cmd_t(const climate_t climate)> f) { this->command_mode_func_[climate::CLIMATE_MODE_FAN_ONLY]= f; set_supported_mode(climate::CLIMATE_MODE_FAN_ONLY); }
