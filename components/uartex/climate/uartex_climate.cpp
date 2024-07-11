@@ -212,17 +212,26 @@ void UARTExClimate::control(const climate::ClimateCall &call)
         this->mode = *call.get_mode();
         if (this->mode == climate::CLIMATE_MODE_OFF)
         {
-            enqueue_tx_cmd(get_command_off());
+            if (command_mode_func_.find(this->mode) != command_mode_func_.end())
+            {
+                this->command_mode_[this->mode] = (this->command_mode_func_[this->mode])(get_climate());
+                enqueue_tx_cmd(&this->command_mode_[this->mode]);
+            }
+            else
+            {
+                enqueue_tx_cmd(get_command_off());
+            }
         }
         else
         {
-            for(const auto& command : this->command_mode_)
+            if (command_mode_func_.find(this->mode) != command_mode_func_.end())
             {
-                if (command.first == this->mode)
-                {
-                    enqueue_tx_cmd(&command.second);
-                    break;
-                }
+                this->command_mode_[this->mode] = (this->command_mode_func_[this->mode])(get_climate());
+                enqueue_tx_cmd(&this->command_mode_[this->mode]);
+            }
+            else if (command_mode_.find(this->mode) != command_mode_.end())
+            {
+                enqueue_tx_cmd(&this->command_mode_[this->mode]);
             }
         }
     }
