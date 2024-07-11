@@ -97,10 +97,10 @@ async def to_code(config):
     await climate.register_climate(var, config)
     await uartex.register_uartex_device(var, config)
     if CONF_COMMAND_TEMPERATURE in config:
-        templ = await cg.templatable(config[CONF_COMMAND_TEMPERATURE], [(cg.float_.operator('const'), 'x'), (climate_const, 'climate')], cmd_t)
+        templ = await cg.templatable(config[CONF_COMMAND_TEMPERATURE], [(cg.float_.operator('const'), 'x'), (climate, 'climate')], cmd_t)
         cg.add(var.set_command_temperature(templ))
     if CONF_COMMAND_HUMIDITY in config:
-        templ = await cg.templatable(config[CONF_COMMAND_HUMIDITY], [(cg.float_.operator('const'), 'x'), (climate_const, 'climate')], cmd_t)
+        templ = await cg.templatable(config[CONF_COMMAND_HUMIDITY], [(cg.float_.operator('const'), 'x'), (climate, 'climate')], cmd_t)
         cg.add(var.set_command_humidity(templ))
     if CONF_STATE_TEMPERATURE_TARGET in config:
         state = config[CONF_STATE_TEMPERATURE_TARGET]
