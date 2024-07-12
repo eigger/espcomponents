@@ -43,7 +43,7 @@ light::LightTraits UARTExLightOutput::get_traits()
 {
     auto traits = light::LightTraits();
     std::set<light::ColorMode> color_modes;
-    if (get_command_brightness() || has_state_func("state_brightness"))
+    if (get_command_brightness(this->brightness_) || has_state_func("state_brightness"))
     {
         color_modes.insert(light::ColorMode::BRIGHTNESS);
     }
@@ -64,14 +64,14 @@ void UARTExLightOutput::write_state(light::LightState *state)
         enqueue_tx_cmd(binary ? get_command_on() : get_command_off());
         this->state_ = binary;
     }
-    if (get_command_brightness())
+    if (get_command_brightness(this->brightness_))
     {
         float brightness;
         state->current_values_as_brightness(&brightness);
         if ((int)(brightness * 100.0) != this->brightness_ && brightness > 0)
         {
             this->brightness_ = (int)(brightness * 100.0);
-            enqueue_tx_cmd(get_command_brightness(his->brightness_));
+            enqueue_tx_cmd(get_command_brightness(this->brightness_));
         }
     }
     this->light_state_ = state;
