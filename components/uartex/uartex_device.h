@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
+#include <unordered_map>
 
 namespace esphome {
 namespace uartex {
