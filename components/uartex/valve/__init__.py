@@ -3,8 +3,8 @@ import esphome.config_validation as cv
 from esphome.components import valve, uartex
 from esphome import core
 from esphome.const import CONF_ID
-from .. import uartex_ns, uint8_ptr_const, uint16_const, command_hex_schema, \
-    command_hex_expression, state_schema, state_hex_expression
+from .. import uartex_ns, uint8_ptr_const, uint16_const, \
+    command_hex_schema, command_hex_expression, state_schema, state_hex_expression
 from ..const import CONF_COMMAND_OPEN, CONF_COMMAND_CLOSE, CONF_COMMAND_STOP, CONF_STATE_OPEN, CONF_STATE_CLOSED, CONF_STATE_POSITION, \
     CONF_COMMAND_ON, CONF_COMMAND_OFF, CONF_STATE_ON, CONF_STATE_OFF
 

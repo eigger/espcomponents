@@ -211,6 +211,8 @@ STATE_NUM_SCHEMA = cv.Schema({
     cv.Optional(CONF_PRECISION, default=0): cv.int_range(min=0, max=5)
 })
 
+def state_num_schema(value):
+    return STATE_NUM_SCHEMA(value)
 
 HEX_SCHEMA_REGISTRY = SimpleRegistry()
 
