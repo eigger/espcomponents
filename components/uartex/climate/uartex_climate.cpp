@@ -27,10 +27,39 @@ climate::ClimateTraits UARTExClimate::traits()
     {
         traits.set_supports_target_humidity(true);
     }
-    for (auto mode : supported_mode_) traits.add_supported_mode(mode);
-    for (auto mode : supported_swing_mode_) traits.add_supported_swing_mode(mode);
-    for (auto mode : supported_fan_mode_) traits.add_supported_fan_mode(mode);
-    for (auto preset : supported_preset_) traits.add_supported_preset(preset);
+
+    for (uint8_t mode = climate::CLIMATE_MODE_COOL; mode <= climate::CLIMATE_MODE_AUTO; mode++)
+    {
+        bool add = false;
+        if (command_mode_.find((climate::ClimateMode)mode) != command_mode_.end()) add = true;
+        else if (state_mode_.find((climate::ClimateMode)mode) != state_mode_.end()) add = true;
+        else if (command_mode_func_.find((climate::ClimateMode)mode) != command_mode_func_.end()) add = true;
+        if (add) traits.add_supported_mode((climate::ClimateMode)mode);
+    }
+    for (uint8_t mode = climate::CLIMATE_SWING_OFF; mode <= climate::CLIMATE_SWING_HORIZONTAL; mode++)
+    {
+        bool add = false;
+        if (command_swing_mode_.find((climate::ClimateSwingMode)mode) != command_swing_mode_.end()) add = true;
+        else if (state_swing_mode_.find((climate::ClimateSwingMode)mode) != state_swing_mode_.end()) add = true;
+        else if (command_swing_mode_func_.find((climate::ClimateSwingMode)mode) != command_swing_mode_func_.end()) add = true;
+        if (add) traits.add_supported_swing_mode((climate::ClimateSwingMode)mode);
+    }
+    for (uint8_t mode = climate::CLIMATE_FAN_ON; mode <= climate::CLIMATE_FAN_QUIET; mode++)
+    {
+        bool add = false;
+        if (command_fan_mode_.find((climate::ClimateFanMode)mode) != command_fan_mode_.end()) add = true;
+        else if (state_fan_mode_.find((climate::ClimateFanMode)mode) != state_fan_mode_.end()) add = true;
+        else if (command_fan_mode_func_.find((climate::ClimateFanMode)mode) != command_fan_mode_func_.end()) add = true;
+        if (add) traits.add_supported_fan_mode((climate::ClimateFanMode)mode);
+    }
+    for (uint8_t preset = climate::CLIMATE_PRESET_NONE; preset <= climate::CLIMATE_PRESET_ACTIVITY; preset++)
+    {
+        bool add = false;
+        if (command_preset_.find((climate::ClimatePreset)preset) != command_preset_.end()) add = true;
+        else if (state_preset_.find((climate::ClimatePreset)preset) != state_preset_.end()) add = true;
+        else if (command_preset_func_.find((climate::ClimatePreset)preset) != command_preset_func_.end()) add = true;
+        if (add) traits.add_supported_preset((climate::ClimatePreset)preset);
+    }
     traits.set_supports_two_point_target_temperature(false);
     return traits;
 }
@@ -80,19 +109,6 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
     }
 
     //Swing Mode
-    for(const auto& state : this->state_fan_mode_)
-    {
-        if (verify_state(data, &state.second.value()))
-        {
-            if (this->fan_mode != state.first)
-            {
-                this->fan_mode = state.first;
-                changed = true;
-            }
-        }
-    }
-
-    //Fan Mode
     for(const auto& state : this->state_swing_mode_)
     {
         if (verify_state(data, &state.second.value()))
@@ -100,6 +116,19 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
             if (this->swing_mode != state.first)
             {
                 this->swing_mode = state.first;
+                changed = true;
+            }
+        }
+    }
+
+    //Fan Mode
+    for(const auto& state : this->state_fan_mode_)
+    {
+        if (verify_state(data, &state.second.value()))
+        {
+            if (this->fan_mode != state.first)
+            {
+                this->fan_mode = state.first;
                 changed = true;
             }
         }
@@ -254,13 +283,29 @@ void UARTExClimate::control(const climate::ClimateCall &call)
     if (call.get_swing_mode().has_value() && this->swing_mode != *call.get_swing_mode())
     {
         this->swing_mode = *call.get_swing_mode();
-        for(const auto& command : this->command_swing_mode_)
+        if (command_swing_mode_func_.find(this->swing_mode) != command_swing_mode_func_.end())
         {
-            if (command.first == this->swing_mode)
-            {
-                enqueue_tx_cmd(&command.second);
-                break;
-            }
+            this->command_swing_mode_[this->swing_mode] = (this->command_swing_mode_func_[this->swing_mode])();
+            enqueue_tx_cmd(&this->command_swing_mode_[this->swing_mode]);
+        }
+        else if (command_swing_mode_.find(this->swing_mode) != command_swing_mode_.end())
+        {
+            enqueue_tx_cmd(&this->command_swing_mode_[this->swing_mode]);
+        }
+    }
+
+    // Set fan mode
+    if (call.get_fan_mode().has_value() && this->fan_mode != *call.get_fan_mode())
+    {
+        this->fan_mode = *call.get_fan_mode();
+        if (command_fan_mode_func_.find(this->fan_mode) != command_fan_mode_func_.end())
+        {
+            this->command_fan_mode_[this->fan_mode] = (this->command_fan_mode_func_[this->fan_mode])();
+            enqueue_tx_cmd(&this->command_fan_mode_[this->fan_mode]);
+        }
+        else if (command_fan_mode_.find(this->fan_mode) != command_fan_mode_.end())
+        {
+            enqueue_tx_cmd(&this->command_fan_mode_[this->fan_mode]);
         }
     }
 
@@ -268,13 +313,14 @@ void UARTExClimate::control(const climate::ClimateCall &call)
     if (call.get_preset().has_value() && this->preset != *call.get_preset())
     {
         this->preset = *call.get_preset();
-        for(const auto& command : this->command_preset_)
+        if (command_preset_func_.find(this->preset) != command_preset_func_.end())
         {
-            if (command.first == *this->preset)
-            {
-                enqueue_tx_cmd(&command.second);
-                break;
-            }
+            this->command_preset_[this->preset] = (this->command_preset_func_[this->preset])();
+            enqueue_tx_cmd(&this->command_preset_[this->preset]);
+        }
+        else if (command_preset_.find(this->preset) != command_preset_.end())
+        {
+            enqueue_tx_cmd(&this->command_preset_[this->preset]);
         }
     }
     publish_state();

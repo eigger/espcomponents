@@ -60,28 +60,28 @@ CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
     cv.Optional(CONF_COMMAND_FAN_ONLY): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_DRY): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_AUTO): cv.templatable(command_hex_schema),
-    cv.Optional(CONF_COMMAND_SWING_OFF): command_hex_schema,
-    cv.Optional(CONF_COMMAND_SWING_BOTH): command_hex_schema,
-    cv.Optional(CONF_COMMAND_SWING_VERTICAL): command_hex_schema,
-    cv.Optional(CONF_COMMAND_SWING_HORIZONTAL): command_hex_schema,
-    cv.Optional(CONF_COMMAND_FAN_ON): command_hex_schema,
-    cv.Optional(CONF_COMMAND_FAN_OFF): command_hex_schema,
-    cv.Optional(CONF_COMMAND_FAN_AUTO): command_hex_schema,
-    cv.Optional(CONF_COMMAND_FAN_LOW): command_hex_schema,
-    cv.Optional(CONF_COMMAND_FAN_MEDIUM): command_hex_schema,
-    cv.Optional(CONF_COMMAND_FAN_HIGH): command_hex_schema,
-    cv.Optional(CONF_COMMAND_FAN_MIDDLE): command_hex_schema,
-    cv.Optional(CONF_COMMAND_FAN_FOCUS): command_hex_schema,
-    cv.Optional(CONF_COMMAND_FAN_DIFFUSE): command_hex_schema,
-    cv.Optional(CONF_COMMAND_FAN_QUIET): command_hex_schema,
-    cv.Optional(CONF_COMMAND_PRESET_NONE): command_hex_schema,
-    cv.Optional(CONF_COMMAND_PRESET_HOME): command_hex_schema,
-    cv.Optional(CONF_COMMAND_PRESET_AWAY): command_hex_schema,
-    cv.Optional(CONF_COMMAND_PRESET_BOOST): command_hex_schema,
-    cv.Optional(CONF_COMMAND_PRESET_COMFORT): command_hex_schema,
-    cv.Optional(CONF_COMMAND_PRESET_ECO): command_hex_schema,
-    cv.Optional(CONF_COMMAND_PRESET_SLEEP): command_hex_schema,
-    cv.Optional(CONF_COMMAND_PRESET_ACTIVITY): command_hex_schema,
+    cv.Optional(CONF_COMMAND_SWING_OFF): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_SWING_BOTH): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_SWING_VERTICAL): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_SWING_HORIZONTAL): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_FAN_ON): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_FAN_OFF): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_FAN_AUTO): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_FAN_LOW): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_FAN_MEDIUM): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_FAN_HIGH): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_FAN_MIDDLE): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_FAN_FOCUS): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_FAN_DIFFUSE): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_FAN_QUIET): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_PRESET_NONE): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_PRESET_HOME): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_PRESET_AWAY): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_PRESET_BOOST): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_PRESET_COMFORT): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_PRESET_ECO): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_PRESET_SLEEP): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_PRESET_ACTIVITY): cv.templatable(command_hex_schema),
 }).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Climate do not support command_on!"),
@@ -257,69 +257,179 @@ async def to_code(config):
             args = command_hex_expression(config[CONF_COMMAND_AUTO])
             cg.add(var.set_command_auto(args))
     if CONF_COMMAND_SWING_OFF in config:
-        args = command_hex_expression(config[CONF_COMMAND_SWING_OFF])
-        cg.add(var.set_command_swing_off(args))
+        cmd = config[CONF_COMMAND_SWING_OFF]
+        if cg.is_template(cmd):
+            templ = await cg.templatable(config[CONF_COMMAND_SWING_OFF], [], cmd_t)
+            cg.add(var.set_command_swing_off(templ))
+        else:
+            args = command_hex_expression(config[CONF_COMMAND_SWING_OFF])
+            cg.add(var.set_command_swing_off(args))
     if CONF_COMMAND_SWING_BOTH in config:
-        args = command_hex_expression(config[CONF_COMMAND_SWING_BOTH])
-        cg.add(var.set_command_swing_both(args))
+        cmd = config[CONF_COMMAND_SWING_BOTH]
+        if cg.is_template(cmd):
+            templ = await cg.templatable(config[CONF_COMMAND_SWING_BOTH], [], cmd_t)
+            cg.add(var.set_command_swing_both(templ))
+        else:
+            args = command_hex_expression(config[CONF_COMMAND_SWING_BOTH])
+            cg.add(var.set_command_swing_both(args))
     if CONF_COMMAND_SWING_VERTICAL in config:
-        args = command_hex_expression(config[CONF_COMMAND_SWING_VERTICAL])
-        cg.add(var.set_command_swing_vertical(args))
+        cmd = config[CONF_COMMAND_SWING_VERTICAL]
+        if cg.is_template(cmd):
+            templ = await cg.templatable(config[CONF_COMMAND_SWING_VERTICAL], [], cmd_t)
+            cg.add(var.set_command_swing_vertical(templ))
+        else:
+            args = command_hex_expression(config[CONF_COMMAND_SWING_VERTICAL])
+            cg.add(var.set_command_swing_vertical(args))
     if CONF_COMMAND_SWING_HORIZONTAL in config:
-        args = command_hex_expression(config[CONF_COMMAND_SWING_HORIZONTAL])
-        cg.add(var.set_command_swing_horizontal(args))
+        cmd = config[CONF_COMMAND_SWING_HORIZONTAL]
+        if cg.is_template(cmd):
+            templ = await cg.templatable(config[CONF_COMMAND_SWING_HORIZONTAL], [], cmd_t)
+            cg.add(var.set_command_swing_horizontal(templ))
+        else:
+            args = command_hex_expression(config[CONF_COMMAND_SWING_HORIZONTAL])
+            cg.add(var.set_command_swing_horizontal(args))
     if CONF_COMMAND_FAN_ON in config:
-        args = command_hex_expression(config[CONF_COMMAND_FAN_ON])
-        cg.add(var.set_command_fan_on(args))
+        cmd = config[CONF_COMMAND_FAN_ON]
+        if cg.is_template(cmd):
+            templ = await cg.templatable(config[CONF_COMMAND_FAN_ON], [], cmd_t)
+            cg.add(var.set_command_fan_on(templ))
+        else:
+            args = command_hex_expression(config[CONF_COMMAND_FAN_ON])
+            cg.add(var.set_command_fan_on(args))
     if CONF_COMMAND_FAN_OFF in config:
-        args = command_hex_expression(config[CONF_COMMAND_FAN_OFF])
-        cg.add(var.set_command_fan_off(args))
+        cmd = config[CONF_COMMAND_FAN_OFF]
+        if cg.is_template(cmd):
+            templ = await cg.templatable(config[CONF_COMMAND_FAN_OFF], [], cmd_t)
+            cg.add(var.set_command_fan_off(templ))
+        else:
+            args = command_hex_expression(config[CONF_COMMAND_FAN_OFF])
+            cg.add(var.set_command_fan_off(args))
     if CONF_COMMAND_FAN_AUTO in config:
-        args = command_hex_expression(config[CONF_COMMAND_FAN_AUTO])
-        cg.add(var.set_command_fan_auto(args))
+        cmd = config[CONF_COMMAND_FAN_AUTO]
+        if cg.is_template(cmd):
+            templ = await cg.templatable(config[CONF_COMMAND_FAN_AUTO], [], cmd_t)
+            cg.add(var.set_command_fan_auto(templ))
+        else:
+            args = command_hex_expression(config[CONF_COMMAND_FAN_AUTO])
+            cg.add(var.set_command_fan_auto(args))
     if CONF_COMMAND_FAN_LOW in config:
-        args = command_hex_expression(config[CONF_COMMAND_FAN_LOW])
-        cg.add(var.set_command_fan_low(args))
+        cmd = config[CONF_COMMAND_FAN_LOW]
+        if cg.is_template(cmd):
+            templ = await cg.templatable(config[CONF_COMMAND_FAN_LOW], [], cmd_t)
+            cg.add(var.set_command_fan_low(templ))
+        else:
+            args = command_hex_expression(config[CONF_COMMAND_FAN_LOW])
+            cg.add(var.set_command_fan_low(args))
     if CONF_COMMAND_FAN_MEDIUM in config:
-        args = command_hex_expression(config[CONF_COMMAND_FAN_MEDIUM])
-        cg.add(var.set_command_fan_medium(args))
+        cmd = config[CONF_COMMAND_FAN_MEDIUM]
+        if cg.is_template(cmd):
+            templ = await cg.templatable(config[CONF_COMMAND_FAN_MEDIUM], [], cmd_t)
+            cg.add(var.set_command_fan_medium(templ))
+        else:
+            args = command_hex_expression(config[CONF_COMMAND_FAN_MEDIUM])
+            cg.add(var.set_command_fan_medium(args))
     if CONF_COMMAND_FAN_HIGH in config:
-        args = command_hex_expression(config[CONF_COMMAND_FAN_HIGH])
-        cg.add(var.set_command_fan_high(args))
+        cmd = config[CONF_COMMAND_FAN_HIGH]
+        if cg.is_template(cmd):
+            templ = await cg.templatable(config[CONF_COMMAND_FAN_HIGH], [], cmd_t)
+            cg.add(var.set_command_fan_high(templ))
+        else:
+            args = command_hex_expression(config[CONF_COMMAND_FAN_HIGH])
+            cg.add(var.set_command_fan_high(args))
     if CONF_COMMAND_FAN_MIDDLE in config:
-        args = command_hex_expression(config[CONF_COMMAND_FAN_MIDDLE])
-        cg.add(var.set_command_fan_middle(args))
+        cmd = config[CONF_COMMAND_FAN_MIDDLE]
+        if cg.is_template(cmd):
+            templ = await cg.templatable(config[CONF_COMMAND_FAN_MIDDLE], [], cmd_t)
+            cg.add(var.set_command_fan_middle(templ))
+        else:
+            args = command_hex_expression(config[CONF_COMMAND_FAN_MIDDLE])
+            cg.add(var.set_command_fan_middle(args))
     if CONF_COMMAND_FAN_FOCUS in config:
-        args = command_hex_expression(config[CONF_COMMAND_FAN_FOCUS])
-        cg.add(var.set_command_fan_focus(args))
+        cmd = config[CONF_COMMAND_FAN_FOCUS]
+        if cg.is_template(cmd):
+            templ = await cg.templatable(config[CONF_COMMAND_FAN_FOCUS], [], cmd_t)
+            cg.add(var.set_command_fan_focus(templ))
+        else:
+            args = command_hex_expression(config[CONF_COMMAND_FAN_FOCUS])
+            cg.add(var.set_command_fan_focus(args))
     if CONF_COMMAND_FAN_DIFFUSE in config:
-        args = command_hex_expression(config[CONF_COMMAND_FAN_DIFFUSE])
-        cg.add(var.set_command_fan_diffuse(args))
+        cmd = config[CONF_COMMAND_FAN_DIFFUSE]
+        if cg.is_template(cmd):
+            templ = await cg.templatable(config[CONF_COMMAND_FAN_DIFFUSE], [], cmd_t)
+            cg.add(var.set_command_fan_diffuse(templ))
+        else:
+            args = command_hex_expression(config[CONF_COMMAND_FAN_DIFFUSE])
+            cg.add(var.set_command_fan_diffuse(args))
     if CONF_COMMAND_FAN_QUIET in config:
-        args = command_hex_expression(config[CONF_COMMAND_FAN_QUIET])
-        cg.add(var.set_command_fan_quiet(args))
+        cmd = config[CONF_COMMAND_FAN_QUIET]
+        if cg.is_template(cmd):
+            templ = await cg.templatable(config[CONF_COMMAND_FAN_QUIET], [], cmd_t)
+            cg.add(var.set_command_fan_quiet(templ))
+        else:
+            args = command_hex_expression(config[CONF_COMMAND_FAN_QUIET])
+            cg.add(var.set_command_fan_quiet(args))
     if CONF_COMMAND_PRESET_NONE in config:
-        args = command_hex_expression(config[CONF_COMMAND_PRESET_NONE])
-        cg.add(var.set_command_preset_none(args))
+        cmd = config[CONF_COMMAND_PRESET_NONE]
+        if cg.is_template(cmd):
+            templ = await cg.templatable(config[CONF_COMMAND_PRESET_NONE], [], cmd_t)
+            cg.add(var.set_command_preset_none(templ))
+        else:
+            args = command_hex_expression(config[CONF_COMMAND_PRESET_NONE])
+            cg.add(var.set_command_preset_none(args))
     if CONF_COMMAND_PRESET_HOME in config:
-        args = command_hex_expression(config[CONF_COMMAND_PRESET_HOME])
-        cg.add(var.set_command_preset_home(args))
+        cmd = config[CONF_COMMAND_PRESET_HOME]
+        if cg.is_template(cmd):
+            templ = await cg.templatable(config[CONF_COMMAND_PRESET_HOME], [], cmd_t)
+            cg.add(var.set_command_preset_home(templ))
+        else:
+            args = command_hex_expression(config[CONF_COMMAND_PRESET_HOME])
+            cg.add(var.set_command_preset_home(args))
     if CONF_COMMAND_PRESET_AWAY in config:
-        args = command_hex_expression(config[CONF_COMMAND_PRESET_AWAY])
-        cg.add(var.set_command_preset_away(args))
+        cmd = config[CONF_COMMAND_PRESET_AWAY]
+        if cg.is_template(cmd):
+            templ = await cg.templatable(config[CONF_COMMAND_PRESET_AWAY], [], cmd_t)
+            cg.add(var.set_command_preset_away(templ))
+        else:
+            args = command_hex_expression(config[CONF_COMMAND_PRESET_AWAY])
+            cg.add(var.set_command_preset_away(args))
     if CONF_COMMAND_PRESET_BOOST in config:
-        args = command_hex_expression(config[CONF_COMMAND_PRESET_BOOST])
-        cg.add(var.set_command_preset_boost(args))
+        cmd = config[CONF_COMMAND_PRESET_BOOST]
+        if cg.is_template(cmd):
+            templ = await cg.templatable(config[CONF_COMMAND_PRESET_BOOST], [], cmd_t)
+            cg.add(var.set_command_preset_boost(templ))
+        else:
+            args = command_hex_expression(config[CONF_COMMAND_PRESET_BOOST])
+            cg.add(var.set_command_preset_boost(args))
     if CONF_COMMAND_PRESET_COMFORT in config:
-        args = command_hex_expression(config[CONF_COMMAND_PRESET_COMFORT])
-        cg.add(var.set_command_preset_comfort(args))
+        cmd = config[CONF_COMMAND_PRESET_COMFORT]
+        if cg.is_template(cmd):
+            templ = await cg.templatable(config[CONF_COMMAND_PRESET_COMFORT], [], cmd_t)
+            cg.add(var.set_command_preset_comfort(templ))
+        else:
+            args = command_hex_expression(config[CONF_COMMAND_PRESET_COMFORT])
+            cg.add(var.set_command_preset_comfort(args))
     if CONF_COMMAND_PRESET_ECO in config:
-        args = command_hex_expression(config[CONF_COMMAND_PRESET_ECO])
-        cg.add(var.set_command_preset_eco(args))
+        cmd = config[CONF_COMMAND_PRESET_ECO]
+        if cg.is_template(cmd):
+            templ = await cg.templatable(config[CONF_COMMAND_PRESET_ECO], [], cmd_t)
+            cg.add(var.set_command_preset_eco(templ))
+        else:
+            args = command_hex_expression(config[CONF_COMMAND_PRESET_ECO])
+            cg.add(var.set_command_preset_eco(args))
     if CONF_COMMAND_PRESET_SLEEP in config:
-        args = command_hex_expression(config[CONF_COMMAND_PRESET_SLEEP])
-        cg.add(var.set_command_preset_sleep(args))
+        cmd = config[CONF_COMMAND_PRESET_SLEEP]
+        if cg.is_template(cmd):
+            templ = await cg.templatable(config[CONF_COMMAND_PRESET_SLEEP], [], cmd_t)
+            cg.add(var.set_command_preset_sleep(templ))
+        else:
+            args = command_hex_expression(config[CONF_COMMAND_PRESET_SLEEP])
+            cg.add(var.set_command_preset_sleep(args))
     if CONF_COMMAND_PRESET_ACTIVITY in config:
-        args = command_hex_expression(config[CONF_COMMAND_PRESET_ACTIVITY])
-        cg.add(var.set_command_preset_activity(args))
+        cmd = config[CONF_COMMAND_PRESET_ACTIVITY]
+        if cg.is_template(cmd):
+            templ = await cg.templatable(config[CONF_COMMAND_PRESET_ACTIVITY], [], cmd_t)
+            cg.add(var.set_command_preset_activity(templ))
+        else:
+            args = command_hex_expression(config[CONF_COMMAND_PRESET_ACTIVITY])
+            cg.add(var.set_command_preset_activity(args))
 
