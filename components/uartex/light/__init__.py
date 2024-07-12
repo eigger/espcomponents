@@ -1,7 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import light, uartex
-from esphome.const import CONF_ID, CONF_OUTPUT_ID
+from esphome.const import CONF_ID, CONF_OUTPUT_ID, CONF_UPDATE_INTERVAL
 from .. import uartex_ns, cmd_t, uint8_ptr_const, uint16_const
 from ..const import CONF_COMMAND_BRIGHTNESS, CONF_STATE_BRIGHTNESS
 
@@ -18,6 +18,7 @@ CONFIG_SCHEMA = light.BINARY_LIGHT_SCHEMA.extend({
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_OUTPUT_ID])
     await cg.register_component(var, config)
+    del config[CONF_UPDATE_INTERVAL]
     await light.register_light(var, config)
     await uartex.register_uartex_device(var, config)
 
