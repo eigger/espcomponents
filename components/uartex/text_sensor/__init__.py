@@ -4,14 +4,15 @@ from esphome import automation
 from esphome.components import text_sensor, uartex
 from esphome.const import CONF_ID, CONF_LAMBDA
 from .. import uartex_ns, uint8_ptr_const, uint16_const, \
-    state_schema, command_hex_schema
-from ..const import CONF_STATE, CONF_COMMAND_UPDATE
+    state_schema, command_hex_schema, _uartex_declare_type
+from ..const import CONF_STATE, CONF_COMMAND_UPDATE, CONF_UARTEX_ID
 
 DEPENDENCIES = ['uartex']
 UARTExTextSensor = uartex_ns.class_('UARTExTextSensor', text_sensor.TextSensor, cg.PollingComponent)
 
 CONFIG_SCHEMA = cv.All(text_sensor.TEXT_SENSOR_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExTextSensor),
+    cv.GenerateID(CONF_UARTEX_ID): _uartex_declare_type,
     cv.Required(CONF_STATE): state_schema,
     cv.Optional(CONF_COMMAND_UPDATE): command_hex_schema,
     cv.Required(CONF_LAMBDA): cv.returning_lambda,

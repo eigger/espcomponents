@@ -4,8 +4,8 @@ from esphome import automation
 from esphome.components import sensor, uartex
 from esphome.const import CONF_ID, CONF_LAMBDA, CONF_OFFSET, CONF_ACCURACY_DECIMALS
 from .. import uartex_ns, uint8_ptr_const, uint16_const, \
-    state_schema, command_hex_schema, state_num_schema
-from ..const import CONF_STATE, CONF_STATE_NUMBER, CONF_COMMAND_UPDATE, CONF_LENGTH, CONF_PRECISION
+    state_schema, command_hex_schema, state_num_schema, _uartex_declare_type
+from ..const import CONF_STATE, CONF_STATE_NUMBER, CONF_COMMAND_UPDATE, CONF_LENGTH, CONF_PRECISION, CONF_UARTEX_ID
 
 DEPENDENCIES = ['uartex']
 UARTExSensor = uartex_ns.class_(
@@ -13,6 +13,7 @@ UARTExSensor = uartex_ns.class_(
 
 CONFIG_SCHEMA = cv.All(sensor.SENSOR_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExSensor),
+    cv.GenerateID(CONF_UARTEX_ID): _uartex_declare_type,
     cv.Required(CONF_STATE): state_schema,
     cv.Optional(CONF_COMMAND_UPDATE): command_hex_schema,
     cv.Optional(CONF_LAMBDA): cv.returning_lambda,
