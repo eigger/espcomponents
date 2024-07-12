@@ -12,7 +12,7 @@ public:
     void dump_config() override;
     void setup() override;
     void set_state_number(state_num_t state) { this->state_num_map_["state_number"] = state;  }
-    void set_state_number(std::function<optional<float>(const uint8_t *data, const uint16_t len, const float state)> f) { this->state_func_map_["state_number"] = f; }
+    void set_state_number(std::function<optional<float>(const uint8_t *data, const uint16_t len)> f) { this->state_func_map_["state_number"] = f; }
     void set_command_number(std::function<cmd_t(const float x)> f) { this->command_param_func_map_["command_number"] = f; }
 
 protected:
