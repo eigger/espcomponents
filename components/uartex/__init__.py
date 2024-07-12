@@ -222,31 +222,31 @@ async def register_uartex_device(var, config):
 
     if CONF_STATE in config:
         state = state_hex_expression(config[CONF_STATE])
-        cg.add(var.set_state(state))
+        cg.add(var.set_state(CONF_STATE, state))
 
     if CONF_STATE_ON in config:
-        state_on = state_hex_expression(config[CONF_STATE_ON])
-        cg.add(var.set_state_on(state_on))
+        state = state_hex_expression(config[CONF_STATE_ON])
+        cg.add(var.set_state(CONF_STATE_ON, state))
 
     if CONF_STATE_OFF in config:
-        state_off = state_hex_expression(config[CONF_STATE_OFF])
-        cg.add(var.set_state_off(state_off))
+        state = state_hex_expression(config[CONF_STATE_OFF])
+        cg.add(var.set_state(CONF_STATE_OFF, state))
 
     if CONF_COMMAND_ON in config:
-        command_on = await command_expression(config[CONF_COMMAND_ON])
-        cg.add(var.set_command_on(command_on))
+        command = await command_expression(config[CONF_COMMAND_ON])
+        cg.add(var.set_command(CONF_COMMAND_ON, command))
 
     if CONF_COMMAND_OFF in config:
-        command_off = await command_expression(config[CONF_COMMAND_OFF])
-        cg.add(var.set_command_off(command_off))
+        command = await command_expression(config[CONF_COMMAND_OFF])
+        cg.add(var.set_command(CONF_COMMAND_OFF, command))
 
     if CONF_COMMAND_UPDATE in config:
-        command_update = await command_expression(config[CONF_COMMAND_UPDATE])
-        cg.add(var.set_command_update(command_update))
+        command = await command_expression(config[CONF_COMMAND_UPDATE])
+        cg.add(var.set_command(CONF_COMMAND_UPDATE, command))
     
     if CONF_STATE_RESPONSE in config:
-        state_response = state_hex_expression(config[CONF_STATE_RESPONSE])
-        cg.add(var.set_state_response(state_response))
+        state = state_hex_expression(config[CONF_STATE_RESPONSE])
+        cg.add(var.set_state(CONF_STATE_RESPONSE, state))
 
 
 def state_hex_expression(conf):

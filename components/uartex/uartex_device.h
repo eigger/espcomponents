@@ -48,6 +48,12 @@ public:
     void set_command_off(std::function<cmd_t()> f);
     void set_command_update(cmd_t cmd);
     void set_command_update(std::function<cmd_t()> f);
+    void set_state(std::string name, state_t state) { this->state_map_[name] = state; }
+    void set_state(std::string name, state_num_t state) { this->state_num_map_[name] = state; }
+    void set_state(std::string name, std::function<optional<float>(const uint8_t *data, const uint16_t len)> f) { this->state_func_map_[name] = f; }
+    void set_command(std::string name, cmd_t cmd) { this->command_map_[name] = cmd; }
+    void set_command(std::string name, std::function<cmd_t(const float x)> f) { this->command_param_func_map_[name] = f; }
+    void set_command(std::string name, std::function<cmd_t()> f) { this->command_func_map_[name] = f; }
 
     state_t* get_state();
     state_t* get_state_on();
