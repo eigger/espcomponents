@@ -73,7 +73,7 @@ void UARTExDevice::set_command_off(cmd_t cmd)
     this->command_map_["command_off"] = cmd;
 }
 
-void UARTExDevice::set_command_off(std::function<cmd_t()> func)
+void UARTExDevice::set_command_off(std::function<cmd_t()> f)
 {
     this->command_func_map_["command_off"] = f;
 }
@@ -134,11 +134,11 @@ bool UARTExDevice::has_state_func(std::string name)
     return false;
 }
 
-cmd_t* UARTExDevice::get_command(std::string name)
+cmd_t* UARTExDevice::get_command(std::string name, const float x)
 {
     if (this->command_param_func_map_.find(name) != this->command_param_func_map_.end())
     {
-        this->command_map_[name] = (this->command_param_func_map_[name])();
+        this->command_map_[name] = (this->command_param_func_map_[name])(x);
         return &this->command_map_[name];
     }
     else if (this->command_func_map_.find(name) != this->command_func_map_.end())

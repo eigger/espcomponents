@@ -20,7 +20,7 @@ protected:
     void publish_state(bool state);
     light::LightTraits get_traits() override;
     void write_state(light::LightState *state) override;
-    cmd_t* get_command_brightness();
+    cmd_t* get_command_brightness(const float x);
 protected:
     bool state_{false};
     int brightness_{0};

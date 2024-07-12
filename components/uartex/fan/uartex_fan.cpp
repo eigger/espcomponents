@@ -70,14 +70,14 @@ void UARTExFan::control(const fan::FanCall &call)
         changed_direction = true;
     }
     if (get_command_on() && this->state && changed_state) enqueue_tx_cmd(get_command_on());
-    if (get_command_speed() && changed_speed) enqueue_tx_cmd(get_command_speed());
+    if (get_command_speed(this->speed) && changed_speed) enqueue_tx_cmd(get_command_speed(this->speed));
     if (get_command_off() && !this->state && changed_state) enqueue_tx_cmd(get_command_off());
     publish_state();
 }
 
-cmd_t *UARTExFan::get_command_speed()
+cmd_t *UARTExFan::get_command_speed(const float x)
 {
-    return get_command("command_speed");
+    return get_command("command_speed", x);
 }
 
 }  // namespace uartex

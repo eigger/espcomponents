@@ -19,7 +19,7 @@ protected:
     void publish(const std::vector<uint8_t>& data) override;
     void publish(const bool state) override;
     void control(const fan::FanCall &call) override;
-    cmd_t* get_command_speed();
+    cmd_t* get_command_speed(const float x);
 protected:
     uint16_t speed_count_{0};
 };

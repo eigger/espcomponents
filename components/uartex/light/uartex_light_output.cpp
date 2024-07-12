@@ -71,15 +71,15 @@ void UARTExLightOutput::write_state(light::LightState *state)
         if ((int)(brightness * 100.0) != this->brightness_ && brightness > 0)
         {
             this->brightness_ = (int)(brightness * 100.0);
-            enqueue_tx_cmd(get_command_brightness());
+            enqueue_tx_cmd(get_command_brightness(his->brightness_));
         }
     }
     this->light_state_ = state;
 }
 
-cmd_t *UARTExLightOutput::get_command_brightness()
+cmd_t *UARTExLightOutput::get_command_brightness(const float x)
 {
-    return get_command("command_brightness");
+    return get_command("command_brightness", x);
 }
 
 }  // namespace uartex

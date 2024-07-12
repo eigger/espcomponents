@@ -44,7 +44,7 @@ void UARTExNumber::control(float value)
 {
     if (this->state == value) return;
     this->state = value;
-    if (get_command_number()) enqueue_tx_cmd(get_command_number());
+    if (get_command_number(this->state)) enqueue_tx_cmd(get_command_number(this->state));
     publish_state(value);
 }
 
