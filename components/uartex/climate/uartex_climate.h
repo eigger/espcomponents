@@ -9,27 +9,6 @@
 namespace esphome {
 namespace uartex {
 
-struct climate_t
-{
-    climate::ClimateMode mode{climate::CLIMATE_MODE_OFF};
-    climate::ClimateAction action{climate::CLIMATE_ACTION_OFF};
-    float current_temperature{NAN};
-    float current_humidity{NAN};
-    union {
-        float target_temperature;
-        struct {
-            float target_temperature_low{NAN};
-            float target_temperature_high{NAN};
-        };
-    };
-    float target_humidity;
-    optional<climate::ClimateFanMode> fan_mode;
-    climate::ClimateSwingMode swing_mode;
-    optional<std::string> custom_fan_mode;
-    optional<climate::ClimatePreset> preset;
-    optional<std::string> custom_preset;
-};
-
 class UARTExClimate : public climate::Climate, public UARTExDevice
 {
 public:
@@ -72,13 +51,13 @@ public:
     void set_state_preset_eco(state_t state) { this->state_preset_[climate::CLIMATE_PRESET_ECO] = state; set_supported_preset(climate::CLIMATE_PRESET_ECO); }
     void set_state_preset_sleep(state_t state) { this->state_preset_[climate::CLIMATE_PRESET_SLEEP] = state; set_supported_preset(climate::CLIMATE_PRESET_SLEEP); }
     void set_state_preset_activity(state_t state) { this->state_preset_[climate::CLIMATE_PRESET_ACTIVITY] = state; set_supported_preset(climate::CLIMATE_PRESET_ACTIVITY); }
-    void set_command_temperature(std::function<cmd_t(const float x, const climate_t climate)> f) { this->command_temperature_func_ = f; }
-    void set_command_humidity(std::function<cmd_t(const float x, const climate_t climate)> f) { this->command_humidity_func_ = f; }
-    void set_command_cool(std::function<cmd_t(const climate_t climate)> f) { this->command_mode_func_[climate::CLIMATE_MODE_COOL] = f; set_supported_mode(climate::CLIMATE_MODE_COOL); }
-    void set_command_heat(std::function<cmd_t(const climate_t climate)> f) { this->command_mode_func_[climate::CLIMATE_MODE_HEAT] = f; set_supported_mode(climate::CLIMATE_MODE_HEAT); }
-    void set_command_fan_only(std::function<cmd_t(const climate_t climate)> f) { this->command_mode_func_[climate::CLIMATE_MODE_FAN_ONLY]= f; set_supported_mode(climate::CLIMATE_MODE_FAN_ONLY); }
-    void set_command_dry(std::function<cmd_t(const climate_t climate)> f) { this->command_mode_func_[climate::CLIMATE_MODE_DRY] = f; set_supported_mode(climate::CLIMATE_MODE_DRY); }
-    void set_command_auto(std::function<cmd_t(const climate_t climate)> f) { this->command_mode_func_[climate::CLIMATE_MODE_AUTO] = f; set_supported_mode(climate::CLIMATE_MODE_AUTO); }
+    void set_command_temperature(std::function<cmd_t(const float x)> f) { this->command_temperature_func_ = f; }
+    void set_command_humidity(std::function<cmd_t(const float x)> f) { this->command_humidity_func_ = f; }
+    void set_command_cool(std::function<cmd_t()> f) { this->command_mode_func_[climate::CLIMATE_MODE_COOL] = f; set_supported_mode(climate::CLIMATE_MODE_COOL); }
+    void set_command_heat(std::function<cmd_t()> f) { this->command_mode_func_[climate::CLIMATE_MODE_HEAT] = f; set_supported_mode(climate::CLIMATE_MODE_HEAT); }
+    void set_command_fan_only(std::function<cmd_t()> f) { this->command_mode_func_[climate::CLIMATE_MODE_FAN_ONLY]= f; set_supported_mode(climate::CLIMATE_MODE_FAN_ONLY); }
+    void set_command_dry(std::function<cmd_t()> f) { this->command_mode_func_[climate::CLIMATE_MODE_DRY] = f; set_supported_mode(climate::CLIMATE_MODE_DRY); }
+    void set_command_auto(std::function<cmd_t()> f) { this->command_mode_func_[climate::CLIMATE_MODE_AUTO] = f; set_supported_mode(climate::CLIMATE_MODE_AUTO); }
     void set_command_cool(cmd_t cmd) { this->command_mode_[climate::CLIMATE_MODE_COOL] = cmd; set_supported_mode(climate::CLIMATE_MODE_COOL); }
     void set_command_heat(cmd_t cmd) { this->command_mode_[climate::CLIMATE_MODE_HEAT] = cmd; set_supported_mode(climate::CLIMATE_MODE_HEAT); }
     void set_command_fan_only(cmd_t cmd) { this->command_mode_[climate::CLIMATE_MODE_FAN_ONLY] = cmd; set_supported_mode(climate::CLIMATE_MODE_FAN_ONLY); }
@@ -114,7 +93,6 @@ protected:
     void set_supported_preset(climate::ClimatePreset preset) { if (std::find(supported_preset_.begin(), supported_preset_.end(), preset) == supported_preset_.end()) supported_preset_.push_back(preset); }
     void publish(const std::vector<uint8_t>& data) override;
     void control(const climate::ClimateCall &call) override;
-    climate_t get_climate();
     climate::ClimateTraits traits() override;
 
 protected:
@@ -127,6 +105,7 @@ protected:
     std::unordered_map<climate::ClimateFanMode, optional<state_t>> state_fan_mode_{};
     std::unordered_map<climate::ClimatePreset, optional<state_t>> state_preset_{};
     std::unordered_map<climate::ClimateMode, cmd_t> command_mode_{};
+    std::unordered_map<climate::ClimateMode, std::function<cmd_t()>> command_mode_func_{};
     std::unordered_map<climate::ClimateSwingMode, cmd_t> command_swing_mode_{};
     std::unordered_map<climate::ClimateFanMode, cmd_t> command_fan_mode_{};
     std::unordered_map<climate::ClimatePreset, cmd_t> command_preset_{};
@@ -136,17 +115,17 @@ protected:
     optional<std::function<optional<float>(const uint8_t *data, const uint16_t len)>> state_target_temperature_func_{};
     optional<state_num_t> state_current_temperature_{};
     optional<state_num_t> state_target_temperature_{};
-    std::function<cmd_t(const float x, const climate_t climate)> command_temperature_func_{};
+    std::function<cmd_t(const float x)> command_temperature_func_{};
     cmd_t command_temperature_{};
 
     optional<std::function<optional<float>(const uint8_t *data, const uint16_t len)>> state_current_humidity_func_{};
     optional<std::function<optional<float>(const uint8_t *data, const uint16_t len)>> state_target_humidity_func_{};
     optional<state_num_t> state_current_humidity_{};
     optional<state_num_t> state_target_humidity_{};
-    std::function<cmd_t(const float x, const climate_t climate)> command_humidity_func_{};
+    std::function<cmd_t(const float x)> command_humidity_func_{};
     cmd_t command_humidity_{};
 
-    std::unordered_map<climate::ClimateMode, std::function<cmd_t(const climate_t climate)>> command_mode_func_{};
+    
 };
 
 }  // namespace uartex

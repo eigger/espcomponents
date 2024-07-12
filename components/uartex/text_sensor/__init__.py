@@ -22,11 +22,7 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await uartex.register_uartex_device(var, config)
-
     if CONF_LAMBDA in config:
-        template_ = await cg.process_lambda(config[CONF_LAMBDA], [(uint8_ptr_const, 'data'),
-                                                                  (uint16_const, 'len')],
-                                            return_type=cg.optional.template(cg.const_char_ptr))
+        template_ = await cg.templatable(config[CONF_LAMBDA], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.optional.template(cg.const_char_ptr))
         cg.add(var.set_template(template_))
-
     await text_sensor.register_text_sensor(var, config)

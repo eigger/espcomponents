@@ -41,10 +41,10 @@ public:
     void set_state_on(state_t state);
     void set_state_off(state_t state);
     void set_command_on(cmd_t command);
-    void set_command_on(std::function<cmd_t(const uint8_t *state, const uint16_t len)> func);
+    void set_command_on(std::function<cmd_t()> func);
     cmd_t* get_command_on();
     void set_command_off(cmd_t command);
-    void set_command_off(std::function<cmd_t(const uint8_t *state, const uint16_t len)> func);
+    void set_command_off(std::function<cmd_t()> func);
     cmd_t* get_command_off();
     void set_command_update(cmd_t command);
     void set_state_response(state_t state);
@@ -63,15 +63,14 @@ protected:
     optional<state_t> state_on_{};
     optional<state_t> state_off_{};
     optional<cmd_t> command_on_{};
-    optional<std::function<cmd_t(const uint8_t *data, const uint16_t len)>> command_on_func_{};
+    optional<std::function<cmd_t()>> command_on_func_{};
     optional<cmd_t> command_off_{};
-    optional<std::function<cmd_t(const uint8_t *data, const uint16_t len)>> command_off_func_{};
+    optional<std::function<cmd_t()>> command_off_func_{};
     optional<cmd_t> command_update_;
     optional<state_t> state_response_{};
     bool rx_response_{false};
     std::queue<const cmd_t*> tx_cmd_queue_{};
     std::queue<const cmd_t*> tx_cmd_queue_low_priority_{};
-    std::vector<uint8_t> last_state_{};
 };
 
 bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,  const uint16_t offset = 0);

@@ -218,7 +218,7 @@ void UARTExClimate::control(const climate::ClimateCall &call)
         {
             if (command_mode_func_.find(this->mode) != command_mode_func_.end())
             {
-                this->command_mode_[this->mode] = (this->command_mode_func_[this->mode])(get_climate());
+                this->command_mode_[this->mode] = (this->command_mode_func_[this->mode])();
                 enqueue_tx_cmd(&this->command_mode_[this->mode]);
             }
             else if (command_mode_.find(this->mode) != command_mode_.end())
@@ -234,7 +234,7 @@ void UARTExClimate::control(const climate::ClimateCall &call)
         this->target_temperature = *call.get_target_temperature();
         if (this->command_temperature_func_ != nullptr)
         {
-            this->command_temperature_ = (this->command_temperature_func_)(this->target_temperature, get_climate());
+            this->command_temperature_ = (this->command_temperature_func_)(this->target_temperature);
             enqueue_tx_cmd(&this->command_temperature_);
         }
     }
@@ -245,7 +245,7 @@ void UARTExClimate::control(const climate::ClimateCall &call)
         this->target_humidity = *call.get_target_humidity();
         if (this->command_humidity_func_ != nullptr)
         {
-            this->command_humidity_ = (this->command_humidity_func_)(this->target_humidity, get_climate());
+            this->command_humidity_ = (this->command_humidity_func_)(this->target_humidity);
             enqueue_tx_cmd(&this->command_humidity_);
         }
     }
@@ -278,25 +278,6 @@ void UARTExClimate::control(const climate::ClimateCall &call)
         }
     }
     publish_state();
-}
-
-climate_t UARTExClimate::get_climate()
-{
-    climate_t climate;
-    climate.mode = this->mode;
-    climate.action = this->action;
-    climate.current_temperature = this->current_temperature;
-    climate.current_humidity = this->current_humidity;
-    climate.target_temperature = this->target_temperature;
-    climate.target_temperature_low = this->target_temperature_low;
-    climate.target_temperature_high = this->target_temperature_high;
-    climate.target_humidity = this->target_humidity;
-    climate.fan_mode = this->fan_mode;
-    climate.swing_mode = this->swing_mode;
-    climate.custom_fan_mode = this->custom_fan_mode;
-    climate.preset = this->preset;
-    climate.custom_preset = this->custom_preset;
-    return climate;
 }
 
 }  // namespace uartex

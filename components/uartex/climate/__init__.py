@@ -18,8 +18,6 @@ AUTO_LOAD = ['sensor']
 DEPENDENCIES = ['uartex']
 
 UARTExClimate = uartex_ns.class_('UARTExClimate', climate.Climate, cg.Component)
-climate_t = uartex_ns.struct('climate_t')
-climate_t_const = climate_t.operator('const')
 
 CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExClimate),
@@ -97,10 +95,10 @@ async def to_code(config):
     await climate.register_climate(var, config)
     await uartex.register_uartex_device(var, config)
     if CONF_COMMAND_TEMPERATURE in config:
-        templ = await cg.templatable(config[CONF_COMMAND_TEMPERATURE], [(cg.float_.operator('const'), 'x'), (climate_t_const, 'climate')], cmd_t)
+        templ = await cg.templatable(config[CONF_COMMAND_TEMPERATURE], [(cg.float_.operator('const'), 'x')], cmd_t)
         cg.add(var.set_command_temperature(templ))
     if CONF_COMMAND_HUMIDITY in config:
-        templ = await cg.templatable(config[CONF_COMMAND_HUMIDITY], [(cg.float_.operator('const'), 'x'), (climate_t_const, 'climate')], cmd_t)
+        templ = await cg.templatable(config[CONF_COMMAND_HUMIDITY], [(cg.float_.operator('const'), 'x')], cmd_t)
         cg.add(var.set_command_humidity(templ))
     if CONF_STATE_TEMPERATURE_TARGET in config:
         state = config[CONF_STATE_TEMPERATURE_TARGET]
@@ -221,7 +219,7 @@ async def to_code(config):
     if CONF_COMMAND_COOL in config:
         cmd = config[CONF_COMMAND_COOL]
         if cg.is_template(cmd):
-            templ = await cg.templatable(config[CONF_COMMAND_COOL], [(climate_t_const, 'climate')], cmd_t)
+            templ = await cg.templatable(config[CONF_COMMAND_COOL], [], cmd_t)
             cg.add(var.set_command_cool(templ))
         else:
             args = command_hex_expression(config[CONF_COMMAND_COOL])
@@ -229,7 +227,7 @@ async def to_code(config):
     if CONF_COMMAND_HEAT in config:
         cmd = config[CONF_COMMAND_HEAT]
         if cg.is_template(cmd):
-            templ = await cg.templatable(config[CONF_COMMAND_HEAT], [(climate_t_const, 'climate')], cmd_t)
+            templ = await cg.templatable(config[CONF_COMMAND_HEAT], [], cmd_t)
             cg.add(var.set_command_heat(templ))
         else:
             args = command_hex_expression(config[CONF_COMMAND_HEAT])
@@ -237,7 +235,7 @@ async def to_code(config):
     if CONF_COMMAND_FAN_ONLY in config:
         cmd = config[CONF_COMMAND_FAN_ONLY]
         if cg.is_template(cmd):
-            templ = await cg.templatable(config[CONF_COMMAND_FAN_ONLY], [(climate_t_const, 'climate')], cmd_t)
+            templ = await cg.templatable(config[CONF_COMMAND_FAN_ONLY], [], cmd_t)
             cg.add(var.set_command_fan_only(templ))
         else:
             args = command_hex_expression(config[CONF_COMMAND_FAN_ONLY])
@@ -245,7 +243,7 @@ async def to_code(config):
     if CONF_COMMAND_DRY in config:
         cmd = config[CONF_COMMAND_DRY]
         if cg.is_template(cmd):
-            templ = await cg.templatable(config[CONF_COMMAND_DRY], [(climate_t_const, 'climate')], cmd_t)
+            templ = await cg.templatable(config[CONF_COMMAND_DRY], [], cmd_t)
             cg.add(var.set_command_dry(templ))
         else:
             args = command_hex_expression(config[CONF_COMMAND_DRY])
@@ -253,7 +251,7 @@ async def to_code(config):
     if CONF_COMMAND_AUTO in config:
         cmd = config[CONF_COMMAND_AUTO]
         if cg.is_template(cmd):
-            templ = await cg.templatable(config[CONF_COMMAND_AUTO], [(climate_t_const, 'climate')], cmd_t)
+            templ = await cg.templatable(config[CONF_COMMAND_AUTO], [], cmd_t)
             cg.add(var.set_command_auto(templ))
         else:
             args = command_hex_expression(config[CONF_COMMAND_AUTO])

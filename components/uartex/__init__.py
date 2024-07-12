@@ -157,59 +157,41 @@ async def to_code(config):
     if CONF_RX_CHECKSUM in config:
         data = config[CONF_RX_CHECKSUM]
         if cg.is_template(data):
-            template_ = await cg.process_lambda(data,
-                                                [(uint8_ptr_const, 'data'),
-                                                 (uint16_const, 'len')],
-                                                return_type=cg.uint8)
+            template_ = await cg.templatable(data, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.uint8)
             cg.add(var.set_rx_checksum_lambda(template_))
         else:
             cg.add(var.set_rx_checksum(data))
     if CONF_TX_CHECKSUM in config:
         data = config[CONF_TX_CHECKSUM]
         if cg.is_template(data):
-            template_ = await cg.process_lambda(data,
-                                                [(uint8_ptr_const, 'data'),
-                                                 (uint16_const, 'len')],
-                                                return_type=cg.uint8)
+            template_ = await cg.templatable(data, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.uint8)
             cg.add(var.set_tx_checksum_lambda(template_))
         else:
             cg.add(var.set_tx_checksum(data))
     if CONF_RX_CHECKSUM_2 in config:
         data = config[CONF_RX_CHECKSUM_2]
         if cg.is_template(data):
-            template_ = await cg.process_lambda(data,
-                                                [(uint8_ptr_const, 'data'),
-                                                 (uint16_const, 'len')],
-                                                return_type=vector_uint8)
+            template_ = await cg.templatable(data, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], vector_uint8)
             cg.add(var.set_rx_checksum_2_lambda(template_))
         else:
             cg.add(var.set_rx_checksum_2(data))
     if CONF_TX_CHECKSUM_2 in config:
         data = config[CONF_TX_CHECKSUM_2]
         if cg.is_template(data):
-            template_ = await cg.process_lambda(data,
-                                                [(uint8_ptr_const, 'data'),
-                                                 (uint16_const, 'len')],
-                                                return_type=vector_uint8)
+            template_ = await cg.templatable(data, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], vector_uint8)
             cg.add(var.set_tx_checksum_2_lambda(template_))
         else:
             cg.add(var.set_tx_checksum_2(data))
     if CONF_ON_WRITE in config:
         data = config[CONF_ON_WRITE]
         if cg.is_template(data):
-            template_ = await cg.process_lambda(data,
-                                                [(uint8_ptr_const, 'data'),
-                                                 (uint16_const, 'len')],
-                                                return_type=cg.void)
-        cg.add(var.set_on_write(template_))
+            template_ = await cg.templatable(data, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.void)
+            cg.add(var.set_on_write(template_))
     if CONF_ON_READ in config:
         data = config[CONF_ON_READ]
         if cg.is_template(data):
-            template_ = await cg.process_lambda(data,
-                                                [(uint8_ptr_const, 'data'),
-                                                 (uint16_const, 'len')],
-                                                return_type=cg.void)
-        cg.add(var.set_on_read(template_))
+            template_ = await cg.templatable(data, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.void)
+            cg.add(var.set_on_read(template_))
 
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
 UARTEX_DEVICE_SCHEMA = cv.Schema({
@@ -251,8 +233,7 @@ async def register_uartex_device(var, config):
     if CONF_COMMAND_ON in config:
         data = config[CONF_COMMAND_ON]
         if cg.is_template(data):
-            #command_on = await cg.templatable(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], cmd_t)
-            command_on = await cg.process_lambda(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], return_type=cmd_t)
+            command_on = await cg.templatable(data, [], cmd_t)
             cg.add(var.set_command_on(command_on))
         else:
             command_on = command_hex_expression(config[CONF_COMMAND_ON])
@@ -261,8 +242,7 @@ async def register_uartex_device(var, config):
     if CONF_COMMAND_OFF in config:
         data = config[CONF_COMMAND_OFF]
         if cg.is_template(data):
-            #command_off = await cg.templatable(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], cmd_t)
-            command_off = await cg.process_lambda(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], return_type=cmd_t)
+            command_off = await cg.templatable(data, [], cmd_t)
             cg.add(var.set_command_off(command_off))
         else:
             command_off = command_hex_expression(config[CONF_COMMAND_OFF])
