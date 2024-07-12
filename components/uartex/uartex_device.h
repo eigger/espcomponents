@@ -38,16 +38,6 @@ class UARTExDevice : public PollingComponent
 public:
     void update() override;
     void dump_uartex_device_config(const char *TAG);
-    void set_state(state_t state);
-    void set_state_on(state_t state);
-    void set_state_off(state_t state);
-    void set_state_response(state_t state);
-    void set_command_on(cmd_t cmd);
-    void set_command_on(std::function<cmd_t()> f);
-    void set_command_off(cmd_t cmd);
-    void set_command_off(std::function<cmd_t()> f);
-    void set_command_update(cmd_t cmd);
-    void set_command_update(std::function<cmd_t()> f);
     void set_state(std::string name, state_t state) { this->state_map_[name] = state; }
     void set_state(std::string name, state_num_t state) { this->state_num_map_[name] = state; }
     void set_state(std::string name, std::function<optional<float>(const uint8_t *data, const uint16_t len)> f) { this->state_func_map_[name] = f; }

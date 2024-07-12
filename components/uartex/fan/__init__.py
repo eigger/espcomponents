@@ -22,10 +22,10 @@ async def to_code(config):
     await uartex.register_uartex_device(var, config)
 
     templ = await cg.templatable(config[CONF_COMMAND_SPEED], [(cg.float_.operator('const'), 'x')], cmd_t)
-    cg.add(var.set_command_speed(templ))
+    cg.add(var.set_command(CONF_COMMAND_SPEED, templ))
 
     templ = await cg.templatable(config[CONF_STATE_SPEED], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
-    cg.add(var.set_state_speed(templ))
+    cg.add(var.set_state(CONF_STATE_SPEED, templ))
 
     if CONF_SPEED_CNT in config:
         cg.add(var.set_speed_count(config[CONF_SPEED_CNT]))

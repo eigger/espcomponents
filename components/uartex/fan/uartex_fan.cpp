@@ -75,10 +75,5 @@ void UARTExFan::control(const fan::FanCall &call)
     publish_state();
 }
 
-cmd_t *UARTExFan::get_command_speed(const float x)
-{
-    return get_command("command_speed", x);
-}
-
 }  // namespace uartex
 }  // namespace esphome

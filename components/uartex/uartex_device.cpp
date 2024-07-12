@@ -38,56 +38,6 @@ void UARTExDevice::dump_uartex_device_config(const char *TAG)
     LOG_UPDATE_INTERVAL(this);
 }
 
-void UARTExDevice::set_state(state_t state)
-{
-    this->state_map_["state"] = state;
-}
-
-void UARTExDevice::set_state_on(state_t state)
-{
-    this->state_map_["state_on"] = state;
-}
-
-void UARTExDevice::set_state_off(state_t state)
-{
-    this->state_map_["state_off"] = state;
-}
-
-void UARTExDevice::set_state_response(state_t state)
-{
-    this->state_map_["state_response"] = state;
-}
-
-void UARTExDevice::set_command_on(cmd_t cmd)
-{
-    this->command_map_["command_on"] = cmd;
-}
-
-void UARTExDevice::set_command_on(std::function<cmd_t()> f)
-{
-    this->command_func_map_["command_on"] = f;
-}
-
-void UARTExDevice::set_command_off(cmd_t cmd)
-{
-    this->command_map_["command_off"] = cmd;
-}
-
-void UARTExDevice::set_command_off(std::function<cmd_t()> f)
-{
-    this->command_func_map_["command_off"] = f;
-}
-
-void UARTExDevice::set_command_update(cmd_t cmd)
-{
-    this->command_map_["command_update"] = cmd;
-}
-
-void UARTExDevice::set_command_update(std::function<cmd_t()> f)
-{
-    this->command_func_map_["command_update"] = f;
-}
-
 state_t* UARTExDevice::get_state()
 {
     return get_state("state");

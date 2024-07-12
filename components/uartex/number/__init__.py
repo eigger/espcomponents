@@ -37,12 +37,12 @@ async def to_code(config):
     await uartex.register_uartex_device(var, config)
 
     templ = await cg.templatable(config[CONF_COMMAND_NUMBER], [(cg.float_.operator('const'), 'x')], cmd_t)
-    cg.add(var.set_command_number(templ))
+    cg.add(var.set_command(CONF_COMMAND_NUMBER, templ))
  
     state = config[CONF_STATE_NUMBER]
     if cg.is_template(state):
         templ = await cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
-        cg.add(var.set_state_number(templ))
+        cg.add(var.set_state(CONF_STATE_NUMBER, templ))
     else:
         args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION]
-        cg.add(var.set_state_number(args))
+        cg.add(var.set_state(CONF_STATE_NUMBER, args))

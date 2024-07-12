@@ -29,11 +29,11 @@ async def to_code(config):
     
     if CONF_LAMBDA in config:
         template_ = await cg.templatable(config[CONF_LAMBDA], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.optional.template(float))
-        cg.add(var.set_template(template_))
+        cg.add(var.set_state(CONF_LAMBDA, template_))
     if CONF_STATE_NUMBER in config:
         data = config[CONF_STATE_NUMBER]
         data_ = data[CONF_OFFSET], data[CONF_LENGTH], data[CONF_PRECISION]
-        cg.add(var.set_state_num(data_))
+        cg.add(var.set_state(CONF_STATE_NUMBER, data_))
         config[CONF_ACCURACY_DECIMALS] = data[CONF_PRECISION]
 
     

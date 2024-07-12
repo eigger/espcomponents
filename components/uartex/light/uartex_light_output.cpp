@@ -77,10 +77,5 @@ void UARTExLightOutput::write_state(light::LightState *state)
     this->light_state_ = state;
 }
 
-cmd_t *UARTExLightOutput::get_command_brightness(const float x)
-{
-    return get_command("command_brightness", x);
-}
-
 }  // namespace uartex
 }  // namespace esphome
