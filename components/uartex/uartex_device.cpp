@@ -10,96 +10,170 @@ static const char *TAG = "uartex";
 
 void UARTExDevice::update()
 {
-    if (!this->command_update_.has_value()) return;
-    enqueue_tx_cmd(&this->command_update_.value(), true);
+    if (get_command_update() == nullptr) return;
+    enqueue_tx_cmd(get_command_update(), true);
 }
 
 void UARTExDevice::dump_uartex_device_config(const char *TAG)
 {
-    ESP_LOGCONFIG(TAG, "  State: %s, offset: %d", to_hex_string(this->state_.value().data).c_str(), this->state_.value().offset);
-    if (this->state_on_.has_value())
-        ESP_LOGCONFIG(TAG, "  State ON: %s, offset: %d, inverted: %s", to_hex_string(this->state_on_.value().data).c_str(), this->state_on_.value().offset, YESNO(this->state_on_.value().inverted));
-    if (this->state_off_.has_value())
-        ESP_LOGCONFIG(TAG, "  State OFF: %s, offset: %d, inverted: %s", to_hex_string(this->state_off_.value().data).c_str(), this->state_off_.value().offset, YESNO(this->state_off_.value().inverted));
-    if (this->command_on_.has_value())
-        ESP_LOGCONFIG(TAG, "  Command ON: %s", to_hex_string(this->command_on_.value().data).c_str());
-    if (this->command_on_.has_value() && this->command_on_.value().ack.size() > 0)
-        ESP_LOGCONFIG(TAG, "  Command ON Ack: %s", to_hex_string(this->command_on_.value().ack).c_str());
-    if (this->command_off_.has_value())
-        ESP_LOGCONFIG(TAG, "  Command OFF: %s", to_hex_string(this->command_off_.value().data).c_str());
-    if (this->command_off_.has_value() && this->command_off_.value().ack.size() > 0)
-        ESP_LOGCONFIG(TAG, "  Command OFF Ack: %s", to_hex_string(this->command_off_.value().ack).c_str());
-    if (this->command_update_.has_value())
-        ESP_LOGCONFIG(TAG, "  Command State: %s", to_hex_string(this->command_update_.value().data).c_str());
-    if (this->command_update_.has_value() && this->command_update_.value().ack.size() > 0)
-        ESP_LOGCONFIG(TAG, "  Command State Ack: %s", to_hex_string(this->command_update_.value().ack).c_str());
-    if (this->state_response_.has_value())
-        ESP_LOGCONFIG(TAG, "  Data response: %s, offset: %d", to_hex_string(this->state_response_.value().data).c_str(), this->state_response_.value().offset);
+    // ESP_LOGCONFIG(TAG, "  State: %s, offset: %d", to_hex_string(this->state_.value().data).c_str(), this->state_.value().offset);
+    // if (this->state_on_.has_value())
+    //     ESP_LOGCONFIG(TAG, "  State ON: %s, offset: %d, inverted: %s", to_hex_string(this->state_on_.value().data).c_str(), this->state_on_.value().offset, YESNO(this->state_on_.value().inverted));
+    // if (this->state_off_.has_value())
+    //     ESP_LOGCONFIG(TAG, "  State OFF: %s, offset: %d, inverted: %s", to_hex_string(this->state_off_.value().data).c_str(), this->state_off_.value().offset, YESNO(this->state_off_.value().inverted));
+    // if (this->command_on_.has_value())
+    //     ESP_LOGCONFIG(TAG, "  Command ON: %s", to_hex_string(this->command_on_.value().data).c_str());
+    // if (this->command_on_.has_value() && this->command_on_.value().ack.size() > 0)
+    //     ESP_LOGCONFIG(TAG, "  Command ON Ack: %s", to_hex_string(this->command_on_.value().ack).c_str());
+    // if (this->command_off_.has_value())
+    //     ESP_LOGCONFIG(TAG, "  Command OFF: %s", to_hex_string(this->command_off_.value().data).c_str());
+    // if (this->command_off_.has_value() && this->command_off_.value().ack.size() > 0)
+    //     ESP_LOGCONFIG(TAG, "  Command OFF Ack: %s", to_hex_string(this->command_off_.value().ack).c_str());
+    // if (this->command_update_.has_value())
+    //     ESP_LOGCONFIG(TAG, "  Command State: %s", to_hex_string(this->command_update_.value().data).c_str());
+    // if (this->command_update_.has_value() && this->command_update_.value().ack.size() > 0)
+    //     ESP_LOGCONFIG(TAG, "  Command State Ack: %s", to_hex_string(this->command_update_.value().ack).c_str());
+    // if (this->state_response_.has_value())
+    //     ESP_LOGCONFIG(TAG, "  Data response: %s, offset: %d", to_hex_string(this->state_response_.value().data).c_str(), this->state_response_.value().offset);
     LOG_UPDATE_INTERVAL(this);
 }
 
 void UARTExDevice::set_state(state_t state)
 {
-    this->state_ = state;
+    this->state_map_["state"] = state;
 }
 
-void UARTExDevice::set_state_on(state_t state_on)
+void UARTExDevice::set_state_on(state_t state)
 {
-    this->state_on_ = state_on;
+    this->state_map_["state_on"] = state;
 }
 
-void UARTExDevice::set_state_off(state_t state_off)
+void UARTExDevice::set_state_off(state_t state)
 {
-    this->state_off_ = state_off;
-}
-
-void UARTExDevice::set_command_on(cmd_t command)
-{
-    this->command_on_ = command;
-}
-
-void UARTExDevice::set_command_on(std::function<cmd_t()> func)
-{
-    this->command_on_func_ = func;
-}
-
-cmd_t *UARTExDevice::get_command_on()
-{
-    if (this->command_on_func_.has_value())
-        this->command_on_ = (*this->command_on_func_)();
-    return &this->command_on_.value();
-}
-
-void UARTExDevice::set_command_off(cmd_t command)
-{
-    this->command_off_ = command;
-}
-
-void UARTExDevice::set_command_off(std::function<cmd_t()> func)
-{
-    this->command_off_func_ = func;
-}
-
-cmd_t *UARTExDevice::get_command_off()
-{
-    if (this->command_off_func_.has_value())
-        this->command_off_ = (*this->command_off_func_)();
-    return &this->command_off_.value();
-}
-
-void UARTExDevice::set_command_update(cmd_t command)
-{
-    this->command_update_ = command;
+    this->state_map_["state_off"] = state;
 }
 
 void UARTExDevice::set_state_response(state_t state)
 {
-    this->state_response_ = state;
+    this->state_map_["state_response"] = state;
+}
+
+void UARTExDevice::set_command_on(cmd_t cmd)
+{
+    this->command_map_["command_on"] = cmd;
+}
+
+void UARTExDevice::set_command_on(std::function<cmd_t()> f)
+{
+    this->command_func_map_["command_on"] = f;
+}
+
+void UARTExDevice::set_command_off(cmd_t cmd)
+{
+    this->command_map_["command_off"] = cmd;
+}
+
+void UARTExDevice::set_command_off(std::function<cmd_t()> func)
+{
+    this->command_func_map_["command_off"] = f;
+}
+
+void UARTExDevice::set_command_update(cmd_t cmd)
+{
+    this->command_map_["command_update"] = cmd;
+}
+
+void UARTExDevice::set_command_update(std::function<cmd_t()> f)
+{
+    this->command_func_map_["command_update"] = f;
+}
+
+state_t* UARTExDevice::get_state()
+{
+    return get_state("state");
+}
+
+state_t* UARTExDevice::get_state_on()
+{
+    return get_state("state_on");
+}
+
+state_t* UARTExDevice::get_state_off()
+{
+    return get_state("state_off");
+}
+
+state_t* UARTExDevice::get_state_response()
+{
+    return get_state("state_response");
+}
+
+optional<float> UARTExDevice::get_state_func(std::string name, const uint8_t *data, const uint16_t len)
+{
+    return (this->state_func_map_[name])(data, len);
+}
+
+cmd_t *UARTExDevice::get_command_on()
+{
+    return get_command("command_on");
+}
+
+cmd_t *UARTExDevice::get_command_off()
+{
+    return get_command("command_off");
+}
+
+cmd_t* UARTExDevice::get_command_update()
+{
+    return get_command("command_update");
+}
+
+bool UARTExDevice::has_state_func(std::string name)
+{
+    if (this->state_func_map_.find(name) != this->state_func_map_.end()) return true;
+    return false;
+}
+
+cmd_t* UARTExDevice::get_command(std::string name)
+{
+    if (this->command_param_func_map_.find(name) != this->command_param_func_map_.end())
+    {
+        this->command_map_[name] = (this->command_param_func_map_[name])();
+        return &this->command_map_[name];
+    }
+    else if (this->command_func_map_.find(name) != this->command_func_map_.end())
+    {
+        this->command_map_[name] = (this->command_func_map_[name])();
+        return &this->command_map_[name];
+    }
+    else if (this->command_map_.find(name) != this->command_map_.end())
+    {
+        return &this->command_map_[name];
+    }
+    return nullptr;
+}
+
+state_t* UARTExDevice::get_state(std::string name)
+{
+    if (this->state_map_.find(name) != this->state_map_.end())
+    {
+        return &this->state_map_[name];
+    }
+    return nullptr;
+}
+
+state_num_t* UARTExDevice::get_state_num(std::string name)
+{
+    if (this->state_num_map_.find(name) != this->state_num_map_.end())
+    {
+        return &this->state_num_map_[name];
+    }
+    return nullptr;
 }
 
 const cmd_t *UARTExDevice::dequeue_tx_cmd()
 {
-    if (this->state_response_.has_value() && !this->rx_response_) return nullptr;
+    if (get_state_response() && !this->rx_response_) return nullptr;
     this->rx_response_ = false;
     if (this->tx_cmd_queue_.size() == 0) return nullptr;
     const cmd_t *cmd = this->tx_cmd_queue_.front();
@@ -109,7 +183,7 @@ const cmd_t *UARTExDevice::dequeue_tx_cmd()
 
 const cmd_t *UARTExDevice::dequeue_tx_cmd_low_priority()
 {
-    if (this->state_response_.has_value() && !this->rx_response_) return nullptr;
+    if (get_state_response() && !this->rx_response_) return nullptr;
     this->rx_response_ = false;
     if (this->tx_cmd_queue_low_priority_.size() == 0) return nullptr;
     const cmd_t *cmd = this->tx_cmd_queue_low_priority_.front();
@@ -119,11 +193,11 @@ const cmd_t *UARTExDevice::dequeue_tx_cmd_low_priority()
 
 bool UARTExDevice::parse_data(const std::vector<uint8_t> &data)
 {
-    if (this->state_response_.has_value() && verify_state(data, &this->state_response_.value())) this->rx_response_ = true;
+    if (get_state_response() && verify_state(data, get_state_response())) this->rx_response_ = true;
     else this->rx_response_ = false;
-    if (this->state_.has_value() && !verify_state(data, &this->state_.value())) return false;
-    if (this->state_off_.has_value() && verify_state(data, &this->state_off_.value())) publish(false);
-    if (this->state_on_.has_value() && verify_state(data, &this->state_on_.value())) publish(true);
+    if (get_state() && !verify_state(data, get_state())) return false;
+    if (get_state_off() && verify_state(data, get_state_off())) publish(false);
+    if (get_state_on() && verify_state(data, get_state_on())) publish(true);
     publish(data);
     return true;
 }
@@ -138,6 +212,7 @@ void UARTExDevice::publish(const bool state)
 
 void UARTExDevice::enqueue_tx_cmd(const cmd_t *cmd, bool low_priority)
 {
+    if (cmd == nullptr) return;
     if (cmd->data.size() == 0) return;
     if (low_priority) this->tx_cmd_queue_low_priority_.push(cmd);
     else this->tx_cmd_queue_.push(cmd);

@@ -10,8 +10,8 @@ class UARTExLightOutput : public light::LightOutput, public UARTExDevice
 {
 public:
     void dump_config() override;
-    void set_state_brightness(std::function<optional<float>(const uint8_t *data, const uint16_t len)> f) { this->state_brightness_func_ = f; }
-    void set_command_brightness(std::function<cmd_t(const float x)> f) { this->command_brightness_func_ = f; }
+    void set_state_brightness(std::function<optional<float>(const uint8_t *data, const uint16_t len)> f) { this->state_func_map_["state_brightness"] = f; }
+    void set_command_brightness(std::function<cmd_t(const float x)> f) { this->command_param_func_map_["command_brightness"] = f;}
 
 protected:
     void setup_state(light::LightState *state) override { this->light_state_ = state; }
@@ -25,9 +25,6 @@ protected:
     bool state_{false};
     int brightness_{0};
     light::LightState *light_state_{nullptr};
-    optional<std::function<optional<float>(const uint8_t *data, const uint16_t len)>> state_brightness_func_{};
-    optional<std::function<cmd_t(const float x)>> command_brightness_func_{};
-    optional<cmd_t> command_brightness_{};
 };
 
 }  // namespace uartex

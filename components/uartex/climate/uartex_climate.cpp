@@ -85,7 +85,7 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
 {
     bool changed = false;
     //Mode
-    if (this->state_off_.has_value() && verify_state(data, &this->state_off_.value()))
+    if (get_state_off() && verify_state(data, get_state_off()))
     {
         if (this->mode != climate::CLIMATE_MODE_OFF)
         {

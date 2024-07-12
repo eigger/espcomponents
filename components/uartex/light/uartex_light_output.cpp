@@ -15,9 +15,9 @@ void UARTExLightOutput::dump_config()
 void UARTExLightOutput::publish(const std::vector<uint8_t>& data)
 {
     if (this->light_state_ == nullptr)return;
-    if (this->state_brightness_func_.has_value())
+    if (has_state_func("state_brightness"))
     {
-        optional<float> val = (*this->state_brightness_func_)(&data[0], data.size());
+        optional<float> val = get_state_func("state_brightness", &data[0], data.size());
         if (val.has_value() && this->brightness_ != (int)val.value() && val.value() > 0)
         {
             this->brightness_ = (int)val.value();
@@ -64,7 +64,7 @@ void UARTExLightOutput::write_state(light::LightState *state)
         enqueue_tx_cmd(binary ? get_command_on() : get_command_off());
         this->state_ = binary;
     }
-    if (this->command_brightness_func_.has_value())
+    if (get_command_brightness())
     {
         float brightness;
         state->current_values_as_brightness(&brightness);
@@ -79,9 +79,7 @@ void UARTExLightOutput::write_state(light::LightState *state)
 
 cmd_t *UARTExLightOutput::get_command_brightness()
 {
-    if (this->command_brightness_func_.has_value())
-        this->command_brightness_ = (*this->command_brightness_func_)(this->brightness_);
-    return &this->command_brightness_.value();
+    return get_command("command_brightness");
 }
 
 }  // namespace uartex

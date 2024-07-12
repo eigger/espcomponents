@@ -20,18 +20,18 @@ void UARTExNumber::setup()
 
 void UARTExNumber::publish(const std::vector<uint8_t>& data)
 {
-    if (this->state_number_func_.has_value())
+    if (has_state_func("state_number"))
     {
-        optional<float> val = (*this->state_number_func_)(&data[0], data.size(), this->state);
+        optional<float> val = get_state_func("state_number", &data[0], data.size());
         if (val.has_value() && this->state != val.value())
         {
             this->state = val.value();
             publish_state(this->state);
         }
     }
-    else if (this->state_number_.has_value() && data.size() >= (this->state_number_.value().offset + this->state_number_.value().length))
+    else if (get_state_number())
     {
-        float val = state_to_float(data, this->state_number_.value());
+        float val = state_to_float(data, *get_state_number());
         if (this->state != val)
         {
             this->state = val;
@@ -44,15 +44,8 @@ void UARTExNumber::control(float value)
 {
     if (this->state == value) return;
     this->state = value;
-    if (this->command_number_func_.has_value()) enqueue_tx_cmd(get_command_number());
+    if (get_command_number()) enqueue_tx_cmd(get_command_number());
     publish_state(value);
-}
-
-cmd_t *UARTExNumber::get_command_number()
-{
-    if (this->command_number_func_.has_value())
-        this->command_number_ = (*this->command_number_func_)(this->state);
-    return &this->command_number_.value();
 }
 
 }  // namespace uartex

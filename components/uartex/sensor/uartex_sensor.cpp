@@ -14,14 +14,14 @@ void UARTExSensor::dump_config()
 
 void UARTExSensor::publish(const std::vector<uint8_t>& data) 
 {
-    if (this->f_.has_value())
+    if (has_state_func("state_template"))
     {
-        optional<float> val = (*this->f_)(&data[0], data.size());
+        optional<float> val = get_state_func("state_template", &data[0], data.size());
         if(val.has_value() && this->raw_state != val.value()) publish_state(val.value());
     }
-    else if(this->conf_state_num_.has_value() && data.size() >= (this->conf_state_num_.value().offset + this->conf_state_num_.value().length)) 
+    else if (get_state_num())
     {
-        float val = state_to_float(data, this->conf_state_num_.value());
+        float val = state_to_float(data, *get_state_num());
         if(this->raw_state != val) publish_state(val);
     }
 }

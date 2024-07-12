@@ -11,15 +11,13 @@ class UARTExSensor : public sensor::Sensor, public UARTExDevice
 {
 public:
     void dump_config() override;
-    void set_state_num(state_num_t state_num) { this->conf_state_num_ = state_num; }
-    void set_template(std::function<optional<float>(const uint8_t *data, const uint16_t len)> &&f) { this->f_ = f; }
+    void set_state_num(state_num_t state_num) { this->state_num_map_["state_num"] = state;   }
+    void set_template(std::function<optional<float>(const uint8_t *data, const uint16_t len, const float state)> f) { this->state_func_map_["state_template"] = f; }
 
 protected:
     void publish(const std::vector<uint8_t>& data) override;
-    
+    state_num_t* get_state_num() { return get_state_num("state_num"); }
 protected:
-    optional<std::function<optional<float>(const uint8_t *data, const uint16_t len)>> f_{};
-    optional<state_num_t> conf_state_num_{};
 };
 
 }  // namespace uartex

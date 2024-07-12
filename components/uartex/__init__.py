@@ -241,7 +241,7 @@ async def register_uartex_device(var, config):
         cg.add(var.set_command_off(command_off))
 
     if CONF_COMMAND_UPDATE in config:
-        command_update = command_hex_expression(config[CONF_COMMAND_UPDATE])
+        command_update = await command_expression(config[CONF_COMMAND_UPDATE])
         cg.add(var.set_command_update(command_update))
     
     if CONF_STATE_RESPONSE in config:

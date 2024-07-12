@@ -20,21 +20,21 @@ void UARTExValve::setup()
 void UARTExValve::publish(const std::vector<uint8_t>& data)
 {
     bool changed = false;
-    if (this->state_position_func_.has_value())
+    if (has_state_func("state_position"))
     {
-        optional<float> val = (*this->state_position_func_)(&data[0], data.size());
+        optional<float> val = get_state_func("state_position", &data[0], data.size());
         if (val.has_value() && this->position != (int)val.value())
         {
             this->position = (int)val.value();
             changed = true;
         }
     }
-    if (this->state_open_.has_value() && verify_state(data, &this->state_open_.value()))
+    if (get_state_open() && verify_state(data, get_state_open()))
     {
         this->position = valve::VALVE_OPEN;
         changed = true;
     }
-    else if (this->state_closed_.has_value() && verify_state(data, &this->state_closed_.value()))
+    else if (get_state_closed() && verify_state(data, get_state_closed()))
     {
         this->position = valve::VALVE_CLOSED;
         changed = true;
@@ -45,8 +45,8 @@ void UARTExValve::publish(const std::vector<uint8_t>& data)
 valve::ValveTraits UARTExValve::get_traits()
 {
     valve::ValveTraits traits{};
-    if (this->command_stop_.has_value()) traits.set_supports_stop(true);
-    if (this->state_position_func_.has_value()) traits.set_supports_position(true);
+    if (get_command_stop()) traits.set_supports_stop(true);
+    if (has_state_func("state_position")) traits.set_supports_position(true);
     //traits.set_is_assumed_state(true);
     return traits;
 }
@@ -55,7 +55,7 @@ void UARTExValve::control(const valve::ValveCall &call)
 {
     if (call.get_stop())
     {
-        if (this->command_stop_.has_value()) enqueue_tx_cmd(&this->command_stop_.value());
+        if (get_command_stop()) enqueue_tx_cmd(get_command_stop());
         publish_state();
     }
     if (this->position != *call.get_position())
@@ -63,11 +63,11 @@ void UARTExValve::control(const valve::ValveCall &call)
         this->position = *call.get_position();
         if (this->position >= valve::VALVE_OPEN)
         {
-            if (this->command_open_.has_value()) enqueue_tx_cmd(&this->command_open_.value());
+            if (get_command_open()) enqueue_tx_cmd(get_command_open());
         }
         else if (this->position <= valve::VALVE_CLOSED)
         {
-            if (this->command_close_.has_value()) enqueue_tx_cmd(&this->command_close_.value());
+            if (get_command_close()) enqueue_tx_cmd(get_command_close());
         }
         publish_state();
     }

@@ -11,20 +11,18 @@ class UARTExNumber : public number::Number, public UARTExDevice
 public:
     void dump_config() override;
     void setup() override;
-    void set_state_number(state_num_t state) { this->state_number_ = state; }
-    void set_state_number(std::function<optional<float>(const uint8_t *data, const uint16_t len, const float state)> f) { this->state_number_func_ = f; }
-    void set_command_number(std::function<cmd_t(const float x)> f) { this->command_number_func_ = f; }
+    void set_state_number(state_num_t state) { this->state_num_map_["state_number"] = state;  }
+    void set_state_number(std::function<optional<float>(const uint8_t *data, const uint16_t len, const float state)> f) { this->state_func_map_["state_number"] = f; }
+    void set_command_number(std::function<cmd_t(const float x)> f) { this->command_param_func_map_["command_number"] = f; }
 
 protected:
     void publish(const std::vector<uint8_t>& data) override;
     void control(float value) override;
-    cmd_t* get_command_number();
+    state_num_t* get_state_number() { return get_state_num("state_number"); }
+    cmd_t* get_command_number() { return get_command("command_number"); }
     
 protected:
-    optional<std::function<optional<float>(const uint8_t *data, const uint16_t len, const float state)>> state_number_func_{};
-    optional<std::function<cmd_t(const float x)>> command_number_func_{};
-    optional<state_num_t> state_number_{};
-    optional<cmd_t> command_number_{};
+
 };
 
 }  // namespace uartex

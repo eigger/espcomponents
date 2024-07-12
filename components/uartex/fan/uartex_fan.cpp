@@ -25,9 +25,9 @@ fan::FanTraits UARTExFan::get_traits()
 
 void UARTExFan::publish(const std::vector<uint8_t>& data)
 {
-    if (this->state_speed_func_.has_value())
+    if (has_state_func("state_speed"))
     {
-        optional<float> val = (*this->state_speed_func_)(&data[0], data.size());
+        optional<float> val = get_state_func("state_speed", &data[0], data.size());
         if (val.has_value() && this->speed != (int)val.value())
         {
             this->speed = (int)val.value();
@@ -69,17 +69,15 @@ void UARTExFan::control(const fan::FanCall &call)
         this->direction = *call.get_direction();
         changed_direction = true;
     }
-    if (this->command_on_.has_value() && this->state && changed_state) enqueue_tx_cmd(get_command_on());
-    if (this->command_speed_func_.has_value() && changed_speed) enqueue_tx_cmd(get_command_speed());
-    if (this->command_off_.has_value() && !this->state && changed_state) enqueue_tx_cmd(get_command_off());
+    if (get_command_on() && this->state && changed_state) enqueue_tx_cmd(get_command_on());
+    if (get_command_speed() && changed_speed) enqueue_tx_cmd(get_command_speed());
+    if (get_command_off() && !this->state && changed_state) enqueue_tx_cmd(get_command_off());
     publish_state();
 }
 
 cmd_t *UARTExFan::get_command_speed()
 {
-    if (this->command_speed_func_.has_value())
-        this->command_speed_ = (*this->command_speed_func_)((float)this->speed);
-    return &this->command_speed_.value();
+    return get_command("command_speed");
 }
 
 }  // namespace uartex
