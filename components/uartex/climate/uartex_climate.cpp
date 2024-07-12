@@ -298,14 +298,14 @@ void UARTExClimate::control(const climate::ClimateCall &call)
     if (call.get_fan_mode().has_value() && this->fan_mode != *call.get_fan_mode())
     {
         this->fan_mode = *call.get_fan_mode();
-        if (command_fan_mode_func_.find(this->fan_mode) != command_fan_mode_func_.end())
+        if (command_fan_mode_func_.find(this->fan_mode.value()) != command_fan_mode_func_.end())
         {
-            this->command_fan_mode_[this->fan_mode] = (this->command_fan_mode_func_[this->fan_mode])();
-            enqueue_tx_cmd(&this->command_fan_mode_[this->fan_mode]);
+            this->command_fan_mode_[this->fan_mode.value()] = (this->command_fan_mode_func_[this->fan_mode.value()])();
+            enqueue_tx_cmd(&this->command_fan_mode_[this->fan_mode.value()]);
         }
-        else if (command_fan_mode_.find(this->fan_mode) != command_fan_mode_.end())
+        else if (command_fan_mode_.find(this->fan_mode.value()) != command_fan_mode_.end())
         {
-            enqueue_tx_cmd(&this->command_fan_mode_[this->fan_mode]);
+            enqueue_tx_cmd(&this->command_fan_mode_[this->fan_mode.value()]);
         }
     }
 
@@ -313,14 +313,14 @@ void UARTExClimate::control(const climate::ClimateCall &call)
     if (call.get_preset().has_value() && this->preset != *call.get_preset())
     {
         this->preset = *call.get_preset();
-        if (command_preset_func_.find(this->preset) != command_preset_func_.end())
+        if (command_preset_func_.find(this->preset.value()) != command_preset_func_.end())
         {
-            this->command_preset_[this->preset] = (this->command_preset_func_[this->preset])();
-            enqueue_tx_cmd(&this->command_preset_[this->preset]);
+            this->command_preset_[this->preset.value()] = (this->command_preset_func_[this->preset.value()])();
+            enqueue_tx_cmd(&this->command_preset_[this->preset.value()]);
         }
-        else if (command_preset_.find(this->preset) != command_preset_.end())
+        else if (command_preset_.find(this->preset.value()) != command_preset_.end())
         {
-            enqueue_tx_cmd(&this->command_preset_[this->preset]);
+            enqueue_tx_cmd(&this->command_preset_[this->preset.value()]);
         }
     }
     publish_state();
