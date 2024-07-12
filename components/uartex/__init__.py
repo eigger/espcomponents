@@ -231,25 +231,11 @@ async def register_uartex_device(var, config):
         cg.add(var.set_state_off(state_off))
 
     if CONF_COMMAND_ON in config:
-        data = config[CONF_COMMAND_ON]
-        # if cg.is_template(data):
-        #     command_on = await cg.templatable(data, [], cmd_t)
-        #     cg.add(var.set_command_on(command_on))
-        # else:
-        #     command_on = command_hex_expression(config[CONF_COMMAND_ON])
-        #     cg.add(var.set_command_on(command_on))
-        command_on = await command_expression(data)
+        command_on = await command_expression(config[CONF_COMMAND_ON])
         cg.add(var.set_command_on(command_on))
 
     if CONF_COMMAND_OFF in config:
-        data = config[CONF_COMMAND_OFF]
-        # if cg.is_template(data):
-        #     command_off = await cg.templatable(data, [], cmd_t)
-        #     cg.add(var.set_command_off(command_off))
-        # else:
-        #     command_off = command_hex_expression(config[CONF_COMMAND_OFF])
-        #     cg.add(var.set_command_off(command_off))
-        command_off = await command_expression(data)
+        command_off = await command_expression(config[CONF_COMMAND_OFF])
         cg.add(var.set_command_off(command_off))
 
     if CONF_COMMAND_UPDATE in config:
