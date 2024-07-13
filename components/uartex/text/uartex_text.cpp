@@ -29,7 +29,7 @@ void UARTExText::control(const std::string &value)
 {
     if (this->state == value) return;
     this->state = value;
-    if (this->command_text_func_.has_value()) enqueue_tx_cmd(get_command_text());
+    enqueue_tx_cmd(get_command_text());
     publish_state(value);
 }
 

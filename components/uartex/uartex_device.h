@@ -49,7 +49,6 @@ public:
     state_t* get_state_on();
     state_t* get_state_off();
     state_t* get_state_response();
-    optional<float> get_state_func(std::string name, const uint8_t *data, const uint16_t len);
     cmd_t* get_command_on();
     cmd_t* get_command_off();
     cmd_t* get_command_update();
@@ -65,7 +64,7 @@ protected:
     virtual void publish(const bool state);
     cmd_t* get_command(std::string name, const float x = 0);
     state_t* get_state(std::string name);
-    state_num_t* get_state_num(std::string name);
+    optional<float> get_state_num(std::string name, const std::vector<uint8_t>& data);
     
 protected:
 

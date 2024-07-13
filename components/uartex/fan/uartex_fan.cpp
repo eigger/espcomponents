@@ -25,14 +25,11 @@ fan::FanTraits UARTExFan::get_traits()
 
 void UARTExFan::publish(const std::vector<uint8_t>& data)
 {
-    if (has_state_func("state_speed"))
+    optional<float> val = get_state_num("state_speed", data);
+    if (val.has_value() && this->speed != (int)val.value())
     {
-        optional<float> val = get_state_func("state_speed", &data[0], data.size());
-        if (val.has_value() && this->speed != (int)val.value())
-        {
-            this->speed = (int)val.value();
-            publish_state();
-        }
+        this->speed = (int)val.value();
+        publish_state();
     }
 }
 
@@ -69,9 +66,9 @@ void UARTExFan::control(const fan::FanCall &call)
         this->direction = *call.get_direction();
         changed_direction = true;
     }
-    if (get_command_on() && this->state && changed_state) enqueue_tx_cmd(get_command_on());
-    if (get_command_speed(this->speed) && changed_speed) enqueue_tx_cmd(get_command_speed(this->speed));
-    if (get_command_off() && !this->state && changed_state) enqueue_tx_cmd(get_command_off());
+    if (this->state && changed_state) enqueue_tx_cmd(get_command_on());
+    if (changed_speed) enqueue_tx_cmd(get_command_speed(this->speed));
+    if (!this->state && changed_state) enqueue_tx_cmd(get_command_off());
     publish_state();
 }
 

@@ -14,7 +14,6 @@ public:
 
 protected:
     void publish(const std::vector<uint8_t>& data) override;
-    state_num_t* get_state_number() { return get_state_num("state_number"); }
 protected:
 };
 

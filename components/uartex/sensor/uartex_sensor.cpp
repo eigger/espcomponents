@@ -14,16 +14,8 @@ void UARTExSensor::dump_config()
 
 void UARTExSensor::publish(const std::vector<uint8_t>& data) 
 {
-    if (has_state_func("lambda"))
-    {
-        optional<float> val = get_state_func("lambda", &data[0], data.size());
-        if(val.has_value() && this->raw_state != val.value()) publish_state(val.value());
-    }
-    else if (get_state_number())
-    {
-        float val = state_to_float(data, *get_state_number());
-        if(this->raw_state != val) publish_state(val);
-    }
+    optional<float> val = get_state_num("", data);
+    if(val.has_value() && this->raw_state != val.value()) publish_state(val.value());
 }
 
 }  // namespace uartex

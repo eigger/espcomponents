@@ -10,7 +10,6 @@ static const char *TAG = "uartex";
 
 void UARTExDevice::update()
 {
-    if (get_command_update() == nullptr) return;
     enqueue_tx_cmd(get_command_update(), true);
 }
 
@@ -56,11 +55,6 @@ state_t* UARTExDevice::get_state_off()
 state_t* UARTExDevice::get_state_response()
 {
     return get_state("state_response");
-}
-
-optional<float> UARTExDevice::get_state_func(std::string name, const uint8_t *data, const uint16_t len)
-{
-    return (this->state_func_map_[name])(data, len);
 }
 
 cmd_t *UARTExDevice::get_command_on()
@@ -112,13 +106,31 @@ state_t* UARTExDevice::get_state(std::string name)
     return nullptr;
 }
 
-state_num_t* UARTExDevice::get_state_num(std::string name)
+optional<float> UARTExDevice::get_state_num(std::string name, const std::vector<uint8_t>& data)
 {
-    if (this->state_num_map_.find(name) != this->state_num_map_.end())
+    if (name.empty())
     {
-        return &this->state_num_map_[name];
+        if (!this->state_func_map_.empty())
+        {
+            return (this->state_func_map_.begin()->second)(&data[0], data.size());
+        }
+        else if (!this->state_num_map_.empty())
+        {
+            return state_to_float(data, this->state_num_map_.begin()->second);
+        }
     }
-    return nullptr;
+    else
+    {
+        if (this->state_func_map_.find(name) != this->state_func_map_.end())
+        {
+            return (this->state_func_map_[name])(&data[0], data.size());
+        }
+        else if (this->state_num_map_.find(name) != this->state_num_map_.end())
+        {
+            return state_to_float(data, this->state_num_map_[name]);
+        }
+    }
+    return optional<float>();
 }
 
 const cmd_t *UARTExDevice::dequeue_tx_cmd()

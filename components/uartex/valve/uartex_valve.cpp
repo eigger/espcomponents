@@ -20,14 +20,11 @@ void UARTExValve::setup()
 void UARTExValve::publish(const std::vector<uint8_t>& data)
 {
     bool changed = false;
-    if (has_state_func("state_position"))
+    optional<float> val = get_state_num("state_position", data);
+    if (val.has_value() && this->position != (int)val.value())
     {
-        optional<float> val = get_state_func("state_position", &data[0], data.size());
-        if (val.has_value() && this->position != (int)val.value())
-        {
-            this->position = (int)val.value();
-            changed = true;
-        }
+        this->position = (int)val.value();
+        changed = true;
     }
     if (get_state_open() && verify_state(data, get_state_open()))
     {
@@ -55,7 +52,7 @@ void UARTExValve::control(const valve::ValveCall &call)
 {
     if (call.get_stop())
     {
-        if (get_command_stop()) enqueue_tx_cmd(get_command_stop());
+        enqueue_tx_cmd(get_command_stop());
         publish_state();
     }
     if (this->position != *call.get_position())
@@ -63,11 +60,11 @@ void UARTExValve::control(const valve::ValveCall &call)
         this->position = *call.get_position();
         if (this->position >= valve::VALVE_OPEN)
         {
-            if (get_command_open()) enqueue_tx_cmd(get_command_open());
+            enqueue_tx_cmd(get_command_open());
         }
         else if (this->position <= valve::VALVE_CLOSED)
         {
-            if (get_command_close()) enqueue_tx_cmd(get_command_close());
+            enqueue_tx_cmd(get_command_close());
         }
         publish_state();
     }
