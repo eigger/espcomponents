@@ -26,12 +26,12 @@ void UARTExValve::publish(const std::vector<uint8_t>& data)
         this->position = (int)val.value();
         changed = true;
     }
-    if (get_state_open() && verify_state(data, get_state_open()))
+    if (verify_state(data, get_state_open()))
     {
         this->position = valve::VALVE_OPEN;
         changed = true;
     }
-    else if (get_state_closed() && verify_state(data, get_state_closed()))
+    else if (verify_state(data, get_state_closed()))
     {
         this->position = valve::VALVE_CLOSED;
         changed = true;

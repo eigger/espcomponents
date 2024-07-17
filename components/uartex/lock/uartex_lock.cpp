@@ -50,27 +50,27 @@ void UARTExLock::loop()
 void UARTExLock::publish(const std::vector<uint8_t>& data)
 {
     bool changed = false;
-    if (get_state_locked() && verify_state(data, get_state_locked()))
+    if (verify_state(data, get_state_locked()))
     {
         this->state = lock::LOCK_STATE_LOCKED;
         changed = true;
     }
-    else if (get_state_unlocked() && verify_state(data, get_state_unlocked()))
+    else if (verify_state(data, get_state_unlocked()))
     {
         this->state = lock::LOCK_STATE_UNLOCKED;
         changed = true;
     }
-    else if (get_state_jammed() && verify_state(data, get_state_jammed()))
+    else if (verify_state(data, get_state_jammed()))
     {
         this->state = lock::LOCK_STATE_JAMMED;
         changed = true;
     }
-    else if (get_state_locking() && verify_state(data, get_state_locking()))
+    else if (verify_state(data, get_state_locking()))
     {
         this->state = lock::LOCK_STATE_LOCKING;
         changed = true;
     }
-    else if (get_state_unlocking() && verify_state(data, get_state_unlocking()))
+    else if (verify_state(data, get_state_unlocking()))
     {
         this->state = lock::LOCK_STATE_UNLOCKING;
         changed = true;

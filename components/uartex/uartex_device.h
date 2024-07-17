@@ -41,6 +41,7 @@ public:
     void set_state(std::string name, state_t state) { this->state_map_[name] = state; }
     void set_state(std::string name, state_num_t state) { this->state_num_map_[name] = state; }
     void set_state(std::string name, std::function<optional<float>(const uint8_t *data, const uint16_t len)> f) { this->state_func_map_[name] = f; }
+    void set_state(std::string name, std::function<optional<const char*>(const uint8_t *data, const uint16_t len)> f) { this->state_str_func_map_[name] = f; }
     void set_command(std::string name, cmd_t cmd) { this->command_map_[name] = cmd; }
     void set_command(std::string name, std::function<cmd_t(const float x)> f) { this->command_param_func_map_[name] = f; }
     void set_command(std::string name, std::function<cmd_t()> f) { this->command_func_map_[name] = f; }
@@ -71,6 +72,7 @@ protected:
     std::unordered_map<std::string, state_t> state_map_{};
     std::unordered_map<std::string, state_num_t> state_num_map_{};
     std::unordered_map<std::string, std::function<optional<float>(const uint8_t *data, const uint16_t len)>> state_func_map_{};
+    std::unordered_map<std::string, std::function<optional<const char*>(const uint8_t *data, const uint16_t len)>> state_str_func_map_{};
     std::unordered_map<std::string, std::function<cmd_t(const float x)>> command_param_func_map_{};
     std::unordered_map<std::string, std::function<cmd_t()>> command_func_map_{};
     std::unordered_map<std::string, cmd_t> command_map_{};
