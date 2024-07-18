@@ -45,9 +45,7 @@ text_sensor:
 sensor:
   - platform: uptime
     name: "${node_name} Uptime"
-    filters:
-      - lambda: return x / 3600;
-    unit_of_measurement: "h"
+    type: timestamp
 
   - platform: wifi_signal
     name: "${node_name} WiFi signal"
