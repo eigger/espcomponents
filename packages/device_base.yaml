@@ -42,6 +42,9 @@ text_sensor:
 #      name: "${node_name} BSSID"
 #      icon: mdi:router-wireless
 
+time:
+  - platform: sntp
+
 sensor:
   - platform: uptime
     name: "${node_name} Uptime"
