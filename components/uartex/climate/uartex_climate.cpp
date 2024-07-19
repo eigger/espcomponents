@@ -15,51 +15,50 @@ void UARTExClimate::dump_config()
 climate::ClimateTraits UARTExClimate::traits()
 {
     auto traits = climate::ClimateTraits();
-    if (this->sensor_ != nullptr || this->state_current_temperature_func_.has_value() || this->state_current_temperature_.has_value())
+    if (this->sensor_ != nullptr || has_state_func("state_current_temperature"))
     {
         traits.set_supports_current_temperature(true);
     }
-    if (this->state_current_humidity_func_.has_value() || this->state_current_humidity_.has_value())
+    if (has_state_func("state_current_humidity"))
     {
         traits.set_supports_current_humidity(true);
     }
-    if (this->state_target_humidity_func_.has_value() || this->state_target_humidity_.has_value() || this->command_humidity_func_ != nullptr)
+    if (has_state_func("state_target_humidity") || get_command_humidity(0))
     {
         traits.set_supports_target_humidity(true);
     }
 
-    for (uint8_t mode = climate::CLIMATE_MODE_COOL; mode <= climate::CLIMATE_MODE_AUTO; mode++)
-    {
-        bool add = false;
-        if (command_mode_.find((climate::ClimateMode)mode) != command_mode_.end()) add = true;
-        else if (state_mode_.find((climate::ClimateMode)mode) != state_mode_.end()) add = true;
-        else if (command_mode_func_.find((climate::ClimateMode)mode) != command_mode_func_.end()) add = true;
-        if (add) traits.add_supported_mode((climate::ClimateMode)mode);
-    }
-    for (uint8_t mode = climate::CLIMATE_SWING_OFF; mode <= climate::CLIMATE_SWING_HORIZONTAL; mode++)
-    {
-        bool add = false;
-        if (command_swing_mode_.find((climate::ClimateSwingMode)mode) != command_swing_mode_.end()) add = true;
-        else if (state_swing_mode_.find((climate::ClimateSwingMode)mode) != state_swing_mode_.end()) add = true;
-        else if (command_swing_mode_func_.find((climate::ClimateSwingMode)mode) != command_swing_mode_func_.end()) add = true;
-        if (add) traits.add_supported_swing_mode((climate::ClimateSwingMode)mode);
-    }
-    for (uint8_t mode = climate::CLIMATE_FAN_ON; mode <= climate::CLIMATE_FAN_QUIET; mode++)
-    {
-        bool add = false;
-        if (command_fan_mode_.find((climate::ClimateFanMode)mode) != command_fan_mode_.end()) add = true;
-        else if (state_fan_mode_.find((climate::ClimateFanMode)mode) != state_fan_mode_.end()) add = true;
-        else if (command_fan_mode_func_.find((climate::ClimateFanMode)mode) != command_fan_mode_func_.end()) add = true;
-        if (add) traits.add_supported_fan_mode((climate::ClimateFanMode)mode);
-    }
-    for (uint8_t preset = climate::CLIMATE_PRESET_NONE; preset <= climate::CLIMATE_PRESET_ACTIVITY; preset++)
-    {
-        bool add = false;
-        if (command_preset_.find((climate::ClimatePreset)preset) != command_preset_.end()) add = true;
-        else if (state_preset_.find((climate::ClimatePreset)preset) != state_preset_.end()) add = true;
-        else if (command_preset_func_.find((climate::ClimatePreset)preset) != command_preset_func_.end()) add = true;
-        if (add) traits.add_supported_preset((climate::ClimatePreset)preset);
-    }
+    if (get_command_cool() || get_state_cool()) traits.add_supported_mode(climate::CLIMATE_MODE_COOL);
+    if (get_command_heat() || get_state_heat()) traits.add_supported_mode(climate::CLIMATE_MODE_HEAT);
+    if (get_command_fan_only() || get_state_fan_only()) traits.add_supported_mode(climate::CLIMATE_MODE_FAN_ONLY);
+    if (get_command_dry() || get_state_dry()) traits.add_supported_mode(climate::CLIMATE_MODE_DRY);
+    if (get_command_auto() || get_state_auto()) traits.add_supported_mode(climate::CLIMATE_MODE_AUTO);
+
+    if (get_command_swing_off() || get_state_swing_off()) traits.add_supported_swing_mode(climate::CLIMATE_SWING_OFF);
+    if (get_command_swing_both() || get_state_swing_both()) traits.add_supported_swing_mode(climate::CLIMATE_SWING_BOTH);
+    if (get_command_swing_vertical() || get_state_swing_vertical()) traits.add_supported_swing_mode(climate::CLIMATE_SWING_VERTICAL);
+    if (get_command_swing_horizontal() || get_state_swing_horizontal()) traits.add_supported_swing_mode(climate::CLIMATE_SWING_HORIZONTAL);
+
+    if (get_command_fan_on() || get_state_fan_on()) traits.add_supported_fan_mode(climate::CLIMATE_FAN_ON);
+    if (get_command_fan_off() || get_state_fan_off()) traits.add_supported_fan_mode(climate::CLIMATE_FAN_OFF);
+    if (get_command_fan_auto() || get_state_fan_auto()) traits.add_supported_fan_mode(climate::CLIMATE_FAN_AUTO);
+    if (get_command_fan_low() || get_state_fan_low()) traits.add_supported_fan_mode(climate::CLIMATE_FAN_LOW);
+    if (get_command_fan_medium() || get_state_fan_medium()) traits.add_supported_fan_mode(climate::CLIMATE_FAN_MEDIUM);
+    if (get_command_fan_high() || get_state_fan_high()) traits.add_supported_fan_mode(climate::CLIMATE_FAN_HIGH);
+    if (get_command_fan_middle() || get_state_fan_middle()) traits.add_supported_fan_mode(climate::CLIMATE_FAN_MIDDLE);
+    if (get_command_fan_focus() || get_state_fan_focus()) traits.add_supported_fan_mode(climate::CLIMATE_FAN_FOCUS);
+    if (get_command_fan_diffuse() || get_state_fan_diffuse()) traits.add_supported_fan_mode(climate::CLIMATE_FAN_DIFFUSE);
+    if (get_command_fan_quiet() || get_state_fan_quiet()) traits.add_supported_fan_mode(climate::CLIMATE_FAN_QUIET);
+
+    if (get_command_preset_none() || get_state_preset_none()) traits.add_supported_preset(climate::CLIMATE_PRESET_NONE);
+    if (get_command_preset_home() || get_state_preset_home()) traits.add_supported_preset(climate::CLIMATE_PRESET_HOME);
+    if (get_command_preset_away() || get_state_preset_away()) traits.add_supported_preset(climate::CLIMATE_PRESET_AWAY);
+    if (get_command_preset_boost() || get_state_preset_boost()) traits.add_supported_preset(climate::CLIMATE_PRESET_BOOST);
+    if (get_command_preset_comfort() || get_state_preset_comfort()) traits.add_supported_preset(climate::CLIMATE_PRESET_COMFORT);
+    if (get_command_preset_eco() || get_state_preset_eco()) traits.add_supported_preset(climate::CLIMATE_PRESET_ECO);
+    if (get_command_preset_sleep() || get_state_preset_sleep()) traits.add_supported_preset(climate::CLIMATE_PRESET_SLEEP);
+    if (get_command_preset_activity() || get_state_preset_activity()) traits.add_supported_preset(climate::CLIMATE_PRESET_ACTIVITY);
+
     traits.set_supports_two_point_target_temperature(false);
     return traits;
 }
