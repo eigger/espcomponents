@@ -15,15 +15,15 @@ void UARTExClimate::dump_config()
 climate::ClimateTraits UARTExClimate::traits()
 {
     auto traits = climate::ClimateTraits();
-    if (this->sensor_ != nullptr || has_state_func("state_current_temperature"))
+    if (this->sensor_ != nullptr || has_state_func("state_temperature_current"))
     {
         traits.set_supports_current_temperature(true);
     }
-    if (has_state_func("state_current_humidity"))
+    if (has_state_func("state_humidity_current"))
     {
         traits.set_supports_current_humidity(true);
     }
-    if (has_state_func("state_target_humidity") || get_command_humidity(0))
+    if (has_state_func("state_humidity_target") || get_command_humidity(0))
     {
         traits.set_supports_target_humidity(true);
     }
@@ -234,7 +234,7 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
     // Current temperature
     if (this->sensor_ == nullptr)
     {
-        optional<float> val = get_state_num("state_current_temperature", data);
+        optional<float> val = get_state_num("state_temperature_current", data);
         if (val.has_value() && this->current_temperature != val.value())
         {
             this->current_temperature = val.value();
@@ -244,7 +244,7 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
 
     // Target temperature
     {
-        optional<float> val = get_state_num("state_target_temperature", data);
+        optional<float> val = get_state_num("state_temperature_target", data);
         if (val.has_value() && this->target_temperature != val.value())
         {
             this->target_temperature = val.value();
@@ -255,7 +255,7 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
 
     // Current humidity
     {
-        optional<float> val = get_state_num("state_current_humidity", data);
+        optional<float> val = get_state_num("state_humidity_current", data);
         if (val.has_value() && this->current_humidity != val.value())
         {
             this->current_humidity = val.value();
@@ -266,7 +266,7 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
 
     // Target humidity
     {
-        optional<float> val = get_state_num("state_target_humidity", data);
+        optional<float> val = get_state_num("state_humidity_target", data);
         if (val.has_value() && this->target_humidity != val.value())
         {
             this->target_humidity = val.value();
