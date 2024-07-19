@@ -90,141 +90,181 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
         this->mode = climate::CLIMATE_MODE_OFF;
         changed = true;
     }
-    else
+    else if (verify_state(data, get_state_cool()))
     {
-        for(const auto& state : this->state_mode_)
-        {
-            if (verify_state(data, &state.second.value()))
-            {
-                if (this->mode != state.first)
-                {
-                    this->mode = state.first;
-                    changed = true;
-                }
-            }
-        }
+        this->mode = climate::CLIMATE_MODE_COOL;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_heat()))
+    {
+        this->mode = climate::CLIMATE_MODE_HEAT;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_fan_only()))
+    {
+        this->mode = climate::CLIMATE_MODE_FAN_ONLY;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_dry()))
+    {
+        this->mode = climate::CLIMATE_MODE_DRY;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_auto()))
+    {
+        this->mode = climate::CLIMATE_MODE_AUTO;
+        changed = true;
     }
 
     //Swing Mode
-    for(const auto& state : this->state_swing_mode_)
+    if (verify_state(data, get_state_swing_off()))
     {
-        if (verify_state(data, &state.second.value()))
-        {
-            if (this->swing_mode != state.first)
-            {
-                this->swing_mode = state.first;
-                changed = true;
-            }
-        }
+        this->swing_mode = climate::CLIMATE_SWING_OFF;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_swing_both()))
+    {
+        this->swing_mode = climate::CLIMATE_SWING_BOTH;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_swing_vertical()))
+    {
+        this->swing_mode = climate::CLIMATE_SWING_VERTICAL;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_swing_horizontal()))
+    {
+        this->swing_mode = climate::CLIMATE_SWING_HORIZONTAL;
+        changed = true;
     }
 
     //Fan Mode
-    for(const auto& state : this->state_fan_mode_)
+    if (verify_state(data, get_state_fan_on()))
     {
-        if (verify_state(data, &state.second.value()))
-        {
-            if (this->fan_mode != state.first)
-            {
-                this->fan_mode = state.first;
-                changed = true;
-            }
-        }
+        this->fan_mode = climate::CLIMATE_FAN_ON;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_fan_off()))
+    {
+        this->fan_mode = climate::CLIMATE_FAN_OFF;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_fan_auto()))
+    {
+        this->fan_mode = climate::CLIMATE_FAN_AUTO;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_fan_low()))
+    {
+        this->fan_mode = climate::CLIMATE_FAN_LOW;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_fan_medium()))
+    {
+        this->fan_mode = climate::CLIMATE_FAN_MEDIUM;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_fan_high()))
+    {
+        this->fan_mode = climate::CLIMATE_FAN_HIGH;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_fan_middle()))
+    {
+        this->fan_mode = climate::CLIMATE_FAN_MIDDLE;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_fan_focus()))
+    {
+        this->fan_mode = climate::CLIMATE_FAN_FOCUS;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_fan_diffuse()))
+    {
+        this->fan_mode = climate::CLIMATE_FAN_DIFFUSE;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_fan_on()))
+    {
+        this->fan_mode = climate::CLIMATE_FAN_QUIET;
+        changed = true;
     }
 
     //Preset
-    for(const auto& state : this->state_preset_)
+    if (verify_state(data, get_state_preset_none()))
     {
-        if (verify_state(data, &state.second.value()))
-        {
-            if (this->preset != state.first)
-            {
-                this->preset = state.first;
-                changed = true;
-            }
-        }
+        this->preset = climate::CLIMATE_PRESET_NONE;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_preset_home()))
+    {
+        this->preset = climate::CLIMATE_PRESET_HOME;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_preset_away()))
+    {
+        this->preset = climate::CLIMATE_PRESET_AWAY;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_preset_boost()))
+    {
+        this->preset = climate::CLIMATE_PRESET_BOOST;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_preset_comfort()))
+    {
+        this->preset = climate::CLIMATE_PRESET_COMFORT;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_preset_eco()))
+    {
+        this->preset = climate::CLIMATE_PRESET_ECO;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_preset_sleep()))
+    {
+        this->preset = climate::CLIMATE_PRESET_SLEEP;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_preset_activity()))
+    {
+        this->preset = climate::CLIMATE_PRESET_ACTIVITY;
+        changed = true;
     }
     
     // Current temperature
     if (this->sensor_ == nullptr)
     {
-        if (this->state_current_temperature_func_.has_value())
+        optional<float> val = get_state_num("state_current_temperature", data);
+        if (val.has_value() && this->current_temperature != val.value())
         {
-            optional<float> val = (*this->state_current_temperature_func_)(&data[0], data.size());
-            if (val.has_value() && this->current_temperature != val.value())
-            {
-                this->current_temperature = val.value();
-                changed = true;
-            }
-        }
-        else if (this->state_current_temperature_.has_value() && data.size() >= (this->state_current_temperature_.value().offset + this->state_current_temperature_.value().length))
-        {
-            float val = state_to_float(data, this->state_current_temperature_.value());
-            if (this->current_temperature != val)
-            {
-                this->current_temperature = val;
-                changed = true;
-            }
+            this->current_temperature = val.value();
+            changed = true;
         }
     }
 
     // Target temperature
-    if (this->state_target_temperature_func_.has_value())
+    optional<float> val = get_state_num("state_target_temperature", data);
+    if (val.has_value() && this->target_temperature != val.value())
     {
-        optional<float> val = (*this->state_target_temperature_func_)(&data[0], data.size());
-        if (val.has_value() && this->target_temperature != val.value())
-        {
-            this->target_temperature = val.value();
-            changed = true;
-        }
-    }
-    else if (this->state_target_temperature_.has_value() && data.size() >= (this->state_target_temperature_.value().offset + this->state_target_temperature_.value().length))
-    {
-        float val = state_to_float(data, this->state_target_temperature_.value());
-        if (this->target_temperature != val)
-        {
-            this->target_temperature = val;
-            changed = true;
-        }
+        this->target_temperature = val.value();
+        changed = true;
     }
 
     // Current humidity
-    if (this->state_current_humidity_func_.has_value())
+    optional<float> val = get_state_num("state_current_humidity", data);
+    if (val.has_value() && this->current_humidity != val.value())
     {
-        optional<float> val = (*this->state_current_humidity_func_)(&data[0], data.size());
-        if (val.has_value() && this->current_humidity != val.value())
-        {
-            this->current_humidity = val.value();
-            changed = true;
-        }
-    }
-    else if (this->state_current_humidity_.has_value() && data.size() >= (this->state_current_humidity_.value().offset + this->state_current_humidity_.value().length))
-    {
-        float val = state_to_float(data, this->state_current_humidity_.value());
-        if (this->current_humidity != val)
-        {
-            this->current_humidity = val;
-            changed = true;
-        }
+        this->current_humidity = val.value();
+        changed = true;
     }
 
     // Target humidity
-    if (this->state_target_humidity_func_.has_value())
+    optional<float> val = get_state_num("state_target_humidity", data);
+    if (val.has_value() && this->target_humidity != val.value())
     {
-        optional<float> val = (*this->state_target_humidity_func_)(&data[0], data.size());
-        if (val.has_value() && this->target_humidity != val.value())
-        {
-            this->target_humidity = val.value();
-            changed = true;
-        }
-    }
-    else if (this->state_target_humidity_.has_value() && data.size() >= (this->state_target_humidity_.value().offset + this->state_target_humidity_.value().length))
-    {
-        float val = state_to_float(data, this->state_target_humidity_.value());
-        if (this->target_humidity != val)
-        {
-            this->target_humidity = val;
-            changed = true;
-        }
+        this->target_humidity = val.value();
+        changed = true;
     }
 
     if (changed) publish_state();
@@ -236,89 +276,66 @@ void UARTExClimate::control(const climate::ClimateCall &call)
     if (call.get_mode().has_value() && this->mode != *call.get_mode())
     {
         this->mode = *call.get_mode();
-        if (this->mode == climate::CLIMATE_MODE_OFF)
-        {
-            enqueue_tx_cmd(get_command_off());
-        }
-        else
-        {
-            if (command_mode_func_.find(this->mode) != command_mode_func_.end())
-            {
-                this->command_mode_[this->mode] = (this->command_mode_func_[this->mode])();
-                enqueue_tx_cmd(&this->command_mode_[this->mode]);
-            }
-            else if (command_mode_.find(this->mode) != command_mode_.end())
-            {
-                enqueue_tx_cmd(&this->command_mode_[this->mode]);
-            }
-        }
+        if (this->mode == climate::CLIMATE_MODE_OFF) enqueue_tx_cmd(get_command_off());
+        else if (this->mode == climate::CLIMATE_MODE_COOL) enqueue_tx_cmd(get_command_cool());
+        else if (this->mode == climate::CLIMATE_MODE_HEAT) enqueue_tx_cmd(get_command_heat());
+        else if (this->mode == climate::CLIMATE_MODE_FAN_ONLY) enqueue_tx_cmd(get_command_fan_only());
+        else if (this->mode == climate::CLIMATE_MODE_DRY) enqueue_tx_cmd(get_command_dry());
+        else if (this->mode == climate::CLIMATE_MODE_AUTO) enqueue_tx_cmd(get_command_auto());
     }
 
     // Set target temperature
     if (call.get_target_temperature().has_value() && this->target_temperature != *call.get_target_temperature())
     {
         this->target_temperature = *call.get_target_temperature();
-        if (this->command_temperature_func_ != nullptr)
-        {
-            this->command_temperature_ = (this->command_temperature_func_)(this->target_temperature);
-            enqueue_tx_cmd(&this->command_temperature_);
-        }
+        enqueue_tx_cmd(get_command_temperature(this->target_temperature));
     }
 
     // Set target humidity
     if (call.get_target_humidity().has_value() && this->target_humidity != *call.get_target_humidity())
     {
         this->target_humidity = *call.get_target_humidity();
-        if (this->command_humidity_func_ != nullptr)
-        {
-            this->command_humidity_ = (this->command_humidity_func_)(this->target_humidity);
-            enqueue_tx_cmd(&this->command_humidity_);
-        }
+        enqueue_tx_cmd(get_command_humidity(this->target_humidity));
     }
 
     // Set swing mode
     if (call.get_swing_mode().has_value() && this->swing_mode != *call.get_swing_mode())
     {
         this->swing_mode = *call.get_swing_mode();
-        if (command_swing_mode_func_.find(this->swing_mode) != command_swing_mode_func_.end())
-        {
-            this->command_swing_mode_[this->swing_mode] = (this->command_swing_mode_func_[this->swing_mode])();
-            enqueue_tx_cmd(&this->command_swing_mode_[this->swing_mode]);
-        }
-        else if (command_swing_mode_.find(this->swing_mode) != command_swing_mode_.end())
-        {
-            enqueue_tx_cmd(&this->command_swing_mode_[this->swing_mode]);
-        }
+        if (this->swing_mode == climate::CLIMATE_SWING_OFF) enqueue_tx_cmd(get_command_swing_off());
+        else if (this->swing_mode == climate::CLIMATE_SWING_BOTH) enqueue_tx_cmd(get_command_swing_both());
+        else if (this->swing_mode == climate::CLIMATE_SWING_VERTICAL) enqueue_tx_cmd(get_command_swing_vertical());
+        else if (this->swing_mode == climate::CLIMATE_SWING_HORIZONTAL) enqueue_tx_cmd(get_command_swing_horizontal());
     }
 
     // Set fan mode
     if (call.get_fan_mode().has_value() && this->fan_mode != *call.get_fan_mode())
     {
         this->fan_mode = *call.get_fan_mode();
-        if (command_fan_mode_func_.find(this->fan_mode.value()) != command_fan_mode_func_.end())
-        {
-            this->command_fan_mode_[this->fan_mode.value()] = (this->command_fan_mode_func_[this->fan_mode.value()])();
-            enqueue_tx_cmd(&this->command_fan_mode_[this->fan_mode.value()]);
-        }
-        else if (command_fan_mode_.find(this->fan_mode.value()) != command_fan_mode_.end())
-        {
-            enqueue_tx_cmd(&this->command_fan_mode_[this->fan_mode.value()]);
-        }
+        if (this->fan_mode.value() == climate::CLIMATE_FAN_ON) enqueue_tx_cmd(get_command_fan_on());
+        else if (this->fan_mode.value() == climate::CLIMATE_FAN_OFF) enqueue_tx_cmd(get_command_fan_off());
+        else if (this->fan_mode.value() == climate::CLIMATE_FAN_AUTO) enqueue_tx_cmd(get_command_fan_auto());
+        else if (this->fan_mode.value() == climate::CLIMATE_FAN_LOW) enqueue_tx_cmd(get_command_fan_low());
+        else if (this->fan_mode.value() == climate::CLIMATE_FAN_MEDIUM) enqueue_tx_cmd(get_command_fan_medium());
+        else if (this->fan_mode.value() == climate::CLIMATE_FAN_HIGH) enqueue_tx_cmd(get_command_fan_high());
+        else if (this->fan_mode.value() == climate::CLIMATE_FAN_MIDDLE) enqueue_tx_cmd(get_command_fan_middle());
+        else if (this->fan_mode.value() == climate::CLIMATE_FAN_FOCUS) enqueue_tx_cmd(get_command_fan_focus());
+        else if (this->fan_mode.value() == climate::CLIMATE_FAN_DIFFUSE) enqueue_tx_cmd(get_command_fan_diffuse());
+        else if (this->fan_mode.value() == climate::CLIMATE_FAN_QUIET) enqueue_tx_cmd(get_command_fan_quiet());
     }
 
     // Set preset
     if (call.get_preset().has_value() && this->preset != *call.get_preset())
     {
         this->preset = *call.get_preset();
-        if (command_preset_func_.find(this->preset.value()) != command_preset_func_.end())
-        {
-            this->command_preset_[this->preset.value()] = (this->command_preset_func_[this->preset.value()])();
-            enqueue_tx_cmd(&this->command_preset_[this->preset.value()]);
-        }
-        else if (command_preset_.find(this->preset.value()) != command_preset_.end())
-        {
-            enqueue_tx_cmd(&this->command_preset_[this->preset.value()]);
-        }
+        if (this->preset.value() == climate::CLIMATE_PRESET_NONE) enqueue_tx_cmd(get_command_preset_none());
+        else if (this->preset.value() == climate::CLIMATE_PRESET_HOME) enqueue_tx_cmd(get_command_preset_home());
+        else if (this->preset.value() == climate::CLIMATE_PRESET_AWAY) enqueue_tx_cmd(get_command_preset_away());
+        else if (this->preset.value() == climate::CLIMATE_PRESET_BOOST) enqueue_tx_cmd(get_command_preset_boost());
+        else if (this->preset.value() == climate::CLIMATE_PRESET_COMFORT) enqueue_tx_cmd(get_command_preset_comfort());
+        else if (this->preset.value() == climate::CLIMATE_PRESET_ECO) enqueue_tx_cmd(get_command_preset_eco());
+        else if (this->preset.value() == climate::CLIMATE_PRESET_SLEEP) enqueue_tx_cmd(get_command_preset_sleep());
+        else if (this->preset.value() == climate::CLIMATE_PRESET_ACTIVITY) enqueue_tx_cmd(get_command_preset_activity());
     }
     publish_state();
 }

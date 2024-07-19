@@ -2,8 +2,8 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome import automation
 from esphome.components import text, uartex
-from esphome.const import CONF_ID
-from .. import uartex_ns, cmd_t, \
+from esphome.const import CONF_ID, CONF_LAMBDA
+from .. import uartex_ns, cmd_t, uint8_ptr_const, uint16_const, \
     _uartex_declare_type
 from ..const import CONF_COMMAND_TEXT, CONF_UARTEX_ID
 
@@ -23,6 +23,5 @@ async def to_code(config):
     await uartex.register_uartex_device(var, config)
     
     templ = await cg.templatable(config[CONF_COMMAND_TEXT], [(cg.std_string.operator('const'), 'str')], cmd_t)
-    cg.add(var.set_command_text(templ))
-
+    cg.add(var.set_command(CONF_COMMAND_TEXT, templ))
     

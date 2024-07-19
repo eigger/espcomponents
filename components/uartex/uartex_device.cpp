@@ -80,14 +80,19 @@ bool UARTExDevice::has_state_func(std::string name)
 
 cmd_t* UARTExDevice::get_command(std::string name, const float x)
 {
-    if (this->command_param_func_map_.find(name) != this->command_param_func_map_.end())
+    if (this->command_float_func_map_.find(name) != this->command_float_func_map_.end())
     {
-        this->command_map_[name] = (this->command_param_func_map_[name])(x);
+        this->command_map_[name] = (this->command_float_func_map_[name])(x);
         return &this->command_map_[name];
     }
     else if (this->command_func_map_.find(name) != this->command_func_map_.end())
     {
         this->command_map_[name] = (this->command_func_map_[name])();
+        return &this->command_map_[name];
+    }
+    if (this->command_str_func_map_.find(name) != this->command_str_func_map_.end())
+    {
+        this->command_map_[name] = (this->command_str_func_map_[name])(x);
         return &this->command_map_[name];
     }
     else if (this->command_map_.find(name) != this->command_map_.end())
@@ -131,6 +136,25 @@ optional<float> UARTExDevice::get_state_num(std::string name, const std::vector<
         }
     }
     return optional<float>();
+}
+
+optional<const char*> UARTExDevice::get_state_str(std::string name, const std::vector<uint8_t>& data)
+{
+    if (name.empty())
+    {
+        if (!this->state_str_func_map_.empty())
+        {
+            return (this->state_str_func_map_.begin()->second)(&data[0], data.size());
+        }
+    }
+    else
+    {
+        if (this->state_str_func_map_.find(name) != this->state_str_func_map_.end())
+        {
+            return (this->state_str_func_map_[name])(&data[0], data.size());
+        }
+    }
+    return optional<const char*>();
 }
 
 const cmd_t *UARTExDevice::dequeue_tx_cmd()
