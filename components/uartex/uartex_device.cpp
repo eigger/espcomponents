@@ -78,6 +78,16 @@ bool UARTExDevice::has_state_func(std::string name)
     return false;
 }
 
+cmd_t* UARTExDevice::get_command(std::string name, const std::string &str)
+{
+    if (this->state_str_func_map_.find(name) != this->state_str_func_map_.end())
+    {
+        this->command_map_[name] = (this->state_str_func_map_[name])(str);
+        return &this->command_map_[name];
+    }
+    return get_command(name);
+}
+
 cmd_t* UARTExDevice::get_command(std::string name, const float x)
 {
     if (this->command_float_func_map_.find(name) != this->command_float_func_map_.end())
@@ -85,14 +95,14 @@ cmd_t* UARTExDevice::get_command(std::string name, const float x)
         this->command_map_[name] = (this->command_float_func_map_[name])(x);
         return &this->command_map_[name];
     }
-    else if (this->command_func_map_.find(name) != this->command_func_map_.end())
+    return get_command(name);
+}
+
+cmd_t* UARTExDevice::get_command(std::string name)
+{
+    if (this->command_func_map_.find(name) != this->command_func_map_.end())
     {
         this->command_map_[name] = (this->command_func_map_[name])();
-        return &this->command_map_[name];
-    }
-    if (this->command_str_func_map_.find(name) != this->command_str_func_map_.end())
-    {
-        this->command_map_[name] = (this->command_str_func_map_[name])(x);
         return &this->command_map_[name];
     }
     else if (this->command_map_.find(name) != this->command_map_.end())

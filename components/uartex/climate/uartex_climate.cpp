@@ -243,28 +243,37 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
     }
 
     // Target temperature
-    optional<float> val = get_state_num("state_target_temperature", data);
-    if (val.has_value() && this->target_temperature != val.value())
     {
-        this->target_temperature = val.value();
-        changed = true;
+        optional<float> val = get_state_num("state_target_temperature", data);
+        if (val.has_value() && this->target_temperature != val.value())
+        {
+            this->target_temperature = val.value();
+            changed = true;
+        }
     }
+
 
     // Current humidity
-    optional<float> val = get_state_num("state_current_humidity", data);
-    if (val.has_value() && this->current_humidity != val.value())
     {
-        this->current_humidity = val.value();
-        changed = true;
+        optional<float> val = get_state_num("state_current_humidity", data);
+        if (val.has_value() && this->current_humidity != val.value())
+        {
+            this->current_humidity = val.value();
+            changed = true;
+        }
     }
 
+
     // Target humidity
-    optional<float> val = get_state_num("state_target_humidity", data);
-    if (val.has_value() && this->target_humidity != val.value())
     {
-        this->target_humidity = val.value();
-        changed = true;
+        optional<float> val = get_state_num("state_target_humidity", data);
+        if (val.has_value() && this->target_humidity != val.value())
+        {
+            this->target_humidity = val.value();
+            changed = true;
+        }
     }
+
 
     if (changed) publish_state();
 }

@@ -64,7 +64,9 @@ protected:
     float get_setup_priority() const override { return setup_priority::DATA; }
     virtual void publish(const std::vector<uint8_t>& data);
     virtual void publish(const bool state);
-    cmd_t* get_command(std::string name, const float x = 0);
+    cmd_t* get_command(std::string name, const std::string &str);
+    cmd_t* get_command(std::string name, const float x);
+    cmd_t* get_command(std::string name);
     state_t* get_state(std::string name);
     optional<float> get_state_num(std::string name, const std::vector<uint8_t>& data);
     optional<const char*> get_state_str(std::string name, const std::vector<uint8_t>& data);
