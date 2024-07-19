@@ -20,7 +20,7 @@ void UARTExText::control(const std::string &value)
 {
     if (this->state == value) return;
     this->state = value;
-    enqueue_tx_cmd(get_command_text());
+    enqueue_tx_cmd(get_command_text(this->state));
     publish_state(value);
 }
 

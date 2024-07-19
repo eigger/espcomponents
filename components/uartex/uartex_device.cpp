@@ -80,9 +80,9 @@ bool UARTExDevice::has_state_func(std::string name)
 
 cmd_t* UARTExDevice::get_command(std::string name, const std::string &str)
 {
-    if (this->state_str_func_map_.find(name) != this->state_str_func_map_.end())
+    if (this->command_str_func_map_.find(name) != this->command_str_func_map_.end())
     {
-        this->command_map_[name] = (this->state_str_func_map_[name])(str);
+        this->command_map_[name] = (this->command_str_func_map_[name])(str);
         return &this->command_map_[name];
     }
     return get_command(name);
