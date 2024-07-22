@@ -8,8 +8,7 @@ from .. import uartex_ns, uint8_ptr_const, uint16_const, \
 from ..const import CONF_STATE, CONF_STATE_NUMBER, CONF_COMMAND_UPDATE, CONF_LENGTH, CONF_PRECISION, CONF_UARTEX_ID
 
 DEPENDENCIES = ['uartex']
-UARTExSensor = uartex_ns.class_(
-    'UARTExSensor', sensor.Sensor, cg.PollingComponent)
+UARTExSensor = uartex_ns.class_('UARTExSensor', sensor.Sensor, cg.PollingComponent)
 
 CONFIG_SCHEMA = cv.All(sensor.SENSOR_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExSensor),
@@ -19,7 +18,6 @@ CONFIG_SCHEMA = cv.All(sensor.SENSOR_SCHEMA.extend({
     cv.Optional(CONF_LAMBDA): cv.returning_lambda,
     cv.Optional(CONF_STATE_NUMBER): state_num_schema
 }).extend(cv.polling_component_schema('60s')), cv.has_exactly_one_key(CONF_LAMBDA, CONF_STATE_NUMBER))
-
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])

@@ -14,6 +14,7 @@ CONFIG_SCHEMA = cv.All(text.TEXT_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExText),
     cv.GenerateID(CONF_UARTEX_ID): _uartex_declare_type,
     cv.Required(CONF_COMMAND_TEXT): cv.returning_lambda,
+    cv.Optional(CONF_LAMBDA): cv.returning_lambda,
 }).extend(cv.polling_component_schema('60s')))
 
 async def to_code(config):
@@ -24,4 +25,8 @@ async def to_code(config):
     
     templ = await cg.templatable(config[CONF_COMMAND_TEXT], [(cg.std_string.operator('const'), 'str')], cmd_t)
     cg.add(var.set_command(CONF_COMMAND_TEXT, templ))
+
+    if CONF_LAMBDA in config:
+        template_ = await cg.templatable(config[CONF_LAMBDA], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.const_char_ptr)
+        cg.add(var.set_state(CONF_LAMBDA, template_))
     

@@ -9,7 +9,7 @@ static const char *TAG = "uartex.lock";
 void UARTExLock::dump_config()
 {
     ESP_LOGCONFIG(TAG, "UARTEx Lock '%s':", get_name().c_str());
-    dump_uartex_device_config(TAG);
+    uartex_dump_config(TAG);
 }
 
 void UARTExLock::setup()

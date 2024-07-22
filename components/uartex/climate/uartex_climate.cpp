@@ -9,21 +9,21 @@ static const char *TAG = "uartex.climate";
 void UARTExClimate::dump_config()
 {
     ESP_LOGCONFIG(TAG, "UARTEx Climate '%s':", get_name().c_str());
-    dump_uartex_device_config(TAG);
+    uartex_dump_config(TAG);
 }
 
 climate::ClimateTraits UARTExClimate::traits()
 {
     auto traits = climate::ClimateTraits();
-    if (this->sensor_ != nullptr || has_state_func("state_temperature_current"))
+    if (this->sensor_ != nullptr || has_state("state_temperature_current"))
     {
         traits.set_supports_current_temperature(true);
     }
-    if (has_state_func("state_humidity_current"))
+    if (has_state("state_humidity_current"))
     {
         traits.set_supports_current_humidity(true);
     }
-    if (has_state_func("state_humidity_target") || get_command_humidity(0))
+    if (has_state("state_humidity_target") || get_command_humidity(0))
     {
         traits.set_supports_target_humidity(true);
     }

@@ -19,7 +19,6 @@ CONFIG_SCHEMA = button.BUTTON_SCHEMA.extend({
     cv.Optional(CONF_COMMAND_UPDATE): cv.invalid("UARTEx buttons do not support commad state!")
 }).extend(cv.COMPONENT_SCHEMA)
 
-
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)

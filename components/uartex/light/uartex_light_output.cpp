@@ -9,7 +9,7 @@ static const char *TAG = "uartex.light";
 void UARTExLightOutput::dump_config()
 {
     ESP_LOGCONFIG(TAG, "UARTEx LightOutput(Binary) '%s':", this->light_state_->get_name().c_str());
-    dump_uartex_device_config(TAG);
+    uartex_dump_config(TAG);
 }
 
 void UARTExLightOutput::publish(const std::vector<uint8_t>& data)
@@ -40,7 +40,7 @@ light::LightTraits UARTExLightOutput::get_traits()
 {
     auto traits = light::LightTraits();
     std::set<light::ColorMode> color_modes;
-    if (get_command_brightness(this->brightness_) || has_state_func("state_brightness"))
+    if (get_command_brightness(this->brightness_) || has_state("state_brightness"))
     {
         color_modes.insert(light::ColorMode::BRIGHTNESS);
     }

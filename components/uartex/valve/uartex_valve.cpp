@@ -9,7 +9,7 @@ static const char *TAG = "uartex.valve";
 void UARTExValve::dump_config()
 {
     ESP_LOGCONFIG(TAG, "UARTEx Valve '%s':", get_name().c_str());
-    dump_uartex_device_config(TAG);
+    uartex_dump_config(TAG);
 }
 
 void UARTExValve::setup()
@@ -43,7 +43,7 @@ valve::ValveTraits UARTExValve::get_traits()
 {
     valve::ValveTraits traits{};
     if (get_command_stop()) traits.set_supports_stop(true);
-    if (has_state_func("state_position")) traits.set_supports_position(true);
+    if (has_state("state_position")) traits.set_supports_position(true);
     //traits.set_is_assumed_state(true);
     return traits;
 }

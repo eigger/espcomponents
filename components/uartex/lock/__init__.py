@@ -35,7 +35,6 @@ CONFIG_SCHEMA = cv.All(lock.LOCK_SCHEMA.extend({
     cv.Optional(CONF_STATE_OFF): cv.invalid("UARTEx Lock do not support state_off!")
 }).extend(cv.COMPONENT_SCHEMA), cv.has_at_least_one_key(CONF_STATE_LOCKED, CONF_STATE_UNLOCKED), cv.has_at_least_one_key(CONF_COMMAND_LOCK, CONF_COMMAND_UNLOCK))
 
-
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)

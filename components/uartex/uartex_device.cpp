@@ -13,34 +13,63 @@ void UARTExDevice::update()
     enqueue_tx_cmd(get_command_update(), true);
 }
 
-void UARTExDevice::dump_uartex_device_config(const char *TAG)
+void UARTExDevice::uartex_dump_config(const char *TAG)
 {
-    // ESP_LOGCONFIG(TAG, "  State: %s, offset: %d", to_hex_string(this->state_.value().data).c_str(), this->state_.value().offset);
-    // if (this->state_on_.has_value())
-    //     ESP_LOGCONFIG(TAG, "  State ON: %s, offset: %d, inverted: %s", to_hex_string(this->state_on_.value().data).c_str(), this->state_on_.value().offset, YESNO(this->state_on_.value().inverted));
-    // if (this->state_off_.has_value())
-    //     ESP_LOGCONFIG(TAG, "  State OFF: %s, offset: %d, inverted: %s", to_hex_string(this->state_off_.value().data).c_str(), this->state_off_.value().offset, YESNO(this->state_off_.value().inverted));
-    // if (this->command_on_.has_value())
-    //     ESP_LOGCONFIG(TAG, "  Command ON: %s", to_hex_string(this->command_on_.value().data).c_str());
-    // if (this->command_on_.has_value() && this->command_on_.value().ack.size() > 0)
-    //     ESP_LOGCONFIG(TAG, "  Command ON Ack: %s", to_hex_string(this->command_on_.value().ack).c_str());
-    // if (this->command_off_.has_value())
-    //     ESP_LOGCONFIG(TAG, "  Command OFF: %s", to_hex_string(this->command_off_.value().data).c_str());
-    // if (this->command_off_.has_value() && this->command_off_.value().ack.size() > 0)
-    //     ESP_LOGCONFIG(TAG, "  Command OFF Ack: %s", to_hex_string(this->command_off_.value().ack).c_str());
-    // if (this->command_update_.has_value())
-    //     ESP_LOGCONFIG(TAG, "  Command State: %s", to_hex_string(this->command_update_.value().data).c_str());
-    // if (this->command_update_.has_value() && this->command_update_.value().ack.size() > 0)
-    //     ESP_LOGCONFIG(TAG, "  Command State Ack: %s", to_hex_string(this->command_update_.value().ack).c_str());
-    // if (this->state_response_.has_value())
-    //     ESP_LOGCONFIG(TAG, "  Data response: %s, offset: %d", to_hex_string(this->state_response_.value().data).c_str(), this->state_response_.value().offset);
+    state_t* state = get_state();
+    if (state) ESP_LOGCONFIG(TAG, "  State: %s, offset: %d, inverted: %s", to_hex_string(state->data).c_str(), state->offset, YESNO(state->inverted));
+    state = get_state_on();
+    if (state) ESP_LOGCONFIG(TAG, "  State ON: %s, offset: %d, inverted: %s", to_hex_string(state->data).c_str(), state->offset, YESNO(state->inverted));
+    state = get_state_off();
+    if (state) ESP_LOGCONFIG(TAG, "  State OFF: %s, offset: %d, inverted: %s", to_hex_string(state->data).c_str(), state->offset, YESNO(state->inverted));
+    state = get_state_response();
+    if (state) ESP_LOGCONFIG(TAG, "  State RESP: %s, offset: %d, inverted: %s", to_hex_string(state->data).c_str(), state->offset, YESNO(state->inverted));
+
+    cmd_t* cmd = get_command_on();
+    if (cmd) ESP_LOGCONFIG(TAG, "  Command ON: %s, ACK: %s", to_hex_string(cmd->data).c_str(), to_hex_string(cmd->ack).c_str());
+    cmd = get_command_off();
+    if (cmd) ESP_LOGCONFIG(TAG, "  Command OFF: %s, ACK: %s", to_hex_string(cmd->data).c_str(), to_hex_string(cmd->ack).c_str());
+    cmd = get_command_update();
+    if (cmd) ESP_LOGCONFIG(TAG, "  Command UPDATE: %s, ACK: %s", to_hex_string(cmd->data).c_str(), to_hex_string(cmd->ack).c_str());
     LOG_UPDATE_INTERVAL(this);
 }
 
-bool UARTExDevice::has_state_func(std::string name)
+const cmd_t *UARTExDevice::dequeue_tx_cmd()
 {
-    if (this->state_func_map_.find(name) != this->state_func_map_.end()) return true;
-    return false;
+    if (get_state_response() && !this->rx_response_) return nullptr;
+    this->rx_response_ = false;
+    if (this->tx_cmd_queue_.size() == 0) return nullptr;
+    const cmd_t *cmd = this->tx_cmd_queue_.front();
+    this->tx_cmd_queue_.pop();
+    return cmd;
+}
+
+const cmd_t *UARTExDevice::dequeue_tx_cmd_low_priority()
+{
+    if (get_state_response() && !this->rx_response_) return nullptr;
+    this->rx_response_ = false;
+    if (this->tx_cmd_queue_low_priority_.size() == 0) return nullptr;
+    const cmd_t *cmd = this->tx_cmd_queue_low_priority_.front();
+    this->tx_cmd_queue_low_priority_.pop();
+    return cmd;
+}
+
+bool UARTExDevice::parse_data(const std::vector<uint8_t> &data)
+{
+    if (verify_state(data, get_state_response())) this->rx_response_ = true;
+    else this->rx_response_ = false;
+    if (!verify_state(data, get_state())) return false;
+    if (verify_state(data, get_state_off())) publish(false);
+    if (verify_state(data, get_state_on())) publish(true);
+    publish(data);
+    return true;
+}
+
+void UARTExDevice::enqueue_tx_cmd(const cmd_t *cmd, bool low_priority)
+{
+    if (cmd == nullptr) return;
+    if (cmd->data.size() == 0) return;
+    if (low_priority) this->tx_cmd_queue_low_priority_.push(cmd);
+    else this->tx_cmd_queue_.push(cmd);
 }
 
 cmd_t* UARTExDevice::get_command(std::string name, const std::string &str)
@@ -90,9 +119,9 @@ optional<float> UARTExDevice::get_state_float(std::string name, const std::vecto
 {
     if (name.empty())
     {
-        if (!this->state_func_map_.empty())
+        if (!this->state_float_func_map_.empty())
         {
-            return (this->state_func_map_.begin()->second)(&data[0], data.size());
+            return (this->state_float_func_map_.begin()->second)(&data[0], data.size());
         }
         else if (!this->state_num_map_.empty())
         {
@@ -101,9 +130,9 @@ optional<float> UARTExDevice::get_state_float(std::string name, const std::vecto
     }
     else
     {
-        if (this->state_func_map_.find(name) != this->state_func_map_.end())
+        if (this->state_float_func_map_.find(name) != this->state_float_func_map_.end())
         {
-            return (this->state_func_map_[name])(&data[0], data.size());
+            return (this->state_float_func_map_[name])(&data[0], data.size());
         }
         else if (this->state_num_map_.find(name) != this->state_num_map_.end())
         {
@@ -132,51 +161,13 @@ optional<const char*> UARTExDevice::get_state_str(std::string name, const std::v
     return optional<const char*>();
 }
 
-const cmd_t *UARTExDevice::dequeue_tx_cmd()
+bool UARTExDevice::has_state(std::string name)
 {
-    if (get_state_response() && !this->rx_response_) return nullptr;
-    this->rx_response_ = false;
-    if (this->tx_cmd_queue_.size() == 0) return nullptr;
-    const cmd_t *cmd = this->tx_cmd_queue_.front();
-    this->tx_cmd_queue_.pop();
-    return cmd;
-}
-
-const cmd_t *UARTExDevice::dequeue_tx_cmd_low_priority()
-{
-    if (get_state_response() && !this->rx_response_) return nullptr;
-    this->rx_response_ = false;
-    if (this->tx_cmd_queue_low_priority_.size() == 0) return nullptr;
-    const cmd_t *cmd = this->tx_cmd_queue_low_priority_.front();
-    this->tx_cmd_queue_low_priority_.pop();
-    return cmd;
-}
-
-bool UARTExDevice::parse_data(const std::vector<uint8_t> &data)
-{
-    if (verify_state(data, get_state_response())) this->rx_response_ = true;
-    else this->rx_response_ = false;
-    if (!verify_state(data, get_state())) return false;
-    if (verify_state(data, get_state_off())) publish(false);
-    if (verify_state(data, get_state_on())) publish(true);
-    publish(data);
-    return true;
-}
-
-void UARTExDevice::publish(const std::vector<uint8_t>& data)
-{
-}
-
-void UARTExDevice::publish(const bool state)
-{
-}
-
-void UARTExDevice::enqueue_tx_cmd(const cmd_t *cmd, bool low_priority)
-{
-    if (cmd == nullptr) return;
-    if (cmd->data.size() == 0) return;
-    if (low_priority) this->tx_cmd_queue_low_priority_.push(cmd);
-    else this->tx_cmd_queue_.push(cmd);
+    if (this->state_float_func_map_.find(name) != this->state_float_func_map_.end()) return true;
+    if (this->state_str_func_map_.find(name) != this->state_str_func_map_.end()) return true;
+    if (this->state_num_map_.find(name) != this->state_num_map_.end()) return true;
+    if (this->state_map_.find(name) != this->state_map_.end()) return true;
+    return false;
 }
 
 bool equal(const std::vector<uint8_t> &data1, const std::vector<uint8_t> &data2, const uint16_t offset)

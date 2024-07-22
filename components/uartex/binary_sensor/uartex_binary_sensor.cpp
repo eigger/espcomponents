@@ -9,7 +9,7 @@ static const char *TAG = "uartex.binary_sensor";
 void UARTExBinarySensor::dump_config()
 {
     ESP_LOGCONFIG(TAG, "UARTEx Binary Sensor '%s':", get_name().c_str());
-    dump_uartex_device_config(TAG);
+    uartex_dump_config(TAG);
 }
 
 void UARTExBinarySensor::setup()
