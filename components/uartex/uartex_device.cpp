@@ -37,41 +37,6 @@ void UARTExDevice::dump_uartex_device_config(const char *TAG)
     LOG_UPDATE_INTERVAL(this);
 }
 
-state_t* UARTExDevice::get_state()
-{
-    return get_state("state");
-}
-
-state_t* UARTExDevice::get_state_on()
-{
-    return get_state("state_on");
-}
-
-state_t* UARTExDevice::get_state_off()
-{
-    return get_state("state_off");
-}
-
-state_t* UARTExDevice::get_state_response()
-{
-    return get_state("state_response");
-}
-
-cmd_t *UARTExDevice::get_command_on()
-{
-    return get_command("command_on");
-}
-
-cmd_t *UARTExDevice::get_command_off()
-{
-    return get_command("command_off");
-}
-
-cmd_t* UARTExDevice::get_command_update()
-{
-    return get_command("command_update");
-}
-
 bool UARTExDevice::has_state_func(std::string name)
 {
     if (this->state_func_map_.find(name) != this->state_func_map_.end()) return true;
@@ -121,7 +86,7 @@ state_t* UARTExDevice::get_state(std::string name)
     return nullptr;
 }
 
-optional<float> UARTExDevice::get_state_num(std::string name, const std::vector<uint8_t>& data)
+optional<float> UARTExDevice::get_state_float(std::string name, const std::vector<uint8_t>& data)
 {
     if (name.empty())
     {

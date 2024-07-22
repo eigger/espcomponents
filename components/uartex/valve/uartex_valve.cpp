@@ -20,7 +20,7 @@ void UARTExValve::setup()
 void UARTExValve::publish(const std::vector<uint8_t>& data)
 {
     bool changed = false;
-    optional<float> val = get_state_num("state_position", data);
+    optional<float> val = get_state_float("state_position", data);
     if (val.has_value() && this->position != (int)val.value())
     {
         this->position = (int)val.value();
@@ -50,11 +50,7 @@ valve::ValveTraits UARTExValve::get_traits()
 
 void UARTExValve::control(const valve::ValveCall &call)
 {
-    if (call.get_stop())
-    {
-        enqueue_tx_cmd(get_command_stop());
-        publish_state();
-    }
+    if (call.get_stop()) enqueue_tx_cmd(get_command_stop());
     if (this->position != *call.get_position())
     {
         this->position = *call.get_position();
@@ -66,8 +62,8 @@ void UARTExValve::control(const valve::ValveCall &call)
         {
             enqueue_tx_cmd(get_command_close());
         }
-        publish_state();
     }
+    publish_state();
 }
 
 }  // namespace uartex

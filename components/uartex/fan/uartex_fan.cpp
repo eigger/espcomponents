@@ -25,7 +25,7 @@ fan::FanTraits UARTExFan::get_traits()
 
 void UARTExFan::publish(const std::vector<uint8_t>& data)
 {
-    optional<float> val = get_state_num("state_speed", data);
+    optional<float> val = get_state_float("state_speed", data);
     if (val.has_value() && this->speed != (int)val.value())
     {
         this->speed = (int)val.value();

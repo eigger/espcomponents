@@ -40,20 +40,21 @@ public:
     void dump_uartex_device_config(const char *TAG);
     void set_state(std::string name, state_t state) { this->state_map_[name] = state; }
     void set_state(std::string name, state_num_t state) { this->state_num_map_[name] = state; }
-    void set_state(std::string name, std::function<optional<float>(const uint8_t *data, const uint16_t len)> f) { this->state_func_map_[name] = f; }
-    void set_state_str(std::string name, std::function<optional<const char*>(const uint8_t *data, const uint16_t len)> f) { this->state_str_func_map_[name] = f; }
+    void set_state(std::string name, std::function<float(const uint8_t *data, const uint16_t len)> f) { this->state_func_map_[name] = f; }
+    void set_state(std::string name, std::function<const char*(const uint8_t *data, const uint16_t len)> f) { this->state_str_func_map_[name] = f; }
     void set_command(std::string name, cmd_t cmd) { this->command_map_[name] = cmd; }
     void set_command(std::string name, std::function<cmd_t(const float x)> f) { this->command_float_func_map_[name] = f; }
     void set_command(std::string name, std::function<cmd_t()> f) { this->command_func_map_[name] = f; }
     void set_command(std::string name, std::function<cmd_t(const std::string &str)> f) { this->command_str_func_map_[name] = f; }
 
-    state_t* get_state();
-    state_t* get_state_on();
-    state_t* get_state_off();
-    state_t* get_state_response();
-    cmd_t* get_command_on();
-    cmd_t* get_command_off();
-    cmd_t* get_command_update();
+    state_t* get_state() { return get_state("state"); }
+    state_t* get_state_on() { return get_state("state_on"); }
+    state_t* get_state_off() { return get_state("state_off"); }
+    state_t* get_state_response() { return get_state("state_response"); }
+    cmd_t* get_command_on() { return get_command("command_on"); }
+    cmd_t* get_command_off() { return get_command("command_off"); }
+    cmd_t* get_command_update() { return get_command("command_update"); }
+
     bool has_state_func(std::string name);
     void enqueue_tx_cmd(const cmd_t* cmd, bool low_priority = false);
     const cmd_t* dequeue_tx_cmd();
@@ -68,14 +69,14 @@ protected:
     cmd_t* get_command(std::string name, const float x);
     cmd_t* get_command(std::string name);
     state_t* get_state(std::string name);
-    optional<float> get_state_num(std::string name, const std::vector<uint8_t>& data);
+    optional<float> get_state_float(std::string name, const std::vector<uint8_t>& data);
     optional<const char*> get_state_str(std::string name, const std::vector<uint8_t>& data);
 protected:
 
     std::unordered_map<std::string, state_t> state_map_{};
     std::unordered_map<std::string, state_num_t> state_num_map_{};
-    std::unordered_map<std::string, std::function<optional<float>(const uint8_t *data, const uint16_t len)>> state_func_map_{};
-    std::unordered_map<std::string, std::function<optional<const char*>(const uint8_t *data, const uint16_t len)>> state_str_func_map_{};
+    std::unordered_map<std::string, std::function<float(const uint8_t *data, const uint16_t len)>> state_func_map_{};
+    std::unordered_map<std::string, std::function<const char*(const uint8_t *data, const uint16_t len)>> state_str_func_map_{};
     std::unordered_map<std::string, std::function<cmd_t(const float x)>> command_float_func_map_{};
     std::unordered_map<std::string, std::function<cmd_t(const std::string &str)>> command_str_func_map_{};
     std::unordered_map<std::string, std::function<cmd_t()>> command_func_map_{};

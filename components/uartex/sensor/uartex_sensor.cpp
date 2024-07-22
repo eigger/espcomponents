@@ -14,7 +14,7 @@ void UARTExSensor::dump_config()
 
 void UARTExSensor::publish(const std::vector<uint8_t>& data) 
 {
-    optional<float> val = get_state_num("", data);
+    optional<float> val = get_state_float("", data);
     if(val.has_value() && this->raw_state != val.value()) publish_state(val.value());
 }
 
