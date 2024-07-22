@@ -40,7 +40,7 @@ void UARTExFan::publish(const bool state)
     this->publish_state();
 }
 
-void UARTExFan::control(const fan::FanCall &call)
+void UARTExFan::control(const fan::FanCall& call)
 {
     bool changed_state = false;
     bool changed_speed = false;

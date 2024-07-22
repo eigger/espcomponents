@@ -15,15 +15,15 @@ public:
     UARTExClimate() {}
     void dump_config() override;
     void setup() override;
-    void set_sensor(sensor::Sensor *sensor) { this->sensor_ = sensor; }
+    void set_sensor(sensor::Sensor* sensor) { this->sensor_ = sensor; }
 
 protected:
-    void publish(const std::vector<uint8_t> &data) override;
-    void control(const climate::ClimateCall &call) override;
+    void publish(const std::vector<uint8_t>& data) override;
+    void control(const climate::ClimateCall& call) override;
     climate::ClimateTraits traits() override;
 
 protected:
-    sensor::Sensor *sensor_{nullptr};
+    sensor::Sensor* sensor_{nullptr};
 
     cmd_t* get_command_temperature(const float x) { return get_command("command_temperature", x); }
     cmd_t* get_command_humidity(const float x) { return get_command("command_humidity", x); }

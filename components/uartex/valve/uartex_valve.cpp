@@ -48,7 +48,7 @@ valve::ValveTraits UARTExValve::get_traits()
     return traits;
 }
 
-void UARTExValve::control(const valve::ValveCall &call)
+void UARTExValve::control(const valve::ValveCall& call)
 {
     if (call.get_stop()) enqueue_tx_cmd(get_command_stop());
     if (this->position != *call.get_position())

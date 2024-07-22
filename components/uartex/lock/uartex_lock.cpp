@@ -78,7 +78,7 @@ void UARTExLock::publish(const std::vector<uint8_t>& data)
     if (changed) publish_state(this->state);
 }
 
-void UARTExLock::control(const lock::LockCall &call)
+void UARTExLock::control(const lock::LockCall& call)
 {
     if (this->state != *call.get_state())
     {

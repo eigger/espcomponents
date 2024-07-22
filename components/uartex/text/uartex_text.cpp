@@ -22,7 +22,7 @@ void UARTExText::publish(const std::vector<uint8_t>& data)
     }
 }
 
-void UARTExText::control(const std::string &value)
+void UARTExText::control(const std::string& value)
 {
     if (this->state == value) return;
     this->state = value;

@@ -13,7 +13,7 @@ void UARTExDevice::update()
     enqueue_tx_cmd(get_command_update(), true);
 }
 
-void UARTExDevice::uartex_dump_config(const char *TAG)
+void UARTExDevice::uartex_dump_config(const char* TAG)
 {
     state_t* state = get_state();
     if (state) ESP_LOGCONFIG(TAG, "  State: %s, offset: %d, inverted: %s", to_hex_string(state->data).c_str(), state->offset, YESNO(state->inverted));
@@ -53,7 +53,7 @@ const cmd_t *UARTExDevice::dequeue_tx_cmd_low_priority()
     return cmd;
 }
 
-bool UARTExDevice::parse_data(const std::vector<uint8_t> &data)
+bool UARTExDevice::parse_data(const std::vector<uint8_t>& data)
 {
     if (verify_state(data, get_state_response())) this->rx_response_ = true;
     else this->rx_response_ = false;
@@ -64,7 +64,7 @@ bool UARTExDevice::parse_data(const std::vector<uint8_t> &data)
     return true;
 }
 
-void UARTExDevice::enqueue_tx_cmd(const cmd_t *cmd, bool low_priority)
+void UARTExDevice::enqueue_tx_cmd(const cmd_t* cmd, bool low_priority)
 {
     if (cmd == nullptr) return;
     if (cmd->data.size() == 0) return;
@@ -72,7 +72,7 @@ void UARTExDevice::enqueue_tx_cmd(const cmd_t *cmd, bool low_priority)
     else this->tx_cmd_queue_.push(cmd);
 }
 
-cmd_t* UARTExDevice::get_command(std::string name, const std::string &str)
+cmd_t* UARTExDevice::get_command(const std::string& name, const std::string &str)
 {
     if (this->command_str_func_map_.find(name) != this->command_str_func_map_.end())
     {
@@ -82,7 +82,7 @@ cmd_t* UARTExDevice::get_command(std::string name, const std::string &str)
     return get_command(name);
 }
 
-cmd_t* UARTExDevice::get_command(std::string name, const float x)
+cmd_t* UARTExDevice::get_command(const std::string& name, const float x)
 {
     if (this->command_float_func_map_.find(name) != this->command_float_func_map_.end())
     {
@@ -92,7 +92,7 @@ cmd_t* UARTExDevice::get_command(std::string name, const float x)
     return get_command(name);
 }
 
-cmd_t* UARTExDevice::get_command(std::string name)
+cmd_t* UARTExDevice::get_command(const std::string& name)
 {
     if (this->command_func_map_.find(name) != this->command_func_map_.end())
     {
@@ -106,7 +106,7 @@ cmd_t* UARTExDevice::get_command(std::string name)
     return nullptr;
 }
 
-state_t* UARTExDevice::get_state(std::string name)
+state_t* UARTExDevice::get_state(const std::string& name)
 {
     if (this->state_map_.find(name) != this->state_map_.end())
     {
@@ -115,7 +115,7 @@ state_t* UARTExDevice::get_state(std::string name)
     return nullptr;
 }
 
-optional<float> UARTExDevice::get_state_float(std::string name, const std::vector<uint8_t>& data)
+optional<float> UARTExDevice::get_state_float(const std::string& name, const std::vector<uint8_t>& data)
 {
     if (name.empty())
     {
@@ -142,7 +142,7 @@ optional<float> UARTExDevice::get_state_float(std::string name, const std::vecto
     return optional<float>();
 }
 
-optional<const char*> UARTExDevice::get_state_str(std::string name, const std::vector<uint8_t>& data)
+optional<const char*> UARTExDevice::get_state_str(const std::string& name, const std::vector<uint8_t>& data)
 {
     if (name.empty())
     {
@@ -161,7 +161,7 @@ optional<const char*> UARTExDevice::get_state_str(std::string name, const std::v
     return optional<const char*>();
 }
 
-bool UARTExDevice::has_state(std::string name)
+bool UARTExDevice::has_state(const std::string& name)
 {
     if (this->state_float_func_map_.find(name) != this->state_float_func_map_.end()) return true;
     if (this->state_str_func_map_.find(name) != this->state_str_func_map_.end()) return true;
@@ -170,13 +170,13 @@ bool UARTExDevice::has_state(std::string name)
     return false;
 }
 
-bool equal(const std::vector<uint8_t> &data1, const std::vector<uint8_t> &data2, const uint16_t offset)
+bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2, const uint16_t offset)
 {
     if (data1.size() - offset < data2.size()) return false;
     return std::equal(data1.begin() + offset, data1.begin() + offset + data2.size(), data2.begin());
 }
 
-const std::vector<uint8_t> masked_data(const std::vector<uint8_t> &data, const state_t *state)
+const std::vector<uint8_t> masked_data(const std::vector<uint8_t>& data, const state_t* state)
 {
     std::vector<uint8_t> masked_data = data;
     for(size_t i = state->offset, j = 0; i < data.size() && j < state->mask.size(); i++, j++)
@@ -186,7 +186,7 @@ const std::vector<uint8_t> masked_data(const std::vector<uint8_t> &data, const s
     return masked_data;
 }
 
-bool verify_state(const std::vector<uint8_t> &data, const state_t *state)
+bool verify_state(const std::vector<uint8_t>& data, const state_t* state)
 {
     if (state == nullptr) return false;
     if (state->mask.size() == 0)    return equal(data, state->data, state->offset) ? !state->inverted : state->inverted;
@@ -204,7 +204,7 @@ float state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
     return val / powf(10, state.precision);
 }
 
-std::string to_hex_string(const std::vector<unsigned char> &data)
+std::string to_hex_string(const std::vector<unsigned char>& data)
 {
     char buf[10];
     std::string res;
@@ -218,7 +218,7 @@ std::string to_hex_string(const std::vector<unsigned char> &data)
     return res;
 }
 
-std::string to_hex_string(const uint8_t *data, const uint16_t len)
+std::string to_hex_string(const uint8_t* data, const uint16_t len)
 {
     char buf[5];
     std::string res;

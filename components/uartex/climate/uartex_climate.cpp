@@ -278,7 +278,7 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
     if (changed) publish_state();
 }
 
-void UARTExClimate::control(const climate::ClimateCall &call)
+void UARTExClimate::control(const climate::ClimateCall& call)
 {
     // Set mode
     if (call.get_mode().has_value() && this->mode != *call.get_mode())

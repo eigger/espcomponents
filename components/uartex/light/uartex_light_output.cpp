@@ -52,7 +52,7 @@ light::LightTraits UARTExLightOutput::get_traits()
     return traits;
 }
 
-void UARTExLightOutput::write_state(light::LightState *state)
+void UARTExLightOutput::write_state(light::LightState* state)
 {
     bool binary;
     state->current_values_as_binary(&binary);

@@ -24,7 +24,7 @@ public:
     cmd_t* get_command_unlock() { return get_command("command_unlock"); }
 protected:
     void publish(const std::vector<uint8_t>& data) override;
-    void control(const lock::LockCall &call) override;
+    void control(const lock::LockCall& call) override;
     
 protected:
     uint16_t conf_lock_timeout_{5 * 1000};

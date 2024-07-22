@@ -16,7 +16,7 @@ protected:
     fan::FanTraits get_traits() override;
     void publish(const std::vector<uint8_t>& data) override;
     void publish(const bool state) override;
-    void control(const fan::FanCall &call) override;
+    void control(const fan::FanCall& call) override;
     cmd_t* get_command_speed(const float x) { return get_command("command_speed", x); }
 protected:
     uint16_t speed_count_{0};

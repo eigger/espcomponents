@@ -15,7 +15,7 @@ public:
 protected:
     valve::ValveTraits get_traits() override;
     void publish(const std::vector<uint8_t>& data) override;
-    void control(const valve::ValveCall &call) override;
+    void control(const valve::ValveCall& call) override;
     
     state_t* get_state_open() { return get_state("state_open"); }
     state_t* get_state_closed() { return get_state("state_closed"); }
