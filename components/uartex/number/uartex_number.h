@@ -16,7 +16,7 @@ protected:
     void publish(const std::vector<uint8_t>& data) override;
     void control(float value) override;
     cmd_t* get_command_number(const float x) { return get_command("command_number", x); }
-    
+    optional<float> get_state_number(const std::vector<uint8_t>& data) { return get_state_float("state_number", data); }
 protected:
 
 };

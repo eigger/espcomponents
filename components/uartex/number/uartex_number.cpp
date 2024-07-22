@@ -20,7 +20,7 @@ void UARTExNumber::setup()
 
 void UARTExNumber::publish(const std::vector<uint8_t>& data)
 {
-    optional<float> val = get_state_float("state_number", data);
+    optional<float> val = get_state_number(data);
     if (val.has_value() && this->state != val.value())
     {
         this->state = val.value();

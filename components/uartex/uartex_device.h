@@ -69,7 +69,6 @@ protected:
     cmd_t* get_command_update() { return get_command("command_update"); }
 
 protected:
-
     std::unordered_map<std::string, state_t> state_map_{};
     std::unordered_map<std::string, state_num_t> state_num_map_{};
     std::unordered_map<std::string, std::function<float(const uint8_t* data, const uint16_t len)>> state_float_func_map_{};
@@ -85,6 +84,8 @@ protected:
     std::queue<const cmd_t*> tx_cmd_queue_low_priority_{};
 };
 
+template<typename KeyType, typename ValueType>
+bool contains(const std::unordered_map<KeyType, ValueType>& map, const KeyType& key) { return map.find(key) != map.end(); }
 bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,  const uint16_t offset = 0);
 const std::vector<uint8_t> masked_data(const std::vector<uint8_t>& data, const state_t* state);
 bool verify_state(const std::vector<uint8_t>& data, const state_t* state);

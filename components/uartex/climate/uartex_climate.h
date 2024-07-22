@@ -63,6 +63,7 @@ protected:
     state_t* get_state_fan_only() { return get_state("state_fan_only"); }
     state_t* get_state_dry() { return get_state("state_dry"); }
     state_t* get_state_auto() { return get_state("state_auto"); }
+
     state_t* get_state_fan_on() { return get_state("state_fan_on"); }
     state_t* get_state_fan_off() { return get_state("state_fan_off"); }
     state_t* get_state_fan_auto() { return get_state("state_fan_auto"); }
@@ -73,10 +74,12 @@ protected:
     state_t* get_state_fan_focus() { return get_state("state_fan_focus"); }
     state_t* get_state_fan_diffuse() { return get_state("state_fan_diffuse"); }
     state_t* get_state_fan_quiet() { return get_state("state_fan_quiet"); }
+
     state_t* get_state_swing_off() { return get_state("state_swing_off"); }
     state_t* get_state_swing_both() { return get_state("state_swing_both"); }
     state_t* get_state_swing_vertical() { return get_state("state_swing_vertical"); }
     state_t* get_state_swing_horizontal() { return get_state("state_swing_horizontal"); }
+
     state_t* get_state_preset_none() { return get_state("state_preset_none"); }
     state_t* get_state_preset_home() { return get_state("state_preset_home"); }
     state_t* get_state_preset_away() { return get_state("state_preset_away"); }
@@ -85,6 +88,16 @@ protected:
     state_t* get_state_preset_eco() { return get_state("state_preset_eco"); }
     state_t* get_state_preset_sleep() { return get_state("state_preset_sleep"); }
     state_t* get_state_preset_activity() { return get_state("state_preset_activity"); }
+
+    optional<float> get_state_temperature_current(const std::vector<uint8_t>& data) { return get_state_float("state_temperature_current", data); }
+    optional<float> get_state_temperature_target(const std::vector<uint8_t>& data) { return get_state_float("state_temperature_target", data); }
+    optional<float> get_state_humidity_current(const std::vector<uint8_t>& data) { return get_state_float("state_humidity_current", data); }
+    optional<float> get_state_humidity_target(const std::vector<uint8_t>& data) { return get_state_float("state_humidity_target", data); }
+
+    bool has_state_temperature_current() { return has_state("state_temperature_current"); } 
+    bool has_state_temperature_target() { return has_state("state_temperature_target"); } 
+    bool has_state_humidity_current() { return has_state("state_humidity_current"); } 
+    bool has_state_humidity_target() { return has_state("state_humidity_target"); } 
 };
 
 }  // namespace uartex

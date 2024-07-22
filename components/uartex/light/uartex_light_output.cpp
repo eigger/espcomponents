@@ -15,7 +15,7 @@ void UARTExLightOutput::dump_config()
 void UARTExLightOutput::publish(const std::vector<uint8_t>& data)
 {
     if (this->light_state_ == nullptr)return;
-    optional<float> val = get_state_float("state_brightness", data);
+    optional<float> val = get_state_brightness(data);
     if (val.has_value() && this->brightness_ != (int)val.value() && val.value() > 0)
     {
         this->brightness_ = (int)val.value();
@@ -40,7 +40,7 @@ light::LightTraits UARTExLightOutput::get_traits()
 {
     auto traits = light::LightTraits();
     std::set<light::ColorMode> color_modes;
-    if (get_command_brightness(this->brightness_) || has_state("state_brightness"))
+    if (get_command_brightness(this->brightness_) || has_state_brightness())
     {
         color_modes.insert(light::ColorMode::BRIGHTNESS);
     }

@@ -72,9 +72,9 @@ void UARTExDevice::enqueue_tx_cmd(const cmd_t* cmd, bool low_priority)
     else this->tx_cmd_queue_.push(cmd);
 }
 
-cmd_t* UARTExDevice::get_command(const std::string& name, const std::string &str)
+cmd_t* UARTExDevice::get_command(const std::string& name, const std::string& str)
 {
-    if (this->command_str_func_map_.find(name) != this->command_str_func_map_.end())
+    if (contains(this->command_str_func_map_, name))
     {
         this->command_map_[name] = (this->command_str_func_map_[name])(str);
         return &this->command_map_[name];
@@ -84,7 +84,7 @@ cmd_t* UARTExDevice::get_command(const std::string& name, const std::string &str
 
 cmd_t* UARTExDevice::get_command(const std::string& name, const float x)
 {
-    if (this->command_float_func_map_.find(name) != this->command_float_func_map_.end())
+    if (contains(this->command_float_func_map_, name))
     {
         this->command_map_[name] = (this->command_float_func_map_[name])(x);
         return &this->command_map_[name];
@@ -94,12 +94,12 @@ cmd_t* UARTExDevice::get_command(const std::string& name, const float x)
 
 cmd_t* UARTExDevice::get_command(const std::string& name)
 {
-    if (this->command_func_map_.find(name) != this->command_func_map_.end())
+    if (contains(this->command_func_map_, name))
     {
         this->command_map_[name] = (this->command_func_map_[name])();
         return &this->command_map_[name];
     }
-    else if (this->command_map_.find(name) != this->command_map_.end())
+    else if (contains(this->command_map_, name))
     {
         return &this->command_map_[name];
     }
@@ -108,7 +108,7 @@ cmd_t* UARTExDevice::get_command(const std::string& name)
 
 state_t* UARTExDevice::get_state(const std::string& name)
 {
-    if (this->state_map_.find(name) != this->state_map_.end())
+    if (contains(this->state_map_, name))
     {
         return &this->state_map_[name];
     }
@@ -130,11 +130,11 @@ optional<float> UARTExDevice::get_state_float(const std::string& name, const std
     }
     else
     {
-        if (this->state_float_func_map_.find(name) != this->state_float_func_map_.end())
+        if (contains(this->state_float_func_map_, name))
         {
             return (this->state_float_func_map_[name])(&data[0], data.size());
         }
-        else if (this->state_num_map_.find(name) != this->state_num_map_.end())
+        else if (contains(this->state_num_map_, name))
         {
             return state_to_float(data, this->state_num_map_[name]);
         }
@@ -153,7 +153,7 @@ optional<const char*> UARTExDevice::get_state_str(const std::string& name, const
     }
     else
     {
-        if (this->state_str_func_map_.find(name) != this->state_str_func_map_.end())
+        if (contains(this->state_str_func_map_, name))
         {
             return (this->state_str_func_map_[name])(&data[0], data.size());
         }
@@ -163,10 +163,10 @@ optional<const char*> UARTExDevice::get_state_str(const std::string& name, const
 
 bool UARTExDevice::has_state(const std::string& name)
 {
-    if (this->state_float_func_map_.find(name) != this->state_float_func_map_.end()) return true;
-    if (this->state_str_func_map_.find(name) != this->state_str_func_map_.end()) return true;
-    if (this->state_num_map_.find(name) != this->state_num_map_.end()) return true;
-    if (this->state_map_.find(name) != this->state_map_.end()) return true;
+    if (contains(this->state_float_func_map_, name)) return true;
+    if (contains(this->state_str_func_map_, name)) return true;
+    if (contains(this->state_num_map_, name)) return true;
+    if (contains(this->state_map_, name)) return true;
     return false;
 }
 
@@ -179,7 +179,7 @@ bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,
 const std::vector<uint8_t> masked_data(const std::vector<uint8_t>& data, const state_t* state)
 {
     std::vector<uint8_t> masked_data = data;
-    for(size_t i = state->offset, j = 0; i < data.size() && j < state->mask.size(); i++, j++)
+    for (size_t i = state->offset, j = 0; i < data.size() && j < state->mask.size(); i++, j++)
     {
         masked_data[i] &= state->mask[j];
     }

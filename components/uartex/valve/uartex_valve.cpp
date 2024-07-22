@@ -20,7 +20,7 @@ void UARTExValve::setup()
 void UARTExValve::publish(const std::vector<uint8_t>& data)
 {
     bool changed = false;
-    optional<float> val = get_state_float("state_position", data);
+    optional<float> val = get_state_position(data);
     if (val.has_value() && this->position != (int)val.value())
     {
         this->position = (int)val.value();
@@ -43,7 +43,7 @@ valve::ValveTraits UARTExValve::get_traits()
 {
     valve::ValveTraits traits{};
     if (get_command_stop()) traits.set_supports_stop(true);
-    if (has_state("state_position")) traits.set_supports_position(true);
+    if (has_state_position()) traits.set_supports_position(true);
     //traits.set_is_assumed_state(true);
     return traits;
 }
