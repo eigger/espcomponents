@@ -2,7 +2,7 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import number, uartex
 from esphome.const import CONF_ID, CONF_MIN_VALUE, CONF_MAX_VALUE, CONF_STEP
-from esphome.components.uartex.const import CONF_COMMAND_OFF, CONF_COMMAND_ON, CONF_STATE_OFF, CONF_STATE_ON
+from esphome.components.uartex.const import CONF_COMMAND_OFF, CONF_COMMAND_ON, CONF_STATE_OFF, CONF_STATE_ON, CONF_STATE
 
 DEPENDENCIES = ['uartex']
 botem_csm505_ns = cg.esphome_ns.namespace('botem_csm505')
@@ -14,6 +14,7 @@ CONFIG_SCHEMA = cv.All(number.NUMBER_SCHEMA.extend({
     cv.Required(CONF_MAX_VALUE): cv.float_,
     cv.Required(CONF_STEP): cv.float_,
 }).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
+    cv.Optional(CONF_STATE): cv.invalid("BotemCSM505 do not support state!"),
     cv.Optional(CONF_COMMAND_ON): cv.invalid("BotemCSM505 do not support command_on!"),
     cv.Optional(CONF_COMMAND_OFF): cv.invalid("BotemCSM505 do not support command_off!"),
     cv.Optional(CONF_STATE_ON): cv.invalid("BotemCSM505 do not support state_on!"),
