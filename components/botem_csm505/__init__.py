@@ -2,11 +2,11 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import number, uartex
 from esphome.const import CONF_ID, CONF_MIN_VALUE, CONF_MAX_VALUE, CONF_STEP
-from esphome.components.uartex import uartex_ns
 from esphome.components.uartex.const import CONF_COMMAND_OFF, CONF_COMMAND_ON, CONF_STATE_OFF, CONF_STATE_ON
 
 DEPENDENCIES = ['uartex']
-BotemCSM505 = uartex_ns.class_('BotemCSM505', number.Number, cg.Component)
+botem_csm505_ns = cg.esphome_ns.namespace('botem_csm505')
+BotemCSM505 = botem_csm505_ns.class_('BotemCSM505', number.Number, cg.Component)
 
 CONFIG_SCHEMA = cv.All(number.NUMBER_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(BotemCSM505),
