@@ -21,16 +21,22 @@ void BotemCSM505::setup()
 
 void BotemCSM505::publish(const std::vector<uint8_t>& data)
 {
-    if (data.size() < 3) return;
-    if (data[2] == '1' && this->state < this->traits.get_max_value())
+    if (data.size() != 3) return;
+    if (uartex::verify_state(data, &entry_state_))
     {
-        this->state += this->traits.get_step();
-        this->publish_state(this->state);
+        if (this->state < this->traits.get_max_value())
+        {
+            this->state += this->traits.get_step();
+            this->publish_state(this->state);
+        }
     }
-    else if (data[2] == '2' && this->state > this->traits.get_min_value())
+    else if (uartex::verify_state(data, &exit_state_))
     {
-        this->state -= this->traits.get_step();
-        this->publish_state(this->state);
+        if (this->state > this->traits.get_min_value())
+        {
+            this->state -= this->traits.get_step();
+            this->publish_state(this->state);
+        }
     }
 }
 

@@ -16,7 +16,8 @@ protected:
     void control(float value) override;
 
 protected:
-
+    uartex::state_t entry_state_ = {0, false, {'0', '0', '1'}, {}};
+    uartex::state_t exit_state_ = {0, false, {'0', '0', '2'}, {}};
 };
 } // namespace botem_csm505
 } // namespace esphome
