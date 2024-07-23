@@ -5,7 +5,7 @@
 
 namespace esphome {
 namespace botem_csm505 {
-static const char *TAG = "botem_csm505";
+static const char *TAG = "botem_csm505.number";
 
 void BotemCSM505::dump_config()
 {
