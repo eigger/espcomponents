@@ -10,9 +10,9 @@ BotemCSM505 = botem_csm505_ns.class_('BotemCSM505', number.Number, cg.Component)
 
 CONFIG_SCHEMA = cv.All(number.NUMBER_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(BotemCSM505),
-    cv.Required(CONF_MIN_VALUE): cv.float_,
-    cv.Required(CONF_MAX_VALUE): cv.float_,
-    cv.Required(CONF_STEP): cv.float_,
+    cv.Optional(CONF_MIN_VALUE, default=0): cv.float_,
+    cv.Optional(CONF_MAX_VALUE, default=30): cv.float_,
+    cv.Optional(CONF_STEP, default=1): cv.float_,
 }).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_STATE): cv.invalid("BotemCSM505 do not support state!"),
     cv.Optional(CONF_COMMAND_ON): cv.invalid("BotemCSM505 do not support command_on!"),
