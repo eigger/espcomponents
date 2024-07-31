@@ -2,16 +2,14 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import light, uartex
 from esphome.const import CONF_ID, CONF_OUTPUT_ID, CONF_UPDATE_INTERVAL
-from .. import uartex_ns, cmd_t, uint8_ptr_const, uint16_const, \
-    _uartex_declare_type
-from ..const import CONF_UARTEX_ID, CONF_COMMAND_BRIGHTNESS, CONF_STATE_BRIGHTNESS
+from .. import uartex_ns, cmd_t, uint8_ptr_const, uint16_const
+from ..const import CONF_COMMAND_BRIGHTNESS, CONF_STATE_BRIGHTNESS
 
 DEPENDENCIES = ['uartex']
 UARTExLightOutput = uartex_ns.class_('UARTExLightOutput', light.LightOutput, cg.Component)
 
 CONFIG_SCHEMA = light.BINARY_LIGHT_SCHEMA.extend({
     cv.GenerateID(CONF_OUTPUT_ID): cv.declare_id(UARTExLightOutput),
-    cv.GenerateID(CONF_UARTEX_ID): _uartex_declare_type,
     cv.Optional(CONF_STATE_BRIGHTNESS): cv.returning_lambda,
     cv.Optional(CONF_COMMAND_BRIGHTNESS): cv.returning_lambda,
 }).extend(uartex.UARTEX_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
