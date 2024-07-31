@@ -201,7 +201,7 @@ UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.Required(CONF_STATE_OFF): state_schema,
     cv.Required(CONF_COMMAND_ON): cv.templatable(command_hex_schema),
     cv.Required(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
-    cv.Optional(CONF_COMMAND_UPDATE): command_hex_schema,
+    cv.Optional(CONF_COMMAND_UPDATE): cv.templatable(command_hex_schema),
     cv.Optional(CONF_STATE_RESPONSE): state_schema,
 }).extend(cv.polling_component_schema('60s'))
 

@@ -60,8 +60,15 @@ bool UARTExDevice::parse_data(const std::vector<uint8_t>& data)
     if (!verify_state(data, get_state())) return false;
     if (verify_state(data, get_state_off())) publish(false);
     if (verify_state(data, get_state_on())) publish(true);
+    state_data_ = data;
     publish(data);
     return true;
+}
+
+uint8_t UARTExDevice::get_state_data(uint32_t index)
+{
+    if (state_data_.size() <= index) return 0;
+    return state_data_[index];
 }
 
 void UARTExDevice::enqueue_tx_cmd(const cmd_t* cmd, bool low_priority)
