@@ -2,7 +2,7 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import climate, uartex, sensor
 from esphome.const import CONF_ID, CONF_SENSOR, CONF_OFFSET
-from .. import uartex_ns, UARTExComponent, cmd_t, uint8_ptr_const, uint16_const, \
+from .. import uartex_ns, cmd_t, uint8_ptr_const, uint16_const, \
     command_expression, state_schema, state_hex_expression, command_hex_schema, state_num_schema
 from ..const import CONF_STATE_TEMPERATURE_CURRENT, CONF_STATE_TEMPERATURE_TARGET, CONF_STATE_HUMIDITY_CURRENT, CONF_STATE_HUMIDITY_TARGET, \
     CONF_STATE_ON, CONF_STATE_AUTO, CONF_STATE_HEAT, CONF_STATE_COOL, CONF_STATE_FAN_ONLY, CONF_STATE_DRY, CONF_STATE_SWING_OFF, CONF_STATE_SWING_BOTH, CONF_STATE_SWING_VERTICAL, CONF_STATE_SWING_HORIZONTAL, \
@@ -15,7 +15,7 @@ from ..const import CONF_STATE_TEMPERATURE_CURRENT, CONF_STATE_TEMPERATURE_TARGE
     
 AUTO_LOAD = ['sensor']
 DEPENDENCIES = ['uartex']
-UARTExClimate = uartex_ns.class_('UARTExClimate', climate.Climate, UARTExComponent)
+UARTExClimate = uartex_ns.class_('UARTExClimate', climate.Climate, cg.Component)
 
 CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExClimate),

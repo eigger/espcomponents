@@ -3,13 +3,13 @@ import esphome.config_validation as cv
 from esphome.components import lock, uartex
 from esphome import core
 from esphome.const import CONF_ID
-from .. import uartex_ns, UARTExComponent, \
+from .. import uartex_ns, \
     command_hex_schema, command_hex_expression, state_schema, state_hex_expression
 from ..const import CONF_COMMAND_LOCK, CONF_COMMAND_OFF, CONF_COMMAND_UNLOCK, CONF_STATE_JAMMED, CONF_STATE_LOCKED, CONF_STATE_LOCKING, CONF_STATE_OFF, \
     CONF_COMMAND_ON, CONF_STATE_ON, CONF_STATE_UNLOCKED, CONF_STATE_UNLOCKING, CONF_LOCK_TIMEOUT, CONF_UNLOCK_TIMEOUT
 
 DEPENDENCIES = ['uartex']
-UARTExLock = uartex_ns.class_('UARTExLock', lock.Lock, UARTExComponent)
+UARTExLock = uartex_ns.class_('UARTExLock', lock.Lock, cg.Component)
 
 CONFIG_SCHEMA = cv.All(lock.LOCK_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExLock),

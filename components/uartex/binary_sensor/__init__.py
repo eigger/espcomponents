@@ -3,11 +3,11 @@ import esphome.config_validation as cv
 from esphome import automation
 from esphome.components import binary_sensor, uartex
 from esphome.const import CONF_ID
-from .. import uartex_ns, UARTExComponent
+from .. import uartex_ns
 from ..const import CONF_COMMAND_ON, CONF_COMMAND_OFF
 
 DEPENDENCIES = ['uartex']
-UARTExBinarySensor = uartex_ns.class_('UARTExBinarySensor', binary_sensor.BinarySensor, UARTExComponent)
+UARTExBinarySensor = uartex_ns.class_('UARTExBinarySensor', binary_sensor.BinarySensor, cg.Component)
 
 CONFIG_SCHEMA = binary_sensor.BINARY_SENSOR_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExBinarySensor),
