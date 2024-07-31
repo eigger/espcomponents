@@ -3,12 +3,12 @@ import esphome.config_validation as cv
 from esphome import automation
 from esphome.components import sensor, uartex
 from esphome.const import CONF_ID, CONF_LAMBDA, CONF_OFFSET, CONF_ACCURACY_DECIMALS
-from .. import uartex_ns, uint8_ptr_const, uint16_const, \
+from .. import uartex_ns, UARTExComponent, uint8_ptr_const, uint16_const, \
     state_schema, command_hex_schema, state_num_schema, _uartex_declare_type
 from ..const import CONF_STATE, CONF_STATE_NUMBER, CONF_COMMAND_UPDATE, CONF_LENGTH, CONF_PRECISION, CONF_UARTEX_ID
 
 DEPENDENCIES = ['uartex']
-UARTExSensor = uartex_ns.class_('UARTExSensor', sensor.Sensor, cg.PollingComponent)
+UARTExSensor = uartex_ns.class_('UARTExSensor', sensor.Sensor, UARTExComponent)
 
 CONFIG_SCHEMA = cv.All(sensor.SENSOR_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExSensor),
