@@ -7,7 +7,10 @@ from esphome.components.uartex import validate_hex_data
 
 CODEOWNERS = ["@eigger"]
 DEPENDENCIES = ["uartex"]
-CONFIG_SCHEMA = cv.All(uartex.CONFIG_SCHEMA.extend({
+
+CONFIG_SCHEMA = cv.All(cv.Schema({
+
+}).extend(uartex.CONFIG_SCHEMA.extend({
     cv.Optional(CONF_RX_HEADER, default=[0x5E, 0x5B]): validate_hex_data,
     cv.Optional(CONF_RX_FOOTER, default=[0x5D, 0x0D]): validate_hex_data,
-}))
+})))
