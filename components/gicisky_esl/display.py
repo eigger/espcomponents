@@ -49,7 +49,7 @@ CONFIG_SCHEMA = cv.All(
 
 
 async def to_code(config):
-    var = cg.Pvariable(config[CONF_ID])
+    var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await display.register_display(var, config)
     await ble_client.register_ble_node(var, config)
@@ -109,7 +109,7 @@ async def to_code(config):
             config[CONF_IMAGE_UUID]
         )
         cg.add(var.set_img_uuid128(uuid128))
-        
+
     if CONF_VERSION in config:
         sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
         await register_text_sensor(sens, config[CONF_VERSION])
