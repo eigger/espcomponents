@@ -29,7 +29,7 @@ struct ColorPoint
     }
 };
 
-class GiciskyESL : public PollingComponent, public display::DisplayBuffer, public ble_client::BLEClientNode, public esp32_ble_tracker::ESPBTDeviceListener
+class GiciskyESL : public PollingComponent, public display::DisplayBuffer, public ble_client::BLEClientNode//, public esp32_ble_tracker::ESPBTDeviceListener
 {
 public:
 
@@ -55,7 +55,7 @@ public:
     void set_version(text_sensor::TextSensor *version) { version_ = version; }
     void set_bt_connected(binary_sensor::BinarySensor *bt_connected) { bt_connected_ = bt_connected; } 
 
-    bool parse_device(const esp32_ble_tracker::ESPBTDevice &device) override;
+    //bool parse_device(const esp32_ble_tracker::ESPBTDevice &device) override;
 
 protected:
     void draw_absolute_pixel_internal(int x, int y, Color color) override;

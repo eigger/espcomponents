@@ -38,43 +38,43 @@ void GiciskyESL::setup()
     ESP_LOGI(TAG, "Initaialize.");
 }
 
-bool GiciskyESL::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
-    // the address should match the address we declared
+// bool GiciskyESL::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
+//     // the address should match the address we declared
 
-    // [15:32:06][D][ble_adv:021]: New BLE device
-    // [15:32:06][D][ble_adv:022]:   address: FF:FF:61:62:43:05
-    // [15:32:06][D][ble_adv:023]:   name: NEMR61624305
-    // [15:32:06][D][ble_adv:024]:   Advertised service UUIDs:
-    // [15:32:06][D][ble_adv:026]:     - 0xFEF0
-    // [15:32:06][D][ble_adv:029]:   Advertised service data:
-    // [15:32:06][D][ble_adv:041]:   Advertised manufacturer data:
-    // [15:32:06][D][ble_adv:049]:     - 0x5053: (length 5) A01D810140
-    // A0 1D 81 01 40
-    // Type, batteryMv * 100, tagSoftwareVersion = 81 << 8 | 01, 
+//     // [15:32:06][D][ble_adv:021]: New BLE device
+//     // [15:32:06][D][ble_adv:022]:   address: FF:FF:61:62:43:05
+//     // [15:32:06][D][ble_adv:023]:   name: NEMR61624305
+//     // [15:32:06][D][ble_adv:024]:   Advertised service UUIDs:
+//     // [15:32:06][D][ble_adv:026]:     - 0xFEF0
+//     // [15:32:06][D][ble_adv:029]:   Advertised service data:
+//     // [15:32:06][D][ble_adv:041]:   Advertised manufacturer data:
+//     // [15:32:06][D][ble_adv:049]:     - 0x5053: (length 5) A01D810140
+//     // A0 1D 81 01 40
+//     // Type, batteryMv * 100, tagSoftwareVersion = 81 << 8 | 01, 
 
-    if (device.address_uint64() != this->address_) {
-        ESP_LOGVV(TAG, "parse_device(): unknown MAC address.");
-        return false;
-    }
-    auto mnf_datas = device.get_manufacturer_datas();
-    if (mnf_datas.size() != 1) {
-        ESP_LOGD(TAG, "parse_device(): manufacturer_datas is expected to have a single element - size(%d)", mnf_datas.size());
-        return false;
-    }
-    auto mnf_data = mnf_datas[0];
-    if (mnf_data.data.size() != 5) {
-        ESP_LOGD(TAG, "parse_device(): manufacturer_data error - size(%d)", mnf_data.data.size());
-        return false;
-    }
-    uint8_t type = mnf_data.data[0];
-    float battery = mnf_data.data[1] * 100;
-    uint16_t tag_version = (mnf_data.data[2] << 8) + mnf_data.data[3];
+//     if (device.address_uint64() != this->address_) {
+//         ESP_LOGVV(TAG, "parse_device(): unknown MAC address.");
+//         return false;
+//     }
+//     auto mnf_datas = device.get_manufacturer_datas();
+//     if (mnf_datas.size() != 1) {
+//         ESP_LOGD(TAG, "parse_device(): manufacturer_datas is expected to have a single element - size(%d)", mnf_datas.size());
+//         return false;
+//     }
+//     auto mnf_data = mnf_datas[0];
+//     if (mnf_data.data.size() != 5) {
+//         ESP_LOGD(TAG, "parse_device(): manufacturer_data error - size(%d)", mnf_data.data.size());
+//         return false;
+//     }
+//     uint8_t type = mnf_data.data[0];
+//     float battery = mnf_data.data[1] * 100;
+//     uint16_t tag_version = (mnf_data.data[2] << 8) + mnf_data.data[3];
 
-    type_ = type;
-    battery_ = battery;
-    tag_version_ = tag_version;
-    return true;
-}
+//     type_ = type;
+//     battery_ = battery;
+//     tag_version_ = tag_version;
+//     return true;
+// }
 
 void GiciskyESL::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param)
 {

@@ -16,7 +16,7 @@ CODEOWNERS = ["@eigger"]
 CONF_IMAGE_UUID = 'img_uuid'
 gicisky_esl_ns = cg.esphome_ns.namespace("gicisky_esl")
 GiciskyESL = gicisky_esl_ns.class_(
-    "GiciskyESL", cg.PollingComponent, display.DisplayBuffer, ble_client.BLEClientNode, esp32_ble_tracker.ESPBTDeviceListener
+    "GiciskyESL", cg.PollingComponent, display.DisplayBuffer, ble_client.BLEClientNode#, esp32_ble_tracker.ESPBTDeviceListener
 )
 
 CONFIG_SCHEMA = cv.All(
@@ -53,7 +53,7 @@ async def to_code(config):
     #await cg.register_component(var, config)
     await display.register_display(var, config)
     await ble_client.register_ble_node(var, config)
-    await esp32_ble_tracker.register_ble_device(var, config)
+    #await esp32_ble_tracker.register_ble_device(var, config)
     if len(config[CONF_SERVICE_UUID]) == len(esp32_ble_tracker.bt_uuid16_format):
         cg.add(
             var.set_service_uuid16(esp32_ble_tracker.as_hex(config[CONF_SERVICE_UUID]))
