@@ -15,11 +15,11 @@ static const char *const TAG = "gicisky_esl";
 void GiciskyESL::dump_config()
 {
     LOG_DISPLAY("", "gicisky_esl", this);
-    ESP_LOGCONFIG(TAG, "  Width: %d, Height: %d", this->width_, this->height_);
-    ESP_LOGCONFIG(TAG, "  MAC address        : %s", this->parent_->address_str().c_str());
-    ESP_LOGCONFIG(TAG, "  Service UUID       : %s", this->service_uuid_.to_string().c_str());
-    ESP_LOGCONFIG(TAG, "  Characteristic UUID: %s", this->char_uuid_.to_string().c_str());
-    LOG_UPDATE_INTERVAL(this);
+    // ESP_LOGCONFIG(TAG, "  Width: %d, Height: %d", this->width_, this->height_);
+    // ESP_LOGCONFIG(TAG, "  MAC address        : %s", this->parent_->address_str().c_str());
+    // ESP_LOGCONFIG(TAG, "  Service UUID       : %s", this->service_uuid_.to_string().c_str());
+    // ESP_LOGCONFIG(TAG, "  Characteristic UUID: %s", this->char_uuid_.to_string().c_str());
+    // LOG_UPDATE_INTERVAL(this);
 }
 
 void GiciskyESL::update()
@@ -37,12 +37,6 @@ void GiciskyESL::setup()
     timer_ = get_time();
     ESP_LOGI(TAG, "Initaialize.");
 }
-
-void GiciskyESL::loop()
-{
-    this->sync_time_();
-}
-
 
 bool GiciskyESL::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
     // the address should match the address we declared

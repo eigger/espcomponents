@@ -42,7 +42,6 @@ public:
     void update() override;
     void dump_config() override;
     void setup() override;
-    void loop() override;
     void set_service_uuid16(uint16_t uuid) { this->service_uuid_ = espbt::ESPBTUUID::from_uint16(uuid); }
     void set_service_uuid32(uint32_t uuid) { this->service_uuid_ = espbt::ESPBTUUID::from_uint32(uuid); }
     void set_service_uuid128(uint8_t *uuid) { this->service_uuid_ = espbt::ESPBTUUID::from_raw(uuid); }
@@ -82,7 +81,6 @@ protected:
     uint16_t y_high_{0};
 
     bool write_data(std::vector<uint8_t> &data);
-    bool write_protocol(std::vector<uint8_t> &data);
     std::string to_hex_string(const std::vector<unsigned char> &data);
 
     text_sensor::TextSensor *version_{nullptr};
