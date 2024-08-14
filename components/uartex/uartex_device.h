@@ -37,12 +37,12 @@ public:
     void uartex_dump_config(const char* TAG);
     void set_state(std::string name, state_t state) { this->state_map_[name] = state; }
     void set_state(std::string name, state_num_t state) { this->state_num_map_[name] = state; }
-    void set_state(std::string name, std::function<float(const uint8_t* data, const uint16_t len)> f) { this->state_float_func_map_[name] = f; }
-    void set_state(std::string name, std::function<const char*(const uint8_t* data, const uint16_t len)> f) { this->state_str_func_map_[name] = f; }
+    void set_state(std::string name, std::function<float(const uint8_t* data, const uint16_t len)> &&f) { this->state_float_func_map_[name] = f; }
+    void set_state(std::string name, std::function<const char*(const uint8_t* data, const uint16_t len)> &&f) { this->state_str_func_map_[name] = f; }
     void set_command(std::string name, cmd_t cmd) { this->command_map_[name] = cmd; }
-    void set_command(std::string name, std::function<cmd_t()> f) { this->command_func_map_[name] = f; }
-    void set_command(std::string name, std::function<cmd_t(const float x)> f) { this->command_float_func_map_[name] = f; }
-    void set_command(std::string name, std::function<cmd_t(const std::string& str)> f) { this->command_str_func_map_[name] = f; }
+    void set_command(std::string name, std::function<cmd_t()> &&f) { this->command_func_map_[name] = f; }
+    void set_command(std::string name, std::function<cmd_t(const float x)> &&f) { this->command_float_func_map_[name] = f; }
+    void set_command(std::string name, std::function<cmd_t(const std::string& str)> &&f) { this->command_str_func_map_[name] = f; }
 
     void enqueue_tx_cmd(const cmd_t* cmd, bool low_priority = false);
     const cmd_t* dequeue_tx_cmd();

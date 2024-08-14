@@ -359,7 +359,7 @@ void UARTExComponent::set_rx_checksum(CHECKSUM checksum)
     this->rx_checksum_ = checksum;
 }
 
-void UARTExComponent::set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f)
+void UARTExComponent::set_rx_checksum(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f)
 {
     this->rx_checksum_f_ = f;
     this->rx_checksum_ = CHECKSUM_CUSTOM;
@@ -370,7 +370,7 @@ void UARTExComponent::set_tx_checksum(CHECKSUM checksum)
     this->tx_checksum_ = checksum;
 }
 
-void UARTExComponent::set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f)
+void UARTExComponent::set_tx_checksum(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f)
 {
     this->tx_checksum_f_ = f;
     this->tx_checksum_ = CHECKSUM_CUSTOM;
@@ -381,7 +381,7 @@ void UARTExComponent::set_rx_checksum_2(CHECKSUM checksum)
     this->rx_checksum_2_ = checksum;
 }
 
-void UARTExComponent::set_rx_checksum_2_lambda(std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)> &&f)
+void UARTExComponent::set_rx_checksum_2(std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)> &&f)
 {
     this->rx_checksum_f_2_ = f;
     this->rx_checksum_2_ = CHECKSUM_CUSTOM;
@@ -392,7 +392,7 @@ void UARTExComponent::set_tx_checksum_2(CHECKSUM checksum)
     this->tx_checksum_2_ = checksum;
 }
 
-void UARTExComponent::set_tx_checksum_2_lambda(std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)> &&f)
+void UARTExComponent::set_tx_checksum_2(std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)> &&f)
 {
     this->tx_checksum_f_2_ = f;
     this->tx_checksum_2_ = CHECKSUM_CUSTOM;

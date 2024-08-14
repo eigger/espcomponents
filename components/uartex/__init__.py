@@ -158,28 +158,28 @@ async def to_code(config):
         data = config[CONF_RX_CHECKSUM]
         if cg.is_template(data):
             template_ = await cg.templatable(data, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.uint8)
-            cg.add(var.set_rx_checksum_lambda(template_))
+            cg.add(var.set_rx_checksum(template_))
         else:
             cg.add(var.set_rx_checksum(data))
     if CONF_TX_CHECKSUM in config:
         data = config[CONF_TX_CHECKSUM]
         if cg.is_template(data):
             template_ = await cg.templatable(data, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.uint8)
-            cg.add(var.set_tx_checksum_lambda(template_))
+            cg.add(var.set_tx_checksum(template_))
         else:
             cg.add(var.set_tx_checksum(data))
     if CONF_RX_CHECKSUM_2 in config:
         data = config[CONF_RX_CHECKSUM_2]
         if cg.is_template(data):
             template_ = await cg.templatable(data, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], vector_uint8)
-            cg.add(var.set_rx_checksum_2_lambda(template_))
+            cg.add(var.set_rx_checksum_2(template_))
         else:
             cg.add(var.set_rx_checksum_2(data))
     if CONF_TX_CHECKSUM_2 in config:
         data = config[CONF_TX_CHECKSUM_2]
         if cg.is_template(data):
             template_ = await cg.templatable(data, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], vector_uint8)
-            cg.add(var.set_tx_checksum_2_lambda(template_))
+            cg.add(var.set_tx_checksum_2(template_))
         else:
             cg.add(var.set_tx_checksum_2(data))
     if CONF_ON_WRITE in config:
