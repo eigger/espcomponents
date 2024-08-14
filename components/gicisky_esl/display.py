@@ -16,7 +16,7 @@ CODEOWNERS = ["@eigger"]
 CONF_IMAGE_UUID = 'img_uuid'
 gicisky_esl_ns = cg.esphome_ns.namespace("gicisky_esl")
 GiciskyESL = gicisky_esl_ns.class_(
-    "GiciskyESL", display.DisplayBuffer, ble_client.BLEClientNode#, esp32_ble_tracker.ESPBTDeviceListener, cg.PollingComponent, 
+    "GiciskyESL", cg.PollingComponent, display.DisplayBuffer, ble_client.BLEClientNode#, esp32_ble_tracker.ESPBTDeviceListener
 )
 
 CONFIG_SCHEMA = cv.All(
@@ -41,8 +41,8 @@ CONFIG_SCHEMA = cv.All(
             }),
         }
     )
-    #.extend(cv.polling_component_schema("1s"))
-    .extend(ble_client.BLE_CLIENT_SCHEMA)
+    .extend(cv.polling_component_schema("1s"))
+    .extend(ble_client.BLE_CLIENT_SCHEMA),
     #.extend(esp32_ble_tracker.ESP_BLE_DEVICE_SCHEMA),
     cv.has_at_most_one_key(CONF_PAGES, CONF_LAMBDA),
 )
