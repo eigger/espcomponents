@@ -94,7 +94,6 @@ void GiciskyESL::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t g
         break;
     case ESP_GATTC_DISCONNECT_EVT:
         connected_ = false;
-        synced_time_ = false;
         old_image_buffer_.clear();
         if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
         ESP_LOGW(TAG, "[%s] Disconnected", this->char_uuid_.to_string().c_str());
@@ -161,6 +160,7 @@ bool GiciskyESL::is_display_empty()
 void GiciskyESL::display_()
 {
     if (!connected_) return;
+    if (type_ == 0) return;
     clear_display_buffer();
     if (image_buffer_.size() == old_image_buffer_.size())
     {
