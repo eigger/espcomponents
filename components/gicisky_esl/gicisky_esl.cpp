@@ -30,7 +30,6 @@ void GiciskyESL::update()
 
 void GiciskyESL::setup()
 {
-    width_shift_offset_ = -this->width_;
     image_buffer_.resize(this->width_ * this->height_);
     clear_display_buffer();
     if (this->version_) this->version_->publish_state(VERSION);
@@ -113,9 +112,54 @@ void GiciskyESL::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t g
     }
 }
 
-void GiciskyESL::parse_data(uint8_t *value, uint16_t value_len)
+void GiciskyESL::parse_data(uint8_t *data, uint16_t len)
 {
-    
+    if (len < 1) return;
+    ESP_LOGD(TAG, "Recive-> %s", to_hex_string(data, len).c_str());
+    uint32_t part = 0;
+    uint32_t size = get_buffer_length_();
+    uint8_t size_packet[4] = { (size) & 0xff, (size >> 8) & 0xff, (size >> 16) & 0xff, (size >> 24) & 0xff };
+    switch(data[0])
+    {
+    case 0x01:
+        if (len < 3) break;
+        if (data[1] != 0xf4) break;
+        if (data[2] != 0x00) break;
+        write_cmd({0x02, size_packet[0], size_packet[1], size_packet[2], size_packet[3], 0x00, 0x00, 0x00});
+        break;
+    case 0x02:
+         write_cmd({0x03});
+        break;
+    case 0x05:
+        if (len < 6) break;
+        if (data[1] == 0x08)
+        {
+            //End
+            this->parent()->disconnect();
+        }
+        else if (data[1] == 0x00)
+        {
+            part = (data[5] << 24) | (data[4] << 16) | (data[3] << 8) | data[2];
+            send_img(part);
+        }
+        break;
+    }
+}
+
+void GiciskyESL::send_img(uint32_t part)
+{
+    uint8_t size_packet[4] = { (part) & 0xff, (part >> 8) & 0xff, (part >> 16) & 0xff, (part >> 24) & 0xff };
+    uint32_t total_size = get_buffer_length_();
+    uint32_t len = total_size - (part  * 240);
+    if (len > 240) len = 240;
+    std::vector<uint8_t> packet = { size_packet[0], size_packet[1], size_packet[2], size_packet[3] };
+    for (uint32_t i = 0; i < len; i++) 
+    {
+        uint32_t idx = (part * 240) + i;
+        Color color = image_buffer_[idx];
+        packet.push_back(color);
+    }
+    write_img(packet);
 }
 
 unsigned long GiciskyESL::elapsed_time(const unsigned long timer)
@@ -135,32 +179,9 @@ void GiciskyESL::clear_display_buffer()
     this->y_high_ = 0;
 }
 
-Color GiciskyESL::get_display_color(int x, int y)
-{
-    for (ColorPoint point : display_list_)
-    {
-        if (point.x == x && point.y == y)
-        {
-            //ESP_LOGI(TAG, "Color %d %d r%d g%d b%d", point.x, point.y, point.color.r, point.color.g, point.color.b);
-            return point.color;
-        }
-    }
-    return background_color_;
-}
-
-bool GiciskyESL::is_display_empty()
-{
-    for (ColorPoint point : display_list_)
-    {
-        if (point.color != background_color_) return false;
-    }
-    return true;
-}
-
 void GiciskyESL::shift_image()
 {
-    int32_t offset = width_shift_offset_;
-    if (this->x_high_ <= this->width_) offset = 0;
+    int32_t offset = 0;
     for (int x = 0; x < this->width_; x++)
     {
         for (int y = 0; y < this->height_; y++)
@@ -169,14 +190,11 @@ void GiciskyESL::shift_image()
             image_buffer_[pos] = get_display_color(x + offset, y);
         }
     }
-    if (this->x_high_ > this->width_) width_shift_offset_++;
-    if (width_shift_offset_ > this->x_high_ + 1) width_shift_offset_ = -this->width_;
-
 }
+
 void GiciskyESL::display_()
 {
-    if (!connected_) return;
-    if (is_display_empty()) width_shift_offset_ = -this->width_;
+    if (elapsed_time(timer_) < 10 * 1000) return;
     shift_image();
     clear_display_buffer();
     if (image_buffer_.size() == old_image_buffer_.size())
@@ -184,20 +202,10 @@ void GiciskyESL::display_()
         if (std::equal(image_buffer_.begin(), image_buffer_.end(), old_image_buffer_.begin())) return;
     }
     old_image_buffer_ = image_buffer_;
-    draw_image_to_esl(image_buffer_);
-}
-
-void GiciskyESL::draw_image_to_esl(const std::vector<Color> &image)
-{
     this->parent()->connect();
     delay(500);
     this->write_cmd({0x01});
-
-
-
-    //this->parent()->disconnect();
 }
-
 
 void HOT GiciskyESL::draw_absolute_pixel_internal(int x, int y, Color color)
 {
@@ -275,53 +283,19 @@ std::string GiciskyESL::to_hex_string(const std::vector<unsigned char> &data)
     return res;
 }
 
-bool GiciskyESL::write_protocol(std::vector<uint8_t> &data)
+std::string GiciskyESL::to_hex_string(const uint8_t* data, const uint16_t len)
 {
-    std::vector<uint8_t> buffer;
-    std::vector<uint8_t> option;
-    if (this->require_response_)
+    char buf[5];
+    std::string res;
+    for (uint16_t i = 0; i < len; i++)
     {
-        option.push_back(0x01);
-        option.push_back(packet_number_ & 0xFF);
-        option.push_back((packet_number_ >> 8) & 0xFF);
-        option.push_back((packet_number_ >> 16) & 0xFF);
-        option.push_back((packet_number_ >> 24) & 0xFF);
-        if (packet_number_ >= std::numeric_limits<uint32_t>::max())
-        {
-            packet_number_ = 1;
-        }
-        else 
-        {
-            packet_number_++;
-        }
+        sprintf(buf, "%02X", data[i]);
+        res += buf;
     }
-    else
-    {
-        option.push_back(0x00);
-    }
-    uint16_t length = data.size() + option.size() + 2; //data + checksum
-    uint8_t length_low = length & 0xFF;
-    uint8_t length_high = (length >> 8) & 0xFF;
-    uint16_t checksum = std::accumulate(data.begin(), data.end(), 0);
-    checksum += std::accumulate(option.begin(), option.end(), length_high + length_low);
-    uint8_t checksum_low = checksum & 0xFF;
-    uint8_t checksum_high = (checksum >> 8) & 0xFF; 
-
-    buffer.push_back(0xFE);
-    buffer.push_back(0xEF);
-    buffer.push_back(0xAA);
-    buffer.push_back(0x55);
-    buffer.push_back(length_low);
-    buffer.push_back(length_high);
-    buffer.insert(buffer.end(), option.begin(), option.end());
-    buffer.insert(buffer.end(), data.begin(), data.end());
-    buffer.push_back(checksum_low);
-    buffer.push_back(checksum_high);
-    return write_data(buffer);
+    sprintf(buf, "(%d)", len);
+    res += buf;
+    return res;
 }
-
-
-
 
 } // namespace gicisky_esl
 }  // namespace esphome

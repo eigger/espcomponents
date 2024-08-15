@@ -49,15 +49,12 @@ public:
     void set_width(uint16_t width) { this->width_ = width; }
     void set_height(uint16_t height) { this->height_ = height; }
 protected:
-    void parse_data(uint8_t *value, uint16_t value_len);
+    void parse_data(uint8_t *data, uint16_t len);
     void draw_absolute_pixel_internal(int x, int y, Color color) override;
     void add_color_point(ColorPoint point);
-    void draw_image_to_esl(const std::vector<Color> &image);
-    void clear_display_buffer();
-    Color get_display_color(int x, int y);
-    bool is_display_empty();
-    void shift_image();
     void display_();
+    void clear_display_buffer();
+    void shift_image();
     unsigned long elapsed_time(const unsigned long timer);
     unsigned long get_time();
     bool connected_{false};
@@ -67,18 +64,18 @@ protected:
     std::vector<ColorPoint> display_list_;
     std::vector<Color> old_image_buffer_;
     Color background_color_{Color::BLACK};
-    int32_t width_shift_offset_{0};
-    uint32_t packet_number_{1}; 
-    int16_t width_{0};  ///< Display width as modified by current rotation
-    int16_t height_{0}; ///< Display height as modified by current rotation
+
+    int16_t width_{0};
+    int16_t height_{0};
     uint16_t x_low_{0};
     uint16_t y_low_{0};
     uint16_t x_high_{0};
     uint16_t y_high_{0};
-
+    void send_img(uint32_t part);
     bool write_cmd(std::vector<uint8_t> &data);
     bool write_img(std::vector<uint8_t> &data);
     std::string to_hex_string(const std::vector<unsigned char> &data);
+    std::string to_hex_string(const uint8_t* data, const uint16_t len);
 
     text_sensor::TextSensor *version_{nullptr};
     binary_sensor::BinarySensor *bt_connected_{nullptr};
