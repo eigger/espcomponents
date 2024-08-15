@@ -82,7 +82,7 @@ protected:
     void update_callback(bool state);
     text_sensor::TextSensor *version_{nullptr};
     binary_sensor::BinarySensor *bt_connected_{nullptr};
-    Update *update_{nullptr};
+    switch_::Switch *update_{nullptr};
 
     esp32_ble_tracker::ESPBTUUID service_uuid_ =
         esp32_ble_tracker::ESPBTUUID::from_raw("FEF0");

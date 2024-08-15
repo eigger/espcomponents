@@ -21,6 +21,7 @@ gicisky_esl_ns = cg.esphome_ns.namespace("gicisky_esl")
 gicisky_esl = gicisky_esl_ns.class_(
     "GiciskyESL", display.DisplayBuffer, ble_client.BLEClientNode
 )
+Update = gicisky_esl_ns.class_("Update", gicisky_esl)
 
 CONFIG_SCHEMA = cv.All(
     display.FULL_DISPLAY_SCHEMA.extend(
@@ -43,7 +44,7 @@ CONFIG_SCHEMA = cv.All(
             }),
             cv.Optional(CONF_UPDATE, default={CONF_NAME: "Update"}):  switch.SWITCH_SCHEMA.extend(
             {
-                cv.GenerateID(): cv.declare_id(switch.Switch),
+                cv.GenerateID(): cv.declare_id(Update),
             }),
         }
     )
