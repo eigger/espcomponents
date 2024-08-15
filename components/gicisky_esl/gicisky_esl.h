@@ -85,11 +85,11 @@ protected:
     switch_::Switch *update_{nullptr};
 
     esp32_ble_tracker::ESPBTUUID service_uuid_ =
-        esp32_ble_tracker::ESPBTUUID::from_uint16("FEF0");
+        esp32_ble_tracker::ESPBTUUID::from_uint16(0xFEF0);
     esp32_ble_tracker::ESPBTUUID cmd_uuid_ =
-        esp32_ble_tracker::ESPBTUUID::from_uint16("FEF1");
+        esp32_ble_tracker::ESPBTUUID::from_uint16(0xFEF1);
     esp32_ble_tracker::ESPBTUUID img_uuid_ =
-        esp32_ble_tracker::ESPBTUUID::from_uint16("FEF2");
+        esp32_ble_tracker::ESPBTUUID::from_uint16(0xFEF2);
 
     espbt::ClientState client_state_;
     uint16_t handle;
