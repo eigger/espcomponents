@@ -227,7 +227,7 @@ void GiciskyESL::display_()
         if (std::equal(image_buffer_.begin(), image_buffer_.end(), old_image_buffer_.begin())) return;
     }
     ESP_LOGD(TAG, "Update Display");
-    old_image_buffer_ = image_buffer_;
+    //old_image_buffer_ = image_buffer_;
     send_cmd(0x01);
 }
 
