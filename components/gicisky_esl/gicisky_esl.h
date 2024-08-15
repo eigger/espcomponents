@@ -31,7 +31,7 @@ struct ColorPoint
     }
 };
 
-class GiciskyESL : public PollingComponent, public display::DisplayBuffer, public ble_client::BLEClientNode
+class GiciskyESL : public display::DisplayBuffer, public ble_client::BLEClientNode
 {
 public:
     void set_model(DivoomModel model) { this->model_ = model; }
@@ -100,15 +100,6 @@ protected:
     espbt::ESPBTUUID char_uuid_;
     espbt::ClientState client_state_;
 
-};
-
-class BGR : public GiciskyESL
-{
-public:
-    void initialize() override
-    {
-        
-    }
 };
 
 

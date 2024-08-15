@@ -18,9 +18,9 @@ DEPENDENCIES = ["ble_client"]
 CODEOWNERS = ["@eigger"]
 gicisky_esl_ns = cg.esphome_ns.namespace("gicisky_esl")
 gicisky_esl = gicisky_esl_ns.class_(
-    "GiciskyESL", cg.PollingComponent, display.DisplayBuffer, ble_client.BLEClientNode
+    "GiciskyESL", display.DisplayBuffer, ble_client.BLEClientNode
 )
-BGR = gicisky_esl_ns.class_("BGR", gicisky_esl)
+
 CONFIG_SCHEMA = cv.All(
     display.FULL_DISPLAY_SCHEMA.extend(
         {
@@ -43,19 +43,13 @@ CONFIG_SCHEMA = cv.All(
             }),
         }
     )
-    .extend(cv.polling_component_schema("1s"))
     .extend(ble_client.BLE_CLIENT_SCHEMA),
     cv.has_at_most_one_key(CONF_PAGES, CONF_LAMBDA),
 )
 
 
 async def to_code(config):
-
-    lcd_type = BGR
-    rhs = lcd_type.new()
-    var = cg.Pvariable(config[CONF_ID], rhs)
-
-    await cg.register_component(var, config)
+    var = cg.new_Pvariable(config[CONF_ID])
     await display.register_display(var, config)
     await ble_client.register_ble_node(var, config)
     if len(config[CONF_SERVICE_UUID]) == len(esp32_ble_tracker.bt_uuid16_format):
