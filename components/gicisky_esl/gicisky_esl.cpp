@@ -1,4 +1,4 @@
-#include "divoom_display.h"
+#include "gicisky_esl.h"
 #include "esphome/core/log.h"
 #include "esphome/core/application.h"
 #include "esphome/core/helpers.h"
