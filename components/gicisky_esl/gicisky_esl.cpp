@@ -80,11 +80,11 @@ void GiciskyESL::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t g
                 ESP_LOGI(TAG, "Characteristic found at service %s char %s", this->service_uuid_.to_string().c_str(), this->cmd_uuid_.to_string().c_str());
             }
             this->handle = chr->handle;
-            // auto status = esp_ble_gattc_register_for_notify(this->parent()->get_gattc_if(),
-            //                                                 this->parent()->get_remote_bda(), chr->handle);
-            // if (status) {
-            //     ESP_LOGD(TAG, "esp_ble_gattc_register_for_notify failed, status=%d", status);
-            // }
+            auto status = esp_ble_gattc_register_for_notify(this->parent()->get_gattc_if(),
+                                                            this->parent()->get_remote_bda(), chr->handle);
+            if (status) {
+                ESP_LOGD(TAG, "esp_ble_gattc_register_for_notify failed, status=%d", status);
+            }
             break;
         }
         case ESP_GATTC_READ_CHAR_EVT: 
@@ -112,7 +112,11 @@ void GiciskyESL::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t g
         case ESP_GATTC_REG_FOR_NOTIFY_EVT: 
         {
             if (param->reg_for_notify.status == ESP_GATT_OK && param->reg_for_notify.handle == this->handle)
+            {
                 this->node_state = espbt::ClientState::ESTABLISHED;
+                send_cmd(0x01);
+            }
+                
             break;
         }
         default:
@@ -231,7 +235,7 @@ void GiciskyESL::display_()
     }
     ESP_LOGD(TAG, "Update Display");
     //old_image_buffer_ = image_buffer_;
-    send_cmd(0x01);
+    //send_cmd(0x01);
 }
 
 void HOT GiciskyESL::draw_absolute_pixel_internal(int x, int y, Color color)
