@@ -113,7 +113,7 @@ void GiciskyESL::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t g
         {
             if (param->reg_for_notify.status == ESP_GATT_OK && param->reg_for_notify.handle == this->handle)
             {
-                this->node_state = espbt::ClientState::ESTABLISHED;
+                //this->node_state = espbt::ClientState::ESTABLISHED;
                 send_cmd(0x01);
             }
                 
@@ -147,6 +147,7 @@ void GiciskyESL::parse_data(uint8_t *data, uint16_t len)
             //End
             if (this->update_)
             {
+                this->node_state = espbt::ClientState::ESTABLISHED;
                 this->update_->turn_off();
             }
         }
