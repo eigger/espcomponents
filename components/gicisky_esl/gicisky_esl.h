@@ -32,14 +32,12 @@ struct ColorPoint
 class GiciskyESL : public display::DisplayBuffer, public ble_client::BLEClientNode
 {
 public:
-    void set_model(DivoomModel model) { this->model_ = model; }
+
     float get_setup_priority() const { return setup_priority::PROCESSOR; }
     display::DisplayType get_display_type() override { return display::DisplayType::DISPLAY_TYPE_COLOR; }
     uint32_t get_buffer_length_() { return this->get_width_internal() * this->get_height_internal(); }
     int get_width_internal() { return this->width_; }
     int get_height_internal() { return this->height_; }
-
-    virtual void initialize() = 0;
 
     void update() override;
     void dump_config() override;
