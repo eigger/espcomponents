@@ -172,7 +172,7 @@ void GiciskyESL::send_img(uint32_t part)
     {
         uint32_t idx = (part * 240) + i;
         Color color = image_buffer_[idx];
-        packet.push_back(color);
+        packet.push_back(color.r);
     }
     write_img(packet);
 }
