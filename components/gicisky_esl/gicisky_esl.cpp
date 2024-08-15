@@ -279,11 +279,11 @@ Color GiciskyESL::get_display_color(int x, int y)
 
 bool GiciskyESL::write_cmd(std::vector<uint8_t> &data)
 {
-    if (this->node_state != espbt::ClientState::ESTABLISHED)
-    {
-        ESP_LOGD(TAG, "[%s] Not connected to BLE client.  State update can not be written.", this->cmd_uuid_.to_string().c_str());
-        return false;
-    }
+    // if (this->node_state != espbt::ClientState::ESTABLISHED)
+    // {
+    //     ESP_LOGD(TAG, "[%s] Not connected to BLE client.  State update can not be written.", this->cmd_uuid_.to_string().c_str());
+    //     return false;
+    // }
     auto *chr = this->parent()->get_characteristic(this->service_uuid_, this->cmd_uuid_);
     if (chr == nullptr)
     {
@@ -298,11 +298,11 @@ bool GiciskyESL::write_cmd(std::vector<uint8_t> &data)
 
 bool GiciskyESL::write_img(std::vector<uint8_t> &data)
 {
-    if (this->node_state != espbt::ClientState::ESTABLISHED)
-    {
-        ESP_LOGD(TAG, "[%s] Not connected to BLE client.  State update can not be written.", this->img_uuid_.to_string().c_str());
-        return false;
-    }
+    // if (this->node_state != espbt::ClientState::ESTABLISHED)
+    // {
+    //     ESP_LOGD(TAG, "[%s] Not connected to BLE client.  State update can not be written.", this->img_uuid_.to_string().c_str());
+    //     return false;
+    // }
     auto *chr = this->parent()->get_characteristic(this->service_uuid_, this->img_uuid_);
     if (chr == nullptr)
     {
