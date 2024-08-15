@@ -7,6 +7,8 @@ from esphome.const import (
     CONF_LAMBDA,
     CONF_MODEL,
     CONF_PAGES,
+    CONF_WIDTH, 
+    CONF_HEIGHT,
     CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, CONF_DEVICE_CLASS, 
     ICON_NEW_BOX, CONF_STATUS, CONF_CHARACTERISTIC_UUID, CONF_SERVICE_UUID
 )
@@ -23,6 +25,8 @@ CONFIG_SCHEMA = cv.All(
     display.FULL_DISPLAY_SCHEMA.extend(
         {
             cv.GenerateID(): cv.declare_id(gicisky_esl),
+            cv.Required(CONF_WIDTH): cv.uint16_t,
+            cv.Required(CONF_HEIGHT): cv.uint16_t,
             cv.Optional(CONF_VERSION, default={CONF_NAME: "Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
             {
                 cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
@@ -46,6 +50,10 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await display.register_display(var, config)
     await ble_client.register_ble_node(var, config)
+    if CONF_WIDTH in config:
+        cg.add(var.set_width(config[CONF_WIDTH]))
+    if CONF_HEIGHT in config:
+        cg.add(var.set_height(config[CONF_HEIGHT]))
     if CONF_VERSION in config:
         sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
         await register_text_sensor(sens, config[CONF_VERSION])

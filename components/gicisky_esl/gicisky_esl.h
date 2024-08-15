@@ -38,7 +38,7 @@ public:
     uint32_t get_buffer_length_() { return this->get_width_internal() * this->get_height_internal(); }
     int get_width_internal() { return this->width_; }
     int get_height_internal() { return this->height_; }
-
+    
     void update() override;
     void dump_config() override;
     void setup() override;
@@ -46,14 +46,13 @@ public:
     void gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param) override;
     void set_version(text_sensor::TextSensor *version) { version_ = version; }
     void set_bt_connected(binary_sensor::BinarySensor *bt_connected) { bt_connected_ = bt_connected; } 
-
+    void set_width(uint16_t width) { this->width_ = width; }
+    void set_height(uint16_t height) { this->height_ = height; }
 protected:
     void parse_data(uint8_t *value, uint16_t value_len);
     void draw_absolute_pixel_internal(int x, int y, Color color) override;
     void add_color_point(ColorPoint point);
-    void draw_image_to_divoom(const std::vector<Color> &image);
-    void draw_animation_to_divoom(const std::vector<std::vector<Color>> &images, uint16_t time);
-    std::vector<uint8_t> get_single_image_data(const std::vector<Color> &image, uint16_t time = 0);
+    void draw_image_to_esl(const std::vector<Color> &image);
     void clear_display_buffer();
     Color get_display_color(int x, int y);
     bool is_display_empty();
@@ -70,15 +69,15 @@ protected:
     Color background_color_{Color::BLACK};
     int32_t width_shift_offset_{0};
     uint32_t packet_number_{1}; 
-    int16_t width_{16};  ///< Display width as modified by current rotation
-    int16_t height_{16}; ///< Display height as modified by current rotation
+    int16_t width_{0};  ///< Display width as modified by current rotation
+    int16_t height_{0}; ///< Display height as modified by current rotation
     uint16_t x_low_{0};
     uint16_t y_low_{0};
     uint16_t x_high_{0};
     uint16_t y_high_{0};
 
-    bool write_data(std::vector<uint8_t> &data);
-    bool write_protocol(std::vector<uint8_t> &data);
+    bool write_cmd(std::vector<uint8_t> &data);
+    bool write_img(std::vector<uint8_t> &data);
     std::string to_hex_string(const std::vector<unsigned char> &data);
 
     text_sensor::TextSensor *version_{nullptr};
