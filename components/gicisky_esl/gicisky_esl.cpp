@@ -52,7 +52,7 @@ void GiciskyESL::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t g
             if (param->open.status == ESP_GATT_OK) 
             {
                 connected_ = true;
-                //if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
+                if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
                 ESP_LOGI(TAG, "[%s] Connected successfully!", this->parent_->address_str().c_str());
                 break;
             }
@@ -62,7 +62,7 @@ void GiciskyESL::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t g
         {
             this->status_set_warning();
             connected_ = false;
-            //if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
+            if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
             break;
         }
         case ESP_GATTC_SEARCH_CMPL_EVT: 
@@ -72,9 +72,12 @@ void GiciskyESL::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t g
             if (chr == nullptr) 
             {
                 this->status_set_warning();
-                ESP_LOGD(TAG, "No sensor characteristic found at service %s char %s", this->service_uuid_.to_string().c_str(),
-                        this->cmd_uuid_.to_string().c_str());
+                ESP_LOGD(TAG, "No sensor characteristic found at service %s char %s", this->service_uuid_.to_string().c_str(), this->cmd_uuid_.to_string().c_str());
                 break;
+            }
+            else
+            {
+                ESP_LOGI(TAG, "Characteristic found at service %s char %s", this->service_uuid_.to_string().c_str(), this->cmd_uuid_.to_string().c_str());
             }
             this->handle = chr->handle;
             auto status = esp_ble_gattc_register_for_notify(this->parent()->get_gattc_if(),
