@@ -10,12 +10,13 @@ from esphome.const import (
     CONF_WIDTH, 
     CONF_HEIGHT,
     CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, CONF_DEVICE_CLASS, 
-    ICON_NEW_BOX, CONF_STATUS, CONF_UPDATE
+    ICON_NEW_BOX, CONF_STATUS
 )
 
 AUTO_LOAD = ["text_sensor", "binary_sensor", "switch"]
 DEPENDENCIES = ["ble_client"]
 CODEOWNERS = ["@eigger"]
+CONF_UPDATE = 'update'
 gicisky_esl_ns = cg.esphome_ns.namespace("gicisky_esl")
 gicisky_esl = gicisky_esl_ns.class_(
     "GiciskyESL", display.DisplayBuffer, ble_client.BLEClientNode
