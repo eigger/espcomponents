@@ -65,7 +65,7 @@ protected:
     std::vector<Color> image_buffer_;
     std::vector<ColorPoint> display_list_;
     std::vector<Color> old_image_buffer_;
-    Color background_color_{Color::WHITE};
+    Color background_color_{Color::BLACK};
 
     int16_t width_{0};
     int16_t height_{0};
