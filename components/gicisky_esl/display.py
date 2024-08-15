@@ -10,13 +10,13 @@ from esphome.const import (
     ICON_NEW_BOX, CONF_STATUS, CONF_CHARACTERISTIC_UUID, CONF_SERVICE_UUID
 )
 
-AUTO_LOAD = ["text_sensor", "binary_sensor"]
-DEPENDENCIES = ["esp32_ble_tracker", "ble_client"]
+AUTO_LOAD = ["text_sensor", "binary_sensor", "esp32_ble_tracker"]
+DEPENDENCIES = ["ble_client"]
 CODEOWNERS = ["@eigger"]
 CONF_IMAGE_UUID = 'img_uuid'
 gicisky_esl_ns = cg.esphome_ns.namespace("gicisky_esl")
 GiciskyESL = gicisky_esl_ns.class_(
-    "GiciskyESL", cg.PollingComponent, display.DisplayBuffer, ble_client.BLEClientNode#, esp32_ble_tracker.ESPBTDeviceListener
+    "GiciskyESL", cg.PollingComponent, display.DisplayBuffer, ble_client.BLEClientNode
 )
 
 CONFIG_SCHEMA = cv.All(
@@ -43,17 +43,15 @@ CONFIG_SCHEMA = cv.All(
     )
     .extend(cv.polling_component_schema("1s"))
     .extend(ble_client.BLE_CLIENT_SCHEMA),
-    #.extend(esp32_ble_tracker.ESP_BLE_DEVICE_SCHEMA),
     cv.has_at_most_one_key(CONF_PAGES, CONF_LAMBDA),
 )
 
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
-    #await cg.register_component(var, config)
+    await cg.register_component(var, config)
     await display.register_display(var, config)
     await ble_client.register_ble_node(var, config)
-    #await esp32_ble_tracker.register_ble_device(var, config)
     if len(config[CONF_SERVICE_UUID]) == len(esp32_ble_tracker.bt_uuid16_format):
         cg.add(
             var.set_service_uuid16(esp32_ble_tracker.as_hex(config[CONF_SERVICE_UUID]))
