@@ -102,6 +102,15 @@ protected:
 
 };
 
+class BGR : public GiciskyESL
+{
+public:
+    void initialize() override
+    {
+        
+    }
+};
+
 
 }  // namespace gicisky_esl
 }  // namespace esphome

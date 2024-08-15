@@ -20,7 +20,7 @@ gicisky_esl_ns = cg.esphome_ns.namespace("gicisky_esl")
 gicisky_esl = gicisky_esl_ns.class_(
     "GiciskyESL", cg.PollingComponent, display.DisplayBuffer, ble_client.BLEClientNode
 )
-
+BGR = gicisky_esl_ns.class_("BGR", gicisky_esl)
 CONFIG_SCHEMA = cv.All(
     display.FULL_DISPLAY_SCHEMA.extend(
         {
@@ -50,7 +50,10 @@ CONFIG_SCHEMA = cv.All(
 
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+
+    lcd_type = BGR
+    rhs = lcd_type.new()
+    var = cg.Pvariable(config[CONF_ID], rhs)
 
     await cg.register_component(var, config)
     await display.register_display(var, config)
