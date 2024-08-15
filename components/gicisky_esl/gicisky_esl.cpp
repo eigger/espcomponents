@@ -334,6 +334,7 @@ void GiciskyESL::update_callback(bool state)
 {
     if (state)
     {
+        global_esp32_ble_tracker->stop_scan();
         this->parent()->connect();
         delay(500);
         send_cmd(0x01);
@@ -341,6 +342,7 @@ void GiciskyESL::update_callback(bool state)
     else
     {
         this->parent()->disconnect();
+        global_esp32_ble_tracker->start_scan();
     }
 }
 
