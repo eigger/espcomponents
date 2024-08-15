@@ -88,6 +88,7 @@ protected:
         esp32_ble_tracker::ESPBTUUID::from_raw("FEF2");
 
     espbt::ClientState client_state_;
+    uint16_t handle;
 
 };
 

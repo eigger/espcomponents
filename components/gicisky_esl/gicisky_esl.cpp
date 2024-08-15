@@ -48,7 +48,7 @@ void GiciskyESL::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t g
             {
                 connected_ = true;
                 if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
-                ESP_LOGI(TAG, "[%s] Connected successfully!", this->get_name().c_str());
+                ESP_LOGI(TAG, "[%s] Connected successfully!", this->parent_->address_str().c_str());
                 break;
             }
             break;
@@ -96,7 +96,7 @@ void GiciskyESL::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t g
         {
             if (param->notify.handle != this->handle)
                 break;
-            ESP_LOGV(TAG, "[%s] ESP_GATTC_NOTIFY_EVT: handle=0x%x, value=0x%x", this->get_name().c_str(),
+            ESP_LOGV(TAG, "[%s] ESP_GATTC_NOTIFY_EVT: handle=0x%x, value=0x%x", this->parent_->address_str().c_str(),
                     param->notify.handle, param->notify.value[0]);
             this->parse_data(param->notify.value, param->notify.value_len);
             break;
