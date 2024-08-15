@@ -40,7 +40,6 @@ void GiciskyESL::setup()
         this->update_->publish_state(false);
     }
     timer_ = get_time();
-    espbt::global_esp32_ble_tracker->stop_scan();
     ESP_LOGI(TAG, "Initaialize.");
 }
 
@@ -339,7 +338,7 @@ void GiciskyESL::update_callback(bool state)
     {
         if (!connected_)
         {
-            //espbt::global_esp32_ble_tracker->stop_scan();
+            espbt::global_esp32_ble_tracker->stop_scan();
             this->parent()->connect();
         }
     }
