@@ -280,7 +280,7 @@ bool GiciskyESL::write_cmd(std::vector<uint8_t> &data)
         ESP_LOGD(TAG, "[%s] Characteristic not found.  State update can not be written.", this->cmd_uuid_.to_string().c_str());
         return false;
     }
-    chr->write_value(&data[0], data.size(), ESP_GATT_WRITE_TYPE_RSP);
+    chr->write_value(&data[0], data.size(), ESP_GATT_WRITE_TYPE_NO_RSP);
     ESP_LOGI(TAG, "Write array-> %s", to_hex_string(data).c_str());
     return true;
 }
@@ -299,7 +299,7 @@ bool GiciskyESL::write_img(std::vector<uint8_t> &data)
         ESP_LOGD(TAG, "[%s] Characteristic not found.  State update can not be written.", this->img_uuid_.to_string().c_str());
         return false;
     }
-    chr->write_value(&data[0], data.size(), ESP_GATT_WRITE_TYPE_RSP);
+    chr->write_value(&data[0], data.size(), ESP_GATT_WRITE_TYPE_NO_RSP);
     ESP_LOGI(TAG, "Write array-> %s", to_hex_string(data).c_str());
     return true;
 }
