@@ -25,7 +25,7 @@ void GiciskyESL::dump_config()
 void GiciskyESL::update()
 {
     this->do_update_();
-    this->display_();
+    //this->display_();
 }
 
 void GiciskyESL::setup()
@@ -217,14 +217,12 @@ void GiciskyESL::shift_image()
 
 void GiciskyESL::display_()
 {
-    return;
-    if (elapsed_time(timer_) < 10 * 1000) return;
     shift_image();
     clear_display_buffer();
-    if (image_buffer_.size() == old_image_buffer_.size())
-    {
-        if (std::equal(image_buffer_.begin(), image_buffer_.end(), old_image_buffer_.begin())) return;
-    }
+    // if (image_buffer_.size() == old_image_buffer_.size())
+    // {
+    //     if (std::equal(image_buffer_.begin(), image_buffer_.end(), old_image_buffer_.begin())) return;
+    // }
     old_image_buffer_ = image_buffer_;
 }
 
@@ -339,9 +337,10 @@ void GiciskyESL::update_callback(bool state)
         {
             espbt::global_esp32_ble_tracker->stop_scan();
             this->parent()->connect();
+            unsigned long timer = get_time();
+            while(!connected_ && elapsed_time(timer) < 5000) delay(100);
         }
-
-        delay(500);
+        this->display_();
         send_cmd(0x01);
     }
     else
