@@ -313,7 +313,7 @@ std::string GiciskyESL::to_hex_string(const std::vector<unsigned char> &data)
 
 std::string GiciskyESL::to_hex_string(const uint8_t* data, const uint16_t len)
 {
-    char buf[5];
+    char buf[20];
     std::string res;
     for (uint16_t i = 0; i < len; i++)
     {
