@@ -30,6 +30,7 @@ void GiciskyESL::update()
 
 void GiciskyESL::setup()
 {
+    background_color_ = Color::WHITE;
     image_buffer_.resize(this->width_ * this->height_);
     clear_display_buffer();
     if (this->version_) this->version_->publish_state(VERSION);
