@@ -166,6 +166,8 @@ void GiciskyESL::send_cmd(uint8_t cmd)
         packet.push_back((uint8_t)0x00);
         packet.push_back((uint8_t)0x00);
     }
+    ESP_LOGD(TAG, "Send CMD -> %s", to_hex_string(packet).c_str());
+    delay(100);
     this->write_cmd(packet);
 }
 
