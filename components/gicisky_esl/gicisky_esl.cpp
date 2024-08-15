@@ -255,7 +255,7 @@ void HOT GiciskyESL::draw_absolute_pixel_internal(int x, int y, Color color)
 
 void GiciskyESL::add_color_point(ColorPoint point)
 {
-    //if (point.color == background_color_) return;
+    if (point.color == background_color_) return;
     for (int i = 0; i < display_list_.size(); i++)
     {
         if (display_list_[i].x == point.x && display_list_[i].y == point.y)
