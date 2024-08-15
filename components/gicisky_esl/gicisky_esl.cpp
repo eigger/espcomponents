@@ -37,7 +37,7 @@ void GiciskyESL::setup()
     if (this->update_)
     {
         this->update_->add_on_state_callback(std::bind(&GiciskyESL::update_callback, this, std::placeholders::_1));
-        this->update_->publish_state(false);
+        this->update_->turn_off();
     }
     timer_ = get_time();
     ESP_LOGI(TAG, "Initaialize.");
