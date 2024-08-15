@@ -166,10 +166,10 @@ void GiciskyESL::send_cmd(uint8_t cmd)
     if (cmd == 0x02)
     {
         uint32_t size = get_buffer_length_();
-        packet.push_back((uint8_t)size);
-        packet.push_back((uint8_t)(size >> 8));
-        packet.push_back((uint8_t)(size >> 16));
-        packet.push_back((uint8_t)(size >> 24));
+        packet.push_back((uint8_t)(size & 0xff));
+        packet.push_back((uint8_t)((size >> 8) & 0xff));
+        packet.push_back((uint8_t)((size >> 16) & 0xff));
+        packet.push_back((uint8_t)((size >> 24) & 0xff));
         packet.push_back((uint8_t)0x00);
         packet.push_back((uint8_t)0x00);
         packet.push_back((uint8_t)0x00);
@@ -181,11 +181,14 @@ void GiciskyESL::send_cmd(uint8_t cmd)
 
 void GiciskyESL::send_img(uint32_t part)
 {
-    uint8_t size_packet[4] = { (uint8_t)(part), (uint8_t)(part >> 8), (uint8_t)(part >> 16), (uint8_t)(part >> 24) };
     uint32_t total_size = get_buffer_length_();
     uint32_t len = total_size - (part  * 240);
     if (len > 240) len = 240;
-    std::vector<uint8_t> packet = { size_packet[0], size_packet[1], size_packet[2], size_packet[3] };
+    std::vector<uint8_t> packet;
+    packet.push_back((uint8_t)(part & 0xff));
+    packet.push_back((uint8_t)((part >> 8) & 0xff));
+    packet.push_back((uint8_t)((part >> 16) & 0xff));
+    packet.push_back((uint8_t)((part >> 24) & 0xff));
     for (uint32_t i = 0; i < len; i++) 
     {
         uint32_t idx = (part * 240) + i;
