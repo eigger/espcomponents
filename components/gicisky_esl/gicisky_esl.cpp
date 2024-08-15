@@ -30,7 +30,6 @@ void GiciskyESL::update()
 
 void GiciskyESL::setup()
 {
-    background_color_ = Color::WHITE;
     image_buffer_.resize(this->width_ * this->height_);
     clear_display_buffer();
     if (this->version_) this->version_->publish_state(VERSION);
@@ -256,7 +255,7 @@ void HOT GiciskyESL::draw_absolute_pixel_internal(int x, int y, Color color)
 
 void GiciskyESL::add_color_point(ColorPoint point)
 {
-    if (point.color == background_color_) return;
+    //if (point.color == background_color_) return;
     for (int i = 0; i < display_list_.size(); i++)
     {
         if (display_list_[i].x == point.x && display_list_[i].y == point.y)
