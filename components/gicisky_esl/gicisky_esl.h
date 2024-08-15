@@ -52,6 +52,7 @@ protected:
     void parse_data(uint8_t *data, uint16_t len);
     void draw_absolute_pixel_internal(int x, int y, Color color) override;
     void add_color_point(ColorPoint point);
+    Color get_display_color(int x, int y);
     void display_();
     void clear_display_buffer();
     void shift_image();
@@ -72,6 +73,7 @@ protected:
     uint16_t x_high_{0};
     uint16_t y_high_{0};
     void send_img(uint32_t part);
+    void send_cmd(uint8_t cmd);
     bool write_cmd(std::vector<uint8_t> &data);
     bool write_img(std::vector<uint8_t> &data);
     std::string to_hex_string(const std::vector<unsigned char> &data);

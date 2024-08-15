@@ -117,18 +117,16 @@ void GiciskyESL::parse_data(uint8_t *data, uint16_t len)
     if (len < 1) return;
     ESP_LOGD(TAG, "Recive-> %s", to_hex_string(data, len).c_str());
     uint32_t part = 0;
-    uint32_t size = get_buffer_length_();
-    uint8_t size_packet[4] = { (size) & 0xff, (size >> 8) & 0xff, (size >> 16) & 0xff, (size >> 24) & 0xff };
     switch(data[0])
     {
     case 0x01:
         if (len < 3) break;
         if (data[1] != 0xf4) break;
         if (data[2] != 0x00) break;
-        write_cmd({0x02, size_packet[0], size_packet[1], size_packet[2], size_packet[3], 0x00, 0x00, 0x00});
+        send_cmd(0x02);
         break;
     case 0x02:
-         write_cmd({0x03});
+        send_cmd(0x03);
         break;
     case 0x05:
         if (len < 6) break;
@@ -146,9 +144,26 @@ void GiciskyESL::parse_data(uint8_t *data, uint16_t len)
     }
 }
 
+void GiciskyESL::send_cmd(uint8_t cmd)
+{
+    std::vector<uint8_t> packet = {cmd};
+    if (cmd == 0x02)
+    {
+        uint32_t size = get_buffer_length_();
+        packet.push_back((uint8_t)size);
+        packet.push_back((uint8_t)(size >> 8));
+        packet.push_back((uint8_t)(size >> 16));
+        packet.push_back((uint8_t)(size >> 24));
+        packet.push_back((uint8_t)0x00);
+        packet.push_back((uint8_t)0x00);
+        packet.push_back((uint8_t)0x00);
+    }
+    this->write_cmd(packet);
+}
+
 void GiciskyESL::send_img(uint32_t part)
 {
-    uint8_t size_packet[4] = { (part) & 0xff, (part >> 8) & 0xff, (part >> 16) & 0xff, (part >> 24) & 0xff };
+    uint8_t size_packet[4] = { (uint8_t)(part), (uint8_t)(part >> 8), (uint8_t)(part >> 16), (uint8_t)(part >> 24) };
     uint32_t total_size = get_buffer_length_();
     uint32_t len = total_size - (part  * 240);
     if (len > 240) len = 240;
@@ -204,7 +219,7 @@ void GiciskyESL::display_()
     old_image_buffer_ = image_buffer_;
     this->parent()->connect();
     delay(500);
-    this->write_cmd({0x01});
+    send_cmd(0x01);
 }
 
 void HOT GiciskyESL::draw_absolute_pixel_internal(int x, int y, Color color)
@@ -230,6 +245,19 @@ void GiciskyESL::add_color_point(ColorPoint point)
         }
     }
     display_list_.push_back(point);
+}
+
+Color GiciskyESL::get_display_color(int x, int y)
+{
+    for (ColorPoint point : display_list_)
+    {
+        if (point.x == x && point.y == y)
+        {
+            //ESP_LOGI(TAG, "Color %d %d r%d g%d b%d", point.x, point.y, point.color.r, point.color.g, point.color.b);
+            return point.color;
+        }
+    }
+    return background_color_;
 }
 
 bool GiciskyESL::write_cmd(std::vector<uint8_t> &data)
