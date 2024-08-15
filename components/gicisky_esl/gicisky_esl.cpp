@@ -217,9 +217,9 @@ void GiciskyESL::display_()
         if (std::equal(image_buffer_.begin(), image_buffer_.end(), old_image_buffer_.begin())) return;
     }
     old_image_buffer_ = image_buffer_;
-    this->parent()->connect();
-    delay(500);
-    send_cmd(0x01);
+    //this->parent()->connect();
+    //delay(500);
+    //send_cmd(0x01);
 }
 
 void HOT GiciskyESL::draw_absolute_pixel_internal(int x, int y, Color color)
