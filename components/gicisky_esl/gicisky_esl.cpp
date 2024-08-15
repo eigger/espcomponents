@@ -145,9 +145,9 @@ void GiciskyESL::parse_data(uint8_t *data, uint16_t len)
         if (data[1] == 0x08)
         {
             //End
+            this->node_state = espbt::ClientState::ESTABLISHED;
             if (this->update_)
             {
-                this->node_state = espbt::ClientState::ESTABLISHED;
                 this->update_->turn_off();
             }
         }
