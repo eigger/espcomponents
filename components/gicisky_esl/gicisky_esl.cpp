@@ -309,7 +309,7 @@ bool GiciskyESL::write_img(std::vector<uint8_t> &data)
     //     ESP_LOGD(TAG, "[%s] Not connected to BLE client.  State update can not be written.", this->img_uuid_.to_string().c_str());
     //     return false;
     // }
-    if (img_char_) == nullptr)
+    if (img_char_ == nullptr)
     {
         ESP_LOGD(TAG, "[%s] Characteristic not found.  State update can not be written.", this->img_uuid_.to_string().c_str());
         return false;
