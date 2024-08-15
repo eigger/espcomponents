@@ -18,7 +18,7 @@ void GiciskyESL::dump_config()
     ESP_LOGCONFIG(TAG, "  Width: %d, Height: %d", this->width_, this->height_);
     ESP_LOGCONFIG(TAG, "  MAC address        : %s", this->parent_->address_str().c_str());
     ESP_LOGCONFIG(TAG, "  Service UUID       : %s", this->service_uuid_.to_string().c_str());
-    ESP_LOGCONFIG(TAG, "  Characteristic UUID: %s", this->char_uuid_.to_string().c_str());
+    ESP_LOGCONFIG(TAG, "  Characteristic UUID: %s", this->cmd_uuid_.to_string().c_str());
     LOG_UPDATE_INTERVAL(this);
 }
 
@@ -47,13 +47,13 @@ void GiciskyESL::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t g
         connected_ = true;
         if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
         this->client_state_ = espbt::ClientState::ESTABLISHED;
-        ESP_LOGW(TAG, "[%s] Connected successfully!", this->char_uuid_.to_string().c_str());
+        ESP_LOGW(TAG, "[%s] Connected successfully!", this->cmd_uuid_.to_string().c_str());
         break;
     case ESP_GATTC_DISCONNECT_EVT:
         connected_ = false;
         old_image_buffer_.clear();
         if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
-        ESP_LOGW(TAG, "[%s] Disconnected", this->char_uuid_.to_string().c_str());
+        ESP_LOGW(TAG, "[%s] Disconnected", this->cmd_uuid_.to_string().c_str());
         this->client_state_ = espbt::ClientState::IDLE;
         break;
     case ESP_GATTC_WRITE_CHAR_EVT: 
@@ -61,15 +61,15 @@ void GiciskyESL::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t g
         {
             break;
         }
-        auto *chr = this->parent()->get_characteristic(this->service_uuid_, this->char_uuid_);
+        auto *chr = this->parent()->get_characteristic(this->service_uuid_, this->cmd_uuid_);
         if (chr == nullptr) 
         {
-            ESP_LOGW(TAG, "[%s] Characteristic not found.", this->char_uuid_.to_string().c_str());
+            ESP_LOGW(TAG, "[%s] Characteristic not found.", this->cmd_uuid_.to_string().c_str());
             break;
         }
         if (param->write.handle == chr->handle)
         {
-            ESP_LOGW(TAG, "[%s] Write error, status=%d", this->char_uuid_.to_string().c_str(), param->write.status);
+            ESP_LOGW(TAG, "[%s] Write error, status=%d", this->cmd_uuid_.to_string().c_str(), param->write.status);
         }
         break;
     }
@@ -262,23 +262,16 @@ bool GiciskyESL::write_data(std::vector<uint8_t> &data)
 {
     if (this->client_state_ != espbt::ClientState::ESTABLISHED)
     {
-        ESP_LOGW(TAG, "[%s] Not connected to BLE client.  State update can not be written.", this->char_uuid_.to_string().c_str());
+        ESP_LOGW(TAG, "[%s] Not connected to BLE client.  State update can not be written.", this->cmd_uuid_.to_string().c_str());
         return false;
     }
-    auto *chr = this->parent()->get_characteristic(this->service_uuid_, this->char_uuid_);
+    auto *chr = this->parent()->get_characteristic(this->service_uuid_, this->cmd_uuid_);
     if (chr == nullptr)
     {
-        ESP_LOGW(TAG, "[%s] Characteristic not found.  State update can not be written.", this->char_uuid_.to_string().c_str());
+        ESP_LOGW(TAG, "[%s] Characteristic not found.  State update can not be written.", this->cmd_uuid_.to_string().c_str());
         return false;
     }
-    if (this->require_response_)
-    {
-        chr->write_value(&data[0], data.size(), ESP_GATT_WRITE_TYPE_RSP);
-    } 
-    else 
-    {
-        chr->write_value(&data[0], data.size(), ESP_GATT_WRITE_TYPE_NO_RSP);
-    }
+    chr->write_value(&data[0], data.size(), ESP_GATT_WRITE_TYPE_RSP);
     ESP_LOGI(TAG, "Write array-> %s", to_hex_string(data).c_str());
     return true;
 }

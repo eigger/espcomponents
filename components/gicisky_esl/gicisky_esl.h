@@ -4,8 +4,6 @@
 #include "esphome/components/display/display_buffer.h"
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
-#include "esphome/components/select/select.h"
-#include "esphome/components/number/number.h"
 #include "esphome/components/ble_client/ble_client.h"
 #include "esphome/components/esp32_ble_tracker/esp32_ble_tracker.h"
 #include "version.h"
@@ -47,17 +45,9 @@ public:
     void dump_config() override;
     void setup() override;
     void loop() override;
-    void set_service_uuid16(uint16_t uuid) { this->service_uuid_ = espbt::ESPBTUUID::from_uint16(uuid); }
-    void set_service_uuid32(uint32_t uuid) { this->service_uuid_ = espbt::ESPBTUUID::from_uint32(uuid); }
-    void set_service_uuid128(uint8_t *uuid) { this->service_uuid_ = espbt::ESPBTUUID::from_raw(uuid); }
-    void set_char_uuid16(uint16_t uuid) { this->char_uuid_ = espbt::ESPBTUUID::from_uint16(uuid); }
-    void set_char_uuid32(uint32_t uuid) { this->char_uuid_ = espbt::ESPBTUUID::from_uint32(uuid); }
-    void set_char_uuid128(uint8_t *uuid) { this->char_uuid_ = espbt::ESPBTUUID::from_raw(uuid); }
     void gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param) override;
-    void set_require_response(bool response) { this->require_response_ = response; }
     void set_version(text_sensor::TextSensor *version) { version_ = version; }
     void set_bt_connected(binary_sensor::BinarySensor *bt_connected) { bt_connected_ = bt_connected; } 
-
 
 protected:
     void draw_absolute_pixel_internal(int x, int y, Color color) override;
@@ -95,9 +85,13 @@ protected:
     text_sensor::TextSensor *version_{nullptr};
     binary_sensor::BinarySensor *bt_connected_{nullptr};
 
-    bool require_response_;
-    espbt::ESPBTUUID service_uuid_;
-    espbt::ESPBTUUID char_uuid_;
+    esp32_ble_tracker::ESPBTUUID service_uuid_ =
+        esp32_ble_tracker::ESPBTUUID::from_raw("FEF0");
+    esp32_ble_tracker::ESPBTUUID cmd_uuid_ =
+        esp32_ble_tracker::ESPBTUUID::from_raw("FEF1");
+    esp32_ble_tracker::ESPBTUUID img_uuid_ =
+        esp32_ble_tracker::ESPBTUUID::from_raw("FEF2");
+
     espbt::ClientState client_state_;
 
 };
