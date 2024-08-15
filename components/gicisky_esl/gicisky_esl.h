@@ -4,6 +4,7 @@
 #include "esphome/components/display/display_buffer.h"
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
+#include "esphome/components/switch/switch.h"
 #include "esphome/components/ble_client/ble_client.h"
 #include "esphome/components/esp32_ble_tracker/esp32_ble_tracker.h"
 #include "version.h"
@@ -45,6 +46,7 @@ public:
     void gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param) override;
     void set_version(text_sensor::TextSensor *version) { version_ = version; }
     void set_bt_connected(binary_sensor::BinarySensor *bt_connected) { bt_connected_ = bt_connected; } 
+    void set_update(switch_::Switch *update) { update_ = update; }
     void set_width(uint16_t width) { this->width_ = width; }
     void set_height(uint16_t height) { this->height_ = height; }
 protected:
@@ -77,9 +79,10 @@ protected:
     bool write_img(std::vector<uint8_t> &data);
     std::string to_hex_string(const std::vector<unsigned char> &data);
     std::string to_hex_string(const uint8_t* data, const uint16_t len);
-
+    void update_callback(bool state);
     text_sensor::TextSensor *version_{nullptr};
     binary_sensor::BinarySensor *bt_connected_{nullptr};
+    switch_::Switch *update_{nullptr};
 
     esp32_ble_tracker::ESPBTUUID service_uuid_ =
         esp32_ble_tracker::ESPBTUUID::from_raw("FEF0");
@@ -91,6 +94,16 @@ protected:
     espbt::ClientState client_state_;
     uint16_t handle;
 
+};
+
+class Update : public switch_::Switch
+{
+public:
+    void write_state(bool state) override
+    {
+        this->state = state;
+        this->publish_state(state);
+    }
 };
 
 

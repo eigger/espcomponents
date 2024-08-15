@@ -34,6 +34,11 @@ void GiciskyESL::setup()
     clear_display_buffer();
     if (this->version_) this->version_->publish_state(VERSION);
     if (this->bt_connected_) this->bt_connected_->publish_state(false);
+    if (this->update_)
+    {
+        this->update_->add_on_state_callback(std::bind(&GiciskyESL::update_callback, this, std::placeholders::_1));
+        this->update_->publish_state(false);
+    }
     timer_ = get_time();
     ESP_LOGI(TAG, "Initaialize.");
 }
@@ -133,7 +138,10 @@ void GiciskyESL::parse_data(uint8_t *data, uint16_t len)
         if (data[1] == 0x08)
         {
             //End
-            this->parent()->disconnect();
+            if (this->update_)
+            {
+                this->update_->turn_off();
+            }
         }
         else if (data[1] == 0x00)
         {
@@ -217,9 +225,6 @@ void GiciskyESL::display_()
         if (std::equal(image_buffer_.begin(), image_buffer_.end(), old_image_buffer_.begin())) return;
     }
     old_image_buffer_ = image_buffer_;
-    //this->parent()->connect();
-    //delay(500);
-    //send_cmd(0x01);
 }
 
 void HOT GiciskyESL::draw_absolute_pixel_internal(int x, int y, Color color)
@@ -324,6 +329,21 @@ std::string GiciskyESL::to_hex_string(const uint8_t* data, const uint16_t len)
     res += buf;
     return res;
 }
+
+void GiciskyESL::update_callback(bool state)
+{
+    if (state)
+    {
+        this->parent()->connect();
+        delay(500);
+        send_cmd(0x01);
+    }
+    else
+    {
+        this->parent()->disconnect();
+    }
+}
+
 
 } // namespace gicisky_esl
 }  // namespace esphome
