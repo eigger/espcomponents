@@ -62,16 +62,14 @@ void GiciskyESL::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t g
         {
             this->status_set_warning();
             connected_ = false;
-            cmd_char_ = nullptr;
-            img_char_ = nullptr;
             if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
             break;
         }
         case ESP_GATTC_SEARCH_CMPL_EVT: 
         {
             this->handle = 0;
-            cmd_char_ = this->parent()->get_characteristic(this->service_uuid_, this->cmd_uuid_);
-            if (cmd_char_ == nullptr) 
+            auto *chr = this->parent()->get_characteristic(this->service_uuid_, this->cmd_uuid_);
+            if (chr == nullptr) 
             {
                 this->status_set_warning();
                 ESP_LOGD(TAG, "No sensor characteristic found at service %s char %s", this->service_uuid_.to_string().c_str(), this->cmd_uuid_.to_string().c_str());
@@ -81,19 +79,9 @@ void GiciskyESL::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t g
             {
                 ESP_LOGI(TAG, "Characteristic found at service %s char %s", this->service_uuid_.to_string().c_str(), this->cmd_uuid_.to_string().c_str());
             }
-            img_char_ = this->parent()->get_characteristic(this->service_uuid_, this->img_uuid_);
-            if (img_char_ == nullptr) 
-            {
-                this->status_set_warning();
-                ESP_LOGD(TAG, "No sensor characteristic found at service %s char %s", this->service_uuid_.to_string().c_str(), this->img_uuid_.to_string().c_str());
-            }
-            else
-            {
-                ESP_LOGI(TAG, "Characteristic found at service %s char %s", this->service_uuid_.to_string().c_str(), this->img_uuid_.to_string().c_str());
-            }
-            this->handle = cmd_char_->handle;
+            this->handle = chr->handle;
             auto status = esp_ble_gattc_register_for_notify(this->parent()->get_gattc_if(),
-                                                            this->parent()->get_remote_bda(), cmd_char_->handle);
+                                                            this->parent()->get_remote_bda(), chr->handle);
             if (status) {
                 ESP_LOGD(TAG, "esp_ble_gattc_register_for_notify failed, status=%d", status);
             }
@@ -286,17 +274,18 @@ Color GiciskyESL::get_display_color(int x, int y)
 
 bool GiciskyESL::write_cmd(std::vector<uint8_t> &data)
 {
-    // if (this->client_state_ != espbt::ClientState::ESTABLISHED)
-    // {
-    //     ESP_LOGD(TAG, "[%s] Not connected to BLE client.  State update can not be written.", this->cmd_uuid_.to_string().c_str());
-    //     return false;
-    // }
-    if (cmd_char_ == nullptr)
+    if (this->node_state != espbt::ClientState::ESTABLISHED)
+    {
+        ESP_LOGD(TAG, "[%s] Not connected to BLE client.  State update can not be written.", this->cmd_uuid_.to_string().c_str());
+        return false;
+    }
+    auto *chr = this->parent()->get_characteristic(this->service_uuid_, this->cmd_uuid_);
+    if (chr == nullptr)
     {
         ESP_LOGD(TAG, "[%s] Characteristic not found.  State update can not be written.", this->cmd_uuid_.to_string().c_str());
         return false;
     }
-    cmd_char_->write_value(&data[0], data.size(), ESP_GATT_WRITE_TYPE_RSP);
+    chr->write_value(&data[0], data.size(), ESP_GATT_WRITE_TYPE_RSP);
     ESP_LOGI(TAG, "Write array-> %s", to_hex_string(data).c_str());
     return true;
 }
@@ -304,17 +293,18 @@ bool GiciskyESL::write_cmd(std::vector<uint8_t> &data)
 
 bool GiciskyESL::write_img(std::vector<uint8_t> &data)
 {
-    // if (this->client_state_ != espbt::ClientState::ESTABLISHED)
-    // {
-    //     ESP_LOGD(TAG, "[%s] Not connected to BLE client.  State update can not be written.", this->img_uuid_.to_string().c_str());
-    //     return false;
-    // }
-    if (img_char_ == nullptr)
+    if (this->node_state != espbt::ClientState::ESTABLISHED)
+    {
+        ESP_LOGD(TAG, "[%s] Not connected to BLE client.  State update can not be written.", this->img_uuid_.to_string().c_str());
+        return false;
+    }
+    auto *chr = this->parent()->get_characteristic(this->service_uuid_, this->img_uuid_);
+    if (chr == nullptr)
     {
         ESP_LOGD(TAG, "[%s] Characteristic not found.  State update can not be written.", this->img_uuid_.to_string().c_str());
         return false;
     }
-    img_char_->write_value(&data[0], data.size(), ESP_GATT_WRITE_TYPE_RSP);
+    chr->write_value(&data[0], data.size(), ESP_GATT_WRITE_TYPE_RSP);
     ESP_LOGI(TAG, "Write array-> %s", to_hex_string(data).c_str());
     return true;
 }
