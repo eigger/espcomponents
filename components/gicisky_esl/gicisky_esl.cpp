@@ -189,7 +189,7 @@ void GiciskyESL::send_img(uint32_t part)
     packet.push_back((uint8_t)((part >> 8) & 0xff));
     packet.push_back((uint8_t)((part >> 16) & 0xff));
     packet.push_back((uint8_t)((part >> 24) & 0xff));
-    for (uint32_t i = len - 1; i >= 0; i--) 
+    for (int32_t i = len - 1; i >= 0; i--) 
     {
         uint32_t idx = (part * 240) + i;
         Color color = image_buffer_[idx];
