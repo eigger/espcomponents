@@ -39,40 +39,83 @@ void GiciskyESL::setup()
     ESP_LOGI(TAG, "Initaialize.");
 }
 
-void GiciskyESL::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param)
-{
-    switch (event) 
+
+void GiciskyESL::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param) {
+    switch (event)
     {
-    case ESP_GATTC_OPEN_EVT:
-        connected_ = true;
-        if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
-        this->client_state_ = espbt::ClientState::ESTABLISHED;
-        ESP_LOGW(TAG, "[%s] Connected successfully!", this->cmd_uuid_.to_string().c_str());
-        break;
-    case ESP_GATTC_DISCONNECT_EVT:
-        connected_ = false;
-        old_image_buffer_.clear();
-        if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
-        ESP_LOGW(TAG, "[%s] Disconnected", this->cmd_uuid_.to_string().c_str());
-        this->client_state_ = espbt::ClientState::IDLE;
-        break;
-    case ESP_GATTC_WRITE_CHAR_EVT: 
-        if (param->write.status == 0)
+        case ESP_GATTC_OPEN_EVT: 
         {
+            if (param->open.status == ESP_GATT_OK) 
+            {
+                connected_ = true;
+                if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
+                ESP_LOGI(TAG, "[%s] Connected successfully!", this->get_name().c_str());
+                break;
+            }
             break;
         }
-        auto *chr = this->parent()->get_characteristic(this->service_uuid_, this->cmd_uuid_);
-        if (chr == nullptr) 
+        case ESP_GATTC_CLOSE_EVT: 
         {
-            ESP_LOGW(TAG, "[%s] Characteristic not found.", this->cmd_uuid_.to_string().c_str());
+            this->status_set_warning();
+            connected_ = false;
+            if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
             break;
         }
-        if (param->write.handle == chr->handle)
+        case ESP_GATTC_SEARCH_CMPL_EVT: 
         {
-            ESP_LOGW(TAG, "[%s] Write error, status=%d", this->cmd_uuid_.to_string().c_str(), param->write.status);
+            this->handle = 0;
+            auto *chr = this->parent()->get_characteristic(this->service_uuid_, this->cmd_uuid_);
+            if (chr == nullptr) 
+            {
+                this->status_set_warning();
+                ESP_LOGW(TAG, "No sensor characteristic found at service %s char %s", this->service_uuid_.to_string().c_str(),
+                        this->cmd_uuid_.to_string().c_str());
+                break;
+            }
+            this->handle = chr->handle;
+            auto status = esp_ble_gattc_register_for_notify(this->parent()->get_gattc_if(),
+                                                            this->parent()->get_remote_bda(), chr->handle);
+            if (status) {
+                ESP_LOGW(TAG, "esp_ble_gattc_register_for_notify failed, status=%d", status);
+            }
+            break;
         }
+        case ESP_GATTC_READ_CHAR_EVT: 
+        {
+            if (param->read.handle == this->handle) 
+            {
+                if (param->read.status != ESP_GATT_OK) {
+                    ESP_LOGW(TAG, "Error reading char at handle %d, status=%d", param->read.handle, param->read.status);
+                    break;
+                }
+                this->status_clear_warning();
+                this->parse_data(param->read.value, param->read.value_len);
+            }
+            break;
+        }
+        case ESP_GATTC_NOTIFY_EVT: 
+        {
+            if (param->notify.handle != this->handle)
+                break;
+            ESP_LOGV(TAG, "[%s] ESP_GATTC_NOTIFY_EVT: handle=0x%x, value=0x%x", this->get_name().c_str(),
+                    param->notify.handle, param->notify.value[0]);
+            this->parse_data(param->notify.value, param->notify.value_len);
+            break;
+        }
+        case ESP_GATTC_REG_FOR_NOTIFY_EVT: 
+        {
+            if (param->reg_for_notify.status == ESP_GATT_OK && param->reg_for_notify.handle == this->handle)
+                this->node_state = espbt::ClientState::ESTABLISHED;
+            break;
+        }
+        default:
         break;
     }
+}
+
+void GiciskyESL::parse_data(uint8_t *value, uint16_t value_len)
+{
+    
 }
 
 unsigned long GiciskyESL::elapsed_time(const unsigned long timer)

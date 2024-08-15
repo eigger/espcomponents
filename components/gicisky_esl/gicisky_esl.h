@@ -48,6 +48,7 @@ public:
     void set_bt_connected(binary_sensor::BinarySensor *bt_connected) { bt_connected_ = bt_connected; } 
 
 protected:
+    void parse_data(uint8_t *value, uint16_t value_len);
     void draw_absolute_pixel_internal(int x, int y, Color color) override;
     void add_color_point(ColorPoint point);
     void draw_image_to_divoom(const std::vector<Color> &image);
