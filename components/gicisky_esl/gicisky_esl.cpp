@@ -165,7 +165,7 @@ void GiciskyESL::send_cmd(uint8_t cmd)
     std::vector<uint8_t> packet = {cmd};
     if (cmd == 0x02)
     {
-        uint32_t size = get_buffer_length_();
+        uint32_t size = get_buffer_length_() / 4;
         packet.push_back((uint8_t)(size & 0xff));
         packet.push_back((uint8_t)((size >> 8) & 0xff));
         packet.push_back((uint8_t)((size >> 16) & 0xff));
