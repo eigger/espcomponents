@@ -217,6 +217,7 @@ void GiciskyESL::shift_image()
 
 void GiciskyESL::display_()
 {
+    return;
     if (elapsed_time(timer_) < 10 * 1000) return;
     shift_image();
     clear_display_buffer();
