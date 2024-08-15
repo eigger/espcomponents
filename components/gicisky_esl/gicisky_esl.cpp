@@ -191,8 +191,16 @@ void GiciskyESL::send_img(uint32_t part)
     packet.push_back((uint8_t)((part >> 24) & 0xff));
     for (uint32_t i = 0; i < len; i++) 
     {
-        uint32_t idx = (part * 240) + i;
-        Color color = image_buffer_[idx];
+        uint32_t idx = (part * 240) + (i * 4);
+        Color color1 = image_buffer_[idx];
+        Color color2 = image_buffer_[idx + 1];
+        Color color3 = image_buffer_[idx + 2];
+        Color color4 = image_buffer_[idx + 3];
+        uint8_t byte = 0;
+        if (color1.r > 100) byte |= (1 << 7);
+        if (color2.r > 100) byte |= (1 << 5);
+        if (color3.r > 100) byte |= (1 << 3);
+        if (color4.r > 100) byte |= (1 << 1);
         packet.push_back(color.r);
     }
     write_img(packet);
