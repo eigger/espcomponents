@@ -92,7 +92,7 @@ protected:
         esp32_ble_tracker::ESPBTUUID::from_uint16(0xFEF2);
     esp32_ble_client::BLECharacteristic *cmd_char_{nullptr};
     esp32_ble_client::BLECharacteristic *img_char_{nullptr};
-    esp32_ble_client::ClientState client_state_;
+    espbt::ClientState client_state_;
     uint16_t handle;
 
 };
