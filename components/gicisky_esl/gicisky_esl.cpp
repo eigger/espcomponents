@@ -1,4 +1,4 @@
-#include "gicisky_esl.h"
+#include "divoom_display.h"
 #include "esphome/core/log.h"
 #include "esphome/core/application.h"
 #include "esphome/core/helpers.h"
@@ -15,11 +15,11 @@ static const char *const TAG = "gicisky_esl";
 void GiciskyESL::dump_config()
 {
     LOG_DISPLAY("", "gicisky_esl", this);
-    // ESP_LOGCONFIG(TAG, "  Width: %d, Height: %d", this->width_, this->height_);
-    // ESP_LOGCONFIG(TAG, "  MAC address        : %s", this->parent_->address_str().c_str());
-    // ESP_LOGCONFIG(TAG, "  Service UUID       : %s", this->service_uuid_.to_string().c_str());
-    // ESP_LOGCONFIG(TAG, "  Characteristic UUID: %s", this->char_uuid_.to_string().c_str());
-    // LOG_UPDATE_INTERVAL(this);
+    ESP_LOGCONFIG(TAG, "  Width: %d, Height: %d", this->width_, this->height_);
+    ESP_LOGCONFIG(TAG, "  MAC address        : %s", this->parent_->address_str().c_str());
+    ESP_LOGCONFIG(TAG, "  Service UUID       : %s", this->service_uuid_.to_string().c_str());
+    ESP_LOGCONFIG(TAG, "  Characteristic UUID: %s", this->char_uuid_.to_string().c_str());
+    LOG_UPDATE_INTERVAL(this);
 }
 
 void GiciskyESL::update()
@@ -30,6 +30,7 @@ void GiciskyESL::update()
 
 void GiciskyESL::setup()
 {
+    width_shift_offset_ = -this->width_;
     image_buffer_.resize(this->width_ * this->height_);
     clear_display_buffer();
     if (this->version_) this->version_->publish_state(VERSION);
@@ -37,44 +38,6 @@ void GiciskyESL::setup()
     timer_ = get_time();
     ESP_LOGI(TAG, "Initaialize.");
 }
-
-// bool GiciskyESL::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
-//     // the address should match the address we declared
-
-//     // [15:32:06][D][ble_adv:021]: New BLE device
-//     // [15:32:06][D][ble_adv:022]:   address: FF:FF:61:62:43:05
-//     // [15:32:06][D][ble_adv:023]:   name: NEMR61624305
-//     // [15:32:06][D][ble_adv:024]:   Advertised service UUIDs:
-//     // [15:32:06][D][ble_adv:026]:     - 0xFEF0
-//     // [15:32:06][D][ble_adv:029]:   Advertised service data:
-//     // [15:32:06][D][ble_adv:041]:   Advertised manufacturer data:
-//     // [15:32:06][D][ble_adv:049]:     - 0x5053: (length 5) A01D810140
-//     // A0 1D 81 01 40
-//     // Type, batteryMv * 100, tagSoftwareVersion = 81 << 8 | 01, 
-
-//     if (device.address_uint64() != this->address_) {
-//         ESP_LOGVV(TAG, "parse_device(): unknown MAC address.");
-//         return false;
-//     }
-//     auto mnf_datas = device.get_manufacturer_datas();
-//     if (mnf_datas.size() != 1) {
-//         ESP_LOGD(TAG, "parse_device(): manufacturer_datas is expected to have a single element - size(%d)", mnf_datas.size());
-//         return false;
-//     }
-//     auto mnf_data = mnf_datas[0];
-//     if (mnf_data.data.size() != 5) {
-//         ESP_LOGD(TAG, "parse_device(): manufacturer_data error - size(%d)", mnf_data.data.size());
-//         return false;
-//     }
-//     uint8_t type = mnf_data.data[0];
-//     float battery = mnf_data.data[1] * 100;
-//     uint16_t tag_version = (mnf_data.data[2] << 8) + mnf_data.data[3];
-
-//     type_ = type;
-//     battery_ = battery;
-//     tag_version_ = tag_version;
-//     return true;
-// }
 
 void GiciskyESL::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param)
 {
@@ -151,22 +114,123 @@ bool GiciskyESL::is_display_empty()
     return true;
 }
 
+void GiciskyESL::shift_image()
+{
+    int32_t offset = width_shift_offset_;
+    if (this->x_high_ <= this->width_) offset = 0;
+    for (int x = 0; x < this->width_; x++)
+    {
+        for (int y = 0; y < this->height_; y++)
+        {
+            uint32_t pos = (y * width_) + x;
+            image_buffer_[pos] = get_display_color(x + offset, y);
+        }
+    }
+    if (this->x_high_ > this->width_) width_shift_offset_++;
+    if (width_shift_offset_ > this->x_high_ + 1) width_shift_offset_ = -this->width_;
+
+}
 void GiciskyESL::display_()
 {
     if (!connected_) return;
-    if (type_ == 0) return;
+    if (is_display_empty()) width_shift_offset_ = -this->width_;
+    shift_image();
     clear_display_buffer();
     if (image_buffer_.size() == old_image_buffer_.size())
     {
         if (std::equal(image_buffer_.begin(), image_buffer_.end(), old_image_buffer_.begin())) return;
     }
     old_image_buffer_ = image_buffer_;
-    draw_image_to_esl(image_buffer_);
+    draw_image_to_divoom(image_buffer_);
 }
 
-void GiciskyESL::draw_image_to_esl(const std::vector<Color> &image)
+void GiciskyESL::draw_image_to_divoom(const std::vector<Color> &image)
 {
+    std::vector<uint8_t> protocol;
+    std::vector<uint8_t> image_data = get_single_image_data(image);
+    protocol.push_back(0x44);
+    protocol.push_back(0x00);
+    protocol.push_back(0x0A);
+    protocol.push_back(0x0A);
+    protocol.push_back(0x04);
+    protocol.insert(protocol.end(), image_data.begin(), image_data.end());
+    write_protocol(protocol);
+}
 
+void GiciskyESL::draw_animation_to_divoom(const std::vector<std::vector<Color>> &images, uint16_t time)
+{
+    std::vector<uint8_t> protocol;
+    std::vector<uint8_t> image_data;
+    uint16_t delay_time = 0;
+    for(std::vector<Color> image : images)
+    {
+        std::vector<uint8_t> data = get_single_image_data(image, delay_time);
+        image_data.insert(image_data.end(), data.begin(), data.end());
+        delay_time += time;
+    }
+    
+    uint32_t size = image_data.size();
+    protocol.push_back(0x49);
+    protocol.push_back(size & 0xff);
+    protocol.push_back((size >> 8) & 0xff);
+    protocol.push_back(0x00);
+    protocol.push_back(0x00);
+    protocol.insert(protocol.end(), image_data.begin(), image_data.end());
+    write_protocol(protocol);
+}
+
+std::vector<uint8_t> GiciskyESL::get_single_image_data(const std::vector<Color> &image, uint16_t time)
+{
+    std::vector<Color> palette;
+    std::vector<uint8_t> palette_index_list;
+    std::vector<uint8_t> pixel_data;
+    std::vector<uint8_t> palette_data;
+    std::vector<uint8_t> protocol;
+    for(Color color : image)
+    {
+        uint8_t index = palette.size();
+        auto it = std::find(palette.begin(), palette.end(), color);
+        if (it == palette.end())    palette.push_back(color);
+        else                        index = it - palette.begin();
+        palette_index_list.push_back(index);
+    }
+
+    int offset = 0;
+    uint8_t pixel = 0x00;
+    uint8_t bitwidth = ceil(log10(palette.size()) / log10(2));
+    for (uint8_t index : palette_index_list)
+    {
+        pixel += (index << offset);
+        offset += bitwidth;
+        if (offset >= 8)
+        {
+            pixel_data.push_back(pixel);
+            pixel = (index >> (bitwidth - (offset - 8)));
+            offset = offset - 8;
+        }
+    }
+    if (offset > 0)
+    {
+        pixel_data.push_back(pixel);
+    }
+
+    for (Color color : palette)
+    {
+        palette_data.push_back(color.r);
+        palette_data.push_back(color.g);
+        palette_data.push_back(color.b);
+    }
+    uint16_t size = 7 + palette_data.size() + pixel_data.size();
+    protocol.push_back(0xAA);
+    protocol.push_back(size & 0xff);
+    protocol.push_back((size >> 8) & 0xff);
+    protocol.push_back(0x00);
+    protocol.push_back(time & 0xff);
+    protocol.push_back((time >> 8) & 0xff);
+    protocol.push_back(palette.size());
+    protocol.insert(protocol.end(), palette_data.begin(), palette_data.end());
+    protocol.insert(protocol.end(), pixel_data.begin(), pixel_data.end());
+    return protocol;
 }
 
 void HOT GiciskyESL::draw_absolute_pixel_internal(int x, int y, Color color)
@@ -207,14 +271,14 @@ bool GiciskyESL::write_data(std::vector<uint8_t> &data)
         ESP_LOGW(TAG, "[%s] Characteristic not found.  State update can not be written.", this->char_uuid_.to_string().c_str());
         return false;
     }
-    // if (this->require_response_)
-    // {
-    //     chr->write_value(&data[0], data.size(), ESP_GATT_WRITE_TYPE_RSP);
-    // } 
-    // else 
-    // {
-    //     chr->write_value(&data[0], data.size(), ESP_GATT_WRITE_TYPE_NO_RSP);
-    // }
+    if (this->require_response_)
+    {
+        chr->write_value(&data[0], data.size(), ESP_GATT_WRITE_TYPE_RSP);
+    } 
+    else 
+    {
+        chr->write_value(&data[0], data.size(), ESP_GATT_WRITE_TYPE_NO_RSP);
+    }
     ESP_LOGI(TAG, "Write array-> %s", to_hex_string(data).c_str());
     return true;
 }
@@ -232,6 +296,53 @@ std::string GiciskyESL::to_hex_string(const std::vector<unsigned char> &data)
     res += buf;
     return res;
 }
+
+bool GiciskyESL::write_protocol(std::vector<uint8_t> &data)
+{
+    std::vector<uint8_t> buffer;
+    std::vector<uint8_t> option;
+    if (this->require_response_)
+    {
+        option.push_back(0x01);
+        option.push_back(packet_number_ & 0xFF);
+        option.push_back((packet_number_ >> 8) & 0xFF);
+        option.push_back((packet_number_ >> 16) & 0xFF);
+        option.push_back((packet_number_ >> 24) & 0xFF);
+        if (packet_number_ >= std::numeric_limits<uint32_t>::max())
+        {
+            packet_number_ = 1;
+        }
+        else 
+        {
+            packet_number_++;
+        }
+    }
+    else
+    {
+        option.push_back(0x00);
+    }
+    uint16_t length = data.size() + option.size() + 2; //data + checksum
+    uint8_t length_low = length & 0xFF;
+    uint8_t length_high = (length >> 8) & 0xFF;
+    uint16_t checksum = std::accumulate(data.begin(), data.end(), 0);
+    checksum += std::accumulate(option.begin(), option.end(), length_high + length_low);
+    uint8_t checksum_low = checksum & 0xFF;
+    uint8_t checksum_high = (checksum >> 8) & 0xFF; 
+
+    buffer.push_back(0xFE);
+    buffer.push_back(0xEF);
+    buffer.push_back(0xAA);
+    buffer.push_back(0x55);
+    buffer.push_back(length_low);
+    buffer.push_back(length_high);
+    buffer.insert(buffer.end(), option.begin(), option.end());
+    buffer.insert(buffer.end(), data.begin(), data.end());
+    buffer.push_back(checksum_low);
+    buffer.push_back(checksum_high);
+    return write_data(buffer);
+}
+
+
 
 
 } // namespace gicisky_esl

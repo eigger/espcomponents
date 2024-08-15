@@ -5,27 +5,29 @@ from esphome.components.text_sensor import register_text_sensor
 from esphome.const import (
     CONF_ID,
     CONF_LAMBDA,
+    CONF_MODEL,
     CONF_PAGES,
     CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, CONF_DEVICE_CLASS, 
     ICON_NEW_BOX, CONF_STATUS, CONF_CHARACTERISTIC_UUID, CONF_SERVICE_UUID
 )
 
-AUTO_LOAD = ["text_sensor", "binary_sensor", "esp32_ble_tracker"]
+CONF_REQUIRE_RESPONSE = "require_response"
+
+AUTO_LOAD = ["text_sensor", "binary_sensor"]
 DEPENDENCIES = ["ble_client"]
 CODEOWNERS = ["@eigger"]
-CONF_IMAGE_UUID = 'img_uuid'
 gicisky_esl_ns = cg.esphome_ns.namespace("gicisky_esl")
-GiciskyESL = gicisky_esl_ns.class_(
+gicisky_esl = gicisky_esl_ns.class_(
     "GiciskyESL", cg.PollingComponent, display.DisplayBuffer, ble_client.BLEClientNode
 )
 
 CONFIG_SCHEMA = cv.All(
     display.FULL_DISPLAY_SCHEMA.extend(
         {
-            cv.GenerateID(): cv.declare_id(GiciskyESL),
-            cv.Optional(CONF_SERVICE_UUID, default="FEF0"): esp32_ble_tracker.bt_uuid,
-            cv.Optional(CONF_CHARACTERISTIC_UUID, default="FEF1"): esp32_ble_tracker.bt_uuid,
-            cv.Optional(CONF_IMAGE_UUID, default="FEF2"): esp32_ble_tracker.bt_uuid,
+            cv.GenerateID(): cv.declare_id(gicisky_esl),
+            cv.Optional(CONF_SERVICE_UUID, default="49535343-FE7D-4AE5-8FA9-9FAFD205E455"): esp32_ble_tracker.bt_uuid,
+            cv.Optional(CONF_CHARACTERISTIC_UUID, default="49535343-8841-43F4-A8D4-ECBE34729BB3"): esp32_ble_tracker.bt_uuid,
+            cv.Optional(CONF_REQUIRE_RESPONSE, default=True): cv.boolean,
             cv.Optional(CONF_VERSION, default={CONF_NAME: "Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
             {
                 cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
@@ -49,6 +51,7 @@ CONFIG_SCHEMA = cv.All(
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
+
     await cg.register_component(var, config)
     await display.register_display(var, config)
     await ble_client.register_ble_node(var, config)
@@ -85,29 +88,7 @@ async def to_code(config):
             config[CONF_CHARACTERISTIC_UUID]
         )
         cg.add(var.set_char_uuid128(uuid128))
-
-    if len(config[CONF_IMAGE_UUID]) == len(esp32_ble_tracker.bt_uuid16_format):
-        cg.add(
-            var.set_img_uuid16(
-                esp32_ble_tracker.as_hex(config[CONF_IMAGE_UUID])
-            )
-        )
-    elif len(config[CONF_IMAGE_UUID]) == len(
-        esp32_ble_tracker.bt_uuid32_format
-    ):
-        cg.add(
-            var.set_img_uuid32(
-                esp32_ble_tracker.as_hex(config[CONF_IMAGE_UUID])
-            )
-        )
-    elif len(config[CONF_IMAGE_UUID]) == len(
-        esp32_ble_tracker.bt_uuid128_format
-    ):
-        uuid128 = esp32_ble_tracker.as_reversed_hex_array(
-            config[CONF_IMAGE_UUID]
-        )
-        cg.add(var.set_img_uuid128(uuid128))
-
+    cg.add(var.set_require_response(config[CONF_REQUIRE_RESPONSE]))
     if CONF_VERSION in config:
         sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
         await register_text_sensor(sens, config[CONF_VERSION])
