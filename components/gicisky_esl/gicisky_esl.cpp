@@ -201,7 +201,7 @@ void GiciskyESL::send_img(uint32_t part)
         if (color2.r > 100) byte |= (1 << 5);
         if (color3.r > 100) byte |= (1 << 3);
         if (color4.r > 100) byte |= (1 << 1);
-        packet.push_back(color.r);
+        packet.push_back(byte);
     }
     write_img(packet);
 }
