@@ -55,7 +55,7 @@ CONFIG_SCHEMA = cv.All(
             }),
         }
     )
-    .extend(ble_client.BLE_CLIENT_SCHEMA)
+    .extend(ble_client.BLE_CLIENT_SCHEMA),
     cv.has_at_most_one_key(CONF_PAGES, CONF_LAMBDA),
 )
 
