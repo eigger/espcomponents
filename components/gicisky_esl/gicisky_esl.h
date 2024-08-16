@@ -48,7 +48,6 @@ protected:
     unsigned long timer_{0};
 
     std::vector<Color> image_buffer_;
-    std::vector<Color> old_image_buffer_;
     std::vector<uint8_t> image_packet_;
     bool found_{false};
 
