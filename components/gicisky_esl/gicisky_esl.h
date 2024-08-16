@@ -22,7 +22,7 @@ class GiciskyESL : public display::DisplayBuffer, public ble_client::BLEClientNo
 {
 public:
 
-    float get_setup_priority() const { return setup_priority::LATE; }
+    float get_setup_priority() const { return setup_priority::PROCESS; }
     display::DisplayType get_display_type() override { return display::DisplayType::DISPLAY_TYPE_COLOR; }
     uint32_t get_buffer_length_() { return this->get_width_internal() * this->get_height_internal(); }
     int get_width_internal() { return this->width_; }
