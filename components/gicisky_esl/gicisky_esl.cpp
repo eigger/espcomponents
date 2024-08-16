@@ -24,8 +24,8 @@ void GiciskyESL::dump_config()
 
 void GiciskyESL::update()
 {
-    this->do_update_();
-    this->display_();
+    // this->do_update_();
+    // this->display_();
 }
 
 void GiciskyESL::setup()
@@ -345,6 +345,8 @@ void GiciskyESL::update_callback(bool state)
     {
         if (!connected_)
         {
+            this->do_update_();
+            this->display_();
             espbt::global_esp32_ble_tracker->stop_scan();
             this->parent()->connect();
         }
