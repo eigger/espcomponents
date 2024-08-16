@@ -223,7 +223,7 @@ void GiciskyESL::shift_image()
             uint32_t pos = (y * width_) + x;
             Color color = image_buffer_[pos];
 
-            if (color == Color::BLACK) {
+            if (color != Color::BLACK) {
                 currentByte |= (1 << bitPosition);
             }
             if (color == Color(255, 0, 0)) {
