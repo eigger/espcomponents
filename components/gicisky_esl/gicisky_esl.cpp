@@ -271,7 +271,7 @@ void HOT GiciskyESL::draw_absolute_pixel_internal(int x, int y, Color color)
     if (y >= this->get_height_internal() || y < 0) return;
     uint32_t pos = (y * width_) + x;
     image_buffer_[pos] = color;
-    ESP_LOGI(TAG, "Color %d %d r%d g%d b%d", x, y, color.r, color.g, color.b);
+    //ESP_LOGI(TAG, "Color %d %d r%d g%d b%d", x, y, color.r, color.g, color.b);
 }
 
 bool GiciskyESL::write_cmd(std::vector<uint8_t> &data)
