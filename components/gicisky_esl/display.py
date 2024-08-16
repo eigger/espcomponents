@@ -19,7 +19,7 @@ CODEOWNERS = ["@eigger"]
 CONF_UPDATE = 'update'
 gicisky_esl_ns = cg.esphome_ns.namespace("gicisky_esl")
 gicisky_esl = gicisky_esl_ns.class_(
-    "GiciskyESL", display.DisplayBuffer, ble_client.BLEClientNode, esp32_ble_tracker.ESPBTDeviceListener
+    "GiciskyESL", display.DisplayBuffer, ble_client.BLEClientNode
 )
 Update = gicisky_esl_ns.class_("Update", gicisky_esl)
 
@@ -48,8 +48,7 @@ CONFIG_SCHEMA = cv.All(
             }),
         }
     )
-    .extend(ble_client.BLE_CLIENT_SCHEMA)
-    .extend(esp32_ble_tracker.ESP_BLE_DEVICE_SCHEMA),
+    .extend(ble_client.BLE_CLIENT_SCHEMA),
     cv.has_at_most_one_key(CONF_PAGES, CONF_LAMBDA),
 )
 

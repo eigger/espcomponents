@@ -16,7 +16,7 @@ void GiciskyESL::dump_config()
 {
     LOG_DISPLAY("", "gicisky_esl", this);
     ESP_LOGCONFIG(TAG, "  Width: %d, Height: %d", this->width_, this->height_);
-    ESP_LOGCONFIG(TAG, "  MAC address        : %s", (ble_client::BLEClient*)this->parent_->address_str().c_str());
+    ESP_LOGCONFIG(TAG, "  MAC address        : %s", this->parent_->address_str().c_str());
     ESP_LOGCONFIG(TAG, "  Service UUID       : %s", this->service_uuid_.to_string().c_str());
     ESP_LOGCONFIG(TAG, "  Characteristic UUID: %s", this->cmd_uuid_.to_string().c_str());
     LOG_UPDATE_INTERVAL(this);
@@ -56,7 +56,7 @@ void GiciskyESL::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t g
             {
                 connected_ = true;
                 if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
-                ESP_LOGI(TAG, "[%s] Connected successfully!", (ble_client::BLEClient*)this->parent_->address_str().c_str());
+                ESP_LOGI(TAG, "[%s] Connected successfully!", this->parent_->address_str().c_str());
                 break;
             }
             break;
@@ -107,7 +107,7 @@ void GiciskyESL::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t g
         {
             if (param->notify.handle != this->handle)
                 break;
-            ESP_LOGD(TAG, "[%s] ESP_GATTC_NOTIFY_EVT: handle=0x%x, value=0x%x", (ble_client::BLEClient*)this->parent_->address_str().c_str(),
+            ESP_LOGD(TAG, "[%s] ESP_GATTC_NOTIFY_EVT: handle=0x%x, value=0x%x", this->parent_->address_str().c_str(),
                     param->notify.handle, param->notify.value[0]);
             this->parse_data(param->notify.value, param->notify.value_len);
             break;

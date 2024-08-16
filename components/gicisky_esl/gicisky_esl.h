@@ -18,7 +18,7 @@ namespace gicisky_esl {
 namespace espbt = esphome::esp32_ble_tracker;
 
 
-class GiciskyESL : public display::DisplayBuffer, public ble_client::BLEClientNode, public esp32_ble_tracker::ESPBTDeviceListener 
+class GiciskyESL : public display::DisplayBuffer, public ble_client::BLEClientNode
 {
 public:
 
