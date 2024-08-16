@@ -226,7 +226,7 @@ void GiciskyESL::shift_image()
             if (color == Color::BLACK) {
                 currentByte |= (1 << bitPosition);
             }
-            if (color == Color::RED) {
+            if (color == Color(255, 0, 0)) {
                 currentByteRed |= (1 << bitPosition);
             }
             bitPosition--;
