@@ -31,6 +31,7 @@ void GiciskyESL::update()
 void GiciskyESL::setup()
 {
     image_buffer_.resize(this->width_ * this->height_);
+    image_packet_.resize(this->width_ * this->height_ / 4);
     clear_display_buffer();
     if (this->version_) this->version_->publish_state(VERSION);
     if (this->bt_connected_) this->bt_connected_->publish_state(false);
@@ -191,17 +192,8 @@ void GiciskyESL::send_img(uint32_t part)
     packet.push_back((uint8_t)((part >> 24) & 0xff));
     for (uint32_t i = 0; i < len; i++) 
     {
-        uint32_t idx = (part * 240) + (i * 4);
-        Color color1 = image_buffer_[idx];
-        Color color2 = image_buffer_[idx + 1];
-        Color color3 = image_buffer_[idx + 2];
-        Color color4 = image_buffer_[idx + 3];
-        uint8_t byte = 0;
-        if (color1.r > 100) byte |= (1 << 7);
-        if (color2.r > 100) byte |= (1 << 5);
-        if (color3.r > 100) byte |= (1 << 3);
-        if (color4.r > 100) byte |= (1 << 1);
-        packet.push_back(byte);
+        uint32_t idx = (part * 240) + (i);
+        packet.push_back(image_packet_[idx]);
     }
     write_img(packet);
 }
@@ -226,13 +218,48 @@ void GiciskyESL::clear_display_buffer()
 void GiciskyESL::shift_image()
 {
     int32_t offset = 0;
+    uint8_t currentByte = 0;
+    uint8_t currentByteRed = 0;
+    int bitPosition = 7;
+    std::vector<uint8_t> byteData;
+    std::vector<uint8_t> byteDataRed;
     for (int x = 0; x < this->width_; x++)
     {
         for (int y = 0; y < this->height_; y++)
         {
             uint32_t pos = (y * width_) + x;
-            image_buffer_[pos] = get_display_color(x + offset, y);
+            Color color = get_display_color(x + offset, y);
+            image_buffer_[pos] = color;
+            // 휘도 계산
+            float luminance = 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
+            if (luminance > 128) {
+                currentByte |= (1 << bitPosition);
+            }
+            if (color.r < 170) {
+                currentByteRed |= (1 << bitPosition);
+            }
+            bitPosition--;
+            if (bitPosition < 0) {
+                byteData.push_back(currentByte);
+                byteDataRed.push_back(currentByteRed);
+                currentByte = 0;
+                currentByteRed = 0;
+                bitPosition = 7;
+            }
         }
+    }
+    if (bitPosition != 7) {
+        byteData.push_back(currentByte);
+        byteDataRed.push_back(currentByteRed);
+    }
+    uint32_t idx = 0;
+    for (uint8_t byte : byteData)
+    {
+        image_packet_[idx++] = byte;
+    }
+    for (uint8_t byte : byteDataRed)
+    {
+        image_packet_[idx++] = byte;
     }
 }
 

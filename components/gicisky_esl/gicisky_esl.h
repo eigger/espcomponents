@@ -63,6 +63,7 @@ protected:
     unsigned long timer_{0};
 
     std::vector<Color> image_buffer_;
+    std::vector<uint8_t> image_packet_;
     std::vector<ColorPoint> display_list_;
     std::vector<Color> old_image_buffer_;
     Color background_color_{Color::BLACK};
