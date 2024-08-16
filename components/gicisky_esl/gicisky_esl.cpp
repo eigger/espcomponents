@@ -256,10 +256,9 @@ void GiciskyESL::shift_image()
 
 void GiciskyESL::display_()
 {
-    if (!found_) return;
     shift_image();
-    espbt::global_esp32_ble_tracker->stop_scan();
-    this->parent()->connect();
+    //espbt::global_esp32_ble_tracker->stop_scan();
+    //this->parent()->connect();
 }
 
 void HOT GiciskyESL::draw_absolute_pixel_internal(int x, int y, Color color)
