@@ -252,14 +252,15 @@ void GiciskyESL::shift_image()
     {
         image_packet_[idx++] = byte;
     }
-    ESP_LOGI(TAG, "Packet-> %s ", to_hex_string(image_packet_).c_str());
+    ESP_LOGI(TAG, "Packet-> %s ", to_hex_string(byteData).c_str());
+    ESP_LOGI(TAG, "Packet-> %s ", to_hex_string(byteDataRed).c_str());
 }
 
 void GiciskyESL::display_()
 {
-    if (!connected_) return;
+    //if (!connected_) return;
     shift_image();
-    ESP_LOGD(TAG, "Update Display");
+    //ESP_LOGD(TAG, "Update Display");
     //old_image_buffer_ = image_buffer_;
     //send_cmd(0x01);
 }
