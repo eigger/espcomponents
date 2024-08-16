@@ -127,16 +127,6 @@ void GiciskyESL::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t g
     }
 }
 
-
-bool GiciskyESL::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
-    if (device.address_uint64() != this->address_) {
-        ESP_LOGVV(TAG, "parse_device(): unknown MAC address.");
-        return false;
-    }
-    found_ = true;
-    return true;
-}
-
 void GiciskyESL::parse_data(uint8_t *data, uint16_t len)
 {
     if (len < 1) return;
