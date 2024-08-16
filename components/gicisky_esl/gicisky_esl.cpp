@@ -32,7 +32,7 @@ void GiciskyESL::setup()
 {
     image_buffer_.resize(this->width_ * this->height_);
     image_packet_.resize(this->width_ * this->height_ / 4);
-    clear_display_buffer();
+    std::fill(image_buffer_.begin(), image_buffer_.end(), background_color_);
     if (this->version_) this->version_->publish_state(VERSION);
     if (this->bt_connected_) this->bt_connected_->publish_state(false);
     if (this->update_)
@@ -208,13 +208,6 @@ unsigned long GiciskyESL::get_time()
     return millis();
 }
 
-void GiciskyESL::clear_display_buffer()
-{
-    display_list_.clear();
-    this->x_high_ = 0;
-    this->y_high_ = 0;
-}
-
 void GiciskyESL::shift_image()
 {
     int32_t offset = 0;
@@ -228,8 +221,8 @@ void GiciskyESL::shift_image()
         for (int y = 0; y < this->height_; y++)
         {
             uint32_t pos = (y * width_) + x;
-            Color color = get_display_color(x + offset, y);
-            image_buffer_[pos] = color;
+            Color color = image_buffer_[pos];
+
             // 휘도 계산
             float luminance = 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
             if (luminance > 128) {
@@ -267,11 +260,6 @@ void GiciskyESL::display_()
 {
     if (!connected_) return;
     shift_image();
-    clear_display_buffer();
-    if (image_buffer_.size() == old_image_buffer_.size())
-    {
-        if (std::equal(image_buffer_.begin(), image_buffer_.end(), old_image_buffer_.begin())) return;
-    }
     ESP_LOGD(TAG, "Update Display");
     //old_image_buffer_ = image_buffer_;
     //send_cmd(0x01);
@@ -280,39 +268,11 @@ void GiciskyESL::display_()
 void HOT GiciskyESL::draw_absolute_pixel_internal(int x, int y, Color color)
 {
     if (x < 0) return;
-    //if (x >= this->get_width_internal()) return;
+    if (x >= this->get_width_internal()) return;
     if (y >= this->get_height_internal() || y < 0) return;
-    add_color_point(ColorPoint(x, y, color));
+    uint32_t pos = (y * width_) + x;
+    image_buffer_[pos] = color;
     //ESP_LOGI(TAG, "Color %d %d r%d g%d b%d", x, y, color.r, color.g, color.b);
-    if (this->x_high_ < x) this->x_high_ = x;
-    if (this->y_high_ < y) this->y_high_ = y;
-}
-
-void GiciskyESL::add_color_point(ColorPoint point)
-{
-    if (point.color == background_color_) return;
-    for (int i = 0; i < display_list_.size(); i++)
-    {
-        if (display_list_[i].x == point.x && display_list_[i].y == point.y)
-        {
-            display_list_[i].color = point.color;
-            return;
-        }
-    }
-    display_list_.push_back(point);
-}
-
-Color GiciskyESL::get_display_color(int x, int y)
-{
-    for (ColorPoint point : display_list_)
-    {
-        if (point.x == x && point.y == y)
-        {
-            //ESP_LOGI(TAG, "Color %d %d r%d g%d b%d", point.x, point.y, point.color.r, point.color.g, point.color.b);
-            return point.color;
-        }
-    }
-    return background_color_;
 }
 
 bool GiciskyESL::write_cmd(std::vector<uint8_t> &data)

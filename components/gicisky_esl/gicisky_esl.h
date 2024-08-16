@@ -52,10 +52,7 @@ public:
 protected:
     void parse_data(uint8_t *data, uint16_t len);
     void draw_absolute_pixel_internal(int x, int y, Color color) override;
-    void add_color_point(ColorPoint point);
-    Color get_display_color(int x, int y);
     void display_();
-    void clear_display_buffer();
     void shift_image();
     unsigned long elapsed_time(const unsigned long timer);
     unsigned long get_time();
@@ -64,16 +61,10 @@ protected:
 
     std::vector<Color> image_buffer_;
     std::vector<uint8_t> image_packet_;
-    std::vector<ColorPoint> display_list_;
-    std::vector<Color> old_image_buffer_;
-    Color background_color_{Color::BLACK};
+    Color background_color_{Color::WHITE};
 
     int16_t width_{0};
     int16_t height_{0};
-    uint16_t x_low_{0};
-    uint16_t y_low_{0};
-    uint16_t x_high_{0};
-    uint16_t y_high_{0};
     void send_img(uint32_t part);
     void send_cmd(uint8_t cmd);
     bool write_cmd(std::vector<uint8_t> &data);
