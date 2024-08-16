@@ -4,7 +4,6 @@
 #include "esphome/components/display/display_buffer.h"
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
-#include "esphome/components/switch/switch.h"
 #include "esphome/components/ble_client/ble_client.h"
 #include "esphome/components/esp32_ble_tracker/esp32_ble_tracker.h"
 #include "version.h"
@@ -16,7 +15,6 @@ namespace esphome {
 namespace gicisky_esl {
 
 namespace espbt = esphome::esp32_ble_tracker;
-
 
 class GiciskyESL : public display::DisplayBuffer, public ble_client::BLEClientNode
 {
@@ -58,7 +56,6 @@ protected:
     bool write_img(std::vector<uint8_t> &data);
     std::string to_hex_string(const std::vector<unsigned char> &data);
     std::string to_hex_string(const uint8_t* data, const uint16_t len);
-    void update_callback(bool state);
     text_sensor::TextSensor *version_{nullptr};
     binary_sensor::BinarySensor *bt_connected_{nullptr};
 

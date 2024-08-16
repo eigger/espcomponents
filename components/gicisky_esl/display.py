@@ -1,6 +1,6 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import ble_client, esp32_ble_tracker, display, text_sensor, binary_sensor, switch
+from esphome.components import ble_client, esp32_ble_tracker, display, text_sensor, binary_sensor
 from esphome.components.text_sensor import register_text_sensor
 from esphome.const import (
     CONF_ID,
@@ -13,7 +13,7 @@ from esphome.const import (
     ICON_NEW_BOX, CONF_STATUS
 )
 
-AUTO_LOAD = ["text_sensor", "binary_sensor", "switch"]
+AUTO_LOAD = ["text_sensor", "binary_sensor"]
 DEPENDENCIES = ["ble_client"]
 CODEOWNERS = ["@eigger"]
 gicisky_esl_ns = cg.esphome_ns.namespace("gicisky_esl")
