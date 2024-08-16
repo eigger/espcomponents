@@ -18,7 +18,7 @@ namespace gicisky_esl {
 namespace espbt = esphome::esp32_ble_tracker;
 
 
-class GiciskyESL : public display::DisplayBuffer, public ble_client::BLEClientNode
+class GiciskyESL : public display::DisplayBuffer, public ble_client::BLEClientNode, public esp32_ble_tracker::ESPBTDeviceListener 
 {
 public:
 
@@ -32,6 +32,7 @@ public:
     void dump_config() override;
     void setup() override;
     void gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param) override;
+    bool parse_device(const esp32_ble_tracker::ESPBTDevice &device) override;
     void set_version(text_sensor::TextSensor *version) { version_ = version; }
     void set_bt_connected(binary_sensor::BinarySensor *bt_connected) { bt_connected_ = bt_connected; } 
     void set_update(switch_::Switch *update) { update_ = update; }
@@ -50,6 +51,7 @@ protected:
     std::vector<Color> image_buffer_;
     std::vector<Color> old_image_buffer_;
     std::vector<uint8_t> image_packet_;
+    bool found_{false};
 
     int16_t width_{0};
     int16_t height_{0};

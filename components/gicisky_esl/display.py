@@ -19,7 +19,7 @@ CODEOWNERS = ["@eigger"]
 CONF_UPDATE = 'update'
 gicisky_esl_ns = cg.esphome_ns.namespace("gicisky_esl")
 gicisky_esl = gicisky_esl_ns.class_(
-    "GiciskyESL", display.DisplayBuffer, ble_client.BLEClientNode
+    "GiciskyESL", display.DisplayBuffer, ble_client.BLEClientNode, esp32_ble_tracker.ESPBTDeviceListener
 )
 Update = gicisky_esl_ns.class_("Update", gicisky_esl)
 
@@ -48,7 +48,8 @@ CONFIG_SCHEMA = cv.All(
             }),
         }
     )
-    .extend(ble_client.BLE_CLIENT_SCHEMA),
+    .extend(ble_client.BLE_CLIENT_SCHEMA)
+    .extend(esp32_ble_tracker.ESP_BLE_DEVICE_SCHEMA),
     cv.has_at_most_one_key(CONF_PAGES, CONF_LAMBDA),
 )
 
@@ -56,6 +57,7 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await display.register_display(var, config)
     await ble_client.register_ble_node(var, config)
+    await esp32_ble_tracker.register_ble_device(var, config)
     if CONF_WIDTH in config:
         cg.add(var.set_width(config[CONF_WIDTH]))
     if CONF_HEIGHT in config:
