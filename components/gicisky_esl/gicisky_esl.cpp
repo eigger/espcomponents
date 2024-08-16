@@ -228,7 +228,7 @@ void GiciskyESL::shift_image()
             if (luminance > 128) {
                 currentByte |= (1 << bitPosition);
             }
-            if (color.r < 170) {
+            if (color.r < 170 && color.g < 50 && color.b < 50) {
                 currentByteRed |= (1 << bitPosition);
             }
             bitPosition--;
