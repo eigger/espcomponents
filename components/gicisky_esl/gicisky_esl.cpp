@@ -32,7 +32,7 @@ void GiciskyESL::setup()
 {
     image_buffer_.resize(this->width_ * this->height_);
     image_packet_.resize(this->width_ * this->height_ / 4);
-    std::fill(image_buffer_.begin(), image_buffer_.end(), background_color_);
+    std::fill(image_buffer_.begin(), image_buffer_.end(), Color(255, 255, 255));
     if (this->version_) this->version_->publish_state(VERSION);
     if (this->bt_connected_) this->bt_connected_->publish_state(false);
     if (this->update_)
@@ -223,7 +223,7 @@ void GiciskyESL::shift_image()
             uint32_t pos = (y * width_) + x;
             Color color = image_buffer_[pos];
 
-            if (color != Color::BLACK) {
+            if (color != Color(0, 0, 0)) {
                 currentByte |= (1 << bitPosition);
             }
             if (color == Color(255, 0, 0)) {
@@ -236,13 +236,6 @@ void GiciskyESL::shift_image()
                 currentByte = 0;
                 currentByteRed = 0;
                 bitPosition = 7;
-
-                if (byteData.size() < 50)
-                {
-                ESP_LOGI(TAG, "Packet-> %s ", to_hex_string(byteData).c_str());
-                ESP_LOGI(TAG, "Packet-> %s ", to_hex_string(byteDataRed).c_str());
-                }
-
             }
         }
     }
@@ -278,7 +271,7 @@ void HOT GiciskyESL::draw_absolute_pixel_internal(int x, int y, Color color)
     if (y >= this->get_height_internal() || y < 0) return;
     uint32_t pos = (y * width_) + x;
     image_buffer_[pos] = color;
-    //ESP_LOGI(TAG, "Color %d %d r%d g%d b%d", x, y, color.r, color.g, color.b);
+    ESP_LOGI(TAG, "Color %d %d r%d g%d b%d", x, y, color.r, color.g, color.b);
 }
 
 bool GiciskyESL::write_cmd(std::vector<uint8_t> &data)

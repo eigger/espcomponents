@@ -61,7 +61,6 @@ protected:
 
     std::vector<Color> image_buffer_;
     std::vector<uint8_t> image_packet_;
-    Color background_color_{Color::WHITE};
 
     int16_t width_{0};
     int16_t height_{0};
