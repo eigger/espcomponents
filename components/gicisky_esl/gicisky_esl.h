@@ -17,24 +17,12 @@ namespace gicisky_esl {
 
 namespace espbt = esphome::esp32_ble_tracker;
 
-struct ColorPoint
-{
-    int x;
-    int y;
-    Color color;
-    ColorPoint(int x, int y, Color color)
-    {
-        this->x = x;
-        this->y = y;
-        this->color = color;
-    }
-};
 
 class GiciskyESL : public display::DisplayBuffer, public ble_client::BLEClientNode
 {
 public:
 
-    float get_setup_priority() const { return setup_priority::PROCESSOR; }
+    float get_setup_priority() const { return setup_priority::LATE; }
     display::DisplayType get_display_type() override { return display::DisplayType::DISPLAY_TYPE_COLOR; }
     uint32_t get_buffer_length_() { return this->get_width_internal() * this->get_height_internal(); }
     int get_width_internal() { return this->width_; }
@@ -60,6 +48,7 @@ protected:
     unsigned long timer_{0};
 
     std::vector<Color> image_buffer_;
+    std::vector<Color> old_image_buffer_;
     std::vector<uint8_t> image_packet_;
 
     int16_t width_{0};

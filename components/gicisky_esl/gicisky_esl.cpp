@@ -24,15 +24,17 @@ void GiciskyESL::dump_config()
 
 void GiciskyESL::update()
 {
-    // this->do_update_();
-    // this->display_();
+    this->do_update_();
+    this->display_();
 }
 
 void GiciskyESL::setup()
 {
     image_buffer_.resize(this->width_ * this->height_);
+    old_image_buffer_.resize(this->width_ * this->height_);
     image_packet_.resize(this->width_ * this->height_ / 4);
-    std::fill(image_buffer_.begin(), image_buffer_.end(), Color(255, 255, 255));
+    std::fill(image_buffer_.begin(), image_buffer_.end(), Color(0, 0, 0));
+    std::fill(old_image_buffer_.begin(), old_image_buffer_.end(), Color(0, 0, 0));
     if (this->version_) this->version_->publish_state(VERSION);
     if (this->bt_connected_) this->bt_connected_->publish_state(false);
     if (this->update_)
@@ -147,10 +149,9 @@ void GiciskyESL::parse_data(uint8_t *data, uint16_t len)
         {
             //End
             this->node_state = espbt::ClientState::ESTABLISHED;
-            if (this->update_)
-            {
-                this->update_->turn_off();
-            }
+            this->parent()->disconnect();
+            espbt::global_esp32_ble_tracker->start_scan();
+            if (this->update_) this->update_->turn_off();
         }
         else if (data[1] == 0x00)
         {
@@ -259,9 +260,10 @@ void GiciskyESL::display_()
 {
     //if (!connected_) return;
     shift_image();
-    //ESP_LOGD(TAG, "Update Display");
-    //old_image_buffer_ = image_buffer_;
-    //send_cmd(0x01);
+    if (std::equal(image_buffer_.begin(), image_buffer_.end(), old_image_buffer_.begin())) return;
+    old_image_buffer_ = image_buffer_;
+    espbt::global_esp32_ble_tracker->stop_scan();
+    this->parent()->connect();
 }
 
 void HOT GiciskyESL::draw_absolute_pixel_internal(int x, int y, Color color)
@@ -345,8 +347,6 @@ void GiciskyESL::update_callback(bool state)
     {
         if (!connected_)
         {
-            this->do_update_();
-            this->display_();
             espbt::global_esp32_ble_tracker->stop_scan();
             this->parent()->connect();
         }
