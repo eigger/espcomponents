@@ -223,12 +223,10 @@ void GiciskyESL::shift_image()
             uint32_t pos = (y * width_) + x;
             Color color = image_buffer_[pos];
 
-            // 휘도 계산
-            float luminance = 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
-            if (luminance > 128) {
+            if (color == Color::BLACK) {
                 currentByte |= (1 << bitPosition);
             }
-            if (color.r > 200 && color.g < 50 && color.b < 50) {
+            if (color == Color::RED) {
                 currentByteRed |= (1 << bitPosition);
             }
             bitPosition--;
