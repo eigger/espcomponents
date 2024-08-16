@@ -236,6 +236,13 @@ void GiciskyESL::shift_image()
                 currentByte = 0;
                 currentByteRed = 0;
                 bitPosition = 7;
+
+                if (byteData.size() < 50)
+                {
+                ESP_LOGI(TAG, "Packet-> %s ", to_hex_string(byteData).c_str());
+                ESP_LOGI(TAG, "Packet-> %s ", to_hex_string(byteDataRed).c_str());
+                }
+
             }
         }
     }
@@ -252,8 +259,7 @@ void GiciskyESL::shift_image()
     {
         image_packet_[idx++] = byte;
     }
-    ESP_LOGI(TAG, "Packet-> %s ", to_hex_string(byteData).c_str());
-    ESP_LOGI(TAG, "Packet-> %s ", to_hex_string(byteDataRed).c_str());
+
 }
 
 void GiciskyESL::display_()
