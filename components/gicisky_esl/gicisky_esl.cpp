@@ -252,7 +252,7 @@ void GiciskyESL::shift_image()
     {
         image_packet_[idx++] = byte;
     }
-    ESP_LOGI(TAG, "[%s] Characteristic not found.  State update can not be written.", this->img_uuid_.to_string().c_str());
+    ESP_LOGI(TAG, "Packet-> %s ", to_hex_string(image_packet_).c_str());
 }
 
 void GiciskyESL::display_()
