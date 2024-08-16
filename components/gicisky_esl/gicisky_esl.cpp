@@ -24,8 +24,8 @@ void GiciskyESL::dump_config()
 
 void GiciskyESL::update()
 {
-    this->do_update_();
-    this->display_();
+    // this->do_update_();
+    // this->display_();
 }
 
 void GiciskyESL::setup()
@@ -35,11 +35,6 @@ void GiciskyESL::setup()
     std::fill(image_buffer_.begin(), image_buffer_.end(), Color(0, 0, 0));
     if (this->version_) this->version_->publish_state(VERSION);
     if (this->bt_connected_) this->bt_connected_->publish_state(false);
-    if (this->update_)
-    {
-        this->update_->add_on_state_callback(std::bind(&GiciskyESL::update_callback, this, std::placeholders::_1));
-        this->update_->turn_off();
-    }
     timer_ = get_time();
     ESP_LOGI(TAG, "Initaialize.");
 }
@@ -52,6 +47,9 @@ void GiciskyESL::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t g
         {
             if (param->open.status == ESP_GATT_OK) 
             {
+                espbt::global_esp32_ble_tracker->stop_scan();
+                this->do_update_();
+                this->display_();
                 connected_ = true;
                 if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
                 ESP_LOGI(TAG, "[%s] Connected successfully!", this->parent_->address_str().c_str());
@@ -149,7 +147,6 @@ void GiciskyESL::parse_data(uint8_t *data, uint16_t len)
             this->node_state = espbt::ClientState::ESTABLISHED;
             this->parent()->disconnect();
             espbt::global_esp32_ble_tracker->start_scan();
-            if (this->update_) this->update_->turn_off();
         }
         else if (data[1] == 0x00)
         {
@@ -257,8 +254,6 @@ void GiciskyESL::shift_image()
 void GiciskyESL::display_()
 {
     shift_image();
-    //espbt::global_esp32_ble_tracker->stop_scan();
-    //this->parent()->connect();
 }
 
 void HOT GiciskyESL::draw_absolute_pixel_internal(int x, int y, Color color)
@@ -335,28 +330,6 @@ std::string GiciskyESL::to_hex_string(const uint8_t* data, const uint16_t len)
     res += buf;
     return res;
 }
-
-void GiciskyESL::update_callback(bool state)
-{
-    if (state)
-    {
-        if (!connected_)
-        {
-            espbt::global_esp32_ble_tracker->stop_scan();
-            this->parent()->connect();
-        }
-    }
-    else
-    {
-        if (connected_)
-        {
-            this->parent()->disconnect();
-            //espbt::global_esp32_ble_tracker->start_scan();
-        }
-
-    }
-}
-
 
 } // namespace gicisky_esl
 }  // namespace esphome

@@ -34,7 +34,6 @@ public:
     void gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param) override;
     void set_version(text_sensor::TextSensor *version) { version_ = version; }
     void set_bt_connected(binary_sensor::BinarySensor *bt_connected) { bt_connected_ = bt_connected; }
-    void set_update(switch_::Switch *update) { update_ = update; }
     void set_width(uint16_t width) { this->width_ = width; }
     void set_height(uint16_t height) { this->height_ = height; }
 protected:
@@ -62,7 +61,6 @@ protected:
     void update_callback(bool state);
     text_sensor::TextSensor *version_{nullptr};
     binary_sensor::BinarySensor *bt_connected_{nullptr};
-    switch_::Switch *update_{nullptr};
 
     esp32_ble_tracker::ESPBTUUID service_uuid_ =
         esp32_ble_tracker::ESPBTUUID::from_uint16(0xFEF0);
@@ -75,17 +73,6 @@ protected:
     uint16_t handle;
 
 };
-
-class Update : public switch_::Switch
-{
-public:
-    void write_state(bool state) override
-    {
-        this->state = state;
-        this->publish_state(state);
-    }
-};
-
 
 }  // namespace gicisky_esl
 }  // namespace esphome

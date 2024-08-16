@@ -16,12 +16,10 @@ from esphome.const import (
 AUTO_LOAD = ["text_sensor", "binary_sensor", "switch"]
 DEPENDENCIES = ["ble_client"]
 CODEOWNERS = ["@eigger"]
-CONF_UPDATE = 'update'
 gicisky_esl_ns = cg.esphome_ns.namespace("gicisky_esl")
 gicisky_esl = gicisky_esl_ns.class_(
     "GiciskyESL", display.DisplayBuffer, ble_client.BLEClientNode
 )
-Update = gicisky_esl_ns.class_("Update", gicisky_esl)
 
 CONFIG_SCHEMA = cv.All(
     display.FULL_DISPLAY_SCHEMA.extend(
@@ -41,10 +39,6 @@ CONFIG_SCHEMA = cv.All(
                 #cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
                 cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
                 cv.Optional(CONF_DEVICE_CLASS, default="connectivity"): binary_sensor.validate_device_class,
-            }),
-            cv.Optional(CONF_UPDATE, default={CONF_NAME: "Update"}):  switch.SWITCH_SCHEMA.extend(
-            {
-                cv.GenerateID(): cv.declare_id(Update),
             }),
         }
     )
@@ -68,10 +62,6 @@ async def to_code(config):
         sens = cg.new_Pvariable(config[CONF_STATUS][CONF_ID])
         await binary_sensor.register_binary_sensor(sens, config[CONF_STATUS])
         cg.add(var.set_bt_connected(sens))
-    if CONF_UPDATE in config:
-        sens = cg.new_Pvariable(config[CONF_UPDATE][CONF_ID])
-        await switch.register_switch(sens, config[CONF_UPDATE])
-        cg.add(var.set_update(sens))
     if CONF_LAMBDA in config:
         lambda_ = await cg.process_lambda(
             config[CONF_LAMBDA], [(display.DisplayRef, "it")], return_type=cg.void
