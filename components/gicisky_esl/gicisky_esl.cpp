@@ -33,7 +33,6 @@ void GiciskyESL::setup()
     image_buffer_.resize(this->width_ * this->height_);
     image_packet_.resize(this->width_ * this->height_ / 4);
     std::fill(image_buffer_.begin(), image_buffer_.end(), Color(0, 0, 0));
-    std::fill(old_image_buffer_.begin(), old_image_buffer_.end(), Color(0, 0, 0));
     if (this->version_) this->version_->publish_state(VERSION);
     if (this->bt_connected_) this->bt_connected_->publish_state(false);
     if (this->update_)
