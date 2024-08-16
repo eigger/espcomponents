@@ -17,11 +17,14 @@ AUTO_LOAD = ["text_sensor", "binary_sensor", "switch"]
 DEPENDENCIES = ["ble_client"]
 CODEOWNERS = ["@eigger"]
 CONF_UPDATE = 'update'
+CONF_LISTENER = 'listener'
+
 gicisky_esl_ns = cg.esphome_ns.namespace("gicisky_esl")
 gicisky_esl = gicisky_esl_ns.class_(
     "GiciskyESL", display.DisplayBuffer, ble_client.BLEClientNode
 )
 Update = gicisky_esl_ns.class_("Update", gicisky_esl)
+Listener = gicisky_esl_ns.class_("DeviceListener", gicisky_esl)
 
 CONFIG_SCHEMA = cv.All(
     display.FULL_DISPLAY_SCHEMA.extend(
@@ -46,10 +49,13 @@ CONFIG_SCHEMA = cv.All(
             {
                 cv.GenerateID(): cv.declare_id(Update),
             }),
+            cv.Optional(CONF_LISTENER, default={CONF_NAME: "Listener"}):  esp32_ble_tracker.ESP_BLE_DEVICE_SCHEMA(
+            {
+                cv.GenerateID(): cv.declare_id(Listener),
+            }),
         }
     )
     .extend(ble_client.BLE_CLIENT_SCHEMA)
-    .extend(esp32_ble_tracker.ESP_BLE_DEVICE_SCHEMA),
     cv.has_at_most_one_key(CONF_PAGES, CONF_LAMBDA),
 )
 
@@ -57,7 +63,6 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await display.register_display(var, config)
     await ble_client.register_ble_node(var, config)
-    await esp32_ble_tracker.register_ble_device(var, config)
     if CONF_WIDTH in config:
         cg.add(var.set_width(config[CONF_WIDTH]))
     if CONF_HEIGHT in config:
@@ -74,6 +79,10 @@ async def to_code(config):
         sens = cg.new_Pvariable(config[CONF_UPDATE][CONF_ID])
         await switch.register_switch(sens, config[CONF_UPDATE])
         cg.add(var.set_update(sens))
+    if CONF_LISTENER in config:
+        sens = cg.new_Pvariable(config[CONF_LISTENER][CONF_ID])
+        await esp32_ble_tracker.register_ble_device(sens, config[CONF_LISTENER])
+        cg.add(var.set_listener(sens))
     if CONF_LAMBDA in config:
         lambda_ = await cg.process_lambda(
             config[CONF_LAMBDA], [(display.DisplayRef, "it")], return_type=cg.void

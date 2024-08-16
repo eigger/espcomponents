@@ -32,9 +32,9 @@ public:
     void dump_config() override;
     void setup() override;
     void gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param) override;
-    bool parse_device(const esp32_ble_tracker::ESPBTDevice &device) override;
     void set_version(text_sensor::TextSensor *version) { version_ = version; }
-    void set_bt_connected(binary_sensor::BinarySensor *bt_connected) { bt_connected_ = bt_connected; } 
+    void set_bt_connected(binary_sensor::BinarySensor *bt_connected) { bt_connected_ = bt_connected; }
+    void set_listener(esp32_ble_tracker::ESPBTDeviceListener *listener) { listener_ = listener; }
     void set_update(switch_::Switch *update) { update_ = update; }
     void set_width(uint16_t width) { this->width_ = width; }
     void set_height(uint16_t height) { this->height_ = height; }
@@ -65,6 +65,7 @@ protected:
     text_sensor::TextSensor *version_{nullptr};
     binary_sensor::BinarySensor *bt_connected_{nullptr};
     switch_::Switch *update_{nullptr};
+    esp32_ble_tracker::ESPBTDeviceListener *listener_{nullptr};
 
     esp32_ble_tracker::ESPBTUUID service_uuid_ =
         esp32_ble_tracker::ESPBTUUID::from_uint16(0xFEF0);
@@ -88,6 +89,14 @@ public:
     }
 };
 
+class DeviceListener : public esp32_ble_tracker::ESPBTDeviceListener
+{
+public:
+    bool parse_device(const esp32_ble_tracker::ESPBTDevice &device) override
+    {
+        return true;
+    }
+}
 
 }  // namespace gicisky_esl
 }  // namespace esphome
