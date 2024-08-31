@@ -178,7 +178,7 @@ void GiciskyESL::send_cmd(uint8_t cmd)
 
 void GiciskyESL::send_img(uint32_t part)
 {
-    uint32_t total_size = get_buffer_length_();
+    uint32_t total_size = get_buffer_length_() / 4;
     uint32_t len = total_size - (part  * 240);
     if (len > 240) len = 240;
     std::vector<uint8_t> packet;
