@@ -32,9 +32,9 @@ text_sensor:
     ip_address:
       name: "${node_name} IP"
       icon: mdi:ip-outline
-    mac_address:
-      name: "${node_name} MAC"
-      icon: mdi:ethernet
+#    mac_address:
+#      name: "${node_name} MAC"
+#      icon: mdi:ethernet
 #    ssid:
 #      name: "${node_name} SSID"
 #      icon: mdi:wifi-lock
