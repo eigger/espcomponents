@@ -9,23 +9,20 @@ static const char *TAG = "uartex.light";
 void UARTExLightOutput::dump_config()
 {
     ESP_LOGCONFIG(TAG, "UARTEx LightOutput(Binary) '%s':", this->light_state_->get_name().c_str());
-    dump_uartex_device_config(TAG);
+    uartex_dump_config(TAG);
 }
 
 void UARTExLightOutput::publish(const std::vector<uint8_t>& data)
 {
     if (this->light_state_ == nullptr)return;
-    if (this->state_brightness_func_.has_value())
+    optional<float> val = get_state_brightness(data);
+    if (val.has_value() && this->brightness_ != (int)val.value() && val.value() > 0)
     {
-        optional<float> val = (*this->state_brightness_func_)(&data[0], data.size());
-        if (val.has_value() && this->brightness_ != (int)val.value() && val.value() > 0)
-        {
-            this->brightness_ = (int)val.value();
-            auto call = this->light_state_->make_call();
-            call.set_brightness_if_supported(this->brightness_ / 100.0);
-            call.set_state(this->state_);
-            call.perform();
-        }
+        this->brightness_ = (int)val.value();
+        auto call = this->light_state_->make_call();
+        call.set_brightness_if_supported(this->brightness_ / 100.0);
+        call.set_state(this->state_);
+        call.perform();
     }
 }
 
@@ -43,7 +40,7 @@ light::LightTraits UARTExLightOutput::get_traits()
 {
     auto traits = light::LightTraits();
     std::set<light::ColorMode> color_modes;
-    if (this->command_brightness_func_.has_value() || this->state_brightness_func_.has_value())
+    if (get_command_brightness(this->brightness_) || has_state_brightness())
     {
         color_modes.insert(light::ColorMode::BRIGHTNESS);
     }
@@ -55,7 +52,7 @@ light::LightTraits UARTExLightOutput::get_traits()
     return traits;
 }
 
-void UARTExLightOutput::write_state(light::LightState *state)
+void UARTExLightOutput::write_state(light::LightState* state)
 {
     bool binary;
     state->current_values_as_binary(&binary);
@@ -64,24 +61,14 @@ void UARTExLightOutput::write_state(light::LightState *state)
         enqueue_tx_cmd(binary ? get_command_on() : get_command_off());
         this->state_ = binary;
     }
-    if (this->command_brightness_func_.has_value())
+    float brightness;
+    state->current_values_as_brightness(&brightness);
+    if ((int)(brightness * 100.0) != this->brightness_ && brightness > 0)
     {
-        float brightness;
-        state->current_values_as_brightness(&brightness);
-        if ((int)(brightness * 100.0) != this->brightness_ && brightness > 0)
-        {
-            this->brightness_ = (int)(brightness * 100.0);
-            enqueue_tx_cmd(get_command_brightness());
-        }
+        this->brightness_ = (int)(brightness * 100.0);
+        enqueue_tx_cmd(get_command_brightness(this->brightness_));
     }
     this->light_state_ = state;
-}
-
-cmd_t *UARTExLightOutput::get_command_brightness()
-{
-    if (this->command_brightness_func_.has_value())
-        this->command_brightness_ = (*this->command_brightness_func_)(this->brightness_);
-    return &this->command_brightness_.value();
 }
 
 }  // namespace uartex

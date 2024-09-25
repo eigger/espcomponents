@@ -32,15 +32,24 @@ text_sensor:
     ip_address:
       name: "${node_name} IP"
       icon: mdi:ip-outline
-    mac_address:
-      name: "${node_name} MAC"
-      icon: mdi:ethernet
+#    mac_address:
+#      name: "${node_name} MAC"
+#      icon: mdi:ethernet
 #    ssid:
 #      name: "${node_name} SSID"
 #      icon: mdi:wifi-lock
 #    bssid:
 #      name: "${node_name} BSSID"
 #      icon: mdi:router-wireless
+
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: Asia/Seoul
+    servers: 
+      - 0.pool.ntp.org
+      - 1.pool.ntp.org
+      - 2.pool.ntp.org
 
 sensor:
   - platform: uptime

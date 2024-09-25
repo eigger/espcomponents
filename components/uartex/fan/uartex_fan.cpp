@@ -9,7 +9,7 @@ static const char *TAG = "uartex.fan";
 void UARTExFan::dump_config()
 {
     ESP_LOGCONFIG(TAG, "UARTEx Fan '%s':", get_name().c_str());
-    dump_uartex_device_config(TAG);
+    uartex_dump_config(TAG);
 }
 
 fan::FanTraits UARTExFan::get_traits()
@@ -25,14 +25,11 @@ fan::FanTraits UARTExFan::get_traits()
 
 void UARTExFan::publish(const std::vector<uint8_t>& data)
 {
-    if (this->state_speed_func_.has_value())
+    optional<float> val = get_state_speed(data);
+    if (val.has_value() && this->speed != (int)val.value())
     {
-        optional<float> val = (*this->state_speed_func_)(&data[0], data.size());
-        if (val.has_value() && this->speed != (int)val.value())
-        {
-            this->speed = (int)val.value();
-            publish_state();
-        }
+        this->speed = (int)val.value();
+        publish_state();
     }
 }
 
@@ -43,7 +40,7 @@ void UARTExFan::publish(const bool state)
     this->publish_state();
 }
 
-void UARTExFan::control(const fan::FanCall &call)
+void UARTExFan::control(const fan::FanCall& call)
 {
     bool changed_state = false;
     bool changed_speed = false;
@@ -69,17 +66,10 @@ void UARTExFan::control(const fan::FanCall &call)
         this->direction = *call.get_direction();
         changed_direction = true;
     }
-    if (this->command_on_.has_value() && this->state && changed_state) enqueue_tx_cmd(get_command_on());
-    if (this->command_speed_func_.has_value() && changed_speed) enqueue_tx_cmd(get_command_speed());
-    if (this->command_off_.has_value() && !this->state && changed_state) enqueue_tx_cmd(get_command_off());
+    if (this->state && changed_state) enqueue_tx_cmd(get_command_on());
+    if (changed_speed) enqueue_tx_cmd(get_command_speed(this->speed));
+    if (!this->state && changed_state) enqueue_tx_cmd(get_command_off());
     publish_state();
-}
-
-cmd_t *UARTExFan::get_command_speed()
-{
-    if (this->command_speed_func_.has_value())
-        this->command_speed_ = (*this->command_speed_func_)((float)this->speed);
-    return &this->command_speed_.value();
 }
 
 }  // namespace uartex

@@ -9,7 +9,7 @@ static const char *TAG = "uartex.valve";
 void UARTExValve::dump_config()
 {
     ESP_LOGCONFIG(TAG, "UARTEx Valve '%s':", get_name().c_str());
-    dump_uartex_device_config(TAG);
+    uartex_dump_config(TAG);
 }
 
 void UARTExValve::setup()
@@ -20,21 +20,18 @@ void UARTExValve::setup()
 void UARTExValve::publish(const std::vector<uint8_t>& data)
 {
     bool changed = false;
-    if (this->state_position_func_.has_value())
+    optional<float> val = get_state_position(data);
+    if (val.has_value() && this->position != (int)val.value())
     {
-        optional<float> val = (*this->state_position_func_)(&data[0], data.size());
-        if (val.has_value() && this->position != (int)val.value())
-        {
-            this->position = (int)val.value();
-            changed = true;
-        }
+        this->position = (int)val.value();
+        changed = true;
     }
-    if (this->state_open_.has_value() && verify_state(data, &this->state_open_.value()))
+    if (verify_state(data, get_state_open()))
     {
         this->position = valve::VALVE_OPEN;
         changed = true;
     }
-    else if (this->state_closed_.has_value() && verify_state(data, &this->state_closed_.value()))
+    else if (verify_state(data, get_state_closed()))
     {
         this->position = valve::VALVE_CLOSED;
         changed = true;
@@ -45,32 +42,28 @@ void UARTExValve::publish(const std::vector<uint8_t>& data)
 valve::ValveTraits UARTExValve::get_traits()
 {
     valve::ValveTraits traits{};
-    if (this->command_stop_.has_value()) traits.set_supports_stop(true);
-    if (this->state_position_func_.has_value()) traits.set_supports_position(true);
+    if (get_command_stop()) traits.set_supports_stop(true);
+    if (has_state_position()) traits.set_supports_position(true);
     //traits.set_is_assumed_state(true);
     return traits;
 }
 
-void UARTExValve::control(const valve::ValveCall &call)
+void UARTExValve::control(const valve::ValveCall& call)
 {
-    if (call.get_stop())
-    {
-        if (this->command_stop_.has_value()) enqueue_tx_cmd(&this->command_stop_.value());
-        publish_state();
-    }
+    if (call.get_stop()) enqueue_tx_cmd(get_command_stop());
     if (this->position != *call.get_position())
     {
         this->position = *call.get_position();
         if (this->position >= valve::VALVE_OPEN)
         {
-            if (this->command_open_.has_value()) enqueue_tx_cmd(&this->command_open_.value());
+            enqueue_tx_cmd(get_command_open());
         }
         else if (this->position <= valve::VALVE_CLOSED)
         {
-            if (this->command_close_.has_value()) enqueue_tx_cmd(&this->command_close_.value());
+            enqueue_tx_cmd(get_command_close());
         }
-        publish_state();
     }
+    publish_state();
 }
 
 }  // namespace uartex

@@ -9,21 +9,21 @@ static const char *TAG = "uartex.lock";
 void UARTExLock::dump_config()
 {
     ESP_LOGCONFIG(TAG, "UARTEx Lock '%s':", get_name().c_str());
-    dump_uartex_device_config(TAG);
+    uartex_dump_config(TAG);
 }
 
 void UARTExLock::setup()
 {
-    if (this->state_locked_.has_value() || this->command_lock_.has_value()) traits.add_supported_state(lock::LOCK_STATE_LOCKED);
-    if (this->state_unlocked_.has_value() || this->command_unlock_.has_value()) traits.add_supported_state(lock::LOCK_STATE_UNLOCKED);
-    if (this->state_jammed_.has_value()) traits.add_supported_state(lock::LOCK_STATE_JAMMED);
-    if (this->state_locked_.has_value() || this->state_locking_.has_value()) traits.add_supported_state(lock::LOCK_STATE_LOCKING);
-    if (this->state_unlocked_.has_value() || this->state_unlocking_.has_value()) traits.add_supported_state(lock::LOCK_STATE_UNLOCKING);
+    if (get_state_locked() || get_command_lock()) traits.add_supported_state(lock::LOCK_STATE_LOCKED);
+    if (get_state_unlocked() || get_command_unlock()) traits.add_supported_state(lock::LOCK_STATE_UNLOCKED);
+    if (get_state_jammed()) traits.add_supported_state(lock::LOCK_STATE_JAMMED);
+    if (get_state_locked() || get_state_locking()) traits.add_supported_state(lock::LOCK_STATE_LOCKING);
+    if (get_state_unlocked() || get_state_unlocking()) traits.add_supported_state(lock::LOCK_STATE_UNLOCKING);
 }
 
 void UARTExLock::loop()
 {
-    if (!this->state_locking_.has_value())
+    if (!get_state_locking())
     {
         if (this->state == lock::LOCK_STATE_LOCKING)
         {
@@ -34,7 +34,7 @@ void UARTExLock::loop()
             }
         }
     }
-    if (!this->state_unlocking_.has_value())
+    if (!get_state_unlocking())
     {
         if (this->state == lock::LOCK_STATE_UNLOCKING)
         {
@@ -50,27 +50,27 @@ void UARTExLock::loop()
 void UARTExLock::publish(const std::vector<uint8_t>& data)
 {
     bool changed = false;
-    if (this->state_locked_.has_value() && verify_state(data, &this->state_locked_.value()))
+    if (verify_state(data, get_state_locked()))
     {
         this->state = lock::LOCK_STATE_LOCKED;
         changed = true;
     }
-    else if (this->state_unlocked_.has_value() && verify_state(data, &this->state_unlocked_.value()))
+    else if (verify_state(data, get_state_unlocked()))
     {
         this->state = lock::LOCK_STATE_UNLOCKED;
         changed = true;
     }
-    else if (this->state_jammed_.has_value() && verify_state(data, &this->state_jammed_.value()))
+    else if (verify_state(data, get_state_jammed()))
     {
         this->state = lock::LOCK_STATE_JAMMED;
         changed = true;
     }
-    else if (this->state_locking_.has_value() && verify_state(data, &this->state_locking_.value()))
+    else if (verify_state(data, get_state_locking()))
     {
         this->state = lock::LOCK_STATE_LOCKING;
         changed = true;
     }
-    else if (this->state_unlocking_.has_value() && verify_state(data, &this->state_unlocking_.value()))
+    else if (verify_state(data, get_state_unlocking()))
     {
         this->state = lock::LOCK_STATE_UNLOCKING;
         changed = true;
@@ -78,7 +78,7 @@ void UARTExLock::publish(const std::vector<uint8_t>& data)
     if (changed) publish_state(this->state);
 }
 
-void UARTExLock::control(const lock::LockCall &call)
+void UARTExLock::control(const lock::LockCall& call)
 {
     if (this->state != *call.get_state())
     {
@@ -87,12 +87,12 @@ void UARTExLock::control(const lock::LockCall &call)
         switch (this->state)
         {
         case lock::LOCK_STATE_LOCKED:
-            if (this->command_lock_.has_value()) enqueue_tx_cmd(&this->command_lock_.value());
-            if (this->state_locked_.has_value()) this->state = lock::LOCK_STATE_LOCKING;
+            enqueue_tx_cmd(get_command_lock());
+            if (get_state_locked()) this->state = lock::LOCK_STATE_LOCKING;
             break;
         case lock::LOCK_STATE_UNLOCKED:
-            if (this->command_unlock_.has_value()) enqueue_tx_cmd(&this->command_unlock_.value());
-            if (this->state_unlocked_.has_value()) this->state = lock::LOCK_STATE_UNLOCKING;
+            enqueue_tx_cmd(get_command_unlock());
+            if (get_state_unlocked()) this->state = lock::LOCK_STATE_UNLOCKING;
             break;
         case lock::LOCK_STATE_LOCKING:
             break;        

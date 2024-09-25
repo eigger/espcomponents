@@ -157,59 +157,41 @@ async def to_code(config):
     if CONF_RX_CHECKSUM in config:
         data = config[CONF_RX_CHECKSUM]
         if cg.is_template(data):
-            template_ = await cg.process_lambda(data,
-                                                [(uint8_ptr_const, 'data'),
-                                                 (uint16_const, 'len')],
-                                                return_type=cg.uint8)
-            cg.add(var.set_rx_checksum_lambda(template_))
+            template_ = await cg.templatable(data, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.uint8)
+            cg.add(var.set_rx_checksum(template_))
         else:
             cg.add(var.set_rx_checksum(data))
     if CONF_TX_CHECKSUM in config:
         data = config[CONF_TX_CHECKSUM]
         if cg.is_template(data):
-            template_ = await cg.process_lambda(data,
-                                                [(uint8_ptr_const, 'data'),
-                                                 (uint16_const, 'len')],
-                                                return_type=cg.uint8)
-            cg.add(var.set_tx_checksum_lambda(template_))
+            template_ = await cg.templatable(data, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.uint8)
+            cg.add(var.set_tx_checksum(template_))
         else:
             cg.add(var.set_tx_checksum(data))
     if CONF_RX_CHECKSUM_2 in config:
         data = config[CONF_RX_CHECKSUM_2]
         if cg.is_template(data):
-            template_ = await cg.process_lambda(data,
-                                                [(uint8_ptr_const, 'data'),
-                                                 (uint16_const, 'len')],
-                                                return_type=vector_uint8)
-            cg.add(var.set_rx_checksum_2_lambda(template_))
+            template_ = await cg.templatable(data, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], vector_uint8)
+            cg.add(var.set_rx_checksum_2(template_))
         else:
             cg.add(var.set_rx_checksum_2(data))
     if CONF_TX_CHECKSUM_2 in config:
         data = config[CONF_TX_CHECKSUM_2]
         if cg.is_template(data):
-            template_ = await cg.process_lambda(data,
-                                                [(uint8_ptr_const, 'data'),
-                                                 (uint16_const, 'len')],
-                                                return_type=vector_uint8)
-            cg.add(var.set_tx_checksum_2_lambda(template_))
+            template_ = await cg.templatable(data, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], vector_uint8)
+            cg.add(var.set_tx_checksum_2(template_))
         else:
             cg.add(var.set_tx_checksum_2(data))
     if CONF_ON_WRITE in config:
         data = config[CONF_ON_WRITE]
         if cg.is_template(data):
-            template_ = await cg.process_lambda(data,
-                                                [(uint8_ptr_const, 'data'),
-                                                 (uint16_const, 'len')],
-                                                return_type=cg.void)
-        cg.add(var.set_on_write(template_))
+            template_ = await cg.templatable(data, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.void)
+            cg.add(var.set_on_write(template_))
     if CONF_ON_READ in config:
         data = config[CONF_ON_READ]
         if cg.is_template(data):
-            template_ = await cg.process_lambda(data,
-                                                [(uint8_ptr_const, 'data'),
-                                                 (uint16_const, 'len')],
-                                                return_type=cg.void)
-        cg.add(var.set_on_read(template_))
+            template_ = await cg.templatable(data, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.void)
+            cg.add(var.set_on_read(template_))
 
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
 UARTEX_DEVICE_SCHEMA = cv.Schema({
@@ -219,7 +201,7 @@ UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.Required(CONF_STATE_OFF): state_schema,
     cv.Required(CONF_COMMAND_ON): cv.templatable(command_hex_schema),
     cv.Required(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
-    cv.Optional(CONF_COMMAND_UPDATE): command_hex_schema,
+    cv.Optional(CONF_COMMAND_UPDATE): cv.templatable(command_hex_schema),
     cv.Optional(CONF_STATE_RESPONSE): state_schema,
 }).extend(cv.polling_component_schema('60s'))
 
@@ -229,6 +211,8 @@ STATE_NUM_SCHEMA = cv.Schema({
     cv.Optional(CONF_PRECISION, default=0): cv.int_range(min=0, max=5)
 })
 
+def state_num_schema(value):
+    return STATE_NUM_SCHEMA(value)
 
 HEX_SCHEMA_REGISTRY = SimpleRegistry()
 
@@ -238,43 +222,31 @@ async def register_uartex_device(var, config):
 
     if CONF_STATE in config:
         state = state_hex_expression(config[CONF_STATE])
-        cg.add(var.set_state(state))
+        cg.add(var.set_state(CONF_STATE, state))
 
     if CONF_STATE_ON in config:
-        state_on = state_hex_expression(config[CONF_STATE_ON])
-        cg.add(var.set_state_on(state_on))
+        state = state_hex_expression(config[CONF_STATE_ON])
+        cg.add(var.set_state(CONF_STATE_ON, state))
 
     if CONF_STATE_OFF in config:
-        state_off = state_hex_expression(config[CONF_STATE_OFF])
-        cg.add(var.set_state_off(state_off))
+        state = state_hex_expression(config[CONF_STATE_OFF])
+        cg.add(var.set_state(CONF_STATE_OFF, state))
 
     if CONF_COMMAND_ON in config:
-        data = config[CONF_COMMAND_ON]
-        if cg.is_template(data):
-            #command_on = await cg.templatable(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], cmd_t)
-            command_on = await cg.process_lambda(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], return_type=cmd_t)
-            cg.add(var.set_command_on(command_on))
-        else:
-            command_on = command_hex_expression(config[CONF_COMMAND_ON])
-            cg.add(var.set_command_on(command_on))
+        command = await command_expression(config[CONF_COMMAND_ON])
+        cg.add(var.set_command(CONF_COMMAND_ON, command))
 
     if CONF_COMMAND_OFF in config:
-        data = config[CONF_COMMAND_OFF]
-        if cg.is_template(data):
-            #command_off = await cg.templatable(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], cmd_t)
-            command_off = await cg.process_lambda(data, [(uint8_ptr_const, 'state'), (uint16_const, 'len')], return_type=cmd_t)
-            cg.add(var.set_command_off(command_off))
-        else:
-            command_off = command_hex_expression(config[CONF_COMMAND_OFF])
-            cg.add(var.set_command_off(command_off))
+        command = await command_expression(config[CONF_COMMAND_OFF])
+        cg.add(var.set_command(CONF_COMMAND_OFF, command))
 
     if CONF_COMMAND_UPDATE in config:
-        command_update = command_hex_expression(config[CONF_COMMAND_UPDATE])
-        cg.add(var.set_command_update(command_update))
+        command = await command_expression(config[CONF_COMMAND_UPDATE])
+        cg.add(var.set_command(CONF_COMMAND_UPDATE, command))
     
     if CONF_STATE_RESPONSE in config:
-        state_response = state_hex_expression(config[CONF_STATE_RESPONSE])
-        cg.add(var.set_state_response(state_response))
+        state = state_hex_expression(config[CONF_STATE_RESPONSE])
+        cg.add(var.set_state(CONF_STATE_RESPONSE, state))
 
 
 def state_hex_expression(conf):
@@ -296,6 +268,12 @@ def command_hex_expression(conf):
         return data, ack
     else:
         return data
+    
+async def command_expression(conf):
+    if cg.is_template(conf):
+        return await cg.templatable(conf, [], cmd_t)
+    else:
+        return command_hex_expression(conf)
 
 @automation.register_action('uartex.write', UARTExWriteAction, cv.maybe_simple_value({
     cv.GenerateID(): cv.use_id(UARTExComponent),

@@ -10,24 +10,21 @@ class UARTExLightOutput : public light::LightOutput, public UARTExDevice
 {
 public:
     void dump_config() override;
-    void set_state_brightness(std::function<optional<float>(const uint8_t *data, const uint16_t len)> f) { this->state_brightness_func_ = f; }
-    void set_command_brightness(std::function<cmd_t(const float x)> f) { this->command_brightness_func_ = f; }
 
 protected:
-    void setup_state(light::LightState *state) override { this->light_state_ = state; }
+    void setup_state(light::LightState* state) override { this->light_state_ = state; }
     void publish(const std::vector<uint8_t>& data) override;
     void publish(const bool state) override { publish_state(state); }
     void publish_state(bool state);
     light::LightTraits get_traits() override;
-    void write_state(light::LightState *state) override;
-    cmd_t* get_command_brightness();
+    void write_state(light::LightState* state) override;
+    cmd_t* get_command_brightness(const float x) { return get_command("command_brightness", x); }
+    optional<float> get_state_brightness(const std::vector<uint8_t>& data) { return get_state_float("state_brightness", data); }
+    bool has_state_brightness() { return has_state("state_brightness"); } 
 protected:
     bool state_{false};
     int brightness_{0};
-    light::LightState *light_state_{nullptr};
-    optional<std::function<optional<float>(const uint8_t *data, const uint16_t len)>> state_brightness_func_{};
-    optional<std::function<cmd_t(const float x)>> command_brightness_func_{};
-    optional<cmd_t> command_brightness_{};
+    light::LightState* light_state_{nullptr};
 };
 
 }  // namespace uartex

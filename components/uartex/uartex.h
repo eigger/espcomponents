@@ -44,13 +44,13 @@ public:
     void set_tx_header(std::vector<uint8_t> header);
     void set_tx_footer(std::vector<uint8_t> footer);
     void set_rx_checksum(CHECKSUM checksum);
-    void set_rx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f);
+    void set_rx_checksum(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f);
     void set_tx_checksum(CHECKSUM checksum);
-    void set_tx_checksum_lambda(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f);
+    void set_tx_checksum(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f);
     void set_rx_checksum_2(CHECKSUM checksum);
     void set_tx_checksum_2(CHECKSUM checksum);
-    void set_rx_checksum_2_lambda(std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)> &&f);
-    void set_tx_checksum_2_lambda(std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)> &&f);
+    void set_rx_checksum_2(std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)> &&f);
+    void set_tx_checksum_2(std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)> &&f);
     void set_version(text_sensor::TextSensor *version) { this->version_ = version; }
     void set_error(text_sensor::TextSensor *error) { this->error_ = error; }
     void set_on_write(std::function<void(const uint8_t *data, const uint16_t len)> &&f) { this->on_write_f_ = f; }
@@ -121,8 +121,8 @@ protected:
     uint16_t tx_retry_cnt_{0};
     InternalGPIOPin *tx_ctrl_pin_{nullptr};
     Parser rx_parser_{};
-    text_sensor::TextSensor *version_{nullptr};
-    text_sensor::TextSensor *error_{nullptr};
+    text_sensor::TextSensor* version_{nullptr};
+    text_sensor::TextSensor* error_{nullptr};
     optional<cmd_t> command_{};
 };
 

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
+#include <unordered_map>
 
 namespace esphome {
 namespace uartex {
@@ -29,57 +30,69 @@ struct cmd_t
     std::vector<uint8_t> ack;
 };
 
-/**
- * UARTEx Device
- */
 class UARTExDevice : public PollingComponent
 {
 public:
     void update() override;
-    void dump_uartex_device_config(const char *TAG);
-    void set_state(state_t state);
-    void set_state_on(state_t state);
-    void set_state_off(state_t state);
-    void set_command_on(cmd_t command);
-    void set_command_on(std::function<cmd_t(const uint8_t *state, const uint16_t len)> func);
-    cmd_t* get_command_on();
-    void set_command_off(cmd_t command);
-    void set_command_off(std::function<cmd_t(const uint8_t *state, const uint16_t len)> func);
-    cmd_t* get_command_off();
-    void set_command_update(cmd_t command);
-    void set_state_response(state_t state);
+    void uartex_dump_config(const char* TAG);
+    void set_state(std::string name, state_t state) { this->state_map_[name] = state; }
+    void set_state(std::string name, state_num_t state) { this->state_num_map_[name] = state; }
+    void set_state(std::string name, std::function<float(const uint8_t* data, const uint16_t len)> &&f) { this->state_float_func_map_[name] = f; }
+    void set_state(std::string name, std::function<const char*(const uint8_t* data, const uint16_t len)> &&f) { this->state_str_func_map_[name] = f; }
+    void set_command(std::string name, cmd_t cmd) { this->command_map_[name] = cmd; }
+    void set_command(std::string name, std::function<cmd_t()> &&f) { this->command_func_map_[name] = f; }
+    void set_command(std::string name, std::function<cmd_t(const float x)> &&f) { this->command_float_func_map_[name] = f; }
+    void set_command(std::string name, std::function<cmd_t(const std::string& str)> &&f) { this->command_str_func_map_[name] = f; }
+
     void enqueue_tx_cmd(const cmd_t* cmd, bool low_priority = false);
     const cmd_t* dequeue_tx_cmd();
     const cmd_t* dequeue_tx_cmd_low_priority();
     bool parse_data(const std::vector<uint8_t>& data);
-
+    uint8_t get_state_data(uint32_t index);
 protected:
     float get_setup_priority() const override { return setup_priority::DATA; }
-    virtual void publish(const std::vector<uint8_t>& data);
-    virtual void publish(const bool state);
-    
+    virtual void publish(const std::vector<uint8_t>& data) {}
+    virtual void publish(const bool state) {}
+    cmd_t* get_command(const std::string& name, const std::string& str);
+    cmd_t* get_command(const std::string& name, const float x);
+    cmd_t* get_command(const std::string& name);
+    state_t* get_state(const std::string& name);
+    optional<float> get_state_float(const std::string& name, const std::vector<uint8_t>& data);
+    optional<const char*> get_state_str(const std::string& name, const std::vector<uint8_t>& data);
+    bool has_state(const std::string& name);
+    state_t* get_state() { return get_state("state"); }
+    state_t* get_state_on() { return get_state("state_on"); }
+    state_t* get_state_off() { return get_state("state_off"); }
+    state_t* get_state_response() { return get_state("state_response"); }
+    cmd_t* get_command_on() { return get_command("command_on"); }
+    cmd_t* get_command_off() { return get_command("command_off"); }
+    cmd_t* get_command_update() { return get_command("command_update"); }
+
 protected:
-    optional<state_t> state_{};
-    optional<state_t> state_on_{};
-    optional<state_t> state_off_{};
-    optional<cmd_t> command_on_{};
-    optional<std::function<cmd_t(const uint8_t *data, const uint16_t len)>> command_on_func_{};
-    optional<cmd_t> command_off_{};
-    optional<std::function<cmd_t(const uint8_t *data, const uint16_t len)>> command_off_func_{};
-    optional<cmd_t> command_update_;
-    optional<state_t> state_response_{};
+    std::unordered_map<std::string, state_t> state_map_{};
+    std::unordered_map<std::string, state_num_t> state_num_map_{};
+    std::unordered_map<std::string, std::function<float(const uint8_t* data, const uint16_t len)>> state_float_func_map_{};
+    std::unordered_map<std::string, std::function<const char*(const uint8_t* data, const uint16_t len)>> state_str_func_map_{};
+
+    std::unordered_map<std::string, cmd_t> command_map_{};
+    std::unordered_map<std::string, std::function<cmd_t()>> command_func_map_{};
+    std::unordered_map<std::string, std::function<cmd_t(const float x)>> command_float_func_map_{};
+    std::unordered_map<std::string, std::function<cmd_t(const std::string& str)>> command_str_func_map_{};
+    
     bool rx_response_{false};
     std::queue<const cmd_t*> tx_cmd_queue_{};
     std::queue<const cmd_t*> tx_cmd_queue_low_priority_{};
-    std::vector<uint8_t> last_state_{};
+    std::vector<uint8_t> state_data_{};
 };
 
+template<typename KeyType, typename ValueType>
+bool contains(const std::unordered_map<KeyType, ValueType>& map, const KeyType& key) { return map.find(key) != map.end(); }
 bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,  const uint16_t offset = 0);
-const std::vector<uint8_t> masked_data(const std::vector<uint8_t> &data, const state_t *state);
-bool verify_state(const std::vector<uint8_t>& data, const state_t *state);
+const std::vector<uint8_t> masked_data(const std::vector<uint8_t>& data, const state_t* state);
+bool verify_state(const std::vector<uint8_t>& data, const state_t* state);
 float state_to_float(const std::vector<uint8_t>& data, const state_num_t state);
 std::string to_hex_string(const std::vector<unsigned char>& data);
-std::string to_hex_string(const uint8_t *data, const uint16_t len);
+std::string to_hex_string(const uint8_t* data, const uint16_t len);
 unsigned long elapsed_time(const unsigned long timer);
 unsigned long get_time();
 

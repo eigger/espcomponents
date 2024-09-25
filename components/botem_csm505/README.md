@@ -7,7 +7,7 @@
 
 external_components:
   - source: github://eigger/espcomponents
-    components: [ botem_csm505 ]
+    components: [ uartex, botem_csm505 ]
 
 uart:
   baud_rate: 9600
@@ -16,8 +16,16 @@ uart:
   stop_bits: 1
   rx_pin: GPIO32
   tx_pin: GPIO26
-  
-botem_csm505:
-  name: ${node_name} People Set
-  max_value: 10
+
+uartex:
+  rx_timeout: 10ms
+  rx_header: [0x5E, 0x5B]
+  rx_footer: [0x5D, 0x0D]
+
+number:
+  - platform: botem_csm505
+    name: "People Count"
+    max_value: 30
+    min_value: 0
+    step: 1
 ```

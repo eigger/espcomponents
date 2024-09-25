@@ -10,15 +10,3 @@ display:
           it.strftime("%H.%M", id(sntp_time).now());
         else
           it.strftime("%H%M", id(sntp_time).now());
-      
-time:
-  - platform: homeassistant
-    id: homeassistant_time
-    timezone: Asia/Seoul
-  - platform: sntp
-    id: sntp_time
-    timezone: Asia/Seoul
-    servers: 
-      - 0.pool.ntp.org
-      - 1.pool.ntp.org
-      - 2.pool.ntp.org
