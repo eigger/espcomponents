@@ -1,0 +1,114 @@
+# uart:
+#   baud_rate: 9600
+#   data_bits: 8
+#   parity: NONE
+#   stop_bits: 1
+#   rx_pin: GPIO22
+#   tx_pin: GPIO19
+
+external_components:
+  - source: github://eigger/espcomponents/relreases/latest
+    components: [ uartex ]
+    refresh: always
+
+uartex:
+  rx_timeout: 10ms
+  tx_delay: 50ms
+  tx_timeout: 500ms
+  tx_retry_cnt: 3
+
+  rx_footer: [0x0D, 0x0D]
+  tx_footer: [0x0D, 0x0D]
+
+  on_write: !lambda |-
+    // @param: const uint8_t *data, const unsigned short len
+    std::string res = "[W]" + to_hex_string(data, len);
+    if (res == id(id_data_log).state) res += '.';
+    id(id_data_log).publish_state(res.c_str());
+
+  on_read: !lambda |-
+    // @param: const uint8_t *data, const unsigned short len
+    std::string res = "[R]" + to_hex_string(data, len);
+    if (res == id(id_data_log).state) res += '.';
+    id(id_data_log).publish_state(res.c_str());
+
+text_sensor:
+  - platform: template
+    name: "Kocom Door Data Log"
+    id: id_data_log
+    icon: "mdi:math-log" 
+
+binary_sensor:
+# 0xAA 0x55 0x7A 0x9E 0x02 0x02 0x00 0xFF 0xFF 0xFF 0xFF 0x31 0xFF 0xFF 0xFF 0x01 0x01 0x29 0xF6 0x0D 0x0D
+# 0xAA 0x55 0x7A 0x9E 0x02 0x02 0x00 0xFF 0xFF 0xFF 0xFF 0x31 0xFF 0xFF 0xFF 0x02 0x00 0x6C 0x84 0x0D 0x0D
+  - platform: uartex
+    name: "Kocom Door Bell"
+    icon: "mdi:bell-ring"
+    state: [0xAA, 0x55, 0x7A, 0x9E, 0x02, 0x02]
+    state_on:
+      offset: 15
+      data: [0x01, 0x01]
+    state_off:
+      offset: 15
+      data: [0x02, 0x00]
+
+# 0xAA 0x55 0x7A 0x9E 0x02 0x08 0x00 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0x01 0x01 0x0A 0x27 0x0D 0x0D
+# 0xAA 0x55 0x7A 0x9E 0x02 0x08 0x00 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0x02 0x00 0x4F 0x55 0x0D 0x0D
+
+  - platform: uartex
+    id: id_door_bell_common
+    name: "Kocom Door Bell Common"
+    icon: "mdi:bell-ring"
+    state: [0xAA, 0x55, 0x7A, 0x9E, 0x02, 0x08]
+    state_on:
+      offset: 15
+      data: [0x01, 0x01]
+    state_off:
+      offset: 15
+      data: [0x02, 0x00]
+    on_press:
+      then:
+        - script.execute: open_door_sequence
+
+button:
+  - platform: uartex
+    id: id_door_call
+    name: "Kocom Door Call"
+    icon: "mdi:phone"
+    command_on: 
+      data: [0xAA, 0x55, 0x79, 0xBC, 0x08, 0x02, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x61, 0xFF, 0xFF, 0xFF, 0x03, 0x00, 0x26, 0x95]
+      ack: [0x0F, 0x03]
+  - platform: uartex
+    id: id_door_open
+    name: "Kocom Door Open"
+    icon: "mdi:door-sliding-open"
+    command_on: 
+      data: [0xAA, 0x55, 0x79, 0xBC, 0x08, 0x02, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x61, 0xFF, 0xFF, 0xFF, 0x24, 0x00, 0xB9, 0xE4]
+      ack: [0x0F, 0x24]
+
+switch:
+  - platform: template
+    id: id_enable_auto_open
+    name: "Enable Auto Door Opening"
+    icon: "mdi:door-open"
+    optimistic: True
+    restore_mode: ALWAYS_ON
+    on_turn_off:
+      then:
+        - script.stop: open_door_sequence
+
+script:
+  - id: open_door_sequence
+    then:
+      - if:
+          condition:
+            - switch.is_on: id_enable_auto_open
+          then:
+            - delay: 1000ms
+            - button.press: id_door_call
+            - wait_until:
+                condition:
+                  binary_sensor.is_off: id_door_bell_common
+                timeout: 5s
+            - delay: 1000ms
+            - button.press: id_door_open

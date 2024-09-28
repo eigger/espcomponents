@@ -1,0 +1,296 @@
+# uart:
+#   baud_rate: 9600
+#   data_bits: 8
+#   parity: EVEN
+#   stop_bits: 1
+#   rx_pin: GPIO22
+#   tx_pin: GPIO19
+
+external_components:
+  - source: github://eigger/espcomponents/relreases/latest
+    components: [ uartex ]
+    refresh: always  
+
+uartex:
+  rx_timeout: 10ms
+  tx_delay: 50ms
+  tx_timeout: 500ms
+  tx_retry_cnt: 3
+
+  rx_header: [0xB0]
+
+  rx_checksum: !lambda |-
+    // @param: const uint8_t *data, const unsigned short len
+    // @return: uint8_t
+    uint8_t crc = 0xB0;
+    for(size_t i=0; i<len; i++)
+      crc ^= data[i];
+    if (data[0] < 0x7C) crc ^= 0x80;
+    return crc;
+    
+  tx_checksum: !lambda |-
+    // @param: const uint8_t *data, const unsigned short len
+    // @return: uint8_t
+    uint8_t crc = 0x00;
+    for(size_t i=0; i<len; i++)
+      crc ^= data[i];
+    crc ^= 0x80;
+    return crc;
+
+  on_write: !lambda |-
+    // @param: const uint8_t *data, const unsigned short len
+    std::string res = "[W]" + to_hex_string(data, len);
+    if (res == id(id_data_log).state) res += '.';
+    id(id_data_log).publish_state(res.c_str());
+
+  on_read: !lambda |-
+    // @param: const uint8_t *data, const unsigned short len
+    std::string res = "[R]" + to_hex_string(data, len);
+    if (res == id(id_data_log).state) res += '.';
+    id(id_data_log).publish_state(res.c_str());
+
+text_sensor:
+  - platform: template
+    name: "SDS Data Log"
+    id: id_data_log
+    icon: "mdi:math-log" 
+
+
+lock:
+  - platform: uartex
+    name: "SDS GAS"
+    state: [0x41]
+    state_locked:
+      offset: 1
+      data: [0x01]
+    state_unlocked:
+      offset: 1
+      data: [0x00]
+    command_lock:
+      data: [0xAB, 0x78, 0x00]
+      ack: [0x78]
+
+light:
+  - platform: uartex
+    name: "SDS Light 1"
+    state: [0x79, 0x31]
+    state_on:
+      offset: 2
+      data: [0x01]
+      mask: [0x01]
+    state_off:
+      offset: 2
+      data: [0x00]
+      mask: [0x01]
+    command_on:
+      data: [0xAC, 0x7A, 0x01, 0x01]
+      ack: [0x7A, 0x01, 0x01]
+    command_off:
+      data: [0xAC, 0x7A, 0x01, 0x00]
+      ack: [0x7A, 0x01, 0x00]
+      
+  - platform: uartex
+    name: "SDS Light 2"
+    state: [0x79, 0x31]
+    state_on:
+      offset: 2
+      data: [0x02]
+      mask: [0x02]
+    state_off:
+      offset: 2
+      data: [0x00]
+      mask: [0x02]
+    command_on:
+      data: [0xAC, 0x7A, 0x02, 0x01]
+      ack: [0x7A, 0x02, 0x01]
+    command_off:
+      data: [0xAC, 0x7A, 0x02, 0x00]
+      ack: [0x7A, 0x02, 0x00]
+      
+  - platform: uartex
+    name: "SDS Light 3"
+    state: [0x79, 0x31]
+    state_on:
+      offset: 2
+      data: [0x04]
+      mask: [0x04]
+    state_off:
+      offset: 2
+      data: [0x00]
+      mask: [0x04]
+    command_on:
+      data: [0xAC, 0x7A, 0x03, 0x01]
+      ack: [0x7A, 0x03, 0x01]
+    command_off:
+      data: [0xAC, 0x7A, 0x03, 0x00]
+      ack: [0x7A, 0x03, 0x00]
+      
+  - platform: uartex
+    name: "SDS Light 4"
+    state: [0x79, 0x24]
+    state_on:
+      offset: 2
+      data: [0x01]
+      mask: [0x01]
+    state_off:
+      offset: 2
+      data: [0x00]
+      mask: [0x01]
+    command_on:
+      data: [0xAC, 0x7A, 0x04, 0x01]
+      ack: [0x7A, 0x04, 0x01]
+    command_off:
+      data: [0xAC, 0x7A, 0x04, 0x00]
+      ack: [0x7A, 0x04, 0x00]
+      
+  - platform: uartex
+    name: "SDS Light 5"
+    state: [0x79, 0x24]
+    state_on:
+      offset: 2
+      data: [0x02]
+      mask: [0x02]
+    state_off:
+      offset: 2
+      data: [0x00]
+      mask: [0x02]
+    command_on:
+      data: [0xAC, 0x7A, 0x05, 0x01]
+      ack: [0x7A, 0x05, 0x01]
+    command_off:
+      data: [0xAC, 0x7A, 0x05, 0x00]
+      ack: [0x7A, 0x05, 0x00]
+
+
+climate:
+  - platform: uartex
+    name: "SDS Room 0 Heater"
+    visual:
+      min_temperature: 5 °C
+      max_temperature: 40 °C
+      temperature_step: 1 °C
+    state: [0x7C, 0x01]
+    state_temperature_current:
+      offset: 4
+      length: 1
+      precision: 0
+    state_temperature_target:
+      offset: 3
+      length: 1
+      precision: 0
+    state_off:
+      offset: 2
+      data: [0x00]
+      mask: [0x01]
+    state_heat:
+      offset: 2
+      data: [0x01]
+      mask: [0x01]
+    command_off:
+      data: [0xAE, 0x7D, 0x01, 0x00, 0x00, 0x00, 0x00]
+      ack: [0x7D, 0x01, 0x00]
+    command_heat:
+      data: [0xAE, 0x7D, 0x01, 0x01, 0x00, 0x00, 0x00]
+      ack: [0x7D, 0x01, 0x01]
+    command_temperature: !lambda |-  #Required (온도 조절)
+      // @param: const float x
+      return {{0xAE, 0x7F, 0x01, (uint8_t)x, 0x00, 0x00, 0x00},{0x7F, 0x01, (uint8_t)x}};
+
+  - platform: uartex
+    name: "SDS Room 1 Heater"
+    visual:
+      min_temperature: 5 °C
+      max_temperature: 40 °C
+      temperature_step: 1 °C
+    state: [0x7C, 0x02]
+    state_temperature_current:
+      offset: 4
+      length: 1
+      precision: 0
+    state_temperature_target:
+      offset: 3
+      length: 1
+      precision: 0
+    state_off:
+      offset: 2
+      data: [0x00]
+      mask: [0x01]
+    state_heat:
+      offset: 2
+      data: [0x01]
+      mask: [0x01]
+    command_off:
+      data: [0xAE, 0x7D, 0x02, 0x00, 0x00, 0x00, 0x00]
+      ack: [0x7D, 0x02, 0x00]
+    command_heat:
+      data: [0xAE, 0x7D, 0x02, 0x01, 0x00, 0x00, 0x00]
+      ack: [0x7D, 0x02, 0x01]
+    command_temperature: !lambda |-
+      // @param: const float x
+      return {{0xAE, 0x7F, 0x02, (uint8_t)x, 0x00, 0x00, 0x00},{0x7F, 0x02, (uint8_t)x}};
+
+  - platform: uartex
+    name: "SDS Room 2 Heater"
+    visual:
+      min_temperature: 5 °C
+      max_temperature: 40 °C
+      temperature_step: 1 °C
+    state: [0x7C, 0x03]
+    state_temperature_current:
+      offset: 4
+      length: 1
+      precision: 0
+    state_temperature_target:
+      offset: 3
+      length: 1
+      precision: 0
+    state_off:
+      offset: 2
+      data: [0x00]
+      mask: [0x01]
+    state_heat:
+      offset: 2
+      data: [0x01]
+      mask: [0x01]
+    command_off:
+      data: [0xAE, 0x7D, 0x03, 0x00, 0x00, 0x00, 0x00]
+      ack: [0x7D, 0x03, 0x00]
+    command_heat:
+      data: [0xAE, 0x7D, 0x03, 0x01, 0x00, 0x00, 0x00]
+      ack: [0x7D, 0x03, 0x01]
+    command_temperature: !lambda |-
+      // @param: const float x
+      return {{0xAE, 0x7F, 0x03, (uint8_t)x, 0x00, 0x00, 0x00},{0x7F, 0x03, (uint8_t)x}};
+
+  - platform: uartex
+    name: "SDS Room 3 Heater"
+    visual:
+      min_temperature: 5 °C
+      max_temperature: 40 °C
+      temperature_step: 1 °C
+    state: [0x7C, 0x04]
+    state_temperature_current:
+      offset: 4
+      length: 1
+      precision: 0
+    state_temperature_target:
+      offset: 3
+      length: 1
+      precision: 0
+    state_off:
+      offset: 2
+      data: [0x00]
+      mask: [0x01]
+    state_heat:
+      offset: 2
+      data: [0x01]
+      mask: [0x01]
+    command_off:
+      data: [0xAE, 0x7D, 0x04, 0x00, 0x00, 0x00, 0x00]
+      ack: [0x7D, 0x04, 0x00]
+    command_heat:
+      data: [0xAE, 0x7D, 0x04, 0x01, 0x00, 0x00, 0x00]
+      ack: [0x7D, 0x04, 0x01]
+    command_temperature: !lambda |-
+      // @param: const float x
+      return {{0xAE, 0x7F, 0x04, (uint8_t)x, 0x00, 0x00, 0x00},{0x7F, 0x04, (uint8_t)x}};
