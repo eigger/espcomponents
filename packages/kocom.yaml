@@ -1,4 +1,8 @@
-  
+external_components:
+  - source: github://eigger/espcomponents/relreases/latest
+    components: [ uartex ]
+    refresh: always  
+
 uartex:
   rx_timeout: 10ms
   tx_delay: 50ms
