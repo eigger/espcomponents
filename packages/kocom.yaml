@@ -1,0 +1,32 @@
+  
+uartex:
+  rx_timeout: 10ms
+  tx_delay: 50ms
+  tx_timeout: 500ms
+  tx_retry_cnt: 3
+
+  rx_header: [0xAA, 0x55]
+  rx_footer: [0x0D, 0x0D]
+  tx_header: [0xAA, 0x55]
+  tx_footer: [0x0D, 0x0D]
+
+  rx_checksum: add
+  tx_checksum: add
+
+  on_write: !lambda |-
+    // @param: const uint8_t *data, const unsigned short len
+    std::string res = "[W]" + to_hex_string(data, len);
+    if (res == id(id_data_log).state) res += '.';
+    id(id_data_log).publish_state(res.c_str());
+
+  on_read: !lambda |-
+    // @param: const uint8_t *data, const unsigned short len
+    std::string res = "[R]" + to_hex_string(data, len);
+    if (res == id(id_data_log).state) res += '.';
+    id(id_data_log).publish_state(res.c_str());
+
+text_sensor:
+  - platform: template
+    name: "Kocom Data Log"
+    id: id_data_log
+    icon: "mdi:math-log" 
