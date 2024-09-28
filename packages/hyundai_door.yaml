@@ -1,0 +1,151 @@
+# uart:
+#   baud_rate: 3840
+#   data_bits: 8
+#   parity: NONE
+#   stop_bits: 1
+#   rx_pin: GPIO22
+#   tx_pin: GPIO19
+
+external_components:
+  - source: github://eigger/espcomponents/relreases/latest
+    components: [ uartex ]
+    refresh: always
+
+uartex:
+  rx_timeout: 10ms
+  tx_delay: 50ms
+  tx_timeout: 500ms
+  tx_retry_cnt: 3
+
+  rx_header: [0x7F]
+  rx_footer: [0xEE]
+  tx_header: [0x7F]
+  tx_footer: [0xEE]
+
+  on_write: !lambda |-
+    // @param: const uint8_t *data, const unsigned short len
+    std::string res = "[W]" + to_hex_string(data, len);
+    if (res == id(id_data_log).state) res += '.';
+    id(id_data_log).publish_state(res.c_str());
+
+  on_read: !lambda |-
+    // @param: const uint8_t *data, const unsigned short len
+    std::string res = "[R]" + to_hex_string(data, len);
+    if (res == id(id_data_log).state) res += '.';
+    id(id_data_log).publish_state(res.c_str());
+
+text_sensor:
+  - platform: template
+    name: "HD Door Data Log"
+    id: id_data_log
+    icon: "mdi:math-log" 
+
+
+
+# (W: Wallpad, S: Sub 주방폰)
+# ​
+# 7F B4 00 00 EE // W <- S 문열림 (통화중에만 가능)
+# ​
+# 7F B5 00 00 EE // W -> S 현관 문 호출
+# 7F B6 00 00 EE // W -> S 현관 문 호출 끝
+# ​
+# 7F B9 00 00 EE // W <- S 통화 열기 (주방폰 발신)
+# 7F BA 00 00 EE // W <- S 통화 열기 끝 (주방폰 발신)
+# ​
+# 7F BB 00 00 EE // W -> S 다른 통화가 있음
+# ​
+# 7F B7 00 00 EE // W <- S 통화 수신
+# 7F B8 00 00 EE // W <- S 통화 종료
+# ​
+# 7F 5A 00 00 EE // W -> S 공동현관문 호출
+# 7F 5C 00 00 EE // W -> S 공동현관문 호출 끝
+# ​
+# 7F 5F 00 00 EE // W <- S 공동현관문 호출 수신
+# ​
+# 7F 61 00 00 EE // W <- S 공동현관문 열기 (통화중에만 가능)
+# 7F 60 00 00 EE // W <- S 통화 종료
+# ​
+# ​
+# 호출이 온 경우 문을 열려면
+# 7F B7 00 00 EE // W <- S 통화 수신
+# 7F B4 00 00 EE // W <- S 문열림
+# 7F B8 00 00 EE // W <- S 통화 종료
+# ​
+# 통화 없이 문을 열려면
+# 7F B9 00 00 EE // W <- S 통화 열기 (주방폰 발신)
+# 7F B4 00 00 EE // W <- S 문열림
+# 7F BA 00 00 EE // W <- S 통화 열기 끝 (주방폰 발신)
+# ​
+# 공동현관문은 통화 없이는 문을 열 수 없기에 외부에서 호출이 와야만 열 수 있습니다.
+# 7F 5F 00 00 EE // W <- S 공동현관문 호출 수신
+# 7F 61 00 00 EE // W <- S 공동현관문 열기 (통화중에만 가능)
+# 7F 60 00 00 EE // W <- S 통화 종료
+
+binary_sensor:
+  - platform: uartex
+    name: "HD Door Bell"
+    icon: "mdi:bell-ring"
+    state:
+      data: [0xB4, 0x00, 0x00]
+      maks: [0xB4, 0xFF, 0xFF]
+    state_on:
+      offset: 0
+      data: [0xB5]
+    state_off:
+      offset: 0
+      data: [0xB6]
+
+  - platform: uartex
+    id: id_door_bell_common
+    name: "HD Door Bell Common"
+    icon: "mdi:bell-ring"
+    state:
+      data: [0x58, 0x00, 0x00]
+      maks: [0x58, 0xFF, 0xFF]
+    state_on:
+      offset: 0
+      data: [0x5A]
+    state_off:
+      offset: 0
+      data: [0x5C]
+    on_press:
+      then:
+        - script.execute: open_door_sequence
+
+button:
+  - platform: uartex
+    id: id_door_open
+    name: "HD Door Open"
+    icon: "mdi:door-sliding-open"
+    command_on: 
+      data: [0x61, 0x00, 0x00]
+
+switch:
+  - platform: uartex
+    id: id_door_call
+    name: "HD Door Call"
+    icon: "mdi:phone"
+    command_on: 
+      data: [0x5F, 0x00, 0x00]
+    command_off: 
+      data: [0x60, 0x00, 0x00]
+  - platform: template
+    id: id_enable_auto_open
+    name: "Enable Auto Door Opening"
+    icon: "mdi:door-open"
+    optimistic: True
+    restore_mode: ALWAYS_ON
+    on_turn_off:
+      then:
+        - script.stop: open_door_sequence
+
+script:
+  - id: open_door_sequence
+    then:
+      - if:
+          condition:
+            - switch.is_on: id_enable_auto_open
+          then:
+            - switch.turn_on: id_door_call
+            - button.press: id_door_open
+            - switch.turn_off: id_door_call
