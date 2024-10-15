@@ -59,19 +59,19 @@ int8_t BMM150Component::bmm150_initialization()
     return rslt;
 }
 
-int8_t BMM150Component::reg_read(uint8_t reg_addr, const uint8_t *reg_data, uint32_t length, void *intf_ptr)
+int8_t BMM150Component::reg_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t length, void *intf_ptr)
 {
-    this->read_bytes(reg_addr, reg_data, length);
+    return this->read_bytes(reg_addr, reg_data, length);
 }
 
 int8_t BMM150Component::reg_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t length, void *intf_ptr)
 {
-    this->write_bytes(reg_addr, reg_data, length);
+    return this->write_bytes(reg_addr, reg_data, length);
 }
 
 void BMM150Component::delay_us(uint32_t period_us, void *intf_ptr)
 {
-    delay(period_us);
+    delayMicroseconds(period_us);
 }
 
 }
