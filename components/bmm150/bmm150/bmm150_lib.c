@@ -38,7 +38,7 @@
 
 /*! @file bmm150.c
  * @brief Sensor driver for BMM150 sensor */
-#include "bmm150.h"
+#include "bmm150_lib.h"
 
 /************************** Internal macros *******************************/
 /* Sensor ODR, Repetition and axes enable/disable settings */
