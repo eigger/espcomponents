@@ -58,10 +58,12 @@ int8_t BMM150Component::bmm150_initialization()
     mag_min_.z = 2000;
 
     rslt = bmm150_init(&dev_);   //Memory chip ID.
-    // dev_.settings.pwr_mode = BMM150_NORMAL_MODE;
-    // rslt |= bmm150_set_op_mode(&dev_);   //Set the sensor power mode.
-    // dev_.settings.preset_mode = BMM150_PRESETMODE_ENHANCED;
-    // rslt |= bmm150_set_presetmode(&dev_);    //Set the preset mode of
+
+    struct bmm150_settings settings;
+    settings.pwr_mode = BMM150_POWERMODE_NORMAL;
+    rslt |= bmm150_set_op_mode(&settings, &dev_);
+    settings.preset_mode = BMM150_PRESETMODE_ENHANCED;
+    rslt |= bmm150_set_presetmode(&settings, &dev_);    //Set the preset mode of
     return rslt;
 }
 

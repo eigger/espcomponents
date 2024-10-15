@@ -13,4 +13,11 @@ i2c:
 bmm150:
   i2c_id: bus_a
   update_interval: 30s
+  magnetic_field_x:
+    name: "MAG X"
+  magnetic_field_y:
+    name: "MAG Y"
+  magnetic_field_z:
+    name: "MAG Z"
+
 ```
