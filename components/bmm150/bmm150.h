@@ -4,8 +4,8 @@
 #include "esphome/core/component.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/i2c/i2c.h"
-#include "bmm150/bmm150_defs.h"
-#include "bmm150/bmm150.h"
+#include "esphome/components/bmm150/bmm150/bmm150_defs.h"
+#include "esphome/components/bmm150/bmm150/bmm150.h"
 
 namespace esphome {
 namespace bmm150 {
