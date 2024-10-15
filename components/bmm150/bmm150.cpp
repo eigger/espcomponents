@@ -1,6 +1,6 @@
 #include "bmm150.h"
 #include "esphome/core/log.h"
-#include "esp_sleep.h"
+#include "esphome/core/hal.h"
 
 namespace esphome {
 namespace bmm150 {
@@ -72,12 +72,12 @@ int8_t reg_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t length, void *intf
 
 int8_t reg_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t length, void *intf_ptr)
 {
-    return ((BMM150Component*)(intf_ptr))write_bytes(reg_addr, reg_data, length);
+    return ((BMM150Component*)(intf_ptr))->write_bytes(reg_addr, reg_data, length);
 }
 
 void delay_us(uint32_t period_us, void *intf_ptr)
 {
-    ((BMM150Component*)(intf_ptr))->delay_microseconds_safe(period_us);
+    ((BMM150Component*)(intf_ptr))->delay(period_us);
 }
 
 }
