@@ -27,7 +27,7 @@ float BMM150Component::get_setup_priority() const { return setup_priority::DATA;
 void BMM150Component::update()
 {
     struct bmm150_mag_data mag_data;
-    bmm150_read_mag_data(&mag_data);
+    bmm150_read_mag_data(&mag_data, &dev_);
     if (this->mag_x_ != nullptr) this->mag_x_->publish_state(mag_data.x);
     if (this->mag_y_ != nullptr) this->mag_y_->publish_state(mag_data.y);
     if (this->mag_z_ != nullptr) this->mag_z_->publish_state(mag_data.z);
@@ -37,8 +37,8 @@ int8_t BMM150Component::bmm150_initialization()
 {
     int8_t rslt = BMM150_OK;
     dev_.intf = BMM150_I2C_INTF; //SPI or I2C interface setup.
-    dev_.read = std::bind(&BMM150Component::i2c_read, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4);    //Read the bus pointer.
-    dev_.write = std::bind(&BMM150Component::i2c_write, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4);;  //Write the bus pointer.
+    dev_.read = std::bind(&BMM150Component::reg_read, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4);    //Read the bus pointer.
+    dev_.write = std::bind(&BMM150Component::reg_write, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4);;  //Write the bus pointer.
     dev_.delay_us = std::bind(&BMM150Component::delay_us, this, std::placeholders::_1, std::placeholders::_2);;
 
     // Set the maximum range range
@@ -59,14 +59,14 @@ int8_t BMM150Component::bmm150_initialization()
     return rslt;
 }
 
-int8_t BMM150Component::i2c_read(uint8_t dev_id, uint8_t reg_addr, uint8_t *read_data, uint16_t len)
+int8_t BMM150Component::reg_read(uint8_t reg_addr, const uint8_t *reg_data, uint32_t length, void *intf_ptr)
 {
-    this->read_bytes(reg_addr, read_data, len);
+    this->read_bytes(reg_addr, reg_data, length);
 }
 
-int8_t BMM150Component::i2c_write(uint8_t dev_id, uint8_t reg_addr, uint8_t *read_data, uint16_t len)
+int8_t BMM150Component::reg_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t length, void *intf_ptr)
 {
-    this->write_bytes(reg_addr, read_data, len);
+    this->write_bytes(reg_addr, reg_data, length);
 }
 
 void BMM150Component::delay_us(uint32_t period_us, void *intf_ptr)
