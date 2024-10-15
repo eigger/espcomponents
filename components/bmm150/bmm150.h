@@ -33,7 +33,7 @@ protected:
     int8_t bmm150_initialization();
     int8_t i2c_read(uint8_t dev_id, uint8_t reg_addr, uint8_t *read_data, uint16_t len);
     int8_t i2c_write(uint8_t dev_id, uint8_t reg_addr, uint8_t *read_data, uint16_t len);
-
+    void delay_us(uint32_t period_us, void *intf_ptr);
 }; 
 
 }
