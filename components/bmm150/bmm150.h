@@ -31,9 +31,6 @@ protected:
     bmm150_mag_data mag_min_;
     
     int8_t bmm150_initialization();
-    int8_t reg_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t length, void *intf_ptr);
-    int8_t reg_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t length, void *intf_ptr);
-    void delay_us(uint32_t period_us, void *intf_ptr);
 }; 
 
 }

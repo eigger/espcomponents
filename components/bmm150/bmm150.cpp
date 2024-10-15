@@ -7,6 +7,11 @@ namespace bmm150 {
 
 static const char *TAG = "bmm150";
 
+
+int8_t reg_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t length, void *intf_ptr);
+int8_t reg_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t length, void *intf_ptr);
+void delay_us(uint32_t period_us, void *intf_ptr);
+
 void BMM150Component::setup() 
 {
     int8_t code = bmm150_initialization();
@@ -37,9 +42,10 @@ int8_t BMM150Component::bmm150_initialization()
 {
     int8_t rslt = BMM150_OK;
     dev_.intf = BMM150_I2C_INTF; //SPI or I2C interface setup.
-    dev_.read = std::bind(&BMM150Component::reg_read, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4);    //Read the bus pointer.
-    dev_.write = std::bind(&BMM150Component::reg_write, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4);;  //Write the bus pointer.
-    dev_.delay_us = std::bind(&BMM150Component::delay_us, this, std::placeholders::_1, std::placeholders::_2);;
+    dev_.read = reg_read;    //Read the bus pointer.
+    dev_.write = reg_write;  //Write the bus pointer.
+    dev_.delay_us = delay_us;
+    dev_.intf_ptr = this;
 
     // Set the maximum range range
     mag_max_.x = -2000;
@@ -59,19 +65,19 @@ int8_t BMM150Component::bmm150_initialization()
     return rslt;
 }
 
-int8_t BMM150Component::reg_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t length, void *intf_ptr)
+int8_t reg_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t length, void *intf_ptr)
 {
-    return this->read_bytes(reg_addr, reg_data, length);
+    return ((BMM150Component*)(intf_ptr))->read_bytes(reg_addr, reg_data, length);
 }
 
-int8_t BMM150Component::reg_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t length, void *intf_ptr)
+int8_t reg_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t length, void *intf_ptr)
 {
-    return this->write_bytes(reg_addr, reg_data, length);
+    return ((BMM150Component*)(intf_ptr))write_bytes(reg_addr, reg_data, length);
 }
 
-void BMM150Component::delay_us(uint32_t period_us, void *intf_ptr)
+void delay_us(uint32_t period_us, void *intf_ptr)
 {
-    delayMicroseconds(period_us);
+    ((BMM150Component*)(intf_ptr))->delay_microseconds_safe(period_us);
 }
 
 }
