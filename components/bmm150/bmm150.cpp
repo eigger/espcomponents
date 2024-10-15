@@ -77,7 +77,7 @@ int8_t reg_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t length, voi
 
 void delay_us(uint32_t period_us, void *intf_ptr)
 {
-    ((BMM150Component*)(intf_ptr))->delay(period_us);
+    delay(period_us);
 }
 
 }
