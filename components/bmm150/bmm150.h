@@ -26,6 +26,7 @@ protected:
     sensor::Sensor *mag_z_{nullptr};
 
     struct bmm150_dev dev_;
+    struct bmm150_mag_data mag_data_;
     bmm150_mag_data mag_offset_;
     bmm150_mag_data mag_max_;
     bmm150_mag_data mag_min_;
