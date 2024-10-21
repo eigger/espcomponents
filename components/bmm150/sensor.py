@@ -16,12 +16,15 @@ CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(BMM150Component),
     cv.Optional(CONF_MAG_X): sensor.sensor_schema(
         state_class=STATE_CLASS_MEASUREMENT,
+        icon='mdi:axis-x-arrow'
     ),
     cv.Optional(CONF_MAG_Y): sensor.sensor_schema(
         state_class=STATE_CLASS_MEASUREMENT,
+        icon='mdi:axis-y-arrow'
     ),
     cv.Optional(CONF_MAG_Z): sensor.sensor_schema(
         state_class=STATE_CLASS_MEASUREMENT,
+        icon='mdi:axis-z-arrow'
     ),
 }).extend(cv.polling_component_schema("60s")).extend(i2c.i2c_device_schema(0x10))
 
