@@ -14,9 +14,9 @@ void delay_us(uint32_t period_us, void *intf_ptr);
 
 void BMM150Component::setup() 
 {
-    mag_data_.x = NAN;
-    mag_data_.y = NAN;
-    mag_data_.z = NAN;
+    mag_data_.x = (int16_t)NAN;
+    mag_data_.y = (int16_t)NAN;
+    mag_data_.z = (int16_t)NAN;
     int8_t code = bmm150_initialization();
     if (code != BMM150_OK)
     {
