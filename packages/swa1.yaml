@@ -4,8 +4,7 @@ binary_sensor:
       number: GPIO13
       mode: INPUT_PULLUP
       inverted: True
-    name: "${name} Button"
-    friendly_name: "${friendly_name} Button"    
+    name: "${friendly_name} Button" 
     internal: True
     on_click:
       min_length: 50ms
@@ -18,8 +17,7 @@ switch:
   - platform: gpio
     id: id_switch
     pin: GPIO5
-    name: "${name} Switch"
-    friendly_name: "${friendly_name} Switch"    
+    name: "${friendly_name} Switch"
     restore_mode: RESTORE_DEFAULT_OFF
     
 output:
@@ -33,8 +31,7 @@ output:
 light:
   # ... and then make a light out of it.
   - platform: monochromatic
-    name: "${name} Blue LED"
-    friendly_name: "${friendly_name} Blue LED"    
+    name: "${friendly_name} Blue LED" 
     output: blue_led
     internal: True
     
