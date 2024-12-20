@@ -108,15 +108,17 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_TX_CHECKSUM_2): validate_checksum,
     cv.Optional(CONF_ON_WRITE): cv.lambda_,
     cv.Optional(CONF_ON_READ): cv.lambda_,
-    cv.Optional(CONF_VERSION, default={CONF_NAME: "UartEX Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
+    cv.Optional(CONF_VERSION, default={CONF_NAME: "Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
+        cv.Optional(CONF_NAME, default={CONF_NAME: "Version"}): cv._validate_entity_name,
         cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
         cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
     }),
     cv.Optional(CONF_ERROR, default={CONF_NAME: "Error"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
+        cv.Optional(CONF_NAME, default={CONF_NAME: "Error"}): cv._validate_entity_name,
         cv.Optional(CONF_ICON, default="mdi:alert-circle"): cv.icon,
         cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
     }),

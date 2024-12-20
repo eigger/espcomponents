@@ -7,9 +7,13 @@ uart:
   tx_pin: GPIO19
 
 external_components:
-  - source: github://eigger/espcomponents/relreases/latest
+  # - source: github://eigger/espcomponents/relreases/latest
+  #   components: [ uartex ]
+  #   refresh: always
+  - source: github://eigger/espcomponents
     components: [ uartex ]
     refresh: always
+    ref: dev
 
 uartex:
   rx_timeout: 10ms
