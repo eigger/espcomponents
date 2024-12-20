@@ -31,8 +31,7 @@ text_sensor:
 #    name: "${name} Version"
   - platform: wifi_info
     ip_address:
-      name: "${name} IP"
-      friendly_name: "${friendly_name} IP"
+      #name: "${name} IP"
       icon: mdi:ip-outline
 #    mac_address:
 #      name: "${name} MAC"
