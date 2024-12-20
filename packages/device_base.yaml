@@ -54,13 +54,11 @@ time:
 
 sensor:
   - platform: uptime
-    name: "${name} Uptime"
-    friendly_name: "${friendly_name} Uptime"
+    name: None
     type: timestamp
 
   - platform: wifi_signal
     name: "${name} WiFi signal"
-    friendly_name: "${friendly_name} WiFi signal"
     icon: mdi:wifi-arrow-up-down
     update_interval: 60s
     internal: true
