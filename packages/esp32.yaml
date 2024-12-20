@@ -1,6 +1,6 @@
 sensor:
   - platform: internal_temperature
-    name: "${friendly_name} Internal Temperature"
+    name: "Internal Temperature"
     update_interval: 5min
     filters:
       - filter_out: nan
