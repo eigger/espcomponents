@@ -32,6 +32,7 @@ text_sensor:
   - platform: wifi_info
     ip_address:
       name: "${name} IP"
+      friendly_name: "${friendly_name} IP"
       icon: mdi:ip-outline
 #    mac_address:
 #      name: "${name} MAC"
@@ -55,10 +56,12 @@ time:
 sensor:
   - platform: uptime
     name: "${name} Uptime"
+    friendly_name: "${friendly_name} Uptime"
     type: timestamp
 
   - platform: wifi_signal
     name: "${name} WiFi signal"
+    friendly_name: "${friendly_name} WiFi signal"
     icon: mdi:wifi-arrow-up-down
     update_interval: 60s
     internal: true
@@ -70,6 +73,7 @@ sensor:
 
   - platform: template
     name: "${name} WiFi Quality"
+    friendly_name: "${friendly_name} WiFi Quality"
     icon: "mdi:wifi"
     update_interval: 60s
     unit_of_measurement: '%'
@@ -85,10 +89,13 @@ sensor:
 binary_sensor:
   - platform: status
     name: "${name} Status"
+    friendly_name: "${friendly_name} Status"
     
 switch:
   - platform: restart
     name: "${name} Restart"
+    friendly_name: "${friendly_name} Restart"
     
   - platform: safe_mode
     name: "${name} Restart Safemode"
+    friendly_name: "${friendly_name} Restart Safemode"

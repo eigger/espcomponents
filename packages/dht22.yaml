@@ -4,6 +4,7 @@ sensor:
     model: DHT22
     temperature:
       name: "${name} Temperature"
+      friendly_name: "${friendly_name} Temperature"      
       filters:
         - filter_out: nan
         - heartbeat: 15s
@@ -13,6 +14,7 @@ sensor:
             send_first_at: 1
     humidity:
       name: "${name} Humidity"
+      friendly_name: "${friendly_name} Humidity"    
       filters:
         - filter_out: nan
         - heartbeat: 15s
