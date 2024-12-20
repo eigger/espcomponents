@@ -1,10 +1,10 @@
-# uart:
-#   baud_rate: 9600
-#   data_bits: 8
-#   parity: EVEN
-#   stop_bits: 1
-#   rx_pin: GPIO22
-#   tx_pin: GPIO19
+uart:
+  baud_rate: 9600
+  data_bits: 8
+  parity: EVEN
+  stop_bits: 1
+  rx_pin: GPIO22
+  tx_pin: GPIO19
 
 external_components:
   - source: github://eigger/espcomponents/relreases/latest
