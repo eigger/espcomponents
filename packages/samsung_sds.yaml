@@ -1,10 +1,10 @@
-# uart:
-#   baud_rate: 9600
-#   data_bits: 8
-#   parity: EVEN
-#   stop_bits: 1
-#   rx_pin: GPIO22
-#   tx_pin: GPIO19
+uart:
+  baud_rate: 9600
+  data_bits: 8
+  parity: EVEN
+  stop_bits: 1
+  rx_pin: GPIO22
+  tx_pin: GPIO19
 
 external_components:
   - source: github://eigger/espcomponents/relreases/latest
@@ -51,14 +51,14 @@ uartex:
 
 text_sensor:
   - platform: template
-    name: "SDS Data Log"
+    name: "Data Log"
     id: id_data_log
     icon: "mdi:math-log" 
 
 
 lock:
   - platform: uartex
-    name: "SDS GAS"
+    name: "GAS"
     state: [0x41]
     state_locked:
       offset: 1
@@ -72,7 +72,7 @@ lock:
 
 light:
   - platform: uartex
-    name: "SDS Light 1"
+    name: "Light 1"
     state: [0x79, 0x31]
     state_on:
       offset: 2
@@ -90,7 +90,7 @@ light:
       ack: [0x7A, 0x01, 0x00]
       
   - platform: uartex
-    name: "SDS Light 2"
+    name: "Light 2"
     state: [0x79, 0x31]
     state_on:
       offset: 2
@@ -108,7 +108,7 @@ light:
       ack: [0x7A, 0x02, 0x00]
       
   - platform: uartex
-    name: "SDS Light 3"
+    name: "Light 3"
     state: [0x79, 0x31]
     state_on:
       offset: 2
@@ -126,7 +126,7 @@ light:
       ack: [0x7A, 0x03, 0x00]
       
   - platform: uartex
-    name: "SDS Light 4"
+    name: "Light 4"
     state: [0x79, 0x24]
     state_on:
       offset: 2
@@ -144,7 +144,7 @@ light:
       ack: [0x7A, 0x04, 0x00]
       
   - platform: uartex
-    name: "SDS Light 5"
+    name: "Light 5"
     state: [0x79, 0x24]
     state_on:
       offset: 2
@@ -164,7 +164,7 @@ light:
 
 climate:
   - platform: uartex
-    name: "SDS Room 0 Heater"
+    name: "Room 0 Heater"
     visual:
       min_temperature: 5 °C
       max_temperature: 40 °C
@@ -197,7 +197,7 @@ climate:
       return {{0xAE, 0x7F, 0x01, (uint8_t)x, 0x00, 0x00, 0x00},{0x7F, 0x01, (uint8_t)x}};
 
   - platform: uartex
-    name: "SDS Room 1 Heater"
+    name: "Room 1 Heater"
     visual:
       min_temperature: 5 °C
       max_temperature: 40 °C
@@ -230,7 +230,7 @@ climate:
       return {{0xAE, 0x7F, 0x02, (uint8_t)x, 0x00, 0x00, 0x00},{0x7F, 0x02, (uint8_t)x}};
 
   - platform: uartex
-    name: "SDS Room 2 Heater"
+    name: "Room 2 Heater"
     visual:
       min_temperature: 5 °C
       max_temperature: 40 °C
@@ -263,7 +263,7 @@ climate:
       return {{0xAE, 0x7F, 0x03, (uint8_t)x, 0x00, 0x00, 0x00},{0x7F, 0x03, (uint8_t)x}};
 
   - platform: uartex
-    name: "SDS Room 3 Heater"
+    name: "Room 3 Heater"
     visual:
       min_temperature: 5 °C
       max_temperature: 40 °C

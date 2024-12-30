@@ -1,11 +1,11 @@
 sensor:
   - platform: internal_temperature
-    name: "${node_name} Internal Temperature"
+    name: "Internal Temperature"
+    update_interval: 5min
     filters:
       - filter_out: nan
       - heartbeat: 15s
       - sliding_window_moving_average:
-          window_size: 2
-          send_every: 2
+          window_size: 30
+          send_every: 1
           send_first_at: 1
-    update_interval: 5min

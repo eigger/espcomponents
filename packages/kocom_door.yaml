@@ -1,10 +1,10 @@
-# uart:
-#   baud_rate: 9600
-#   data_bits: 8
-#   parity: NONE
-#   stop_bits: 1
-#   rx_pin: GPIO22
-#   tx_pin: GPIO19
+uart:
+  baud_rate: 9600
+  data_bits: 8
+  parity: NONE
+  stop_bits: 1
+  rx_pin: GPIO22
+  tx_pin: GPIO19
 
 external_components:
   - source: github://eigger/espcomponents/relreases/latest
@@ -34,7 +34,7 @@ uartex:
 
 text_sensor:
   - platform: template
-    name: "Kocom Door Data Log"
+    name: "Data Log"
     id: id_data_log
     icon: "mdi:math-log" 
 
@@ -42,7 +42,7 @@ binary_sensor:
 # 0xAA 0x55 0x7A 0x9E 0x02 0x02 0x00 0xFF 0xFF 0xFF 0xFF 0x31 0xFF 0xFF 0xFF 0x01 0x01 0x29 0xF6 0x0D 0x0D
 # 0xAA 0x55 0x7A 0x9E 0x02 0x02 0x00 0xFF 0xFF 0xFF 0xFF 0x31 0xFF 0xFF 0xFF 0x02 0x00 0x6C 0x84 0x0D 0x0D
   - platform: uartex
-    name: "Kocom Door Bell"
+    name: "Bell"
     icon: "mdi:bell-ring"
     state: [0xAA, 0x55, 0x7A, 0x9E, 0x02, 0x02]
     state_on:
@@ -57,7 +57,7 @@ binary_sensor:
 
   - platform: uartex
     id: id_door_bell_common
-    name: "Kocom Door Bell Common"
+    name: "Bell Common"
     icon: "mdi:bell-ring"
     state: [0xAA, 0x55, 0x7A, 0x9E, 0x02, 0x08]
     state_on:
@@ -73,14 +73,14 @@ binary_sensor:
 button:
   - platform: uartex
     id: id_door_call
-    name: "Kocom Door Call"
+    name: "Call"
     icon: "mdi:phone"
     command_on: 
       data: [0xAA, 0x55, 0x79, 0xBC, 0x08, 0x02, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x61, 0xFF, 0xFF, 0xFF, 0x03, 0x00, 0x26, 0x95]
       ack: [0x0F, 0x03]
   - platform: uartex
     id: id_door_open
-    name: "Kocom Door Open"
+    name: "Open"
     icon: "mdi:door-sliding-open"
     command_on: 
       data: [0xAA, 0x55, 0x79, 0xBC, 0x08, 0x02, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x61, 0xFF, 0xFF, 0xFF, 0x24, 0x00, 0xB9, 0xE4]
@@ -89,7 +89,7 @@ button:
 switch:
   - platform: template
     id: id_enable_auto_open
-    name: "Enable Auto Door Opening"
+    name: "Auto Opening"
     icon: "mdi:door-open"
     optimistic: True
     restore_mode: ALWAYS_ON

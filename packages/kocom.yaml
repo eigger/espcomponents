@@ -1,10 +1,10 @@
-# uart:
-#   baud_rate: 9600
-#   data_bits: 8
-#   parity: NONE
-#   stop_bits: 1
-#   rx_pin: GPIO22
-#   tx_pin: GPIO19
+uart:
+  baud_rate: 9600
+  data_bits: 8
+  parity: NONE
+  stop_bits: 1
+  rx_pin: GPIO22
+  tx_pin: GPIO19
 
 external_components:
   - source: github://eigger/espcomponents/relreases/latest
@@ -39,7 +39,7 @@ uartex:
 
 text_sensor:
   - platform: template
-    name: "Kocom Data Log"
+    name: "Data Log"
     id: id_data_log
     icon: "mdi:math-log" 
 
@@ -47,9 +47,11 @@ text_sensor:
 light:
   #Room0
   - platform: uartex
-    name: "Kocom Room 0 Light 1"
+    name: "Room 0 Light 1"
     id: room_0_light_1
-    state: [0x30, 0xdc, 0x00, 0x0e, 0x00]
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x0e, 0x00]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
     state_on:
       offset: 8
       data: [0xff]
@@ -66,9 +68,11 @@ light:
     #update_interval: 300s
 
   - platform: uartex
-    name: "Kocom Room 0 Light 2"
+    name: "Room 0 Light 2"
     id: room_0_light_2
-    state: [0x30, 0xdc, 0x00, 0x0e, 0x00]
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x0e, 0x00]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
     state_on:
       offset: 9
       data: [0xff]
@@ -84,9 +88,11 @@ light:
 
   #Room1
   - platform: uartex
-    name: "Kocom Room 1 Light 1"
+    name: "Room 1 Light 1"
     id: room_1_light_1
-    state: [0x30, 0xdc, 0x00, 0x0e, 0x01]
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x0e, 0x01]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
     state_on:
       offset: 8
       data: [0xff]
@@ -101,9 +107,11 @@ light:
       return {{0x30, 0xbc, 0x00, 0x0e, 0x01, 0x01, 0x00, 0x00, 0x00, light2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc}};
 
   - platform: uartex
-    name: "Kocom Room 1 Light 2"
+    name: "Room 1 Light 2"
     id: room_1_light_2
-    state: [0x30, 0xdc, 0x00, 0x0e, 0x01]
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x0e, 0x01]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
     state_on:
       offset: 9
       data: [0xff]
@@ -119,9 +127,11 @@ light:
 
   #Room2
   - platform: uartex
-    name: "Kocom Room 2 Light 1"
+    name: "Room 2 Light 1"
     id: room_2_light_1
-    state: [0x30, 0xdc, 0x00, 0x0e, 0x02]
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x0e, 0x02]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
     state_on:
       offset: 8
       data: [0xff]
@@ -136,9 +146,11 @@ light:
       return {{0x30, 0xbc, 0x00, 0x0e, 0x02, 0x01, 0x00, 0x00, 0x00, light2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc}};
 
   - platform: uartex
-    name: "Kocom Room 2 Light 2"
+    name: "Room 2 Light 2"
     id: room_2_light_2
-    state: [0x30, 0xdc, 0x00, 0x0e, 0x02]
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x0e, 0x02]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
     state_on:
       offset: 9
       data: [0xff]
@@ -154,9 +166,11 @@ light:
 
   #Room3
   - platform: uartex
-    name: "Kocom Room 3 Light 1"
+    name: "Room 3 Light 1"
     id: room_3_light_1
-    state: [0x30, 0xdc, 0x00, 0x0e, 0x03]
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x0e, 0x03]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
     state_on:
       offset: 8
       data: [0xff]
@@ -171,9 +185,11 @@ light:
       return {{0x30, 0xbc, 0x00, 0x0e, 0x03, 0x01, 0x00, 0x00, 0x00, light2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc}};
 
   - platform: uartex
-    name: "Kocom Room 3 Light 2"
+    name: "Room 3 Light 2"
     id: room_3_light_2
-    state: [0x30, 0xdc, 0x00, 0x0e, 0x03]
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x0e, 0x03]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
     state_on:
       offset: 9
       data: [0xff]
@@ -192,13 +208,15 @@ light:
 climate:
   #Room0
   - platform: uartex
-    name: "Kocom Room 0 Heater"
+    name: "Room 0 Heater"
     id: room_0_heater
     visual:
       min_temperature: 5 °C
       max_temperature: 30 °C
       temperature_step: 1 °C
-    state: [0x30, 0xdc, 0x00, 0x36, 0x00]
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x00]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
     state_temperature_current:
       offset: 12
       length: 1
@@ -228,13 +246,15 @@ climate:
 
   #Room1
   - platform: uartex
-    name: "Kocom Room 1 Heater"
+    name: "Room 1 Heater"
     id: room_1_heater
     visual:
       min_temperature: 5 °C
       max_temperature: 30 °C
       temperature_step: 1 °C
-    state: [0x30, 0xdc, 0x00, 0x36, 0x01]
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x01]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
     state_temperature_current:
       offset: 12
       length: 1
@@ -262,13 +282,15 @@ climate:
 
   #Room2
   - platform: uartex
-    name: "Kocom Room 2 Heater"
+    name: "Room 2 Heater"
     id: room_2_heater
     visual:
       min_temperature: 5 °C
       max_temperature: 30 °C
       temperature_step: 1 °C
-    state: [0x30, 0xdc, 0x00, 0x36, 0x02]
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x02]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
     state_temperature_current:
       offset: 12
       length: 1
@@ -296,13 +318,15 @@ climate:
 
   #Room3
   - platform: uartex
-    name: "Kocom Room 3 Heater"
+    name: "Room 3 Heater"
     id: room_3_heater
     visual:
       min_temperature: 5 °C
       max_temperature: 30 °C
       temperature_step: 1 °C
-    state: [0x30, 0xdc, 0x00, 0x36, 0x03]
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x03]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
     state_temperature_current:
       offset: 12
       length: 1
@@ -331,49 +355,59 @@ climate:
 
 sensor:
   - platform: uartex
-    name: Kocom Elevator Floors
+    name: "Elevator Floors"
     icon: "mdi:elevator"
-    state: [0x30, 0xbc, 0x00, 0x44, 0x00]
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x44, 0x00]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
     state_number:
       offset: 9
       length: 1
       precision: 0
 
   - platform: uartex
-    name: Kocom Room 0 Temperature
+    name: "Room 0 Temperature"
     unit_of_measurement: '°C'
     icon: "mdi:coolant-temperature"
-    state: [0x30, 0xdc, 0x00, 0x36, 0x00]
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x00]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
     state_number:
       offset: 12
       length: 1
       precision: 0
 
   - platform: uartex
-    name: Kocom Room 1 Temperature
+    name: "Room 1 Temperature"
     unit_of_measurement: '°C'
     icon: "mdi:coolant-temperature"
-    state: [0x30, 0xdc, 0x00, 0x36, 0x01]
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x01]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
     state_number:
       offset: 12
       length: 1
       precision: 0
 
   - platform: uartex
-    name: Kocom Room 2 Temperature
+    name: "Room 2 Temperature"
     unit_of_measurement: '°C'
     icon: "mdi:coolant-temperature"
-    state: [0x30, 0xdc, 0x00, 0x36, 0x02]
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x02]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
     state_number:
       offset: 12
       length: 1
       precision: 0
 
   - platform: uartex
-    name: Kocom Room 3 Temperature
+    name: "Room 3 Temperature"
     unit_of_measurement: '°C'
     icon: "mdi:coolant-temperature"
-    state: [0x30, 0xdc, 0x00, 0x36, 0x03]
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x03]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
     state_number:
       offset: 12
       length: 1
@@ -381,7 +415,7 @@ sensor:
 
 button:
   - platform: uartex
-    name: Kocom Elevator Call
+    name: "Elevator Call"
     icon: "mdi:elevator"
     command_on: 
       data: [0x30, 0xbc, 0x00, 0x44, 0x00, 0x01, 0x00, 0x01, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]

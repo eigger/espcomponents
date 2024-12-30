@@ -1,6 +1,7 @@
 esphome:
-  name: "${node_name}"
-
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+  
 # Enable logging
 logger:
   level: ERROR
@@ -20,26 +21,26 @@ wifi:
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
 #  ap:
-#    ssid: "${node_name} Fallback"
+#    ssid: "${name} Fallback"
 #    password: !secret wifi_password
 
 #captive_portal:
 
 text_sensor:
 #  - platform: version
-#    name: "${node_name} Version"
+#    name: "${name} Version"
   - platform: wifi_info
     ip_address:
-      name: "${node_name} IP"
+      name: "IP"
       icon: mdi:ip-outline
 #    mac_address:
-#      name: "${node_name} MAC"
+#      name: "${name} MAC"
 #      icon: mdi:ethernet
 #    ssid:
-#      name: "${node_name} SSID"
+#      name: "${name} SSID"
 #      icon: mdi:wifi-lock
 #    bssid:
-#      name: "${node_name} BSSID"
+#      name: "${name} BSSID"
 #      icon: mdi:router-wireless
 
 time:
@@ -53,11 +54,11 @@ time:
 
 sensor:
   - platform: uptime
-    name: "${node_name} Uptime"
+    name: "Uptime"
     type: timestamp
 
   - platform: wifi_signal
-    name: "${node_name} WiFi signal"
+    name: "WiFi signal"
     icon: mdi:wifi-arrow-up-down
     update_interval: 60s
     internal: true
@@ -68,7 +69,7 @@ sensor:
     id: wifi_sig
 
   - platform: template
-    name: "${node_name} WiFi Quality"
+    name: "WiFi Quality"
     icon: "mdi:wifi"
     update_interval: 60s
     unit_of_measurement: '%'
@@ -83,11 +84,11 @@ sensor:
       
 binary_sensor:
   - platform: status
-    name: "${node_name} Status"
+    name: "Status"
     
 switch:
   - platform: restart
-    name: "${node_name} Restart"
+    name: "Restart"
     
   - platform: safe_mode
-    name: "${node_name} Restart Safemode"
+    name: "Restart Safemode"

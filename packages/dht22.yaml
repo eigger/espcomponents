@@ -3,7 +3,7 @@ sensor:
     pin: D4
     model: DHT22
     temperature:
-      name: "${node_name} Temperature"
+      name: "Temperature" 
       filters:
         - filter_out: nan
         - heartbeat: 15s
@@ -12,7 +12,7 @@ sensor:
             send_every: 2
             send_first_at: 1
     humidity:
-      name: "${node_name} Humidity"
+      name: "Humidity" 
       filters:
         - filter_out: nan
         - heartbeat: 15s
