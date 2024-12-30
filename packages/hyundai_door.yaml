@@ -36,7 +36,7 @@ uartex:
 
 text_sensor:
   - platform: template
-    name: "HD Door Data Log"
+    name: "Door Data Log"
     id: id_data_log
     icon: "mdi:math-log" 
 
@@ -83,7 +83,7 @@ text_sensor:
 
 binary_sensor:
   - platform: uartex
-    name: "HD Door Bell"
+    name: "Door Bell"
     icon: "mdi:bell-ring"
     state:
       data: [0xB4, 0x00, 0x00]
@@ -97,7 +97,7 @@ binary_sensor:
 
   - platform: uartex
     id: id_door_bell_common
-    name: "HD Door Bell Common"
+    name: "Door Bell Common"
     icon: "mdi:bell-ring"
     state:
       data: [0x58, 0x00, 0x00]
@@ -115,7 +115,7 @@ binary_sensor:
 button:
   - platform: uartex
     id: id_door_open
-    name: "HD Door Open"
+    name: "Door Open"
     icon: "mdi:door-sliding-open"
     command_on: 
       data: [0x61, 0x00, 0x00]
@@ -123,7 +123,7 @@ button:
 switch:
   - platform: uartex
     id: id_door_call
-    name: "HD Door Call"
+    name: "Door Call"
     icon: "mdi:phone"
     command_on: 
       data: [0x5F, 0x00, 0x00]
