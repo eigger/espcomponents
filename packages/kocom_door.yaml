@@ -42,6 +42,7 @@ binary_sensor:
 # 0xAA 0x55 0x7A 0x9E 0x02 0x02 0x00 0xFF 0xFF 0xFF 0xFF 0x31 0xFF 0xFF 0xFF 0x01 0x01 0x29 0xF6 0x0D 0x0D
 # 0xAA 0x55 0x7A 0x9E 0x02 0x02 0x00 0xFF 0xFF 0xFF 0xFF 0x31 0xFF 0xFF 0xFF 0x02 0x00 0x6C 0x84 0x0D 0x0D
   - platform: uartex
+    id: door_bell
     name: "Bell"
     icon: "mdi:bell-ring"
     state: [0xAA, 0x55, 0x7A, 0x9E, 0x02, 0x02]
@@ -51,12 +52,14 @@ binary_sensor:
     state_off:
       offset: 15
       data: [0x02, 0x00]
+    on_press:
+      then:
+        - script.execute: open_door_sequence
 
 # 0xAA 0x55 0x7A 0x9E 0x02 0x08 0x00 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0x01 0x01 0x0A 0x27 0x0D 0x0D
 # 0xAA 0x55 0x7A 0x9E 0x02 0x08 0x00 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0x02 0x00 0x4F 0x55 0x0D 0x0D
-
   - platform: uartex
-    id: id_door_bell_common
+    id: door_bell_common
     name: "Bell Common"
     icon: "mdi:bell-ring"
     state: [0xAA, 0x55, 0x7A, 0x9E, 0x02, 0x08]
@@ -68,18 +71,35 @@ binary_sensor:
       data: [0x02, 0x00]
     on_press:
       then:
-        - script.execute: open_door_sequence
+        - script.execute: open_door_sequence_common
 
 button:
   - platform: uartex
-    id: id_door_call
+    id: door_call_common
+    name: "Call Common"
+    icon: "mdi:phone"
+    command_on: 
+      data: [0xAA, 0x55, 0x79, 0xBC, 0x08, 0x02, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x61, 0xFF, 0xFF, 0xFF, 0x03, 0x00, 0x26, 0x95]
+      ack: [0x0F, 0x03]
+
+  - platform: uartex
+    id: door_open_common
+    name: "Open Common"
+    icon: "mdi:door-sliding-open"
+    command_on: 
+      data: [0xAA, 0x55, 0x79, 0xBC, 0x08, 0x02, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x61, 0xFF, 0xFF, 0xFF, 0x24, 0x00, 0xB9, 0xE4]
+      ack: [0x0F, 0x24]
+
+  - platform: uartex
+    id: door_call
     name: "Call"
     icon: "mdi:phone"
     command_on: 
       data: [0xAA, 0x55, 0x79, 0xBC, 0x08, 0x02, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x61, 0xFF, 0xFF, 0xFF, 0x03, 0x00, 0x26, 0x95]
       ack: [0x0F, 0x03]
+
   - platform: uartex
-    id: id_door_open
+    id: door_open
     name: "Open"
     icon: "mdi:door-sliding-open"
     command_on: 
@@ -88,8 +108,18 @@ button:
 
 switch:
   - platform: template
-    id: id_enable_auto_open
-    name: "Auto Opening"
+    id: auto_door_open_common
+    name: "Auto Open Common"
+    icon: "mdi:door-open"
+    optimistic: True
+    restore_mode: ALWAYS_ON
+    on_turn_off:
+      then:
+        - script.stop: open_door_sequence_common
+        
+  - platform: template
+    id: auto_door_open
+    name: "Auto Open"
     icon: "mdi:door-open"
     optimistic: True
     restore_mode: ALWAYS_ON
@@ -98,17 +128,32 @@ switch:
         - script.stop: open_door_sequence
 
 script:
+  - id: open_door_sequence_common
+    then:
+      - if:
+          condition:
+            - switch.is_on: auto_door_open_common
+          then:
+            - delay: 1000ms
+            - button.press: door_call_common
+            - wait_until:
+                condition:
+                  binary_sensor.is_off: door_bell_common
+                timeout: 5s
+            - delay: 1000ms
+            - button.press: door_open_common
+
   - id: open_door_sequence
     then:
       - if:
           condition:
-            - switch.is_on: id_enable_auto_open
+            - switch.is_on: auto_door_open
           then:
             - delay: 1000ms
-            - button.press: id_door_call
+            - button.press: door_call
             - wait_until:
                 condition:
-                  binary_sensor.is_off: id_door_bell_common
+                  binary_sensor.is_off: door_bell
                 timeout: 5s
             - delay: 1000ms
-            - button.press: id_door_open
+            - button.press: door_open
