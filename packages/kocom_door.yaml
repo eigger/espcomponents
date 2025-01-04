@@ -122,7 +122,7 @@ switch:
     name: "Auto Open"
     icon: "mdi:door-open"
     optimistic: True
-    restore_mode: ALWAYS_ON
+    restore_mode: ALWAYS_OFF
     on_turn_off:
       then:
         - script.stop: open_door_sequence
