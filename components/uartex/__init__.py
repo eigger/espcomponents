@@ -67,18 +67,18 @@ def state_schema(value):
         return STATE_SCHEMA(value)
     return shorthand_state(value)
 
-COMMAND_HEX_SCHEMA = cv.Schema({
+COMMAND_SCHEMA = cv.Schema({
     cv.Required(CONF_DATA): validate_hex_data,
     cv.Optional(CONF_ACK, default=[]): validate_hex_data
 })
 
 def shorthand_command_hex(value):
     value = validate_hex_data(value)
-    return COMMAND_HEX_SCHEMA({CONF_DATA: value, CONF_ACK: []})
+    return COMMAND_SCHEMA({CONF_DATA: value, CONF_ACK: []})
 
 def command_hex_schema(value):
     if isinstance(value, dict):
-        return COMMAND_HEX_SCHEMA(value)
+        return COMMAND_SCHEMA(value)
     return shorthand_command_hex(value)
 
 # UARTEx Schema
