@@ -111,21 +111,21 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_VERSION): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
-        cv.Optional(CONF_NAME, default={CONF_NAME: "Version"}): cv._validate_entity_name,
+        cv.Optional(CONF_NAME, default={"Version"}): cv._validate_entity_name,
         cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
         cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
     }),
     cv.Optional(CONF_ERROR): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
-        cv.Optional(CONF_NAME, default={CONF_NAME: "Error"}): cv._validate_entity_name,
+        cv.Optional(CONF_NAME, default={"Error"}): cv._validate_entity_name,
         cv.Optional(CONF_ICON, default="mdi:alert-circle"): cv.icon,
         cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
     }),
     cv.Optional(CONF_LOG): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
-        cv.Optional(CONF_NAME, default={CONF_NAME: "Log"}): cv._validate_entity_name,
+        cv.Optional(CONF_NAME, default={"Log"}): cv._validate_entity_name,
         cv.Optional(CONF_ICON, default="mdi:math-log"): cv.icon,
         cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
     }),
