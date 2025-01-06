@@ -32,21 +32,186 @@ uartex:
 - tx_header (Optional, array): Header of Data to be Transmitted
 - tx_footer (Optional, array): Header of Data to be Transmitted
 - rx_checksum (Optional, enum, lambda): Checksum of Data to be Received. (add, xor)
-  - uint8 = (uint8* data, uint16 len)
+  - uint8_t = (uint8_t* data, uint16_t len)
 - tx_checksum (Optional, enum, lambda): Checksum of Data to be Transmitted. (add, xor)
-  - uint8 = (uint8* data, uint16 len)
+  - uint8_t = (uint8_t* data, uint16_t len)
 - rx_checksum2 (Optional, enum, lambda): Checksum array of Data to be Received. (add, xor)
-  - vector<uint8> = (uint8* data, uint16 len)
+  - vector\<uint8_t\> = (uint8_t* data, uint16_t len)
 - tx_checksum2 (Optional, enum, lambda): Checksum array of Data to be Transmitted. (add, xor)
-  - vector<uint8> = (uint8* data, uint16 len)
+  - vector\<uint8_t\> = (uint8_t* data, uint16_t len)
 - on_read (Optional, lambda): Event of Data to be Received
-  - void = (uint8* data, uint16 len)
+  - void = (uint8_t* data, uint16_t len)
 - on_write (Optional, lambda): Event of Data to be Transmitted
-  - void = (uint8* data, uint16 len)
+  - void = (uint8_t* data, uint16_t len)
 - version (Optional): Version of Uartex
 - error (Optional): Error of Uartex
 - log (Optional): Log of Uartex
+<hr/>
 
+## State Schema
+```
+state: 
+  data: [0x30, 0xd0, 0x00, 0x0e, 0x00]
+  mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+  offset: 0
+  inverted: False
+```
+### Configuration variables
+- data (Required, array): 
+- mask (Optional, array): Defaults to []
+- offset (Optional, int): Defaults to 0.
+- inverted (Optional, bool): Defaults to False.
+<hr/>
+
+## Command Schema
+```
+command: 
+  cmd: [0x30, 0xd0, 0x00, 0x0e, 0x00]
+  ack: [0xff]
+```
+### Configuration variables
+- cmd (Required, array): 
+- ack (Optional, array): Defaults to []
+<hr/>
+
+## State Num Schema
+```
+state_num: 
+  offset: 1
+  length: 1
+  precision: 0
+```
+### Configuration variables
+- offset (Required, int): (0 ~ 128)
+- length (Optional, int): Defaults to 1. (1 ~ 4)
+- precision (Optional, int): Defaults to 0. (0 ~ 5)
+<hr/>
+
+## uartex.light
+```
+light:
+  - platform: uartex
+    name: "Room 0 Light 1"
+    id: room_0_light_1
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x0e, 0x00]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+    state_on:
+      offset: 8
+      data: [0xff]
+    state_off:
+      offset: 8
+      data: [0x00]
+    command_on: !lambda |-
+      uint8_t light2 = id(room_0_light_2).current_values.is_on() ? 0xff : 0x00;
+      return {{0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x00, 0xff, light2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc}};
+    command_off: !lambda |-
+      uint8_t light2 = id(room_0_light_2).current_values.is_on() ? 0xff : 0x00;
+      return {{0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x00, 0x00, light2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc}};
+```
+### Configuration variables
+- state (Required, state): 
+- state_on (Required, state): 
+- state_off (Required, state): 
+- state_brightness (Optional, lambda):
+  - float = (uint8_t* data, uint16_t len)
+- command_on (Required, command), lambda: 
+  - command = (void)
+- command_off (Required, command, lambda): 
+  - command = (void)
+- command_brightness (Optional, lambda): 
+  - command = (float x)
+- command_update (Optional, command, lambda): 
+  - command = (void)
+<hr/>
+
+## uartex.binary_sensor
+```
+binary_sensor:
+```
+### Configuration variables
+
+<hr/>
+
+## uartex.button
+```
+button:
+```
+### Configuration variables
+
+<hr/>
+
+## uartex.climate
+```
+climate:
+```
+### Configuration variables
+
+<hr/>
+
+## uartex.fan
+```
+fan:
+```
+### Configuration variables
+
+<hr/>
+
+## uartex.lock
+```
+lock:
+```
+### Configuration variables
+
+<hr/>
+
+## uartex.number
+```
+number:
+```
+### Configuration variables
+
+<hr/>
+
+## uartex.sensor
+```
+sensor:
+```
+### Configuration variables
+
+<hr/>
+
+## uartex.switch
+```
+switch:
+```
+### Configuration variables
+
+<hr/>
+
+## uartex.text
+```
+text:
+```
+### Configuration variables
+
+<hr/>
+
+## uartex.text_sensor
+```
+text_sensor:
+```
+### Configuration variables
+
+<hr/>
+
+## uartex.valve
+```
+valve:
+```
+### Configuration variables
+
+<hr/>
 <details>
     <summary>예제 yaml</summary>
     
