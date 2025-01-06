@@ -31,13 +31,13 @@ uartex:
 - rx_footer (Optional, array): Footer of Data to be Received
 - tx_header (Optional, array): Header of Data to be Transmitted
 - tx_footer (Optional, array): Header of Data to be Transmitted
-- rx_checksum (Optional, array, lambda): Checksum of Data to be Received
+- rx_checksum (Optional, enum, lambda): Checksum of Data to be Received. (add, xor)
   - uint8 = (uint8* data, uint16 len)
-- tx_checksum (Optional, array, lambda): Checksum of Data to be Transmitted
+- tx_checksum (Optional, enum, lambda): Checksum of Data to be Transmitted. (add, xor)
   - uint8 = (uint8* data, uint16 len)
-- rx_checksum2 (Optional, array, lambda): Checksum array of Data to be Received
+- rx_checksum2 (Optional, enum, lambda): Checksum array of Data to be Received. (add, xor)
   - vector<uint8> = (uint8* data, uint16 len)
-- tx_checksum2 (Optional, array, lambda): Checksum array of Data to be Transmitted
+- tx_checksum2 (Optional, enum, lambda): Checksum array of Data to be Transmitted. (add, xor)
   - vector<uint8> = (uint8* data, uint16 len)
 - on_read (Optional, lambda): Event of Data to be Received
   - void = (uint8* data, uint16 len)
