@@ -25,23 +25,12 @@ uartex:
   rx_checksum: xor
   tx_checksum: xor
 
-  on_write: !lambda |-
-    // @param: const uint8_t *data, const unsigned short len
-    std::string res = "[W]" + to_hex_string(data, len);
-    if (res == id(id_data_log).state) res += '.';
-    id(id_data_log).publish_state(res.c_str());
-
-  on_read: !lambda |-
-    // @param: const uint8_t *data, const unsigned short len
-    std::string res = "[R]" + to_hex_string(data, len);
-    if (res == id(id_data_log).state) res += '.';
-    id(id_data_log).publish_state(res.c_str());
-
-text_sensor:
-  - platform: template
-    name: "Imazu Data Log"
-    id: id_data_log
-    icon: "mdi:math-log" 
+  version:
+    name: "Version"
+  error:
+    name: "Error"
+  log:
+    name: "Log"
   
 sensor:
   - platform: uartex

@@ -20,23 +20,12 @@ uartex:
   rx_footer: [0x0D, 0x0D]
   tx_footer: [0x0D, 0x0D]
 
-  on_write: !lambda |-
-    // @param: const uint8_t *data, const unsigned short len
-    std::string res = "[W]" + to_hex_string(data, len);
-    if (res == id(id_data_log).state) res += '.';
-    id(id_data_log).publish_state(res.c_str());
-
-  on_read: !lambda |-
-    // @param: const uint8_t *data, const unsigned short len
-    std::string res = "[R]" + to_hex_string(data, len);
-    if (res == id(id_data_log).state) res += '.';
-    id(id_data_log).publish_state(res.c_str());
-
-text_sensor:
-  - platform: template
-    name: "Data Log"
-    id: id_data_log
-    icon: "mdi:math-log" 
+  version:
+    name: "Version"
+  error:
+    name: "Error"
+  log:
+    name: "Log"
 
 binary_sensor:
 # 0xAA 0x55 0x7A 0x9E 0x02 0x02 0x00 0xFF 0xFF 0xFF 0xFF 0x31 0xFF 0xFF 0xFF 0x01 0x01 0x29 0xF6 0x0D 0x0D
