@@ -37,6 +37,7 @@ void UARTExComponent::setup()
     if (this->error_) this->error_->publish_state("None");
     if (this->version_) this->version_->publish_state(UARTEX_VERSION);
     ESP_LOGI(TAG, "Initaialize.");
+    publish_log("Boot");
 }
 
 void UARTExComponent::loop()
@@ -88,6 +89,7 @@ void UARTExComponent::publish_data()
 {
     bool found = false;
     if (this->on_read_f_.has_value()) (*this->on_read_f_)(&this->rx_parser_.buffer()[0], this->rx_parser_.buffer().size());
+    publish_log("[R]" + to_hex_string(this->rx_parser_.buffer()));
     for (UARTExDevice* device : this->devices_)
     {
         if (device->parse_data(this->rx_parser_.data()))
@@ -186,6 +188,7 @@ void UARTExComponent::write_tx_cmd()
     this->tx_time_ = get_time();
     if (current_tx_cmd()->ack.size() == 0) tx_cmd_result(true);
     if (this->on_write_f_.has_value()) (*this->on_write_f_)(&command[0], command.size());
+    publish_log("[W]" + to_hex_string(command));
 }
 
 void UARTExComponent::write_data(const uint8_t data)
@@ -332,6 +335,21 @@ bool UARTExComponent::publish_error(ERROR error_code)
     }
     this->error_code_ = error_code;
     return error;
+}
+
+void UARTExComponent::publish_log(std::string msg)
+{
+    if (this->log_ == nullptr) return;
+    if (this->last_log_ == msg)
+    {
+        this->log_->publish_state(msg + " (" + std::to_string(++this->log_count_) + ")");
+    }
+    else
+    {
+        this->log_count_ = 0;
+        this->last_log_ = msg;
+        this->log_->publish_state(msg);
+    }
 }
 
 void UARTExComponent::set_rx_header(std::vector<uint8_t> header)
