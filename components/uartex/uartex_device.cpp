@@ -217,10 +217,10 @@ std::string to_hex_string(const std::vector<unsigned char>& data)
     std::string res;
     for (uint16_t i = 0; i < data.size(); i++)
     {
-        sprintf(buf, "0x%02X ", data[i]);
+        sprintf(buf, "%02X", data[i]);
         res += buf;
     }
-    sprintf(buf, "(%d byte)", data.size());
+    sprintf(buf, "(%d)", data.size());
     res += buf;
     return res;
 }
