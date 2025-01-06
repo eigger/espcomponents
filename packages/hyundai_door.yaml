@@ -22,25 +22,12 @@ uartex:
   tx_header: [0x7F]
   tx_footer: [0xEE]
 
-  on_write: !lambda |-
-    // @param: const uint8_t *data, const unsigned short len
-    std::string res = "[W]" + to_hex_string(data, len);
-    if (res == id(id_data_log).state) res += '.';
-    id(id_data_log).publish_state(res.c_str());
-
-  on_read: !lambda |-
-    // @param: const uint8_t *data, const unsigned short len
-    std::string res = "[R]" + to_hex_string(data, len);
-    if (res == id(id_data_log).state) res += '.';
-    id(id_data_log).publish_state(res.c_str());
-
-text_sensor:
-  - platform: template
-    name: "Door Data Log"
-    id: id_data_log
-    icon: "mdi:math-log" 
-
-
+  version:
+    name: "Version"
+  error:
+    name: "Error"
+  log:
+    name: "Log"
 
 # (W: Wallpad, S: Sub 주방폰)
 # ​

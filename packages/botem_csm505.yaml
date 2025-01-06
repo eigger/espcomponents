@@ -16,9 +16,16 @@ uartex:
   rx_header: [0x5E, 0x5B]
   rx_footer: [0x5D, 0x0D]
 
+  version:
+    name: "Version"
+  error:
+    name: "Error"
+  log:
+    name: "Log"
+
 number:
   - platform: botem_csm505
-    name: "Botem People Count"
+    name: "People Count"
     max_value: 30
     min_value: 0
     step: 1

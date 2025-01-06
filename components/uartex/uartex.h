@@ -53,6 +53,7 @@ public:
     void set_tx_checksum_2(std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)> &&f);
     void set_version(text_sensor::TextSensor *version) { this->version_ = version; }
     void set_error(text_sensor::TextSensor *error) { this->error_ = error; }
+    void set_log(text_sensor::TextSensor *log) { this->log_ = log; }
     void set_on_write(std::function<void(const uint8_t *data, const uint16_t len)> &&f) { this->on_write_f_ = f; }
     void set_on_read(std::function<void(const uint8_t *data, const uint16_t len)> &&f){ this->on_read_f_ = f; }
     std::vector<uint8_t> get_rx_checksum(const std::vector<uint8_t> &data);
@@ -82,6 +83,7 @@ protected:
     ERROR validate_data();
     bool verify_data();
     bool publish_error(ERROR error_code);
+    void publish_log(std::string msg);
     void read_from_uart();
     void publish_to_devices();
     bool verify_ack();
@@ -123,6 +125,9 @@ protected:
     Parser rx_parser_{};
     text_sensor::TextSensor* version_{nullptr};
     text_sensor::TextSensor* error_{nullptr};
+    text_sensor::TextSensor* log_{nullptr};
+    std::string last_log_{""};
+    uint32_t log_count_{0};
     optional<cmd_t> command_{};
 };
 

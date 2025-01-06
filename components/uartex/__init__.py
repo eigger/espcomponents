@@ -8,7 +8,7 @@ from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
 from esphome.util import SimpleRegistry
 from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTER, \
     CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, CONF_RX_CHECKSUM_2, CONF_TX_CHECKSUM_2, \
-    CONF_UARTEX_ID, CONF_ERROR, \
+    CONF_UARTEX_ID, CONF_ERROR, CONF_LOG, \
     CONF_ACK, CONF_ON_WRITE, CONF_ON_READ, \
     CONF_STATE, CONF_MASK, \
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
@@ -108,18 +108,25 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_TX_CHECKSUM_2): validate_checksum,
     cv.Optional(CONF_ON_WRITE): cv.lambda_,
     cv.Optional(CONF_ON_READ): cv.lambda_,
-    cv.Optional(CONF_VERSION, default={CONF_NAME: "Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
+    cv.Optional(CONF_VERSION): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
-        cv.Optional(CONF_NAME, default={CONF_NAME: "Version"}): cv._validate_entity_name,
+        cv.Optional(CONF_NAME, default="Version"): cv._validate_entity_name,
         cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
         cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
     }),
-    cv.Optional(CONF_ERROR, default={CONF_NAME: "Error"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
+    cv.Optional(CONF_ERROR): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
-        cv.Optional(CONF_NAME, default={CONF_NAME: "Error"}): cv._validate_entity_name,
+        cv.Optional(CONF_NAME, default="Error"): cv._validate_entity_name,
         cv.Optional(CONF_ICON, default="mdi:alert-circle"): cv.icon,
+        cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
+    }),
+    cv.Optional(CONF_LOG): text_sensor.TEXT_SENSOR_SCHEMA.extend(
+    {
+        cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
+        cv.Optional(CONF_NAME, default="Log"): cv._validate_entity_name,
+        cv.Optional(CONF_ICON, default="mdi:math-log"): cv.icon,
         cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
     }),
 }).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA), cv.has_at_most_one_key(CONF_RX_CHECKSUM, CONF_RX_CHECKSUM_2), cv.has_at_most_one_key(CONF_TX_CHECKSUM, CONF_TX_CHECKSUM_2))
@@ -137,6 +144,10 @@ async def to_code(config):
         sens = cg.new_Pvariable(config[CONF_ERROR][CONF_ID])
         await register_text_sensor(sens, config[CONF_ERROR])
         cg.add(var.set_error(sens))
+    if CONF_LOG in config:
+        sens = cg.new_Pvariable(config[CONF_LOG][CONF_ID])
+        await register_text_sensor(sens, config[CONF_LOG])
+        cg.add(var.set_log(sens))
     if CONF_RX_TIMEOUT in config:
         cg.add(var.set_rx_timeout(config[CONF_RX_TIMEOUT]))
     if CONF_TX_DELAY in config:
