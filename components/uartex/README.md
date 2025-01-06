@@ -1,4 +1,52 @@
-### add esphome *.yaml
+## uartex
+```
+uartex:
+  rx_timeout: 10ms
+  tx_delay: 50ms
+  tx_timeout: 500ms
+  tx_retry_cnt: 3
+
+  rx_header: [0xAA, 0x55]
+  rx_footer: [0x0D, 0x0D]
+  tx_header: [0xAA, 0x55]
+  tx_footer: [0x0D, 0x0D]
+
+  rx_checksum: add
+  tx_checksum: add
+
+  version:
+    name: "Version"
+  error:
+    name: "Error"
+  log:
+    name: "Log"
+```
+### Configuration variables
+- rx_timeout (Optional, Time): Data Receive Timeout. Defaults to 10ms. Max 2000ms
+- tx_delay (Optional, Time): Data Send Delay. Defaults to 50ms. Max 2000ms
+- tx_timeout (Optional, Time): ACK Reception Timeout. Defaults to 50ms. Max 2000ms
+- tx_retry_cnt (Optional, int): Retry Count on ACK Failure. Defaults to 3. Max 10
+- tx_ctrl_pin (Optional, gpio): Control PIN GPIO
+- rx_header (Optional, array): Header of Data to be Received
+- rx_footer (Optional, array): Footer of Data to be Received
+- tx_header (Optional, array): Header of Data to be Transmitted
+- tx_footer (Optional, array): Header of Data to be Transmitted
+- rx_checksum (Optional, array, lambda): Checksum of Data to be Received
+  - uint8 = (uint8* data, uint16 len)
+- tx_checksum (Optional, array, lambda): Checksum of Data to be Transmitted
+  - uint8 = (uint8* data, uint16 len)
+- rx_checksum2 (Optional, array, lambda): Checksum array of Data to be Received
+  - vector<uint8> = (uint8* data, uint16 len)
+- tx_checksum2 (Optional, array, lambda): Checksum array of Data to be Transmitted
+  - vector<uint8> = (uint8* data, uint16 len)
+- on_read (Optional, lambda): Event of Data to be Received
+  - void = (uint8* data, uint16 len)
+- on_write (Optional, lambda): Event of Data to be Transmitted
+  - void = (uint8* data, uint16 len)
+- version (Optional): Version of Uartex
+- error (Optional): Error of Uartex
+- log (Optional): Log of Uartex
+
 <details>
     <summary>예제 yaml</summary>
     
