@@ -7,3 +7,6 @@ external_components:
     components: [ uartex ]
     refresh: always
 ```
+
+# [UartEX](.espcomponents/components/uartex)
+- UartEX is an extended component of ESPHome UART that enables easy integration of sensors by utilizing UART data.
