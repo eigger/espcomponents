@@ -16,7 +16,7 @@ CONFIG_SCHEMA = cv.All(sensor.SENSOR_SCHEMA.extend({
     cv.Required(CONF_STATE): state_schema,
     cv.Optional(CONF_COMMAND_UPDATE): command_hex_schema,
     cv.Optional(CONF_LAMBDA): cv.returning_lambda,
-    cv.Optional(CONF_STATE_NUMBER): state_num_schema
+    cv.Optional(CONF_STATE_NUMBER): cv.templatable(state_num_schema),
 }).extend(cv.polling_component_schema('60s')), cv.has_exactly_one_key(CONF_LAMBDA, CONF_STATE_NUMBER))
 
 async def to_code(config):
@@ -29,9 +29,13 @@ async def to_code(config):
         template_ = await cg.templatable(config[CONF_LAMBDA], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
         cg.add(var.set_state(CONF_LAMBDA, template_))
     if CONF_STATE_NUMBER in config:
-        data = config[CONF_STATE_NUMBER]
-        data_ = data[CONF_OFFSET], data[CONF_LENGTH], data[CONF_PRECISION]
-        cg.add(var.set_state(CONF_STATE_NUMBER, data_))
-        config[CONF_ACCURACY_DECIMALS] = data[CONF_PRECISION]
+        state = config[CONF_STATE_NUMBER]
+        if cg.is_template(state):
+            templ = await cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
+            cg.add(var.set_state(CONF_STATE_NUMBER, templ))
+        else:
+            args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION]
+            cg.add(var.set_state(CONF_STATE_NUMBER, args))
+            config[CONF_ACCURACY_DECIMALS] = state[CONF_PRECISION]
 
     
