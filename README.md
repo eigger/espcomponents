@@ -7,3 +7,9 @@ external_components:
     components: [ uartex ]
     refresh: always
 ```
+
+# [uartex](/components/uartex)
+- uartex is an extended component of ESPHome UART that enables easy integration of sensors by utilizing UART data.
+
+# [botem_csm505](/components/botem_csm505)
+- botem_csm505 is a component for the CSM505 count sensor from Botem, designed to be used in conjunction with uartex
