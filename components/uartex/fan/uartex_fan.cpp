@@ -20,6 +20,7 @@ fan::FanTraits UARTExFan::get_traits()
         traits.set_speed(true);
         traits.set_supported_speed_count(this->speed_count_);
     }
+    if (!this->preset_modes_.empty()) traits.set_supported_preset_modes(this->preset_modes_);
     return traits;
 }
 
@@ -31,6 +32,13 @@ void UARTExFan::publish(const std::vector<uint8_t>& data)
         this->speed = (int)val.value();
         publish_state();
     }
+    optional<const char*> preset = get_state_preset(data);
+    if(preset.has_value() && this->preset_mode != preset.value())
+    {
+        this->preset_mode = preset.value();
+        publish_state();
+    }
+    
 }
 
 void UARTExFan::publish(const bool state)
@@ -46,6 +54,7 @@ void UARTExFan::control(const fan::FanCall& call)
     bool changed_speed = false;
     bool changed_oscillating = false;
     bool changed_direction = false;
+    bool changed_preset = false;
     if (call.get_state().has_value() && this->state != *call.get_state())
     {
         this->state = *call.get_state();
@@ -66,6 +75,12 @@ void UARTExFan::control(const fan::FanCall& call)
         this->direction = *call.get_direction();
         changed_direction = true;
     }
+    if (call.get_preset_mode().size() > 0 && this->preset_mode != call.get_preset_mode())
+    {
+        this->preset_mode = call.get_preset_mode();
+        changed_preset = true;
+    }
+    if (changed_preset) enqueue_tx_cmd(get_command_preset(this->preset_mode));
     if (this->state && changed_state) enqueue_tx_cmd(get_command_on());
     if (changed_speed) enqueue_tx_cmd(get_command_speed(this->speed));
     if (!this->state && changed_state) enqueue_tx_cmd(get_command_off());
