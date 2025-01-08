@@ -20,7 +20,7 @@ protected:
     cmd_t* get_command_speed(const float x) { return get_command("command_speed", x); }
     cmd_t* get_command_preset(const std::string& str) { return get_command("command_preset", str); }
     optional<float> get_state_speed(const std::vector<uint8_t>& data) { return get_state_float("state_speed", data); }
-    optional<const char*> get_state_preset(const std::vector<uint8_t>& data) { return get_state_float("state_preset", data); }
+    optional<const char*> get_state_preset(const std::vector<uint8_t>& data) { return get_state_str("state_preset", data); }
 protected:
     uint16_t speed_count_{0};
     std::set<std::string> preset_modes_{};
