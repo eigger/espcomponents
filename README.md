@@ -1,5 +1,5 @@
 [![latest version](https://img.shields.io/github/release/eigger/espcomponents?display_name=tag&include_prereleases&label=latest%20version)](https://github.com/eigger/espcomponents/releases)
-# ESPHome custom components 
+# ESPHome external components 
 [![ESPHome Logo](https://esphome.io/_images/logo-text.png)](https://esphome.io/)
 ```
 external_components:
