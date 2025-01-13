@@ -1,0 +1,16 @@
+esp32:
+  variant: esp32s3
+  framework:
+    type: esp-idf
+    version: 5.0.2
+    platform_version: 6.3.2
+    
+esp32_ble_tracker:
+  scan_parameters:
+    # We currently use the defaults to ensure Bluetooth
+    # can co-exist with WiFi In the future we may be able to
+    # enable the built-in coexistence logic in ESP-IDF
+    active: true
+
+bluetooth_proxy:
+  active: true
