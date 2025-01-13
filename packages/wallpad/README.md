@@ -1,0 +1,22 @@
+# 1. HW 구성
+- **문서 링크**: [M5Stack Atom RS485 문서](https://docs.m5stack.com/en/atom/Atomic%20RS485%20Base)
+- **이미지**:
+  <br>
+  <img src="https://static-cdn.m5stack.com/resource/docs/products/atom/Atomic%20RS485%20Base/img-482d74b8-0462-4139-943a-b8bf43da18c4.webp" alt="M5Stack Atom RS485" width="300">
+  <br>
+- **구매 링크**: [알리익스프레스](https://ko.aliexpress.com/item/1005005912210853.html?pdp_npi=4%40dis%21KRW%21%E2%82%A9%2015%2C450%21%E2%82%A9%2015%2C450%21%21%2110.19%2110.19%21%402101246417367405806363493eb3a8%2112000034821216022%21sh%21KR%210%21X&spm=a2g0o.store_pc_allItems_or_groupList.new_all_items_2007608036152.1005005912210853&gatewayAdapt=glo2kor)
+---
+- **소형 디자인**
+  - 컴팩트한 크기로 간결하고 일체형의 구조.
+- **편리한 RS485 통신 지원**
+  - 산업 표준 통신 프로토콜을 손쉽게 활용 가능.
+  - TTL 신호를 RS485로 변환하는 내장 전환 칩 탑재.
+- **12V DC 컨버터 내장**
+  - 내장된 12V DC 컨버터를 통해 12V 환경에서도 별도의 컨버터 없이 동작 가능.
+- **확장성과 호환성**
+  - M5Stack 생태계와의 완벽한 호환성.
+  - ESP32 기반으로 Wi-Fi 및 Bluetooth 기능 함께 지원.
+- **산업용 및 상업용 응용 가능성**
+  - 강력한 노이즈 내성을 가진 RS485로 다양한 산업 환경에서 사용 가능.
+  - 멀티 드롭 지원으로 여러 장치 간 통신 가능.
+---
