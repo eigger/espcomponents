@@ -1,4 +1,24 @@
-# 코콤 패킷 구조
+# 코콤 월패드 구성
+```
+packages:
+  remote:
+    refresh: always
+    url: https://github.com/eigger/espcomponents/
+    files:
+      - packages/wallpad/kocom/kocom.yaml
+```
+
+# 코콤 현관문 구성
+```
+packages:
+  remote:
+    refresh: always
+    url: https://github.com/eigger/espcomponents/
+    files:
+      - packages/wallpad/kocom/kocom_door.yaml
+```
+
+# 코콤 월패드 패킷 구조
 
 - **Head**
   - Size: 2 bytes
