@@ -335,14 +335,19 @@ fan:
 - state_off (Required, state): 
 - state_speed (Optional, lambda):
   - float = (uint8_t* data, uint16_t len)
+- state_preset (Optional, lambda): 
+  - char* = (uint8_t* data, uint16_t len)
 - command_on (Required, command or lambda): 
   - command = (void)
 - command_off (Required, command or lambda): 
   - command = (void)
 - command_speed (Optional, lambda): 
   - command = (float x)
+- command_preset (Required, lambda): 
+  - command = (std::string str)
 - command_update (Optional, command or lambda): 
   - command = (void)
+- preset_modes (Optional, list): A list of preset modes for this fan
 <hr/>
 
 ## uartex.lock
