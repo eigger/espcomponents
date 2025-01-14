@@ -108,17 +108,13 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_TX_CHECKSUM_2): validate_checksum,
     cv.Optional(CONF_ON_WRITE): cv.lambda_,
     cv.Optional(CONF_ON_READ): cv.lambda_,
-    cv.Optional(CONF_VERSION): cv.All(
-        text_sensor.TEXT_SENSOR_SCHEMA.extend(
-            {
-                cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
-                cv.Optional(CONF_NAME, default="Version"): cv._validate_entity_name,
-                cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
-                cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
-            }
-        ),
-        lambda value: None if value is None else value
-    ),
+    cv.Optional(CONF_VERSION): text_sensor.TEXT_SENSOR_SCHEMA.extend(
+    {
+        cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
+        cv.Optional(CONF_NAME, default="Version"): cv._validate_entity_name,
+        cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
+        cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
+    }),
     cv.Optional(CONF_ERROR): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
@@ -221,7 +217,7 @@ async def to_code(config):
         if cg.is_template(data):
             template_ = await cg.templatable(data, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.void)
             cg.add(var.set_on_write(template_))
-
+            
     if CONF_ON_READ in config:
         data = config[CONF_ON_READ]
         if cg.is_template(data):
