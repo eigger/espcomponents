@@ -38,11 +38,11 @@ uartex:
     return crc;
 
   version:
-    name: "Version"
+    disabled: False
   error:
-    name: "Error"
+    disabled: False
   log:
-    name: "Log"
+    disabled: False
 
 lock:
   - platform: uartex

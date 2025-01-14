@@ -23,11 +23,11 @@ uartex:
   tx_footer: [0xEE]
 
   version:
-    name: "Version"
+    disabled: False
   error:
-    name: "Error"
+    disabled: False
   log:
-    name: "Log"
+    disabled: False
 
 # (W: Wallpad, S: Sub 주방폰)
 # ​

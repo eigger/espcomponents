@@ -26,11 +26,11 @@ uartex:
   tx_checksum: add
 
   version:
-    name: "Version"
+    disabled: False
   error:
-    name: "Error"
+    disabled: False
   log:
-    name: "Log"
+    disabled: False
 
 light:
   #Room0
