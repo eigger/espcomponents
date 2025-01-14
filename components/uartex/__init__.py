@@ -14,7 +14,7 @@ from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTE
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
     CONF_COMMAND_UPDATE, CONF_RX_TIMEOUT, CONF_TX_TIMEOUT, CONF_TX_RETRY_CNT, \
     CONF_STATE_RESPONSE, CONF_LENGTH, CONF_PRECISION, \
-    CONF_TX_CTRL_PIN, CONF_TX_DELAY
+    CONF_TX_CTRL_PIN, CONF_TX_DELAY, CONF_DISABLED
 
 AUTO_LOAD = ["text_sensor"]
 CODEOWNERS = ["@eigger"]
@@ -114,6 +114,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         cv.Optional(CONF_NAME, default="Version"): cv._validate_entity_name,
         cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
         cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
+        cv.Optional(CONF_DISABLED, default=False): cv.boolean,
     }),
     cv.Optional(CONF_ERROR): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
@@ -121,6 +122,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         cv.Optional(CONF_NAME, default="Error"): cv._validate_entity_name,
         cv.Optional(CONF_ICON, default="mdi:alert-circle"): cv.icon,
         cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
+        cv.Optional(CONF_DISABLED, default=False): cv.boolean,
     }),
     cv.Optional(CONF_LOG): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
@@ -128,6 +130,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         cv.Optional(CONF_NAME, default="Log"): cv._validate_entity_name,
         cv.Optional(CONF_ICON, default="mdi:math-log"): cv.icon,
         cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
+        cv.Optional(CONF_DISABLED, default=False): cv.boolean,
     }),
 }).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA), cv.has_at_most_one_key(CONF_RX_CHECKSUM, CONF_RX_CHECKSUM_2), cv.has_at_most_one_key(CONF_TX_CHECKSUM, CONF_TX_CHECKSUM_2))
 
@@ -136,37 +139,53 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
+
     if CONF_VERSION in config:
-        sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
-        await register_text_sensor(sens, config[CONF_VERSION])
-        cg.add(var.set_version(sens))
+        if not config[CONF_VERSION][CONF_DISABLED]:
+            sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
+            await register_text_sensor(sens, config[CONF_VERSION])
+            cg.add(var.set_version(sens))
+
     if CONF_ERROR in config:
-        sens = cg.new_Pvariable(config[CONF_ERROR][CONF_ID])
-        await register_text_sensor(sens, config[CONF_ERROR])
-        cg.add(var.set_error(sens))
+        if not config[CONF_ERROR][CONF_DISABLED]:
+            sens = cg.new_Pvariable(config[CONF_ERROR][CONF_ID])
+            await register_text_sensor(sens, config[CONF_ERROR])
+            cg.add(var.set_error(sens))
+
     if CONF_LOG in config:
-        sens = cg.new_Pvariable(config[CONF_LOG][CONF_ID])
-        await register_text_sensor(sens, config[CONF_LOG])
-        cg.add(var.set_log(sens))
+        if not config[CONF_LOG][CONF_DISABLED]:
+            sens = cg.new_Pvariable(config[CONF_LOG][CONF_ID])
+            await register_text_sensor(sens, config[CONF_LOG])
+            cg.add(var.set_log(sens))
+
     if CONF_RX_TIMEOUT in config:
         cg.add(var.set_rx_timeout(config[CONF_RX_TIMEOUT]))
+
     if CONF_TX_DELAY in config:
         cg.add(var.set_tx_delay(config[CONF_TX_DELAY]))
+
     if CONF_TX_TIMEOUT in config:
         cg.add(var.set_tx_timeout(config[CONF_TX_TIMEOUT]))
+
     if CONF_TX_RETRY_CNT in config:
         cg.add(var.set_tx_retry_cnt(config[CONF_TX_RETRY_CNT]))
+
     if CONF_TX_CTRL_PIN in config:
         tx_ctrl_pin = await cg.gpio_pin_expression(config[CONF_TX_CTRL_PIN])
         cg.add(var.set_tx_ctrl_pin(tx_ctrl_pin))
+
     if CONF_RX_HEADER in config:
         cg.add(var.set_rx_header(config[CONF_RX_HEADER]))
+
     if CONF_RX_FOOTER in config:
         cg.add(var.set_rx_footer(config[CONF_RX_FOOTER]))
+
     if CONF_TX_HEADER in config:
         cg.add(var.set_tx_header(config[CONF_TX_HEADER]))
+
     if CONF_TX_FOOTER in config:
         cg.add(var.set_tx_footer(config[CONF_TX_FOOTER]))
+
     if CONF_RX_CHECKSUM in config:
         data = config[CONF_RX_CHECKSUM]
         if cg.is_template(data):
@@ -174,6 +193,7 @@ async def to_code(config):
             cg.add(var.set_rx_checksum(template_))
         else:
             cg.add(var.set_rx_checksum(data))
+
     if CONF_TX_CHECKSUM in config:
         data = config[CONF_TX_CHECKSUM]
         if cg.is_template(data):
@@ -181,6 +201,7 @@ async def to_code(config):
             cg.add(var.set_tx_checksum(template_))
         else:
             cg.add(var.set_tx_checksum(data))
+
     if CONF_RX_CHECKSUM_2 in config:
         data = config[CONF_RX_CHECKSUM_2]
         if cg.is_template(data):
@@ -188,6 +209,7 @@ async def to_code(config):
             cg.add(var.set_rx_checksum_2(template_))
         else:
             cg.add(var.set_rx_checksum_2(data))
+
     if CONF_TX_CHECKSUM_2 in config:
         data = config[CONF_TX_CHECKSUM_2]
         if cg.is_template(data):
@@ -195,11 +217,13 @@ async def to_code(config):
             cg.add(var.set_tx_checksum_2(template_))
         else:
             cg.add(var.set_tx_checksum_2(data))
+
     if CONF_ON_WRITE in config:
         data = config[CONF_ON_WRITE]
         if cg.is_template(data):
             template_ = await cg.templatable(data, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.void)
             cg.add(var.set_on_write(template_))
+            
     if CONF_ON_READ in config:
         data = config[CONF_ON_READ]
         if cg.is_template(data):

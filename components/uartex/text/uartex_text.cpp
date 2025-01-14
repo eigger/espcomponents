@@ -14,7 +14,7 @@ void UARTExText::dump_config()
 
 void UARTExText::publish(const std::vector<uint8_t>& data) 
 {
-    optional<const char*> val = get_state_str("", data);
+    optional<const char*> val = get_state_str("lambda", data);
     if(val.has_value() && this->state != val.value())
     {
         this->state = val.value();

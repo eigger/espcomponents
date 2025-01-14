@@ -26,11 +26,11 @@ uartex:
   tx_checksum: xor
 
   version:
-    name: "Version"
+    disabled: False
   error:
-    name: "Error"
+    disabled: False
   log:
-    name: "Log"
+    disabled: False
   
 sensor:
   - platform: uartex

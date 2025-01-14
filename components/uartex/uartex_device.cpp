@@ -115,56 +115,20 @@ cmd_t* UARTExDevice::get_command(const std::string& name)
 
 state_t* UARTExDevice::get_state(const std::string& name)
 {
-    if (contains(this->state_map_, name))
-    {
-        return &this->state_map_[name];
-    }
+    if (contains(this->state_map_, name)) return &this->state_map_[name];
     return nullptr;
 }
 
 optional<float> UARTExDevice::get_state_float(const std::string& name, const std::vector<uint8_t>& data)
 {
-    if (name.empty())
-    {
-        if (!this->state_float_func_map_.empty())
-        {
-            return (this->state_float_func_map_.begin()->second)(&data[0], data.size());
-        }
-        else if (!this->state_num_map_.empty())
-        {
-            return state_to_float(data, this->state_num_map_.begin()->second);
-        }
-    }
-    else
-    {
-        if (contains(this->state_float_func_map_, name))
-        {
-            return (this->state_float_func_map_[name])(&data[0], data.size());
-        }
-        else if (contains(this->state_num_map_, name))
-        {
-            return state_to_float(data, this->state_num_map_[name]);
-        }
-    }
+    if (contains(this->state_float_func_map_, name)) return (this->state_float_func_map_[name])(&data[0], data.size());
+    if (contains(this->state_num_map_, name)) return state_to_float(data, this->state_num_map_[name]);
     return optional<float>();
 }
 
 optional<const char*> UARTExDevice::get_state_str(const std::string& name, const std::vector<uint8_t>& data)
 {
-    if (name.empty())
-    {
-        if (!this->state_str_func_map_.empty())
-        {
-            return (this->state_str_func_map_.begin()->second)(&data[0], data.size());
-        }
-    }
-    else
-    {
-        if (contains(this->state_str_func_map_, name))
-        {
-            return (this->state_str_func_map_[name])(&data[0], data.size());
-        }
-    }
+    if (contains(this->state_str_func_map_, name)) return (this->state_str_func_map_[name])(&data[0], data.size());
     return optional<const char*>();
 }
 

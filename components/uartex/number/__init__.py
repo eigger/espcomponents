@@ -38,7 +38,7 @@ async def to_code(config):
     if CONF_COMMAND_NUMBER in config:
         templ = await cg.templatable(config[CONF_COMMAND_NUMBER], [(cg.float_.operator('const'), 'x')], cmd_t)
         cg.add(var.set_command(CONF_COMMAND_NUMBER, templ))
- 
+        
     if CONF_STATE_NUMBER in config:
         state = config[CONF_STATE_NUMBER]
         if cg.is_template(state):

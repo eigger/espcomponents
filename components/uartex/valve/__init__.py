@@ -35,18 +35,23 @@ async def to_code(config):
     if CONF_STATE_OPEN in config:
         args = state_hex_expression(config[CONF_STATE_OPEN])
         cg.add(var.set_state(CONF_STATE_OPEN, args))
+
     if CONF_STATE_CLOSED in config:
         args = state_hex_expression(config[CONF_STATE_CLOSED])
         cg.add(var.set_state(CONF_STATE_CLOSED, args))
+
     if CONF_STATE_POSITION in config:
         args = await cg.templatable(config[CONF_STATE_POSITION], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
         cg.add(var.set_state(CONF_STATE_POSITION, args))
+
     if CONF_COMMAND_OPEN in config:
         args = command_hex_expression(config[CONF_COMMAND_OPEN])
         cg.add(var.set_command(CONF_COMMAND_OPEN, args))
+
     if CONF_COMMAND_CLOSE in config:
         args = command_hex_expression(config[CONF_COMMAND_CLOSE])
         cg.add(var.set_command(CONF_COMMAND_CLOSE, args))
+        
     if CONF_COMMAND_STOP in config:
         args = command_hex_expression(config[CONF_COMMAND_STOP])
         cg.add(var.set_command(CONF_COMMAND_STOP, args))
