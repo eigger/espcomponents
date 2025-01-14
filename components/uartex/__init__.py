@@ -51,6 +51,10 @@ def validate_checksum(value):
         return cv.enum(CHECKSUMS, upper=True)(value)
     raise cv.Invalid("data type error")
 
+def validate_version(value):
+    if value is not None:
+        return VERSION_SCHEMA(value)
+    
 STATE_SCHEMA = cv.Schema({
     cv.Required(CONF_DATA): validate_hex_data,
     cv.Optional(CONF_MASK, default=[]): validate_hex_data,
@@ -70,6 +74,14 @@ def state_schema(value):
 COMMAND_SCHEMA = cv.Schema({
     cv.Required(CONF_DATA): validate_hex_data,
     cv.Optional(CONF_ACK, default=[]): validate_hex_data
+})
+
+VERSION_SCHEMA = text_sensor.TEXT_SENSOR_SCHEMA.extend(
+{
+    cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
+    cv.Optional(CONF_NAME, default="Version"): cv._validate_entity_name,
+    cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
+    cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
 })
 
 def shorthand_command_hex(value):
