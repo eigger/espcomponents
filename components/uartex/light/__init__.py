@@ -24,6 +24,7 @@ async def to_code(config):
     if CONF_STATE_BRIGHTNESS in config:
         templ = await cg.templatable(config[CONF_STATE_BRIGHTNESS], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
         cg.add(var.set_state(CONF_STATE_BRIGHTNESS, templ))
+        
     if CONF_COMMAND_BRIGHTNESS in config:
         templ = await cg.templatable(config[CONF_COMMAND_BRIGHTNESS], [(cg.float_.operator('const'), 'x')], cmd_t)
         cg.add(var.set_command(CONF_COMMAND_BRIGHTNESS, templ))

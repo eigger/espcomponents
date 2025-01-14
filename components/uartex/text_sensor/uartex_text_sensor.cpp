@@ -14,12 +14,11 @@ void UARTExTextSensor::dump_config()
 
 void UARTExTextSensor::setup()
 {
-    publish_state("");
 }
 
 void UARTExTextSensor::publish(const std::vector<uint8_t>& data) 
 {
-    optional<const char*> val = get_state_str("", data);
+    optional<const char*> val = get_state_str("lambda", data);
     if(val.has_value() && this->raw_state != val.value())
     {
         this->raw_state = val.value();

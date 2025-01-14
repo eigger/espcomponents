@@ -14,7 +14,6 @@ void UARTExValve::dump_config()
 
 void UARTExValve::setup()
 {
-
 }
 
 void UARTExValve::publish(const std::vector<uint8_t>& data)

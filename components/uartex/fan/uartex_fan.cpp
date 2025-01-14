@@ -26,20 +26,20 @@ fan::FanTraits UARTExFan::get_traits()
 
 void UARTExFan::publish(const std::vector<uint8_t>& data)
 {
-    bool changed_value = false;
+    bool changed = false;
     optional<float> val = get_state_speed(data);
     if (val.has_value() && this->speed != (int)val.value())
     {
         this->speed = (int)val.value();
-        changed_value = true;
+        changed = true;
     }
     optional<const char*> preset = get_state_preset(data);
     if(preset.has_value() && this->preset_mode != preset.value())
     {
         this->preset_mode = preset.value();
-        changed_value = true;
+        changed = true;
     }
-    if (changed_value) publish_state();
+    if (changed) publish_state();
 }
 
 void UARTExFan::publish(const bool state)

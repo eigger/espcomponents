@@ -99,8 +99,10 @@ void UARTExComponent::publish_data()
     }
 #ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
     ESP_LOGVV(TAG, "Receive data-> %s, Gap Time: %lums", to_hex_string(this->rx_parser_.buffer()).c_str(), elapsed_time(this->rx_time_));
+    if (!found) ESP_LOGVV(TAG, "Notfound data-> %s", to_hex_string(this->rx_parser_.buffer()).c_str());
 #endif
 #ifdef ESPHOME_LOG_HAS_VERBOSE
+    ESP_LOGV(TAG, "Receive data-> %s, Gap Time: %lums", to_hex_string(this->rx_parser_.buffer()).c_str(), elapsed_time(this->rx_time_));
     if (!found) ESP_LOGV(TAG, "Notfound data-> %s", to_hex_string(this->rx_parser_.buffer()).c_str());
 #endif
 }
