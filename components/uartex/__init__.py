@@ -109,13 +109,15 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_ON_WRITE): cv.lambda_,
     cv.Optional(CONF_ON_READ): cv.lambda_,
     cv.Optional(CONF_VERSION): cv.All(
-        text_sensor.TEXT_SENSOR_SCHEMA.extend(
-            {
-                cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
-                cv.Optional(CONF_NAME, default="Version"): cv._validate_entity_name,
-                cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
-                cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
-            }
+        cv.Schema(
+            text_sensor.TEXT_SENSOR_SCHEMA.extend(
+                {
+                    cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
+                    cv.Optional(CONF_NAME, default="Version"): cv._validate_entity_name,
+                    cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
+                    cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
+                }
+            )
         ),
         lambda value: None if value is None else value
     ),
