@@ -3,6 +3,7 @@
 #include "esphome/core/component.h"
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/components/uartex/uartex_device.h"
+#include "esphome/components/uartex/uartex.h"
 
 namespace esphome {
 namespace at_http {
