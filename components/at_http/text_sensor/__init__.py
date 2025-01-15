@@ -48,8 +48,8 @@ CONFIG_SCHEMA = cv.All(text_sensor.TEXT_SENSOR_SCHEMA.extend({
     cv.Required(CONF_LAMBDA): cv.returning_lambda,
     cv.Required(CONF_HTTP_METHOD): validate_method,
     cv.Required(CONF_HTTP_CONTENT): validate_content,
-    cv.Required(CONF_HTTP_URL): cv.str,
-    cv.Required(CONF_HTTP_PAYLOAD): cv.str,
+    cv.Required(CONF_HTTP_URL): cg.std_string,
+    cv.Required(CONF_HTTP_PAYLOAD): cg.std_string,
 }).extend(cv.polling_component_schema('60s')))
 
 async def to_code(config):
