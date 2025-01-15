@@ -46,8 +46,8 @@ CONFIG_SCHEMA = cv.All(text_sensor.TEXT_SENSOR_SCHEMA.extend({
     cv.GenerateID(CONF_UARTEX_ID): _uartex_declare_type,
     cv.Optional(CONF_STATE, default=[]): state_schema,
     cv.Required(CONF_LAMBDA): cv.returning_lambda,
-    cv.Required(CONF_HTTP_METHOD): cv.validate_method,
-    cv.Required(CONF_HTTP_CONTENT): cv.validate_content,
+    cv.Required(CONF_HTTP_METHOD): validate_method,
+    cv.Required(CONF_HTTP_CONTENT): validate_content,
     cv.Required(CONF_HTTP_URL): cv.str,
     cv.Required(CONF_HTTP_PAYLOAD): cv.str,
 }).extend(cv.polling_component_schema('60s')))
