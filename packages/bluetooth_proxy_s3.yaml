@@ -2,8 +2,6 @@ esp32:
   variant: esp32s3
   framework:
     type: esp-idf
-    version: 5.0.2
-    platform_version: 6.3.2
     
 esp32_ble_tracker:
   scan_parameters:
