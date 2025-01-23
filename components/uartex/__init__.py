@@ -41,10 +41,10 @@ def _uartex_declare_type(value):
 
 def validate_hex_data(value):
     if isinstance(value, str):
-        value = [ord(char) for char in value]
+        return cv.Schema([cv.hex_uint8_t])([ord(char) for char in value])
     if isinstance(value, list):
         return cv.Schema([cv.hex_uint8_t])(value)
-    raise cv.Invalid("data must either be a list of bytes")
+    raise cv.Invalid("data must either be a string(ascii) or a list of bytes")
 
 def validate_checksum(value):
     if cg.is_template(value):
