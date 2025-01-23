@@ -306,7 +306,7 @@ bool UARTExComponent::verify_data()
 {
     ERROR error = validate_data();
     publish_error(error);
-    return error == ERROR_NONE;
+    return (error == ERROR_NONE || error == ERROR_TIMEOUT);
 }
 
 bool UARTExComponent::publish_error(ERROR error_code)
