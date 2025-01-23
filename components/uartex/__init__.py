@@ -40,6 +40,8 @@ def _uartex_declare_type(value):
     return cv.use_id(UARTExComponent)(value)
 
 def validate_hex_data(value):
+    if isinstance(value, str):
+        value = [ord(char) for char in value]
     if isinstance(value, list):
         return cv.Schema([cv.hex_uint8_t])(value)
     raise cv.Invalid("data must either be a list of bytes")
