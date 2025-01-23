@@ -14,7 +14,7 @@ CONFIG_SCHEMA = cv.All(sensor.SENSOR_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExSensor),
     cv.GenerateID(CONF_UARTEX_ID): _uartex_declare_type,
     cv.Required(CONF_STATE): state_schema,
-    cv.Optional(CONF_COMMAND_UPDATE): command_hex_schema,
+    cv.Optional(CONF_COMMAND_UPDATE): cv.templatable(command_hex_schema),
     cv.Optional(CONF_LAMBDA): cv.returning_lambda,
     cv.Optional(CONF_STATE_NUMBER): cv.templatable(state_num_schema),
 }).extend(cv.polling_component_schema('60s')), cv.has_exactly_one_key(CONF_LAMBDA, CONF_STATE_NUMBER))

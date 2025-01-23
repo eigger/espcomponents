@@ -38,7 +38,7 @@ public:
     void set_state(std::string name, state_t state) { this->state_map_[name] = state; }
     void set_state(std::string name, state_num_t state) { this->state_num_map_[name] = state; }
     void set_state(std::string name, std::function<float(const uint8_t* data, const uint16_t len)> &&f) { this->state_float_func_map_[name] = f; }
-    void set_state(std::string name, std::function<const char*(const uint8_t* data, const uint16_t len)> &&f) { this->state_str_func_map_[name] = f; }
+    void set_state(std::string name, std::function<std::string(const uint8_t* data, const uint16_t len)> &&f) { this->state_str_func_map_[name] = f; }
     void set_command(std::string name, cmd_t cmd) { this->command_map_[name] = cmd; }
     void set_command(std::string name, std::function<cmd_t()> &&f) { this->command_func_map_[name] = f; }
     void set_command(std::string name, std::function<cmd_t(const float x)> &&f) { this->command_float_func_map_[name] = f; }
@@ -58,7 +58,7 @@ protected:
     cmd_t* get_command(const std::string& name);
     state_t* get_state(const std::string& name);
     optional<float> get_state_float(const std::string& name, const std::vector<uint8_t>& data);
-    optional<const char*> get_state_str(const std::string& name, const std::vector<uint8_t>& data);
+    optional<std::string> get_state_str(const std::string& name, const std::vector<uint8_t>& data);
     bool has_state(const std::string& name);
     state_t* get_state() { return get_state("state"); }
     state_t* get_state_on() { return get_state("state_on"); }
@@ -72,7 +72,7 @@ protected:
     std::unordered_map<std::string, state_t> state_map_{};
     std::unordered_map<std::string, state_num_t> state_num_map_{};
     std::unordered_map<std::string, std::function<float(const uint8_t* data, const uint16_t len)>> state_float_func_map_{};
-    std::unordered_map<std::string, std::function<const char*(const uint8_t* data, const uint16_t len)>> state_str_func_map_{};
+    std::unordered_map<std::string, std::function<std::string(const uint8_t* data, const uint16_t len)>> state_str_func_map_{};
 
     std::unordered_map<std::string, cmd_t> command_map_{};
     std::unordered_map<std::string, std::function<cmd_t()>> command_func_map_{};

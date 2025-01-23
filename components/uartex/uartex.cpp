@@ -295,6 +295,10 @@ ERROR UARTExComponent::validate_data()
     {
         return ERROR_CHECKSUM;
     }
+    if (!this->rx_footer_.has_value() && this->rx_checksum_ == CHECKSUM_NONE && this->rx_checksum_2_ == CHECKSUM_NONE)
+    {
+        return ERROR_TIMEOUT;
+    }
     return ERROR_NONE;
 }
 
@@ -302,7 +306,7 @@ bool UARTExComponent::verify_data()
 {
     ERROR error = validate_data();
     publish_error(error);
-    return error == ERROR_NONE;
+    return (error == ERROR_NONE || error == ERROR_TIMEOUT);
 }
 
 bool UARTExComponent::publish_error(ERROR error_code)
@@ -325,6 +329,10 @@ bool UARTExComponent::publish_error(ERROR error_code)
     case ERROR_CHECKSUM:
         ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(this->rx_parser_.buffer()).c_str());
         if (this->error_ && this->error_code_ != ERROR_CHECKSUM) this->error_->publish_state("Checksum Error");
+        break;
+    case ERROR_TIMEOUT:
+        ESP_LOGW(TAG, "[Read] Timeout error: %s", to_hex_string(this->rx_parser_.buffer()).c_str());
+        if (this->error_ && this->error_code_ != ERROR_TIMEOUT) this->error_->publish_state("Timeout Error");
         break;
     case ERROR_ACK:
         ESP_LOGW(TAG, "[Read] Ack error: %s", to_hex_string(this->rx_parser_.buffer()).c_str());

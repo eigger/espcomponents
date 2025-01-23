@@ -8,7 +8,7 @@ uart:
   
 external_components:
   - source: github://eigger/espcomponents/relreases/latest
-    components: [ uartex, botem_csm505 ]
+    components: [ uartex ]
     refresh: always  
   
 uartex:
@@ -17,15 +17,23 @@ uartex:
   rx_footer: [0x5D, 0x0D]
 
   version:
-    name: "Version"
+    disabled: False
   error:
-    name: "Error"
+    disabled: False
   log:
-    name: "Log"
+    disabled: False
 
 number:
-  - platform: botem_csm505
+  - platform: uartex
     name: "People Count"
+    id: id_people_count
     max_value: 30
     min_value: 0
     step: 1
+    state: [0x30, 0x30]
+    state_number: !lambda |-
+      float state = id(id_people_count).state;
+      float step = id(id_people_count).traits.get_step();
+      if (data[2] == '1') return state + step;
+      if (data[2] == '2') return state - step;
+      return state;

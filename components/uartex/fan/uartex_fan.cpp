@@ -33,7 +33,7 @@ void UARTExFan::publish(const std::vector<uint8_t>& data)
         this->speed = (int)val.value();
         changed = true;
     }
-    optional<const char*> preset = get_state_preset(data);
+    optional<std::string> preset = get_state_preset(data);
     if(preset.has_value() && this->preset_mode != preset.value())
     {
         this->preset_mode = preset.value();
