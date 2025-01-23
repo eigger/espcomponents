@@ -24,6 +24,10 @@ void UARTExNumber::publish(const std::vector<uint8_t>& data)
     if (val.has_value() && this->state != val.value())
     {
         this->state = val.value();
+        float min = this->traits.get_min_value();
+        float max = this->traits.get_max_value();
+        if (this->state > max) this->state = max;
+        if (this->state < min) this->state = min;
         publish_state(this->state);
     }
 }
