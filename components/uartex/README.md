@@ -336,7 +336,7 @@ fan:
 - state_speed (Optional, lambda):
   - float = (uint8_t* data, uint16_t len)
 - state_preset (Optional, lambda): 
-  - char* = (uint8_t* data, uint16_t len)
+  - std::string = (uint8_t* data, uint16_t len)
 - command_on (Required, command or lambda): 
   - command = (void)
 - command_off (Required, command or lambda): 
@@ -506,7 +506,7 @@ text_sensor:
 ### Configuration variables
 - state (Required, state): 
 - lambda (Optional, lambda): 
-  - char* = (uint8_t* data, uint16_t len)
+  - std::string = (uint8_t* data, uint16_t len)
 - command_update (Optional, command or lambda): 
   - command = (void)
 <hr/>

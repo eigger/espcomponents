@@ -126,10 +126,10 @@ optional<float> UARTExDevice::get_state_float(const std::string& name, const std
     return optional<float>();
 }
 
-optional<const char*> UARTExDevice::get_state_str(const std::string& name, const std::vector<uint8_t>& data)
+optional<std::string> UARTExDevice::get_state_str(const std::string& name, const std::vector<uint8_t>& data)
 {
     if (contains(this->state_str_func_map_, name)) return (this->state_str_func_map_[name])(&data[0], data.size());
-    return optional<const char*>();
+    return optional<std::string>();
 }
 
 bool UARTExDevice::has_state(const std::string& name)

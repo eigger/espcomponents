@@ -58,7 +58,7 @@ protected:
     cmd_t* get_command(const std::string& name);
     state_t* get_state(const std::string& name);
     optional<float> get_state_float(const std::string& name, const std::vector<uint8_t>& data);
-    optional<const char*> get_state_str(const std::string& name, const std::vector<uint8_t>& data);
+    optional<std::string> get_state_str(const std::string& name, const std::vector<uint8_t>& data);
     bool has_state(const std::string& name);
     state_t* get_state() { return get_state("state"); }
     state_t* get_state_on() { return get_state("state_on"); }

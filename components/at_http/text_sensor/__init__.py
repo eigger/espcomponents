@@ -59,7 +59,7 @@ async def to_code(config):
     await uartex.register_uartex_device(var, config)
     
     if CONF_LAMBDA in config:
-        template_ = await cg.templatable(config[CONF_LAMBDA], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.const_char_ptr)
+        template_ = await cg.templatable(config[CONF_LAMBDA], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.std_string)
         cg.add(var.set_state(CONF_LAMBDA, template_))
 
     if CONF_HTTP_METHOD in config:

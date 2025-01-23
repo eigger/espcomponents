@@ -37,7 +37,7 @@ async def to_code(config):
         cg.add(var.set_preset_modes(config[CONF_PRESET_MODES]))
 
     if CONF_STATE_PRESET in config:
-        templ = await cg.templatable(config[CONF_STATE_PRESET], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.const_char_ptr)
+        templ = await cg.templatable(config[CONF_STATE_PRESET], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.std_string)
         cg.add(var.set_state(CONF_STATE_PRESET, templ))
         
     if CONF_COMMAND_PRESET in config:
