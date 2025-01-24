@@ -15,11 +15,11 @@ uartex:
   tx_checksum: add
 
   version:
-    name: "Version"
+    disabled: False
   error:
-    name: "Error"
+    disabled: False
   log:
-    name: "Log"
+    disabled: False
 ```
 ### Configuration variables
 - rx_timeout (Optional, Time): Data Receive Timeout. Defaults to 10ms. Max 2000ms
@@ -51,14 +51,14 @@ uartex:
 ## State Schema
 ```
 state: 
-  data: [0x30, 0xd0, 0x00, 0x0e, 0x00]
-  mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+  data: [0x30, 0xd0, 0x00, 0x0e, 0x00] or "ascii string"
+  mask: [0xff, 0xf0, 0xff, 0xff, 0xff] or "ascii string"
   offset: 0
   inverted: False
 ```
 ### Configuration variables
-- data (Required, array): 
-- mask (Optional, array): Defaults to []
+- data (Required, array or string): 
+- mask (Optional, array or string): Defaults to []
 - offset (Optional, int): Defaults to 0.
 - inverted (Optional, bool): Defaults to False.
 <hr/>
@@ -66,12 +66,12 @@ state:
 ## Command Schema
 ```
 command: 
-  cmd: [0x30, 0xd0, 0x00, 0x0e, 0x00]
-  ack: [0xff]
+  cmd: [0x30, 0xd0, 0x00, 0x0e, 0x00] or "ascii string"
+  ack: [0xff] or "ascii string"
 ```
 ### Configuration variables
-- cmd (Required, array): 
-- ack (Optional, array): Defaults to []
+- cmd (Required, array or string): 
+- ack (Optional, array or string): Defaults to []
 <hr/>
 
 ## State Num Schema
