@@ -235,17 +235,17 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
 
     // custom fan
     optional<std::string> custom_fan = get_state_custom_fan(data);
-    if (custom_fan.has_value() && this->custom_fan_mode_.has_value() && this->custom_fan_mode_.value() != custom_fan.value())
+    if (custom_fan.has_value() && this->custom_fan_mode.has_value() && this->custom_fan_mode.value() != custom_fan.value())
     {
-        this->custom_fan_mode_ = custom_fan.value();
+        this->custom_fan_mode = custom_fan.value();
         changed = true;
     }
 
     // custom preset
     optional<std::string> custom_preset = get_state_custom_preset(data);
-    if (custom_preset.has_value() && this->custom_preset_.has_value() && this->custom_preset_.value() != custom_preset.value())
+    if (custom_preset.has_value() && this->custom_preset.has_value() && this->custom_preset.value() != custom_preset.value())
     {
-        this->custom_preset_ = custom_preset.value();
+        this->custom_preset = custom_preset.value();
         changed = true;
     }
     
@@ -365,17 +365,17 @@ void UARTExClimate::control(const climate::ClimateCall& call)
     }
 
     // custom fan
-    if (call.get_custom_fan_mode().has_value() && this->custom_fan_mode_.value() != call.get_custom_fan_mode().value())
+    if (call.get_custom_fan_mode().has_value() && this->custom_fan_mode.value() != call.get_custom_fan_mode().value())
     {
-        this->custom_fan_mode_ = call.get_custom_fan_mode().value();
-        enqueue_tx_cmd(get_command_custom_fan(this->custom_fan_mode_.value()));
+        this->custom_fan_mode = call.get_custom_fan_mode().value();
+        enqueue_tx_cmd(get_command_custom_fan(this->custom_fan_mode.value()));
     }
 
     // custom preset
-    if (call.get_custom_preset().has_value() && this->custom_preset_.value() != call.get_custom_preset().value())
+    if (call.get_custom_preset().has_value() && this->custom_preset.value() != call.get_custom_preset().value())
     {
-        this->custom_preset_ = call.get_custom_preset().value();
-        enqueue_tx_cmd(get_command_custom_preset(this->custom_preset_.value()));
+        this->custom_preset = call.get_custom_preset().value();
+        enqueue_tx_cmd(get_command_custom_preset(this->custom_preset.value()));
     }
 
     publish_state();
