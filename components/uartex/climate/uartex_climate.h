@@ -16,6 +16,8 @@ public:
     void dump_config() override;
     void setup() override;
     void set_sensor(sensor::Sensor* sensor) { this->sensor_ = sensor; }
+    void set_custom_fan_modes(const std::set<std::string> &modes) { this->custom_fan_modes_ = modes; }
+    void set_custom_preset_modes(const std::set<std::string> &modes) { this->custom_preset_modes_ = modes; }
 
 protected:
     void publish(const std::vector<uint8_t>& data) override;
@@ -58,6 +60,9 @@ protected:
     cmd_t* get_command_preset_sleep() { return get_command("command_preset_sleep"); }
     cmd_t* get_command_preset_activity() { return get_command("command_preset_activity"); }
 
+    cmd_t* get_command_custom_fan(const std::string& str) { return get_command("command_custom_fan", str); }
+    cmd_t* get_command_custom_preset(const std::string& str) { return get_command("command_custom_preset", str); }
+
     state_t* get_state_cool() { return get_state("state_cool"); }
     state_t* get_state_heat() { return get_state("state_heat"); }
     state_t* get_state_fan_only() { return get_state("state_fan_only"); }
@@ -94,10 +99,16 @@ protected:
     optional<float> get_state_humidity_current(const std::vector<uint8_t>& data) { return get_state_float("state_humidity_current", data); }
     optional<float> get_state_humidity_target(const std::vector<uint8_t>& data) { return get_state_float("state_humidity_target", data); }
 
+    optional<std::string> get_state_custom_fan(const std::vector<uint8_t>& data) { return get_state_str("state_custom_fan", data); }
+    optional<std::string> get_state_custom_preset(const std::vector<uint8_t>& data) { return get_state_str("state_custom_preset", data); }
+
     bool has_state_temperature_current() { return has_state("state_temperature_current"); } 
     bool has_state_temperature_target() { return has_state("state_temperature_target"); } 
     bool has_state_humidity_current() { return has_state("state_humidity_current"); } 
     bool has_state_humidity_target() { return has_state("state_humidity_target"); } 
+
+    std::set<std::string> custom_fan_modes_{};
+    std::set<std::string> custom_preset_modes_{};
 };
 
 }  // namespace uartex

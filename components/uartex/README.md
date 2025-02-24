@@ -268,6 +268,10 @@ climate:
 - state_preset_eco (Optional, state): 
 - state_preset_sleep (Optional, state): 
 - state_preset_activity (Optional, state): 
+- state_custom_fan (Optional, lambda): 
+  - std::string = (uint8_t* data, uint16_t len)
+- state_custom_preset (Optional, lambda): 
+  - std::string = (uint8_t* data, uint16_t len)
 - command_off (Optional, command or lambda): 
   - command = (void)
 - command_temperature (Optional, lambda): 
@@ -328,6 +332,12 @@ climate:
   - command = (void)
 - command_update (Optional, command or lambda): 
   - command = (void)
+- command_custom_fan (Required, lambda): 
+  - command = (std::string str)
+- command_custom_preset (Required, lambda): 
+  - command = (std::string str)
+- custom_fan_mode (Optional, list): A list of custom fan mode for this climate
+- custom_preset (Optional, list): A list of custom preset mode for this climate
 <hr/>
 
 ## uartex.fan
