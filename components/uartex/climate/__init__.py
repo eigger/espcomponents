@@ -1,7 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import climate, uartex, sensor
-from esphome.const import CONF_ID, CONF_SENSOR, CONF_OFFSET
+from esphome.const import CONF_ID, CONF_SENSOR, CONF_OFFSET, CONF_CUSTOM_FAN_MODE, CONF_CUSTOM_PRESET
 from .. import uartex_ns, cmd_t, uint8_ptr_const, uint16_const, \
     command_expression, state_schema, state_hex_expression, command_hex_schema, state_num_schema
 from ..const import CONF_STATE_TEMPERATURE_CURRENT, CONF_STATE_TEMPERATURE_TARGET, CONF_STATE_HUMIDITY_CURRENT, CONF_STATE_HUMIDITY_TARGET, \
@@ -11,11 +11,44 @@ from ..const import CONF_STATE_TEMPERATURE_CURRENT, CONF_STATE_TEMPERATURE_TARGE
     CONF_COMMAND_OFF, CONF_COMMAND_PRESET_NONE, CONF_COMMAND_PRESET_HOME, CONF_COMMAND_PRESET_AWAY, CONF_COMMAND_PRESET_BOOST, CONF_COMMAND_PRESET_COMFORT, \
     CONF_STATE_PRESET_NONE, CONF_STATE_PRESET_HOME, CONF_STATE_PRESET_AWAY, CONF_STATE_PRESET_BOOST, CONF_STATE_PRESET_COMFORT, CONF_STATE_PRESET_ECO, CONF_STATE_PRESET_SLEEP, CONF_STATE_PRESET_ACTIVITY, \
     CONF_STATE_FAN_ON, CONF_STATE_FAN_OFF, CONF_STATE_FAN_AUTO, CONF_STATE_FAN_LOW, CONF_STATE_FAN_MEDIUM, CONF_STATE_FAN_HIGH, CONF_STATE_FAN_MIDDLE, CONF_STATE_FAN_FOCUS, CONF_STATE_FAN_DIFFUSE, CONF_STATE_FAN_QUIET, \
-    CONF_COMMAND_FAN_ON, CONF_COMMAND_FAN_OFF, CONF_COMMAND_FAN_AUTO, CONF_COMMAND_FAN_LOW, CONF_COMMAND_FAN_MEDIUM, CONF_COMMAND_FAN_HIGH, CONF_COMMAND_FAN_MIDDLE, CONF_COMMAND_FAN_FOCUS, CONF_COMMAND_FAN_DIFFUSE, CONF_COMMAND_FAN_QUIET
+    CONF_COMMAND_FAN_ON, CONF_COMMAND_FAN_OFF, CONF_COMMAND_FAN_AUTO, CONF_COMMAND_FAN_LOW, CONF_COMMAND_FAN_MEDIUM, CONF_COMMAND_FAN_HIGH, CONF_COMMAND_FAN_MIDDLE, CONF_COMMAND_FAN_FOCUS, CONF_COMMAND_FAN_DIFFUSE, CONF_COMMAND_FAN_QUIET, \
+    CONF_COMMAND_CUSTOM_FAN, CONF_COMMAND_CUSTOM_PRESET, CONF_STATE_CUSTOM_FAN, CONF_STATE_CUSTOM_PRESET
     
 AUTO_LOAD = ['sensor']
 DEPENDENCIES = ['uartex']
 UARTExClimate = uartex_ns.class_('UARTExClimate', climate.Climate, cg.Component)
+
+
+_CUSTOM_MODES_SCHEMA = cv.All(
+    cv.ensure_list(cv.string_strict),
+    cv.Length(min=1),
+)
+
+def validate_custom_modes(value):
+    # Check against defined schema
+    value = _CUSTOM_MODES_SCHEMA(value)
+
+    # Ensure custom names are unique
+    errors = []
+    customs = set()
+    for i, custom in enumerate(value):
+        # If name does not exist yet add it
+        if custom not in customs:
+            customs.add(custom)
+            continue
+
+        # Otherwise it's an error
+        errors.append(
+            cv.Invalid(
+                f"Found duplicate custom name '{custom}'. Presets must have unique names.",
+                [i],
+            )
+        )
+
+    if errors:
+        raise cv.MultipleInvalid(errors)
+
+    return value
 
 CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExClimate),
@@ -51,6 +84,8 @@ CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
     cv.Optional(CONF_STATE_PRESET_ECO): state_schema,
     cv.Optional(CONF_STATE_PRESET_SLEEP): state_schema,
     cv.Optional(CONF_STATE_PRESET_ACTIVITY): state_schema,
+    cv.Optional(CONF_STATE_CUSTOM_FAN): cv.returning_lambda,
+    cv.Optional(CONF_STATE_CUSTOM_PRESET): cv.returning_lambda,
     cv.Optional(CONF_COMMAND_TEMPERATURE): cv.returning_lambda,
     cv.Optional(CONF_COMMAND_HUMIDITY): cv.returning_lambda,
     cv.Optional(CONF_COMMAND_COOL): cv.templatable(command_hex_schema),
@@ -80,17 +115,30 @@ CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
     cv.Optional(CONF_COMMAND_PRESET_ECO): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_PRESET_SLEEP): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_PRESET_ACTIVITY): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_CUSTOM_FAN): cv.returning_lambda,
+    cv.Optional(CONF_COMMAND_CUSTOM_PRESET): cv.returning_lambda,
+    cv.Optional(CONF_CUSTOM_FAN_MODE): validate_custom_modes,
+    cv.Optional(CONF_CUSTOM_PRESET): validate_custom_modes,
 }).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Climate do not support command_on!"),
     cv.Optional(CONF_STATE_ON): cv.invalid("UARTEx Climate do not support state_on!")
 }).extend(cv.COMPONENT_SCHEMA), cv.has_exactly_one_key(CONF_SENSOR, CONF_STATE_TEMPERATURE_CURRENT))
 
+
+
+
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await climate.register_climate(var, config)
     await uartex.register_uartex_device(var, config)
+
+    if CONF_CUSTOM_FAN_MODE in config:
+        cg.add(var.set_custom_fan_modes(config[CONF_CUSTOM_FAN_MODE]))
+
+    if CONF_CUSTOM_PRESET in config:
+        cg.add(var.set_custom_preset_modes(config[CONF_CUSTOM_PRESET]))
 
     if CONF_STATE_TEMPERATURE_TARGET in config:
         state = config[CONF_STATE_TEMPERATURE_TARGET]
@@ -240,6 +288,14 @@ async def to_code(config):
         args = state_hex_expression(config[CONF_STATE_PRESET_ACTIVITY])
         cg.add(var.set_state(CONF_STATE_PRESET_ACTIVITY, args))
 
+    if CONF_STATE_CUSTOM_FAN in config:
+        templ = await cg.templatable(config[CONF_STATE_CUSTOM_FAN], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.std_string)
+        cg.add(var.set_state(CONF_STATE_CUSTOM_FAN, templ))
+
+    if CONF_STATE_CUSTOM_PRESET in config:
+        templ = await cg.templatable(config[CONF_STATE_CUSTOM_PRESET], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.std_string)
+        cg.add(var.set_state(CONF_STATE_CUSTOM_PRESET, templ))
+
     if CONF_COMMAND_TEMPERATURE in config:
         templ = await cg.templatable(config[CONF_COMMAND_TEMPERATURE], [(cg.float_.operator('const'), 'x')], cmd_t)
         cg.add(var.set_command(CONF_COMMAND_TEMPERATURE, templ))
@@ -356,3 +412,10 @@ async def to_code(config):
         args = await command_expression(config[CONF_COMMAND_PRESET_ACTIVITY])
         cg.add(var.set_command(CONF_COMMAND_PRESET_ACTIVITY, args))
 
+    if CONF_COMMAND_CUSTOM_FAN in config:
+        templ = await cg.templatable(config[CONF_COMMAND_CUSTOM_FAN], [(cg.std_string.operator('const'), 'str')], cmd_t)
+        cg.add(var.set_command(CONF_COMMAND_CUSTOM_FAN, templ))
+
+    if CONF_COMMAND_CUSTOM_PRESET in config:
+        templ = await cg.templatable(config[CONF_COMMAND_CUSTOM_PRESET], [(cg.std_string.operator('const'), 'str')], cmd_t)
+        cg.add(var.set_command(CONF_COMMAND_CUSTOM_PRESET, templ))

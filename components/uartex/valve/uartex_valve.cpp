@@ -52,14 +52,19 @@ void UARTExValve::control(const valve::ValveCall& call)
     if (call.get_stop()) enqueue_tx_cmd(get_command_stop());
     if (this->position != *call.get_position())
     {
-        this->position = *call.get_position();
-        if (this->position >= valve::VALVE_OPEN)
+        if (*call.get_position() >= valve::VALVE_OPEN)
         {
-            enqueue_tx_cmd(get_command_open());
+            if (enqueue_tx_cmd(get_command_open()))
+            {
+                this->position = *call.get_position();
+            }
         }
-        else if (this->position <= valve::VALVE_CLOSED)
+        else if (*call.get_position() <= valve::VALVE_CLOSED)
         {
-            enqueue_tx_cmd(get_command_close());
+            if (enqueue_tx_cmd(get_command_close()))
+            {
+                this->position = *call.get_position();
+            }
         }
     }
     publish_state();

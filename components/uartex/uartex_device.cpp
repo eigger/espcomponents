@@ -71,12 +71,13 @@ uint8_t UARTExDevice::get_state_data(uint32_t index)
     return state_data_[index];
 }
 
-void UARTExDevice::enqueue_tx_cmd(const cmd_t* cmd, bool low_priority)
+bool UARTExDevice::enqueue_tx_cmd(const cmd_t* cmd, bool low_priority)
 {
-    if (cmd == nullptr) return;
-    if (cmd->data.size() == 0) return;
+    if (cmd == nullptr) return false;
+    if (cmd->data.size() == 0) return false;
     if (low_priority) this->tx_cmd_queue_low_priority_.push(cmd);
     else this->tx_cmd_queue_.push(cmd);
+    return true;
 }
 
 cmd_t* UARTExDevice::get_command(const std::string& name, const std::string& str)

@@ -27,6 +27,8 @@ climate::ClimateTraits UARTExClimate::traits()
     {
         traits.set_supports_target_humidity(true);
     }
+    if (!this->custom_fan_modes_.empty()) traits.set_supported_custom_fan_modes(this->custom_fan_modes_);
+    if (!this->custom_preset_modes_.empty()) traits.set_supported_custom_presets(this->custom_preset_modes_);
 
     if (get_command_cool() || get_state_cool()) traits.add_supported_mode(climate::CLIMATE_MODE_COOL);
     if (get_command_heat() || get_state_heat()) traits.add_supported_mode(climate::CLIMATE_MODE_HEAT);
@@ -230,6 +232,22 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
         this->preset = climate::CLIMATE_PRESET_ACTIVITY;
         changed = true;
     }
+
+    // custom fan
+    optional<std::string> custom_fan = get_state_custom_fan(data);
+    if (custom_fan.has_value() && this->custom_fan_mode.has_value() && this->custom_fan_mode.value() != custom_fan.value())
+    {
+        this->custom_fan_mode = custom_fan.value();
+        changed = true;
+    }
+
+    // custom preset
+    optional<std::string> custom_preset = get_state_custom_preset(data);
+    if (custom_preset.has_value() && this->custom_preset.has_value() && this->custom_preset.value() != custom_preset.value())
+    {
+        this->custom_preset = custom_preset.value();
+        changed = true;
+    }
     
     // Current temperature
     if (this->sensor_ == nullptr)
@@ -345,6 +363,21 @@ void UARTExClimate::control(const climate::ClimateCall& call)
         else if (this->preset.value() == climate::CLIMATE_PRESET_SLEEP) enqueue_tx_cmd(get_command_preset_sleep());
         else if (this->preset.value() == climate::CLIMATE_PRESET_ACTIVITY) enqueue_tx_cmd(get_command_preset_activity());
     }
+
+    // custom fan
+    if (call.get_custom_fan_mode().has_value() && this->custom_fan_mode.value() != call.get_custom_fan_mode().value())
+    {
+        this->custom_fan_mode = call.get_custom_fan_mode().value();
+        enqueue_tx_cmd(get_command_custom_fan(this->custom_fan_mode.value()));
+    }
+
+    // custom preset
+    if (call.get_custom_preset().has_value() && this->custom_preset.value() != call.get_custom_preset().value())
+    {
+        this->custom_preset = call.get_custom_preset().value();
+        enqueue_tx_cmd(get_command_custom_preset(this->custom_preset.value()));
+    }
+
     publish_state();
 }
 

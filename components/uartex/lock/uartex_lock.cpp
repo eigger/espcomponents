@@ -82,17 +82,23 @@ void UARTExLock::control(const lock::LockCall& call)
 {
     if (this->state != *call.get_state())
     {
-        this->state = *call.get_state();
+
         this->timer_ = get_time();
-        switch (this->state)
+        switch (*call.get_state())
         {
         case lock::LOCK_STATE_LOCKED:
-            enqueue_tx_cmd(get_command_lock());
-            if (get_state_locked()) this->state = lock::LOCK_STATE_LOCKING;
+            if (enqueue_tx_cmd(get_command_lock()))
+            {
+                this->state = *call.get_state();
+                if (get_state_locked()) this->state = lock::LOCK_STATE_LOCKING;
+            }
             break;
         case lock::LOCK_STATE_UNLOCKED:
-            enqueue_tx_cmd(get_command_unlock());
-            if (get_state_unlocked()) this->state = lock::LOCK_STATE_UNLOCKING;
+            if (enqueue_tx_cmd(get_command_unlock()))
+            {
+                this->state = *call.get_state();
+                if (get_state_unlocked()) this->state = lock::LOCK_STATE_UNLOCKING;
+            }
             break;
         case lock::LOCK_STATE_LOCKING:
             break;        

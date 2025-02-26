@@ -1,0 +1,20 @@
+esp8266:
+  board: d1_mini
+
+uart:
+  rx_pin: D4
+  tx_pin: D5
+  baud_rate: 9600
+
+sensor:
+  - platform: pm1006
+    update_interval: 5min
+    pm_2_5:
+      name: "PM2.5"
+      filters:
+        - filter_out: nan
+        - heartbeat: 20s  # 최소 15초마다 값 확인
+        - sliding_window_moving_average:
+            window_size: 20  # 윈도우 크기를 30으로 설정하여 부드러운 데이터 제공
+            send_every: 1
+            send_first_at: 1

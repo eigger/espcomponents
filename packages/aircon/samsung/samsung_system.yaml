@@ -1,0 +1,57 @@
+#작성중
+
+uart:
+  baud_rate: 9600
+  data_bits: 8
+  parity: EVEN
+  stop_bits: 1
+  rx_pin: GPIO22
+  tx_pin: GPIO19
+
+external_components:
+  - source: github://eigger/espcomponents/relreases/latest
+    components: [ uartex ]
+    refresh: always  
+
+uartex:
+  rx_timeout: 10ms
+  tx_delay: 50ms
+  tx_timeout: 500ms
+  tx_retry_cnt: 3
+
+  rx_header: [0x32]
+  rx_footer: [0x34]
+  tx_header: [0x32]
+  tx_footer: [0x34]
+
+  rx_checksum2: !lambda |-
+    uint16_t crc = 0;
+    for (int i = 2; i < len; i++)
+    {
+        crc = crc ^ ((uint16_t)((uint8_t)data[i]) << 8);
+        for (uint8_t j = 0; j < 8; j++)
+        {
+            if (crc & 0x8000) crc = (crc << 1) ^ 0x1021;
+            else crc <<= 1;
+        }
+    }
+    return { (uint8_t)(crc >> 8), (uint8_t)(crc & 0xFF) };
+  tx_checksum2: !lambda |-
+    uint16_t crc = 0;
+    for (int i = 2; i < len; i++)
+    {
+        crc = crc ^ ((uint16_t)((uint8_t)data[i]) << 8);
+        for (uint8_t j = 0; j < 8; j++)
+        {
+            if (crc & 0x8000) crc = (crc << 1) ^ 0x1021;
+            else crc <<= 1;
+        }
+    }
+    return { (uint8_t)(crc >> 8), (uint8_t)(crc & 0xFF) };
+
+  version:
+    disabled: False
+  error:
+    disabled: False
+  log:
+    disabled: False
