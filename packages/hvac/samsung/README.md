@@ -5,7 +5,7 @@ packages:
     refresh: always
     url: https://github.com/eigger/espcomponents/
     files:
-      - packages/aircon/samsung/samsung_system.yaml
+      - packages/hvac/samsung/samsung_system.yaml
 ```
 
 
