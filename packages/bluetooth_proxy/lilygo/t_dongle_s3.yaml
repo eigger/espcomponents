@@ -1,0 +1,51 @@
+esp32:
+  board: lilygo-t-display-s3
+  variant: esp32s3
+  framework:
+    type: esp-idf
+    
+esp32_ble_tracker:
+  scan_parameters:
+    # We currently use the defaults to ensure Bluetooth
+    # can co-exist with WiFi In the future we may be able to
+    # enable the built-in coexistence logic in ESP-IDF
+    active: true
+
+bluetooth_proxy:
+  active: true
+
+# spi:
+#   clk_pin: GPIO05
+#   mosi_pin: GPIO03
+
+# display:
+#   - platform: ili9xxx
+#     model: ST7735
+#     dimensions:
+#       height: 160
+#       width: 80
+#       offset_height: 1
+#       offset_width: 26
+#     color_order: bgr
+#     #data_rate: 80MHz
+#     rotation: 90
+#     cs_pin: GPIO04
+#     dc_pin: GPIO02
+#     reset_pin: GPIO01
+#     update_interval: 5s
+#     lambda: |-
+#       it.fill(Color(255, 255, 255));
+#       it.printf(0, 0, id(id_font), "Hello", Color(255, 255, 255));
+
+# font:
+#   - file: "fonts/pixelmix.ttf"
+#     id: id_font
+#     size: 20
+
+switch:
+  - platform: gpio
+    pin: 38
+    name: "LED"
+    restore_mode: ALWAYS_OFF
+    inverted: true
+    internal: true
