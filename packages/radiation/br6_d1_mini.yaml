@@ -1,0 +1,21 @@
+esp8266:
+  board: d1_mini
+
+sensor:
+  - platform: pulse_counter
+    pin: D2 #GPIO4
+    name: "Geiger Counter"
+    unit_of_measurement: 'CPM'
+    update_interval: 20s
+    on_raw_value:
+      - sensor.template.publish:
+          id: level
+          state: !lambda 'return x * 0.0075;'
+
+  - platform: template
+    name: "Level"
+    id: "level"
+    unit_of_measurement: 'µSv/h'
+    icon: mdi:radioactive
+    accuracy_decimals: 2
+    state_class: measurement
