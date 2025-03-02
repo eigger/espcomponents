@@ -1,9 +1,15 @@
 esp8266:
   board: d1_mini
-    
+
+esphome:
+  on_boot: 
+    then:
+      - delay: 5s
+      - switch.turn_on: screen
+
 sensor:
   - platform: pulse_counter
-    pin: GPIO4
+    pin: D2 #GPIO4
     name: "Geiger Counter"
     id: "geiger_counter"
     unit_of_measurement: 'CPM'
@@ -15,7 +21,7 @@ sensor:
     on_value_range:
       - below: 1
         then: 
-          - switch.turn_on: backlight
+          - switch.turn_on: screen
   - platform: template
     name: "Radiation Level"
     id: "radiation_level"
@@ -27,25 +33,25 @@ sensor:
 binary_sensor:
   - platform: gpio
     pin:
-      number: GPIO12
+      number: D6 #GPIO12
       mode:
         input: true
         pullup: false
-    name: "Backlight Status"
     id: backlight_status
     filters:
       - delayed_on: 150ms
       - delayed_off: 150ms
+    internal: true
 
 switch:
   - platform: gpio
     pin:
-      number: GPIO5
+      number: D1 #GPIO5
       inverted: true
-    id: backlight
-    name: "Backlight"
+    id: screen
     # If ESP reboots, do not attempt to restore switch state
     restore_mode: always off
     on_turn_on:
-    - delay: 500ms
-    - switch.turn_off: backlight
+      - delay: 500ms
+      - switch.turn_off: screen
+    internal: true
