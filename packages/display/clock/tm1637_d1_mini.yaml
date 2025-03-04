@@ -1,3 +1,6 @@
+esp8266:
+  board: d1_mini
+
 display:
   - platform: tm1637
     clk_pin: D6
