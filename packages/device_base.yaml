@@ -16,7 +16,6 @@ ota:
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
-  domain: .local
   fast_connect: true
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
@@ -74,6 +73,7 @@ sensor:
     update_interval: 60s
     unit_of_measurement: '%'
     entity_category: "diagnostic"
+    state_class: measurement
     accuracy_decimals: 0
     lambda: !lambda |-
       float dBm = id(wifi_sig).state;
