@@ -51,6 +51,7 @@ void UARTExComponent::read_from_uart()
 {
     this->rx_parser_.clear();
     unsigned long timer = get_time();
+    if (!this->available()) return;
     while (elapsed_time(timer) < this->conf_rx_timeout_)
     {
         while (this->available())
