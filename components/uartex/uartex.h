@@ -70,6 +70,7 @@ public:
     void set_tx_delay(uint16_t tx_delay);
     void set_tx_timeout(uint16_t timeout);
     void set_tx_retry_cnt(uint16_t tx_retry_cnt);
+    void set_rx_length(uint16_t rx_length);
     void set_rx_timeout(uint16_t timeout);
     void set_tx_ctrl_pin(InternalGPIOPin *pin);
     void enqueue_tx_data(const tx_data_t data, bool low_priority = false);
@@ -101,6 +102,7 @@ protected:
     uint16_t conf_tx_delay_{50};
     uint16_t conf_tx_timeout_{50};
     uint16_t conf_tx_retry_cnt_{3};
+    uint16_t conf_rx_length_{0};
     optional<std::vector<uint8_t>> rx_header_{};
     optional<std::vector<uint8_t>> rx_footer_{};
     optional<std::vector<uint8_t>> tx_header_{};
@@ -122,6 +124,7 @@ protected:
     unsigned long rx_time_{0};
     unsigned long tx_time_{0};
     uint16_t tx_retry_cnt_{0};
+
     InternalGPIOPin *tx_ctrl_pin_{nullptr};
     Parser rx_parser_{};
     text_sensor::TextSensor* version_{nullptr};

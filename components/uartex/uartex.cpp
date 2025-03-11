@@ -11,6 +11,7 @@ void UARTExComponent::dump_config()
     ESP_LOGCONFIG(TAG, "  RX Receive Timeout: %d", this->conf_rx_timeout_);
     ESP_LOGCONFIG(TAG, "  TX Transmission Timeout: %d", this->conf_tx_timeout_);
     ESP_LOGCONFIG(TAG, "  TX Retry Count: %d", this->conf_tx_retry_cnt_);
+    ESP_LOGCONFIG(TAG, "  RX Length: %d", this->conf_rx_length_);
     if (this->tx_ctrl_pin_)   LOG_PIN("  TX Ctrl Pin: ", this->tx_ctrl_pin_);
     if (this->rx_header_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_header: %s", to_hex_string(this->rx_header_.value()).c_str());
     if (this->rx_footer_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_footer: %s", to_hex_string(this->rx_footer_.value()).c_str());
@@ -34,6 +35,7 @@ void UARTExComponent::setup()
     this->tx_time_ = get_time();
     if (this->rx_header_.has_value()) this->rx_parser_.add_headers(this->rx_header_.value());
     if (this->rx_footer_.has_value()) this->rx_parser_.add_footers(this->rx_footer_.value());
+    this->rx_parser_.set_total_len(this->conf_rx_length_);
     if (this->error_) this->error_->publish_state("None");
     if (this->version_) this->version_->publish_state(UARTEX_VERSION);
     ESP_LOGI(TAG, "Initaialize.");
@@ -245,6 +247,11 @@ void UARTExComponent::set_tx_retry_cnt(uint16_t tx_retry_cnt)
     this->conf_tx_retry_cnt_ = tx_retry_cnt;
 }
 
+void UARTExComponent::set_rx_length(uint16_t rx_length)
+{
+    this->conf_rx_length_ = rx_length;
+}
+
 void UARTExComponent::set_rx_timeout(uint16_t timeout)
 {
     this->conf_rx_timeout_ = timeout;
@@ -281,6 +288,10 @@ const cmd_t* UARTExComponent::current_tx_cmd()
 ERROR UARTExComponent::validate_data()
 {
     if (this->rx_parser_.data().size() == 0)
+    {
+        return ERROR_SIZE;
+    }
+    if (this->conf_rx_length_ > 0 && this->conf_rx_length_ != this->rx_parser_.buffer().size())
     {
         return ERROR_SIZE;
     }

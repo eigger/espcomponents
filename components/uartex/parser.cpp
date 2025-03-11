@@ -3,6 +3,7 @@
 Parser::Parser()
 {
 	checksum_len_ = 0;
+	total_len_ = 0;
 }
 
 
@@ -70,7 +71,16 @@ bool Parser::parse_footer()
 {
 	if (footer_.size() == 0) return false;
 	if (buffer_.size() < footer_.size()) return false;
+	if (total_len_ > 0 && buffer_.size() != total_len_) return false;
 	return std::equal(buffer_.end() - footer_.size(), buffer_.end(), footer_.begin());
+}
+
+bool Parser::parse_length()
+{
+	if (total_len_ == 0) return false;
+	if (footer_.size() > 0) return false;
+	if (buffer_.size() != total_len_) return false;
+	return true;
 }
 
 bool Parser::available()
@@ -94,4 +104,9 @@ const std::vector<unsigned char> Parser::buffer()
 void Parser::set_checksum_len(size_t len)
 {
 	checksum_len_ = len;
+}
+
+void Parser::set_total_len(size_t len)
+{
+	total_len_ = len;
 }

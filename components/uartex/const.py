@@ -3,6 +3,7 @@
 
 CONF_UARTEX_ID = 'uartex_id'
 CONF_RX_TIMEOUT = 'rx_timeout'
+CONF_RX_LENGTH = 'rx_length'
 CONF_TX_DELAY = 'tx_delay'
 CONF_TX_TIMEOUT = 'tx_timeout'
 CONF_TX_RETRY_CNT = 'tx_retry_cnt'
