@@ -45,6 +45,7 @@ bool Parser::parse_byte(const unsigned char byte)
 		return false;
 	}
 	if (parse_footer() == true) return true;
+	if (parse_length() == true) return true;
 	return false;
 }
 
