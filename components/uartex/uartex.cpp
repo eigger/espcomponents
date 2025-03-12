@@ -499,13 +499,19 @@ uint16_t UARTExComponent::get_checksum(CHECKSUM checksum, const std::vector<uint
     uint16_t crc = 0;
     switch(checksum)
     {
+    case CHECKSUM_XOR:
+        for (uint8_t byte : header) { crc ^= byte; }
+        for (uint8_t byte : data) { crc ^= byte; }
+        break;
     case CHECKSUM_ADD:
         for (uint8_t byte : header) { crc += byte; }
         for (uint8_t byte : data) { crc += byte; }
         break;
-    case CHECKSUM_XOR:
-        for (uint8_t byte : header) { crc ^= byte; }
+    case CHECKSUM_XOR_NO_HEADER:
         for (uint8_t byte : data) { crc ^= byte; }
+        break;
+    case CHECKSUM_ADD_NO_HEADER:
+        for (uint8_t byte : data) { crc += byte; }
         break;
     case CHECKSUM_NONE:
         break;

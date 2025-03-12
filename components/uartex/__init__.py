@@ -34,6 +34,8 @@ CHECKSUMS = {
     "NONE": Checksum.CHECKSUM_NONE,
     "XOR": Checksum.CHECKSUM_XOR,
     "ADD": Checksum.CHECKSUM_ADD,
+    "XOR_NO_HEADER": Checksum.CHECKSUM_XOR_NO_HEADER,
+    "ADD_NO_HEADER": Checksum.CHECKSUM_ADD_NO_HEADER,
 }
 
 def _uartex_declare_type(value):

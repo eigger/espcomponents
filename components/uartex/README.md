@@ -34,13 +34,13 @@ uartex:
 - rx_footer (Optional, array): Footer of Data to be Received
 - tx_header (Optional, array): Header of Data to be Transmitted
 - tx_footer (Optional, array): Header of Data to be Transmitted
-- rx_checksum (Optional, enum, lambda): Checksum of Data to be Received. (add, xor)
+- rx_checksum (Optional, enum, lambda): Checksum of Data to be Received. (add, xor, add_no_header, xor_no_header)
   - uint8_t = (uint8_t* data, uint16_t len)
-- tx_checksum (Optional, enum, lambda): Checksum of Data to be Transmitted. (add, xor)
+- tx_checksum (Optional, enum, lambda): Checksum of Data to be Transmitted. (add, xor, add_no_header, xor_no_header)
   - uint8_t = (uint8_t* data, uint16_t len)
-- rx_checksum2 (Optional, enum or lambda): Checksum array of Data to be Received. (add, xor)
+- rx_checksum2 (Optional, enum or lambda): Checksum array of Data to be Received. (add, xor, add_no_header, xor_no_header)
   - vector\<uint8_t\> = (uint8_t* data, uint16_t len)
-- tx_checksum2 (Optional, enum or lambda): Checksum array of Data to be Transmitted. (add, xor)
+- tx_checksum2 (Optional, enum or lambda): Checksum array of Data to be Transmitted. (add, xor, add_no_header, xor_no_header)
   - vector\<uint8_t\> = (uint8_t* data, uint16_t len)
 - on_read (Optional, lambda): Event of Data to be Received
   - void = (uint8_t* data, uint16_t len)
