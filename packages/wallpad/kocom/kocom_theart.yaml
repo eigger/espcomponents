@@ -27,7 +27,7 @@ uartex:
     for (size_t i = 0; i < len; i++)
       crc += data[i];
     return crc;
-  tx_checksum:
+  tx_checksum: !lambda |-
     uint8_t crc = 0x00;
     for (size_t i = 0; i < len; i++)
       crc += data[i];
