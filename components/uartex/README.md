@@ -25,6 +25,7 @@ uartex:
 ```
 ### Configuration variables
 - rx_timeout (Optional, Time): Data Receive Timeout. Defaults to 10ms. Max 2000ms
+- rx_length (Optional, int): The length of the received data when the data length is fixed. Max 256
 - tx_delay (Optional, Time): Data Send Delay. Defaults to 50ms. Max 2000ms
 - tx_timeout (Optional, Time): ACK Reception Timeout. Defaults to 50ms. Max 2000ms
 - tx_retry_cnt (Optional, int): Retry Count on ACK Failure. Defaults to 3. Max 10

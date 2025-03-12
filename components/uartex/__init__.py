@@ -13,7 +13,7 @@ from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTE
     CONF_STATE, CONF_MASK, \
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
     CONF_COMMAND_UPDATE, CONF_RX_TIMEOUT, CONF_TX_TIMEOUT, CONF_TX_RETRY_CNT, \
-    CONF_STATE_RESPONSE, CONF_LENGTH, CONF_PRECISION, \
+    CONF_STATE_RESPONSE, CONF_LENGTH, CONF_PRECISION, CONF_RX_LENGTH, \
     CONF_TX_CTRL_PIN, CONF_TX_DELAY, CONF_DISABLED
 
 AUTO_LOAD = ["text_sensor"]
@@ -99,6 +99,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         cv.Range(max=core.TimePeriod(milliseconds=2000)),
     ),
     cv.Optional(CONF_TX_RETRY_CNT, default=3): cv.int_range(min=1, max=10),
+    cv.Optional(CONF_RX_LENGTH): cv.int_range(min=1, max=256),
     cv.Optional(CONF_TX_CTRL_PIN): pins.gpio_output_pin_schema,
     cv.Optional(CONF_RX_HEADER): validate_hex_data,
     cv.Optional(CONF_RX_FOOTER): validate_hex_data,
@@ -171,6 +172,9 @@ async def to_code(config):
 
     if CONF_TX_RETRY_CNT in config:
         cg.add(var.set_tx_retry_cnt(config[CONF_TX_RETRY_CNT]))
+
+    if CONF_RX_LENGTH in config:
+        cg.add(var.set_rx_length(config[CONF_RX_LENGTH]))
 
     if CONF_TX_CTRL_PIN in config:
         tx_ctrl_pin = await cg.gpio_pin_expression(config[CONF_TX_CTRL_PIN])
