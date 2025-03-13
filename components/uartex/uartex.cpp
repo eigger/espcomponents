@@ -308,7 +308,7 @@ ERROR UARTExComponent::validate_data()
     {
         return ERROR_FOOTER;
     }
-    if ((this->rx_checksum_ != CHECKSUM_NONE || this->rx_checksum_2_ != CHECKSUM_NONE) && !this->rx_parser_.verify_checksum(get_rx_checksum(this->rx_parser_.data())))
+    if ((this->rx_checksum_ != CHECKSUM_NONE || this->rx_checksum_2_ != CHECKSUM_NONE) && !this->rx_parser_.verify_checksum(get_rx_checksum(this->rx_parser_.data(), this->rx_parser_.header())))
     {
         return ERROR_CHECKSUM;
     }
@@ -443,7 +443,7 @@ void UARTExComponent::set_tx_checksum_2(std::function<std::vector<uint8_t>(const
     this->tx_checksum_2_ = CHECKSUM_CUSTOM;
 }
 
-std::vector<uint8_t> UARTExComponent::get_rx_checksum(const std::vector<uint8_t> &data)
+std::vector<uint8_t> UARTExComponent::get_rx_checksum(const std::vector<uint8_t> &data, const std::vector<uint8_t> &header)
 {
     if (this->rx_checksum_f_.has_value())
     {
@@ -456,7 +456,6 @@ std::vector<uint8_t> UARTExComponent::get_rx_checksum(const std::vector<uint8_t>
     }
     else
     {
-        std::vector<uint8_t> header = this->rx_header_.value_or(header_t{}).data;
         if (this->rx_checksum_ != CHECKSUM_NONE)
         {
             uint8_t crc = get_checksum(this->rx_checksum_, header, data) & 0xFF;

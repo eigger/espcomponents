@@ -65,7 +65,7 @@ public:
     void set_log(text_sensor::TextSensor *log) { this->log_ = log; }
     void set_on_write(std::function<void(const uint8_t *data, const uint16_t len)> &&f) { this->on_write_f_ = f; }
     void set_on_read(std::function<void(const uint8_t *data, const uint16_t len)> &&f){ this->on_read_f_ = f; }
-    std::vector<uint8_t> get_rx_checksum(const std::vector<uint8_t> &data);
+    std::vector<uint8_t> get_rx_checksum(const std::vector<uint8_t> &data, const std::vector<uint8_t> &header);
     std::vector<uint8_t> get_tx_checksum(const std::vector<uint8_t> &data);
     void dump_config() override;
     void setup() override;

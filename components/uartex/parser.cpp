@@ -110,6 +110,14 @@ bool Parser::available()
 	return true;
 }
 
+const std::vector<unsigned char> Parser::header()
+{
+    if (header_.empty()) return {};
+    size_t header_size = header_.size();
+    if (buffer_.size() < header_size) header_size = buffer_.size();
+    return std::vector<unsigned char>(buffer_.begin(), buffer_.begin() + header_size);
+}
+
 const std::vector<unsigned char> Parser::data()
 {
 	size_t offset = checksum_len_;

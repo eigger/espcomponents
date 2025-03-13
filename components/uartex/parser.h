@@ -20,6 +20,7 @@ public:
 	bool parse_byte(const unsigned char byte);
 	bool verify_checksum(const std::vector<unsigned char>& checksums);
 	void clear();
+	const std::vector<unsigned char> header();
 	const std::vector<unsigned char> data();
 	const std::vector<unsigned char> buffer();
 	bool parse_header();
