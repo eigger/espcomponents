@@ -111,8 +111,7 @@ protected:
     uint16_t conf_tx_timeout_{50};
     uint16_t conf_tx_retry_cnt_{3};
     uint16_t conf_rx_length_{0};
-    //optional<header_t> rx_header_{};
-    header_t rx_header_{};
+    optional<header_t> rx_header_{};
     optional<std::vector<uint8_t>> rx_footer_{};
     optional<std::vector<uint8_t>> tx_header_{};
     optional<std::vector<uint8_t>> tx_footer_{};
