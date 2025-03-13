@@ -76,17 +76,6 @@ void Parser::clear()
 	buffer_.clear();
 }
 
-const std::vector<uint8_t> masked_data(const std::vector<uint8_t>& data, const state_t* state)
-{
-    std::vector<uint8_t> masked_data = data;
-    for (size_t i = state->offset, j = 0; i < data.size() && j < state->mask.size(); i++, j++)
-    {
-        masked_data[i] &= state->mask[j];
-    }
-    return masked_data;
-}
-
-
 bool Parser::parse_header()
 {
 	if (header_.size() == 0) return true;
