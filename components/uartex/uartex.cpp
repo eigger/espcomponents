@@ -13,8 +13,8 @@ void UARTExComponent::dump_config()
     ESP_LOGCONFIG(TAG, "  TX Retry Count: %d", this->conf_tx_retry_cnt_);
     ESP_LOGCONFIG(TAG, "  RX Length: %d", this->conf_rx_length_);
     if (this->tx_ctrl_pin_)   LOG_PIN("  TX Ctrl Pin: ", this->tx_ctrl_pin_);
-    if (this->rx_header_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_header: %s", to_hex_string(this->rx_header_.value().data).c_str());
-    if (this->rx_header_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_header mask: %s", to_hex_string(this->rx_header_.value().mask).c_str());
+    if (!this->rx_header_.empty()) ESP_LOGCONFIG(TAG, "  Data rx_header: %s", to_hex_string(this->rx_header_.data).c_str());
+    if (!this->rx_header_.empty()) ESP_LOGCONFIG(TAG, "  Data rx_header mask: %s", to_hex_string(this->rx_header_.mask).c_str());
     if (this->rx_footer_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_footer: %s", to_hex_string(this->rx_footer_.value()).c_str());
     if (this->tx_header_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_header: %s", to_hex_string(this->tx_header_.value()).c_str());
     if (this->tx_footer_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_footer: %s", to_hex_string(this->tx_footer_.value()).c_str());
@@ -34,10 +34,10 @@ void UARTExComponent::setup()
     if (this->rx_checksum_2_ != CHECKSUM_NONE) this->rx_parser_.set_checksum_len(2);
     this->rx_time_ = get_time();
     this->tx_time_ = get_time();
-    if (this->rx_header_.has_value())
+    if (!this->rx_header_.empty())
     {
-        this->rx_parser_.add_headers(this->rx_header_.value().data);
-        this->rx_parser_.add_header_masks(this->rx_header_.value().mask);
+        this->rx_parser_.add_headers(this->rx_header_.data);
+        this->rx_parser_.add_header_masks(this->rx_header_.mask);
     }
     if (this->rx_footer_.has_value()) this->rx_parser_.add_footers(this->rx_footer_.value());
     this->rx_parser_.set_total_len(this->conf_rx_length_);
@@ -300,7 +300,7 @@ ERROR UARTExComponent::validate_data()
     {
         return ERROR_SIZE;
     }
-    if (this->rx_header_.has_value() && this->rx_parser_.parse_header() == false)
+    if (!this->rx_header_.empty() && this->rx_parser_.parse_header() == false)
     {
         return ERROR_HEADER;
     }
@@ -456,7 +456,7 @@ std::vector<uint8_t> UARTExComponent::get_rx_checksum(const std::vector<uint8_t>
     }
     else
     {
-        std::vector<uint8_t> header = this->rx_header_.value_or(header_t).data;
+        std::vector<uint8_t> header = this->rx_header_.data;
         if (this->rx_checksum_ != CHECKSUM_NONE)
         {
             uint8_t crc = get_checksum(this->rx_checksum_, header, data) & 0xFF;
