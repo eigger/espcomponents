@@ -456,7 +456,7 @@ std::vector<uint8_t> UARTExComponent::get_rx_checksum(const std::vector<uint8_t>
     }
     else
     {
-        std::vector<uint8_t> header = this->rx_header_.value_or(header_t).data;
+        std::vector<uint8_t> header = this->rx_header_.value_or(header_t{}).data;
         if (this->rx_checksum_ != CHECKSUM_NONE)
         {
             uint8_t crc = get_checksum(this->rx_checksum_, header, data) & 0xFF;
