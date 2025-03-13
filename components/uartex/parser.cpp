@@ -20,7 +20,21 @@ bool Parser::add_header(const unsigned char header)
 
 bool Parser::add_headers(const std::vector<unsigned char>& header)
 {
+	if (header.size() == 0) return false;
 	header_.insert(header_.end(), header.begin(), header.end());
+	return true;
+}
+
+bool Parser::add_header_mask(const unsigned char mask)
+{
+	header_mask_.push_back(mask);
+	return true;
+}
+
+bool Parser::add_header_masks(const std::vector<unsigned char>& mask)
+{
+	if (mask.size() == 0) return false;
+	header_mask_.insert(header_.end(), mask.begin(), mask.end());
 	return true;
 }
 
@@ -32,6 +46,7 @@ bool Parser::add_footer(const unsigned char footer)
 
 bool Parser::add_footers(const std::vector<unsigned char>& footer)
 {
+	if (footer.size() == 0) return false;
 	footer_.insert(footer_.end(), footer.begin(), footer.end());
 	return true;
 }
@@ -61,11 +76,27 @@ void Parser::clear()
 	buffer_.clear();
 }
 
+const std::vector<uint8_t> masked_data(const std::vector<uint8_t>& data, const state_t* state)
+{
+    std::vector<uint8_t> masked_data = data;
+    for (size_t i = state->offset, j = 0; i < data.size() && j < state->mask.size(); i++, j++)
+    {
+        masked_data[i] &= state->mask[j];
+    }
+    return masked_data;
+}
+
+
 bool Parser::parse_header()
 {
 	if (header_.size() == 0) return true;
-	size_t size = buffer_.size() < header_.size() ? buffer_.size() : header_.size();
-	return std::equal(buffer_.begin(), buffer_.begin() + size, header_.begin());
+	std::vector<uint8_t> masked_header = header_;
+	for (size_t i = 0, j = 0; i < header_.size() && j < header_mask_.size(); i++, j++)
+    {
+        masked_header[i] &= header_mask_[j];
+    }
+	size_t size = buffer_.size() < masked_header.size() ? buffer_.size() : masked_header.size();
+	return std::equal(buffer_.begin(), buffer_.begin() + size, masked_header.begin());
 }
 
 bool Parser::parse_footer()

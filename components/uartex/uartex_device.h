@@ -9,6 +9,11 @@
 namespace esphome {
 namespace uartex {
 
+enum ENDIAN {
+    ENDIAN_BIG,
+    ENDIAN_LITTLE
+}
+
 struct state_t
 {
     uint16_t offset;
@@ -22,6 +27,8 @@ struct state_num_t
     uint16_t offset;
     uint16_t length;    // 1~4
     uint16_t precision; // 0~5
+    bool is_signed;
+    ENDIAN endian;
 };
 
 struct cmd_t

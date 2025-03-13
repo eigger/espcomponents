@@ -38,11 +38,17 @@ struct tx_data_t
     const cmd_t* cmd;
 };
 
+struct header_t
+{
+    std::vector<uint8_t> data;
+    std::vector<uint8_t> mask;
+};
+
 class UARTExComponent : public uart::UARTDevice, public Component
 {
 public:
     UARTExComponent() = default;
-    void set_rx_header(std::vector<uint8_t> header);
+    void set_rx_header(header_t header);
     void set_rx_footer(std::vector<uint8_t> footer);
     void set_tx_header(std::vector<uint8_t> header);
     void set_tx_footer(std::vector<uint8_t> footer);
@@ -105,7 +111,7 @@ protected:
     uint16_t conf_tx_timeout_{50};
     uint16_t conf_tx_retry_cnt_{3};
     uint16_t conf_rx_length_{0};
-    optional<std::vector<uint8_t>> rx_header_{};
+    optional<header_t> rx_header_{};
     optional<std::vector<uint8_t>> rx_footer_{};
     optional<std::vector<uint8_t>> tx_header_{};
     optional<std::vector<uint8_t>> tx_footer_{};

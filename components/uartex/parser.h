@@ -12,6 +12,8 @@ public:
 	~Parser();
 	bool add_header(const unsigned char header);
 	bool add_headers(const std::vector<unsigned char>& header);
+	bool add_header_mask(const unsigned char mask);
+	bool add_header_masks(const std::vector<unsigned char>& mask);
 	bool add_footer(const unsigned char footer);
 	bool add_footers(const std::vector<unsigned char>& footer);
 
@@ -29,6 +31,7 @@ public:
 	
 private:
 	std::vector<unsigned char> header_;
+	std::vector<unsigned char> header_mask_;
 	std::vector<unsigned char> footer_;
 	std::vector<unsigned char> buffer_;
 	size_t checksum_len_;

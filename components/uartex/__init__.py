@@ -14,7 +14,7 @@ from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTE
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
     CONF_COMMAND_UPDATE, CONF_RX_TIMEOUT, CONF_TX_TIMEOUT, CONF_TX_RETRY_CNT, \
     CONF_STATE_RESPONSE, CONF_LENGTH, CONF_PRECISION, CONF_RX_LENGTH, \
-    CONF_TX_CTRL_PIN, CONF_TX_DELAY, CONF_DISABLED
+    CONF_TX_CTRL_PIN, CONF_TX_DELAY, CONF_DISABLED, CONF_SIGNED, CONF_ENDIAN
 
 AUTO_LOAD = ["text_sensor"]
 CODEOWNERS = ["@eigger"]
@@ -38,6 +38,24 @@ CHECKSUMS = {
     "ADD_NO_HEADER": Checksum.CHECKSUM_ADD_NO_HEADER,
 }
 
+def validate_checksum(value):
+    if cg.is_template(value):
+        return cv.returning_lambda(value)
+    if isinstance(value, str):
+        return cv.enum(CHECKSUMS, upper=True)(value)
+    raise cv.Invalid("data type error")
+
+Endian = uartex_ns.enum("ENDIAN")
+ENDIANS = {
+    "BIG": Endian.ENDIAN_BIG,
+    "LITTLE": Endian.ENDIAN_LITTLE
+}
+
+def validate_endian(value):
+    if isinstance(value, str):
+        return cv.enum(ENDIANS, upper=True)(value)
+    raise cv.Invalid("data type error")
+
 def _uartex_declare_type(value):
     return cv.use_id(UARTExComponent)(value)
 
@@ -47,13 +65,6 @@ def validate_hex_data(value):
     if isinstance(value, list):
         return cv.Schema([cv.hex_uint8_t])(value)
     raise cv.Invalid("data must either be a string(ascii) or a list of bytes")
-
-def validate_checksum(value):
-    if cg.is_template(value):
-        return cv.returning_lambda(value)
-    if isinstance(value, str):
-        return cv.enum(CHECKSUMS, upper=True)(value)
-    raise cv.Invalid("data type error")
 
 STATE_SCHEMA = cv.Schema({
     cv.Required(CONF_DATA): validate_hex_data,
@@ -70,6 +81,20 @@ def state_schema(value):
     if isinstance(value, dict):
         return STATE_SCHEMA(value)
     return shorthand_state(value)
+
+HEADER_SCHEMA = cv.Schema({
+    cv.Required(CONF_DATA): validate_hex_data,
+    cv.Optional(CONF_MASK, default=[]): validate_hex_data,
+})
+
+def shorthand_header(value):
+    value = validate_hex_data(value)
+    return HEADER_SCHEMA({CONF_DATA: value})
+
+def header_schema(value):
+    if isinstance(value, dict):
+        return HEADER_SCHEMA(value)
+    return shorthand_header(value)
 
 COMMAND_SCHEMA = cv.Schema({
     cv.Required(CONF_DATA): validate_hex_data,
@@ -103,7 +128,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_TX_RETRY_CNT, default=3): cv.int_range(min=1, max=10),
     cv.Optional(CONF_RX_LENGTH): cv.int_range(min=1, max=256),
     cv.Optional(CONF_TX_CTRL_PIN): pins.gpio_output_pin_schema,
-    cv.Optional(CONF_RX_HEADER): validate_hex_data,
+    cv.Optional(CONF_RX_HEADER): header_schema,
     cv.Optional(CONF_RX_FOOTER): validate_hex_data,
     cv.Optional(CONF_TX_HEADER): validate_hex_data,
     cv.Optional(CONF_TX_FOOTER): validate_hex_data,
@@ -241,7 +266,7 @@ async def to_code(config):
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
 UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_UARTEX_ID): _uartex_declare_type,
-    cv.Required(CONF_STATE): state_schema,
+    cv.Optional(CONF_STATE): state_schema,
     cv.Required(CONF_STATE_ON): state_schema,
     cv.Required(CONF_STATE_OFF): state_schema,
     cv.Required(CONF_COMMAND_ON): cv.templatable(command_hex_schema),
@@ -253,7 +278,9 @@ UARTEX_DEVICE_SCHEMA = cv.Schema({
 STATE_NUM_SCHEMA = cv.Schema({
     cv.Required(CONF_OFFSET): cv.int_range(min=0, max=128),
     cv.Optional(CONF_LENGTH, default=1): cv.int_range(min=1, max=4),
-    cv.Optional(CONF_PRECISION, default=0): cv.int_range(min=0, max=5)
+    cv.Optional(CONF_PRECISION, default=0): cv.int_range(min=0, max=5),
+    cv.Optional(CONF_SIGNED, default=True): cv.boolean,
+    cv.Optional(CONF_ENDIAN, default="big"): validate_endian,
 })
 
 def state_num_schema(value):
