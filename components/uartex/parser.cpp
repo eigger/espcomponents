@@ -79,6 +79,7 @@ void Parser::clear()
 bool Parser::parse_header()
 {
 	if (header_.size() == 0) return true;
+	if (buffer_.size() < header_.size()) return false;
 	std::vector<uint8_t> masked_buffer = buffer_;
 	for (size_t i = 0, j = 0; i < header_.size() && j < header_mask_.size(); i++, j++)
     {
