@@ -208,7 +208,8 @@ async def to_code(config):
         cg.add(var.set_tx_ctrl_pin(tx_ctrl_pin))
 
     if CONF_RX_HEADER in config:
-        cg.add(var.set_rx_header(config[CONF_RX_HEADER]))
+        header = header_hex_expression(config[CONF_RX_HEADER])
+        cg.add(var.set_rx_header(header))
 
     if CONF_RX_FOOTER in config:
         cg.add(var.set_rx_footer(config[CONF_RX_FOOTER]))
@@ -320,6 +321,12 @@ async def register_uartex_device(var, config):
         state = state_hex_expression(config[CONF_STATE_RESPONSE])
         cg.add(var.set_state(CONF_STATE_RESPONSE, state))
 
+def header_hex_expression(conf):
+    if conf is None:
+        return
+    data = conf[CONF_DATA]
+    mask = conf[CONF_MASK]
+    return data, mask
 
 def state_hex_expression(conf):
     if conf is None:
