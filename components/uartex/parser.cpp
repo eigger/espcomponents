@@ -34,7 +34,7 @@ bool Parser::add_header_mask(const unsigned char mask)
 bool Parser::add_header_masks(const std::vector<unsigned char>& mask)
 {
 	if (mask.size() == 0) return false;
-	header_mask_.insert(header_.end(), mask.begin(), mask.end());
+	header_mask_.insert(header_mask_.end(), mask.begin(), mask.end());
 	return true;
 }
 
