@@ -12,7 +12,7 @@ namespace uartex {
 enum ENDIAN {
     ENDIAN_BIG,
     ENDIAN_LITTLE
-}
+};
 
 struct state_t
 {
