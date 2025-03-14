@@ -100,6 +100,8 @@ value = 0x02
 - offset (Required, int): (0 ~ 128)
 - length (Optional, int): Defaults to 1. (1 ~ 4)
 - precision (Optional, int): Defaults to 0. (0 ~ 5)
+- signed (Optional, bool): Defaults to True. (True, False)
+- endian (Optional, enum): Defaults to "big". ("big", "little")
 <hr/>
 
 ## uartex.light
@@ -130,7 +132,7 @@ light:
       return {{0x02, 0x03, 0x00}, {0x02, 0x13, 0x00}};
 ```
 ### Configuration variables
-- state (Required, state): 
+- state (Optional, state): 
 - state_on (Required, state): 
 - state_off (Required, state): 
 - state_brightness (Optional, lambda):
@@ -163,7 +165,7 @@ binary_sensor:
       data: [0x00]
 ```
 ### Configuration variables
-- state (Required, state): 
+- state (Optional, state): 
 - state_on (Required, state): 
 - state_off (Required, state): 
 - command_update (Optional, command or lambda): 
@@ -232,7 +234,7 @@ climate:
       return {{0x02, 0x03, 0x01, (uint8_t)target, 0x00},{0x02, 0x13, 0x01}};
 ```
 ### Configuration variables
-- state (Required, state): 
+- state (Optional, state): 
 - state_off (Required, state): 
 - state_temperature_current (Optional, state_num or lambda):
   - float = (uint8_t* data, uint16_t len)
@@ -381,7 +383,7 @@ fan:
       }
 ```
 ### Configuration variables
-- state (Required, state): 
+- state (Optional, state): 
 - state_on (Required, state): 
 - state_off (Required, state): 
 - state_speed (Optional, lambda):
@@ -438,7 +440,7 @@ lock:
       ack: [0x02, 0x13]
 ```
 ### Configuration variables
-- state (Required, state): 
+- state (Optional, state): 
 - state_locked (Optional, state): 
 - state_unlocked (Optional, state): 
 - state_locking (Optional, state): 
@@ -477,7 +479,7 @@ number:
               };
 ```
 ### Configuration variables
-- state (Required, state): 
+- state (Optional, state): 
 - state_number (Optional, state_num or lambda):
   - float = (uint8_t* data, uint16_t len)
 - command_number (Optional, lambda): 
@@ -500,7 +502,7 @@ sensor:
       precision: 0
 ```
 ### Configuration variables
-- state (Required, state): 
+- state (Optional, state): 
 - state_number (Optional, state_num or lambda): 
   - float = (uint8_t* data, uint16_t len)
 - lambda (Optional, lambda): 
@@ -536,7 +538,7 @@ switch:
       return {{0x02, 0x03, 0x00}, {0x02, 0x13, 0x00}};
 ```
 ### Configuration variables
-- state (Required, state): 
+- state (Optional, state): 
 - state_on (Required, state): 
 - state_off (Required, state): 
 - command_on (Required, command or lambda): 
@@ -580,7 +582,7 @@ text_sensor:
       }
 ```
 ### Configuration variables
-- state (Required, state): 
+- state (Optional, state): 
 - lambda (Optional, lambda): 
   - std::string = (uint8_t* data, uint16_t len)
 - command_update (Optional, command or lambda): 
@@ -615,7 +617,7 @@ valve:
       ack: [0x02, 0x13, 0x00]
 ```
 ### Configuration variables
-- state (Required, state): 
+- state (Optional, state): 
 - state_open (Optional, state): 
 - state_closed (Optional, state): 
 - state_position (Optional, lambda):
