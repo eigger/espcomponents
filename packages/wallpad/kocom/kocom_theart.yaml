@@ -22,16 +22,8 @@ uartex:
   tx_header: [0xAA, 0x55]
   tx_footer: [0x0D, 0x0D]
 
-  rx_checksum: !lambda |-
-    uint8_t crc = 0x00;
-    for (size_t i = 0; i < len; i++)
-      crc += data[i];
-    return crc;
-  tx_checksum: !lambda |-
-    uint8_t crc = 0x00;
-    for (size_t i = 0; i < len; i++)
-      crc += data[i];
-    return crc;
+  rx_checksum: add_no_header
+  tx_checksum: add_no_header
 
   version:
     disabled: False
