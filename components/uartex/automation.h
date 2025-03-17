@@ -11,6 +11,7 @@ class TxTimeoutTrigger : public Trigger<> {
   explicit TxTimeoutTrigger(UARTExComponent *parent) {
     parent->add_on_error_callback([this](ERROR error) {
       if (error == ERROR_ACK) this->trigger();
+      ESP_LOGD(TAG, "On Error %d", error);
     });
   }
 };
