@@ -18,7 +18,7 @@ public:
     }
 };
 
-class WriteTrigger : public Trigger<const uint8_t, const uint16_t>
+class WriteTrigger : public Trigger<const uint8_t*, const uint16_t>
 {
 public:
     explicit WriteTrigger(UARTExComponent *parent)
@@ -30,7 +30,7 @@ public:
     }
 };
 
-class ReadTrigger : public Trigger<const uint8_t, const uint16_t>
+class ReadTrigger : public Trigger<const uint8_t*, const uint16_t>
 {
 public:
     explicit ReadTrigger(UARTExComponent *parent)
