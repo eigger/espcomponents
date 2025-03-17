@@ -101,12 +101,13 @@ def header_schema(value):
 
 COMMAND_SCHEMA = cv.Schema({
     cv.Required(CONF_DATA): validate_hex_data,
-    cv.Optional(CONF_ACK, default=[]): validate_hex_data
+    cv.Optional(CONF_ACK, default=[]): validate_hex_data,
+    cv.Optional(CONF_MASK, default=[]): validate_hex_data
 })
 
 def shorthand_command_hex(value):
     value = validate_hex_data(value)
-    return COMMAND_SCHEMA({CONF_DATA: value, CONF_ACK: []})
+    return COMMAND_SCHEMA({CONF_DATA: value, CONF_ACK: [], CONF_MASK: []})
 
 def command_hex_schema(value):
     if isinstance(value, dict):
@@ -372,7 +373,11 @@ def command_hex_expression(conf):
     data = conf[CONF_DATA]
     if CONF_ACK in conf:
         ack = conf[CONF_ACK]
-        return data, ack
+        if CONF_MASK in conf:
+            mask = conf[CONF_MASK]
+            return data, ack, mask
+        else:
+            return data, ack
     else:
         return data
     
@@ -385,7 +390,8 @@ async def command_expression(conf):
 @automation.register_action('uartex.write', UARTExWriteAction, cv.maybe_simple_value({
     cv.GenerateID(): cv.use_id(UARTExComponent),
     cv.Required(CONF_DATA): cv.templatable(validate_hex_data),
-    cv.Optional(CONF_ACK, default=[]): validate_hex_data
+    cv.Optional(CONF_ACK, default=[]): validate_hex_data,
+    cv.Optional(CONF_MASK, default=[]): validate_hex_data
 }, key=CONF_DATA))
 
 async def uartex_write_to_code(config, action_id, template_arg, args):

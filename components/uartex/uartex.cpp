@@ -88,7 +88,13 @@ void UARTExComponent::publish_to_devices()
 bool UARTExComponent::verify_ack()
 {
     if (!is_tx_cmd_pending()) return false;
-    if (!equal(this->rx_parser_.data(), current_tx_cmd()->ack)) return false;
+    std::vector<uint8_t> masked_data = this->rx_parser_.data();
+    std::vector<uint8_t> mask = current_tx_cmd()->mask;
+	for (size_t i = 0, j = 0; i < masked_data.size() && j < mask.size(); i++, j++)
+    {
+        masked_data[i] &= mask[j];
+    }
+    if (!equal(masked_data, current_tx_cmd()->ack)) return false;
     tx_cmd_result(true);
     ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", to_hex_string(this->rx_parser_.buffer()).c_str(), elapsed_time(this->tx_time_));
     return true;

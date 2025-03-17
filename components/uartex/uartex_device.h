@@ -35,6 +35,7 @@ struct cmd_t
 {
     std::vector<uint8_t> data;
     std::vector<uint8_t> ack;
+    std::vector<uint8_t> mask;
 };
 
 class UARTExDevice : public PollingComponent
