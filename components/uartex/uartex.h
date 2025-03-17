@@ -19,8 +19,8 @@ enum ERROR {
     ERROR_HEADER,
     ERROR_FOOTER,
     ERROR_CHECKSUM,
-    ERROR_TIMEOUT,
-    ERROR_ACK
+    ERROR_RX_TIMEOUT,
+    ERROR_TX_TIMEOUT
 };
 
 enum CHECKSUM {
@@ -63,9 +63,9 @@ public:
     void set_version(text_sensor::TextSensor *version) { this->version_ = version; }
     void set_error(text_sensor::TextSensor *error) { this->error_ = error; }
     void set_log(text_sensor::TextSensor *log) { this->log_ = log; }
-    void set_on_write(std::function<void(const uint8_t *data, const uint16_t len)> &&f) { this->on_write_f_ = f; }
-    void set_on_read(std::function<void(const uint8_t *data, const uint16_t len)> &&f){ this->on_read_f_ = f; }
-    void add_on_error_callback(std::function<void(ERROR)> &&callback);
+    void add_on_write_callback(std::function<void(const uint8_t *data, const uint16_t len)> &&callback) { this->write_callback_.add(std::move(callback)); }
+    void add_on_read_callback(std::function<void(const uint8_t *data, const uint16_t len)> &&callback) { this->read_callback_.add(std::move(callback)); }
+    void add_on_error_callback(std::function<void(const ERROR)> &&callback) { this->error_callback_.add(std::move(callback)); }
     std::vector<uint8_t> get_rx_checksum(const std::vector<uint8_t> &data, const std::vector<uint8_t> &header);
     std::vector<uint8_t> get_tx_checksum(const std::vector<uint8_t> &data);
     void dump_config() override;
@@ -124,10 +124,10 @@ protected:
     CHECKSUM tx_checksum_2_{CHECKSUM_NONE};
     optional<std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)>> rx_checksum_f_2_{};
     optional<std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)>> tx_checksum_f_2_{};
-    optional<std::function<void(const uint8_t *data, const uint16_t len)>> on_write_f_{};
-    optional<std::function<void(const uint8_t *data, const uint16_t len)>> on_read_f_{};
+    CallbackManager<void(const uint8_t *data, const uint16_t len)> write_callback_{};
+    CallbackManager<void(const uint8_t *data, const uint16_t len)> read_callback_{};
     ERROR error_code_{ERROR_NONE};
-    CallbackManager<void(ERROR)> error_callback_{};
+    CallbackManager<void(const ERROR)> error_callback_{};
     std::queue<tx_data_t> tx_queue_{};
     std::queue<tx_data_t> tx_queue_low_priority_{};
     tx_data_t current_tx_data_{nullptr, nullptr};

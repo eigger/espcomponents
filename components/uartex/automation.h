@@ -11,9 +11,33 @@ class TxTimeoutTrigger : public Trigger<>
 public:
     explicit TxTimeoutTrigger(UARTExComponent *parent)
     {
-        parent->add_on_error_callback([this](ERROR error)
+        parent->add_on_error_callback([this](const ERROR error)
         {
-            if (error == ERROR_ACK) this->trigger();
+            if (error == ERROR_TX_TIMEOUT) this->trigger();
+        });
+    }
+};
+
+class WriteTrigger : public Trigger<>
+{
+public:
+    explicit WriteTrigger(UARTExComponent *parent)
+    {
+        parent->add_on_write_callback([this](const uint8_t *data, const uint16_t len)
+        {
+            this->trigger(data, len);
+        });
+    }
+};
+
+class ReadTrigger : public Trigger<>
+{
+public:
+    explicit ReadTrigger(UARTExComponent *parent)
+    {
+        parent->add_on_read_callback([this](const uint8_t *data, const uint16_t len)
+        {
+            this->trigger(data, len);
         });
     }
 };

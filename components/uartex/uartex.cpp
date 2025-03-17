@@ -97,7 +97,7 @@ bool UARTExComponent::verify_ack()
 void UARTExComponent::publish_data()
 {
     bool found = false;
-    if (this->on_read_f_.has_value()) (*this->on_read_f_)(&this->rx_parser_.buffer()[0], this->rx_parser_.buffer().size());
+    this->read_callback_.call(&this->rx_parser_.buffer()[0], this->rx_parser_.buffer().size());
     publish_log("[R]" + to_hex_string(this->rx_parser_.buffer()));
     for (UARTExDevice* device : this->devices_)
     {
@@ -144,8 +144,8 @@ bool UARTExComponent::retry_tx_data()
     {
         tx_cmd_result(false);
         ESP_LOGD(TAG, "Retry fail.");
-        publish_error(ERROR_ACK);
-        this->error_callback_.call(ERROR_ACK);
+        publish_error(ERROR_TX_TIMEOUT);
+        this->error_callback_.call(ERROR_TX_TIMEOUT);
         return false;
     }
     ESP_LOGD(TAG, "Retry count: %d", this->tx_retry_cnt_);
@@ -199,7 +199,7 @@ void UARTExComponent::write_tx_cmd()
     this->tx_retry_cnt_++;
     this->tx_time_ = get_time();
     if (current_tx_cmd()->ack.size() == 0) tx_cmd_result(true);
-    if (this->on_write_f_.has_value()) (*this->on_write_f_)(&command[0], command.size());
+    this->write_callback_.call(&command[0], command.size());
     publish_log("[W]" + to_hex_string(command));
 }
 
@@ -316,7 +316,7 @@ ERROR UARTExComponent::validate_data()
     }
     if (!this->rx_footer_.has_value() && this->conf_rx_length_ == 0 && this->rx_checksum_ == CHECKSUM_NONE && this->rx_checksum_2_ == CHECKSUM_NONE)
     {
-        return ERROR_TIMEOUT;
+        return ERROR_RX_TIMEOUT;
     }
     return ERROR_NONE;
 }
@@ -326,7 +326,7 @@ bool UARTExComponent::verify_data()
     ERROR error = validate_data();
     publish_error(error);
     if (error != ERROR_NONE) this->error_callback_.call(error);
-    return (error == ERROR_NONE || error == ERROR_TIMEOUT);
+    return (error == ERROR_NONE || error == ERROR_RX_TIMEOUT);
 }
 
 bool UARTExComponent::publish_error(ERROR error_code)
@@ -350,13 +350,13 @@ bool UARTExComponent::publish_error(ERROR error_code)
         ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(this->rx_parser_.buffer()).c_str());
         if (this->error_ && this->error_code_ != ERROR_CHECKSUM) this->error_->publish_state("Checksum Error");
         break;
-    case ERROR_TIMEOUT:
-        ESP_LOGW(TAG, "[Read] Timeout error: %s", to_hex_string(this->rx_parser_.buffer()).c_str());
-        if (this->error_ && this->error_code_ != ERROR_TIMEOUT) this->error_->publish_state("Timeout Error");
+    case ERROR_RX_TIMEOUT:
+        ESP_LOGW(TAG, "[Read] Rx Timeout error: %s", to_hex_string(this->rx_parser_.buffer()).c_str());
+        if (this->error_ && this->error_code_ != ERROR_RX_TIMEOUT) this->error_->publish_state("Rx Timeout Error");
         break;
-    case ERROR_ACK:
-        ESP_LOGW(TAG, "[Read] Ack error: %s", to_hex_string(this->rx_parser_.buffer()).c_str());
-        if (this->error_ && this->error_code_ != ERROR_ACK) this->error_->publish_state("Ack Error");
+    case ERROR_TX_TIMEOUT:
+        ESP_LOGW(TAG, "[Read] Tx Timeout error: %s", to_hex_string(this->rx_parser_.buffer()).c_str());
+        if (this->error_ && this->error_code_ != ERROR_TX_TIMEOUT) this->error_->publish_state("Tx Timeout Error");
         break;
     case ERROR_NONE:
         if (this->error_ && this->error_code_ != ERROR_NONE) this->error_->publish_state("None");
@@ -444,11 +444,6 @@ void UARTExComponent::set_tx_checksum_2(std::function<std::vector<uint8_t>(const
 {
     this->tx_checksum_f_2_ = f;
     this->tx_checksum_2_ = CHECKSUM_CUSTOM;
-}
-
-void UARTExComponent::add_on_error_callback(std::function<void(ERROR)> &&callback)
-{
-    this->error_callback_.add(std::move(callback));
 }
 
 std::vector<uint8_t> UARTExComponent::get_rx_checksum(const std::vector<uint8_t> &data, const std::vector<uint8_t> &header)

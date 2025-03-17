@@ -28,6 +28,8 @@ uint16_const = cg.uint16.operator('const')
 uint8_const = cg.uint8.operator('const')
 uint8_ptr_const = uint8_const.operator('ptr')
 TxTimeoutTrigger = uartex_ns.class_("TxTimeoutTrigger", automation.Trigger.template())
+WriteTrigger = uartex_ns.class_("WriteTrigger", automation.Trigger.template())
+ReadTrigger = uartex_ns.class_("ReadTrigger", automation.Trigger.template())
 
 MULTI_CONF = True
 Checksum = uartex_ns.enum("CHECKSUM")
@@ -131,6 +133,16 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         {
             cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(TxTimeoutTrigger),
         }
+    ),    
+    cv.Optional(CONF_ON_WRITE): automation.validate_automation(
+        {
+            cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(WriteTrigger),
+        }
+    ),
+    cv.Optional(CONF_ON_READ): automation.validate_automation(
+        {
+            cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(ReadTrigger),
+        }
     ),
     cv.Optional(CONF_RX_LENGTH): cv.int_range(min=1, max=256),
     cv.Optional(CONF_TX_CTRL_PIN): pins.gpio_output_pin_schema,
@@ -142,8 +154,6 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_TX_CHECKSUM): validate_checksum,
     cv.Optional(CONF_RX_CHECKSUM_2): validate_checksum,
     cv.Optional(CONF_TX_CHECKSUM_2): validate_checksum,
-    cv.Optional(CONF_ON_WRITE): cv.lambda_,
-    cv.Optional(CONF_ON_READ): cv.lambda_,
     cv.Optional(CONF_VERSION): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
@@ -209,6 +219,14 @@ async def to_code(config):
     for conf in config.get(CONF_ON_TX_TIMEOUT, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [], conf)
+
+    for conf in config.get(CONF_ON_WRITE, []):
+        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
+        await automation.build_automation(trigger, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], conf)
+
+    for conf in config.get(CONF_ON_READ, []):
+        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
+        await automation.build_automation(trigger, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], conf)
 
     if CONF_RX_LENGTH in config:
         cg.add(var.set_rx_length(config[CONF_RX_LENGTH]))
