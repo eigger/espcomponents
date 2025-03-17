@@ -11,6 +11,7 @@ void UARTExComponent::dump_config()
     ESP_LOGCONFIG(TAG, "  RX Receive Timeout: %d", this->conf_rx_timeout_);
     ESP_LOGCONFIG(TAG, "  TX Transmission Timeout: %d", this->conf_tx_timeout_);
     ESP_LOGCONFIG(TAG, "  TX Retry Count: %d", this->conf_tx_retry_cnt_);
+    ESP_LOGCONFIG(TAG, "  TX Error Callback: %d", this->error_callback_.size());   
     ESP_LOGCONFIG(TAG, "  RX Length: %d", this->conf_rx_length_);
     if (this->tx_ctrl_pin_)   LOG_PIN("  TX Ctrl Pin: ", this->tx_ctrl_pin_);
     if (this->rx_header_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_header: %s", to_hex_string(this->rx_header_.value().data).c_str());
