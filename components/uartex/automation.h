@@ -14,7 +14,6 @@ public:
         parent->add_on_error_callback([this](ERROR error)
         {
             if (error == ERROR_ACK) this->trigger();
-            ESP_LOGD("uartex", "On Error %d", error);
         });
     }
 };

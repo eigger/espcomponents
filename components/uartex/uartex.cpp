@@ -145,6 +145,7 @@ bool UARTExComponent::retry_tx_data()
         tx_cmd_result(false);
         ESP_LOGD(TAG, "Retry fail.");
         publish_error(ERROR_ACK);
+        this->error_callback_.call(ERROR_ACK);
         return false;
     }
     ESP_LOGD(TAG, "Retry count: %d", this->tx_retry_cnt_);
