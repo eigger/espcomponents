@@ -6,6 +6,15 @@
 namespace esphome {
 namespace uartex {
 
+class TxTimeoutTrigger : public Trigger<> {
+ public:
+  explicit TxTimeoutTrigger(UARTExComponent *parent) {
+    parent->add_on_error_callback([this](ERROR error) {
+      if (error == ERROR_ACK) this->trigger();
+    });
+  }
+};
+
 template <typename... Ts>
 class UARTExWriteAction : public Action<Ts...>, public Parented<UARTExComponent>
 {

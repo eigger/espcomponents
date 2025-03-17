@@ -323,6 +323,7 @@ bool UARTExComponent::verify_data()
 {
     ERROR error = validate_data();
     publish_error(error);
+    if (error != ERROR_NONE) this->error_callback_.call(error);
     return (error == ERROR_NONE || error == ERROR_TIMEOUT);
 }
 
@@ -441,6 +442,11 @@ void UARTExComponent::set_tx_checksum_2(std::function<std::vector<uint8_t>(const
 {
     this->tx_checksum_f_2_ = f;
     this->tx_checksum_2_ = CHECKSUM_CUSTOM;
+}
+
+void UARTExComponent::add_on_error_callback(std::function<void(ERROR)> &&callback)
+{
+    this->error_callback_.add(std::move(callback));
 }
 
 std::vector<uint8_t> UARTExComponent::get_rx_checksum(const std::vector<uint8_t> &data, const std::vector<uint8_t> &header)

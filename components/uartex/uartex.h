@@ -65,6 +65,7 @@ public:
     void set_log(text_sensor::TextSensor *log) { this->log_ = log; }
     void set_on_write(std::function<void(const uint8_t *data, const uint16_t len)> &&f) { this->on_write_f_ = f; }
     void set_on_read(std::function<void(const uint8_t *data, const uint16_t len)> &&f){ this->on_read_f_ = f; }
+    void add_on_error_callback(std::function<void(ERROR)> &&callback);
     std::vector<uint8_t> get_rx_checksum(const std::vector<uint8_t> &data, const std::vector<uint8_t> &header);
     std::vector<uint8_t> get_tx_checksum(const std::vector<uint8_t> &data);
     void dump_config() override;
@@ -126,6 +127,7 @@ protected:
     optional<std::function<void(const uint8_t *data, const uint16_t len)>> on_write_f_{};
     optional<std::function<void(const uint8_t *data, const uint16_t len)>> on_read_f_{};
     ERROR error_code_{ERROR_NONE};
+    CallbackManager<void(ERROR)> error_callback_{};
     std::queue<tx_data_t> tx_queue_{};
     std::queue<tx_data_t> tx_queue_low_priority_{};
     tx_data_t current_tx_data_{nullptr, nullptr};

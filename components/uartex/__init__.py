@@ -3,12 +3,12 @@ import esphome.config_validation as cv
 from esphome.components import uart, text_sensor
 from esphome.components.text_sensor import register_text_sensor
 from esphome import automation, pins, core
-from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
+from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, CONF_TRIGGER_ID, \
     CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, ICON_NEW_BOX
 from esphome.util import SimpleRegistry
 from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTER, \
     CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, CONF_RX_CHECKSUM_2, CONF_TX_CHECKSUM_2, \
-    CONF_UARTEX_ID, CONF_ERROR, CONF_LOG, \
+    CONF_UARTEX_ID, CONF_ERROR, CONF_LOG, CONF_ON_TX_TIMEOUT, \
     CONF_ACK, CONF_ON_WRITE, CONF_ON_READ, \
     CONF_STATE, CONF_MASK, \
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
@@ -27,6 +27,7 @@ vector_uint8 = cg.std_vector.template(cg.uint8)
 uint16_const = cg.uint16.operator('const')
 uint8_const = cg.uint8.operator('const')
 uint8_ptr_const = uint8_const.operator('ptr')
+TxTimeoutTrigger = uartex_ns.class_("TxTimeoutTrigger", automation.Trigger.template())
 
 MULTI_CONF = True
 Checksum = uartex_ns.enum("CHECKSUM")
@@ -126,6 +127,11 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         cv.Range(max=core.TimePeriod(milliseconds=2000)),
     ),
     cv.Optional(CONF_TX_RETRY_CNT, default=3): cv.int_range(min=1, max=10),
+    cv.Optional(CONF_ON_TX_TIMEOUT): automation.validate_automation(
+        {
+            cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(TxTimeoutTrigger),
+        }
+    ),
     cv.Optional(CONF_RX_LENGTH): cv.int_range(min=1, max=256),
     cv.Optional(CONF_TX_CTRL_PIN): pins.gpio_output_pin_schema,
     cv.Optional(CONF_RX_HEADER): header_schema,
@@ -199,6 +205,10 @@ async def to_code(config):
 
     if CONF_TX_RETRY_CNT in config:
         cg.add(var.set_tx_retry_cnt(config[CONF_TX_RETRY_CNT]))
+    
+    for conf in config.get(CONF_ON_TX_TIMEOUT, []):
+        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
+        await automation.build_automation(trigger, [], conf)
 
     if CONF_RX_LENGTH in config:
         cg.add(var.set_rx_length(config[CONF_RX_LENGTH]))
