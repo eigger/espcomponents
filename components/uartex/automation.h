@@ -6,14 +6,17 @@
 namespace esphome {
 namespace uartex {
 
-class TxTimeoutTrigger : public Trigger<> {
- public:
-  explicit TxTimeoutTrigger(UARTExComponent *parent) {
-    parent->add_on_error_callback([this](ERROR error) {
-      if (error == ERROR_ACK) this->trigger();
-      ESP_LOGD("uartex", "On Error %d", error);
-    });
-  }
+class TxTimeoutTrigger : public Trigger<>
+{
+public:
+    explicit TxTimeoutTrigger(UARTExComponent *parent)
+    {
+        parent->add_on_error_callback([this](ERROR error)
+        {
+            if (error == ERROR_ACK) this->trigger();
+            ESP_LOGD("uartex", "On Error %d", error);
+        });
+    }
 };
 
 template <typename... Ts>

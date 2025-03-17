@@ -206,9 +206,9 @@ async def to_code(config):
     if CONF_TX_RETRY_CNT in config:
         cg.add(var.set_tx_retry_cnt(config[CONF_TX_RETRY_CNT]))
     
-    for conf in config.get(CONF_ON_TX_TIMEOUT, []):
-        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
-        await automation.build_automation(trigger, [], conf)
+    if CONF_ON_TX_TIMEOUT in config:
+        trigger = cg.new_Pvariable(config[CONF_ON_TX_TIMEOUT][CONF_TRIGGER_ID], var)
+        await automation.build_automation(trigger, [], config[CONF_ON_TX_TIMEOUT])
 
     if CONF_RX_LENGTH in config:
         cg.add(var.set_rx_length(config[CONF_RX_LENGTH]))
