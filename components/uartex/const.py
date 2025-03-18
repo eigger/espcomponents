@@ -21,6 +21,7 @@ CONF_MASK = 'mask'
 CONF_ERROR = 'error'
 CONF_LOG = 'log'
 CONF_DISABLED = "disabled"
+CONF_ASCII = "ascii"
 CONF_LOCK_TIMEOUT = 'lock_timeout'
 CONF_UNLOCK_TIMEOUT = 'unlock_timeout'
 

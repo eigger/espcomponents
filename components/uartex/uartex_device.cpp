@@ -208,6 +208,17 @@ std::string to_hex_string(const std::vector<unsigned char>& data)
     return res;
 }
 
+std::string to_ascii_string(const std::vector<unsigned char>& data)
+{
+    std::string res;
+    res.reserve(data.size());
+    for (unsigned char byte : data)
+    {
+        res.push_back(static_cast<char>(byte));
+    }
+    return res;
+}
+
 std::string to_hex_string(const uint8_t* data, const uint16_t len)
 {
     char buf[5];

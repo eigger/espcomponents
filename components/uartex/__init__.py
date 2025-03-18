@@ -14,7 +14,7 @@ from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTE
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
     CONF_COMMAND_UPDATE, CONF_RX_TIMEOUT, CONF_TX_TIMEOUT, CONF_TX_RETRY_CNT, \
     CONF_STATE_RESPONSE, CONF_LENGTH, CONF_PRECISION, CONF_RX_LENGTH, \
-    CONF_TX_CTRL_PIN, CONF_TX_DELAY, CONF_DISABLED, CONF_SIGNED, CONF_ENDIAN
+    CONF_TX_CTRL_PIN, CONF_TX_DELAY, CONF_DISABLED, CONF_ASCII, CONF_SIGNED, CONF_ENDIAN
 
 AUTO_LOAD = ["text_sensor"]
 CODEOWNERS = ["@eigger"]
@@ -178,6 +178,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         cv.Optional(CONF_ICON, default="mdi:math-log"): cv.icon,
         cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
         cv.Optional(CONF_DISABLED, default=False): cv.boolean,
+        cv.Optional(CONF_ASCII, default=False): cv.boolean,
     }),
 }).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA), cv.has_at_most_one_key(CONF_RX_CHECKSUM, CONF_RX_CHECKSUM_2), cv.has_at_most_one_key(CONF_TX_CHECKSUM, CONF_TX_CHECKSUM_2))
 
@@ -204,6 +205,7 @@ async def to_code(config):
             sens = cg.new_Pvariable(config[CONF_LOG][CONF_ID])
             await register_text_sensor(sens, config[CONF_LOG])
             cg.add(var.set_log(sens))
+            cg.add(var.set_log_ascii(config[CONF_LOG][CONF_ASCII]))
 
     if CONF_RX_TIMEOUT in config:
         cg.add(var.set_rx_timeout(config[CONF_RX_TIMEOUT]))

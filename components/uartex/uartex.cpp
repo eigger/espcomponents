@@ -104,7 +104,8 @@ void UARTExComponent::publish_data()
 {
     bool found = false;
     this->read_callback_.call(&this->rx_parser_.buffer()[0], this->rx_parser_.buffer().size());
-    publish_log("[R]" + to_hex_string(this->rx_parser_.buffer()));
+    if (this->log_ascii_)   publish_log("[R]" + to_ascii_string(this->rx_parser_.buffer()));
+    else                    publish_log("[R]" + to_hex_string(this->rx_parser_.buffer()));
     for (UARTExDevice* device : this->devices_)
     {
         if (device->parse_data(this->rx_parser_.data()))
@@ -206,7 +207,8 @@ void UARTExComponent::write_tx_cmd()
     this->tx_time_ = get_time();
     if (current_tx_cmd()->ack.size() == 0) tx_cmd_result(true);
     this->write_callback_.call(&command[0], command.size());
-    publish_log("[W]" + to_hex_string(command));
+    if (this->log_ascii_)   publish_log("[W]" + to_ascii_string(command));
+    else                    publish_log("[W]" + to_hex_string(command));
 }
 
 void UARTExComponent::write_data(const uint8_t data)

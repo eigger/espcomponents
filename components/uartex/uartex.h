@@ -63,6 +63,7 @@ public:
     void set_version(text_sensor::TextSensor *version) { this->version_ = version; }
     void set_error(text_sensor::TextSensor *error) { this->error_ = error; }
     void set_log(text_sensor::TextSensor *log) { this->log_ = log; }
+    void set_log_ascii(bool ascii) { this->log_ascii_ = ascii; }
     void add_on_write_callback(std::function<void(const uint8_t *data, const uint16_t len)> &&callback) { this->write_callback_.add(std::move(callback)); }
     void add_on_read_callback(std::function<void(const uint8_t *data, const uint16_t len)> &&callback) { this->read_callback_.add(std::move(callback)); }
     void add_on_error_callback(std::function<void(const ERROR)> &&callback) { this->error_callback_.add(std::move(callback)); }
@@ -140,6 +141,7 @@ protected:
     text_sensor::TextSensor* version_{nullptr};
     text_sensor::TextSensor* error_{nullptr};
     text_sensor::TextSensor* log_{nullptr};
+    bool log_ascii_{false};
     std::string last_log_{""};
     uint32_t log_count_{0};
     optional<cmd_t> command_{};
