@@ -210,12 +210,15 @@ std::string to_hex_string(const std::vector<unsigned char>& data)
 
 std::string to_ascii_string(const std::vector<unsigned char>& data)
 {
+    char buf[10];
     std::string res;
-    res.reserve(data.size());
-    for (unsigned char byte : data)
+    for (uint16_t i = 0; i < data.size(); i++)
     {
-        res.push_back(static_cast<char>(byte));
+        sprintf(buf, "%c", data[i]);
+        res += buf;
     }
+    sprintf(buf, "(%d)", data.size());
+    res += buf;
     return res;
 }
 
