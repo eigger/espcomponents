@@ -60,9 +60,6 @@ void UARTExComponent::read_from_uart()
     this->rx_parser_.clear();
     unsigned long timer = get_time();
     if (!this->available()) return;
-#ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
-    ESP_LOGVV(TAG, "Recv Header-> %s", to_hex_string(this->rx_parser_.header()).c_str());
-#endif
     while (elapsed_time(timer) < this->conf_rx_timeout_)
     {
         while (this->available())
