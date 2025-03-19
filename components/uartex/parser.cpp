@@ -54,6 +54,10 @@ bool Parser::add_footers(const std::vector<unsigned char>& footer)
 bool Parser::parse_byte(const unsigned char byte)
 {
 	buffer_.push_back(byte);
+	if (total_len_ > 0 && buffer_.size() > total_len_)
+	{
+		buffer_.erase(buffer_.begin());
+	}
 	if (parse_header() == false)
 	{
 		buffer_.clear();
@@ -101,6 +105,7 @@ bool Parser::parse_length()
 	if (total_len_ == 0) return false;
 	if (footer_.size() > 0) return false;
 	if (buffer_.size() != total_len_) return false;
+	if (checksum_len_ > 0) return false;
 	return true;
 }
 
