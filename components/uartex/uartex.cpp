@@ -11,9 +11,11 @@ void UARTExComponent::dump_config()
     ESP_LOGCONFIG(TAG, "  RX Receive Timeout: %d", this->conf_rx_timeout_);
     ESP_LOGCONFIG(TAG, "  TX Transmission Timeout: %d", this->conf_tx_timeout_);
     ESP_LOGCONFIG(TAG, "  TX Retry Count: %d", this->conf_tx_retry_cnt_);
+    ESP_LOGCONFIG(TAG, "  TX Error Callback: %d", this->error_callback_.size());   
     ESP_LOGCONFIG(TAG, "  RX Length: %d", this->conf_rx_length_);
     if (this->tx_ctrl_pin_)   LOG_PIN("  TX Ctrl Pin: ", this->tx_ctrl_pin_);
-    if (this->rx_header_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_header: %s", to_hex_string(this->rx_header_.value()).c_str());
+    if (this->rx_header_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_header: %s", to_hex_string(this->rx_header_.value().data).c_str());
+    if (this->rx_header_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_header mask: %s", to_hex_string(this->rx_header_.value().mask).c_str());
     if (this->rx_footer_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_footer: %s", to_hex_string(this->rx_footer_.value()).c_str());
     if (this->tx_header_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_header: %s", to_hex_string(this->tx_header_.value()).c_str());
     if (this->tx_footer_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_footer: %s", to_hex_string(this->tx_footer_.value()).c_str());
@@ -33,7 +35,11 @@ void UARTExComponent::setup()
     if (this->rx_checksum_2_ != CHECKSUM_NONE) this->rx_parser_.set_checksum_len(2);
     this->rx_time_ = get_time();
     this->tx_time_ = get_time();
-    if (this->rx_header_.has_value()) this->rx_parser_.add_headers(this->rx_header_.value());
+    if (this->rx_header_.has_value())
+    {
+        this->rx_parser_.add_headers(this->rx_header_.value().data);
+        this->rx_parser_.add_header_masks(this->rx_header_.value().mask);
+    }
     if (this->rx_footer_.has_value()) this->rx_parser_.add_footers(this->rx_footer_.value());
     this->rx_parser_.set_total_len(this->conf_rx_length_);
     if (this->error_) this->error_->publish_state("None");
@@ -52,8 +58,8 @@ void UARTExComponent::loop()
 void UARTExComponent::read_from_uart()
 {
     this->rx_parser_.clear();
-    unsigned long timer = get_time();
     if (!this->available()) return;
+    unsigned long timer = get_time();
     while (elapsed_time(timer) < this->conf_rx_timeout_)
     {
         while (this->available())
@@ -82,7 +88,13 @@ void UARTExComponent::publish_to_devices()
 bool UARTExComponent::verify_ack()
 {
     if (!is_tx_cmd_pending()) return false;
-    if (!equal(this->rx_parser_.data(), current_tx_cmd()->ack)) return false;
+    std::vector<uint8_t> masked_data = this->rx_parser_.data();
+    std::vector<uint8_t> mask = current_tx_cmd()->mask;
+	for (size_t i = 0, j = 0; i < masked_data.size() && j < mask.size(); i++, j++)
+    {
+        masked_data[i] &= mask[j];
+    }
+    if (!equal(masked_data, current_tx_cmd()->ack)) return false;
     tx_cmd_result(true);
     ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", to_hex_string(this->rx_parser_.buffer()).c_str(), elapsed_time(this->tx_time_));
     return true;
@@ -91,8 +103,8 @@ bool UARTExComponent::verify_ack()
 void UARTExComponent::publish_data()
 {
     bool found = false;
-    if (this->on_read_f_.has_value()) (*this->on_read_f_)(&this->rx_parser_.buffer()[0], this->rx_parser_.buffer().size());
-    publish_log("[R]" + to_hex_string(this->rx_parser_.buffer()));
+    this->read_callback_.call(&this->rx_parser_.buffer()[0], this->rx_parser_.buffer().size());
+    publish_rx_log(this->rx_parser_.buffer());
     for (UARTExDevice* device : this->devices_)
     {
         if (device->parse_data(this->rx_parser_.data()))
@@ -138,7 +150,8 @@ bool UARTExComponent::retry_tx_data()
     {
         tx_cmd_result(false);
         ESP_LOGD(TAG, "Retry fail.");
-        publish_error(ERROR_ACK);
+        publish_error(ERROR_TX_TIMEOUT);
+        this->error_callback_.call(ERROR_TX_TIMEOUT);
         return false;
     }
     ESP_LOGD(TAG, "Retry count: %d", this->tx_retry_cnt_);
@@ -192,8 +205,8 @@ void UARTExComponent::write_tx_cmd()
     this->tx_retry_cnt_++;
     this->tx_time_ = get_time();
     if (current_tx_cmd()->ack.size() == 0) tx_cmd_result(true);
-    if (this->on_write_f_.has_value()) (*this->on_write_f_)(&command[0], command.size());
-    publish_log("[W]" + to_hex_string(command));
+    this->write_callback_.call(&command[0], command.size());
+    publish_tx_log(command);
 }
 
 void UARTExComponent::write_data(const uint8_t data)
@@ -303,13 +316,13 @@ ERROR UARTExComponent::validate_data()
     {
         return ERROR_FOOTER;
     }
-    if ((this->rx_checksum_ != CHECKSUM_NONE || this->rx_checksum_2_ != CHECKSUM_NONE) && !this->rx_parser_.verify_checksum(get_rx_checksum(this->rx_parser_.data())))
+    if ((this->rx_checksum_ != CHECKSUM_NONE || this->rx_checksum_2_ != CHECKSUM_NONE) && !this->rx_parser_.verify_checksum(get_rx_checksum(this->rx_parser_.data(), this->rx_parser_.header())))
     {
         return ERROR_CHECKSUM;
     }
     if (!this->rx_footer_.has_value() && this->conf_rx_length_ == 0 && this->rx_checksum_ == CHECKSUM_NONE && this->rx_checksum_2_ == CHECKSUM_NONE)
     {
-        return ERROR_TIMEOUT;
+        return ERROR_RX_TIMEOUT;
     }
     return ERROR_NONE;
 }
@@ -318,7 +331,8 @@ bool UARTExComponent::verify_data()
 {
     ERROR error = validate_data();
     publish_error(error);
-    return (error == ERROR_NONE || error == ERROR_TIMEOUT);
+    if (error != ERROR_NONE) this->error_callback_.call(error);
+    return (error == ERROR_NONE || error == ERROR_RX_TIMEOUT);
 }
 
 bool UARTExComponent::publish_error(ERROR error_code)
@@ -342,13 +356,13 @@ bool UARTExComponent::publish_error(ERROR error_code)
         ESP_LOGW(TAG, "[Read] Checksum error: %s", to_hex_string(this->rx_parser_.buffer()).c_str());
         if (this->error_ && this->error_code_ != ERROR_CHECKSUM) this->error_->publish_state("Checksum Error");
         break;
-    case ERROR_TIMEOUT:
-        ESP_LOGW(TAG, "[Read] Timeout error: %s", to_hex_string(this->rx_parser_.buffer()).c_str());
-        if (this->error_ && this->error_code_ != ERROR_TIMEOUT) this->error_->publish_state("Timeout Error");
+    case ERROR_RX_TIMEOUT:
+        ESP_LOGW(TAG, "[Read] Rx Timeout error: %s", to_hex_string(this->rx_parser_.buffer()).c_str());
+        if (this->error_ && this->error_code_ != ERROR_RX_TIMEOUT) this->error_->publish_state("Rx Timeout Error");
         break;
-    case ERROR_ACK:
-        ESP_LOGW(TAG, "[Read] Ack error: %s", to_hex_string(this->rx_parser_.buffer()).c_str());
-        if (this->error_ && this->error_code_ != ERROR_ACK) this->error_->publish_state("Ack Error");
+    case ERROR_TX_TIMEOUT:
+        ESP_LOGW(TAG, "[Read] Tx Timeout error: %s", to_hex_string(this->rx_parser_.buffer()).c_str());
+        if (this->error_ && this->error_code_ != ERROR_TX_TIMEOUT) this->error_->publish_state("Tx Timeout Error");
         break;
     case ERROR_NONE:
         if (this->error_ && this->error_code_ != ERROR_NONE) this->error_->publish_state("None");
@@ -357,6 +371,20 @@ bool UARTExComponent::publish_error(ERROR error_code)
     }
     this->error_code_ = error_code;
     return error;
+}
+
+void UARTExComponent::publish_rx_log(const std::vector<unsigned char>& data)
+{
+    if (this->log_ == nullptr) return;
+    if (this->log_ascii_)   publish_log("[R]" + to_ascii_string(data));
+    else                    publish_log("[R]" + to_hex_string(data));
+}
+
+void UARTExComponent::publish_tx_log(const std::vector<unsigned char>& data)
+{
+    if (this->log_ == nullptr) return;
+    if (this->log_ascii_)   publish_log("[W]" + to_ascii_string(data));
+    else                    publish_log("[W]" + to_hex_string(data));
 }
 
 void UARTExComponent::publish_log(std::string msg)
@@ -374,7 +402,7 @@ void UARTExComponent::publish_log(std::string msg)
     }
 }
 
-void UARTExComponent::set_rx_header(std::vector<uint8_t> header)
+void UARTExComponent::set_rx_header(header_t header)
 {
     this->rx_header_ = header;
 }
@@ -438,7 +466,7 @@ void UARTExComponent::set_tx_checksum_2(std::function<std::vector<uint8_t>(const
     this->tx_checksum_2_ = CHECKSUM_CUSTOM;
 }
 
-std::vector<uint8_t> UARTExComponent::get_rx_checksum(const std::vector<uint8_t> &data)
+std::vector<uint8_t> UARTExComponent::get_rx_checksum(const std::vector<uint8_t> &data, const std::vector<uint8_t> &header)
 {
     if (this->rx_checksum_f_.has_value())
     {
@@ -451,7 +479,6 @@ std::vector<uint8_t> UARTExComponent::get_rx_checksum(const std::vector<uint8_t>
     }
     else
     {
-        std::vector<uint8_t> header = this->rx_header_.value_or(std::vector<uint8_t>{});
         if (this->rx_checksum_ != CHECKSUM_NONE)
         {
             uint8_t crc = get_checksum(this->rx_checksum_, header, data) & 0xFF;
@@ -497,16 +524,36 @@ std::vector<uint8_t> UARTExComponent::get_tx_checksum(const std::vector<uint8_t>
 uint16_t UARTExComponent::get_checksum(CHECKSUM checksum, const std::vector<uint8_t> &header, const std::vector<uint8_t> &data)
 {
     uint16_t crc = 0;
+    uint8_t temp = 0;
     switch(checksum)
     {
-    case CHECKSUM_ADD:
-        for (uint8_t byte : header) { crc += byte; }
-        for (uint8_t byte : data) { crc += byte; }
-        break;
     case CHECKSUM_XOR:
         for (uint8_t byte : header) { crc ^= byte; }
         for (uint8_t byte : data) { crc ^= byte; }
         break;
+    case CHECKSUM_ADD:
+        for (uint8_t byte : header) { crc += byte; }
+        for (uint8_t byte : data) { crc += byte; }
+        break;
+    case CHECKSUM_XOR_NO_HEADER:
+        for (uint8_t byte : data) { crc ^= byte; }
+        break;
+    case CHECKSUM_ADD_NO_HEADER:
+        for (uint8_t byte : data) { crc += byte; }
+        break;
+    case CHECKSUM_XOR_ADD:
+        for (uint8_t byte : header)
+        {
+            crc += byte;
+            temp ^= byte;
+        }
+        for (uint8_t byte : data)
+        { 
+            crc += byte;
+            temp ^= byte;
+        }
+        crc += temp;
+        crc = ((uint16_t)temp << 8) | (crc & 0xFF);
     case CHECKSUM_NONE:
         break;
     }

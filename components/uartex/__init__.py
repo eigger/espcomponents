@@ -3,18 +3,18 @@ import esphome.config_validation as cv
 from esphome.components import uart, text_sensor
 from esphome.components.text_sensor import register_text_sensor
 from esphome import automation, pins, core
-from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, \
+from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, CONF_TRIGGER_ID, \
     CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, ICON_NEW_BOX
 from esphome.util import SimpleRegistry
 from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTER, \
     CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, CONF_RX_CHECKSUM_2, CONF_TX_CHECKSUM_2, \
-    CONF_UARTEX_ID, CONF_ERROR, CONF_LOG, \
+    CONF_UARTEX_ID, CONF_ERROR, CONF_LOG, CONF_ON_TX_TIMEOUT, \
     CONF_ACK, CONF_ON_WRITE, CONF_ON_READ, \
     CONF_STATE, CONF_MASK, \
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
     CONF_COMMAND_UPDATE, CONF_RX_TIMEOUT, CONF_TX_TIMEOUT, CONF_TX_RETRY_CNT, \
     CONF_STATE_RESPONSE, CONF_LENGTH, CONF_PRECISION, CONF_RX_LENGTH, \
-    CONF_TX_CTRL_PIN, CONF_TX_DELAY, CONF_DISABLED
+    CONF_TX_CTRL_PIN, CONF_TX_DELAY, CONF_DISABLED, CONF_ASCII, CONF_SIGNED, CONF_ENDIAN
 
 AUTO_LOAD = ["text_sensor"]
 CODEOWNERS = ["@eigger"]
@@ -27,6 +27,9 @@ vector_uint8 = cg.std_vector.template(cg.uint8)
 uint16_const = cg.uint16.operator('const')
 uint8_const = cg.uint8.operator('const')
 uint8_ptr_const = uint8_const.operator('ptr')
+TxTimeoutTrigger = uartex_ns.class_("TxTimeoutTrigger", automation.Trigger.template())
+WriteTrigger = uartex_ns.class_("WriteTrigger", automation.Trigger.template())
+ReadTrigger = uartex_ns.class_("ReadTrigger", automation.Trigger.template())
 
 MULTI_CONF = True
 Checksum = uartex_ns.enum("CHECKSUM")
@@ -34,7 +37,28 @@ CHECKSUMS = {
     "NONE": Checksum.CHECKSUM_NONE,
     "XOR": Checksum.CHECKSUM_XOR,
     "ADD": Checksum.CHECKSUM_ADD,
+    "XOR_NO_HEADER": Checksum.CHECKSUM_XOR_NO_HEADER,
+    "ADD_NO_HEADER": Checksum.CHECKSUM_ADD_NO_HEADER,
+    "XOR_ADD": Checksum.CHECKSUM_XOR_ADD,
 }
+
+def validate_checksum(value):
+    if cg.is_template(value):
+        return cv.returning_lambda(value)
+    if isinstance(value, str):
+        return cv.enum(CHECKSUMS, upper=True)(value)
+    raise cv.Invalid("data type error")
+
+Endian = uartex_ns.enum("ENDIAN")
+ENDIANS = {
+    "BIG": Endian.ENDIAN_BIG,
+    "LITTLE": Endian.ENDIAN_LITTLE
+}
+
+def validate_endian(value):
+    if isinstance(value, str):
+        return cv.enum(ENDIANS, upper=True)(value)
+    raise cv.Invalid("data type error")
 
 def _uartex_declare_type(value):
     return cv.use_id(UARTExComponent)(value)
@@ -45,13 +69,6 @@ def validate_hex_data(value):
     if isinstance(value, list):
         return cv.Schema([cv.hex_uint8_t])(value)
     raise cv.Invalid("data must either be a string(ascii) or a list of bytes")
-
-def validate_checksum(value):
-    if cg.is_template(value):
-        return cv.returning_lambda(value)
-    if isinstance(value, str):
-        return cv.enum(CHECKSUMS, upper=True)(value)
-    raise cv.Invalid("data type error")
 
 STATE_SCHEMA = cv.Schema({
     cv.Required(CONF_DATA): validate_hex_data,
@@ -69,14 +86,29 @@ def state_schema(value):
         return STATE_SCHEMA(value)
     return shorthand_state(value)
 
+HEADER_SCHEMA = cv.Schema({
+    cv.Required(CONF_DATA): validate_hex_data,
+    cv.Optional(CONF_MASK, default=[]): validate_hex_data,
+})
+
+def shorthand_header(value):
+    value = validate_hex_data(value)
+    return HEADER_SCHEMA({CONF_DATA: value})
+
+def header_schema(value):
+    if isinstance(value, dict):
+        return HEADER_SCHEMA(value)
+    return shorthand_header(value)
+
 COMMAND_SCHEMA = cv.Schema({
     cv.Required(CONF_DATA): validate_hex_data,
-    cv.Optional(CONF_ACK, default=[]): validate_hex_data
+    cv.Optional(CONF_ACK, default=[]): validate_hex_data,
+    cv.Optional(CONF_MASK, default=[]): validate_hex_data
 })
 
 def shorthand_command_hex(value):
     value = validate_hex_data(value)
-    return COMMAND_SCHEMA({CONF_DATA: value, CONF_ACK: []})
+    return COMMAND_SCHEMA({CONF_DATA: value, CONF_ACK: [], CONF_MASK: []})
 
 def command_hex_schema(value):
     if isinstance(value, dict):
@@ -99,9 +131,24 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         cv.Range(max=core.TimePeriod(milliseconds=2000)),
     ),
     cv.Optional(CONF_TX_RETRY_CNT, default=3): cv.int_range(min=1, max=10),
+    cv.Optional(CONF_ON_TX_TIMEOUT): automation.validate_automation(
+        {
+            cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(TxTimeoutTrigger),
+        }
+    ),    
+    cv.Optional(CONF_ON_WRITE): automation.validate_automation(
+        {
+            cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(WriteTrigger),
+        }
+    ),
+    cv.Optional(CONF_ON_READ): automation.validate_automation(
+        {
+            cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(ReadTrigger),
+        }
+    ),
     cv.Optional(CONF_RX_LENGTH): cv.int_range(min=1, max=256),
     cv.Optional(CONF_TX_CTRL_PIN): pins.gpio_output_pin_schema,
-    cv.Optional(CONF_RX_HEADER): validate_hex_data,
+    cv.Optional(CONF_RX_HEADER): header_schema,
     cv.Optional(CONF_RX_FOOTER): validate_hex_data,
     cv.Optional(CONF_TX_HEADER): validate_hex_data,
     cv.Optional(CONF_TX_FOOTER): validate_hex_data,
@@ -109,8 +156,6 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_TX_CHECKSUM): validate_checksum,
     cv.Optional(CONF_RX_CHECKSUM_2): validate_checksum,
     cv.Optional(CONF_TX_CHECKSUM_2): validate_checksum,
-    cv.Optional(CONF_ON_WRITE): cv.lambda_,
-    cv.Optional(CONF_ON_READ): cv.lambda_,
     cv.Optional(CONF_VERSION): text_sensor.TEXT_SENSOR_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
@@ -134,6 +179,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         cv.Optional(CONF_ICON, default="mdi:math-log"): cv.icon,
         cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
         cv.Optional(CONF_DISABLED, default=False): cv.boolean,
+        cv.Optional(CONF_ASCII, default=False): cv.boolean,
     }),
 }).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA), cv.has_at_most_one_key(CONF_RX_CHECKSUM, CONF_RX_CHECKSUM_2), cv.has_at_most_one_key(CONF_TX_CHECKSUM, CONF_TX_CHECKSUM_2))
 
@@ -160,6 +206,7 @@ async def to_code(config):
             sens = cg.new_Pvariable(config[CONF_LOG][CONF_ID])
             await register_text_sensor(sens, config[CONF_LOG])
             cg.add(var.set_log(sens))
+            cg.add(var.set_log_ascii(config[CONF_LOG][CONF_ASCII]))
 
     if CONF_RX_TIMEOUT in config:
         cg.add(var.set_rx_timeout(config[CONF_RX_TIMEOUT]))
@@ -172,6 +219,18 @@ async def to_code(config):
 
     if CONF_TX_RETRY_CNT in config:
         cg.add(var.set_tx_retry_cnt(config[CONF_TX_RETRY_CNT]))
+    
+    for conf in config.get(CONF_ON_TX_TIMEOUT, []):
+        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
+        await automation.build_automation(trigger, [], conf)
+
+    for conf in config.get(CONF_ON_WRITE, []):
+        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
+        await automation.build_automation(trigger, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], conf)
+
+    for conf in config.get(CONF_ON_READ, []):
+        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
+        await automation.build_automation(trigger, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], conf)
 
     if CONF_RX_LENGTH in config:
         cg.add(var.set_rx_length(config[CONF_RX_LENGTH]))
@@ -181,7 +240,8 @@ async def to_code(config):
         cg.add(var.set_tx_ctrl_pin(tx_ctrl_pin))
 
     if CONF_RX_HEADER in config:
-        cg.add(var.set_rx_header(config[CONF_RX_HEADER]))
+        header = header_hex_expression(config[CONF_RX_HEADER])
+        cg.add(var.set_rx_header(header))
 
     if CONF_RX_FOOTER in config:
         cg.add(var.set_rx_footer(config[CONF_RX_FOOTER]))
@@ -239,7 +299,7 @@ async def to_code(config):
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
 UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_UARTEX_ID): _uartex_declare_type,
-    cv.Required(CONF_STATE): state_schema,
+    cv.Optional(CONF_STATE): state_schema,
     cv.Required(CONF_STATE_ON): state_schema,
     cv.Required(CONF_STATE_OFF): state_schema,
     cv.Required(CONF_COMMAND_ON): cv.templatable(command_hex_schema),
@@ -251,7 +311,9 @@ UARTEX_DEVICE_SCHEMA = cv.Schema({
 STATE_NUM_SCHEMA = cv.Schema({
     cv.Required(CONF_OFFSET): cv.int_range(min=0, max=128),
     cv.Optional(CONF_LENGTH, default=1): cv.int_range(min=1, max=4),
-    cv.Optional(CONF_PRECISION, default=0): cv.int_range(min=0, max=5)
+    cv.Optional(CONF_PRECISION, default=0): cv.int_range(min=0, max=5),
+    cv.Optional(CONF_SIGNED, default=True): cv.boolean,
+    cv.Optional(CONF_ENDIAN, default="big"): validate_endian,
 })
 
 def state_num_schema(value):
@@ -291,6 +353,12 @@ async def register_uartex_device(var, config):
         state = state_hex_expression(config[CONF_STATE_RESPONSE])
         cg.add(var.set_state(CONF_STATE_RESPONSE, state))
 
+def header_hex_expression(conf):
+    if conf is None:
+        return
+    data = conf[CONF_DATA]
+    mask = conf[CONF_MASK]
+    return data, mask
 
 def state_hex_expression(conf):
     if conf is None:
@@ -308,7 +376,11 @@ def command_hex_expression(conf):
     data = conf[CONF_DATA]
     if CONF_ACK in conf:
         ack = conf[CONF_ACK]
-        return data, ack
+        if CONF_MASK in conf:
+            mask = conf[CONF_MASK]
+            return data, ack, mask
+        else:
+            return data, ack
     else:
         return data
     
@@ -321,7 +393,8 @@ async def command_expression(conf):
 @automation.register_action('uartex.write', UARTExWriteAction, cv.maybe_simple_value({
     cv.GenerateID(): cv.use_id(UARTExComponent),
     cv.Required(CONF_DATA): cv.templatable(validate_hex_data),
-    cv.Optional(CONF_ACK, default=[]): validate_hex_data
+    cv.Optional(CONF_ACK, default=[]): validate_hex_data,
+    cv.Optional(CONF_MASK, default=[]): validate_hex_data
 }, key=CONF_DATA))
 
 async def uartex_write_to_code(config, action_id, template_arg, args):

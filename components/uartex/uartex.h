@@ -19,15 +19,18 @@ enum ERROR {
     ERROR_HEADER,
     ERROR_FOOTER,
     ERROR_CHECKSUM,
-    ERROR_TIMEOUT,
-    ERROR_ACK
+    ERROR_RX_TIMEOUT,
+    ERROR_TX_TIMEOUT
 };
 
 enum CHECKSUM {
     CHECKSUM_NONE,
     CHECKSUM_CUSTOM,
     CHECKSUM_XOR,
-    CHECKSUM_ADD
+    CHECKSUM_ADD,
+    CHECKSUM_XOR_NO_HEADER,
+    CHECKSUM_ADD_NO_HEADER,
+    CHECKSUM_XOR_ADD
 };
 
 struct tx_data_t
@@ -36,11 +39,17 @@ struct tx_data_t
     const cmd_t* cmd;
 };
 
+struct header_t
+{
+    std::vector<uint8_t> data;
+    std::vector<uint8_t> mask;
+};
+
 class UARTExComponent : public uart::UARTDevice, public Component
 {
 public:
     UARTExComponent() = default;
-    void set_rx_header(std::vector<uint8_t> header);
+    void set_rx_header(header_t header);
     void set_rx_footer(std::vector<uint8_t> footer);
     void set_tx_header(std::vector<uint8_t> header);
     void set_tx_footer(std::vector<uint8_t> footer);
@@ -55,9 +64,11 @@ public:
     void set_version(text_sensor::TextSensor *version) { this->version_ = version; }
     void set_error(text_sensor::TextSensor *error) { this->error_ = error; }
     void set_log(text_sensor::TextSensor *log) { this->log_ = log; }
-    void set_on_write(std::function<void(const uint8_t *data, const uint16_t len)> &&f) { this->on_write_f_ = f; }
-    void set_on_read(std::function<void(const uint8_t *data, const uint16_t len)> &&f){ this->on_read_f_ = f; }
-    std::vector<uint8_t> get_rx_checksum(const std::vector<uint8_t> &data);
+    void set_log_ascii(bool ascii) { this->log_ascii_ = ascii; }
+    void add_on_write_callback(std::function<void(const uint8_t *data, const uint16_t len)> &&callback) { this->write_callback_.add(std::move(callback)); }
+    void add_on_read_callback(std::function<void(const uint8_t *data, const uint16_t len)> &&callback) { this->read_callback_.add(std::move(callback)); }
+    void add_on_error_callback(std::function<void(const ERROR)> &&callback) { this->error_callback_.add(std::move(callback)); }
+    std::vector<uint8_t> get_rx_checksum(const std::vector<uint8_t> &data, const std::vector<uint8_t> &header);
     std::vector<uint8_t> get_tx_checksum(const std::vector<uint8_t> &data);
     void dump_config() override;
     void setup() override;
@@ -85,6 +96,8 @@ protected:
     ERROR validate_data();
     bool verify_data();
     bool publish_error(ERROR error_code);
+    void publish_rx_log(const std::vector<unsigned char>& data);
+    void publish_tx_log(const std::vector<unsigned char>& data);
     void publish_log(std::string msg);
     void read_from_uart();
     void publish_to_devices();
@@ -103,7 +116,7 @@ protected:
     uint16_t conf_tx_timeout_{50};
     uint16_t conf_tx_retry_cnt_{3};
     uint16_t conf_rx_length_{0};
-    optional<std::vector<uint8_t>> rx_header_{};
+    optional<header_t> rx_header_{};
     optional<std::vector<uint8_t>> rx_footer_{};
     optional<std::vector<uint8_t>> tx_header_{};
     optional<std::vector<uint8_t>> tx_footer_{};
@@ -115,9 +128,10 @@ protected:
     CHECKSUM tx_checksum_2_{CHECKSUM_NONE};
     optional<std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)>> rx_checksum_f_2_{};
     optional<std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)>> tx_checksum_f_2_{};
-    optional<std::function<void(const uint8_t *data, const uint16_t len)>> on_write_f_{};
-    optional<std::function<void(const uint8_t *data, const uint16_t len)>> on_read_f_{};
+    CallbackManager<void(const uint8_t *data, const uint16_t len)> write_callback_{};
+    CallbackManager<void(const uint8_t *data, const uint16_t len)> read_callback_{};
     ERROR error_code_{ERROR_NONE};
+    CallbackManager<void(const ERROR)> error_callback_{};
     std::queue<tx_data_t> tx_queue_{};
     std::queue<tx_data_t> tx_queue_low_priority_{};
     tx_data_t current_tx_data_{nullptr, nullptr};
@@ -130,6 +144,7 @@ protected:
     text_sensor::TextSensor* version_{nullptr};
     text_sensor::TextSensor* error_{nullptr};
     text_sensor::TextSensor* log_{nullptr};
+    bool log_ascii_{false};
     std::string last_log_{""};
     uint32_t log_count_{0};
     optional<cmd_t> command_{};

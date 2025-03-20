@@ -9,6 +9,11 @@
 namespace esphome {
 namespace uartex {
 
+enum ENDIAN {
+    ENDIAN_BIG,
+    ENDIAN_LITTLE
+};
+
 struct state_t
 {
     uint16_t offset;
@@ -22,12 +27,15 @@ struct state_num_t
     uint16_t offset;
     uint16_t length;    // 1~4
     uint16_t precision; // 0~5
+    bool is_signed;
+    ENDIAN endian;
 };
 
 struct cmd_t
 {
     std::vector<uint8_t> data;
     std::vector<uint8_t> ack;
+    std::vector<uint8_t> mask;
 };
 
 class UARTExDevice : public PollingComponent
@@ -92,6 +100,7 @@ const std::vector<uint8_t> masked_data(const std::vector<uint8_t>& data, const s
 bool verify_state(const std::vector<uint8_t>& data, const state_t* state);
 float state_to_float(const std::vector<uint8_t>& data, const state_num_t state);
 std::string to_hex_string(const std::vector<unsigned char>& data);
+std::string to_ascii_string(const std::vector<unsigned char>& data);
 std::string to_hex_string(const uint8_t* data, const uint16_t len);
 unsigned long elapsed_time(const unsigned long timer);
 unsigned long get_time();

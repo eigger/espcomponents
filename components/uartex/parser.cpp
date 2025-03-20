@@ -20,7 +20,21 @@ bool Parser::add_header(const unsigned char header)
 
 bool Parser::add_headers(const std::vector<unsigned char>& header)
 {
+	if (header.size() == 0) return false;
 	header_.insert(header_.end(), header.begin(), header.end());
+	return true;
+}
+
+bool Parser::add_header_mask(const unsigned char mask)
+{
+	header_mask_.push_back(mask);
+	return true;
+}
+
+bool Parser::add_header_masks(const std::vector<unsigned char>& mask)
+{
+	if (mask.size() == 0) return false;
+	header_mask_.insert(header_mask_.end(), mask.begin(), mask.end());
 	return true;
 }
 
@@ -32,6 +46,7 @@ bool Parser::add_footer(const unsigned char footer)
 
 bool Parser::add_footers(const std::vector<unsigned char>& footer)
 {
+	if (footer.size() == 0) return false;
 	footer_.insert(footer_.end(), footer.begin(), footer.end());
 	return true;
 }
@@ -39,6 +54,10 @@ bool Parser::add_footers(const std::vector<unsigned char>& footer)
 bool Parser::parse_byte(const unsigned char byte)
 {
 	buffer_.push_back(byte);
+	if (total_len_ > 0 && buffer_.size() > total_len_)
+	{
+		buffer_.erase(buffer_.begin());
+	}
 	if (parse_header() == false)
 	{
 		buffer_.clear();
@@ -64,8 +83,13 @@ void Parser::clear()
 bool Parser::parse_header()
 {
 	if (header_.size() == 0) return true;
-	size_t size = buffer_.size() < header_.size() ? buffer_.size() : header_.size();
-	return std::equal(buffer_.begin(), buffer_.begin() + size, header_.begin());
+	std::vector<uint8_t> masked_buffer = buffer_;
+	size_t size = masked_buffer.size() < header_.size() ? masked_buffer.size() : header_.size();
+	for (size_t i = 0, j = 0; i < size && j < header_mask_.size(); i++, j++)
+    {
+        masked_buffer[i] &= header_mask_[j];
+    }
+	return std::equal(masked_buffer.begin(), masked_buffer.begin() + size, header_.begin());
 }
 
 bool Parser::parse_footer()
@@ -81,6 +105,7 @@ bool Parser::parse_length()
 	if (total_len_ == 0) return false;
 	if (footer_.size() > 0) return false;
 	if (buffer_.size() != total_len_) return false;
+	if (checksum_len_ > 0) return false;
 	return true;
 }
 
@@ -88,6 +113,14 @@ bool Parser::available()
 {
 	if (buffer_.size() == 0) return false;
 	return true;
+}
+
+const std::vector<unsigned char> Parser::header()
+{
+    if (header_.empty()) return {};
+    size_t header_size = header_.size();
+    if (buffer_.size() < header_size) header_size = buffer_.size();
+    return std::vector<unsigned char>(buffer_.begin(), buffer_.begin() + header_size);
 }
 
 const std::vector<unsigned char> Parser::data()

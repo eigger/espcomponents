@@ -6,6 +6,42 @@
 namespace esphome {
 namespace uartex {
 
+class TxTimeoutTrigger : public Trigger<>
+{
+public:
+    explicit TxTimeoutTrigger(UARTExComponent *parent)
+    {
+        parent->add_on_error_callback([this](const ERROR error)
+        {
+            if (error == ERROR_TX_TIMEOUT) this->trigger();
+        });
+    }
+};
+
+class WriteTrigger : public Trigger<const uint8_t*, const uint16_t>
+{
+public:
+    explicit WriteTrigger(UARTExComponent *parent)
+    {
+        parent->add_on_write_callback([this](const uint8_t *data, const uint16_t len)
+        {
+            this->trigger(data, len);
+        });
+    }
+};
+
+class ReadTrigger : public Trigger<const uint8_t*, const uint16_t>
+{
+public:
+    explicit ReadTrigger(UARTExComponent *parent)
+    {
+        parent->add_on_read_callback([this](const uint8_t *data, const uint16_t len)
+        {
+            this->trigger(data, len);
+        });
+    }
+};
+
 template <typename... Ts>
 class UARTExWriteAction : public Action<Ts...>, public Parented<UARTExComponent>
 {

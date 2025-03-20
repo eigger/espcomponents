@@ -1,5 +1,5 @@
 uart:
-  baud_rate: 3840
+  baud_rate: 3880
   data_bits: 8
   parity: NONE
   stop_bits: 1

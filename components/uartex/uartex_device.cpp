@@ -160,18 +160,36 @@ const std::vector<uint8_t> masked_data(const std::vector<uint8_t>& data, const s
 
 bool verify_state(const std::vector<uint8_t>& data, const state_t* state)
 {
-    if (state == nullptr) return false;
+    if (state == nullptr) return true;
     if (state->mask.size() == 0)    return equal(data, state->data, state->offset) ? !state->inverted : state->inverted;
     else                            return equal(masked_data(data, state), state->data, state->offset) ? !state->inverted : state->inverted;
     return false;
 }
 
+// float state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
+// {
+//     int32_t val = 0;
+//     for (uint16_t i = state.offset, len = 0; i < data.size() && len < state.length; i++, len++)
+//     {
+//         val = (val << 8) | (int8_t)data[i];
+//     }
+//     return val / powf(10, state.precision);
+// }
+
 float state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
 {
-    int32_t val = 0;
-    for (uint16_t i = state.offset, len = 0; i < data.size() && len < state.length; i++, len++)
+    uint32_t val = 0;
+    for (size_t i = 0; i < state.length && (state.offset + i) < data.size(); i++)
     {
-        val = (val << 8) | (int8_t)data[i];
+        if (state.endian == ENDIAN_BIG) val = (val << 8) | data[state.offset + i];
+        else val |= static_cast<uint32_t>(data[state.offset + i]) << (8 * i);
+    }
+    
+    if (state.is_signed)
+    {
+        int shift = 32 - state.length * 8;
+        int32_t signed_val = (static_cast<int32_t>(val) << shift) >> shift;
+        return signed_val / powf(10, state.precision);
     }
     return val / powf(10, state.precision);
 }
@@ -183,6 +201,20 @@ std::string to_hex_string(const std::vector<unsigned char>& data)
     for (uint16_t i = 0; i < data.size(); i++)
     {
         sprintf(buf, "%02X", data[i]);
+        res += buf;
+    }
+    sprintf(buf, "(%d)", data.size());
+    res += buf;
+    return res;
+}
+
+std::string to_ascii_string(const std::vector<unsigned char>& data)
+{
+    char buf[10];
+    std::string res;
+    for (uint16_t i = 0; i < data.size(); i++)
+    {
+        sprintf(buf, "%c", data[i]);
         res += buf;
     }
     sprintf(buf, "(%d)", data.size());
