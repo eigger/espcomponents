@@ -29,6 +29,7 @@ struct state_num_t
     uint16_t precision; // 0~5
     bool is_signed;
     ENDIAN endian;
+    bool bcd;
 };
 
 struct cmd_t

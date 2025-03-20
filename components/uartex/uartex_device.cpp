@@ -181,8 +181,19 @@ float state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
     uint32_t val = 0;
     for (size_t i = 0; i < state.length && (state.offset + i) < data.size(); i++)
     {
-        if (state.endian == ENDIAN_BIG) val = (val << 8) | data[state.offset + i];
-        else val |= static_cast<uint32_t>(data[state.offset + i]) << (8 * i);
+        if (state.bcd)
+        {
+            uint8_t byte = data[state.offset + i];
+            uint8_t tens = (byte >> 4) & 0x0F;
+            uint8_t ones = byte & 0x0F;
+            if (tens > 9 || ones > 9) break;
+            val = val * 100 + (tens * 10 + ones);
+        }
+        else
+        {
+            if (state.endian == ENDIAN_BIG) val = (val << 8) | data[state.offset + i];
+            else val |= static_cast<uint32_t>(data[state.offset + i]) << (8 * i);
+        }
     }
     
     if (state.is_signed)

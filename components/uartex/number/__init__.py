@@ -5,7 +5,7 @@ from esphome.const import CONF_ID, CONF_MIN_VALUE, CONF_MAX_VALUE, CONF_STEP, CO
 from .. import uartex_ns, cmd_t, uint8_ptr_const, uint16_const, \
     state_num_schema
 from ..const import CONF_COMMAND_NUMBER, CONF_COMMAND_OFF, CONF_STATE_NUMBER, CONF_STATE_OFF, \
-    CONF_COMMAND_ON, CONF_STATE_ON, CONF_LENGTH, CONF_PRECISION, CONF_SIGNED, CONF_ENDIAN
+    CONF_COMMAND_ON, CONF_STATE_ON, CONF_LENGTH, CONF_PRECISION, CONF_SIGNED, CONF_ENDIAN, CONF_BCD
 
 DEPENDENCIES = ['uartex']
 UARTExNumber = uartex_ns.class_('UARTExNumber', number.Number, cg.Component)
@@ -45,5 +45,5 @@ async def to_code(config):
             templ = await cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
             cg.add(var.set_state(CONF_STATE_NUMBER, templ))
         else:
-            args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION], state[CONF_SIGNED], state[CONF_ENDIAN]
+            args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION], state[CONF_SIGNED], state[CONF_ENDIAN], state[CONF_BCD]
             cg.add(var.set_state(CONF_STATE_NUMBER, args))
