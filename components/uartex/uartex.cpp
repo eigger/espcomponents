@@ -524,7 +524,7 @@ std::vector<uint8_t> UARTExComponent::get_tx_checksum(const std::vector<uint8_t>
 uint16_t UARTExComponent::get_checksum(CHECKSUM checksum, const std::vector<uint8_t> &header, const std::vector<uint8_t> &data)
 {
     uint16_t crc = 0;
-    uint8_t xor = 0;
+    uint8_t temp = 0;
     switch(checksum)
     {
     case CHECKSUM_XOR:
@@ -545,15 +545,15 @@ uint16_t UARTExComponent::get_checksum(CHECKSUM checksum, const std::vector<uint
         for (uint8_t byte : header)
         {
             crc += byte;
-            xor ^= byte;
+            temp ^= byte;
         }
         for (uint8_t byte : data)
         { 
             crc += byte;
-            xor ^= byte;
+            temp ^= byte;
         }
-        crc += xor;
-        crc = ((uint16_t)xor << 8) | (crc & 0xFF);
+        crc += temp;
+        crc = ((uint16_t)temp << 8) | (crc & 0xFF);
     case CHECKSUM_NONE:
         break;
     }
