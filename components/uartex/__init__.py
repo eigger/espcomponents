@@ -39,6 +39,7 @@ CHECKSUMS = {
     "ADD": Checksum.CHECKSUM_ADD,
     "XOR_NO_HEADER": Checksum.CHECKSUM_XOR_NO_HEADER,
     "ADD_NO_HEADER": Checksum.CHECKSUM_ADD_NO_HEADER,
+    "XOR_ADD": Checksum.CHECKSUM_XOR_ADD,
 }
 
 def validate_checksum(value):
