@@ -390,9 +390,9 @@ sensor:
     name: "Elevator Floors"
     icon: "mdi:elevator"
     state: 
-      data: [0x23]
+      data: [0x23, 0x01, 0x01]
     state_number:
-      offset: 2
+      offset: 3
       length: 1
       precision: 0
 
@@ -402,5 +402,5 @@ button:
     name: "Elevator Call"
     icon: "mdi:elevator"
     command_on: 
-      data: [0xA0, 0x01, 0x01, 0x00, 0x08, 0x15, 0x00]
-      ack: [0x23]
+      data: [0xA0, 0x01, 0x01, 0x01, 0x08, 0x15, 0x00]
+      ack: [0x23, 0x01, 0x01]
