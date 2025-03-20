@@ -205,6 +205,12 @@ float state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
     return val / powf(10, state.precision);
 }
 
+uint8_t float_to_bcd(const float val)
+{
+    int decimal_value = val;
+    return ((decimal_value / 10) << 4) | (decimal_value % 10);
+}
+
 std::string to_hex_string(const std::vector<unsigned char>& data)
 {
     char buf[10];

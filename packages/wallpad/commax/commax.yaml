@@ -166,16 +166,14 @@ climate:
     state: 
       data: [0x80, 0x00, 0x01]
       mask: [0xF9, 0x00, 0xFF]
-    state_temperature_current: !lambda |-
-      uint8_t bcd_value = data[3];
-      int tens = (bcd_value >> 4) & 0x0F;
-      int ones = bcd_value & 0x0F;
-      return tens * 10 + ones;
-    state_temperature_target: !lambda |-
-      uint8_t bcd_value = data[4];
-      int tens = (bcd_value >> 4) & 0x0F;
-      int ones = bcd_value & 0x0F;
-      return tens * 10 + ones;
+    state_temperature_current: 
+      offset: 3
+      signed: False
+      bcd: True
+    state_temperature_target:
+      offset: 4
+      signed: False
+      bcd: True
     state_off:
       offset: 1
       data: [0x80]
@@ -191,8 +189,7 @@ climate:
       data: [0x04, 0x01, 0x04, 0x81, 0x00, 0x00, 0x00]
       ack: [0x84, 0x81, 0x01]
     command_temperature: !lambda |-
-      int decimal_value = x;
-      uint8_t target = ((decimal_value / 10) << 4) | (decimal_value % 10);
+      uint8_t target = float_to_bcd(x);
       return {{0x04, 0x01, 0x03, (uint8_t)target, 0x00, 0x00, 0x00},{0x84, 0x00, 0x01},{0xFF, 0x00, 0xFF}};
 
   - platform: uartex
@@ -204,16 +201,14 @@ climate:
     state: 
       data: [0x80, 0x00, 0x02]
       mask: [0xF9, 0x00, 0xFF]
-    state_temperature_current: !lambda |-
-      uint8_t bcd_value = data[3];
-      int tens = (bcd_value >> 4) & 0x0F;
-      int ones = bcd_value & 0x0F;
-      return tens * 10 + ones;
-    state_temperature_target: !lambda |-
-      uint8_t bcd_value = data[4];
-      int tens = (bcd_value >> 4) & 0x0F;
-      int ones = bcd_value & 0x0F;
-      return tens * 10 + ones;
+    state_temperature_current: 
+      offset: 3
+      signed: False
+      bcd: True
+    state_temperature_target:
+      offset: 4
+      signed: False
+      bcd: True
     state_off:
       offset: 1
       data: [0x80]
@@ -229,8 +224,7 @@ climate:
       data: [0x04, 0x02, 0x04, 0x81, 0x00, 0x00, 0x00]
       ack: [0x84, 0x81, 0x02]
     command_temperature: !lambda |-
-      int decimal_value = x;
-      uint8_t target = ((decimal_value / 10) << 4) | (decimal_value % 10);
+      uint8_t target = float_to_bcd(x);
       return {{0x04, 0x02, 0x03, (uint8_t)target, 0x00, 0x00, 0x00},{0x84, 0x00, 0x02},{0xFF, 0x00, 0xFF}};
 
   - platform: uartex
@@ -242,16 +236,14 @@ climate:
     state: 
       data: [0x80, 0x00, 0x03]
       mask: [0xF9, 0x00, 0xFF]
-    state_temperature_current: !lambda |-
-      uint8_t bcd_value = data[3];
-      int tens = (bcd_value >> 4) & 0x0F;
-      int ones = bcd_value & 0x0F;
-      return tens * 10 + ones;
-    state_temperature_target: !lambda |-
-      uint8_t bcd_value = data[4];
-      int tens = (bcd_value >> 4) & 0x0F;
-      int ones = bcd_value & 0x0F;
-      return tens * 10 + ones;
+    state_temperature_current: 
+      offset: 3
+      signed: False
+      bcd: True
+    state_temperature_target:
+      offset: 4
+      signed: False
+      bcd: True
     state_off:
       offset: 1
       data: [0x80]
@@ -267,8 +259,7 @@ climate:
       data: [0x04, 0x03, 0x04, 0x81, 0x00, 0x00, 0x00]
       ack: [0x84, 0x81, 0x03]
     command_temperature: !lambda |-
-      int decimal_value = x;
-      uint8_t target = ((decimal_value / 10) << 4) | (decimal_value % 10);
+      uint8_t target = float_to_bcd(x);
       return {{0x04, 0x03, 0x03, (uint8_t)target, 0x00, 0x00, 0x00},{0x84, 0x00, 0x03},{0xFF, 0x00, 0xFF}};
 
   - platform: uartex
@@ -280,16 +271,14 @@ climate:
     state: 
       data: [0x80, 0x00, 0x04]
       mask: [0xF9, 0x00, 0xFF]
-    state_temperature_current: !lambda |-
-      uint8_t bcd_value = data[3];
-      int tens = (bcd_value >> 4) & 0x0F;
-      int ones = bcd_value & 0x0F;
-      return tens * 10 + ones;
-    state_temperature_target: !lambda |-
-      uint8_t bcd_value = data[4];
-      int tens = (bcd_value >> 4) & 0x0F;
-      int ones = bcd_value & 0x0F;
-      return tens * 10 + ones;
+    state_temperature_current: 
+      offset: 3
+      signed: False
+      bcd: True
+    state_temperature_target:
+      offset: 4
+      signed: False
+      bcd: True
     state_off:
       offset: 1
       data: [0x80]
@@ -305,8 +294,7 @@ climate:
       data: [0x04, 0x04, 0x04, 0x81, 0x00, 0x00, 0x00]
       ack: [0x84, 0x81, 0x04]
     command_temperature: !lambda |-
-      int decimal_value = x;
-      uint8_t target = ((decimal_value / 10) << 4) | (decimal_value % 10);
+      uint8_t target = float_to_bcd(x);
       return {{0x04, 0x04, 0x03, (uint8_t)target, 0x00, 0x00, 0x00},{0x84, 0x00, 0x04},{0xFF, 0x00, 0xFF}};
 
 
