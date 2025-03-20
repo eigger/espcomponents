@@ -1,0 +1,33 @@
+uart:
+  baud_rate: 9600
+  data_bits: 8
+  parity: NONE
+  stop_bits: 1
+  rx_pin: GPIO22
+  tx_pin: GPIO19
+
+external_components:
+  - source: github://eigger/espcomponents/relreases/latest
+    components: [ uartex ]
+    refresh: always  
+
+uartex:
+  rx_timeout: 10ms
+  tx_delay: 10ms
+  tx_timeout: 500ms
+  tx_retry_cnt: 3
+
+  rx_header: [0xF7]
+  tx_header: [0xF7]
+  rx_checksum2: xor_add
+  tx_checksum2: xor_add
+
+  version:
+    disabled: False
+  error:
+    disabled: False
+  log:
+    disabled: False
+
+
+#작성중
