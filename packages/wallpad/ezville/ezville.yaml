@@ -29,5 +29,174 @@ uartex:
   log:
     disabled: False
 
+##작성중
+light:
+  - platform: uartex
+    name: "room1 Light 1"
+    state: [0x0e, 0x11, 0x81]
+    state_on:
+      offset: 5
+      data: [0x01]
+    state_off:
+      offset: 5
+      data: [0x00]
+    command_on:
+      data: [0x0e, 0x11, 0x41, 0x03, 0x01, 0x01, 0x00]
+      ack: [0x0e, 0x11, 0xC1]
+    command_off:
+      data: [0x0e, 0x11, 0x41, 0x03, 0x01, 0x00, 0x00]
+      ack: [0x0e, 0x11, 0xC1]
 
-#작성중
+  - platform: uartex
+    name: "room1 Light 2"
+    state: [0x0e, 0x11, 0x81]
+    state_on:
+      offset: 6
+      data: [0x01]
+    state_off:
+      offset: 6
+      data: [0x00]
+    command_on:
+      data: [0x0e, 0x11, 0x41, 0x03, 0x02, 0x01, 0x00]
+      ack: [0x0e, 0x11, 0xC1]
+    command_off:
+      data: [0x0e, 0x11, 0x41, 0x03, 0x02, 0x00, 0x00]
+      ack: [0x0e, 0x11, 0xC1]
+
+
+  - platform: uartex
+    name: "room1 Light 3"
+    state: [0x0e, 0x11, 0x81]
+    state_on:
+      offset: 7
+      data: [0x01]
+    state_off:
+      offset: 7
+      data: [0x00]
+    command_on:
+      data: [0x0e, 0x11, 0x41, 0x03, 0x03, 0x01, 0x00]
+      ack: [0x0e, 0x11, 0xC1]
+    command_off:
+      data: [0x0e, 0x11, 0x41, 0x03, 0x03, 0x00, 0x00]
+      ack: [0x0e, 0x11, 0xC1]
+
+
+  - platform: uartex
+    name: "room2 Light 1"
+    state: [0x0e, 0x12, 0x81]
+    state_on:
+      offset: 5
+      data: [0x01]
+    state_off:
+      offset: 5
+      data: [0x00]
+    command_on:
+      data: [0x0e, 0x12, 0x41, 0x03, 0x01, 0x01, 0x00]
+      ack: [0x0e, 0x12, 0xC1]
+    command_off:
+      data: [0x0e, 0x12, 0x41, 0x03, 0x01, 0x00, 0x00]
+      ack: [0x0e, 0x12, 0xC1]
+
+  - platform: uartex
+    name: "room2 Light 2"
+    state: [0x0e, 0x12, 0x81]
+    state_on:
+      offset: 6
+      data: [0x01]
+    state_off:
+      offset: 6
+      data: [0x00]
+    command_on:
+      data: [0x0e, 0x12, 0x41, 0x03, 0x02, 0x01, 0x00]
+      ack: [0x0e, 0x12, 0xC1]
+    command_off:
+      data: [0x0e, 0x12, 0x41, 0x03, 0x02, 0x00, 0x00]
+      ack: [0x0e, 0x12, 0xC1]
+
+  - platform: uartex
+    name: "room3 Light 1"
+    state: [0x0e, 0x13, 0x81]
+    state_on:
+      offset: 5
+      data: [0x01]
+    state_off:
+      offset: 5
+      data: [0x00]
+    command_on:
+      data: [0x0e, 0x13, 0x41, 0x03, 0x01, 0x01, 0x00]
+      ack: [0x0e, 0x13, 0xC1]
+    command_off:
+      data: [0x0e, 0x13, 0x41, 0x03, 0x01, 0x00, 0x00]
+      ack: [0x0e, 0x13, 0xC1]
+
+  - platform: uartex
+  name: "room4 Light 1"
+  state: [0x0e, 0x14, 0x81]
+  state_on:
+    offset: 5
+    data: [0x01]
+  state_off:
+    offset: 5
+    data: [0x00]
+  command_on:
+    data: [0x0e, 0x14, 0x41, 0x03, 0x01, 0x01, 0x00]
+    ack: [0x0e, 0x14, 0xC1]
+  command_off:
+    data: [0x0e, 0x14, 0x41, 0x03, 0x01, 0x00, 0x00]
+    ack: [0x0e, 0x14, 0xC1]
+
+sensor:
+  - platform: uartex
+    name: "Current Power Usage" # 현재 전력 사용량 (W)
+    id: power_usage
+    state: [0x30, 0x03, 0x81] # 패킷 매칭
+    accuracy_decimals: 2
+    unit_of_measurement: "W" # 단위 추가
+    lambda: |-
+      uint32_t result = 0;
+      for (int i = 0; i < 3; i++) {
+        result = (result * 100) + ((data[6 + i] >> 4) * 10) + (data[6 + i] & 0x0F);
+      }
+      return result / 100.0;
+  - platform: uartex
+    name: "Total Power Usage" # 누적 전력 사용량 (kWh)
+    id: total_power
+    state: [0x30, 0x03, 0x81] # 패킷 매칭
+    accuracy_decimals: 1 # 소수점 1자리로 설정
+    unit_of_measurement: "kWh" # 단위 추가
+    lambda: |-
+      uint32_t result = 0;
+      for (int i = 0; i < 3; i++) {
+        result = (result * 100) + ((data[9 + i] >> 4) * 10) + (data[9 + i] & 0x0F);
+      }
+      return result / 10.0;
+
+  - platform: uartex
+    name: "Total Water Usage" # 누적 수도 사용량
+    id: total_water
+    state: [0x30, 0x01, 0x81] # 패킷 매칭
+    accuracy_decimals: 2 # 소수점 2자리로 설정
+    unit_of_measurement: "m³" # 단위 수정
+    command_update: [0x30, 0x01, 0x01, 0x00]
+    interval: 60s
+    lambda: |-
+      uint32_t result = 0;
+      for (int i = 0; i < 3; i++) {
+        result = (result * 100) + ((data[9 + i] >> 4) * 10) + (data[9 + i] & 0x0F);
+      }
+      return result / 100.0;
+
+  - platform: uartex
+    name: "Total Gas Usage" # 누적 가스 사용량
+    id: total_gas
+    state: [0x30, 0x02, 0x81] # 패킷 매칭
+    accuracy_decimals: 2 # 소수점 2자리로 설정
+    unit_of_measurement: "m³" # 단위 수정
+    command_update: [0x30, 0x02, 0x01, 0x00]
+    interval: 60s
+    lambda: |-
+      uint32_t result = 0;
+      for (int i = 0; i < 3; i++) {
+        result = (result * 100) + ((data[9 + i] >> 4) * 10) + (data[9 + i] & 0x0F);
+      }
+      return result / 100.0;
