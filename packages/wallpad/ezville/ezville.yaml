@@ -157,7 +157,7 @@ sensor:
       length: 3
       precision: 2
       signed: False
-      encode: "bcd"
+      decode: "bcd"
 
   - platform: uartex
     name: "Total Power Usage" # 누적 전력 사용량 (kWh)
@@ -170,7 +170,7 @@ sensor:
       length: 3
       precision: 1
       signed: False
-      encode: "bcd"
+      decode: "bcd"
 
   - platform: uartex
     name: "Total Water Usage" # 누적 수도 사용량
@@ -185,7 +185,7 @@ sensor:
       length: 3
       precision: 2
       signed: False
-      encode: "bcd"
+      decode: "bcd"
 
   - platform: uartex
     name: "Total Gas Usage" # 누적 가스 사용량
@@ -200,4 +200,4 @@ sensor:
       length: 3
       precision: 2
       signed: False
-      encode: "bcd"
+      decode: "bcd"
