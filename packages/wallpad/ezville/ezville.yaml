@@ -152,24 +152,25 @@ sensor:
     state: [0x30, 0x03, 0x81] # 패킷 매칭
     accuracy_decimals: 2
     unit_of_measurement: "W" # 단위 추가
-    lambda: |-
-      uint32_t result = 0;
-      for (int i = 0; i < 3; i++) {
-        result = (result * 100) + ((data[6 + i] >> 4) * 10) + (data[6 + i] & 0x0F);
-      }
-      return result / 100.0;
+    state_num: 
+      offset: 6
+      length: 3
+      precision: 2
+      signed: False
+      bcd: True
+
   - platform: uartex
     name: "Total Power Usage" # 누적 전력 사용량 (kWh)
     id: total_power
     state: [0x30, 0x03, 0x81] # 패킷 매칭
     accuracy_decimals: 1 # 소수점 1자리로 설정
     unit_of_measurement: "kWh" # 단위 추가
-    lambda: |-
-      uint32_t result = 0;
-      for (int i = 0; i < 3; i++) {
-        result = (result * 100) + ((data[9 + i] >> 4) * 10) + (data[9 + i] & 0x0F);
-      }
-      return result / 10.0;
+    state_num: 
+      offset: 9
+      length: 3
+      precision: 1
+      signed: False
+      bcd: True
 
   - platform: uartex
     name: "Total Water Usage" # 누적 수도 사용량
@@ -179,12 +180,12 @@ sensor:
     unit_of_measurement: "m³" # 단위 수정
     command_update: [0x30, 0x01, 0x01, 0x00]
     interval: 60s
-    lambda: |-
-      uint32_t result = 0;
-      for (int i = 0; i < 3; i++) {
-        result = (result * 100) + ((data[9 + i] >> 4) * 10) + (data[9 + i] & 0x0F);
-      }
-      return result / 100.0;
+    state_num: 
+      offset: 9
+      length: 3
+      precision: 2
+      signed: False
+      bcd: True
 
   - platform: uartex
     name: "Total Gas Usage" # 누적 가스 사용량
@@ -194,9 +195,9 @@ sensor:
     unit_of_measurement: "m³" # 단위 수정
     command_update: [0x30, 0x02, 0x01, 0x00]
     interval: 60s
-    lambda: |-
-      uint32_t result = 0;
-      for (int i = 0; i < 3; i++) {
-        result = (result * 100) + ((data[9 + i] >> 4) * 10) + (data[9 + i] & 0x0F);
-      }
-      return result / 100.0;
+    state_num: 
+      offset: 9
+      length: 3
+      precision: 2
+      signed: False
+      bcd: True

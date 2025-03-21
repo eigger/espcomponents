@@ -102,6 +102,7 @@ value = 0x02
 - precision (Optional, int): Defaults to 0. (0 ~ 5)
 - signed (Optional, bool): Defaults to True. (True, False)
 - endian (Optional, enum): Defaults to "big". ("big", "little")
+- bcd (Optional, bool): Defaults to False. (True, False)
 <hr/>
 
 ## uartex.light
