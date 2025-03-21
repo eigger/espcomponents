@@ -27,7 +27,7 @@ void UARTExClimate::dump_config()
     if (cmd) ESP_LOGCONFIG(TAG, "  Command HEAT: %s, ACK: %s", to_hex_string(cmd->data).c_str(), to_hex_string(cmd->ack).c_str());
     cmd = get_command_fan_only();
     if (cmd) ESP_LOGCONFIG(TAG, "  Command FAN ONLY: %s, ACK: %s", to_hex_string(cmd->data).c_str(), to_hex_string(cmd->ack).c_str());
-    cmd = get_command_fan_dry();
+    cmd = get_command_dry();
     if (cmd) ESP_LOGCONFIG(TAG, "  Command DRY: %s, ACK: %s", to_hex_string(cmd->data).c_str(), to_hex_string(cmd->ack).c_str());
     cmd = get_command_auto();
     if (cmd) ESP_LOGCONFIG(TAG, "  Command AUTO: %s, ACK: %s", to_hex_string(cmd->data).c_str(), to_hex_string(cmd->ack).c_str());
