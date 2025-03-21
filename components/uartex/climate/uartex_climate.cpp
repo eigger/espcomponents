@@ -10,6 +10,27 @@ void UARTExClimate::dump_config()
 {
     ESP_LOGCONFIG(TAG, "UARTEx Climate '%s':", get_name().c_str());
     uartex_dump_config(TAG);
+    state_t* state = get_state_cool();
+    if (state) ESP_LOGCONFIG(TAG, "  State COOL: %s, offset: %d, inverted: %s", to_hex_string(state->data).c_str(), state->offset, YESNO(state->inverted));
+    state = get_state_heat();
+    if (state) ESP_LOGCONFIG(TAG, "  State HEAT: %s, offset: %d, inverted: %s", to_hex_string(state->data).c_str(), state->offset, YESNO(state->inverted));
+    state = get_state_fan_only();
+    if (state) ESP_LOGCONFIG(TAG, "  State FAN ONLY: %s, offset: %d, inverted: %s", to_hex_string(state->data).c_str(), state->offset, YESNO(state->inverted));
+    state = get_state_dry();
+    if (state) ESP_LOGCONFIG(TAG, "  State DRY: %s, offset: %d, inverted: %s", to_hex_string(state->data).c_str(), state->offset, YESNO(state->inverted));
+    state = get_state_auto();
+    if (state) ESP_LOGCONFIG(TAG, "  State AUTO: %s, offset: %d, inverted: %s", to_hex_string(state->data).c_str(), state->offset, YESNO(state->inverted));
+
+    cmd_t* cmd = get_command_cool();
+    if (cmd) ESP_LOGCONFIG(TAG, "  Command COOL: %s, ACK: %s", to_hex_string(cmd->data).c_str(), to_hex_string(cmd->ack).c_str());
+    cmd = get_command_heat();
+    if (cmd) ESP_LOGCONFIG(TAG, "  Command HEAT: %s, ACK: %s", to_hex_string(cmd->data).c_str(), to_hex_string(cmd->ack).c_str());
+    cmd = get_command_fan_only();
+    if (cmd) ESP_LOGCONFIG(TAG, "  Command FAN ONLY: %s, ACK: %s", to_hex_string(cmd->data).c_str(), to_hex_string(cmd->ack).c_str());
+    cmd = get_command_fan_dry();
+    if (cmd) ESP_LOGCONFIG(TAG, "  Command DRY: %s, ACK: %s", to_hex_string(cmd->data).c_str(), to_hex_string(cmd->ack).c_str());
+    cmd = get_command_auto();
+    if (cmd) ESP_LOGCONFIG(TAG, "  Command AUTO: %s, ACK: %s", to_hex_string(cmd->data).c_str(), to_hex_string(cmd->ack).c_str());
 }
 
 climate::ClimateTraits UARTExClimate::traits()
