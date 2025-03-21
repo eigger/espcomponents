@@ -57,7 +57,7 @@ bool UARTExDevice::parse_data(const std::vector<uint8_t>& data)
 {
     if (verify_state(data, get_state_response())) this->rx_response_ = true;
     else this->rx_response_ = false;
-    if (!verify_state(data, get_state())) return false;
+    if (get_state() != nullptr && !verify_state(data, get_state())) return false;
     if (verify_state(data, get_state_off())) publish(false);
     if (verify_state(data, get_state_on())) publish(true);
     state_data_ = data;
@@ -160,7 +160,7 @@ const std::vector<uint8_t> masked_data(const std::vector<uint8_t>& data, const s
 
 bool verify_state(const std::vector<uint8_t>& data, const state_t* state)
 {
-    if (state == nullptr) return true;
+    if (state == nullptr) return false;
     if (state->mask.size() == 0)    return equal(data, state->data, state->offset) ? !state->inverted : state->inverted;
     else                            return equal(masked_data(data, state), state->data, state->offset) ? !state->inverted : state->inverted;
     return false;
