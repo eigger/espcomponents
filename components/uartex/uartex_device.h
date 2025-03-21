@@ -14,6 +14,13 @@ enum ENDIAN {
     ENDIAN_LITTLE
 };
 
+enum DECODE {
+    DECODE_NONE,
+    DECODE_BCD,
+    DECODE_ASCII
+};
+
+
 struct state_t
 {
     uint16_t offset;
@@ -29,7 +36,7 @@ struct state_num_t
     uint16_t precision; // 0~5
     bool is_signed;
     ENDIAN endian;
-    bool bcd;
+    DECODE decode;
 };
 
 struct cmd_t

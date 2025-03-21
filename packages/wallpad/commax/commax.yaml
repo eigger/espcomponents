@@ -169,11 +169,11 @@ climate:
     state_temperature_current: 
       offset: 3
       signed: False
-      bcd: True
+      encode: "bcd"
     state_temperature_target:
       offset: 4
       signed: False
-      bcd: True
+      encode: "bcd"
     state_off:
       offset: 1
       data: [0x80]
@@ -204,11 +204,11 @@ climate:
     state_temperature_current: 
       offset: 3
       signed: False
-      bcd: True
+      encode: "bcd"
     state_temperature_target:
       offset: 4
       signed: False
-      bcd: True
+      encode: "bcd"
     state_off:
       offset: 1
       data: [0x80]
@@ -239,11 +239,11 @@ climate:
     state_temperature_current: 
       offset: 3
       signed: False
-      bcd: True
+      encode: "bcd"
     state_temperature_target:
       offset: 4
       signed: False
-      bcd: True
+      encode: "bcd"
     state_off:
       offset: 1
       data: [0x80]
@@ -274,11 +274,11 @@ climate:
     state_temperature_current: 
       offset: 3
       signed: False
-      bcd: True
+      encode: "bcd"
     state_temperature_target:
       offset: 4
       signed: False
-      bcd: True
+      encode: "bcd"
     state_off:
       offset: 1
       data: [0x80]

@@ -130,20 +130,20 @@ light:
       ack: [0x0e, 0x13, 0xC1]
 
   - platform: uartex
-  name: "room4 Light 1"
-  state: [0x0e, 0x14, 0x81]
-  state_on:
-    offset: 5
-    data: [0x01]
-  state_off:
-    offset: 5
-    data: [0x00]
-  command_on:
-    data: [0x0e, 0x14, 0x41, 0x03, 0x01, 0x01, 0x00]
-    ack: [0x0e, 0x14, 0xC1]
-  command_off:
-    data: [0x0e, 0x14, 0x41, 0x03, 0x01, 0x00, 0x00]
-    ack: [0x0e, 0x14, 0xC1]
+    name: "room4 Light 1"
+    state: [0x0e, 0x14, 0x81]
+    state_on:
+      offset: 5
+      data: [0x01]
+    state_off:
+      offset: 5
+      data: [0x00]
+    command_on:
+      data: [0x0e, 0x14, 0x41, 0x03, 0x01, 0x01, 0x00]
+      ack: [0x0e, 0x14, 0xC1]
+    command_off:
+      data: [0x0e, 0x14, 0x41, 0x03, 0x01, 0x00, 0x00]
+      ack: [0x0e, 0x14, 0xC1]
 
 sensor:
   - platform: uartex
@@ -157,7 +157,7 @@ sensor:
       length: 3
       precision: 2
       signed: False
-      bcd: True
+      encode: "bcd"
 
   - platform: uartex
     name: "Total Power Usage" # 누적 전력 사용량 (kWh)
@@ -170,7 +170,7 @@ sensor:
       length: 3
       precision: 1
       signed: False
-      bcd: True
+      encode: "bcd"
 
   - platform: uartex
     name: "Total Water Usage" # 누적 수도 사용량
@@ -185,7 +185,7 @@ sensor:
       length: 3
       precision: 2
       signed: False
-      bcd: True
+      encode: "bcd"
 
   - platform: uartex
     name: "Total Gas Usage" # 누적 가스 사용량
@@ -200,4 +200,4 @@ sensor:
       length: 3
       precision: 2
       signed: False
-      bcd: True
+      encode: "bcd"

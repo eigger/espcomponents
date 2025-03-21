@@ -7,7 +7,7 @@ from .. import uartex_ns, cmd_t, uint8_ptr_const, uint16_const, \
 from ..const import CONF_STATE_TEMPERATURE_CURRENT, CONF_STATE_TEMPERATURE_TARGET, CONF_STATE_HUMIDITY_CURRENT, CONF_STATE_HUMIDITY_TARGET, \
     CONF_STATE_ON, CONF_STATE_AUTO, CONF_STATE_HEAT, CONF_STATE_COOL, CONF_STATE_FAN_ONLY, CONF_STATE_DRY, CONF_STATE_SWING_OFF, CONF_STATE_SWING_BOTH, CONF_STATE_SWING_VERTICAL, CONF_STATE_SWING_HORIZONTAL, \
     CONF_COMMAND_ON, CONF_COMMAND_AUTO, CONF_COMMAND_HEAT, CONF_COMMAND_COOL, CONF_COMMAND_FAN_ONLY, CONF_COMMAND_DRY, CONF_COMMAND_SWING_OFF, CONF_COMMAND_SWING_BOTH, CONF_COMMAND_SWING_VERTICAL, CONF_COMMAND_SWING_HORIZONTAL, \
-    CONF_COMMAND_TEMPERATURE, CONF_COMMAND_HUMIDITY, CONF_LENGTH, CONF_PRECISION, CONF_COMMAND_PRESET_ECO, CONF_COMMAND_PRESET_SLEEP, CONF_COMMAND_PRESET_ACTIVITY, CONF_SIGNED, CONF_ENDIAN, CONF_BCD, \
+    CONF_COMMAND_TEMPERATURE, CONF_COMMAND_HUMIDITY, CONF_LENGTH, CONF_PRECISION, CONF_COMMAND_PRESET_ECO, CONF_COMMAND_PRESET_SLEEP, CONF_COMMAND_PRESET_ACTIVITY, CONF_SIGNED, CONF_ENDIAN, CONF_DECODE, \
     CONF_COMMAND_OFF, CONF_COMMAND_PRESET_NONE, CONF_COMMAND_PRESET_HOME, CONF_COMMAND_PRESET_AWAY, CONF_COMMAND_PRESET_BOOST, CONF_COMMAND_PRESET_COMFORT, \
     CONF_STATE_PRESET_NONE, CONF_STATE_PRESET_HOME, CONF_STATE_PRESET_AWAY, CONF_STATE_PRESET_BOOST, CONF_STATE_PRESET_COMFORT, CONF_STATE_PRESET_ECO, CONF_STATE_PRESET_SLEEP, CONF_STATE_PRESET_ACTIVITY, \
     CONF_STATE_FAN_ON, CONF_STATE_FAN_OFF, CONF_STATE_FAN_AUTO, CONF_STATE_FAN_LOW, CONF_STATE_FAN_MEDIUM, CONF_STATE_FAN_HIGH, CONF_STATE_FAN_MIDDLE, CONF_STATE_FAN_FOCUS, CONF_STATE_FAN_DIFFUSE, CONF_STATE_FAN_QUIET, \
@@ -146,7 +146,7 @@ async def to_code(config):
             templ = await cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
             cg.add(var.set_state(CONF_STATE_TEMPERATURE_TARGET, templ))
         else:
-            args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION], state[CONF_SIGNED], state[CONF_ENDIAN], state[CONF_BCD]
+            args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION], state[CONF_SIGNED], state[CONF_ENDIAN], state[CONF_DECODE]
             cg.add(var.set_state(CONF_STATE_TEMPERATURE_TARGET, args))
 
     if CONF_STATE_HUMIDITY_TARGET in config:
@@ -155,7 +155,7 @@ async def to_code(config):
             templ = await cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
             cg.add(var.set_state(CONF_STATE_HUMIDITY_TARGET, templ))
         else:
-            args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION], state[CONF_SIGNED], state[CONF_ENDIAN], state[CONF_BCD]
+            args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION], state[CONF_SIGNED], state[CONF_ENDIAN], state[CONF_DECODE]
             cg.add(var.set_state(CONF_STATE_HUMIDITY_TARGET, args))
 
     if CONF_SENSOR in config:
@@ -168,7 +168,7 @@ async def to_code(config):
             templ = await cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
             cg.add(var.set_state(CONF_STATE_TEMPERATURE_CURRENT, templ))
         else:
-            args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION], state[CONF_SIGNED], state[CONF_ENDIAN], state[CONF_BCD]
+            args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION], state[CONF_SIGNED], state[CONF_ENDIAN], state[CONF_DECODE]
             cg.add(var.set_state(CONF_STATE_TEMPERATURE_CURRENT, args))
 
     if CONF_STATE_HUMIDITY_CURRENT in config:
@@ -177,7 +177,7 @@ async def to_code(config):
             templ = await cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
             cg.add(var.set_state(CONF_STATE_HUMIDITY_CURRENT, templ))
         else:
-            args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION], state[CONF_SIGNED], state[CONF_ENDIAN], state[CONF_BCD]
+            args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION], state[CONF_SIGNED], state[CONF_ENDIAN], state[CONF_DECODE]
             cg.add(var.set_state(CONF_STATE_HUMIDITY_CURRENT, args))
 
     if CONF_STATE_COOL in config:
