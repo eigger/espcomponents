@@ -179,9 +179,10 @@ bool verify_state(const std::vector<uint8_t>& data, const state_t* state)
 float state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
 {
     uint32_t val = 0;
+    std::string str;
     for (size_t i = 0; i < state.length && (state.offset + i) < data.size(); i++)
     {
-        if (state.bcd)
+        if (state.decode == DECODE_BCD)
         {
             uint8_t byte = data[state.offset + i];
             uint8_t tens = (byte >> 4) & 0x0F;
@@ -189,13 +190,17 @@ float state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
             if (tens > 9 || ones > 9) break;
             val = val * 100 + (tens * 10 + ones);
         }
+        else if(state.decode == DECODE_ASCII)
+        {
+            str.push_back((char)data[state.offset + i]);
+        }
         else
         {
             if (state.endian == ENDIAN_BIG) val = (val << 8) | data[state.offset + i];
             else val |= static_cast<uint32_t>(data[state.offset + i]) << (8 * i);
         }
     }
-    
+    if(state.decode == DECODE_ASCII) val = atoi(str.c_str());
     if (state.is_signed)
     {
         int shift = 32 - state.length * 8;

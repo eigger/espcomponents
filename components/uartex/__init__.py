@@ -14,7 +14,7 @@ from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTE
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
     CONF_COMMAND_UPDATE, CONF_RX_TIMEOUT, CONF_TX_TIMEOUT, CONF_TX_RETRY_CNT, \
     CONF_STATE_RESPONSE, CONF_LENGTH, CONF_PRECISION, CONF_RX_LENGTH, \
-    CONF_TX_CTRL_PIN, CONF_TX_DELAY, CONF_DISABLED, CONF_ASCII, CONF_SIGNED, CONF_ENDIAN, CONF_BCD
+    CONF_TX_CTRL_PIN, CONF_TX_DELAY, CONF_DISABLED, CONF_ASCII, CONF_SIGNED, CONF_ENDIAN, CONF_DECODE
 
 AUTO_LOAD = ["text_sensor"]
 CODEOWNERS = ["@eigger"]
@@ -58,6 +58,18 @@ ENDIANS = {
 def validate_endian(value):
     if isinstance(value, str):
         return cv.enum(ENDIANS, upper=True)(value)
+    raise cv.Invalid("data type error")
+
+Decode = uartex_ns.enum("DECODE")
+DECODES = {
+    "NONE": Decode.DECODE_NONE,
+    "BCD": Decode.DECODE_BCD,
+    "ASCII": Decode.DECODE_ASCII
+}
+
+def validate_decode(value):
+    if isinstance(value, str):
+        return cv.enum(DECODES, upper=True)(value)
     raise cv.Invalid("data type error")
 
 def _uartex_declare_type(value):
@@ -314,7 +326,7 @@ STATE_NUM_SCHEMA = cv.Schema({
     cv.Optional(CONF_PRECISION, default=0): cv.int_range(min=0, max=5),
     cv.Optional(CONF_SIGNED, default=True): cv.boolean,
     cv.Optional(CONF_ENDIAN, default="big"): validate_endian,
-    cv.Optional(CONF_BCD, default=False): cv.boolean,
+    cv.Optional(CONF_DECODE, default="none"): validate_decode,
 })
 
 def state_num_schema(value):

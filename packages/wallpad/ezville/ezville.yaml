@@ -30,6 +30,12 @@ uartex:
     disabled: False
 
 ##작성중
+#상태 [HEAD 0xF7] [조명 0x0E] [그룹 0x10 + 1] [조명 상태 0x81] [길이] [에러] [조명1] [조명2] [조명3] [xor] [add]
+#상태 0xF7, 0x0E, 0x11, 0x81, 0x04, 0x00, 0x01, 0x00, 0x00, xor, add
+
+#제어 [HEAD 0xF7] [조명 0x0E] [그룹 0x10 + 1] [조명 제어 0x41] [길이] [조명] [Onoff] 0x00 [xor] [add]
+#제어 0xF7, 0x0E, 0x11, 0x41, 0x03, 0x01, 0x01, 0x00, xor, add
+#응답 0xF7, 0x0E, 0x11, 0xC1, ???
 light:
   - platform: uartex
     name: "room1 Light 1"
@@ -130,20 +136,20 @@ light:
       ack: [0x0e, 0x13, 0xC1]
 
   - platform: uartex
-  name: "room4 Light 1"
-  state: [0x0e, 0x14, 0x81]
-  state_on:
-    offset: 5
-    data: [0x01]
-  state_off:
-    offset: 5
-    data: [0x00]
-  command_on:
-    data: [0x0e, 0x14, 0x41, 0x03, 0x01, 0x01, 0x00]
-    ack: [0x0e, 0x14, 0xC1]
-  command_off:
-    data: [0x0e, 0x14, 0x41, 0x03, 0x01, 0x00, 0x00]
-    ack: [0x0e, 0x14, 0xC1]
+    name: "room4 Light 1"
+    state: [0x0e, 0x14, 0x81]
+    state_on:
+      offset: 5
+      data: [0x01]
+    state_off:
+      offset: 5
+      data: [0x00]
+    command_on:
+      data: [0x0e, 0x14, 0x41, 0x03, 0x01, 0x01, 0x00]
+      ack: [0x0e, 0x14, 0xC1]
+    command_off:
+      data: [0x0e, 0x14, 0x41, 0x03, 0x01, 0x00, 0x00]
+      ack: [0x0e, 0x14, 0xC1]
 
 sensor:
   - platform: uartex
@@ -157,7 +163,7 @@ sensor:
       length: 3
       precision: 2
       signed: False
-      bcd: True
+      decode: bcd
 
   - platform: uartex
     name: "Total Power Usage" # 누적 전력 사용량 (kWh)
@@ -170,7 +176,7 @@ sensor:
       length: 3
       precision: 1
       signed: False
-      bcd: True
+      decode: bcd
 
   - platform: uartex
     name: "Total Water Usage" # 누적 수도 사용량
@@ -185,7 +191,7 @@ sensor:
       length: 3
       precision: 2
       signed: False
-      bcd: True
+      decode: bcd
 
   - platform: uartex
     name: "Total Gas Usage" # 누적 가스 사용량
@@ -200,4 +206,4 @@ sensor:
       length: 3
       precision: 2
       signed: False
-      bcd: True
+      decode: bcd
