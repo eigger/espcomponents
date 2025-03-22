@@ -13,7 +13,7 @@ external_components:
 
 uartex:
   rx_timeout: 10ms
-  tx_delay: 10ms
+  tx_delay: 50ms
   tx_timeout: 500ms
   tx_retry_cnt: 3
 
