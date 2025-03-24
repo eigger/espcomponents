@@ -1,4 +1,4 @@
-#include "uartex_lock.h"
+#include "uartex_media_player.h"
 #include "esphome/core/log.h"
 
 namespace esphome {
