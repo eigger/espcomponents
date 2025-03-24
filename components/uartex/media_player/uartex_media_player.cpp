@@ -75,10 +75,13 @@ void UARTExMediaPlayer::control(const media_player::MediaPlayerCall &call)
         this->is_announcement_ = true;
     }
 
-    // if (call.get_volume().has_value())
-    // {
-    //     this->volume = call.get_volume().value();
-    // }
+    if (call.get_volume().has_value())
+    {
+        this->volume = call.get_volume().value();
+        enqueue_tx_cmd(get_command_volume_up(this->volume));
+        if (this->muted_) enqueue_tx_cmd(get_command_unmute());
+        this->muted_ = false;
+    }
     if (call.get_command().has_value()) 
 
         switch (call.get_command().value())
