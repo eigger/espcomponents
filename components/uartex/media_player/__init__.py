@@ -20,7 +20,7 @@ CONFIG_SCHEMA = cv.All(media_player.MEDIA_PLAYER_SCHEMA.extend({
     cv.Optional(CONF_STATE_PLAYING): state_schema,
     cv.Optional(CONF_STATE_PAUSED): state_schema,
     cv.Optional(CONF_STATE_ANNOUNCING): state_schema,
-    cv.Required(CONF_STATE_VOLUME): cv.returning_lambda,
+    cv.Optional(CONF_STATE_VOLUME): cv.returning_lambda,
     cv.Optional(CONF_COMMAND_STOP): command_hex_schema,
     cv.Optional(CONF_COMMAND_PLAY): command_hex_schema,
     cv.Optional(CONF_COMMAND_PAUSE): command_hex_schema,
