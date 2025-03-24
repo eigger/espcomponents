@@ -20,7 +20,8 @@ void UARTExMediaPlayer::setup()
 media_player::MediaPlayerTraits UARTExMediaPlayer::get_traits()
 {
     auto traits = media_player::MediaPlayerTraits();
-    if (get_state_paused() || get_command_pause()) traits.set_supports_pause(true);
+    //if (get_state_paused() || get_command_pause())
+    traits.set_supports_pause(true);
     return traits;
 };
 
