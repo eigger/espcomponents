@@ -7,7 +7,7 @@ from .. import uartex_ns, cmd_t, uint8_ptr_const, uint16_const, \
     command_hex_schema, command_hex_expression, state_schema, state_hex_expression
 from ..const import CONF_STATE_NONE, CONF_STATE_IDLE, CONF_STATE_PLAYING, CONF_STATE_PAUSED, CONF_STATE_ANNOUNCING, \
     CONF_COMMAND_STOP, CONF_COMMAND_PLAY, CONF_COMMAND_PAUSE, CONF_COMMAND_MUTE, CONF_COMMAND_UNMUTE, CONF_COMMAND_TOGGLE, \
-    CONF_COMMAND_VOLUME_UP, CONF_COMMAND_VOLUME_DOWN, CONF_COMMAND_ENQUEUE, CONF_COMMAND_REPEAT_ONE, CONF_COMMAND_REPEAT_OFF, \
+    CONF_COMMAND_VOLUME, CONF_COMMAND_VOLUME_UP, CONF_COMMAND_VOLUME_DOWN, CONF_COMMAND_ENQUEUE, CONF_COMMAND_REPEAT_ONE, CONF_COMMAND_REPEAT_OFF, \
     CONF_COMMAND_CLEAR_PLAYLIST, CONF_COMMAND_ON, CONF_COMMAND_OFF, CONF_STATE_ON, CONF_STATE_OFF, CONF_STATE_VOLUME
 
 DEPENDENCIES = ['uartex']
@@ -27,6 +27,7 @@ CONFIG_SCHEMA = cv.All(media_player.MEDIA_PLAYER_SCHEMA.extend({
     cv.Optional(CONF_COMMAND_MUTE): command_hex_schema,
     cv.Optional(CONF_COMMAND_UNMUTE): command_hex_schema,
     cv.Optional(CONF_COMMAND_TOGGLE): command_hex_schema,
+    cv.Optional(CONF_COMMAND_VOLUME): cv.returning_lambda,
     cv.Optional(CONF_COMMAND_VOLUME_UP): cv.returning_lambda,
     cv.Optional(CONF_COMMAND_VOLUME_DOWN): cv.returning_lambda,
     cv.Optional(CONF_COMMAND_ENQUEUE): command_hex_schema,
@@ -94,6 +95,10 @@ async def to_code(config):
         args = command_hex_expression(config[CONF_COMMAND_TOGGLE])
         cg.add(var.set_command(CONF_COMMAND_TOGGLE, args))
         
+    if CONF_COMMAND_VOLUME in config:
+        templ = await cg.templatable(config[CONF_COMMAND_VOLUME], [(cg.float_.operator('const'), 'x')], cmd_t)
+        cg.add(var.set_command(CONF_COMMAND_VOLUME, templ))
+
     if CONF_COMMAND_VOLUME_UP in config:
         templ = await cg.templatable(config[CONF_COMMAND_VOLUME_UP], [(cg.float_.operator('const'), 'x')], cmd_t)
         cg.add(var.set_command(CONF_COMMAND_VOLUME_UP, templ))

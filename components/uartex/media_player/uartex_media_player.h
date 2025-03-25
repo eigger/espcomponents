@@ -25,6 +25,7 @@ public:
     cmd_t* get_command_mute() { return get_command("command_mute"); }
     cmd_t* get_command_unmute() { return get_command("command_unmute"); }
     cmd_t* get_command_toggle() { return get_command("command_toggle"); }
+    cmd_t* get_command_volume(const float x) { return get_command("command_volume", x); }
     cmd_t* get_command_volume_up(const float x) { return get_command("command_volume_up", x); }
     cmd_t* get_command_volume_down(const float x) { return get_command("command_volume_down", x); }
     cmd_t* get_command_enqueue() { return get_command("command_enqueue"); }

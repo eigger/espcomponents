@@ -64,6 +64,7 @@ void UARTExMediaPlayer::publish(const std::vector<uint8_t>& data)
 
 void UARTExMediaPlayer::control(const media_player::MediaPlayerCall &call)
 {
+    float new_volume = this->volume;
     media_player::MediaPlayerState play_state = media_player::MEDIA_PLAYER_STATE_PLAYING;
     if (call.get_announcement().has_value())
     {
@@ -79,12 +80,12 @@ void UARTExMediaPlayer::control(const media_player::MediaPlayerCall &call)
     if (call.get_volume().has_value())
     {
         this->volume = call.get_volume().value();
-        enqueue_tx_cmd(get_command_volume_up(this->volume));
+        enqueue_tx_cmd(get_command_volume(this->volume));
         if (this->muted_) enqueue_tx_cmd(get_command_unmute());
         this->muted_ = false;
     }
     if (call.get_command().has_value()) 
-
+    {
         switch (call.get_command().value())
         {
         case media_player::MEDIA_PLAYER_COMMAND_MUTE:
@@ -96,28 +97,21 @@ void UARTExMediaPlayer::control(const media_player::MediaPlayerCall &call)
             this->muted_ = false;
             break;
         case media_player::MEDIA_PLAYER_COMMAND_VOLUME_UP: 
-        {
-            float new_volume = this->volume + 0.1f;
-            if (new_volume > 1.0f)
-            new_volume = 1.0f;
+            new_volume = this->volume + 0.1f;
+            if (new_volume > 1.0f) new_volume = 1.0f;
             this->volume = new_volume;
             enqueue_tx_cmd(get_command_volume_up(new_volume));
             if (this->muted_) enqueue_tx_cmd(get_command_unmute());
             this->muted_ = false;
             break;
-        }
         case media_player::MEDIA_PLAYER_COMMAND_VOLUME_DOWN: 
-        {
-            float new_volume = this->volume - 0.1f;
-            if (new_volume < 0.0f)
-            new_volume = 0.0f;
+            new_volume = this->volume - 0.1f;
+            if (new_volume < 0.0f) new_volume = 0.0f;
             this->volume = new_volume;
             enqueue_tx_cmd(get_command_volume_down(new_volume));
             if (this->muted_) enqueue_tx_cmd(get_command_unmute());
             this->muted_ = false;
             break;
-        }
-
         case media_player::MEDIA_PLAYER_COMMAND_PLAY:
             this->state = play_state;
             enqueue_tx_cmd(get_command_play());
@@ -155,7 +149,9 @@ void UARTExMediaPlayer::control(const media_player::MediaPlayerCall &call)
         case media_player::MEDIA_PLAYER_COMMAND_CLEAR_PLAYLIST :
             enqueue_tx_cmd(get_command_clear_playlist());
             break;
+        }
     }
+
     this->publish_state();
 }
 }  // namespace uartex
