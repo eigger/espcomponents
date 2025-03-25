@@ -80,7 +80,7 @@ void UARTExMediaPlayer::control(const media_player::MediaPlayerCall &call)
     if (call.get_volume().has_value())
     {
         this->volume = call.get_volume().value();
-        enqueue_tx_cmd(get_command_volume(this->volume));
+        enqueue_tx_cmd(get_command_volume(this->volume * 100));
         if (this->muted_) enqueue_tx_cmd(get_command_unmute());
         this->muted_ = false;
     }
@@ -100,7 +100,7 @@ void UARTExMediaPlayer::control(const media_player::MediaPlayerCall &call)
             new_volume = this->volume + 0.1f;
             if (new_volume > 1.0f) new_volume = 1.0f;
             this->volume = new_volume;
-            enqueue_tx_cmd(get_command_volume_up(new_volume));
+            enqueue_tx_cmd(get_command_volume_up(new_volume * 100));
             if (this->muted_) enqueue_tx_cmd(get_command_unmute());
             this->muted_ = false;
             break;
@@ -108,7 +108,7 @@ void UARTExMediaPlayer::control(const media_player::MediaPlayerCall &call)
             new_volume = this->volume - 0.1f;
             if (new_volume < 0.0f) new_volume = 0.0f;
             this->volume = new_volume;
-            enqueue_tx_cmd(get_command_volume_down(new_volume));
+            enqueue_tx_cmd(get_command_volume_down(new_volume * 100));
             if (this->muted_) enqueue_tx_cmd(get_command_unmute());
             this->muted_ = false;
             break;
