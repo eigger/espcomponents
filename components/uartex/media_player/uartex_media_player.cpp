@@ -131,7 +131,7 @@ void UARTExMediaPlayer::control(const media_player::MediaPlayerCall &call)
             enqueue_tx_cmd(get_command_stop());
             break;
         case media_player::MEDIA_PLAYER_COMMAND_TOGGLE:
-            if (this->state == media_player::MEDIA_PLAYER_COMMAND_PLAY)
+            if (this->state == media_player::MEDIA_PLAYER_STATE_PLAYING)
             {
                 this->state = media_player::MEDIA_PLAYER_STATE_PAUSED;
                 enqueue_tx_cmd(get_command_pause());
