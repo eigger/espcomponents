@@ -382,7 +382,27 @@ def state_hex_expression(conf):
     offset = conf[CONF_OFFSET]
     return offset, inverted, data, mask
 
+def state_num_hex_expression(conf):
+    if conf is None:
+        return
+    offset = conf[CONF_OFFSET]
+    length = conf[CONF_LENGTH]
+    precision = conf[CONF_PRECISION]
+    signed = conf[CONF_SIGNED]
+    endian = conf[CONF_ENDIAN]
+    decode = conf[CONF_DECODE]
+    return offset, length, precision, signed, endian, decode
 
+async def state_num_expression(conf):
+    if cg.is_template(conf):
+        return await cg.templatable(conf, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
+    else:
+        return state_num_hex_expression(conf)
+    
+async def state_string_expression(conf):
+    if cg.is_template(conf):
+        return await cg.templatable(conf, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.std_string)
+    
 def command_hex_expression(conf):
     if conf is None:
         return
@@ -396,10 +416,22 @@ def command_hex_expression(conf):
             return data, ack
     else:
         return data
-    
+
 async def command_expression(conf):
     if cg.is_template(conf):
         return await cg.templatable(conf, [], cmd_t)
+    else:
+        return command_hex_expression(conf)
+
+async def command_float_expression(conf):
+    if cg.is_template(conf):
+        return await cg.templatable(conf, [(cg.float_.operator('const'), 'x')], cmd_t)
+    else:
+        return command_hex_expression(conf)
+    
+async def command_string_expression(conf):
+    if cg.is_template(conf):
+        return await cg.templatable(conf, [(cg.std_string.operator('const'), 'str')], cmd_t)
     else:
         return command_hex_expression(conf)
 

@@ -23,7 +23,7 @@ media_player::MediaPlayerTraits UARTExMediaPlayer::get_traits()
     //if (get_state_paused() || get_command_pause())
     traits.set_supports_pause(true);
     return traits;
-};
+}
 
 void UARTExMediaPlayer::publish(const std::vector<uint8_t>& data)
 {

@@ -136,13 +136,13 @@ light:
 - state (Optional, state): 
 - state_on (Required, state): 
 - state_off (Required, state): 
-- state_brightness (Optional, lambda):
+- state_brightness (Optional, state_num or lambda):
   - float = (uint8_t* data, uint16_t len)
 - command_on (Required, command or lambda): 
   - command = (void)
 - command_off (Required, command or lambda): 
   - command = (void)
-- command_brightness (Optional, lambda): 
+- command_brightness (Optional, command or lambda): 
   - command = (float x)
 - command_update (Optional, command or lambda): 
   - command = (void)
@@ -278,9 +278,9 @@ climate:
   - std::string = (uint8_t* data, uint16_t len)
 - command_off (Optional, command or lambda): 
   - command = (void)
-- command_temperature (Optional, lambda): 
+- command_temperature (Optional, command or lambda): 
   - command = (float x)
-- command_humidity (Optional, lambda): 
+- command_humidity (Optional, command or lambda): 
   - command = (float x)
 - command_cool (Optional, command or lambda): 
   - command = (void)
@@ -336,9 +336,9 @@ climate:
   - command = (void)
 - command_update (Optional, command or lambda): 
   - command = (void)
-- command_custom_fan (Required, lambda): 
+- command_custom_fan (Optional, lambda): 
   - command = (std::string str)
-- command_custom_preset (Required, lambda): 
+- command_custom_preset (Optional, lambda): 
   - command = (std::string str)
 - custom_fan_mode (Optional, list): A list of custom fan mode for this climate
 - custom_preset (Optional, list): A list of custom preset mode for this climate
@@ -387,7 +387,7 @@ fan:
 - state (Optional, state): 
 - state_on (Required, state): 
 - state_off (Required, state): 
-- state_speed (Optional, lambda):
+- state_speed (Optional, state_num or lambda):
   - float = (uint8_t* data, uint16_t len)
 - state_preset (Optional, lambda): 
   - std::string = (uint8_t* data, uint16_t len)
@@ -395,7 +395,7 @@ fan:
   - command = (void)
 - command_off (Required, command or lambda): 
   - command = (void)
-- command_speed (Optional, lambda): 
+- command_speed (Optional, command or lambda): 
   - command = (float x)
 - command_preset (Required, lambda): 
   - command = (std::string str)
@@ -483,7 +483,7 @@ number:
 - state (Optional, state): 
 - state_number (Optional, state_num or lambda):
   - float = (uint8_t* data, uint16_t len)
-- command_number (Optional, lambda): 
+- command_number (Optional, command or lambda): 
   - command = (float x)
 - command_update (Optional, command or lambda): 
   - command = (void)
@@ -562,7 +562,7 @@ text:
               };
 ```
 ### Configuration variables
-- command_text (Required, lambda): 
+- command_text (Required, command or lambda): 
   - command = (std::string str)
 <hr/>
 
@@ -621,13 +621,79 @@ valve:
 - state (Optional, state): 
 - state_open (Optional, state): 
 - state_closed (Optional, state): 
-- state_position (Optional, lambda):
+- state_position (Optional, state_num or lambda):
   - float = (uint8_t* data, uint16_t len)
 - command_open (Optional, command or lambda): 
   - command = (void)
 - command_close (Optional, command or lambda): 
   - command = (void)
 - command_stop (Optional, command or lambda): 
+  - command = (void)
+- command_update (Optional, command or lambda): 
+  - command = (void)
+<hr/>
+
+## uartex.media_player
+```
+packet play) 0x02 0x01 0x02 0x03 0x01 (add)checksum 0x0D 0x0A
+offset) head head 0    1    2    3
+packet play ack) 0x02 0x01 0x02 0x13 0x01 (add)checksum 0x0D 0x0A
+packet pause) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
+packet pause ack) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
+
+media_player:
+  - platform: uartex
+    name: "Player1"
+    state: 
+      data: [0x02, 0x03]
+      mask: [0xff, 0x0f]
+    state_playing:
+      offset: 2
+      data: [0x01]
+    state_paused:
+      offset: 2
+      data: [0x00]
+    command_play:
+      data: [0x02, 0x03, 0x01]
+      ack: [0x02, 0x13, 0x01]
+    command_pause:
+      data: [0x02, 0x03, 0x00]
+      ack: [0x02, 0x13, 0x00]
+```
+### Configuration variables
+- state (Optional, state): 
+- state_none (Optional, state): 
+- state_idle (Optional, state): 
+- state_playing (Optional, state): 
+- state_paused (Optional, state): 
+- state_announcing (Optional, state): 
+- state_volume (Optional, state_num or lambda): 
+  - float = (uint8_t* data, uint16_t len)
+- command_stop (Optional, command or lambda): 
+  - command = (void)
+- command_play (Optional, command or lambda): 
+  - command = (void)
+- command_pause (Optional, command or lambda): 
+  - command = (void)
+- command_mute (Optional, command or lambda): 
+  - command = (void)
+- command_unmute (Optional, command or lambda): 
+  - command = (void)
+- command_toggle (Optional, command or lambda): 
+  - command = (void)
+- command_volume (Optional, command or lambda): 
+  - command = (float x)
+- command_volume_up (Optional, command or lambda): 
+  - command = (float x)
+- command_volume_down (Optional, command or lambda): 
+  - command = (float x)
+- command_enqueue (Optional, command or lambda): 
+  - command = (void)
+- command_repeat_one (Optional, command or lambda): 
+  - command = (void)
+- command_repeat_off (Optional, command or lambda): 
+  - command = (void)
+- command_clear_playlist (Optional, command or lambda): 
   - command = (void)
 - command_update (Optional, command or lambda): 
   - command = (void)
