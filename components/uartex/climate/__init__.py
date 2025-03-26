@@ -1,9 +1,10 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import climate, uartex, sensor
-from esphome.const import CONF_ID, CONF_SENSOR, CONF_OFFSET, CONF_CUSTOM_FAN_MODE, CONF_CUSTOM_PRESET
-from .. import uartex_ns, cmd_t, uint8_ptr_const, uint16_const, \
-    command_expression, state_schema, state_hex_expression, command_hex_schema, state_num_schema
+from esphome.const import CONF_ID, CONF_SENSOR, CONF_CUSTOM_FAN_MODE, CONF_CUSTOM_PRESET
+from .. import uartex_ns, \
+    state_schema, state_num_schema, state_hex_expression, state_num_expression, state_string_expression, \
+    command_hex_schema, command_expression, command_float_expression, command_string_expression
 from ..const import CONF_STATE_TEMPERATURE_CURRENT, CONF_STATE_TEMPERATURE_TARGET, CONF_STATE_HUMIDITY_CURRENT, CONF_STATE_HUMIDITY_TARGET, \
     CONF_STATE_ON, CONF_STATE_AUTO, CONF_STATE_HEAT, CONF_STATE_COOL, CONF_STATE_FAN_ONLY, CONF_STATE_DRY, CONF_STATE_SWING_OFF, CONF_STATE_SWING_BOTH, CONF_STATE_SWING_VERTICAL, CONF_STATE_SWING_HORIZONTAL, \
     CONF_COMMAND_ON, CONF_COMMAND_AUTO, CONF_COMMAND_HEAT, CONF_COMMAND_COOL, CONF_COMMAND_FAN_ONLY, CONF_COMMAND_DRY, CONF_COMMAND_SWING_OFF, CONF_COMMAND_SWING_BOTH, CONF_COMMAND_SWING_VERTICAL, CONF_COMMAND_SWING_HORIZONTAL, \
@@ -86,8 +87,8 @@ CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
     cv.Optional(CONF_STATE_PRESET_ACTIVITY): state_schema,
     cv.Optional(CONF_STATE_CUSTOM_FAN): cv.returning_lambda,
     cv.Optional(CONF_STATE_CUSTOM_PRESET): cv.returning_lambda,
-    cv.Optional(CONF_COMMAND_TEMPERATURE): cv.returning_lambda,
-    cv.Optional(CONF_COMMAND_HUMIDITY): cv.returning_lambda,
+    cv.Optional(CONF_COMMAND_TEMPERATURE): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_HUMIDITY): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_COOL): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_HEAT): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_FAN_ONLY): cv.templatable(command_hex_schema),
@@ -115,8 +116,8 @@ CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
     cv.Optional(CONF_COMMAND_PRESET_ECO): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_PRESET_SLEEP): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_PRESET_ACTIVITY): cv.templatable(command_hex_schema),
-    cv.Optional(CONF_COMMAND_CUSTOM_FAN): cv.returning_lambda,
-    cv.Optional(CONF_COMMAND_CUSTOM_PRESET): cv.returning_lambda,
+    cv.Optional(CONF_COMMAND_CUSTOM_FAN): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_CUSTOM_PRESET): cv.templatable(command_hex_schema),
     cv.Optional(CONF_CUSTOM_FAN_MODE): validate_custom_modes,
     cv.Optional(CONF_CUSTOM_PRESET): validate_custom_modes,
 }).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
@@ -141,281 +142,261 @@ async def to_code(config):
         cg.add(var.set_custom_preset_modes(config[CONF_CUSTOM_PRESET]))
 
     if CONF_STATE_TEMPERATURE_TARGET in config:
-        state = config[CONF_STATE_TEMPERATURE_TARGET]
-        if cg.is_template(state):
-            templ = await cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
-            cg.add(var.set_state(CONF_STATE_TEMPERATURE_TARGET, templ))
-        else:
-            args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION], state[CONF_SIGNED], state[CONF_ENDIAN], state[CONF_DECODE]
-            cg.add(var.set_state(CONF_STATE_TEMPERATURE_TARGET, args))
+        state = await state_num_expression(config[CONF_STATE_TEMPERATURE_TARGET])
+        cg.add(var.set_state(CONF_STATE_TEMPERATURE_TARGET, state))
 
     if CONF_STATE_HUMIDITY_TARGET in config:
-        state = config[CONF_STATE_HUMIDITY_TARGET]
-        if cg.is_template(state):
-            templ = await cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
-            cg.add(var.set_state(CONF_STATE_HUMIDITY_TARGET, templ))
-        else:
-            args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION], state[CONF_SIGNED], state[CONF_ENDIAN], state[CONF_DECODE]
-            cg.add(var.set_state(CONF_STATE_HUMIDITY_TARGET, args))
+        state = await state_num_expression(config[CONF_STATE_HUMIDITY_TARGET])
+        cg.add(var.set_state(CONF_STATE_HUMIDITY_TARGET, state))
 
     if CONF_SENSOR in config:
         sens = await cg.get_variable(config[CONF_SENSOR])
         cg.add(var.set_sensor(sens))
 
     if CONF_STATE_TEMPERATURE_CURRENT in config:
-        state = config[CONF_STATE_TEMPERATURE_CURRENT]
-        if cg.is_template(state):
-            templ = await cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
-            cg.add(var.set_state(CONF_STATE_TEMPERATURE_CURRENT, templ))
-        else:
-            args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION], state[CONF_SIGNED], state[CONF_ENDIAN], state[CONF_DECODE]
-            cg.add(var.set_state(CONF_STATE_TEMPERATURE_CURRENT, args))
+        state = await state_num_expression(config[CONF_STATE_TEMPERATURE_CURRENT])
+        cg.add(var.set_state(CONF_STATE_TEMPERATURE_CURRENT, state))
 
     if CONF_STATE_HUMIDITY_CURRENT in config:
-        state = config[CONF_STATE_HUMIDITY_CURRENT]
-        if cg.is_template(state):
-            templ = await cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
-            cg.add(var.set_state(CONF_STATE_HUMIDITY_CURRENT, templ))
-        else:
-            args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION], state[CONF_SIGNED], state[CONF_ENDIAN], state[CONF_DECODE]
-            cg.add(var.set_state(CONF_STATE_HUMIDITY_CURRENT, args))
+        state = await state_num_expression(config[CONF_STATE_HUMIDITY_CURRENT])
+        cg.add(var.set_state(CONF_STATE_HUMIDITY_CURRENT, state))
 
     if CONF_STATE_COOL in config:
-        args = state_hex_expression(config[CONF_STATE_COOL])
-        cg.add(var.set_state(CONF_STATE_COOL, args))
+        state = state_hex_expression(config[CONF_STATE_COOL])
+        cg.add(var.set_state(CONF_STATE_COOL, state))
 
     if CONF_STATE_HEAT in config:
-        args = state_hex_expression(config[CONF_STATE_HEAT])
-        cg.add(var.set_state(CONF_STATE_HEAT, args))
+        state = state_hex_expression(config[CONF_STATE_HEAT])
+        cg.add(var.set_state(CONF_STATE_HEAT, state))
 
     if CONF_STATE_FAN_ONLY in config:
-        args = state_hex_expression(config[CONF_STATE_FAN_ONLY])
-        cg.add(var.set_state(CONF_STATE_FAN_ONLY, args))
+        state = state_hex_expression(config[CONF_STATE_FAN_ONLY])
+        cg.add(var.set_state(CONF_STATE_FAN_ONLY, state))
 
     if CONF_STATE_DRY in config:
-        args = state_hex_expression(config[CONF_STATE_DRY])
-        cg.add(var.set_state(CONF_STATE_DRY, args))
+        state = state_hex_expression(config[CONF_STATE_DRY])
+        cg.add(var.set_state(CONF_STATE_DRY, state))
 
     if CONF_STATE_AUTO in config:
-        args = state_hex_expression(config[CONF_STATE_AUTO])
-        cg.add(var.set_state(CONF_STATE_AUTO, args))
+        state = state_hex_expression(config[CONF_STATE_AUTO])
+        cg.add(var.set_state(CONF_STATE_AUTO, state))
 
     if CONF_STATE_SWING_OFF in config:
-        args = state_hex_expression(config[CONF_STATE_SWING_OFF])
-        cg.add(var.set_state(CONF_STATE_SWING_OFF, args))
+        state = state_hex_expression(config[CONF_STATE_SWING_OFF])
+        cg.add(var.set_state(CONF_STATE_SWING_OFF, state))
 
     if CONF_STATE_SWING_BOTH in config:
-        args = state_hex_expression(config[CONF_STATE_SWING_BOTH])
-        cg.add(var.set_state(CONF_STATE_SWING_BOTH, args))
+        state = state_hex_expression(config[CONF_STATE_SWING_BOTH])
+        cg.add(var.set_state(CONF_STATE_SWING_BOTH, state))
 
     if CONF_STATE_SWING_VERTICAL in config:
-        args = state_hex_expression(config[CONF_STATE_SWING_VERTICAL])
-        cg.add(var.set_state(CONF_STATE_SWING_VERTICAL, args))
+        state = state_hex_expression(config[CONF_STATE_SWING_VERTICAL])
+        cg.add(var.set_state(CONF_STATE_SWING_VERTICAL, state))
 
     if CONF_STATE_SWING_HORIZONTAL in config:
-        args = state_hex_expression(config[CONF_STATE_SWING_HORIZONTAL])
-        cg.add(var.set_state(CONF_STATE_SWING_HORIZONTAL, args))
+        state = state_hex_expression(config[CONF_STATE_SWING_HORIZONTAL])
+        cg.add(var.set_state(CONF_STATE_SWING_HORIZONTAL, state))
 
     if CONF_STATE_FAN_ON in config:
-        args = state_hex_expression(config[CONF_STATE_FAN_ON])
-        cg.add(var.set_state(CONF_STATE_FAN_ON, args))
+        state = state_hex_expression(config[CONF_STATE_FAN_ON])
+        cg.add(var.set_state(CONF_STATE_FAN_ON, state))
 
     if CONF_STATE_FAN_OFF in config:
-        args = state_hex_expression(config[CONF_STATE_FAN_OFF])
-        cg.add(var.set_state(CONF_STATE_FAN_OFF, args))
+        state = state_hex_expression(config[CONF_STATE_FAN_OFF])
+        cg.add(var.set_state(CONF_STATE_FAN_OFF, state))
 
     if CONF_STATE_FAN_AUTO in config:
-        args = state_hex_expression(config[CONF_STATE_FAN_AUTO])
-        cg.add(var.set_state(CONF_STATE_FAN_AUTO, args))
+        state = state_hex_expression(config[CONF_STATE_FAN_AUTO])
+        cg.add(var.set_state(CONF_STATE_FAN_AUTO, state))
 
     if CONF_STATE_FAN_LOW in config:
-        args = state_hex_expression(config[CONF_STATE_FAN_LOW])
-        cg.add(var.set_state(CONF_STATE_FAN_LOW, args))
+        state = state_hex_expression(config[CONF_STATE_FAN_LOW])
+        cg.add(var.set_state(CONF_STATE_FAN_LOW, state))
 
     if CONF_STATE_FAN_MEDIUM in config:
-        args = state_hex_expression(config[CONF_STATE_FAN_MEDIUM])
-        cg.add(var.set_state(CONF_STATE_FAN_MEDIUM, args))
+        state = state_hex_expression(config[CONF_STATE_FAN_MEDIUM])
+        cg.add(var.set_state(CONF_STATE_FAN_MEDIUM, state))
 
     if CONF_STATE_FAN_HIGH in config:
-        args = state_hex_expression(config[CONF_STATE_FAN_HIGH])
-        cg.add(var.set_state(CONF_STATE_FAN_HIGH, args))
+        state = state_hex_expression(config[CONF_STATE_FAN_HIGH])
+        cg.add(var.set_state(CONF_STATE_FAN_HIGH, state))
 
     if CONF_STATE_FAN_MIDDLE in config:
-        args = state_hex_expression(config[CONF_STATE_FAN_MIDDLE])
-        cg.add(var.set_state(CONF_STATE_FAN_MIDDLE, args))
+        state = state_hex_expression(config[CONF_STATE_FAN_MIDDLE])
+        cg.add(var.set_state(CONF_STATE_FAN_MIDDLE, state))
 
     if CONF_STATE_FAN_FOCUS in config:
-        args = state_hex_expression(config[CONF_STATE_FAN_FOCUS])
-        cg.add(var.set_state(CONF_STATE_FAN_FOCUS, args))
+        state = state_hex_expression(config[CONF_STATE_FAN_FOCUS])
+        cg.add(var.set_state(CONF_STATE_FAN_FOCUS, state))
 
     if CONF_STATE_FAN_DIFFUSE in config:
-        args = state_hex_expression(config[CONF_STATE_FAN_DIFFUSE])
-        cg.add(var.set_state(CONF_STATE_FAN_DIFFUSE, args))
+        state = state_hex_expression(config[CONF_STATE_FAN_DIFFUSE])
+        cg.add(var.set_state(CONF_STATE_FAN_DIFFUSE, state))
 
     if CONF_STATE_FAN_QUIET in config:
-        args = state_hex_expression(config[CONF_STATE_FAN_QUIET])
-        cg.add(var.set_state(CONF_STATE_FAN_QUIET, args))
+        state = state_hex_expression(config[CONF_STATE_FAN_QUIET])
+        cg.add(var.set_state(CONF_STATE_FAN_QUIET, state))
 
     if CONF_STATE_PRESET_NONE in config:
-        args = state_hex_expression(config[CONF_STATE_PRESET_NONE])
-        cg.add(var.set_state(CONF_STATE_PRESET_NONE, args))
+        state = state_hex_expression(config[CONF_STATE_PRESET_NONE])
+        cg.add(var.set_state(CONF_STATE_PRESET_NONE, state))
 
     if CONF_STATE_PRESET_HOME in config:
-        args = state_hex_expression(config[CONF_STATE_PRESET_HOME])
-        cg.add(var.set_state(CONF_STATE_PRESET_HOME, args))
+        state = state_hex_expression(config[CONF_STATE_PRESET_HOME])
+        cg.add(var.set_state(CONF_STATE_PRESET_HOME, state))
 
     if CONF_STATE_PRESET_AWAY in config:
-        args = state_hex_expression(config[CONF_STATE_PRESET_AWAY])
-        cg.add(var.set_state(CONF_STATE_PRESET_AWAY, args))
+        state = state_hex_expression(config[CONF_STATE_PRESET_AWAY])
+        cg.add(var.set_state(CONF_STATE_PRESET_AWAY, state))
 
     if CONF_STATE_PRESET_BOOST in config:
-        args = state_hex_expression(config[CONF_STATE_PRESET_BOOST])
-        cg.add(var.set_state(CONF_STATE_PRESET_BOOST, args))
+        state = state_hex_expression(config[CONF_STATE_PRESET_BOOST])
+        cg.add(var.set_state(CONF_STATE_PRESET_BOOST, state))
 
     if CONF_STATE_PRESET_COMFORT in config:
-        args = state_hex_expression(config[CONF_STATE_PRESET_COMFORT])
-        cg.add(var.set_state(CONF_STATE_PRESET_COMFORT, args))
+        state = state_hex_expression(config[CONF_STATE_PRESET_COMFORT])
+        cg.add(var.set_state(CONF_STATE_PRESET_COMFORT, state))
 
     if CONF_STATE_PRESET_ECO in config:
-        args = state_hex_expression(config[CONF_STATE_PRESET_ECO])
-        cg.add(var.set_state(CONF_STATE_PRESET_ECO, args))
+        state = state_hex_expression(config[CONF_STATE_PRESET_ECO])
+        cg.add(var.set_state(CONF_STATE_PRESET_ECO, state))
 
     if CONF_STATE_PRESET_SLEEP in config:
-        args = state_hex_expression(config[CONF_STATE_PRESET_SLEEP])
-        cg.add(var.set_state(CONF_STATE_PRESET_SLEEP, args))
+        state = state_hex_expression(config[CONF_STATE_PRESET_SLEEP])
+        cg.add(var.set_state(CONF_STATE_PRESET_SLEEP, state))
 
     if CONF_STATE_PRESET_ACTIVITY in config:
-        args = state_hex_expression(config[CONF_STATE_PRESET_ACTIVITY])
-        cg.add(var.set_state(CONF_STATE_PRESET_ACTIVITY, args))
+        state = state_hex_expression(config[CONF_STATE_PRESET_ACTIVITY])
+        cg.add(var.set_state(CONF_STATE_PRESET_ACTIVITY, state))
 
     if CONF_STATE_CUSTOM_FAN in config:
-        templ = await cg.templatable(config[CONF_STATE_CUSTOM_FAN], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.std_string)
-        cg.add(var.set_state(CONF_STATE_CUSTOM_FAN, templ))
+        state = await state_string_expression(config[CONF_STATE_CUSTOM_FAN])
+        cg.add(var.set_state(CONF_STATE_CUSTOM_FAN, state))
 
     if CONF_STATE_CUSTOM_PRESET in config:
-        templ = await cg.templatable(config[CONF_STATE_CUSTOM_PRESET], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.std_string)
-        cg.add(var.set_state(CONF_STATE_CUSTOM_PRESET, templ))
+        state = await state_string_expression(config[CONF_STATE_CUSTOM_PRESET])
+        cg.add(var.set_state(CONF_STATE_CUSTOM_PRESET, state))
 
     if CONF_COMMAND_TEMPERATURE in config:
-        templ = await cg.templatable(config[CONF_COMMAND_TEMPERATURE], [(cg.float_.operator('const'), 'x')], cmd_t)
-        cg.add(var.set_command(CONF_COMMAND_TEMPERATURE, templ))
+        command = await command_float_expression(config[CONF_COMMAND_TEMPERATURE])
+        cg.add(var.set_command(CONF_COMMAND_TEMPERATURE, command))
 
     if CONF_COMMAND_HUMIDITY in config:
-        templ = await cg.templatable(config[CONF_COMMAND_HUMIDITY], [(cg.float_.operator('const'), 'x')], cmd_t)
-        cg.add(var.set_command(CONF_COMMAND_HUMIDITY, templ))
+        command = await command_float_expression(config[CONF_COMMAND_HUMIDITY])
+        cg.add(var.set_command(CONF_COMMAND_HUMIDITY, command))
 
     if CONF_COMMAND_COOL in config:
-        args = await command_expression(config[CONF_COMMAND_COOL])
-        cg.add(var.set_command(CONF_COMMAND_COOL, args))
+        command = await command_expression(config[CONF_COMMAND_COOL])
+        cg.add(var.set_command(CONF_COMMAND_COOL, command))
 
     if CONF_COMMAND_HEAT in config:
-        args = await command_expression(config[CONF_COMMAND_HEAT])
-        cg.add(var.set_command(CONF_COMMAND_HEAT, args))
+        command = await command_expression(config[CONF_COMMAND_HEAT])
+        cg.add(var.set_command(CONF_COMMAND_HEAT, command))
 
     if CONF_COMMAND_FAN_ONLY in config:
-        args = await command_expression(config[CONF_COMMAND_FAN_ONLY])
-        cg.add(var.set_command(CONF_COMMAND_FAN_ONLY, args))
+        command = await command_expression(config[CONF_COMMAND_FAN_ONLY])
+        cg.add(var.set_command(CONF_COMMAND_FAN_ONLY, command))
 
     if CONF_COMMAND_DRY in config:
-        args = await command_expression(config[CONF_COMMAND_DRY])
-        cg.add(var.set_command(CONF_COMMAND_DRY, args))
+        command = await command_expression(config[CONF_COMMAND_DRY])
+        cg.add(var.set_command(CONF_COMMAND_DRY, command))
 
     if CONF_COMMAND_AUTO in config:
-        args = await command_expression(config[CONF_COMMAND_AUTO])
-        cg.add(var.set_command(CONF_COMMAND_AUTO, args))
+        command = await command_expression(config[CONF_COMMAND_AUTO])
+        cg.add(var.set_command(CONF_COMMAND_AUTO, command))
 
     if CONF_COMMAND_SWING_OFF in config:
-        args = await command_expression(config[CONF_COMMAND_SWING_OFF])
-        cg.add(var.set_command(CONF_COMMAND_SWING_OFF, args))
+        command = await command_expression(config[CONF_COMMAND_SWING_OFF])
+        cg.add(var.set_command(CONF_COMMAND_SWING_OFF, command))
 
     if CONF_COMMAND_SWING_BOTH in config:
-        args = await command_expression(config[CONF_COMMAND_SWING_BOTH])
-        cg.add(var.set_command(CONF_COMMAND_SWING_BOTH, args))
+        command = await command_expression(config[CONF_COMMAND_SWING_BOTH])
+        cg.add(var.set_command(CONF_COMMAND_SWING_BOTH, command))
 
     if CONF_COMMAND_SWING_VERTICAL in config:
-        args = await command_expression(config[CONF_COMMAND_SWING_VERTICAL])
-        cg.add(var.set_command(CONF_COMMAND_SWING_VERTICAL, args))
+        command = await command_expression(config[CONF_COMMAND_SWING_VERTICAL])
+        cg.add(var.set_command(CONF_COMMAND_SWING_VERTICAL, command))
 
     if CONF_COMMAND_SWING_HORIZONTAL in config:
-        args = await command_expression(config[CONF_COMMAND_SWING_HORIZONTAL])
-        cg.add(var.set_command(CONF_COMMAND_SWING_HORIZONTAL, args))
+        command = await command_expression(config[CONF_COMMAND_SWING_HORIZONTAL])
+        cg.add(var.set_command(CONF_COMMAND_SWING_HORIZONTAL, command))
 
     if CONF_COMMAND_FAN_ON in config:
-        args = await command_expression(config[CONF_COMMAND_FAN_ON])
-        cg.add(var.set_command(CONF_COMMAND_FAN_ON, args))
+        command = await command_expression(config[CONF_COMMAND_FAN_ON])
+        cg.add(var.set_command(CONF_COMMAND_FAN_ON, command))
 
     if CONF_COMMAND_FAN_OFF in config:
-        args = await command_expression(config[CONF_COMMAND_FAN_OFF])
-        cg.add(var.set_command(CONF_COMMAND_FAN_OFF, args))
+        command = await command_expression(config[CONF_COMMAND_FAN_OFF])
+        cg.add(var.set_command(CONF_COMMAND_FAN_OFF, command))
 
     if CONF_COMMAND_FAN_AUTO in config:
-        args = await command_expression(config[CONF_COMMAND_FAN_AUTO])
-        cg.add(var.set_command(CONF_COMMAND_FAN_AUTO, args))
+        command = await command_expression(config[CONF_COMMAND_FAN_AUTO])
+        cg.add(var.set_command(CONF_COMMAND_FAN_AUTO, command))
 
     if CONF_COMMAND_FAN_LOW in config:
-        args = await command_expression(config[CONF_COMMAND_FAN_LOW])
-        cg.add(var.set_command(CONF_COMMAND_FAN_LOW, args))
+        command = await command_expression(config[CONF_COMMAND_FAN_LOW])
+        cg.add(var.set_command(CONF_COMMAND_FAN_LOW, command))
 
     if CONF_COMMAND_FAN_MEDIUM in config:
-        args = await command_expression(config[CONF_COMMAND_FAN_MEDIUM])
-        cg.add(var.set_command(CONF_COMMAND_FAN_MEDIUM, args))
+        command = await command_expression(config[CONF_COMMAND_FAN_MEDIUM])
+        cg.add(var.set_command(CONF_COMMAND_FAN_MEDIUM, command))
 
     if CONF_COMMAND_FAN_HIGH in config:
-        args = await command_expression(config[CONF_COMMAND_FAN_HIGH])
-        cg.add(var.set_command(CONF_COMMAND_FAN_HIGH, args))
+        command = await command_expression(config[CONF_COMMAND_FAN_HIGH])
+        cg.add(var.set_command(CONF_COMMAND_FAN_HIGH, command))
 
     if CONF_COMMAND_FAN_MIDDLE in config:
-        args = await command_expression(config[CONF_COMMAND_FAN_MIDDLE])
-        cg.add(var.set_command(CONF_COMMAND_FAN_MIDDLE, args))
+        command = await command_expression(config[CONF_COMMAND_FAN_MIDDLE])
+        cg.add(var.set_command(CONF_COMMAND_FAN_MIDDLE, command))
 
     if CONF_COMMAND_FAN_FOCUS in config:
-        args = await command_expression(config[CONF_COMMAND_FAN_FOCUS])
-        cg.add(var.set_command(CONF_COMMAND_FAN_FOCUS, args))
+        command = await command_expression(config[CONF_COMMAND_FAN_FOCUS])
+        cg.add(var.set_command(CONF_COMMAND_FAN_FOCUS, command))
 
     if CONF_COMMAND_FAN_DIFFUSE in config:
-        args = await command_expression(config[CONF_COMMAND_FAN_DIFFUSE])
-        cg.add(var.set_command(CONF_COMMAND_FAN_DIFFUSE, args))
+        command = await command_expression(config[CONF_COMMAND_FAN_DIFFUSE])
+        cg.add(var.set_command(CONF_COMMAND_FAN_DIFFUSE, command))
 
     if CONF_COMMAND_FAN_QUIET in config:
-        args = await command_expression(config[CONF_COMMAND_FAN_QUIET])
-        cg.add(var.set_command(CONF_COMMAND_FAN_QUIET, args))
+        command = await command_expression(config[CONF_COMMAND_FAN_QUIET])
+        cg.add(var.set_command(CONF_COMMAND_FAN_QUIET, command))
 
     if CONF_COMMAND_PRESET_NONE in config:
-        args = await command_expression(config[CONF_COMMAND_PRESET_NONE])
-        cg.add(var.set_command(CONF_COMMAND_PRESET_NONE, args))
+        command = await command_expression(config[CONF_COMMAND_PRESET_NONE])
+        cg.add(var.set_command(CONF_COMMAND_PRESET_NONE, command))
 
     if CONF_COMMAND_PRESET_HOME in config:
-        args = await command_expression(config[CONF_COMMAND_PRESET_HOME])
-        cg.add(var.set_command(CONF_COMMAND_PRESET_HOME, args))
+        command = await command_expression(config[CONF_COMMAND_PRESET_HOME])
+        cg.add(var.set_command(CONF_COMMAND_PRESET_HOME, command))
 
     if CONF_COMMAND_PRESET_AWAY in config:
-        args = await command_expression(config[CONF_COMMAND_PRESET_AWAY])
-        cg.add(var.set_command(CONF_COMMAND_PRESET_AWAY, args))
+        command = await command_expression(config[CONF_COMMAND_PRESET_AWAY])
+        cg.add(var.set_command(CONF_COMMAND_PRESET_AWAY, command))
 
     if CONF_COMMAND_PRESET_BOOST in config:
-        args = await command_expression(config[CONF_COMMAND_PRESET_BOOST])
-        cg.add(var.set_command(CONF_COMMAND_PRESET_BOOST, args))
+        command = await command_expression(config[CONF_COMMAND_PRESET_BOOST])
+        cg.add(var.set_command(CONF_COMMAND_PRESET_BOOST, command))
 
     if CONF_COMMAND_PRESET_COMFORT in config:
-        args = await command_expression(config[CONF_COMMAND_PRESET_COMFORT])
-        cg.add(var.set_command(CONF_COMMAND_PRESET_COMFORT, args))
+        command = await command_expression(config[CONF_COMMAND_PRESET_COMFORT])
+        cg.add(var.set_command(CONF_COMMAND_PRESET_COMFORT, command))
 
     if CONF_COMMAND_PRESET_ECO in config:
-        args = await command_expression(config[CONF_COMMAND_PRESET_ECO])
-        cg.add(var.set_command(CONF_COMMAND_PRESET_ECO, args))
+        command = await command_expression(config[CONF_COMMAND_PRESET_ECO])
+        cg.add(var.set_command(CONF_COMMAND_PRESET_ECO, command))
 
     if CONF_COMMAND_PRESET_SLEEP in config:
-        args = await command_expression(config[CONF_COMMAND_PRESET_SLEEP])
-        cg.add(var.set_command(CONF_COMMAND_PRESET_SLEEP, args))
+        command = await command_expression(config[CONF_COMMAND_PRESET_SLEEP])
+        cg.add(var.set_command(CONF_COMMAND_PRESET_SLEEP, command))
         
     if CONF_COMMAND_PRESET_ACTIVITY in config:
-        args = await command_expression(config[CONF_COMMAND_PRESET_ACTIVITY])
-        cg.add(var.set_command(CONF_COMMAND_PRESET_ACTIVITY, args))
+        command = await command_expression(config[CONF_COMMAND_PRESET_ACTIVITY])
+        cg.add(var.set_command(CONF_COMMAND_PRESET_ACTIVITY, command))
 
     if CONF_COMMAND_CUSTOM_FAN in config:
-        templ = await cg.templatable(config[CONF_COMMAND_CUSTOM_FAN], [(cg.std_string.operator('const'), 'str')], cmd_t)
-        cg.add(var.set_command(CONF_COMMAND_CUSTOM_FAN, templ))
+        command = await command_string_expression(config[CONF_COMMAND_CUSTOM_FAN])
+        cg.add(var.set_command(CONF_COMMAND_CUSTOM_FAN, command))
 
     if CONF_COMMAND_CUSTOM_PRESET in config:
-        templ = await cg.templatable(config[CONF_COMMAND_CUSTOM_PRESET], [(cg.std_string.operator('const'), 'str')], cmd_t)
-        cg.add(var.set_command(CONF_COMMAND_CUSTOM_PRESET, templ))
+        command = await command_string_expression(config[CONF_COMMAND_CUSTOM_PRESET])
+        cg.add(var.set_command(CONF_COMMAND_CUSTOM_PRESET, command))

@@ -1,11 +1,11 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome import automation
 from esphome.components import sensor, uartex
-from esphome.const import CONF_ID, CONF_LAMBDA, CONF_OFFSET, CONF_ACCURACY_DECIMALS
-from .. import uartex_ns, uint8_ptr_const, uint16_const, \
-    state_schema, command_hex_schema, state_num_schema, _uartex_declare_type
-from ..const import CONF_STATE, CONF_STATE_NUMBER, CONF_COMMAND_UPDATE, CONF_LENGTH, CONF_PRECISION, CONF_UARTEX_ID, CONF_SIGNED, CONF_ENDIAN, CONF_DECODE
+from esphome.const import CONF_ID, CONF_LAMBDA
+from .. import uartex_ns, \
+    _uartex_declare_type, state_schema, state_num_schema, state_num_expression, \
+    command_hex_schema
+from ..const import CONF_STATE, CONF_STATE_NUMBER, CONF_COMMAND_UPDATE, CONF_UARTEX_ID
 
 DEPENDENCIES = ['uartex']
 UARTExSensor = uartex_ns.class_('UARTExSensor', sensor.Sensor, cg.PollingComponent)
@@ -26,17 +26,11 @@ async def to_code(config):
     await uartex.register_uartex_device(var, config)
     
     if CONF_LAMBDA in config:
-        template_ = await cg.templatable(config[CONF_LAMBDA], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
-        cg.add(var.set_state(CONF_LAMBDA, template_))
+        state = await state_num_expression(config[CONF_LAMBDA])
+        cg.add(var.set_state(CONF_LAMBDA, state))
         
     if CONF_STATE_NUMBER in config:
-        state = config[CONF_STATE_NUMBER]
-        if cg.is_template(state):
-            templ = await cg.templatable(state, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.float_)
-            cg.add(var.set_state(CONF_STATE_NUMBER, templ))
-        else:
-            args = state[CONF_OFFSET], state[CONF_LENGTH], state[CONF_PRECISION], state[CONF_SIGNED], state[CONF_ENDIAN], state[CONF_DECODE]
-            cg.add(var.set_state(CONF_STATE_NUMBER, args))
-            config[CONF_ACCURACY_DECIMALS] = state[CONF_PRECISION]
+        state = await state_num_expression(config[CONF_STATE_NUMBER])
+        cg.add(var.set_state(CONF_STATE_NUMBER, state))
 
     

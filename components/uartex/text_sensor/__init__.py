@@ -1,10 +1,10 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome import automation
 from esphome.components import text_sensor, uartex
 from esphome.const import CONF_ID, CONF_LAMBDA
-from .. import uartex_ns, uint8_ptr_const, uint16_const, \
-    state_schema, command_hex_schema, _uartex_declare_type
+from .. import uartex_ns, \
+    _uartex_declare_type, state_schema, state_string_expression, \
+    command_hex_schema
 from ..const import CONF_STATE, CONF_COMMAND_UPDATE, CONF_UARTEX_ID
 
 DEPENDENCIES = ['uartex']
@@ -25,6 +25,6 @@ async def to_code(config):
     await uartex.register_uartex_device(var, config)
     
     if CONF_LAMBDA in config:
-        template_ = await cg.templatable(config[CONF_LAMBDA], [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.std_string)
-        cg.add(var.set_state(CONF_LAMBDA, template_))
+        state = await state_string_expression(config[CONF_LAMBDA])
+        cg.add(var.set_state(CONF_LAMBDA, state))
     

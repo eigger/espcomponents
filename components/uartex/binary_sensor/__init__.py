@@ -1,6 +1,5 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome import automation
 from esphome.components import binary_sensor, uartex
 from esphome.const import CONF_ID
 from .. import uartex_ns
