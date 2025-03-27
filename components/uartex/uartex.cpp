@@ -45,7 +45,7 @@ void UARTExComponent::setup()
     if (this->error_) this->error_->publish_state("None");
     if (this->version_) this->version_->publish_state(UARTEX_VERSION);
     ESP_LOGI(TAG, "Initaialize.");
-    publish_log("Boot");
+    publish_log(std::string("Boot ") + UARTEX_VERSION);
 }
 
 void UARTExComponent::loop()
@@ -88,13 +88,7 @@ void UARTExComponent::publish_to_devices()
 bool UARTExComponent::verify_ack()
 {
     if (!is_tx_cmd_pending()) return false;
-    std::vector<uint8_t> masked_data = this->rx_parser_.data();
-    std::vector<uint8_t> mask = current_tx_cmd()->mask;
-    for (size_t i = 0, j = 0; i < masked_data.size() && j < mask.size(); i++, j++)
-    {
-        masked_data[i] &= mask[j];
-    }
-    if (!equal(masked_data, current_tx_cmd()->ack)) return false;
+    if (!equal(this->rx_parser_.data(current_tx_cmd()->mask), current_tx_cmd()->ack)) return false;
     tx_cmd_result(true);
     ESP_LOGD(TAG, "Ack: %s, Gap Time: %lums", to_hex_string(this->rx_parser_.buffer()).c_str(), elapsed_time(this->tx_time_));
     return true;
@@ -112,10 +106,6 @@ void UARTExComponent::publish_data()
             found = true;
         }
     }
-#ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
-    ESP_LOGVV(TAG, "Receive data-> %s, Gap Time: %lums", to_hex_string(this->rx_parser_.buffer()).c_str(), elapsed_time(this->rx_time_));
-    if (!found) ESP_LOGVV(TAG, "Notfound data-> %s", to_hex_string(this->rx_parser_.buffer()).c_str());
-#endif
 #ifdef ESPHOME_LOG_HAS_VERBOSE
     ESP_LOGV(TAG, "Receive data-> %s, Gap Time: %lums", to_hex_string(this->rx_parser_.buffer()).c_str(), elapsed_time(this->rx_time_));
     if (!found) ESP_LOGV(TAG, "Notfound data-> %s", to_hex_string(this->rx_parser_.buffer()).c_str());
@@ -178,33 +168,28 @@ void UARTExComponent::write_tx_data()
 
 void UARTExComponent::write_tx_cmd()
 {
-    unsigned long timer = get_time();
     std::vector<uint8_t> command;
     if (this->tx_ctrl_pin_) this->tx_ctrl_pin_->digital_write(true);
     if (this->tx_header_.has_value())
     {
         command.insert(command.end(), this->tx_header_.value().begin(), this->tx_header_.value().end());
-        //write_data(this->tx_header_.value());
     }
     command.insert(command.end(), current_tx_cmd()->data.begin(), current_tx_cmd()->data.end());
-    //write_data(current_tx_cmd()->data);
     if (this->tx_checksum_ != CHECKSUM_NONE || this->tx_checksum_2_ != CHECKSUM_NONE)
     {
         std::vector<uint8_t> checksum = get_tx_checksum(current_tx_cmd()->data);
         command.insert(command.end(), checksum.begin(), checksum.end());
-        //write_data(get_tx_checksum(current_tx_cmd()->data));
     }
     if (this->tx_footer_.has_value())
     {
         command.insert(command.end(), this->tx_footer_.value().begin(), this->tx_footer_.value().end());
-        //write_data(this->tx_footer_.value());
     }
     write_data(command);
     write_flush();
     if (this->tx_ctrl_pin_) this->tx_ctrl_pin_->digital_write(false);
     this->tx_retry_cnt_++;
     this->tx_time_ = get_time();
-    if (current_tx_cmd()->ack.size() == 0) tx_cmd_result(true);
+    if (current_tx_cmd()->ack.empty()) tx_cmd_result(true);
     this->write_callback_.call(&command[0], command.size());
     publish_tx_log(command);
 }
@@ -237,7 +222,7 @@ void UARTExComponent::write_command(cmd_t cmd)
 void UARTExComponent::write_flush()
 {
     this->flush();
-    ESP_LOGD(TAG, "Flush.");
+    ESP_LOGV(TAG, "Flush.");
 }
 
 void UARTExComponent::register_device(UARTExDevice *device)
@@ -300,7 +285,7 @@ const cmd_t* UARTExComponent::current_tx_cmd()
 
 ERROR UARTExComponent::validate_data()
 {
-    if (this->rx_parser_.data().size() == 0)
+    if (this->rx_parser_.data().empty())
     {
         return ERROR_SIZE;
     }

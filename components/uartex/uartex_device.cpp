@@ -1,7 +1,4 @@
 #include "uartex_device.h"
-#include "esphome/core/log.h"
-#include "esphome/core/helpers.h"
-#include "esphome/core/application.h"
 
 namespace esphome {
 namespace uartex {
@@ -37,7 +34,7 @@ const cmd_t *UARTExDevice::dequeue_tx_cmd()
 {
     if (get_state_response() && !this->rx_response_) return nullptr;
     this->rx_response_ = false;
-    if (this->tx_cmd_queue_.size() == 0) return nullptr;
+    if (this->tx_cmd_queue_.empty()) return nullptr;
     const cmd_t *cmd = this->tx_cmd_queue_.front();
     this->tx_cmd_queue_.pop();
     return cmd;
@@ -47,7 +44,7 @@ const cmd_t *UARTExDevice::dequeue_tx_cmd_low_priority()
 {
     if (get_state_response() && !this->rx_response_) return nullptr;
     this->rx_response_ = false;
-    if (this->tx_cmd_queue_low_priority_.size() == 0) return nullptr;
+    if (this->tx_cmd_queue_low_priority_.empty()) return nullptr;
     const cmd_t *cmd = this->tx_cmd_queue_low_priority_.front();
     this->tx_cmd_queue_low_priority_.pop();
     return cmd;
@@ -74,7 +71,7 @@ uint8_t UARTExDevice::get_state_data(uint32_t index)
 bool UARTExDevice::enqueue_tx_cmd(const cmd_t* cmd, bool low_priority)
 {
     if (cmd == nullptr) return false;
-    if (cmd->data.size() == 0) return false;
+    if (cmd->data.empty()) return false;
     if (low_priority) this->tx_cmd_queue_low_priority_.push(cmd);
     else this->tx_cmd_queue_.push(cmd);
     return true;
@@ -148,12 +145,13 @@ bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,
     return std::equal(data1.begin() + offset, data1.begin() + offset + data2.size(), data2.begin());
 }
 
-const std::vector<uint8_t> masked_data(const std::vector<uint8_t>& data, const state_t* state)
+std::vector<uint8_t> apply_mask(const std::vector<uint8_t>& data, const state_t* state)
 {
+    if (state == nullptr || state->mask.empty()) return data;
     std::vector<uint8_t> masked_data = data;
-    for (size_t i = state->offset, j = 0; i < data.size() && j < state->mask.size(); i++, j++)
+    for (size_t i = 0; (state->offset + i) < data.size() && i < state->mask.size(); i++)
     {
-        masked_data[i] &= state->mask[j];
+        masked_data[state->offset + i] &= state->mask[i];
     }
     return masked_data;
 }
@@ -161,20 +159,8 @@ const std::vector<uint8_t> masked_data(const std::vector<uint8_t>& data, const s
 bool verify_state(const std::vector<uint8_t>& data, const state_t* state)
 {
     if (state == nullptr) return false;
-    if (state->mask.size() == 0)    return equal(data, state->data, state->offset) ? !state->inverted : state->inverted;
-    else                            return equal(masked_data(data, state), state->data, state->offset) ? !state->inverted : state->inverted;
-    return false;
+    return equal(apply_mask(data, state), state->data, state->offset) ? !state->inverted : state->inverted;
 }
-
-// float state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
-// {
-//     int32_t val = 0;
-//     for (uint16_t i = state.offset, len = 0; i < data.size() && len < state.length; i++, len++)
-//     {
-//         val = (val << 8) | (int8_t)data[i];
-//     }
-//     return val / powf(10, state.precision);
-// }
 
 float state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
 {
@@ -200,7 +186,7 @@ float state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
             else val |= static_cast<uint32_t>(data[state.offset + i]) << (8 * i);
         }
     }
-    if(state.decode == DECODE_ASCII) val = atoi(str.c_str());
+    if (state.decode == DECODE_ASCII) val = atoi(str.c_str());
     if (state.is_signed)
     {
         int shift = 32 - state.length * 8;
@@ -218,44 +204,39 @@ uint8_t float_to_bcd(const float val)
 
 std::string to_hex_string(const std::vector<unsigned char>& data)
 {
-    char buf[10];
-    std::string res;
-    for (uint16_t i = 0; i < data.size(); i++)
+    std::ostringstream oss;
+    oss << std::uppercase << std::hex << std::setfill('0');
+    for (auto d : data)
     {
-        sprintf(buf, "%02X", data[i]);
-        res += buf;
+        oss << std::setw(2) << static_cast<int>(d);
     }
-    sprintf(buf, "(%d)", data.size());
-    res += buf;
-    return res;
+    oss << std::dec << "(" << data.size() << ")";
+    return oss.str();
 }
 
 std::string to_ascii_string(const std::vector<unsigned char>& data)
 {
-    char buf[10];
     std::string res;
-    for (uint16_t i = 0; i < data.size(); i++)
+    res.reserve(data.size() + 10);
+    for (auto ch : data)
     {
-        sprintf(buf, "%c", data[i]);
-        res += buf;
+        res.push_back(static_cast<char>(ch));
     }
-    sprintf(buf, "(%d)", data.size());
-    res += buf;
+    res.append("(");
+    res.append(std::to_string(data.size()));
+    res.append(")");
     return res;
 }
 
 std::string to_hex_string(const uint8_t* data, const uint16_t len)
 {
-    char buf[5];
-    std::string res;
-    for (uint16_t i = 0; i < len; i++)
-    {
-        sprintf(buf, "%02X", data[i]);
-        res += buf;
+    std::ostringstream oss;
+    oss << std::uppercase << std::hex << std::setfill('0');
+    for (uint16_t i = 0; i < len; ++i) {
+        oss << std::setw(2) << static_cast<int>(data[i]);
     }
-    sprintf(buf, "(%d)", len);
-    res += buf;
-    return res;
+    oss << std::dec << "(" << len << ")";
+    return oss.str();
 }
 
 unsigned long elapsed_time(const unsigned long timer)

@@ -1,5 +1,4 @@
 #pragma once
-
 #include "esphome/components/uartex/uartex_device.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 
