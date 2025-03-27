@@ -213,7 +213,7 @@ std::string to_hex_string(const std::vector<unsigned char>& data)
     {
         oss << std::setw(2) << static_cast<int>(d);
     }
-    oss << "(" << data.size() << ")";
+    oss << std::dec << "(" << data.size() << ")";
     return oss.str();
 }
 
@@ -238,7 +238,7 @@ std::string to_hex_string(const uint8_t* data, const uint16_t len)
     for (uint16_t i = 0; i < len; ++i) {
         oss << std::setw(2) << static_cast<int>(data[i]);
     }
-    oss << "(" << len << ")";
+    oss << std::dec << "(" << len << ")";
     return oss.str();
 }
 
