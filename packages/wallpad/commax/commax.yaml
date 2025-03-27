@@ -339,8 +339,9 @@ fan:
     command_speed: !lambda |-
       uint8_t speed = x;
       return {{0x78, 0x01, 0x02, speed, 0x00, 0x00, 0x00},{0xF8, 0x04}};
-    state_speed: !lambda |-
-      return data[3];
+    state_speed:
+      offset: 3
+      signed: False
     preset_modes:
       - "Auto"
       - "Night"
