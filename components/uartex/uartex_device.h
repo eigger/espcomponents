@@ -1,10 +1,13 @@
 #pragma once
 #include <vector>
 #include <queue>
-#include <stdio.h>
+#include <sstream>
+#include <iomanip>
+#include <string>
+#include <cstdint>
+#include <unordered_map>
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
-#include <unordered_map>
 
 namespace esphome {
 namespace uartex {
@@ -104,7 +107,7 @@ protected:
 template<typename KeyType, typename ValueType>
 bool contains(const std::unordered_map<KeyType, ValueType>& map, const KeyType& key) { return map.find(key) != map.end(); }
 bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,  const uint16_t offset = 0);
-const std::vector<uint8_t> masked_data(const std::vector<uint8_t>& data, const state_t* state);
+std::vector<uint8_t> apply_mask(const std::vector<uint8_t>& data, const state_t* state);
 bool verify_state(const std::vector<uint8_t>& data, const state_t* state);
 float state_to_float(const std::vector<uint8_t>& data, const state_num_t state);
 uint8_t float_to_bcd(const float val);
