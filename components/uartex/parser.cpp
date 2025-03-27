@@ -88,7 +88,7 @@ bool Parser::parse_header()
 
 const std::vector<unsigned char> Parser::mask(const std::vector<unsigned char>& data, const std::vector<unsigned char>& mask)
 {
-    if (mask == nullptr || mask.empty()) return data;
+    if (mask.empty()) return data;
     std::vector<unsigned char> masked_data = data;
     for (size_t i = 0, j = 0; i < data.size() && j < mask.size(); i++, j++)
     {
