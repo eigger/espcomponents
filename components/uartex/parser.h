@@ -19,7 +19,7 @@ public:
     bool verify_checksum(const std::vector<unsigned char>& checksums);
     void clear();
     const std::vector<unsigned char> header();
-    const std::vector<unsigned char> data(const std::vector<unsigned char>& mask = nullptr);
+    const std::vector<unsigned char> data(const std::vector<unsigned char>& mask = {});
     const std::vector<unsigned char> buffer();
     const std::vector<unsigned char> mask(const std::vector<unsigned char>& data, const std::vector<unsigned char>& mask);
     bool parse_header();
