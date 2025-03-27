@@ -81,12 +81,12 @@ void Parser::clear()
 bool Parser::parse_header()
 {
     if (header_.empty()) return true;
-    std::vector<unsigned char> masked_buffer = mask(buffer_, header_mask_);
+    std::vector<unsigned char> masked_buffer = apply_mask(buffer_, header_mask_);
     size_t size = masked_buffer.size() < header_.size() ? masked_buffer.size() : header_.size();
     return std::equal(masked_buffer.begin(), masked_buffer.begin() + size, header_.begin());
 }
 
-const std::vector<unsigned char> Parser::mask(const std::vector<unsigned char>& data, const std::vector<unsigned char>& mask)
+const std::vector<unsigned char> Parser::apply_mask(const std::vector<unsigned char>& data, const std::vector<unsigned char>& mask)
 {
     if (mask.empty()) return data;
     std::vector<unsigned char> masked_data = data;
@@ -132,7 +132,7 @@ const std::vector<unsigned char> Parser::data(const std::vector<unsigned char>& 
 {
     size_t offset = checksum_len_;
     if (buffer_.size() < header_.size() + footer_.size() + offset) return {};
-    return mask(std::vector<unsigned char>(buffer_.begin() + header_.size(), buffer_.end() - footer_.size() - offset), mask);
+    return apply_mask(std::vector<unsigned char>(buffer_.begin() + header_.size(), buffer_.end() - footer_.size() - offset), mask);
 }
 
 const std::vector<unsigned char> Parser::buffer()
