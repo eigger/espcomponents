@@ -18,7 +18,7 @@ bool Parser::add_header(const unsigned char header)
 
 bool Parser::add_headers(const std::vector<unsigned char>& header)
 {
-    if (header.size() == 0) return false;
+    if (header.empty()) return false;
     header_.insert(header_.end(), header.begin(), header.end());
     return true;
 }
@@ -31,7 +31,7 @@ bool Parser::add_header_mask(const unsigned char mask)
 
 bool Parser::add_header_masks(const std::vector<unsigned char>& mask)
 {
-    if (mask.size() == 0) return false;
+    if (mask.empty()) return false;
     header_mask_.insert(header_mask_.end(), mask.begin(), mask.end());
     return true;
 }
@@ -44,7 +44,7 @@ bool Parser::add_footer(const unsigned char footer)
 
 bool Parser::add_footers(const std::vector<unsigned char>& footer)
 {
-    if (footer.size() == 0) return false;
+    if (footer.empty()) return false;
     footer_.insert(footer_.end(), footer.begin(), footer.end());
     return true;
 }
@@ -80,19 +80,26 @@ void Parser::clear()
 
 bool Parser::parse_header()
 {
-    if (header_.size() == 0) return true;
-    std::vector<uint8_t> masked_buffer = buffer_;
+    if (header_.empty()) return true;
+    std::vector<unsigned char> masked_buffer = mask(buffer_, header_mask_);
     size_t size = masked_buffer.size() < header_.size() ? masked_buffer.size() : header_.size();
-    for (size_t i = 0, j = 0; i < size && j < header_mask_.size(); i++, j++)
-    {
-        masked_buffer[i] &= header_mask_[j];
-    }
     return std::equal(masked_buffer.begin(), masked_buffer.begin() + size, header_.begin());
+}
+
+const std::vector<unsigned char> Parser::mask(const std::vector<unsigned char>& data, const std::vector<unsigned char>& mask)
+{
+    if (mask == nullptr || mask.empty()) return data;
+    std::vector<unsigned char> masked_data = data;
+    for (size_t i = 0, j = 0; i < data.size() && j < mask.size(); i++, j++)
+    {
+        masked_data[i] &= mask[j];
+    }
+    return masked_data;
 }
 
 bool Parser::parse_footer()
 {
-    if (footer_.size() == 0) return false;
+    if (footer_.empty()) return false;
     if (buffer_.size() < footer_.size()) return false;
     if (total_len_ > 0 && buffer_.size() != total_len_) return false;
     return std::equal(buffer_.end() - footer_.size(), buffer_.end(), footer_.begin());
@@ -109,7 +116,7 @@ bool Parser::parse_length()
 
 bool Parser::available()
 {
-    if (buffer_.size() == 0) return false;
+    if (buffer_.empty()) return false;
     return true;
 }
 
@@ -121,11 +128,11 @@ const std::vector<unsigned char> Parser::header()
     return std::vector<unsigned char>(buffer_.begin(), buffer_.begin() + header_size);
 }
 
-const std::vector<unsigned char> Parser::data()
+const std::vector<unsigned char> Parser::data(const std::vector<unsigned char>& mask)
 {
     size_t offset = checksum_len_;
     if (buffer_.size() < header_.size() + footer_.size() + offset) return {};
-    return std::vector<unsigned char>(buffer_.begin() + header_.size(), buffer_.end() - footer_.size() - offset);
+    return mask(std::vector<unsigned char>(buffer_.begin() + header_.size(), buffer_.end() - footer_.size() - offset), mask);
 }
 
 const std::vector<unsigned char> Parser::buffer()

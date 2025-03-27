@@ -37,7 +37,7 @@ const cmd_t *UARTExDevice::dequeue_tx_cmd()
 {
     if (get_state_response() && !this->rx_response_) return nullptr;
     this->rx_response_ = false;
-    if (this->tx_cmd_queue_.size() == 0) return nullptr;
+    if (this->tx_cmd_queue_.empty()) return nullptr;
     const cmd_t *cmd = this->tx_cmd_queue_.front();
     this->tx_cmd_queue_.pop();
     return cmd;
@@ -47,7 +47,7 @@ const cmd_t *UARTExDevice::dequeue_tx_cmd_low_priority()
 {
     if (get_state_response() && !this->rx_response_) return nullptr;
     this->rx_response_ = false;
-    if (this->tx_cmd_queue_low_priority_.size() == 0) return nullptr;
+    if (this->tx_cmd_queue_low_priority_.empty()) return nullptr;
     const cmd_t *cmd = this->tx_cmd_queue_low_priority_.front();
     this->tx_cmd_queue_low_priority_.pop();
     return cmd;
@@ -74,7 +74,7 @@ uint8_t UARTExDevice::get_state_data(uint32_t index)
 bool UARTExDevice::enqueue_tx_cmd(const cmd_t* cmd, bool low_priority)
 {
     if (cmd == nullptr) return false;
-    if (cmd->data.size() == 0) return false;
+    if (cmd->data.empty()) return false;
     if (low_priority) this->tx_cmd_queue_low_priority_.push(cmd);
     else this->tx_cmd_queue_.push(cmd);
     return true;
@@ -150,6 +150,7 @@ bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,
 
 const std::vector<uint8_t> masked_data(const std::vector<uint8_t>& data, const state_t* state)
 {
+    if (state->mask.empty()) return data;
     std::vector<uint8_t> masked_data = data;
     for (size_t i = state->offset, j = 0; i < data.size() && j < state->mask.size(); i++, j++)
     {
@@ -161,9 +162,7 @@ const std::vector<uint8_t> masked_data(const std::vector<uint8_t>& data, const s
 bool verify_state(const std::vector<uint8_t>& data, const state_t* state)
 {
     if (state == nullptr) return false;
-    if (state->mask.size() == 0)    return equal(data, state->data, state->offset) ? !state->inverted : state->inverted;
-    else                            return equal(masked_data(data, state), state->data, state->offset) ? !state->inverted : state->inverted;
-    return false;
+    return equal(masked_data(data, state), state->data, state->offset) ? !state->inverted : state->inverted;
 }
 
 // float state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
