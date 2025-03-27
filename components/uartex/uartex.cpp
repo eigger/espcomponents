@@ -45,7 +45,7 @@ void UARTExComponent::setup()
     if (this->error_) this->error_->publish_state("None");
     if (this->version_) this->version_->publish_state(UARTEX_VERSION);
     ESP_LOGI(TAG, "Initaialize.");
-    publish_log(std::string("Boot " + UARTEX_VERSION));
+    publish_log(std::string("Boot ") + UARTEX_VERSION);
 }
 
 void UARTExComponent::loop()
