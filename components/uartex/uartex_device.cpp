@@ -1,7 +1,4 @@
 #include "uartex_device.h"
-#include "esphome/core/log.h"
-#include "esphome/core/helpers.h"
-#include "esphome/core/application.h"
 
 namespace esphome {
 namespace uartex {

@@ -1,5 +1,4 @@
 #pragma once
-
 #include "esphome/components/uartex/uartex_device.h"
 #include "esphome/components/media_player/media_player.h"
 

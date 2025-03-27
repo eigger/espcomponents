@@ -1,10 +1,7 @@
 #pragma once
-
-#include "esphome/core/component.h"
 #include "esphome/components/uartex/uartex_device.h"
 #include "esphome/components/climate/climate.h"
 #include "esphome/components/sensor/sensor.h"
-#include <unordered_map>
 
 namespace esphome {
 namespace uartex {

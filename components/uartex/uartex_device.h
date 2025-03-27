@@ -6,8 +6,13 @@
 #include <string>
 #include <cstdint>
 #include <unordered_map>
-#include "esphome/core/component.h"
+
 #include "esphome/core/hal.h"
+#include "esphome/core/log.h"
+#include "esphome/core/helpers.h"
+#include "esphome/core/component.h"
+#include "esphome/core/application.h"
+
 
 namespace esphome {
 namespace uartex {
