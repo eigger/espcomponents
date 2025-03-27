@@ -539,6 +539,7 @@ uint16_t UARTExComponent::get_checksum(CHECKSUM checksum, const std::vector<uint
         }
         crc += temp;
         crc = ((uint16_t)temp << 8) | (crc & 0xFF);
+        break;
     case CHECKSUM_NONE:
         break;
     }
