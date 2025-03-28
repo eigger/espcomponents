@@ -27,7 +27,7 @@ CONFIG_SCHEMA = cv.All(number.NUMBER_SCHEMA.extend({
     cv.Optional(CONF_COMMAND_OFF): cv.invalid("UARTEx Number do not support command_off!"),
     cv.Optional(CONF_STATE_ON): cv.invalid("UARTEx Number do not support state_on!"),
     cv.Optional(CONF_STATE_OFF): cv.invalid("UARTEx Number do not support state_off!")
-}).extend(cv.COMPONENT_SCHEMA), cv.has_at_least_one_key(CONF_STATE_NUMBER, CONF_COMMAND_NUMBER))
+}).extend(cv.COMPONENT_SCHEMA))
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
