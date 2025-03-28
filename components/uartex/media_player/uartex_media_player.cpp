@@ -8,7 +8,7 @@ static const char *TAG = "uartex.media_player";
 
 void UARTExMediaPlayer::dump_config()
 {
-    uartex_dump_config(TAG);
+    log_config(TAG, "Name", get_name().c_str());
     log_config(TAG, "State None", get_state_none());
     log_config(TAG, "State Idle", get_state_idle());
     log_config(TAG, "State Playing", get_state_playing());
@@ -25,6 +25,7 @@ void UARTExMediaPlayer::dump_config()
     log_config(TAG, "Command Repeat One", get_command_repeat_one());
     log_config(TAG, "Command Repeat Off", get_command_repeat_off());
     log_config(TAG, "Command Clear Playlist", get_command_clear_playlist());
+    uartex_dump_config(TAG);
 }
 
 void UARTExMediaPlayer::setup()

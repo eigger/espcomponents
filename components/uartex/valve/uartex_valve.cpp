@@ -8,13 +8,14 @@ static const char *TAG = "uartex.valve";
 
 void UARTExValve::dump_config()
 {
-    uartex_dump_config(TAG);
+    log_config(TAG, "Name", get_name().c_str());
     log_config(TAG, "State Open", get_state_open());
     log_config(TAG, "State Closed", get_state_closed());
     log_config(TAG, "State Position", has_state_position());
     log_config(TAG, "Command Open", get_command_open());
     log_config(TAG, "Command Close", get_command_close());
     log_config(TAG, "Command Stop", get_command_stop());
+    uartex_dump_config(TAG);
 }
 
 void UARTExValve::setup()

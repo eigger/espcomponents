@@ -18,11 +18,11 @@ void UARTExComponent::dump_config()
     if (this->rx_footer_.has_value()) log_config(TAG, "rx_footer", this->rx_footer_.value());
     if (this->tx_header_.has_value()) log_config(TAG, "tx_header", this->tx_header_.value());
     if (this->tx_footer_.has_value()) log_config(TAG, "tx_footer", this->tx_footer_.value());
-    log_config(TAG, "rx_checksum", this->rx_checksum_);
-    log_config(TAG, "rx_checksum2", this->rx_checksum_2_);
-    log_config(TAG, "tx_checksum", this->tx_checksum_);
-    log_config(TAG, "tx_checksum2", this->tx_checksum_2_);
-    log_config(TAG, "uartex count", this->devices_.size());
+    log_config(TAG, "rx_checksum", (uint16_t)this->rx_checksum_);
+    log_config(TAG, "rx_checksum2", (uint16_t)this->rx_checksum_2_);
+    log_config(TAG, "tx_checksum", (uint16_t)this->tx_checksum_);
+    log_config(TAG, "tx_checksum2", (uint16_t)this->tx_checksum_2_);
+    log_config(TAG, "uartex count", (uint16_t)this->devices_.size());
     if (this->tx_ctrl_pin_) LOG_PIN("tx_ctrl_pin: ", this->tx_ctrl_pin_);
 }
 

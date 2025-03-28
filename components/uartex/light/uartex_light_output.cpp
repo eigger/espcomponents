@@ -8,8 +8,9 @@ static const char *TAG = "uartex.light";
 
 void UARTExLightOutput::dump_config()
 {
-    uartex_dump_config(TAG);
+    log_config(TAG, "Name", get_name().c_str());
     log_config(TAG, "State Brightness", get_state_num("state_brightness"));
+    uartex_dump_config(TAG);
 }
 
 void UARTExLightOutput::publish(const std::vector<uint8_t>& data)

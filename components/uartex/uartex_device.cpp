@@ -12,7 +12,6 @@ void UARTExDevice::update()
 
 void UARTExDevice::uartex_dump_config(const char* TAG)
 {
-    log_config(TAG, "Name", get_name().c_str());
     log_config(TAG, "State", get_state());
     log_config(TAG, "State On", get_state_on());
     log_config(TAG, "State Off", get_state_off());

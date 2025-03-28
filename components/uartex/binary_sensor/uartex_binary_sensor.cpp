@@ -8,6 +8,7 @@ static const char *TAG = "uartex.binary_sensor";
 
 void UARTExBinarySensor::dump_config()
 {
+    log_config(TAG, "Name", get_name().c_str());
     uartex_dump_config(TAG);
 }
 

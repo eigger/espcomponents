@@ -8,8 +8,9 @@ static const char *TAG = "uartex.text";
 
 void UARTExText::dump_config() 
 {
-    uartex_dump_config(TAG);
+    log_config(TAG, "Name", get_name().c_str());
     log_config(TAG, "Command Text", get_command_text());
+    uartex_dump_config(TAG);
 }
 
 void UARTExText::publish(const std::vector<uint8_t>& data) 

@@ -8,8 +8,9 @@ static const char *TAG = "uartex.fan";
 
 void UARTExFan::dump_config()
 {
-    uartex_dump_config(TAG);
+    log_config(TAG, "Name", get_name().c_str());
     log_config(TAG, "State Speed", get_state_num("state_speed"));
+    uartex_dump_config(TAG);
 }
 
 fan::FanTraits UARTExFan::get_traits()

@@ -8,8 +8,9 @@ static const char *TAG = "uartex.number";
 
 void UARTExNumber::dump_config()
 {
-    uartex_dump_config(TAG);
+    log_config(TAG, "Name", get_name().c_str());
     log_config(TAG, "State Number", get_state_num("state_number"));
+    uartex_dump_config(TAG);
 }
 
 void UARTExNumber::setup()
