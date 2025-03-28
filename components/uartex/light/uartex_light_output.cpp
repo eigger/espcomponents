@@ -8,7 +8,7 @@ static const char *TAG = "uartex.light";
 
 void UARTExLightOutput::dump_config()
 {
-    log_config(TAG, "Name", get_name().c_str());
+    log_config(TAG, "Name", this->light_state_->get_name().c_str());
     log_config(TAG, "State Brightness", get_state_num("state_brightness"));
     uartex_dump_config(TAG);
 }
