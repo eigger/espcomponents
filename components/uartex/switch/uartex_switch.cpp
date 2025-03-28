@@ -8,7 +8,9 @@ static const char *TAG = "uartex.switch";
 
 void UARTExSwitch::dump_config()
 {
+#ifdef ESPHOME_LOG_HAS_DEBUG
     uartex_dump_config(TAG);
+#endif
 }
 
 void UARTExSwitch::write_state(bool state)

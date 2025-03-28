@@ -8,6 +8,7 @@ static const char *TAG = "uartex.valve";
 
 void UARTExValve::dump_config()
 {
+#ifdef ESPHOME_LOG_HAS_DEBUG
     log_config(TAG, "Name", get_name().c_str());
     log_config(TAG, "State Open", get_state_open());
     log_config(TAG, "State Closed", get_state_closed());
@@ -16,6 +17,7 @@ void UARTExValve::dump_config()
     log_config(TAG, "Command Close", get_command_close());
     log_config(TAG, "Command Stop", get_command_stop());
     uartex_dump_config(TAG);
+#endif
 }
 
 void UARTExValve::setup()

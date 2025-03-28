@@ -8,6 +8,7 @@ static const char *TAG = "uartex.climate";
 
 void UARTExClimate::dump_config()
 {
+#ifdef ESPHOME_LOG_HAS_DEBUG
     log_config(TAG, "Name", get_name().c_str());
     log_config(TAG, "State Temperature Current", get_state_num("state_temperature_current"));
     log_config(TAG, "State Temperature Target", get_state_num("state_temperature_target"));
@@ -68,6 +69,7 @@ void UARTExClimate::dump_config()
     log_config(TAG, "Command Preset Sleep", get_command_preset_sleep());
     log_config(TAG, "Command Preset Activity", get_command_preset_activity());
     uartex_dump_config(TAG);
+#endif
 }
 
 climate::ClimateTraits UARTExClimate::traits()

@@ -12,6 +12,7 @@ void UARTExDevice::update()
 
 void UARTExDevice::uartex_dump_config(const char* TAG)
 {
+#ifdef ESPHOME_LOG_HAS_DEBUG
     log_config(TAG, "State", get_state());
     log_config(TAG, "State On", get_state_on());
     log_config(TAG, "State Off", get_state_off());
@@ -20,6 +21,7 @@ void UARTExDevice::uartex_dump_config(const char* TAG)
     log_config(TAG, "Command Off", get_command_off());
     log_config(TAG, "Command Update", get_command_update());
     if (get_command_update()) LOG_UPDATE_INTERVAL(this);
+#endif
 }
 
 const cmd_t *UARTExDevice::dequeue_tx_cmd()

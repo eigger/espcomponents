@@ -8,6 +8,7 @@ namespace uartex {
 static const char *TAG = "uartex";
 void UARTExComponent::dump_config()
 {
+#ifdef ESPHOME_LOG_HAS_DEBUG
     log_config(TAG, "rx_timeout", this->conf_rx_timeout_);
     log_config(TAG, "rx_length", this->conf_rx_length_);
     log_config(TAG, "tx_timeout", this->conf_tx_timeout_);
@@ -24,6 +25,7 @@ void UARTExComponent::dump_config()
     log_config(TAG, "tx_checksum2", (uint16_t)this->tx_checksum_2_);
     log_config(TAG, "uartex count", (uint16_t)this->devices_.size());
     if (this->tx_ctrl_pin_) LOG_PIN("tx_ctrl_pin: ", this->tx_ctrl_pin_);
+#endif
 }
 
 void UARTExComponent::setup()
