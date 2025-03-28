@@ -16,21 +16,14 @@ uartex:
   tx_delay: 50ms
   tx_timeout: 500ms
   tx_retry_cnt: 3
-
   rx_header: [0xB0]
-
   rx_checksum: !lambda |-
-    // @param: const uint8_t *data, const unsigned short len
-    // @return: uint8_t
     uint8_t crc = 0xB0;
     for(size_t i=0; i<len; i++)
       crc ^= data[i];
     if (data[0] < 0x7C) crc ^= 0x80;
     return crc;
-    
   tx_checksum: !lambda |-
-    // @param: const uint8_t *data, const unsigned short len
-    // @return: uint8_t
     uint8_t crc = 0x00;
     for(size_t i=0; i<len; i++)
       crc ^= data[i];
@@ -44,9 +37,10 @@ uartex:
   log:
     disabled: False
 
-lock:
+valve:
   - platform: uartex
-    name: "GAS"
+    name: "Gas Valve"
+    device_class: gas
     state: [0x41]
     state_locked:
       offset: 1
@@ -149,7 +143,6 @@ light:
       data: [0xAC, 0x7A, 0x05, 0x00]
       ack: [0x7A, 0x05, 0x00]
 
-
 climate:
   - platform: uartex
     name: "Room 0 Heater"
@@ -161,11 +154,9 @@ climate:
     state_temperature_current:
       offset: 4
       length: 1
-      precision: 0
     state_temperature_target:
       offset: 3
       length: 1
-      precision: 0
     state_off:
       offset: 2
       data: [0x00]
@@ -180,8 +171,7 @@ climate:
     command_heat:
       data: [0xAE, 0x7D, 0x01, 0x01, 0x00, 0x00, 0x00]
       ack: [0x7D, 0x01, 0x01]
-    command_temperature: !lambda |-  #Required (온도 조절)
-      // @param: const float x
+    command_temperature: !lambda |-
       return {{0xAE, 0x7F, 0x01, (uint8_t)x, 0x00, 0x00, 0x00},{0x7F, 0x01, (uint8_t)x}};
 
   - platform: uartex
@@ -194,11 +184,9 @@ climate:
     state_temperature_current:
       offset: 4
       length: 1
-      precision: 0
     state_temperature_target:
       offset: 3
       length: 1
-      precision: 0
     state_off:
       offset: 2
       data: [0x00]
@@ -214,7 +202,6 @@ climate:
       data: [0xAE, 0x7D, 0x02, 0x01, 0x00, 0x00, 0x00]
       ack: [0x7D, 0x02, 0x01]
     command_temperature: !lambda |-
-      // @param: const float x
       return {{0xAE, 0x7F, 0x02, (uint8_t)x, 0x00, 0x00, 0x00},{0x7F, 0x02, (uint8_t)x}};
 
   - platform: uartex
@@ -227,11 +214,9 @@ climate:
     state_temperature_current:
       offset: 4
       length: 1
-      precision: 0
     state_temperature_target:
       offset: 3
       length: 1
-      precision: 0
     state_off:
       offset: 2
       data: [0x00]
@@ -247,7 +232,6 @@ climate:
       data: [0xAE, 0x7D, 0x03, 0x01, 0x00, 0x00, 0x00]
       ack: [0x7D, 0x03, 0x01]
     command_temperature: !lambda |-
-      // @param: const float x
       return {{0xAE, 0x7F, 0x03, (uint8_t)x, 0x00, 0x00, 0x00},{0x7F, 0x03, (uint8_t)x}};
 
   - platform: uartex
@@ -260,11 +244,9 @@ climate:
     state_temperature_current:
       offset: 4
       length: 1
-      precision: 0
     state_temperature_target:
       offset: 3
       length: 1
-      precision: 0
     state_off:
       offset: 2
       data: [0x00]
@@ -280,5 +262,4 @@ climate:
       data: [0xAE, 0x7D, 0x04, 0x01, 0x00, 0x00, 0x00]
       ack: [0x7D, 0x04, 0x01]
     command_temperature: !lambda |-
-      // @param: const float x
       return {{0xAE, 0x7F, 0x04, (uint8_t)x, 0x00, 0x00, 0x00},{0x7F, 0x04, (uint8_t)x}};
