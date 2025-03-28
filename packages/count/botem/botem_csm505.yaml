@@ -26,6 +26,7 @@ uartex:
 number:
   - platform: uartex
     name: "People Count"
+    id: id_people_count
     max_value: 30
     state_increment: [0x30, 0x30, 0x31]
     state_decrement: [0x30, 0x30, 0x32]
