@@ -26,14 +26,6 @@ uartex:
 number:
   - platform: uartex
     name: "People Count"
-    id: id_people_count
     max_value: 30
-    min_value: 0
-    step: 1
-    state: [0x30, 0x30]
-    state_number: !lambda |-
-      float state = id(id_people_count).state;
-      float step = id(id_people_count).traits.get_step();
-      if (data[2] == '1') return state + step;
-      if (data[2] == '2') return state - step;
-      return state;
+    state_increment: [0x30, 0x30, 0x31]
+    state_decrement: [0x30, 0x30, 0x32]

@@ -3,21 +3,25 @@ import esphome.config_validation as cv
 from esphome.components import number, uartex
 from esphome.const import CONF_ID, CONF_MIN_VALUE, CONF_MAX_VALUE, CONF_STEP
 from .. import uartex_ns, \
-    state_num_schema, state_num_expression, \
+    state_schema, state_hex_expression, state_num_schema, state_num_expression, \
     command_hex_schema, command_float_expression
-from ..const import CONF_COMMAND_NUMBER, CONF_COMMAND_OFF, CONF_STATE_NUMBER, CONF_STATE_OFF, \
-    CONF_COMMAND_ON, CONF_STATE_ON
+from ..const import CONF_COMMAND_NUMBER, CONF_COMMAND_OFF, CONF_COMMAND_ON, \
+    CONF_STATE_NUMBER, CONF_STATE_OFF, CONF_STATE_ON, CONF_STATE_INCREMENT, CONF_STATE_DECREMENT, CONF_STATE_TO_MIN, CONF_STATE_TO_MAX
 
 DEPENDENCIES = ['uartex']
 UARTExNumber = uartex_ns.class_('UARTExNumber', number.Number, cg.Component)
 
 CONFIG_SCHEMA = cv.All(number.NUMBER_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExNumber),
-    cv.Required(CONF_MIN_VALUE): cv.float_,
-    cv.Required(CONF_MAX_VALUE): cv.float_,
-    cv.Required(CONF_STEP): cv.float_,
+    cv.Optional(CONF_MIN_VALUE, default=0): cv.float_,
+    cv.Optional(CONF_MAX_VALUE, default=10): cv.float_,
+    cv.Optional(CONF_STEP, default=1): cv.float_,
     cv.Optional(CONF_STATE_NUMBER): cv.templatable(state_num_schema),
     cv.Optional(CONF_COMMAND_NUMBER): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_STATE_INCREMENT): state_schema,
+    cv.Optional(CONF_STATE_DECREMENT): state_schema,
+    cv.Optional(CONF_STATE_TO_MIN): state_schema,
+    cv.Optional(CONF_STATE_TO_MAX): state_schema,
 }).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Number do not support command_on!"),
     cv.Optional(CONF_COMMAND_OFF): cv.invalid("UARTEx Number do not support command_off!"),
@@ -39,6 +43,22 @@ async def to_code(config):
     if CONF_STATE_NUMBER in config:
         state = await state_num_expression(config[CONF_STATE_NUMBER])
         cg.add(var.set_state(CONF_STATE_NUMBER, state))
+
+    if CONF_STATE_INCREMENT in config:
+        state = state_hex_expression(config[CONF_STATE_INCREMENT])
+        cg.add(var.set_state(CONF_STATE_INCREMENT, state))
+
+    if CONF_STATE_DECREMENT in config:
+        state = state_hex_expression(config[CONF_STATE_DECREMENT])
+        cg.add(var.set_state(CONF_STATE_DECREMENT, state))
+
+    if CONF_STATE_TO_MIN in config:
+        state = state_hex_expression(config[CONF_STATE_TO_MIN])
+        cg.add(var.set_state(CONF_STATE_TO_MIN, state))
+
+    if CONF_STATE_TO_MAX in config:
+        state = state_hex_expression(config[CONF_STATE_TO_MAX])
+        cg.add(var.set_state(CONF_STATE_TO_MAX, state))
 
     if CONF_COMMAND_NUMBER in config:
         command = await command_float_expression(config[CONF_COMMAND_NUMBER])

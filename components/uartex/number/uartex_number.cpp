@@ -11,6 +11,10 @@ void UARTExNumber::dump_config()
 #ifdef ESPHOME_LOG_HAS_DEBUG
     log_config(TAG, "Name", get_name().c_str());
     log_config(TAG, "State Number", get_state_num("state_number"));
+    log_config(TAG, "State Increment", get_state_increment());
+    log_config(TAG, "State Decrement", get_state_decrement());
+    log_config(TAG, "State ToMin", get_state_to_min());
+    log_config(TAG, "State ToMax", get_state_to_max());
     uartex_dump_config(TAG);
 #endif
 }
@@ -23,16 +27,39 @@ void UARTExNumber::setup()
 
 void UARTExNumber::publish(const std::vector<uint8_t>& data)
 {
+    bool changed = false;
+    float min = this->traits.get_min_value();
+    float max = this->traits.get_max_value();
+    float step = this->traits.get_step();
+    if (verify_state(data, get_state_increment()))
+    {
+        this->state += step;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_decrement()))
+    {
+        this->state -= step;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_to_min()))
+    {
+        this->state = min;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_to_max()))
+    {
+        this->state = max;
+        changed = true;
+    }
     optional<float> val = get_state_number(data);
     if (val.has_value() && this->state != val.value())
     {
         this->state = val.value();
-        float min = this->traits.get_min_value();
-        float max = this->traits.get_max_value();
-        if (this->state > max) this->state = max;
-        if (this->state < min) this->state = min;
-        publish_state(this->state);
+        changed = true;
     }
+    if (this->state > max) this->state = max;
+    if (this->state < min) this->state = min;
+    if (changed) publish_state(this->state);
 }
 
 void UARTExNumber::control(float value)
