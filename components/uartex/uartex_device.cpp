@@ -204,14 +204,7 @@ uint8_t float_to_bcd(const float val)
 
 std::string to_hex_string(const std::vector<unsigned char>& data)
 {
-    std::ostringstream oss;
-    oss << std::uppercase << std::hex << std::setfill('0');
-    for (auto d : data)
-    {
-        oss << std::setw(2) << static_cast<int>(d);
-    }
-    oss << std::dec << "(" << data.size() << ")";
-    return oss.str();
+    return to_hex_string(&data[0], data.size());
 }
 
 std::string to_ascii_string(const std::vector<unsigned char>& data)
@@ -222,21 +215,26 @@ std::string to_ascii_string(const std::vector<unsigned char>& data)
     {
         res.push_back(static_cast<char>(ch));
     }
-    res.append("(");
-    res.append(std::to_string(data.size()));
-    res.append(")");
+    char buf[16] = {0};
+    std::snprintf(buf, sizeof(buf), "(%zu)", data.size());
+    res.append(buf);
     return res;
 }
 
 std::string to_hex_string(const uint8_t* data, const uint16_t len)
 {
-    std::ostringstream oss;
-    oss << std::uppercase << std::hex << std::setfill('0');
-    for (uint16_t i = 0; i < len; ++i) {
-        oss << std::setw(2) << static_cast<int>(data[i]);
+    char buf[3] = {0}; 
+    std::string hex_str;
+    hex_str.reserve(static_cast<size_t>(len) * 2 + 10);
+    for (uint16_t i = 0; i < len; ++i)
+    {
+        std::snprintf(buf, sizeof(buf), "%02X", data[i]);
+        hex_str.append(buf);
     }
-    oss << std::dec << "(" << len << ")";
-    return oss.str();
+    char size_buf[16] = {0};
+    std::snprintf(size_buf, sizeof(size_buf), "(%u)", len);
+    hex_str.append(size_buf);
+    return hex_str;
 }
 
 unsigned long elapsed_time(const unsigned long timer)

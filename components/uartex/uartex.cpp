@@ -97,11 +97,12 @@ bool UARTExComponent::verify_ack()
 void UARTExComponent::publish_data()
 {
     bool found = false;
+    auto data = this->rx_parser_.data();
     this->read_callback_.call(&this->rx_parser_.buffer()[0], this->rx_parser_.buffer().size());
     publish_rx_log(this->rx_parser_.buffer());
     for (UARTExDevice* device : this->devices_)
     {
-        if (device->parse_data(this->rx_parser_.data()))
+        if (device->parse_data(data))
         {
             found = true;
         }
@@ -285,7 +286,8 @@ const cmd_t* UARTExComponent::current_tx_cmd()
 
 ERROR UARTExComponent::validate_data()
 {
-    if (this->rx_parser_.data().empty())
+    auto data = this->rx_parser_.data();
+    if (data.empty())
     {
         return ERROR_SIZE;
     }
@@ -301,7 +303,7 @@ ERROR UARTExComponent::validate_data()
     {
         return ERROR_FOOTER;
     }
-    if ((this->rx_checksum_ != CHECKSUM_NONE || this->rx_checksum_2_ != CHECKSUM_NONE) && !this->rx_parser_.verify_checksum(get_rx_checksum(this->rx_parser_.data(), this->rx_parser_.header())))
+    if ((this->rx_checksum_ != CHECKSUM_NONE || this->rx_checksum_2_ != CHECKSUM_NONE) && !this->rx_parser_.verify_checksum(get_rx_checksum(data, this->rx_parser_.header())))
     {
         return ERROR_CHECKSUM;
     }
@@ -539,6 +541,7 @@ uint16_t UARTExComponent::get_checksum(CHECKSUM checksum, const std::vector<uint
         }
         crc += temp;
         crc = ((uint16_t)temp << 8) | (crc & 0xFF);
+        break;
     case CHECKSUM_NONE:
         break;
     }

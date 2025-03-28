@@ -1,10 +1,9 @@
 #pragma once
 #include <vector>
 #include <queue>
-#include <sstream>
-#include <iomanip>
 #include <string>
 #include <cstdint>
+#include <cstdio>
 #include <unordered_map>
 
 #include "esphome/core/hal.h"
