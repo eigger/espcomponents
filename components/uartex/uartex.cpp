@@ -8,20 +8,24 @@ namespace uartex {
 static const char *TAG = "uartex";
 void UARTExComponent::dump_config()
 {
-    ESP_LOGCONFIG(TAG, "  RX Receive Timeout: %d", this->conf_rx_timeout_);
-    ESP_LOGCONFIG(TAG, "  TX Transmission Timeout: %d", this->conf_tx_timeout_);
-    ESP_LOGCONFIG(TAG, "  TX Retry Count: %d", this->conf_tx_retry_cnt_);
-    ESP_LOGCONFIG(TAG, "  TX Error Callback: %d", this->error_callback_.size());   
-    ESP_LOGCONFIG(TAG, "  RX Length: %d", this->conf_rx_length_);
-    if (this->tx_ctrl_pin_)   LOG_PIN("  TX Ctrl Pin: ", this->tx_ctrl_pin_);
-    if (this->rx_header_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_header: %s", to_hex_string(this->rx_header_.value().data).c_str());
-    if (this->rx_header_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_header mask: %s", to_hex_string(this->rx_header_.value().mask).c_str());
-    if (this->rx_footer_.has_value()) ESP_LOGCONFIG(TAG, "  Data rx_footer: %s", to_hex_string(this->rx_footer_.value()).c_str());
-    if (this->tx_header_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_header: %s", to_hex_string(this->tx_header_.value()).c_str());
-    if (this->tx_footer_.has_value()) ESP_LOGCONFIG(TAG, "  Data tx_footer: %s", to_hex_string(this->tx_footer_.value()).c_str());
-    ESP_LOGCONFIG(TAG, "  Data rx_checksum: %d", this->rx_checksum_);
-    ESP_LOGCONFIG(TAG, "  Data tx_checksum: %d", this->tx_checksum_);
-    ESP_LOGCONFIG(TAG, "  Device count: %d", this->devices_.size());
+#ifdef ESPHOME_LOG_HAS_DEBUG
+    log_config(TAG, "rx_timeout", this->conf_rx_timeout_);
+    log_config(TAG, "rx_length", this->conf_rx_length_);
+    log_config(TAG, "tx_timeout", this->conf_tx_timeout_);
+    log_config(TAG, "tx_delay", this->conf_tx_delay_);
+    log_config(TAG, "tx_retry_cnt", this->conf_tx_retry_cnt_);
+    if (this->rx_header_.has_value()) log_config(TAG, "rx_header", this->rx_header_.value().data);
+    if (this->rx_header_.has_value()) log_config(TAG, "rx_header mask", this->rx_header_.value().mask);
+    if (this->rx_footer_.has_value()) log_config(TAG, "rx_footer", this->rx_footer_.value());
+    if (this->tx_header_.has_value()) log_config(TAG, "tx_header", this->tx_header_.value());
+    if (this->tx_footer_.has_value()) log_config(TAG, "tx_footer", this->tx_footer_.value());
+    log_config(TAG, "rx_checksum", (uint16_t)this->rx_checksum_);
+    log_config(TAG, "rx_checksum2", (uint16_t)this->rx_checksum_2_);
+    log_config(TAG, "tx_checksum", (uint16_t)this->tx_checksum_);
+    log_config(TAG, "tx_checksum2", (uint16_t)this->tx_checksum_2_);
+    log_config(TAG, "uartex count", (uint16_t)this->devices_.size());
+    if (this->tx_ctrl_pin_) LOG_PIN("tx_ctrl_pin: ", this->tx_ctrl_pin_);
+#endif
 }
 
 void UARTExComponent::setup()

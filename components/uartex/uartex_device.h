@@ -80,6 +80,7 @@ protected:
     cmd_t* get_command(const std::string& name, const float x);
     cmd_t* get_command(const std::string& name);
     state_t* get_state(const std::string& name);
+    state_num_t* get_state_num(const std::string& name);
     optional<float> get_state_float(const std::string& name, const std::vector<uint8_t>& data);
     optional<std::string> get_state_str(const std::string& name, const std::vector<uint8_t>& data);
     bool has_state(const std::string& name);
@@ -120,6 +121,12 @@ std::string to_ascii_string(const std::vector<unsigned char>& data);
 std::string to_hex_string(const uint8_t* data, const uint16_t len);
 unsigned long elapsed_time(const unsigned long timer);
 unsigned long get_time();
-
+void log_config(const char* tag, const char* title, const char* value);
+void log_config(const char* tag, const char* title, const uint16_t value);
+void log_config(const char* tag, const char* title, const bool value);
+void log_config(const char* tag, const char* title, const std::vector<uint8_t>& value);
+void log_config(const char* tag, const char* title, const state_t* state);
+void log_config(const char* tag, const char* title, const state_num_t* state_num);
+void log_config(const char* tag, const char* title, const cmd_t* cmd);
 } // namespace uartex
 } // namespace esphome

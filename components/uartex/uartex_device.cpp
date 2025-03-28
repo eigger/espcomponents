@@ -12,22 +12,16 @@ void UARTExDevice::update()
 
 void UARTExDevice::uartex_dump_config(const char* TAG)
 {
-    state_t* state = get_state();
-    if (state) ESP_LOGCONFIG(TAG, "  State: %s, offset: %d, inverted: %s", to_hex_string(state->data).c_str(), state->offset, YESNO(state->inverted));
-    state = get_state_on();
-    if (state) ESP_LOGCONFIG(TAG, "  State ON: %s, offset: %d, inverted: %s", to_hex_string(state->data).c_str(), state->offset, YESNO(state->inverted));
-    state = get_state_off();
-    if (state) ESP_LOGCONFIG(TAG, "  State OFF: %s, offset: %d, inverted: %s", to_hex_string(state->data).c_str(), state->offset, YESNO(state->inverted));
-    state = get_state_response();
-    if (state) ESP_LOGCONFIG(TAG, "  State RESP: %s, offset: %d, inverted: %s", to_hex_string(state->data).c_str(), state->offset, YESNO(state->inverted));
-
-    cmd_t* cmd = get_command_on();
-    if (cmd) ESP_LOGCONFIG(TAG, "  Command ON: %s, ACK: %s", to_hex_string(cmd->data).c_str(), to_hex_string(cmd->ack).c_str());
-    cmd = get_command_off();
-    if (cmd) ESP_LOGCONFIG(TAG, "  Command OFF: %s, ACK: %s", to_hex_string(cmd->data).c_str(), to_hex_string(cmd->ack).c_str());
-    cmd = get_command_update();
-    if (cmd) ESP_LOGCONFIG(TAG, "  Command UPDATE: %s, ACK: %s", to_hex_string(cmd->data).c_str(), to_hex_string(cmd->ack).c_str());
-    LOG_UPDATE_INTERVAL(this);
+#ifdef ESPHOME_LOG_HAS_DEBUG
+    log_config(TAG, "State", get_state());
+    log_config(TAG, "State On", get_state_on());
+    log_config(TAG, "State Off", get_state_off());
+    log_config(TAG, "State Response", get_state_response());
+    log_config(TAG, "Command On", get_command_on());
+    log_config(TAG, "Command Off", get_command_off());
+    log_config(TAG, "Command Update", get_command_update());
+    if (get_command_update()) LOG_UPDATE_INTERVAL(this);
+#endif
 }
 
 const cmd_t *UARTExDevice::dequeue_tx_cmd()
@@ -114,6 +108,12 @@ cmd_t* UARTExDevice::get_command(const std::string& name)
 state_t* UARTExDevice::get_state(const std::string& name)
 {
     if (contains(this->state_map_, name)) return &this->state_map_[name];
+    return nullptr;
+}
+
+state_num_t* UARTExDevice::get_state_num(const std::string& name)
+{
+    if (contains(this->state_num_map_, name)) return &this->state_num_map_[name];
     return nullptr;
 }
 
@@ -245,6 +245,50 @@ unsigned long elapsed_time(const unsigned long timer)
 unsigned long get_time()
 {
     return millis();
+}
+
+void log_config(const char* tag, const char* title, const char* value)
+{
+    if (value == 0) return;
+    ESP_LOGCONFIG(tag, "%s: %s", title, value);
+}
+
+void log_config(const char* tag, const char* title, const uint16_t value)
+{
+    if (value == 0) return;
+    ESP_LOGCONFIG(tag, "%s: %d", title, value);
+}
+
+void log_config(const char* tag, const char* title, const bool value)
+{
+    if (!value) return;
+    ESP_LOGCONFIG(tag, "%s: %s", title, YESNO(value));
+}
+
+void log_config(const char* tag, const char* title, const std::vector<uint8_t>& value)
+{
+    if (value.empty()) return;
+    ESP_LOGCONFIG(tag, "%s: %s", title, to_hex_string(value).c_str());
+}
+
+void log_config(const char* tag, const char* title, const state_t* state)
+{
+    if (state == nullptr) return;
+    ESP_LOGCONFIG(tag, "%s: %s, offset: %d, inverted: %s", title, to_hex_string(state->data).c_str(), state->offset, YESNO(state->inverted));
+    if (!state->mask.empty()) ESP_LOGCONFIG(tag, "%s mask: %s", title, to_hex_string(state->mask).c_str());
+}
+
+void log_config(const char* tag, const char* title, const state_num_t* state_num)
+{
+    if (state_num == nullptr) return;
+    ESP_LOGCONFIG(tag, "%s: offset: %d, length: %d, precision: %d", title, state_num->offset, state_num->length, state_num->precision);
+    ESP_LOGCONFIG(tag, "%s: signed: %s, endian: %d, decode: %d", title, YESNO(state_num->is_signed), state_num->endian, state_num->decode);
+}
+
+void log_config(const char* tag, const char* title, const cmd_t* cmd)
+{
+    if (cmd == nullptr) return;
+    ESP_LOGCONFIG(tag, "%s: %s, Ack: %s, Mask: %s", title, to_hex_string(cmd->data).c_str(), to_hex_string(cmd->ack).c_str(), to_hex_string(cmd->mask).c_str());
 }
 
 }  // namespace uartex

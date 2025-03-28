@@ -8,8 +8,11 @@ static const char *TAG = "uartex.fan";
 
 void UARTExFan::dump_config()
 {
-    ESP_LOGCONFIG(TAG, "UARTEx Fan '%s':", get_name().c_str());
+#ifdef ESPHOME_LOG_HAS_DEBUG
+    log_config(TAG, "Name", get_name().c_str());
+    log_config(TAG, "State Speed", get_state_num("state_speed"));
     uartex_dump_config(TAG);
+#endif
 }
 
 fan::FanTraits UARTExFan::get_traits()

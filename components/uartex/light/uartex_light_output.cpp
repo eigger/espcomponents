@@ -8,8 +8,11 @@ static const char *TAG = "uartex.light";
 
 void UARTExLightOutput::dump_config()
 {
-    ESP_LOGCONFIG(TAG, "UARTEx LightOutput(Binary) '%s':", this->light_state_->get_name().c_str());
+#ifdef ESPHOME_LOG_HAS_DEBUG
+    log_config(TAG, "Name", this->light_state_->get_name().c_str());
+    log_config(TAG, "State Brightness", get_state_num("state_brightness"));
     uartex_dump_config(TAG);
+#endif
 }
 
 void UARTExLightOutput::publish(const std::vector<uint8_t>& data)

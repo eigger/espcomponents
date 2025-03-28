@@ -8,8 +8,26 @@ static const char *TAG = "uartex.media_player";
 
 void UARTExMediaPlayer::dump_config()
 {
-    ESP_LOGCONFIG(TAG, "UARTEx Media Player '%s':", get_name().c_str());
+#ifdef ESPHOME_LOG_HAS_DEBUG
+    log_config(TAG, "Name", get_name().c_str());
+    log_config(TAG, "State None", get_state_none());
+    log_config(TAG, "State Idle", get_state_idle());
+    log_config(TAG, "State Playing", get_state_playing());
+    log_config(TAG, "State Paused", get_state_paused());
+    log_config(TAG, "State Announcing", get_state_announcing());
+    log_config(TAG, "State Volume", get_state_num("state_volume"));
+    log_config(TAG, "Command Stop", get_command_stop());
+    log_config(TAG, "Command Play", get_command_play());
+    log_config(TAG, "Command Pause", get_command_pause());
+    log_config(TAG, "Command Mute", get_command_mute());
+    log_config(TAG, "Command Unmute", get_command_unmute());
+    log_config(TAG, "Command Toggle", get_command_toggle());
+    log_config(TAG, "Command Enqueue", get_command_enqueue());
+    log_config(TAG, "Command Repeat One", get_command_repeat_one());
+    log_config(TAG, "Command Repeat Off", get_command_repeat_off());
+    log_config(TAG, "Command Clear Playlist", get_command_clear_playlist());
     uartex_dump_config(TAG);
+#endif
 }
 
 void UARTExMediaPlayer::setup()

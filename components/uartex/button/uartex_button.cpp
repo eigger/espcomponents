@@ -8,8 +8,10 @@ static const char *TAG = "uartex.button";
 
 void UARTExButton::dump_config()
 {
-    ESP_LOGCONFIG(TAG, "UARTEx Button '%s':", get_name().c_str());
+#ifdef ESPHOME_LOG_HAS_DEBUG
+    log_config(TAG, "Name", get_name().c_str());
     uartex_dump_config(TAG);
+#endif
 }
 
 }  // namespace uartex
