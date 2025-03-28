@@ -8,7 +8,6 @@ static const char *TAG = "uartex.switch";
 
 void UARTExSwitch::dump_config()
 {
-    ESP_LOGCONFIG(TAG, "UARTEx Switch '%s':", get_name().c_str());
     uartex_dump_config(TAG);
 }
 

@@ -8,8 +8,14 @@ static const char *TAG = "uartex.lock";
 
 void UARTExLock::dump_config()
 {
-    ESP_LOGCONFIG(TAG, "UARTEx Lock '%s':", get_name().c_str());
     uartex_dump_config(TAG);
+    log_config(TAG, "State Locked", get_state_locked());
+    log_config(TAG, "State Unlocked", get_state_unlocked());
+    log_config(TAG, "State Jammed", get_state_jammed());
+    log_config(TAG, "State Locking", get_state_locking());
+    log_config(TAG, "State Unlocking", get_state_unlocking());
+    log_config(TAG, "Command Lock", get_command_lock());
+    log_config(TAG, "Command Unlock", get_command_unlock());
 }
 
 void UARTExLock::setup()

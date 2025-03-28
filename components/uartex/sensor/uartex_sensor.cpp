@@ -8,8 +8,8 @@ static const char *TAG = "uartex.sensor";
 
 void UARTExSensor::dump_config() 
 {
-    ESP_LOGCONFIG(TAG, "UARTEx Sensor '%s':", get_name().c_str());
     uartex_dump_config(TAG);
+    log_config(TAG, "State Number", get_state_num("state_number"));
 }
 
 void UARTExSensor::publish(const std::vector<uint8_t>& data) 

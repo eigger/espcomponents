@@ -8,7 +8,6 @@ static const char *TAG = "uartex.text_sensor";
 
 void UARTExTextSensor::dump_config() 
 {
-    ESP_LOGCONFIG(TAG, "UARTEx Text Sensor '%s':", get_name().c_str());
     uartex_dump_config(TAG);
 }
 
