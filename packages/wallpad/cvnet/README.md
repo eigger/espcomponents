@@ -1,4 +1,4 @@
-# CVNet 월패드 구성 (검증x)
+# CVnet 월패드 구성 (검증x)
 ```
 packages:
   remote:
@@ -8,7 +8,7 @@ packages:
       - packages/wallpad/cvnet/cvnet.yaml
 ```
 
-# CVNet 월패드 패킷 구조
+# CVnet 월패드 패킷 구조
 
 
 # 작성중
