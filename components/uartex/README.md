@@ -481,6 +481,10 @@ number:
 ```
 ### Configuration variables
 - state (Optional, state): 
+- state_increment (Optional, state): 
+- state_decrement (Optional, state):
+- state_to_min (Optional, state):
+- state_to_max (Optional, state): 
 - state_number (Optional, state_num or lambda):
   - float = (uint8_t* data, uint16_t len)
 - command_number (Optional, command or lambda): 
