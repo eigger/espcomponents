@@ -57,9 +57,9 @@ struct cmd_t
     std::vector<uint8_t> data;
     std::vector<uint8_t> ack;
     std::vector<uint8_t> mask;
-    // cmd_t() = default;
-    // cmd_t(std::initializer_list<uint8_t> data, std::initializer_list<uint8_t> ack = {}, std::initializer_list<uint8_t> mask = {})
-    //     : data(data), ack(ack), mask(mask) {}
+    cmd_t() = default;
+    cmd_t(std::initializer_list<uint8_t> data, std::initializer_list<uint8_t> ack = {}, std::initializer_list<uint8_t> mask = {})
+        : data(data), ack(ack), mask(mask) {}
 };
 
 class UARTExDevice : public PollingComponent
