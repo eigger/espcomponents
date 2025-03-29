@@ -20,7 +20,7 @@ void UARTExDevice::uartex_dump_config(const char* TAG)
     log_config(TAG, "Command On", get_command_on());
     log_config(TAG, "Command Off", get_command_off());
     log_config(TAG, "Command Update", get_command_update());
-    if (get_command_update()) LOG_UPDATE_INTERVAL(this);
+    if (get_command_update()) { LOG_UPDATE_INTERVAL(this); }
 #endif
 }
 

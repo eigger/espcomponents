@@ -23,6 +23,8 @@ uartex_ns = cg.esphome_ns.namespace('uartex')
 UARTExComponent = uartex_ns.class_('UARTExComponent', cg.Component, uart.UARTDevice)
 UARTExWriteAction = uartex_ns.class_('UARTExWriteAction', automation.Action)
 cmd_t = uartex_ns.class_('cmd_t')
+state_t = uartex_ns.class_('state_t')
+state_num_t = uartex_ns.class_('state_num_t')
 vector_uint8 = cg.std_vector.template(cg.uint8)
 uint16_const = cg.uint16.operator('const')
 uint8_const = cg.uint8.operator('const')
@@ -378,9 +380,9 @@ def state_hex_expression(conf):
         return
     data = conf[CONF_DATA]
     mask = conf[CONF_MASK]
-    inverted = conf[CONF_INVERTED]
     offset = conf[CONF_OFFSET]
-    return offset, inverted, data, mask
+    inverted = conf[CONF_INVERTED]
+    return state_t(data, mask, offset, inverted)
 
 def state_num_hex_expression(conf):
     if conf is None:
@@ -391,7 +393,7 @@ def state_num_hex_expression(conf):
     signed = conf[CONF_SIGNED]
     endian = conf[CONF_ENDIAN]
     decode = conf[CONF_DECODE]
-    return offset, length, precision, signed, endian, decode
+    return state_num_t(offset, length, precision, signed, endian, decode)
 
 async def state_num_expression(conf):
     if cg.is_template(conf):
@@ -407,15 +409,9 @@ def command_hex_expression(conf):
     if conf is None:
         return
     data = conf[CONF_DATA]
-    if CONF_ACK in conf:
-        ack = conf[CONF_ACK]
-        if CONF_MASK in conf:
-            mask = conf[CONF_MASK]
-            return data, ack, mask
-        else:
-            return data, ack
-    else:
-        return data
+    ack = conf[CONF_ACK]
+    mask = conf[CONF_MASK]
+    return cmd_t(data, ack, mask)
 
 async def command_expression(conf):
     if cg.is_template(conf):

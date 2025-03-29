@@ -11,10 +11,12 @@ external_components:
     components: [ uartex ]
     refresh: always  
   
+#^[001]\r  
+#^[002]\r  
 uartex:
   rx_timeout: 10ms
-  rx_header: [0x5E, 0x5B]
-  rx_footer: [0x5D, 0x0D]
+  rx_header: "^"
+  rx_footer: "\r"
 
   version:
     disabled: False
@@ -28,5 +30,5 @@ number:
     name: "People Count"
     id: id_people_count
     max_value: 30
-    state_increment: [0x30, 0x30, 0x31]
-    state_decrement: [0x30, 0x30, 0x32]
+    state_increment: "[001]"
+    state_decrement: "[002]"
