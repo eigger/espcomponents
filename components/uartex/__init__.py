@@ -375,14 +375,14 @@ def header_hex_expression(conf):
     mask = conf[CONF_MASK]
     return data, mask
 
-def state_hex_expression(conf) -> state_t:
+def state_hex_expression(conf):
     if conf is None:
         return
     data = conf[CONF_DATA]
     mask = conf[CONF_MASK]
     inverted = conf[CONF_INVERTED]
     offset = conf[CONF_OFFSET]
-    return offset, inverted, data, mask
+    return (state_t)(offset, inverted, data, mask)
 
 def state_num_hex_expression(conf):
     if conf is None:
