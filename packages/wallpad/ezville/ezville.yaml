@@ -36,9 +36,29 @@ uartex:
 #제어 [HEAD 0xF7] [조명 0x0E] [그룹 0x10 + 1] [조명 제어 0x41] [길이] [조명] [Onoff] 0x00 [xor] [add]
 #제어 0xF7, 0x0E, 0x11, 0x41, 0x03, 0x01, 0x01, 0x00, xor, add
 #응답 0xF7, 0x0E, 0x11, 0xC1, ???
+
 light:
   - platform: uartex
-    name: "room1 Light 1"
+    name: "light_1_0"
+    id: light_1_0
+    state: [0x0e, 0x11, 0x81]
+    state_off:
+      offset: 5
+      data: [0x00, 0x00, 0x00]
+    state_on :
+      offset: 5
+      data: [0x00, 0x00, 0x00]
+      inverted: True
+    command_on:
+      data: [0x0e, 0x11, 0x41, 0x03, 0x0f, 0x01, 0x00]
+      ack: [0x0e, 0x11, 0xC1]
+    command_off:
+      data: [0x0e, 0x11, 0x41, 0x03, 0x0f, 0x00, 0x00]
+      ack: [0x0e, 0x11, 0xC1]
+
+  - platform: uartex
+    name: "light_1_1"
+    id: light_1_1
     state: [0x0e, 0x11, 0x81]
     state_on:
       offset: 5
@@ -54,7 +74,8 @@ light:
       ack: [0x0e, 0x11, 0xC1]
 
   - platform: uartex
-    name: "room1 Light 2"
+    name: "light_1_2"
+    id: light_1_2
     state: [0x0e, 0x11, 0x81]
     state_on:
       offset: 6
@@ -71,7 +92,8 @@ light:
 
 
   - platform: uartex
-    name: "room1 Light 3"
+    name: "light_1_3"
+    id: light_1_3
     state: [0x0e, 0x11, 0x81]
     state_on:
       offset: 7
@@ -86,9 +108,27 @@ light:
       data: [0x0e, 0x11, 0x41, 0x03, 0x03, 0x00, 0x00]
       ack: [0x0e, 0x11, 0xC1]
 
+  - platform: uartex
+    name: "light_2_0"
+    id: light_2_0
+    state: [0x0e, 0x12, 0x81]
+    state_off:
+      offset: 5
+      data: [0x00, 0x00]
+    state_on :
+      offset: 5
+      data: [0x00, 0x00]
+      inverted: True
+    command_on:
+      data: [0x0e, 0x12, 0x41, 0x03, 0x0f, 0x01, 0x00]
+      ack: [0x0e, 0x12, 0xC1]
+    command_off:
+      data: [0x0e, 0x12, 0x41, 0x03, 0x0f, 0x00, 0x00]
+      ack: [0x0e, 0x12, 0xC1]
 
   - platform: uartex
-    name: "room2 Light 1"
+    name: "light_2_1"
+    id: light_2_1
     state: [0x0e, 0x12, 0x81]
     state_on:
       offset: 5
@@ -104,7 +144,8 @@ light:
       ack: [0x0e, 0x12, 0xC1]
 
   - platform: uartex
-    name: "room2 Light 2"
+    name: "light_2_2"
+    id: light_2_2
     state: [0x0e, 0x12, 0x81]
     state_on:
       offset: 6
@@ -120,7 +161,8 @@ light:
       ack: [0x0e, 0x12, 0xC1]
 
   - platform: uartex
-    name: "room3 Light 1"
+    name: "light_3_1"
+    id: light_3_1
     state: [0x0e, 0x13, 0x81]
     state_on:
       offset: 5
@@ -136,7 +178,8 @@ light:
       ack: [0x0e, 0x13, 0xC1]
 
   - platform: uartex
-    name: "room4 Light 1"
+    name: "light_4_1"
+    id: light_4_1
     state: [0x0e, 0x14, 0x81]
     state_on:
       offset: 5
@@ -207,3 +250,533 @@ sensor:
       precision: 2
       signed: False
       decode: bcd
+
+ - platform: uartex
+    name: "power_1_1"
+    id: power_1_1
+    state: [0x39, 0x1f, 0x81]  # 패킷 매칭
+    accuracy_decimals: 1  # 소수점 1 자리로 설정
+    unit_of_measurement: "W"  # 단위 설정
+    state_num: 
+      offset: 5
+      length: 3
+      precision: 1
+      signed: False
+      decode: bcd
+
+  - platform: uartex
+    name: "power_1_2"
+    id: power_1_2
+    state: [0x39, 0x1f, 0x81]  # 패킷 매칭
+    accuracy_decimals: 1
+    unit_of_measurement: "W"  # 단위 설정
+    state_num: 
+      offset: 8
+      length: 3
+      precision: 1
+      signed: False
+      decode: bcd
+
+  - platform: uartex
+    name: "power_2_1"
+    id: power_2_1
+    state: [0x39, 0x2f, 0x81]  # 패킷 매칭
+    accuracy_decimals: 1
+    unit_of_measurement: "W"  # 단위 설정
+    state_num: 
+      offset: 5
+      length: 3
+      precision: 1
+      signed: False
+      decode: bcd
+
+  - platform: uartex
+    name: "power_2_2"
+    id: power_2_2
+    state: [0x39, 0x2f, 0x81]  # 패킷 매칭
+    accuracy_decimals: 1
+    unit_of_measurement: "W"  # 단위 설정
+    state_num: 
+      offset: 8
+      length: 3
+      precision: 1
+      signed: False
+      decode: bcd
+
+  - platform: uartex
+    name: "power_3_1"
+    id: power_3_1
+    state: [0x39, 0x3f, 0x81]  # 패킷 매칭
+    accuracy_decimals: 1
+    unit_of_measurement: "W"  # 단위 설정
+    state_num: 
+      offset: 5
+      length: 3
+      precision: 1
+      signed: False
+      decode: bcd
+
+  - platform: uartex
+    name: "power_3_2"
+    id: power_3_2
+    state: [0x39, 0x3f, 0x81]  # 패킷 매칭
+    accuracy_decimals: 1
+    unit_of_measurement: "W"  # 단위 설정
+    state_num: 
+      offset: 8
+      length: 3
+      precision: 1
+      signed: False
+      decode: bcd
+
+  - platform: uartex
+    name: "power_4_1"
+    id: power_4_1
+    state: [0x39, 0x4f, 0x81]  # 패킷 매칭
+    accuracy_decimals: 1
+    unit_of_measurement: "W"  # 단위 설정
+    state_num: 
+      offset: 5
+      length: 3
+      precision: 1
+      signed: False
+      decode: bcd
+
+  - platform: uartex
+    name: "power_4_2"
+    id: power_4_2
+    state: [0x39, 0x4f, 0x81]  # 패킷 매칭
+    accuracy_decimals: 1
+    unit_of_measurement: "W"  # 단위 설정
+    state_num: 
+      offset: 8
+      length: 3
+      precision: 1
+      signed: False
+      decode: bcd
+
+  - platform: uartex
+    name: "power_8_1"
+    id: power_8_1
+    state: [0x39, 0x8f, 0x81]  # 패킷 매칭
+    accuracy_decimals: 1
+    unit_of_measurement: "W"  # 단위 설정
+    state_num: 
+      offset: 5
+      length: 3
+      precision: 1
+      signed: False
+      decode: bcd
+
+  - platform: uartex
+    name: "power_8_2"
+    id: power_8_2
+    state: [0x39, 0x8f, 0x81]  # 패킷 매칭
+    accuracy_decimals: 1
+    unit_of_measurement: "W"  # 단위 설정
+    state_num: 
+      offset: 8
+      length: 3
+      precision: 1
+      signed: False
+      decode: bcd
+
+switch:
+  - platform: uartex
+    name: "outlet_1_1"
+    id: outlet_1_1
+    state: [0x39, 0x1f, 0x81]
+    state_on:
+      offset: 5
+      mask: [0x10]
+      data: [0x10]
+    state_off:
+      offset: 5
+      mask: [0x10]
+      data: [0x00]
+    command_on:
+      data: [0x39, 0x11, 0x41, 0x01, 0x11]
+      ack: [0x39, 0x11, 0xC1]
+    command_off:
+      data: [0x39, 0x11, 0x41, 0x01, 0x10]
+      ack: [0x39, 0x11, 0xC1]
+
+  - platform: uartex
+    name: "outlet_1_2"
+    id: outlet_1_2
+    state: [0x39, 0x1f, 0x81]
+    state_on:
+      offset: 8
+      mask: [0x10]
+      data: [0x10]
+    state_off:
+      offset: 8
+      mask: [0x10]
+      data: [0x00]
+    command_on:
+      data: [0x39, 0x12, 0x41, 0x01, 0x11]
+      ack: [0x39, 0x12, 0xC1]
+    command_off:
+      data: [0x39, 0x12, 0x41, 0x01, 0x10]
+      ack: [0x39, 0x12, 0xC1]
+
+  - platform: uartex
+    name: "outlet_2_1"
+    id: outlet_2_1
+    state: [0x39, 0x2f, 0x81]
+    state_on:
+      offset: 5
+      mask: [0x10]
+      data: [0x10]
+    state_off:
+      offset: 5
+      mask: [0x10]
+      data: [0x00]
+    command_on:
+      data: [0x39, 0x21, 0x41, 0x01, 0x11]
+      ack: [0x39, 0x21, 0xC1]
+    command_off:
+      data: [0x39, 0x21, 0x41, 0x01, 0x10]
+      ack: [0x39, 0x21, 0xC1]
+
+  - platform: uartex
+    name: "outlet_2_2"
+    id: outlet_2_2
+    state: [0x39, 0x2f, 0x81]
+    state_on:
+      offset: 8
+      mask: [0x10]
+      data: [0x10]
+    state_off:
+      offset: 8
+      mask: [0x10]
+      data: [0x00]
+    command_on:
+      data: [0x39, 0x22, 0x41, 0x01, 0x11]
+      ack: [0x39, 0x22, 0xC1]
+    command_off:
+      data: [0x39, 0x22, 0x41, 0x01, 0x10]
+      ack: [0x39, 0x22, 0xC1]
+
+  - platform: uartex
+    name: "outlet_3_1"
+    id: outlet_3_1
+    state: [0x39, 0x3f, 0x81]
+    state_on:
+      offset: 5
+      mask: [0x10]
+      data: [0x10]
+    state_off:
+      offset: 5
+      mask: [0x10]
+      data: [0x00]
+    command_on:
+      data: [0x39, 0x31, 0x41, 0x01, 0x11]
+      ack: [0x39, 0x31, 0xC1]
+    command_off:
+      data: [0x39, 0x31, 0x41, 0x01, 0x10]
+      ack: [0x39, 0x31, 0xC1]
+
+  - platform: uartex
+    name: "outlet_3_2"
+    id: outlet_3_2
+    state: [0x39, 0x3f, 0x81]
+    state_on:
+      offset: 8
+      mask: [0x10]
+      data: [0x10]
+    state_off:
+      offset: 8
+      mask: [0x10]
+      data: [0x00]
+    command_on:
+      data: [0x39, 0x32, 0x41, 0x01, 0x11]
+      ack: [0x39, 0x32, 0xC1]
+    command_off:
+      data: [0x39, 0x32, 0x41, 0x01, 0x10]
+      ack: [0x39, 0x32, 0xC1]
+
+  - platform: uartex
+    name: "outlet_4_1"
+    id: outlet_4_1
+    state: [0x39, 0x4f, 0x81]
+    state_on:
+      offset: 5
+      mask: [0x10]
+      data: [0x10]
+    state_off:
+      offset: 5
+      mask: [0x10]
+      data: [0x00]
+    command_on:
+      data: [0x39, 0x41, 0x41, 0x01, 0x11]
+      ack: [0x39, 0x41, 0xC1]
+    command_off:
+      data: [0x39, 0x41, 0x41, 0x01, 0x10]
+      ack: [0x39, 0x41, 0xC1]
+      
+  - platform: uartex
+    name: "outlet_4_2"
+    id: outlet_4_2
+    state: [0x39, 0x4f, 0x81]
+    state_on:
+      offset: 8
+      mask: [0x10]
+      data: [0x10]
+    state_off:
+      offset: 8
+      mask: [0x10]
+      data: [0x00]
+    command_on:
+      data: [0x39, 0x42, 0x41, 0x01, 0x11]
+      ack: [0x39, 0x42, 0xC1]
+    command_off:
+      data: [0x39, 0x42, 0x41, 0x01, 0x10]
+      ack: [0x39, 0x42, 0xC1]
+
+  - platform: uartex
+    name: "outlet_8_1"
+    id: outlet_8_1
+    state: [0x39, 0x8f, 0x81]
+    state_on:
+      offset: 5
+      mask: [0x10]
+      data: [0x10]
+    state_off:
+      offset: 5
+      mask: [0x10]
+      data: [0x00]
+    command_on:
+      data: [0x39, 0x81, 0x41, 0x01, 0x11]
+      ack: [0x39, 0x81, 0xC1]
+    command_off:
+      data: [0x39, 0x81, 0x41, 0x01, 0x10]
+      ack: [0x39, 0x81, 0xC1]
+
+  - platform: uartex
+    name: "outlet_8_2"
+    id: outlet_8_2
+    state: [0x39, 0x8f, 0x81]
+    state_on:
+      offset: 8
+      mask: [0x10]
+      data: [0x10]
+    state_off:
+      offset: 8
+      mask: [0x10]
+      data: [0x00]
+    command_on:
+      data: [0x39, 0x82, 0x41, 0x01, 0x11]
+      ack: [0x39, 0x82, 0xC1]
+    command_off:
+      data: [0x39, 0x82, 0x41, 0x01, 0x10]
+      ack: [0x39, 0x82, 0xC1]
+
+climate:
+  - platform: uartex
+    name: "thermostat 1"
+    id: thermostat_1
+    visual:
+      min_temperature: 5 °C
+      max_temperature: 40 °C
+      temperature_step: 1 °C
+    state: [0x36, 0x1f, 0x81]
+    state_temperature_target:
+      offset: 9
+      length: 1
+      precision: 0
+    state_temperature_current:
+      offset: 10
+      length: 1
+      precision: 0    
+    state_off:
+      offset: 5
+      data: [0x00]
+      mask: [0x01]
+    state_heat:
+      offset: 5
+      data: [0x01]
+      mask: [0x01]
+    state_preset_away:
+      offset: 6
+      mask: [0x01]
+      data: [0x04]  # bit3=1 → 외출
+    state_preset_none:
+      offset: 6
+      mask: [0x01]
+      data: [0x00]  # bit3=0 → 외출 아님
+    command_off:
+      data: [0x36, 0x11, 0x43, 0x01, 0x00]
+      ack: [0x36, 0x11, 0xc3]
+    command_heat:
+      data: [0x36, 0x11, 0x43, 0x01, 0x01]
+      ack: [0x36, 0x11, 0xc3]
+    command_temperature: !lambda |-
+      return {{0x36, 0x11, 0x44, 0x01, (uint8_t)x},{0x36, 0x11, 0xc4}};
+    command_preset_away: #Option (외출 켜기)
+      data: [0x36, 0x11, 0x45, 0x01, 0x01]
+      ack: [0x36, 0x11, 0xc5]
+    command_preset_none: #Option (외출 끄기, 난방)
+      data: [0x36, 0x11, 0x45, 0x01, 0x00]
+      ack: [0x36, 0x11, 0xc5]
+
+  - platform: uartex
+    name: "thermostat 2"
+    id: thermostat_2
+    visual:
+      min_temperature: 5 °C
+      max_temperature: 40 °C
+      temperature_step: 1 °C
+    state: [0x36, 0x1f, 0x81]
+    state_temperature_target:
+      offset: 11
+      length: 1
+      precision: 0
+    state_temperature_current:
+      offset: 12
+      length: 1
+      precision: 0    
+    state_off:
+      offset: 5
+      data: [0x00]
+      mask: [0x02]
+    state_heat:
+      offset: 5
+      data: [0x02]
+      mask: [0x02]
+    state_preset_away:
+      offset: 6
+      mask: [0x02]
+      data: [0x02]  # bit3=1 → 외출
+    state_preset_none:
+      offset: 6
+      mask: [0x02]
+      data: [0x00]  # bit3=0 → 외출 아님
+    command_off:
+      data: [0x36, 0x12, 0x43, 0x01, 0x00]
+      ack: [0x36, 0x12, 0xc3]
+    command_heat:
+      data: [0x36, 0x12, 0x43, 0x01, 0x01]
+      ack: [0x36, 0x12, 0xc3]
+    command_temperature: !lambda |-
+      return {{0x36, 0x12, 0x44, 0x01, (uint8_t)x},{0x36, 0x12, 0xc4}};
+    command_preset_away: #Option (외출 켜기)
+      data: [0x36, 0x12, 0x45, 0x01, 0x01]
+      ack: [0x36, 0x12, 0xc5]
+    command_preset_none: #Option (외출 끄기, 난방)
+      data: [0x36, 0x12, 0x45, 0x01, 0x00]
+      ack: [0x36, 0x12, 0xc5]
+
+  - platform: uartex
+    name: "thermostat 3"
+    id: thermostat_3
+    visual:
+      min_temperature: 5 °C
+      max_temperature: 40 °C
+      temperature_step: 1 °C
+    state: [0x36, 0x1f, 0x81]
+    state_temperature_target:
+      offset: 13
+      length: 1
+      precision: 0
+    state_temperature_current:
+      offset: 14
+      length: 1
+      precision: 0    
+    state_off:
+      offset: 5
+      data: [0x00]
+      mask: [0x04]
+    state_heat:
+      offset: 5
+      data: [0x04]
+      mask: [0x04]
+    state_preset_away:
+      offset: 6
+      mask: [0x04]
+      data: [0x04]  # bit3=1 → 외출
+    state_preset_none:
+      offset: 6
+      mask: [0x04]
+      data: [0x00]  # bit3=0 → 외출 아님
+    command_off:
+      data: [0x36, 0x13, 0x43, 0x01, 0x00]
+      ack: [0x36, 0x13, 0xc3]
+    command_heat:
+      data: [0x36, 0x13, 0x43, 0x01, 0x01]
+      ack: [0x36, 0x13, 0xc3]
+    command_temperature: !lambda |-
+      return {{0x36, 0x13, 0x44, 0x01, (uint8_t)x},{0x36, 0x13, 0xc4}};
+    command_preset_away: #Option (외출 켜기)
+      data: [0x36, 0x13, 0x45, 0x01, 0x01]
+      ack: [0x36, 0x13, 0xc5]
+    command_preset_none: #Option (외출 끄기, 난방)
+      data: [0x36, 0x13, 0x45, 0x01, 0x00]
+      ack: [0x36, 0x13, 0xc5]
+
+  - platform: uartex
+    name: "thermostat 4"
+    id: thermostat_4
+    visual:
+      min_temperature: 5 °C
+      max_temperature: 40 °C
+      temperature_step: 1 °C
+    state: [0x36, 0x1f, 0x81]
+    state_temperature_target:
+      offset: 15
+      length: 1
+      precision: 0
+    state_temperature_current:
+      offset: 16
+      length: 1
+      precision: 0    
+    state_off:
+      offset: 5
+      data: [0x00]
+      mask: [0x08]
+    state_heat:
+      offset: 5
+      data: [0x08]
+      mask: [0x08]
+    state_preset_away:
+      offset: 6
+      mask: [0x08]
+      data: [0x08]  # bit3=1 → 외출
+    state_preset_none:
+      offset: 6
+      mask: [0x08]
+      data: [0x00]  # bit3=0 → 외출 아님
+    command_off:
+      data: [0x36, 0x14, 0x43, 0x01, 0x00]
+      ack: [0x36, 0x14, 0xc3]
+    command_heat:
+      data: [0x36, 0x14, 0x43, 0x01, 0x01]
+      ack: [0x36, 0x14, 0xc3]
+    command_temperature: !lambda |-
+      return {{0x36, 0x14, 0x44, 0x01, (uint8_t)x},{0x36, 0x14, 0xc4}};
+    command_preset_away: #Option (외출 켜기)
+      data: [0x36, 0x14, 0x45, 0x01, 0x01]
+      ack: [0x36, 0x14, 0xc5]
+    command_preset_none: #Option (외출 끄기, 난방)
+      data: [0x36, 0x14, 0x45, 0x01, 0x00]
+      ack: [0x36, 0x14, 0xc5]
+
+valve:
+  - platform: uartex
+    name: "Gas Valve"
+    device_class: gas
+    state: [0x12, 0x01, 0x81]
+    state_locked:
+      offset: 5
+      data: [0x02]
+    state_unlocked:
+      offset: 5
+      data: [0x01]
+    command_lock: [0x33, 0x01, 0x81, 0x03, 0x00, 0x05, 0x00]
+
+button:
+  - platform: uartex
+    name: "Elevator Call"
+    icon: "mdi:elevator"
+    command_on: [0x33, 0x01, 0x81, 0x03, 0x00, 0x24, 0x00]
+
