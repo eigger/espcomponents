@@ -1,5 +1,11 @@
 ## uartex
 ```
+external_components:
+  - source: github://eigger/espcomponents/@latest
+    components: [ uartex ]
+    refresh: always
+```
+```
 packet) 0x02 0x01 0x00 0x00 0x00 (add)checksum 0x0D 0x0A
 
 uartex:

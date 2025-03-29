@@ -7,13 +7,6 @@
   </picture>
 </a>
 
-```
-external_components:
-  - source: github://eigger/espcomponents/releases/latest
-    components: [ uartex ]
-    refresh: always
-```
-
 # [uartex](/components/uartex)
 - uartex is an extended component of ESPHome UART that enables easy integration of sensors by utilizing UART data.
 

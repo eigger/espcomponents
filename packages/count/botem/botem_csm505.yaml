@@ -3,8 +3,8 @@ uart:
   data_bits: 8
   parity: NONE
   stop_bits: 1
-  rx_pin: GPIO32
-  tx_pin: GPIO26
+  rx_pin: GPIO22
+  tx_pin: GPIO19
   
 external_components:
   - source: github://eigger/espcomponents/@latest
