@@ -380,9 +380,9 @@ def state_hex_expression(conf):
         return
     data = conf[CONF_DATA]
     mask = conf[CONF_MASK]
-    inverted = conf[CONF_INVERTED]
     offset = conf[CONF_OFFSET]
-    return state_t(offset, inverted, data, mask)
+    inverted = conf[CONF_INVERTED]
+    return state_t(data, mask, offset, inverted)
 
 def state_num_hex_expression(conf):
     if conf is None:
