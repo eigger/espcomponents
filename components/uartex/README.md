@@ -88,6 +88,7 @@ command:
 ### Configuration variables
 - cmd (Required, array or string): 
 - ack (Optional, array or string): Defaults to []
+- mask (Optional, array or string): Defaults to []
 <hr/>
 
 ## State Num Schema
@@ -143,15 +144,15 @@ light:
 - state_on (Required, state): 
 - state_off (Required, state): 
 - state_brightness (Optional, state_num or lambda):
-  - float = (uint8_t* data, uint16_t len)
+  - float lambda(uint8_t* data, uint16_t len)
 - command_on (Required, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_off (Required, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_brightness (Optional, command or lambda): 
-  - command = (float x)
+  - command lambda(float x)
 - command_update (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 <hr/>
 
 ## uartex.binary_sensor
@@ -176,7 +177,7 @@ binary_sensor:
 - state_on (Required, state): 
 - state_off (Required, state): 
 - command_update (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 <hr/>
 
 ## uartex.button
@@ -193,7 +194,7 @@ button:
 ```
 ### Configuration variables
 - command_on (Required, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 <hr/>
 
 ## uartex.climate
@@ -236,7 +237,6 @@ climate:
       float target = id(room_0_heater).target_temperature;
       return {{0x02, 0x03, 0x01, (uint8_t)target, 0x00},{0x02, 0x13, 0x01}};
     command_temperature: !lambda |-
-      // @param: const float x
       float target = x;
       return {{0x02, 0x03, 0x01, (uint8_t)target, 0x00},{0x02, 0x13, 0x01}};
 ```
@@ -244,13 +244,13 @@ climate:
 - state (Optional, state): 
 - state_off (Required, state): 
 - state_temperature_current (Optional, state_num or lambda):
-  - float = (uint8_t* data, uint16_t len)
+  - float lambda(uint8_t* data, uint16_t len)
 - state_temperature_target (Optional, state_num or lambda):
-  - float = (uint8_t* data, uint16_t len)
+  - float lambda(uint8_t* data, uint16_t len)
 - state_humidity_current (Optional, state_num or lambda):
-  - float = (uint8_t* data, uint16_t len)
+  - float lambda(uint8_t* data, uint16_t len)
 - state_humidity_target (Optional, state_num or lambda):
-  - float = (uint8_t* data, uint16_t len)
+  - float lambda(uint8_t* data, uint16_t len)
 - state_cool (Optional, state): 
 - state_heat (Optional, state): 
 - state_fan_only (Optional, state): 
@@ -279,73 +279,73 @@ climate:
 - state_preset_sleep (Optional, state): 
 - state_preset_activity (Optional, state): 
 - state_custom_fan (Optional, lambda): 
-  - std::string = (uint8_t* data, uint16_t len)
+  - std::string lambda(uint8_t* data, uint16_t len)
 - state_custom_preset (Optional, lambda): 
-  - std::string = (uint8_t* data, uint16_t len)
+  - std::string lambda(uint8_t* data, uint16_t len)
 - command_off (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_temperature (Optional, command or lambda): 
-  - command = (float x)
+  - command lambda(float x)
 - command_humidity (Optional, command or lambda): 
-  - command = (float x)
+  - command lambda(float x)
 - command_cool (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_heat (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_fan_only (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_dry (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_auto (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_swing_off (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_swing_both (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_swing_vertical (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_swing_horizontal (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_fan_on (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_fan_off (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_fan_auto (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_fan_low (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_fan_medium (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_fan_high (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_fan_middle (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_fan_focus (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_fan_diffuse (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_fan_quiet (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_preset_none (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_preset_away (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_preset_boost (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_preset_comfort (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_preset_eco (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_preset_sleep (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_preset_activity (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_update (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_custom_fan (Optional, lambda): 
-  - command = (std::string str)
+  - command lambda(std::string str)
 - command_custom_preset (Optional, lambda): 
-  - command = (std::string str)
+  - command lambda(std::string str)
 - custom_fan_mode (Optional, list): A list of custom fan mode for this climate
 - custom_preset (Optional, list): A list of custom preset mode for this climate
 <hr/>
@@ -377,36 +377,28 @@ fan:
       data: [0x02, 0x03, 0x00]
       ack: [0x02, 0x13]
     command_speed: !lambda |-
-      // @param: const float x
-      return {
-                {0x02, 0x03, 0x01, (uint8_t)x},
-                {0x02, 0x13}
-              };
+      return {{0x02, 0x03, 0x01, (uint8_t)x},{0x02, 0x13}};
     state_speed: !lambda |-
-      // @param: const uint8_t *data, const unsigned short len
-      // @return: const float
-      {
-        return data[3];
-      }
+      return data[3];
 ```
 ### Configuration variables
 - state (Optional, state): 
 - state_on (Required, state): 
 - state_off (Required, state): 
 - state_speed (Optional, state_num or lambda):
-  - float = (uint8_t* data, uint16_t len)
+  - float lambda(uint8_t* data, uint16_t len)
 - state_preset (Optional, lambda): 
-  - std::string = (uint8_t* data, uint16_t len)
+  - std::string lambda(uint8_t* data, uint16_t len)
 - command_on (Required, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_off (Required, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_speed (Optional, command or lambda): 
-  - command = (float x)
+  - command lambda(float x)
 - command_preset (Required, lambda): 
-  - command = (std::string str)
+  - command lambda(std::string str)
 - command_update (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - preset_modes (Optional, list): A list of preset modes for this fan
 <hr/>
 
@@ -454,9 +446,9 @@ lock:
 - state_unlocking (Optional, state): 
 - state_jammed (Optional, state): 
 - command_lock (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_unlock (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 <hr/>
 
 ## uartex.number
@@ -479,11 +471,7 @@ number:
       length: 1
       precision: 0
     command_number: !lambda |-
-      // @param: const float x
-      return {
-                {0x02, 0x03, 0x00, (uint8_t)x},
-                {0x02, 0x13}
-              };
+      return {{0x02, 0x03, 0x00, (uint8_t)x},{0x02, 0x13}};
 ```
 ### Configuration variables
 - state (Optional, state): 
@@ -492,11 +480,11 @@ number:
 - state_to_min (Optional, state):
 - state_to_max (Optional, state): 
 - state_number (Optional, state_num or lambda):
-  - float = (uint8_t* data, uint16_t len)
+  - float lambda(uint8_t* data, uint16_t len)
 - command_number (Optional, command or lambda): 
-  - command = (float x)
+  - command lambda(float x)
 - command_update (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 <hr/>
 
 ## uartex.sensor
@@ -515,11 +503,11 @@ sensor:
 ### Configuration variables
 - state (Optional, state): 
 - state_number (Optional, state_num or lambda): 
-  - float = (uint8_t* data, uint16_t len)
+  - float lambda(uint8_t* data, uint16_t len)
 - lambda (Optional, lambda): 
-  - float = (uint8_t* data, uint16_t len)
+  - float lambda(uint8_t* data, uint16_t len)
 - command_update (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 <hr/>
 
 ## uartex.switch
@@ -553,11 +541,11 @@ switch:
 - state_on (Required, state): 
 - state_off (Required, state): 
 - command_on (Required, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_off (Required, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_update (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 <hr/>
 
 ## uartex.text
@@ -566,14 +554,11 @@ text:
   - platform: uartex
     name: "Text"
     command_text: !lambda |-
-      return {
-                {0x0F, 0x01, 0x01},
-                {0x0F, 0x01}
-              };
+      return {{0x0F, 0x01, 0x01},{0x0F, 0x01}};
 ```
 ### Configuration variables
 - command_text (Required, command or lambda): 
-  - command = (std::string str)
+  - command lambda(std::string str)
 <hr/>
 
 ## uartex.text_sensor
@@ -587,17 +572,15 @@ text_sensor:
     name: "Text Sensor"
     state: [0x02, 0x03]
     lambda: |-
-      {
-        if (data[2] == 0x01) return "ON";
-        else return "OFF";
-      }
+      if (data[2] == 0x01) return "ON";
+      return "OFF";
 ```
 ### Configuration variables
 - state (Optional, state): 
 - lambda (Optional, lambda): 
-  - std::string = (uint8_t* data, uint16_t len)
+  - std::string lambda(uint8_t* data, uint16_t len)
 - command_update (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 <hr/>
 
 ## uartex.valve
@@ -632,15 +615,15 @@ valve:
 - state_open (Optional, state): 
 - state_closed (Optional, state): 
 - state_position (Optional, state_num or lambda):
-  - float = (uint8_t* data, uint16_t len)
+  - float lambda(uint8_t* data, uint16_t len)
 - command_open (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_close (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_stop (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_update (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 <hr/>
 
 ## uartex.media_player
@@ -678,33 +661,33 @@ media_player:
 - state_paused (Optional, state): 
 - state_announcing (Optional, state): 
 - state_volume (Optional, state_num or lambda): 
-  - float = (uint8_t* data, uint16_t len)
+  - float lambda(uint8_t* data, uint16_t len)
 - command_stop (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_play (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_pause (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_mute (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_unmute (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_toggle (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_volume (Optional, command or lambda): 
-  - command = (float x)
+  - command lambda(float x)
 - command_volume_up (Optional, command or lambda): 
-  - command = (float x)
+  - command lambda(float x)
 - command_volume_down (Optional, command or lambda): 
-  - command = (float x)
+  - command lambda(float x)
 - command_enqueue (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_repeat_one (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_repeat_off (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_clear_playlist (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 - command_update (Optional, command or lambda): 
-  - command = (void)
+  - command lambda(void)
 <hr/>
