@@ -34,6 +34,9 @@ struct state_t
     bool inverted;
     std::vector<uint8_t> data;
     std::vector<uint8_t> mask;
+    state_t() = default;
+    state_t(uint16_t offset, bool inverted, std::initializer_list<uint8_t> data, std::initializer_list<uint8_t> mask)
+        : offset(offset), inverted(inverted), data(data), mask(mask) {}
 };
 
 struct state_num_t
@@ -44,6 +47,9 @@ struct state_num_t
     bool is_signed;
     ENDIAN endian;
     DECODE decode;
+    state_num_t() = default;
+    state_num_t(uint16_t offset, uint16_t length, uint16_t precision, bool is_signed, ENDIAN endian, DECODE decode)
+        : offset(offset), length(length), precision(precision), is_signed(is_signed), endian(endian), decode(decode) {}
 };
 
 struct cmd_t
@@ -51,6 +57,9 @@ struct cmd_t
     std::vector<uint8_t> data;
     std::vector<uint8_t> ack;
     std::vector<uint8_t> mask;
+    cmd_t() = default;
+    cmd_t(std::initializer_list<uint8_t> data, std::initializer_list<uint8_t> ack, std::initializer_list<uint8_t> mask)
+        : data(data), ack(ack), mask(mask) {}
 };
 
 class UARTExDevice : public PollingComponent
