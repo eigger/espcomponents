@@ -23,6 +23,8 @@ uartex_ns = cg.esphome_ns.namespace('uartex')
 UARTExComponent = uartex_ns.class_('UARTExComponent', cg.Component, uart.UARTDevice)
 UARTExWriteAction = uartex_ns.class_('UARTExWriteAction', automation.Action)
 cmd_t = uartex_ns.class_('cmd_t')
+state_t = uartex_ns.class_('state_t')
+state_num_t = uartex_ns.class_('state_num_t')
 vector_uint8 = cg.std_vector.template(cg.uint8)
 uint16_const = cg.uint16.operator('const')
 uint8_const = cg.uint8.operator('const')
@@ -380,9 +382,7 @@ def state_hex_expression(conf):
     mask = conf[CONF_MASK]
     inverted = conf[CONF_INVERTED]
     offset = conf[CONF_OFFSET]
-    #return offset, inverted, data, mask
-    inverted_str = str(inverted).lower()
-    return f"(state_t){{{offset}, {inverted_str}, {{{data}}}, {{{mask}}}}}"
+    return state_t(offset, inverted, data, mask)
 
 def state_num_hex_expression(conf):
     if conf is None:
