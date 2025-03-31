@@ -80,7 +80,7 @@ public:
     const cmd_t* dequeue_tx_cmd();
     const cmd_t* dequeue_tx_cmd_low_priority();
     bool parse_data(const std::vector<uint8_t>& data);
-    uint8_t get_state_data(uint32_t index);
+
 protected:
     float get_setup_priority() const override { return setup_priority::DATA; }
     virtual void publish(const std::vector<uint8_t>& data) {}
@@ -115,7 +115,6 @@ protected:
     bool rx_response_{false};
     std::queue<const cmd_t*> tx_cmd_queue_{};
     std::queue<const cmd_t*> tx_cmd_queue_low_priority_{};
-    std::vector<uint8_t> state_data_{};
 };
 
 template<typename KeyType, typename ValueType>
