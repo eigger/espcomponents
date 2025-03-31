@@ -581,14 +581,10 @@ climate:
       max_temperature: 40 °C
       temperature_step: 1 °C
     state: [0x36, 0x1f, 0x81]
-    state_temperature_target:
-      offset: 9
-      length: 1
-      precision: 0
-    state_temperature_current:
-      offset: 10
-      length: 1
-      precision: 0    
+    state_temperature_target: !lambda |-
+      return (data[9] & 0x7F) + ((data[9] & 0x80) ? 0.5f : 0.0f);
+    state_temperature_current: !lambda |-
+      return (data[10] & 0x7F) + ((data[10] & 0x80) ? 0.5f : 0.0f);
     state_off:
       offset: 5
       data: [0x00]
@@ -628,14 +624,10 @@ climate:
       max_temperature: 40 °C
       temperature_step: 1 °C
     state: [0x36, 0x1f, 0x81]
-    state_temperature_target:
-      offset: 11
-      length: 1
-      precision: 0
-    state_temperature_current:
-      offset: 12
-      length: 1
-      precision: 0    
+    state_temperature_target: !lambda |-
+      return (data[11] & 0x7F) + ((data[11] & 0x80) ? 0.5f : 0.0f);
+    state_temperature_current: !lambda |-
+      return (data[12] & 0x7F) + ((data[12] & 0x80) ? 0.5f : 0.0f);
     state_off:
       offset: 5
       data: [0x00]
@@ -675,14 +667,10 @@ climate:
       max_temperature: 40 °C
       temperature_step: 1 °C
     state: [0x36, 0x1f, 0x81]
-    state_temperature_target:
-      offset: 13
-      length: 1
-      precision: 0
-    state_temperature_current:
-      offset: 14
-      length: 1
-      precision: 0    
+    state_temperature_target: !lambda |-
+      return (data[13] & 0x7F) + ((data[13] & 0x80) ? 0.5f : 0.0f);
+    state_temperature_current: !lambda |-
+      return (data[14] & 0x7F) + ((data[14] & 0x80) ? 0.5f : 0.0f);
     state_off:
       offset: 5
       data: [0x00]
@@ -722,14 +710,10 @@ climate:
       max_temperature: 40 °C
       temperature_step: 1 °C
     state: [0x36, 0x1f, 0x81]
-    state_temperature_target:
-      offset: 15
-      length: 1
-      precision: 0
-    state_temperature_current:
-      offset: 16
-      length: 1
-      precision: 0    
+    state_temperature_target: !lambda |-
+      return (data[15] & 0x7F) + ((data[15] & 0x80) ? 0.5f : 0.0f);
+    state_temperature_current: !lambda |-
+      return (data[16] & 0x7F) + ((data[16] & 0x80) ? 0.5f : 0.0f);
     state_off:
       offset: 5
       data: [0x00]
