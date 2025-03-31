@@ -579,7 +579,7 @@ climate:
     visual:
       min_temperature: 5 °C
       max_temperature: 40 °C
-      temperature_step: 1 °C
+      temperature_step: 0.5 °C
     state: [0x36, 0x1f, 0x81]
     state_temperature_target: !lambda |-
       return (data[9] & 0x7F) + ((data[9] & 0x80) ? 0.5f : 0.0f);
@@ -608,7 +608,8 @@ climate:
       data: [0x36, 0x11, 0x43, 0x01, 0x01]
       ack: [0x36, 0x11, 0xc3]
     command_temperature: !lambda |-
-      return {{0x36, 0x11, 0x44, 0x01, (uint8_t)x},{0x36, 0x11, 0xc4}};
+      uint8_t target = (uint8_t)x + (((uint8_t)(x * 10) % 10) > 0 ? 0x80 : 0x00);
+      return {{0x36, 0x11, 0x44, 0x01, target},{0x36, 0x11, 0xc4}};
     command_preset_away: #Option (외출 켜기)
       data: [0x36, 0x11, 0x45, 0x01, 0x01]
       ack: [0x36, 0x11, 0xc5]
@@ -622,7 +623,7 @@ climate:
     visual:
       min_temperature: 5 °C
       max_temperature: 40 °C
-      temperature_step: 1 °C
+      temperature_step: 0.5 °C
     state: [0x36, 0x1f, 0x81]
     state_temperature_target: !lambda |-
       return (data[11] & 0x7F) + ((data[11] & 0x80) ? 0.5f : 0.0f);
@@ -651,7 +652,8 @@ climate:
       data: [0x36, 0x12, 0x43, 0x01, 0x01]
       ack: [0x36, 0x12, 0xc3]
     command_temperature: !lambda |-
-      return {{0x36, 0x12, 0x44, 0x01, (uint8_t)x},{0x36, 0x12, 0xc4}};
+      uint8_t target = (uint8_t)x + (((uint8_t)(x * 10) % 10) > 0 ? 0x80 : 0x00);
+      return {{0x36, 0x12, 0x44, 0x01, target},{0x36, 0x12, 0xc4}};
     command_preset_away: #Option (외출 켜기)
       data: [0x36, 0x12, 0x45, 0x01, 0x01]
       ack: [0x36, 0x12, 0xc5]
@@ -665,7 +667,7 @@ climate:
     visual:
       min_temperature: 5 °C
       max_temperature: 40 °C
-      temperature_step: 1 °C
+      temperature_step: 0.5 °C
     state: [0x36, 0x1f, 0x81]
     state_temperature_target: !lambda |-
       return (data[13] & 0x7F) + ((data[13] & 0x80) ? 0.5f : 0.0f);
@@ -694,7 +696,8 @@ climate:
       data: [0x36, 0x13, 0x43, 0x01, 0x01]
       ack: [0x36, 0x13, 0xc3]
     command_temperature: !lambda |-
-      return {{0x36, 0x13, 0x44, 0x01, (uint8_t)x},{0x36, 0x13, 0xc4}};
+      uint8_t target = (uint8_t)x + (((uint8_t)(x * 10) % 10) > 0 ? 0x80 : 0x00);
+      return {{0x36, 0x13, 0x44, 0x01, target},{0x36, 0x13, 0xc4}};
     command_preset_away: #Option (외출 켜기)
       data: [0x36, 0x13, 0x45, 0x01, 0x01]
       ack: [0x36, 0x13, 0xc5]
@@ -708,7 +711,7 @@ climate:
     visual:
       min_temperature: 5 °C
       max_temperature: 40 °C
-      temperature_step: 1 °C
+      temperature_step: 0.5 °C
     state: [0x36, 0x1f, 0x81]
     state_temperature_target: !lambda |-
       return (data[15] & 0x7F) + ((data[15] & 0x80) ? 0.5f : 0.0f);
@@ -737,7 +740,8 @@ climate:
       data: [0x36, 0x14, 0x43, 0x01, 0x01]
       ack: [0x36, 0x14, 0xc3]
     command_temperature: !lambda |-
-      return {{0x36, 0x14, 0x44, 0x01, (uint8_t)x},{0x36, 0x14, 0xc4}};
+      uint8_t target = (uint8_t)x + (((uint8_t)(x * 10) % 10) > 0 ? 0x80 : 0x00);
+      return {{0x36, 0x14, 0x44, 0x01, target},{0x36, 0x14, 0xc4}};
     command_preset_away: #Option (외출 켜기)
       data: [0x36, 0x14, 0x45, 0x01, 0x01]
       ack: [0x36, 0x14, 0xc5]
