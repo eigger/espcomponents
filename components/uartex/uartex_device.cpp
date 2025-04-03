@@ -236,7 +236,7 @@ std::string to_hex_string(const uint8_t* data, const uint16_t len)
 std::string to_ascii_string(const uint8_t* data, const uint16_t len)
 {
     std::string res;
-    res.reserve(data.size() + 10);
+    res.reserve(static_cast<size_t>(len) + 10);
     for (uint16_t i = 0; i < len; ++i)
     {
         res.push_back(static_cast<char>(data[i]));
