@@ -3,22 +3,23 @@ import esphome.config_validation as cv
 from esphome.components import text, uartex
 from esphome.const import CONF_ID, CONF_LAMBDA
 from .. import uartex_ns, UARTExDevice, \
-    uartex_declare_type, \
-    state_schema, state_string_expression, \
+    state_string_expression, \
     command_hex_schema, command_string_expression
-from ..const import CONF_UARTEX_ID, CONF_COMMAND_TEXT, CONF_COMMAND_UPDATE, CONF_STATE
+from ..const import CONF_COMMAND_TEXT, CONF_COMMAND_ON, CONF_COMMAND_OFF, CONF_STATE_ON, CONF_STATE_OFF
 
 DEPENDENCIES = ['uartex']
 UARTExText = uartex_ns.class_('UARTExText', text.Text, UARTExDevice)
 
 CONFIG_SCHEMA = cv.All(text.TEXT_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExText),
-    cv.GenerateID(CONF_UARTEX_ID): uartex_declare_type,
     cv.Required(CONF_COMMAND_TEXT): cv.templatable(command_hex_schema),
-    cv.Optional(CONF_COMMAND_UPDATE): cv.templatable(command_hex_schema),
-    cv.Optional(CONF_STATE): state_schema,
     cv.Optional(CONF_LAMBDA): cv.returning_lambda,
-}).extend(cv.polling_component_schema('60s')))
+}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
+    cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Text do not support command_on!"),
+    cv.Optional(CONF_COMMAND_OFF): cv.invalid("UARTEx Text do not support command_off!"),
+    cv.Optional(CONF_STATE_ON): cv.invalid("UARTEx Text do not support state_on!"),
+    cv.Optional(CONF_STATE_OFF): cv.invalid("UARTEx Text do not support state_off!")
+}).extend(cv.COMPONENT_SCHEMA))
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
