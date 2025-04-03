@@ -7,6 +7,12 @@
   </picture>
 </a>
 
+## 💬 Feedback & Support
+
+🐞 Found a bug? Let us know via an [Issue](https://github.com/eigger/espcomponents/issues).  
+💡 Have a question or suggestion? Join the [Discussion](https://github.com/eigger/espcomponents/discussions)!
+
+
 # [uartex](/components/uartex)
 - uartex is an extended component of ESPHome UART that enables easy integration of sensors by utilizing UART data.
 
