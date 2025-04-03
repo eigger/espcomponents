@@ -2,13 +2,13 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import text, uartex
 from esphome.const import CONF_ID, CONF_LAMBDA
-from .. import uartex_ns, \
+from .. import uartex_ns, UARTExDevice, \
     _uartex_declare_type, state_schema, state_string_expression, \
     command_hex_schema, command_string_expression
 from ..const import CONF_COMMAND_TEXT, CONF_COMMAND_UPDATE, CONF_STATE, CONF_UARTEX_ID
 
 DEPENDENCIES = ['uartex']
-UARTExText = uartex_ns.class_('UARTExText', text.Text, cg.PollingComponent)
+UARTExText = uartex_ns.class_('UARTExText', text.Text, UARTExDevice)
 
 CONFIG_SCHEMA = cv.All(text.TEXT_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExText),

@@ -2,7 +2,7 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import climate, uartex, sensor
 from esphome.const import CONF_ID, CONF_SENSOR, CONF_CUSTOM_FAN_MODE, CONF_CUSTOM_PRESET
-from .. import uartex_ns, \
+from .. import uartex_ns, UARTExDevice, \
     state_schema, state_num_schema, state_hex_expression, state_num_expression, state_string_expression, \
     command_hex_schema, command_expression, command_float_expression, command_string_expression
 from ..const import CONF_STATE_TEMPERATURE_CURRENT, CONF_STATE_TEMPERATURE_TARGET, CONF_STATE_HUMIDITY_CURRENT, CONF_STATE_HUMIDITY_TARGET, \
@@ -17,7 +17,7 @@ from ..const import CONF_STATE_TEMPERATURE_CURRENT, CONF_STATE_TEMPERATURE_TARGE
     
 AUTO_LOAD = ['sensor']
 DEPENDENCIES = ['uartex']
-UARTExClimate = uartex_ns.class_('UARTExClimate', climate.Climate, cg.Component)
+UARTExClimate = uartex_ns.class_('UARTExClimate', climate.Climate, UARTExDevice)
 
 
 _CUSTOM_MODES_SCHEMA = cv.All(

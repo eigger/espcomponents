@@ -2,14 +2,14 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import number, uartex
 from esphome.const import CONF_ID, CONF_MIN_VALUE, CONF_MAX_VALUE, CONF_STEP
-from .. import uartex_ns, \
+from .. import uartex_ns, UARTExDevice, \
     state_schema, state_hex_expression, state_num_schema, state_num_expression, \
     command_hex_schema, command_float_expression
 from ..const import CONF_COMMAND_NUMBER, CONF_COMMAND_OFF, CONF_COMMAND_ON, \
     CONF_STATE_NUMBER, CONF_STATE_OFF, CONF_STATE_ON, CONF_STATE_INCREMENT, CONF_STATE_DECREMENT, CONF_STATE_TO_MIN, CONF_STATE_TO_MAX
 
 DEPENDENCIES = ['uartex']
-UARTExNumber = uartex_ns.class_('UARTExNumber', number.Number, cg.Component)
+UARTExNumber = uartex_ns.class_('UARTExNumber', number.Number, UARTExDevice)
 
 CONFIG_SCHEMA = cv.All(number.NUMBER_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExNumber),

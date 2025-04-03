@@ -2,11 +2,11 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import button, uartex
 from esphome.const import CONF_ID
-from .. import uartex_ns
+from .. import uartex_ns, UARTExDevice
 from ..const import CONF_STATE, CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_OFF, CONF_COMMAND_UPDATE
 
 DEPENDENCIES = ['uartex']
-UARTExButton = uartex_ns.class_('UARTExButton', button.Button, cg.Component)
+UARTExButton = uartex_ns.class_('UARTExButton', button.Button, UARTExDevice)
 
 CONFIG_SCHEMA = button.BUTTON_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExButton),

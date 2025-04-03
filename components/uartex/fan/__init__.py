@@ -2,13 +2,13 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import fan, uartex
 from esphome.const import CONF_OUTPUT_ID, CONF_PRESET_MODES
-from .. import uartex_ns, \
+from .. import uartex_ns, UARTExDevice, \
     state_num_schema, state_num_expression, state_string_expression, \
     command_hex_schema, command_float_expression, command_string_expression
 from ..const import CONF_SPEED_CNT, CONF_STATE_SPEED, CONF_COMMAND_SPEED, CONF_STATE_PRESET, CONF_COMMAND_PRESET
 
 DEPENDENCIES = ['uartex']
-UARTExFan = uartex_ns.class_('UARTExFan', cg.Component)
+UARTExFan = uartex_ns.class_('UARTExFan', UARTExDevice)
 
 CONFIG_SCHEMA = cv.All(fan.FAN_SCHEMA.extend({
     cv.GenerateID(CONF_OUTPUT_ID): cv.declare_id(UARTExFan),

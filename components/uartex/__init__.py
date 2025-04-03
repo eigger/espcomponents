@@ -21,6 +21,7 @@ CODEOWNERS = ["@eigger"]
 DEPENDENCIES = ["uart"]
 uartex_ns = cg.esphome_ns.namespace('uartex')
 UARTExComponent = uartex_ns.class_('UARTExComponent', cg.Component, uart.UARTDevice)
+UARTExDevice = uartex_ns.class_('UARTExDevice', cg.PollingComponent)
 UARTExWriteAction = uartex_ns.class_('UARTExWriteAction', automation.Action)
 cmd_t = uartex_ns.class_('cmd_t')
 state_t = uartex_ns.class_('state_t')
