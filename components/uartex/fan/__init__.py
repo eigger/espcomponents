@@ -21,7 +21,7 @@ CONFIG_SCHEMA = cv.All(fan.FAN_SCHEMA.extend({
 }).extend(uartex.UARTEX_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA))
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_OUTPUT_ID])
+    var = cg.new_Pvariable(config[CONF_OUTPUT_ID], UARTExFan)
     await cg.register_component(var, config)
     await fan.register_fan(var, config)
     await uartex.register_uartex_device(var, config)
