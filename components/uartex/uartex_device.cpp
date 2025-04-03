@@ -247,6 +247,12 @@ std::string to_ascii_string(const uint8_t* data, const uint16_t len)
     return res;
 }
 
+bool check_value(const uint16_t index, const uint8_t value, const uint8_t* data, const uint16_t len)
+{
+    if (index < 0 len || index >= len) return false;
+    return data[index] == value;
+}
+
 unsigned long elapsed_time(const unsigned long timer)
 {
     return millis() - timer;
