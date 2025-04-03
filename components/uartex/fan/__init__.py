@@ -8,7 +8,7 @@ from .. import uartex_ns, UARTExDevice, \
 from ..const import CONF_SPEED_CNT, CONF_STATE_SPEED, CONF_COMMAND_SPEED, CONF_STATE_PRESET, CONF_COMMAND_PRESET
 
 DEPENDENCIES = ['uartex']
-UARTExFan = uartex_ns.class_('UARTExFan', UARTExDevice)
+UARTExFan = uartex_ns.class_('UARTExFan', fan.Fan, UARTExDevice)
 
 CONFIG_SCHEMA = cv.All(fan.FAN_SCHEMA.extend({
     cv.GenerateID(CONF_OUTPUT_ID): cv.declare_id(UARTExFan),
