@@ -27,8 +27,9 @@ async def to_code(config):
     await text.register_text(var, config)
     await uartex.register_uartex_device(var, config)
     
-    command = await command_string_expression(config[CONF_COMMAND_TEXT])
-    cg.add(var.set_command(CONF_COMMAND_TEXT, command))
+    if CONF_COMMAND_TEXT in config:
+        command = await command_string_expression(config[CONF_COMMAND_TEXT])
+        cg.add(var.set_command(CONF_COMMAND_TEXT, command))
     
     if CONF_LAMBDA in config:
         state = await state_string_expression(config[CONF_LAMBDA])
