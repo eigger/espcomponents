@@ -80,7 +80,8 @@ public:
     const cmd_t* dequeue_tx_cmd();
     const cmd_t* dequeue_tx_cmd_low_priority();
     bool parse_data(const std::vector<uint8_t>& data);
-
+    std::vector<uint8_t> last_state();
+    uint8_t last_state(const uint16_t index);
 protected:
     float get_setup_priority() const override { return setup_priority::DATA; }
     virtual void publish(const std::vector<uint8_t>& data) {}
@@ -115,6 +116,7 @@ protected:
     bool rx_response_{false};
     std::queue<const cmd_t*> tx_cmd_queue_{};
     std::queue<const cmd_t*> tx_cmd_queue_low_priority_{};
+    std::vector<uint8_t> last_state_{};
 };
 
 template<typename KeyType, typename ValueType>
@@ -127,6 +129,7 @@ uint8_t float_to_bcd(const float val);
 std::string to_hex_string(const std::vector<unsigned char>& data);
 std::string to_ascii_string(const std::vector<unsigned char>& data);
 std::string to_hex_string(const uint8_t* data, const uint16_t len);
+std::string to_ascii_string(const uint8_t* data, const uint16_t len);
 unsigned long elapsed_time(const unsigned long timer);
 unsigned long get_time();
 void log_config(const char* tag, const char* title, const char* value);
