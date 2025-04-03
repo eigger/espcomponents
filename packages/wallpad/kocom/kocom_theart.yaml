@@ -360,13 +360,10 @@ text_sensor:
       data: [0x30, 0xd0, 0x00, 0x44, 0x00]
       mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
     lambda: |-
-      if (len > 8)
-      {
-        if (data[8] == 0x00) "정지";
-        if (data[8] == 0x01) "하강";
-        if (data[8] == 0x02) "상승";
-        if (data[8] == 0x03) "도착";
-      }
+      if (check_value(8, 0x00, data, len)) return "정지";
+      if (check_value(8, 0x01, data, len)) return "하강";
+      if (check_value(8, 0x02, data, len)) return "상승";
+      if (check_value(8, 0x03, data, len)) return "도착";
       return "Unknown";
 
 button:
