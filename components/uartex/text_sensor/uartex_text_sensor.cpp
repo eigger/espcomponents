@@ -1,5 +1,4 @@
 #include "uartex_text_sensor.h"
-#include "esphome/core/log.h"
 
 namespace esphome {
 namespace uartex {

@@ -2,14 +2,14 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import valve, uartex
 from esphome.const import CONF_ID
-from .. import uartex_ns, \
+from .. import uartex_ns, UARTExDevice, \
     state_schema, state_num_schema, state_hex_expression, state_num_expression, \
     command_hex_schema, command_expression
 from ..const import CONF_COMMAND_OPEN, CONF_COMMAND_CLOSE, CONF_COMMAND_STOP, CONF_STATE_OPEN, CONF_STATE_CLOSED, CONF_STATE_POSITION, \
     CONF_COMMAND_ON, CONF_COMMAND_OFF, CONF_STATE_ON, CONF_STATE_OFF
 
 DEPENDENCIES = ['uartex']
-UARTExValve = uartex_ns.class_('UARTExValve', valve.Valve, cg.Component)
+UARTExValve = uartex_ns.class_('UARTExValve', valve.Valve, UARTExDevice)
 
 CONFIG_SCHEMA = cv.All(valve.VALVE_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExValve),

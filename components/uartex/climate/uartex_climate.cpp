@@ -1,5 +1,4 @@
 #include "uartex_climate.h"
-#include "esphome/core/log.h"
 
 namespace esphome {
 namespace uartex {

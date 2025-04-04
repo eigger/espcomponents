@@ -1,5 +1,4 @@
 #include "uartex_number.h"
-#include "esphome/core/log.h"
 
 namespace esphome {
 namespace uartex {

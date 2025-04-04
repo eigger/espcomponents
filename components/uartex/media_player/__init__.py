@@ -2,7 +2,7 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import media_player, uartex
 from esphome.const import CONF_ID
-from .. import uartex_ns, \
+from .. import uartex_ns, UARTExDevice, \
     state_schema, state_num_schema, state_hex_expression, state_num_expression, \
     command_hex_schema, command_expression, command_float_expression
 from ..const import CONF_STATE_NONE, CONF_STATE_IDLE, CONF_STATE_PLAYING, CONF_STATE_PAUSED, CONF_STATE_ANNOUNCING, \
@@ -11,7 +11,7 @@ from ..const import CONF_STATE_NONE, CONF_STATE_IDLE, CONF_STATE_PLAYING, CONF_S
     CONF_COMMAND_CLEAR_PLAYLIST, CONF_COMMAND_ON, CONF_COMMAND_OFF, CONF_STATE_ON, CONF_STATE_OFF, CONF_STATE_VOLUME
 
 DEPENDENCIES = ['uartex']
-UARTExMediaPlayer = uartex_ns.class_('UARTExMediaPlayer', media_player.MediaPlayer, cg.Component)
+UARTExMediaPlayer = uartex_ns.class_('UARTExMediaPlayer', media_player.MediaPlayer, UARTExDevice)
 
 CONFIG_SCHEMA = cv.All(media_player.MEDIA_PLAYER_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExMediaPlayer),

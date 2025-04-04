@@ -52,7 +52,19 @@ bool UARTExDevice::parse_data(const std::vector<uint8_t>& data)
     if (verify_state(data, get_state_off())) publish(false);
     if (verify_state(data, get_state_on())) publish(true);
     publish(data);
+    last_state_ = data;
     return true;
+}
+
+std::vector<uint8_t> UARTExDevice::last_state()
+{
+    return last_state_;
+}
+
+uint8_t UARTExDevice::last_state(const uint16_t index)
+{
+    if (index < 0 || index >= last_state_.size()) return 0;
+    return last_state_[index];
 }
 
 bool UARTExDevice::enqueue_tx_cmd(const cmd_t* cmd, bool low_priority)
@@ -202,16 +214,7 @@ std::string to_hex_string(const std::vector<unsigned char>& data)
 
 std::string to_ascii_string(const std::vector<unsigned char>& data)
 {
-    std::string res;
-    res.reserve(data.size() + 10);
-    for (auto ch : data)
-    {
-        res.push_back(static_cast<char>(ch));
-    }
-    char buf[16] = {0};
-    std::snprintf(buf, sizeof(buf), "(%zu)", data.size());
-    res.append(buf);
-    return res;
+    return to_ascii_string(&data[0], data.size());
 }
 
 std::string to_hex_string(const uint8_t* data, const uint16_t len)
@@ -228,6 +231,26 @@ std::string to_hex_string(const uint8_t* data, const uint16_t len)
     std::snprintf(size_buf, sizeof(size_buf), "(%u)", len);
     hex_str.append(size_buf);
     return hex_str;
+}
+
+std::string to_ascii_string(const uint8_t* data, const uint16_t len)
+{
+    std::string res;
+    res.reserve(static_cast<size_t>(len) + 10);
+    for (uint16_t i = 0; i < len; ++i)
+    {
+        res.push_back(static_cast<char>(data[i]));
+    }
+    char size_buf[16] = {0};
+    std::snprintf(size_buf, sizeof(size_buf), "(%u)", len);
+    res.append(size_buf);
+    return res;
+}
+
+bool check_value(const uint16_t index, const uint8_t value, const uint8_t* data, const uint16_t len)
+{
+    if (index < 0 len || index >= len) return false;
+    return data[index] == value;
 }
 
 unsigned long elapsed_time(const unsigned long timer)

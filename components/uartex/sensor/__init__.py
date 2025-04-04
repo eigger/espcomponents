@@ -2,22 +2,23 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import sensor, uartex
 from esphome.const import CONF_ID, CONF_LAMBDA
-from .. import uartex_ns, \
-    _uartex_declare_type, state_schema, state_num_schema, state_num_expression, \
-    command_hex_schema
-from ..const import CONF_STATE, CONF_STATE_NUMBER, CONF_COMMAND_UPDATE, CONF_UARTEX_ID
+from .. import uartex_ns, UARTExDevice, \
+    state_num_schema, state_num_expression
+from ..const import CONF_COMMAND_ON, CONF_COMMAND_OFF, CONF_STATE_ON, CONF_STATE_OFF, CONF_STATE_NUMBER
 
 DEPENDENCIES = ['uartex']
-UARTExSensor = uartex_ns.class_('UARTExSensor', sensor.Sensor, cg.PollingComponent)
+UARTExSensor = uartex_ns.class_('UARTExSensor', sensor.Sensor, UARTExDevice)
 
 CONFIG_SCHEMA = cv.All(sensor.SENSOR_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExSensor),
-    cv.GenerateID(CONF_UARTEX_ID): _uartex_declare_type,
-    cv.Optional(CONF_STATE): state_schema,
-    cv.Optional(CONF_COMMAND_UPDATE): cv.templatable(command_hex_schema),
     cv.Optional(CONF_LAMBDA): cv.returning_lambda,
     cv.Optional(CONF_STATE_NUMBER): cv.templatable(state_num_schema),
-}).extend(cv.polling_component_schema('60s')), cv.has_exactly_one_key(CONF_LAMBDA, CONF_STATE_NUMBER))
+}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
+    cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Sensor do not support command_on!"),
+    cv.Optional(CONF_COMMAND_OFF): cv.invalid("UARTEx Sensor do not support command_off!"),
+    cv.Optional(CONF_STATE_ON): cv.invalid("UARTEx Sensor do not support state_on!"),
+    cv.Optional(CONF_STATE_OFF): cv.invalid("UARTEx Sensor do not support state_off!")
+}).extend(cv.COMPONENT_SCHEMA),  cv.has_exactly_one_key(CONF_LAMBDA, CONF_STATE_NUMBER))
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])

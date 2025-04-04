@@ -2,10 +2,10 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import switch, uartex
 from esphome.const import CONF_ID
-from .. import uartex_ns
+from .. import uartex_ns, UARTExDevice
 
 DEPENDENCIES = ['uartex']
-UARTExSwitch = uartex_ns.class_('UARTExSwitch', switch.Switch, cg.Component)
+UARTExSwitch = uartex_ns.class_('UARTExSwitch', switch.Switch, UARTExDevice)
 
 CONFIG_SCHEMA = switch.SWITCH_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExSwitch),

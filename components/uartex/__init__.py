@@ -21,6 +21,7 @@ CODEOWNERS = ["@eigger"]
 DEPENDENCIES = ["uart"]
 uartex_ns = cg.esphome_ns.namespace('uartex')
 UARTExComponent = uartex_ns.class_('UARTExComponent', cg.Component, uart.UARTDevice)
+UARTExDevice = uartex_ns.class_('UARTExDevice', cg.PollingComponent)
 UARTExWriteAction = uartex_ns.class_('UARTExWriteAction', automation.Action)
 cmd_t = uartex_ns.class_('cmd_t')
 state_t = uartex_ns.class_('state_t')
@@ -74,7 +75,7 @@ def validate_decode(value):
         return cv.enum(DECODES, upper=True)(value)
     raise cv.Invalid("data type error")
 
-def _uartex_declare_type(value):
+def uartex_declare_type(value):
     return cv.use_id(UARTExComponent)(value)
 
 def validate_hex_data(value):
@@ -312,7 +313,7 @@ async def to_code(config):
 
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
 UARTEX_DEVICE_SCHEMA = cv.Schema({
-    cv.GenerateID(CONF_UARTEX_ID): _uartex_declare_type,
+    cv.GenerateID(CONF_UARTEX_ID): uartex_declare_type,
     cv.Optional(CONF_STATE): state_schema,
     cv.Required(CONF_STATE_ON): state_schema,
     cv.Required(CONF_STATE_OFF): state_schema,
