@@ -249,8 +249,36 @@ std::string to_ascii_string(const uint8_t* data, const uint16_t len)
 
 bool check_value(const uint16_t index, const uint8_t value, const uint8_t* data, const uint16_t len)
 {
-    if (index < 0 len || index >= len) return false;
+    if (index < 0 || index >= len) return false;
     return data[index] == value;
+}
+
+uint16_t crc16(const uint16_t init, const uint16_t poly, const uint8_t data)
+{
+    uint16_t crc = init;
+    crc ^= ((uint16_t)data << 8);
+    for (int i = 0; i < 8; i++)
+    {
+        if (crc & 0x8000)
+        {
+            crc = (crc << 1) ^ poly;
+        } 
+        else
+        {
+            crc = crc << 1;
+        }
+    }
+    return crc;
+}
+
+std::vector<uint8_t> crc16_checksum(const uint16_t init, const uint16_t poly, const uint8_t* data, const uint16_t len)
+{
+    uint16_t crc = init;
+    for (int i = 0; i < len; i++)
+    {
+        crc = crc16(crc, poly, data[i]);
+    }
+    return { (uint8_t)(crc >> 8), (uint8_t)(crc) };
 }
 
 unsigned long elapsed_time(const unsigned long timer)

@@ -131,6 +131,8 @@ std::string to_ascii_string(const std::vector<unsigned char>& data);
 std::string to_hex_string(const uint8_t* data, const uint16_t len);
 std::string to_ascii_string(const uint8_t* data, const uint16_t len);
 bool check_value(const uint16_t index, const uint8_t value, const uint8_t* data, const uint16_t len);
+uint16_t crc16(const uint16_t init, const uint16_t poly, const uint8_t data);
+std::vector<uint8_t> crc16(const uint16_t init, const uint16_t poly, const uint8_t* data, const uint16_t len);
 unsigned long elapsed_time(const unsigned long timer);
 unsigned long get_time();
 void log_config(const char* tag, const char* title, const char* value);
