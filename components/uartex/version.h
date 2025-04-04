@@ -1,2 +1,2 @@
 #pragma once
-#define UARTEX_VERSION "3.5.3-250403"
+#define UARTEX_VERSION "3.5.4-250404"
