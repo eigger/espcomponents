@@ -31,7 +31,7 @@ class UARTExLightState : public light::LightState
 {
 public:
     UARTExLightState(UARTExLightOutput *output) : LightState(output), Output(*output) {}
-    UARTExLightOutput& Output{};
+    UARTExLightOutput& Output;
 };
 
 }  // namespace uartex
