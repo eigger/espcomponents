@@ -48,13 +48,13 @@ light:
       data: [0x00]
     command_on: !lambda |-
       uint8_t light1 = 0xff;
-      uint8_t light2 = id(livingroom_light_1).last_state(9);
-      uint8_t light3 = id(livingroom_light_1).last_state(10);
+      uint8_t light2 = id(livingroom_light_1).Output.last_state(9);
+      uint8_t light3 = id(livingroom_light_1).Output.last_state(10);
       return {{0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x00, light1, light2, light3, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc, 0x00, 0x0e, 0x00}};
     command_off: !lambda |-
       uint8_t light1 = 0x00;
-      uint8_t light2 = id(livingroom_light_1).last_state(9);
-      uint8_t light3 = id(livingroom_light_1).last_state(10);
+      uint8_t light2 = id(livingroom_light_1).Output.last_state(9);
+      uint8_t light3 = id(livingroom_light_1).Output.last_state(10);
       return {{0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x00, light1, light2, light3, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc, 0x00, 0x0e, 0x00}};
 
   - platform: uartex
@@ -70,14 +70,14 @@ light:
       offset: 9
       data: [0x00]
     command_on: !lambda |-
-      uint8_t light1 = id(livingroom_light_2).last_state(8);
+      uint8_t light1 = id(livingroom_light_2).Output.last_state(8);
       uint8_t light2 = 0xff;
-      uint8_t light3 = id(livingroom_light_2).last_state(10);
+      uint8_t light3 = id(livingroom_light_2).Output.last_state(10);
       return {{0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x00, light1, light2, light3, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc, 0x00, 0x0e, 0x00}};
     command_off: !lambda |-
-      uint8_t light1 = id(livingroom_light_2).last_state(8);
+      uint8_t light1 = id(livingroom_light_2).Output.last_state(8);
       uint8_t light2 = 0x00;
-      uint8_t light3 = id(livingroom_light_2).last_state(10);
+      uint8_t light3 = id(livingroom_light_2).Output.last_state(10);
       return {{0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x00, light1, light2, light3, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc, 0x00, 0x0e, 0x00}};
 
   - platform: uartex
@@ -93,13 +93,13 @@ light:
       offset: 10
       data: [0x00]
     command_on: !lambda |-
-      uint8_t light1 = id(livingroom_light_3).last_state(8);
-      uint8_t light2 = id(livingroom_light_3).last_state(9);
+      uint8_t light1 = id(livingroom_light_3).Output.last_state(8);
+      uint8_t light2 = id(livingroom_light_3).Output.last_state(9);
       uint8_t light3 = 0xff;
       return {{0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x00, light1, light2, light3, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc, 0x00, 0x0e, 0x00}};
     command_off: !lambda |-
-      uint8_t light1 = id(livingroom_light_3).last_state(8);
-      uint8_t light2 = id(livingroom_light_3).last_state(9);
+      uint8_t light1 = id(livingroom_light_3).Output.last_state(8);
+      uint8_t light2 = id(livingroom_light_3).Output.last_state(9);
       uint8_t light3 = 0x00;
       return {{0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x00, light1, light2, light3, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc, 0x00, 0x0e, 0x00}};
 
@@ -118,13 +118,13 @@ light:
       data: [0x00]
     command_on: !lambda |-
       uint8_t light1 = 0xff;
-      uint8_t light2 = id(room_1_light_1).last_state(9);
-      uint8_t light3 = id(room_1_light_1).last_state(10);
+      uint8_t light2 = id(room_1_light_1).Output.last_state(9);
+      uint8_t light3 = id(room_1_light_1).Output.last_state(10);
       return {{0x30, 0xbc, 0x00, 0x0e, 0x01, 0x01, 0x00, 0x00, light1, light2, light3, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc, 0x00, 0x0e, 0x01}};
     command_off: !lambda |-
       uint8_t light1 = 0x00;
-      uint8_t light2 = id(room_1_light_1).last_state(9);
-      uint8_t light3 = id(room_1_light_1).last_state(10);
+      uint8_t light2 = id(room_1_light_1).Output.last_state(9);
+      uint8_t light3 = id(room_1_light_1).Output.last_state(10);
       return {{0x30, 0xbc, 0x00, 0x0e, 0x01, 0x01, 0x00, 0x00, light1, light2, light3, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc, 0x00, 0x0e, 0x01}};
 
   - platform: uartex
@@ -140,14 +140,14 @@ light:
       offset: 9
       data: [0x00]
     command_on: !lambda |-
-      uint8_t light1 = id(room_1_light_2).last_state(8);
+      uint8_t light1 = id(room_1_light_2).Output.last_state(8);
       uint8_t light2 = 0xff;
-      uint8_t light3 = id(room_1_light_2).last_state(10);
+      uint8_t light3 = id(room_1_light_2).Output.last_state(10);
       return {{0x30, 0xbc, 0x00, 0x0e, 0x01, 0x01, 0x00, 0x00, light1, light2, light3, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc, 0x00, 0x0e, 0x01}};
     command_off: !lambda |-
-      uint8_t light1 = id(room_1_light_2).last_state(8);
+      uint8_t light1 = id(room_1_light_2).Output.last_state(8);
       uint8_t light2 = 0x00;
-      uint8_t light3 = id(room_1_light_2).last_state(10);
+      uint8_t light3 = id(room_1_light_2).Output.last_state(10);
       return {{0x30, 0xbc, 0x00, 0x0e, 0x01, 0x01, 0x00, 0x00, light1, light2, light3, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc, 0x00, 0x0e, 0x01}};
 
 #Heater
