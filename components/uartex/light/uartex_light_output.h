@@ -30,8 +30,8 @@ protected:
 class UARTExLightState : public light::LightState
 {
 public:
-    UARTExLightState(UARTExLightOutput *output) : LightState(output), Output(output) {}
-    UARTExLightOutput* const Output;
+    UARTExLightState(UARTExLightOutput *output) : LightState(output), Output(*output) {}
+    UARTExLightOutput& Output{};
 };
 
 }  // namespace uartex
