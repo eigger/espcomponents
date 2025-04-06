@@ -1,6 +1,7 @@
 #pragma once
 #include "esphome/components/uartex/uartex_device.h"
 #include "esphome/components/light/light_output.h"
+#include "esphome/components/light/light_state.h"
 
 namespace esphome {
 namespace uartex {
@@ -24,6 +25,16 @@ protected:
     bool state_{false};
     int brightness_{0};
     light::LightState* light_state_{nullptr};
+};
+
+class UARTExLightState : public light::LightState
+{
+public:
+    UARTExLightState(UARTExLightOutput *output) : LightState(output) { light_ = output; }
+    UARTExLightOutput *light() const;
+protected:
+    friend UARTExLightOutput;
+    UARTExLightOutput *light_;
 };
 
 }  // namespace uartex

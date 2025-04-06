@@ -1,7 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import fan, uartex
-from esphome.const import CONF_OUTPUT_ID, CONF_PRESET_MODES
+from esphome.const import CONF_ID, CONF_PRESET_MODES
 from .. import uartex_ns, UARTExDevice, \
     state_num_schema, state_num_expression, state_string_expression, \
     command_hex_schema, command_float_expression, command_string_expression
@@ -12,7 +12,6 @@ UARTExFan = uartex_ns.class_('UARTExFan', fan.Fan, UARTExDevice)
 
 CONFIG_SCHEMA = cv.All(fan.FAN_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExFan),
-    cv.GenerateID(CONF_OUTPUT_ID): cv.declare_id(UARTExFan),
     cv.Optional(CONF_SPEED_CNT, default=3): cv.int_range(min=1, max=100),
     cv.Optional(CONF_PRESET_MODES): fan.validate_preset_modes,
     cv.Required(CONF_STATE_SPEED): cv.templatable(state_num_schema),
@@ -22,7 +21,7 @@ CONFIG_SCHEMA = cv.All(fan.FAN_SCHEMA.extend({
 }).extend(uartex.UARTEX_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA))
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_OUTPUT_ID])
+    var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await fan.register_fan(var, config)
     await uartex.register_uartex_device(var, config)
