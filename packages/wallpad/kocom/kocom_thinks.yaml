@@ -411,8 +411,10 @@ sensor:
     state: 
       data: [0x30, 0xd0, 0x00, 0x01, 0x00, 0x44, 0x00]
       mask: [0xff, 0xf0, 0xff, 0xff, 0xff, 0xff, 0xff]
-    state_number:
-      offset: 9
+    state_number: |-
+      float floor = data[8];
+      if (floor < 0) floor = -1;
+      return floor;
 
 text_sensor:
   - platform: uartex
