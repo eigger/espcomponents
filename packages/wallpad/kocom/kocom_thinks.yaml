@@ -35,8 +35,8 @@ uartex:
 light:
   #Room0
   - platform: uartex
-    name: "Room 0 Light 1"
-    id: room_0_light_1
+    name: "Living Room Light 1"
+    id: livingroom_light_1
     state: 
       data: [0x30, 0xd0, 0x00, 0x0e, 0x00]
       mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
@@ -48,20 +48,20 @@ light:
       data: [0x00]
     command_on: !lambda |-
       uint8_t light1 = 0xff;
-      uint8_t light2 = id(room_0_light_2).current_values.is_on() ? 0xff : 0x00;
-      uint8_t light3 = id(room_0_light_3).current_values.is_on() ? 0xff : 0x00;
+      uint8_t light2 = id(livingroom_light_2).current_values.is_on() ? 0xff : 0x00;
+      uint8_t light3 = id(livingroom_light_3).current_values.is_on() ? 0xff : 0x00;
       return {{0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x00, light1, light2, light3, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc}};
     command_off: !lambda |-
       uint8_t light1 = 0x00;
-      uint8_t light2 = id(room_0_light_2).current_values.is_on() ? 0xff : 0x00;
-      uint8_t light3 = id(room_0_light_3).current_values.is_on() ? 0xff : 0x00;
+      uint8_t light2 = id(livingroom_light_2).current_values.is_on() ? 0xff : 0x00;
+      uint8_t light3 = id(livingroom_light_3).current_values.is_on() ? 0xff : 0x00;
       return {{0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x00, light1, light2, light3, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc}};
     #command_state: [0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x3a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
     #update_interval: 300s
 
   - platform: uartex
-    name: "Room 0 Light 2"
-    id: room_0_light_2
+    name: "Living Room Light 2"
+    id: livingroom_light_2
     state: 
       data: [0x30, 0xd0, 0x00, 0x0e, 0x00]
       mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
@@ -72,19 +72,19 @@ light:
       offset: 9
       data: [0x00]
     command_on: !lambda |-
-      uint8_t light1 = id(room_0_light_1).current_values.is_on() ? 0xff : 0x00;
+      uint8_t light1 = id(livingroom_light_1).current_values.is_on() ? 0xff : 0x00;
       uint8_t light2 = 0xff;
-      uint8_t light3 = id(room_0_light_3).current_values.is_on() ? 0xff : 0x00;
+      uint8_t light3 = id(livingroom_light_3).current_values.is_on() ? 0xff : 0x00;
       return {{0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x00, light1, light2, light3, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc}};
     command_off: !lambda |-
-      uint8_t light1 = id(room_0_light_1).current_values.is_on() ? 0xff : 0x00;
+      uint8_t light1 = id(livingroom_light_1).current_values.is_on() ? 0xff : 0x00;
       uint8_t light2 = 0x00;
-      uint8_t light3 = id(room_0_light_3).current_values.is_on() ? 0xff : 0x00;
+      uint8_t light3 = id(livingroom_light_3).current_values.is_on() ? 0xff : 0x00;
       return {{0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x00, light1, light2, light3, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc}};
 
   - platform: uartex
-    name: "Room 0 Light 3"
-    id: room_0_light_3
+    name: "Living Room Light 3"
+    id: livingroom_light_3
     state: 
       data: [0x30, 0xd0, 0x00, 0x0e, 0x00]
       mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
@@ -95,13 +95,13 @@ light:
       offset: 10
       data: [0x00]
     command_on: !lambda |-
-      uint8_t light1 = id(room_0_light_1).current_values.is_on() ? 0xff : 0x00;
-      uint8_t light2 = id(room_0_light_2).current_values.is_on() ? 0xff : 0x00;
+      uint8_t light1 = id(livingroom_light_1).current_values.is_on() ? 0xff : 0x00;
+      uint8_t light2 = id(livingroom_light_2).current_values.is_on() ? 0xff : 0x00;
       uint8_t light3 = 0xff;
       return {{0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x00, light1, light2, light3, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc}};
     command_off: !lambda |-
-      uint8_t light1 = id(room_0_light_1).current_values.is_on() ? 0xff : 0x00;
-      uint8_t light2 = id(room_0_light_2).current_values.is_on() ? 0xff : 0x00;
+      uint8_t light1 = id(livingroom_light_1).current_values.is_on() ? 0xff : 0x00;
+      uint8_t light2 = id(livingroom_light_2).current_values.is_on() ? 0xff : 0x00;
       uint8_t light3 = 0x00;
       return {{0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x00, light1, light2, light3, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc}};
 
@@ -124,8 +124,8 @@ light:
 climate:
   #Room0
   - platform: uartex
-    name: "Room 0 Heater"
-    id: room_0_heater
+    name: "Living Room Heater"
+    id: livingroom_heater
     visual:
       min_temperature: 5 °C
       max_temperature: 30 °C
@@ -150,10 +150,10 @@ climate:
       data: [0x10]
       mask: [0xF0]
     command_off: !lambda |-
-      float target = id(room_0_heater).target_temperature;
+      float target = id(livingroom_heater).target_temperature;
       return {{0x30, 0xbc, 0x00, 0x36, 0x00, 0x01, 0x00, 0x00, 0x01, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
     command_heat: !lambda |-
-      float target = id(room_0_heater).target_temperature;
+      float target = id(livingroom_heater).target_temperature;
       return {{0x30, 0xbc, 0x00, 0x36, 0x00, 0x01, 0x00, 0x00, 0x11, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
     command_temperature: !lambda |-
       // @param: const float x
@@ -363,21 +363,74 @@ valve:
       data: [0x30, 0xbc, 0x00, 0x01, 0x00, 0x2C, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
       ack: [0x30, 0xdc]
 
+# 상태
+# 약 AA 55 30 DC 00 48 00 01 00 00 11 01 40 17 00 00 00 00 BE 0D 0D
+# 중 AA 55 30 DC 00 48 00 01 00 00 11 01 80 17 00 00 00 00 FE 0D 0D
+# 강 AA 55 30 DC 00 48 00 01 00 00 11 01 C0 17 00 00 00 00 3E 0D 0D
+# 꺼 AA 55 30 DC 00 48 00 01 00 00 00 01 00 17 00 00 00 00 6D 0D 0D
+# 제어
+# 약 AA 55 30 BC 00 01 00 48 00 00 11 01 40 17 00 00 00 00 9E 0D 0D
+# 중 AA 55 30 BC 00 01 00 48 00 00 11 01 80 17 00 00 00 00 DE 0D 0D
+# 강 AA 55 30 BC 00 01 00 48 00 00 11 01 C0 17 00 00 00 00 1E 0D 0D
+# 꺼 AA 55 30 BC 00 01 00 48 00 00 00 01 00 17 00 00 00 00 4D 0D 0D
+fan:
+  - platform: uartex
+    name: "Navien Ventilator"
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x48, 0x00]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+    state_on:
+      offset: 8
+      data: [0x11]
+    state_off:
+      offset: 8
+      data: [0x00]
+    state_speed: !lambda |-
+      if (check_value(10, 0x40, data, len)) return 1;
+      if (check_value(10, 0x80, data, len)) return 2;
+      if (check_value(10, 0xc0, data, len)) return 3;
+      return 0;
+    command_on:
+      data: [0x30, 0xbc, 0x00, 0x01, 0x00, 0x48, 0x00, 0x00, 0x11, 0x01, 0x40, 0x17, 0x00, 0x00, 0x00, 0x00]
+      ack: [0x30, 0xdc]
+    command_off:
+      data: [0x30, 0xbc, 0x00, 0x01, 0x00, 0x48, 0x00, 0x00, 0x00, 0x01, 0x00, 0x17, 0x00, 0x00, 0x00, 0x00]
+      ack: [0x30, 0xdc]
+    command_speed: !lambda |-
+      uint8_t speed = ((uint8_t)x) * 0x40;
+      return {{0x30, 0xbc, 0x00, 0x01, 0x00, 0x48, 0x00, 0x00, 0x11, 0x01, speed, 0x17, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
+
+
+#30 DC 00 01 00 44 00 01 00 0A 00 00 00 00 00 00 5C 0D 0D
 sensor:
   - platform: uartex
     name: "Elevator Floors"
     icon: "mdi:elevator"
+    unit_of_measurement: '층'
     state: 
       data: [0x30, 0xd0, 0x00, 0x44, 0x00]
       mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
     state_number:
       offset: 9
-      length: 1
-      precision: 0
+
+text_sensor:
+  - platform: uartex
+    name: "Elevator Direction"
+    icon: "mdi:elevator"
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x44, 0x00]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+    lambda: |-
+      if (check_value(8, 0x00, data, len)) return "정지";
+      if (check_value(8, 0x01, data, len)) return "하강";
+      if (check_value(8, 0x02, data, len)) return "상승";
+      if (check_value(8, 0x03, data, len)) return "도착";
+      return "Unknown";
 
 button:
   - platform: uartex
     name: "Elevator Call"
     icon: "mdi:elevator"
     command_on: 
-      data: [0x30, 0xbc, 0x00, 0x44, 0x00, 0x01, 0x00, 0x01, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+      data: [0x30, 0xbc, 0x00, 0x44, 0x00, 0x01, 0x00, 0x01, 0x00, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+      ack: [0x30, 0xdc]
