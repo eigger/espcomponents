@@ -411,7 +411,7 @@ sensor:
     state: 
       data: [0x30, 0xd0, 0x00, 0x01, 0x00, 0x44, 0x00]
       mask: [0xff, 0xf0, 0xff, 0xff, 0xff, 0xff, 0xff]
-    state_number: |-
+    state_number: !lambda |-
       float floor = len > 8 ? data[8] : 0x00;
       if (floor < 0) floor = -1;
       return floor;
