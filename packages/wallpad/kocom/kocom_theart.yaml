@@ -149,6 +149,12 @@ climate:
       offset: 8
       data: [0x10]
       mask: [0xF0]
+    state_preset_away:
+      offset: 9
+      data: [0x01]
+    state_preset_none:
+      offset: 9
+      data: [0x00]
     command_off: !lambda |-
       float target = id(livingroom_heater).target_temperature;
       return {{0x30, 0xbc, 0x00, 0x36, 0x00, 0x01, 0x00, 0x00, 0x01, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
@@ -187,6 +193,12 @@ climate:
     state_heat:
       offset: 8
       data: [0x11]
+    state_preset_away:
+      offset: 9
+      data: [0x01]
+    state_preset_none:
+      offset: 9
+      data: [0x00]
     command_off: !lambda |- 
       float target = id(room_1_heater).target_temperature;
       return {{0x30, 0xbc, 0x00, 0x36, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
@@ -223,6 +235,12 @@ climate:
     state_heat:
       offset: 8
       data: [0x11]
+    state_preset_away:
+      offset: 9
+      data: [0x01]
+    state_preset_none:
+      offset: 9
+      data: [0x00]
     command_off: !lambda |-
       float target = id(room_2_heater).target_temperature;
       return {{0x30, 0xbc, 0x00, 0x36, 0x02, 0x01, 0x00, 0x00, 0x01, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
@@ -259,6 +277,12 @@ climate:
     state_heat:
       offset: 8
       data: [0x11]
+    state_preset_away:
+      offset: 9
+      data: [0x01]
+    state_preset_none:
+      offset: 9
+      data: [0x00]
     command_off: !lambda |-
       float target = id(room_3_heater).target_temperature;
       return {{0x30, 0xbc, 0x00, 0x36, 0x03, 0x01, 0x00, 0x00, 0x01, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
@@ -295,6 +319,12 @@ climate:
     state_heat:
       offset: 8
       data: [0x11]
+    state_preset_away:
+      offset: 9
+      data: [0x01]
+    state_preset_none:
+      offset: 9
+      data: [0x00]
     command_off: !lambda |-
       float target = id(room_4_heater).target_temperature;
       return {{0x30, 0xbc, 0x00, 0x36, 0x04, 0x01, 0x00, 0x00, 0x01, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
@@ -305,7 +335,7 @@ climate:
       // @param: const float x
       float target = x;
       return {{0x30, 0xbc, 0x00, 0x36, 0x04, 0x01, 0x00, 0x00, 0x11, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
- 
+
 #OFF <AA 55 30 BC 00 01 00 2C 00 02 00 00 00 00 00 00 00 00 1B 0D 0D 
 #OFF  AA 55 30 DC 00 2C 00 01 00 02 00 00 00 00 00 00 00 00 3B 0D 0D
 #ON  <AA 55 30 BC 00 01 00 2C 00 01 00 00 00 00 00 00 00 00 1A 0D 0D 
@@ -339,6 +369,192 @@ sensor:
       mask: [0xff, 0xf0, 0xff, 0xff, 0xff, 0xff, 0xff]
     state_number:
       offset: 9
+      
+  - platform: uartex
+    name: "Living Room Heater Hot Water"
+    unit_of_measurement: "°C"
+    icon: "mdi:water-percent"
+    device_class: "temperature"
+    state_class: "measurement"
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x00]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+    state_number:
+      offset: 11
+
+  - platform: uartex
+    name: "Room 1 Heater Hot Water"
+    unit_of_measurement: "°C"
+    icon: "mdi:water-percent"
+    device_class: "temperature"
+    state_class: "measurement"
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x01]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+    state_number:
+      offset: 11
+
+  - platform: uartex
+    name: "Room 2 Heater Hot Water"
+    unit_of_measurement: "°C"
+    icon: "mdi:water-percent"
+    device_class: "temperature"
+    state_class: "measurement"
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x02]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+    state_number:
+      offset: 11
+
+  - platform: uartex
+    name: "Room 3 Heater Hot Water"
+    unit_of_measurement: "°C"
+    icon: "mdi:water-percent"
+    device_class: "temperature"
+    state_class: "measurement"
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x03]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+    state_number:
+      offset: 11
+
+  - platform: uartex
+    name: "Room 4 Heater Hot Water"
+    unit_of_measurement: "°C"
+    icon: "mdi:water-percent"
+    device_class: "temperature"
+    state_class: "measurement"
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x04]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+    state_number:
+      offset: 11
+
+  - platform: uartex
+    name: "Living Room Heater Water"
+    unit_of_measurement: "°C"
+    icon: "mdi:water-percent"
+    device_class: "temperature"
+    state_class: "measurement"
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x00]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+    state_number:
+      offset: 13
+
+  - platform: uartex
+    name: "Room 1 Heater Water"
+    unit_of_measurement: "°C"
+    icon: "mdi:water-percent"
+    device_class: "temperature"
+    state_class: "measurement"
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x01]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+    state_number:
+      offset: 13
+
+  - platform: uartex
+    name: "Room 2 Heater Water"
+    unit_of_measurement: "°C"
+    icon: "mdi:water-percent"
+    device_class: "temperature"
+    state_class: "measurement"
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x02]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+    state_number:
+      offset: 13
+
+  - platform: uartex
+    name: "Room 3 Heater Water"
+    unit_of_measurement: "°C"
+    icon: "mdi:water-percent"
+    device_class: "temperature"
+    state_class: "measurement"
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x03]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+    state_number:
+      offset: 13
+
+  - platform: uartex
+    name: "Room 4 Heater Water"
+    unit_of_measurement: "°C"
+    icon: "mdi:water-percent"
+    device_class: "temperature"
+    state_class: "measurement"
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x04]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+    state_number:
+      offset: 13
+
+
+  - platform: uartex
+    name: "Living Room Heater Error"
+    unit_of_measurement: "°C"
+    icon: "mdi:water-percent"
+    device_class: "temperature"
+    state_class: "measurement"
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x00]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+    state_number:
+      offset: 14
+      length: 2
+
+  - platform: uartex
+    name: "Room 1 Heater Error"
+    unit_of_measurement: "°C"
+    icon: "mdi:water-percent"
+    device_class: "temperature"
+    state_class: "measurement"
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x01]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+    state_number:
+      offset: 14
+      length: 2
+
+  - platform: uartex
+    name: "Room 2 Heater Error"
+    unit_of_measurement: "°C"
+    icon: "mdi:water-percent"
+    device_class: "temperature"
+    state_class: "measurement"
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x02]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+    state_number:
+      offset: 14
+      length: 2
+
+  - platform: uartex
+    name: "Room 3 Heater Error"
+    unit_of_measurement: "°C"
+    icon: "mdi:water-percent"
+    device_class: "temperature"
+    state_class: "measurement"
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x03]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+    state_number:
+      offset: 14
+      length: 2
+
+  - platform: uartex
+    name: "Room 4 Heater Error"
+    unit_of_measurement: "°C"
+    icon: "mdi:water-percent"
+    device_class: "temperature"
+    state_class: "measurement"
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x04]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+    state_number:
+      offset: 14
+      length: 2
 
 text_sensor:
   - platform: uartex
