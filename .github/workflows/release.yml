@@ -1,0 +1,71 @@
+name: Update @latest Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-latest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update or Create @latest Release
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const latestTag = '@latest';
+            const currentRelease = context.payload.release;
+            
+            // 1. @latest 태그 릴리스가 존재하는지 확인
+            const allReleases = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            let latestRelease = allReleases.data.find(r => r.tag_name === latestTag);
+            
+            // 릴리스 데이터 구성
+            const releaseParams = {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: latestTag,
+              name: currentRelease.name,
+              body: currentRelease.body,
+              target_commitish: currentRelease.target_commitish
+            };
+            
+            // 2. 존재하면 업데이트, 없으면 새로 생성
+            if (latestRelease) {
+              await github.rest.repos.updateRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: latestRelease.id,
+                name: releaseParams.name,
+                body: releaseParams.body,
+                target_commitish: releaseParams.target_commitish
+              });
+              console.log('Updated existing @latest release');
+            } else {
+              await github.rest.repos.createRelease(releaseParams);
+              console.log('Created new @latest release');
+            }
+            
+            // 3. Git 태그 @latest 업데이트 (존재하지 않으면 생성)
+            try {
+              await github.rest.git.updateRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `tags/${latestTag}`,
+                sha: currentRelease.target_commitish,
+                force: true,
+              });
+              console.log('Updated tag @latest');
+            } catch (error) {
+              // 태그가 없을 경우
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `refs/tags/${latestTag}`,
+                sha: currentRelease.target_commitish,
+              });
+              console.log('Created tag @latest');
+            }
