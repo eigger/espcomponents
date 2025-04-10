@@ -1,6 +1,7 @@
 name: Update Latest Tag
 
 on:
+  workflow_dispatch:
   release:
     types: [published]
 
