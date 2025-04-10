@@ -8,12 +8,12 @@ jobs:
   update-latest:
     runs-on: ubuntu-latest
     steps:
-      - name: Update or Create @latest Release
+      - name: Update or Create latest Release
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const latestTag = '@latest';
+            const latestTag = 'latest';
             const currentRelease = context.payload.release;
             
             // 1. @latest 태그 릴리스가 존재하는지 확인
@@ -46,7 +46,7 @@ jobs:
               console.log('Updated existing @latest release');
             } else {
               await github.rest.repos.createRelease(releaseParams);
-              console.log('Created new @latest release');
+              console.log('Created new latest release');
             }
             
             // 3. Git 태그 @latest 업데이트 (존재하지 않으면 생성)
@@ -58,7 +58,7 @@ jobs:
                 sha: currentRelease.target_commitish,
                 force: true,
               });
-              console.log('Updated tag @latest');
+              console.log('Updated tag latest');
             } catch (error) {
               // 태그가 없을 경우
               await github.rest.git.createRef({
@@ -67,5 +67,5 @@ jobs:
                 ref: `refs/tags/${latestTag}`,
                 sha: currentRelease.target_commitish,
               });
-              console.log('Created tag @latest');
+              console.log('Created tag latest');
             }
