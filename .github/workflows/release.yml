@@ -1,4 +1,4 @@
-name: Update latest Release
+name: Update latest Tag Only
 
 on:
   release:
@@ -6,99 +6,77 @@ on:
   workflow_dispatch:
 
 jobs:
-  update-latest:
+  update-latest-tag:
     runs-on: ubuntu-latest
     steps:
-      - name: Update or Create latest Release
+      - name: Get target commit SHA
+        id: get_commit_sha
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const latestTag = 'latest';
-            let currentRelease;
-            
-            // release 이벤트인 경우는 payload에 release 정보가 있음
+            let targetSha;
+            // release 이벤트로 트리거 된 경우 payload에서 대상 커밋 정보를 사용
             if (context.payload.release) {
-              currentRelease = context.payload.release;
-              console.log("Using release event payload for current release");
-            } else {
-              // workflow_dispatch 이벤트인 경우, 최신 릴리스 정보를 API로 가져옴
-              console.log("Fetching the latest release using the API");
-              try {
-                const latestResponse = await github.rest.repos.getLatestRelease({
+              targetSha = context.payload.release.target_commitish;
+              console.log("Release event detected. Target commitish:", targetSha);
+              // 만약 브랜치 이름인 경우, 해당 브랜치의 최신 커밋 SHA를 가져옴
+              if (targetSha.length !== 40) {
+                const branchInfo = await github.rest.repos.getBranch({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
+                  branch: targetSha
                 });
-                currentRelease = latestResponse.data;
-              } catch (error) {
-                throw new Error("No published release found to update latest");
+                targetSha = branchInfo.data.commit.sha;
+                console.log("Resolved branch to SHA:", targetSha);
+              }
+            } else {
+              // manual trigger일 경우, API를 통해 최신 릴리즈 정보를 가져와서 대상 커밋 정보를 사용
+              console.log("No release event payload. Fetching latest release info via API.");
+              const latestRelease = await github.rest.repos.getLatestRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+              });
+              targetSha = latestRelease.data.target_commitish;
+              console.log("Latest release target_commitish:", targetSha);
+              if (targetSha.length !== 40) {
+                const branchInfo = await github.rest.repos.getBranch({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  branch: targetSha
+                });
+                targetSha = branchInfo.data.commit.sha;
+                console.log("Resolved branch to SHA:", targetSha);
               }
             }
-            
-            console.log("Current Release:", currentRelease);
-            
-            // target_commitish가 브랜치명(예: 'master')인 경우, 해당 브랜치의 커밋 SHA를 가져옴
-            let currentSha = currentRelease.target_commitish;
-            if (currentSha.length !== 40) {
-              console.log(`Fetching commit SHA for branch: ${currentSha}`);
-              const branchInfo = await github.rest.repos.getBranch({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                branch: currentSha
-              });
-              currentSha = branchInfo.data.commit.sha;
-              console.log(`Found commit SHA: ${currentSha}`);
-            }
-            
-            // 1. latest 태그 릴리스가 존재하는지 확인
-            const allReleases = await github.rest.repos.listReleases({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            });
-            let latestRelease = allReleases.data.find(r => r.tag_name === latestTag);
-            
-            // 릴리스 데이터 구성 (target_commitish는 릴리스 API에선 브랜치명이나 SHA 모두 허용됨)
-            const releaseParams = {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: latestTag,
-              name: currentRelease.name,
-              body: currentRelease.body,
-              target_commitish: currentRelease.target_commitish || 'main'
-            };
-            
-            // 2. 기존에 latest 릴리스가 있으면 업데이트, 없으면 생성
-            if (latestRelease) {
-              await github.rest.repos.updateRelease({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                release_id: latestRelease.id,
-                name: releaseParams.name,
-                body: releaseParams.body,
-                target_commitish: releaseParams.target_commitish
-              });
-              console.log('Updated existing latest release');
-            } else {
-              await github.rest.repos.createRelease(releaseParams);
-              console.log('Created new latest release');
-            }
-            
-            // 3. Git 태그 latest 업데이트 (존재하지 않으면 생성)
+            return targetSha;
+
+      - name: Update or Create tag "latest"
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // get_commit_sha 스텝에서 리턴한 값을 사용 (실제 커밋 SHA)
+            const targetSha = "${{ steps.get_commit_sha.outputs.result }}";
+            console.log(`Target SHA for tag 'latest': ${targetSha}`);
+
             try {
+              console.log(`Attempting to update tag 'latest' to commit ${targetSha}`);
               await github.rest.git.updateRef({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                ref: `tags/${latestTag}`,
-                sha: currentSha,    // SHA를 사용
-                force: true,
+                ref: "tags/latest",
+                sha: targetSha,
+                force: true
               });
-              console.log('Updated tag latest');
+              console.log("Tag 'latest' successfully updated.");
             } catch (error) {
+              console.log("Tag 'latest' does not exist. Creating tag 'latest'.");
               await github.rest.git.createRef({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                ref: `refs/tags/${latestTag}`,
-                sha: currentSha,    // SHA를 사용
+                ref: "refs/tags/latest",
+                sha: targetSha,
               });
-              console.log('Created tag latest');
+              console.log("Tag 'latest' successfully created.");
             }
