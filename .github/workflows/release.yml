@@ -1,4 +1,4 @@
-name: Update @latest Release
+name: Update Latest Tag
 
 on:
   release:
