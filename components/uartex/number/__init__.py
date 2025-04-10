@@ -1,7 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import number, uartex
-from esphome.const import CONF_ID, CONF_MIN_VALUE, CONF_MAX_VALUE, CONF_STEP
+from esphome.const import CONF_ID, CONF_MIN_VALUE, CONF_MAX_VALUE, CONF_STEP, CONF_RESTORE_VALUE
 from .. import uartex_ns, UARTExDevice, \
     state_schema, state_hex_expression, state_num_schema, state_num_expression, \
     command_hex_schema, command_float_expression
@@ -16,6 +16,7 @@ CONFIG_SCHEMA = cv.All(number.NUMBER_SCHEMA.extend({
     cv.Optional(CONF_MIN_VALUE, default=0): cv.float_,
     cv.Optional(CONF_MAX_VALUE, default=10): cv.float_,
     cv.Optional(CONF_STEP, default=1): cv.float_,
+    cv.Optional(CONF_RESTORE_VALUE): cv.boolean,
     cv.Optional(CONF_STATE_NUMBER): cv.templatable(state_num_schema),
     cv.Optional(CONF_COMMAND_NUMBER): cv.templatable(command_hex_schema),
     cv.Optional(CONF_STATE_INCREMENT): state_schema,
@@ -39,6 +40,9 @@ async def to_code(config):
         max_value = config[CONF_MAX_VALUE],
         step = config[CONF_STEP],)
     await uartex.register_uartex_device(var, config)
+    
+    if CONF_RESTORE_VALUE in config:
+            cg.add(var.set_restore_value(config[CONF_RESTORE_VALUE]))
 
     if CONF_STATE_NUMBER in config:
         state = await state_num_expression(config[CONF_STATE_NUMBER])

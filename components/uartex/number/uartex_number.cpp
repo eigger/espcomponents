@@ -20,7 +20,13 @@ void UARTExNumber::dump_config()
 
 void UARTExNumber::setup()
 {
-    this->state = this->traits.get_min_value();
+    float value = this->traits.get_min_value();;
+    if (this->restore_value_)
+    {
+        this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+        this->pref_.load(&value);
+    }
+    this->state = value;
     publish_state(this->state);
 }
 
@@ -58,7 +64,11 @@ void UARTExNumber::publish(const std::vector<uint8_t>& data)
     }
     if (this->state > max) this->state = max;
     if (this->state < min) this->state = min;
-    if (changed) publish_state(this->state);
+    if (changed)
+    {
+        if (this->restore_value_) this->pref_.save(&this->state);
+        publish_state(this->state);
+    }
 }
 
 void UARTExNumber::control(float value)
@@ -66,6 +76,7 @@ void UARTExNumber::control(float value)
     if (this->state == value) return;
     this->state = value;
     enqueue_tx_cmd(get_command_number(this->state));
+    if (this->restore_value_) this->pref_.save(&value);
     publish_state(value);
 }
 

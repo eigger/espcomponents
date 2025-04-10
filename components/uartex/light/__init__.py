@@ -9,8 +9,10 @@ from ..const import CONF_COMMAND_BRIGHTNESS, CONF_STATE_BRIGHTNESS
 
 DEPENDENCIES = ['uartex']
 UARTExLightOutput = uartex_ns.class_('UARTExLightOutput', light.LightOutput, UARTExDevice)
+UARTExLightState = uartex_ns.class_('UARTExLightState', light.LightState)
 
 CONFIG_SCHEMA = light.BINARY_LIGHT_SCHEMA.extend({
+    cv.GenerateID(): cv.declare_id(UARTExLightState),
     cv.GenerateID(CONF_OUTPUT_ID): cv.declare_id(UARTExLightOutput),
     cv.Optional(CONF_STATE_BRIGHTNESS): cv.templatable(state_num_schema),
     cv.Optional(CONF_COMMAND_BRIGHTNESS): cv.templatable(command_hex_schema),
