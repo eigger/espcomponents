@@ -56,10 +56,13 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            // 반드시 commit SHA를 문자열로 처리하기 위해 템플릿 표현식을 따옴표로 감쌉니다.
-            const targetSha = "${{ steps.get_commit_sha.outputs.result }}";
+            // rawTargetSha는 템플릿 변수의 값을 그대로 가져옴
+            const rawTargetSha = "${{ steps.get_commit_sha.outputs.result }}";
+            // .trim()을 사용하여 앞뒤 공백이나 개행문자를 제거합니다.
+            const targetSha = rawTargetSha.trim();
+            
             console.log(`Target SHA for tag 'latest': ${targetSha}`);
-
+            
             try {
               console.log(`Attempting to update tag 'latest' to commit ${targetSha}`);
               await github.rest.git.updateRef({
@@ -80,4 +83,3 @@ jobs:
               });
               console.log("Tag 'latest' successfully created.");
             }
-
