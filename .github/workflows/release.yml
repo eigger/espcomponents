@@ -50,13 +50,13 @@ jobs:
               }
             }
             return targetSha;
-
+            
       - name: Update or Create tag "latest"
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            // get_commit_sha 스텝에서 리턴한 값을 사용 (실제 커밋 SHA)
+            // 반드시 commit SHA를 문자열로 처리하기 위해 템플릿 표현식을 따옴표로 감쌉니다.
             const targetSha = "${{ steps.get_commit_sha.outputs.result }}";
             console.log(`Target SHA for tag 'latest': ${targetSha}`);
 
@@ -80,3 +80,4 @@ jobs:
               });
               console.log("Tag 'latest' successfully created.");
             }
+
