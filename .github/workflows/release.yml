@@ -37,6 +37,19 @@ jobs:
             
             console.log("Current Release:", currentRelease);
             
+            // target_commitish가 브랜치명(예: 'master')인 경우, 해당 브랜치의 커밋 SHA를 가져옴
+            let currentSha = currentRelease.target_commitish;
+            if (currentSha.length !== 40) {
+              console.log(`Fetching commit SHA for branch: ${currentSha}`);
+              const branchInfo = await github.rest.repos.getBranch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                branch: currentSha
+              });
+              currentSha = branchInfo.data.commit.sha;
+              console.log(`Found commit SHA: ${currentSha}`);
+            }
+            
             // 1. latest 태그 릴리스가 존재하는지 확인
             const allReleases = await github.rest.repos.listReleases({
               owner: context.repo.owner,
@@ -44,7 +57,7 @@ jobs:
             });
             let latestRelease = allReleases.data.find(r => r.tag_name === latestTag);
             
-            // 릴리스 데이터 구성 (target_commitish가 없으면 기본 브랜치(main)로 지정)
+            // 릴리스 데이터 구성 (target_commitish는 릴리스 API에선 브랜치명이나 SHA 모두 허용됨)
             const releaseParams = {
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -76,7 +89,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 ref: `tags/${latestTag}`,
-                sha: currentRelease.target_commitish,
+                sha: currentSha,    // SHA를 사용
                 force: true,
               });
               console.log('Updated tag latest');
@@ -85,7 +98,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 ref: `refs/tags/${latestTag}`,
-                sha: currentRelease.target_commitish,
+                sha: currentSha,    // SHA를 사용
               });
               console.log('Created tag latest');
             }
