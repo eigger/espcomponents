@@ -7,7 +7,7 @@ uart:
   tx_pin: GPIO19
 
 external_components:
-  - source: github://eigger/espcomponents@latest
+  - source: github://eigger/espcomponents
     components: [ uartex ]
     refresh: always  
 
@@ -149,12 +149,6 @@ climate:
       offset: 8
       data: [0x10]
       mask: [0xF0]
-    state_preset_away:
-      offset: 9
-      data: [0x01]
-    state_preset_none:
-      offset: 9
-      data: [0x00]
     command_off: !lambda |-
       float target = id(livingroom_heater).target_temperature;
       return {{0x30, 0xbc, 0x00, 0x36, 0x00, 0x01, 0x00, 0x00, 0x01, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
@@ -193,12 +187,6 @@ climate:
     state_heat:
       offset: 8
       data: [0x11]
-    state_preset_away:
-      offset: 9
-      data: [0x01]
-    state_preset_none:
-      offset: 9
-      data: [0x00]
     command_off: !lambda |- 
       float target = id(room_1_heater).target_temperature;
       return {{0x30, 0xbc, 0x00, 0x36, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
@@ -235,12 +223,6 @@ climate:
     state_heat:
       offset: 8
       data: [0x11]
-    state_preset_away:
-      offset: 9
-      data: [0x01]
-    state_preset_none:
-      offset: 9
-      data: [0x00]
     command_off: !lambda |-
       float target = id(room_2_heater).target_temperature;
       return {{0x30, 0xbc, 0x00, 0x36, 0x02, 0x01, 0x00, 0x00, 0x01, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
@@ -277,12 +259,6 @@ climate:
     state_heat:
       offset: 8
       data: [0x11]
-    state_preset_away:
-      offset: 9
-      data: [0x01]
-    state_preset_none:
-      offset: 9
-      data: [0x00]
     command_off: !lambda |-
       float target = id(room_3_heater).target_temperature;
       return {{0x30, 0xbc, 0x00, 0x36, 0x03, 0x01, 0x00, 0x00, 0x01, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
@@ -319,12 +295,6 @@ climate:
     state_heat:
       offset: 8
       data: [0x11]
-    state_preset_away:
-      offset: 9
-      data: [0x01]
-    state_preset_none:
-      offset: 9
-      data: [0x00]
     command_off: !lambda |-
       float target = id(room_4_heater).target_temperature;
       return {{0x30, 0xbc, 0x00, 0x36, 0x04, 0x01, 0x00, 0x00, 0x01, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
@@ -335,6 +305,42 @@ climate:
       // @param: const float x
       float target = x;
       return {{0x30, 0xbc, 0x00, 0x36, 0x04, 0x01, 0x00, 0x00, 0x11, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
+ 
+ #Room5
+  - platform: uartex
+    name: "Room 5 Heater"
+    id: room_5_heater
+    visual:
+      min_temperature: 5 °C
+      max_temperature: 30 °C
+      temperature_step: 1 °C
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x36, 0x05]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+    state_temperature_current:
+      offset: 12
+      length: 1
+      precision: 0
+    state_temperature_target:
+      offset: 10
+      length: 1
+      precision: 0
+    state_off:
+      offset: 8
+      data: [0x01]
+    state_heat:
+      offset: 8
+      data: [0x11]
+    command_off: !lambda |-
+      float target = id(room_5_heater).target_temperature;
+      return {{0x30, 0xbc, 0x00, 0x36, 0x05, 0x01, 0x00, 0x00, 0x01, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
+    command_heat: !lambda |-
+      float target = id(room_5_heater).target_temperature;
+      return {{0x30, 0xbc, 0x00, 0x36, 0x05, 0x01, 0x00, 0x00, 0x11, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
+    command_temperature: !lambda |-
+      // @param: const float x
+      float target = x;
+      return {{0x30, 0xbc, 0x00, 0x36, 0x05, 0x01, 0x00, 0x00, 0x11, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
 
 #OFF <AA 55 30 BC 00 01 00 2C 00 02 00 00 00 00 00 00 00 00 1B 0D 0D 
 #OFF  AA 55 30 DC 00 2C 00 01 00 02 00 00 00 00 00 00 00 00 3B 0D 0D
@@ -356,6 +362,44 @@ valve:
     command_close:
       data: [0x30, 0xbc, 0x00, 0x2c, 0x00, 0x01, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
       ack: [0x30, 0xdc]
+
+# 상태
+# 약 AA 55 30 DC 00 48 00 01 00 00 11 01 40 17 00 00 00 00 BE 0D 0D
+# 중 AA 55 30 DC 00 48 00 01 00 00 11 01 80 17 00 00 00 00 FE 0D 0D
+# 강 AA 55 30 DC 00 48 00 01 00 00 11 01 C0 17 00 00 00 00 3E 0D 0D
+# 꺼 AA 55 30 DC 00 48 00 01 00 00 00 01 00 17 00 00 00 00 6D 0D 0D
+# 제어
+# 약 AA 55 30 BC 00 01 00 48 00 00 11 01 40 17 00 00 00 00 9E 0D 0D
+# 중 AA 55 30 BC 00 01 00 48 00 00 11 01 80 17 00 00 00 00 DE 0D 0D
+# 강 AA 55 30 BC 00 01 00 48 00 00 11 01 C0 17 00 00 00 00 1E 0D 0D
+# 꺼 AA 55 30 BC 00 01 00 48 00 00 00 01 00 17 00 00 00 00 4D 0D 0D
+fan:
+  - platform: uartex
+    name: "Navien Ventilator"
+    state: 
+      data: [0x30, 0xd0, 0x00, 0x48, 0x00]
+      mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+    state_on:
+      offset: 8
+      data: [0x11]
+    state_off:
+      offset: 8
+      data: [0x00]
+    state_speed: !lambda |-
+      if (check_value(10, 0x40, data, len)) return 1;
+      if (check_value(10, 0x80, data, len)) return 2;
+      if (check_value(10, 0xc0, data, len)) return 3;
+      return 0;
+    command_on:
+      data: [0x30, 0xbc, 0x00, 0x01, 0x00, 0x48, 0x00, 0x00, 0x11, 0x01, 0x40, 0x17, 0x00, 0x00, 0x00, 0x00]
+      ack: [0x30, 0xdc]
+    command_off:
+      data: [0x30, 0xbc, 0x00, 0x01, 0x00, 0x48, 0x00, 0x00, 0x00, 0x01, 0x00, 0x17, 0x00, 0x00, 0x00, 0x00]
+      ack: [0x30, 0xdc]
+    command_speed: !lambda |-
+      uint8_t speed = ((uint8_t)x) * 0x40;
+      return {{0x30, 0xbc, 0x00, 0x01, 0x00, 0x48, 0x00, 0x00, 0x11, 0x01, speed, 0x17, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
+
 
 #AA 55 30 DC 00 01 00 44 00 01 00 06 00 00 00 00 00 00 58 0D 0D
 #AA 55 30 DC 00 01 00 44 00 01 00 0A 00 00 00 00 00 00 5C 0D 0D
