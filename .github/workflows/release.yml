@@ -1,9 +1,9 @@
-name: Update Latest Tag
+name: Update latest Release
 
 on:
-  workflow_dispatch:
   release:
     types: [published]
+  workflow_dispatch:
 
 jobs:
   update-latest:
@@ -15,26 +15,46 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const latestTag = 'latest';
-            const currentRelease = context.payload.release;
+            let currentRelease;
             
-            // 1. @latest 태그 릴리스가 존재하는지 확인
+            // release 이벤트인 경우는 payload에 release 정보가 있음
+            if (context.payload.release) {
+              currentRelease = context.payload.release;
+              console.log("Using release event payload for current release");
+            } else {
+              // workflow_dispatch 이벤트인 경우, 최신 릴리스 정보를 API로 가져옴
+              console.log("Fetching the latest release using the API");
+              try {
+                const latestResponse = await github.rest.repos.getLatestRelease({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                });
+                currentRelease = latestResponse.data;
+              } catch (error) {
+                throw new Error("No published release found to update latest");
+              }
+            }
+            
+            console.log("Current Release:", currentRelease);
+            
+            // 1. latest 태그 릴리스가 존재하는지 확인
             const allReleases = await github.rest.repos.listReleases({
               owner: context.repo.owner,
               repo: context.repo.repo,
             });
             let latestRelease = allReleases.data.find(r => r.tag_name === latestTag);
             
-            // 릴리스 데이터 구성
+            // 릴리스 데이터 구성 (target_commitish가 없으면 기본 브랜치(main)로 지정)
             const releaseParams = {
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: latestTag,
               name: currentRelease.name,
               body: currentRelease.body,
-              target_commitish: currentRelease.target_commitish
+              target_commitish: currentRelease.target_commitish || 'main'
             };
             
-            // 2. 존재하면 업데이트, 없으면 새로 생성
+            // 2. 기존에 latest 릴리스가 있으면 업데이트, 없으면 생성
             if (latestRelease) {
               await github.rest.repos.updateRelease({
                 owner: context.repo.owner,
@@ -44,13 +64,13 @@ jobs:
                 body: releaseParams.body,
                 target_commitish: releaseParams.target_commitish
               });
-              console.log('Updated existing @latest release');
+              console.log('Updated existing latest release');
             } else {
               await github.rest.repos.createRelease(releaseParams);
               console.log('Created new latest release');
             }
             
-            // 3. Git 태그 @latest 업데이트 (존재하지 않으면 생성)
+            // 3. Git 태그 latest 업데이트 (존재하지 않으면 생성)
             try {
               await github.rest.git.updateRef({
                 owner: context.repo.owner,
@@ -61,7 +81,6 @@ jobs:
               });
               console.log('Updated tag latest');
             } catch (error) {
-              // 태그가 없을 경우
               await github.rest.git.createRef({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
