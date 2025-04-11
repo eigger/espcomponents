@@ -2,7 +2,7 @@ name: Update latest Release
 
 on:
   release:
-  	- published
+    - published
     - unpublished
     - created
     - edited
