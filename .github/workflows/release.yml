@@ -34,23 +34,24 @@ jobs:
               throw new Error("No published release found to update latest");
             }
             console.log("Current Release:", currentRelease);
-            let currentSha = currentRelease.target_commitish;
-            if (currentSha.length !== 40) {
-              console.log(`Fetching commit SHA for branch: ${currentSha}`);
-              const branchInfo = await github.rest.repos.getBranch({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                branch: currentSha
-              });
-              currentSha = branchInfo.data.commit.sha;
-              console.log(`Found commit SHA: ${currentSha}`);
-            }
+
+            // 릴리즈의 target_commitish 대신 실제 릴리즈 태그의 commit SHA를 가져옵니다.
+            const releaseTagName = currentRelease.tag_name;
+            console.log(`Fetching commit SHA for release tag: ${releaseTagName}`);
+            const tagRef = await github.rest.git.getRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `tags/${releaseTagName}`,
+            });
+            const currentSha = tagRef.data.object.sha;
+            console.log(`Found commit SHA for latest release: ${currentSha}`);
+
             try {
               await github.rest.git.updateRef({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 ref: `tags/${latestTag}`,
-                sha: currentSha,    // SHA를 사용
+                sha: currentSha,
                 force: true,
               });
               console.log('Updated tag latest');
@@ -59,7 +60,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 ref: `refs/tags/${latestTag}`,
-                sha: currentSha,    // SHA를 사용
+                sha: currentSha,
               });
               console.log('Created tag latest');
             }
