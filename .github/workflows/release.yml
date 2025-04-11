@@ -18,10 +18,10 @@ jobs:
             let currentRelease;
             
             // release 이벤트인 경우는 payload에 release 정보가 있음
-            if (context.payload.release) {
-              currentRelease = context.payload.release;
-              console.log("Using release event payload for current release");
-            } else {
+            //if (context.payload.release) {
+            //  currentRelease = context.payload.release;
+            //  console.log("Using release event payload for current release");
+            //} else {
               // workflow_dispatch 이벤트인 경우, 최신 릴리스 정보를 API로 가져옴
               console.log("Fetching the latest release using the API");
               try {
@@ -33,7 +33,7 @@ jobs:
               } catch (error) {
                 throw new Error("No published release found to update latest");
               }
-            }
+            //}
             
             console.log("Current Release:", currentRelease);
             
