@@ -394,7 +394,7 @@ valve:
 
 text_sensor:
   - platform: uartex
-    name: "Elevator Direction"
+    name: "Elevator"
     icon: "mdi:elevator"
     state: 
       data: [0x30, 0x00, 0x00, 0x44, 0x00, 0x01, 0x00]
