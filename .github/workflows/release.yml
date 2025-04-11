@@ -2,7 +2,6 @@ name: Update latest Release
 
 on:
   release:
-#    types: [published]
   workflow_dispatch:
 
 jobs:
@@ -16,28 +15,17 @@ jobs:
           script: |
             const latestTag = 'latest';
             let currentRelease;
-            
-            // release 이벤트인 경우는 payload에 release 정보가 있음
-            //if (context.payload.release) {
-            //  currentRelease = context.payload.release;
-            //  console.log("Using release event payload for current release");
-            //} else {
-              // workflow_dispatch 이벤트인 경우, 최신 릴리스 정보를 API로 가져옴
-              console.log("Fetching the latest release using the API");
-              try {
-                const latestResponse = await github.rest.repos.getLatestRelease({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                });
-                currentRelease = latestResponse.data;
-              } catch (error) {
-                throw new Error("No published release found to update latest");
-              }
-            //}
-            
+            console.log("Fetching the latest release using the API");
+            try {
+              const latestResponse = await github.rest.repos.getLatestRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+              });
+              currentRelease = latestResponse.data;
+            } catch (error) {
+              throw new Error("No published release found to update latest");
+            }
             console.log("Current Release:", currentRelease);
-            
-            // target_commitish가 브랜치명(예: 'master')인 경우, 해당 브랜치의 커밋 SHA를 가져옴
             let currentSha = currentRelease.target_commitish;
             if (currentSha.length !== 40) {
               console.log(`Fetching commit SHA for branch: ${currentSha}`);
@@ -49,8 +37,6 @@ jobs:
               currentSha = branchInfo.data.commit.sha;
               console.log(`Found commit SHA: ${currentSha}`);
             }
-                                                
-            // 2. Git 태그 latest 업데이트 (존재하지 않으면 생성)
             try {
               await github.rest.git.updateRef({
                 owner: context.repo.owner,
