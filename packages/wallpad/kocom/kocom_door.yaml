@@ -37,10 +37,10 @@ binary_sensor:
     state: [0xAA, 0x55, 0x7A, 0x9E, 0x02, 0x02]
     state_on:
       offset: 15
-      data: [0x01, 0x01]
+      data: [0x01]
     state_off:
       offset: 15
-      data: [0x02, 0x00]
+      data: [0x02]
     on_press:
       then:
         - script.execute: open_door_sequence
@@ -54,10 +54,10 @@ binary_sensor:
     state: [0xAA, 0x55, 0x7A, 0x9E, 0x02, 0x08]
     state_on:
       offset: 15
-      data: [0x01, 0x01]
+      data: [0x01]
     state_off:
       offset: 15
-      data: [0x02, 0x00]
+      data: [0x02]
     on_press:
       then:
         - script.execute: open_door_sequence_common
