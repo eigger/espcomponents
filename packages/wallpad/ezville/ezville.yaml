@@ -201,7 +201,7 @@ sensor:
     state: [0x30, 0x03, 0x81] # 패킷 매칭
     accuracy_decimals: 2
     unit_of_measurement: "W" # 단위 추가
-    state_num: 
+    state_number: 
       offset: 6
       length: 3
       precision: 2
@@ -214,7 +214,7 @@ sensor:
     state: [0x30, 0x03, 0x81] # 패킷 매칭
     accuracy_decimals: 1 # 소수점 1자리로 설정
     unit_of_measurement: "kWh" # 단위 추가
-    state_num: 
+    state_number: 
       offset: 9
       length: 3
       precision: 1
@@ -228,8 +228,7 @@ sensor:
     accuracy_decimals: 2 # 소수점 2자리로 설정
     unit_of_measurement: "m³" # 단위 수정
     command_update: [0x30, 0x01, 0x01, 0x00]
-    interval: 60s
-    state_num: 
+    state_number: 
       offset: 9
       length: 3
       precision: 2
@@ -243,21 +242,20 @@ sensor:
     accuracy_decimals: 2 # 소수점 2자리로 설정
     unit_of_measurement: "m³" # 단위 수정
     command_update: [0x30, 0x02, 0x01, 0x00]
-    interval: 60s
-    state_num: 
+    state_number: 
       offset: 9
       length: 3
       precision: 2
       signed: False
       decode: bcd
 
- - platform: uartex
+  - platform: uartex
     name: "power_1_1"
     id: power_1_1
     state: [0x39, 0x1f, 0x81]  # 패킷 매칭
     accuracy_decimals: 1  # 소수점 1 자리로 설정
     unit_of_measurement: "W"  # 단위 설정
-    state_num: 
+    state_number: 
       offset: 5
       length: 3
       precision: 1
@@ -270,7 +268,7 @@ sensor:
     state: [0x39, 0x1f, 0x81]  # 패킷 매칭
     accuracy_decimals: 1
     unit_of_measurement: "W"  # 단위 설정
-    state_num: 
+    state_number: 
       offset: 8
       length: 3
       precision: 1
@@ -283,7 +281,7 @@ sensor:
     state: [0x39, 0x2f, 0x81]  # 패킷 매칭
     accuracy_decimals: 1
     unit_of_measurement: "W"  # 단위 설정
-    state_num: 
+    state_number: 
       offset: 5
       length: 3
       precision: 1
@@ -296,7 +294,7 @@ sensor:
     state: [0x39, 0x2f, 0x81]  # 패킷 매칭
     accuracy_decimals: 1
     unit_of_measurement: "W"  # 단위 설정
-    state_num: 
+    state_number: 
       offset: 8
       length: 3
       precision: 1
@@ -309,7 +307,7 @@ sensor:
     state: [0x39, 0x3f, 0x81]  # 패킷 매칭
     accuracy_decimals: 1
     unit_of_measurement: "W"  # 단위 설정
-    state_num: 
+    state_number: 
       offset: 5
       length: 3
       precision: 1
@@ -322,7 +320,7 @@ sensor:
     state: [0x39, 0x3f, 0x81]  # 패킷 매칭
     accuracy_decimals: 1
     unit_of_measurement: "W"  # 단위 설정
-    state_num: 
+    state_number: 
       offset: 8
       length: 3
       precision: 1
@@ -335,7 +333,7 @@ sensor:
     state: [0x39, 0x4f, 0x81]  # 패킷 매칭
     accuracy_decimals: 1
     unit_of_measurement: "W"  # 단위 설정
-    state_num: 
+    state_number: 
       offset: 5
       length: 3
       precision: 1
@@ -348,7 +346,7 @@ sensor:
     state: [0x39, 0x4f, 0x81]  # 패킷 매칭
     accuracy_decimals: 1
     unit_of_measurement: "W"  # 단위 설정
-    state_num: 
+    state_number: 
       offset: 8
       length: 3
       precision: 1
@@ -361,7 +359,7 @@ sensor:
     state: [0x39, 0x8f, 0x81]  # 패킷 매칭
     accuracy_decimals: 1
     unit_of_measurement: "W"  # 단위 설정
-    state_num: 
+    state_number: 
       offset: 5
       length: 3
       precision: 1
@@ -374,7 +372,7 @@ sensor:
     state: [0x39, 0x8f, 0x81]  # 패킷 매칭
     accuracy_decimals: 1
     unit_of_measurement: "W"  # 단위 설정
-    state_num: 
+    state_number: 
       offset: 8
       length: 3
       precision: 1
@@ -754,17 +752,16 @@ valve:
     name: "Gas Valve"
     device_class: gas
     state: [0x12, 0x01, 0x81]
-    state_locked:
+    state_closed:
       offset: 5
       data: [0x02]
-    state_unlocked:
+    state_open:
       offset: 5
       data: [0x01]
-    command_lock: [0x33, 0x01, 0x81, 0x03, 0x00, 0x05, 0x00]
+    command_close: [0x33, 0x01, 0x81, 0x03, 0x00, 0x05, 0x00]
 
 button:
   - platform: uartex
     name: "Elevator Call"
     icon: "mdi:elevator"
     command_on: [0x33, 0x01, 0x81, 0x03, 0x00, 0x24, 0x00]
-
