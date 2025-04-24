@@ -36,7 +36,7 @@ uartex:
 light:
   #Room0
   - platform: uartex
-    name: "Living Room Light 1"
+    name: "Livingroom Light 1"
     id: livingroom_light_1
     state: 
       data: [0x30, 0xd0, 0x00, 0x0e, 0x00]
@@ -63,7 +63,7 @@ light:
     update_interval: 2h
 
   - platform: uartex
-    name: "Living Room Light 2"
+    name: "Livingroom Light 2"
     id: livingroom_light_2
     state: 
       data: [0x30, 0xd0, 0x00, 0x0e, 0x00]
@@ -86,7 +86,7 @@ light:
       return {{0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x00, light1, light2, light3, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc}};
 
   - platform: uartex
-    name: "Living Room Light 3"
+    name: "Livingroom Light 3"
     id: livingroom_light_3
     state: 
       data: [0x30, 0xd0, 0x00, 0x0e, 0x00]
@@ -127,7 +127,7 @@ light:
 climate:
   #Room0
   - platform: uartex
-    name: "Living Room Heater"
+    name: "Livingroom Heater"
     id: livingroom_heater
     visual:
       min_temperature: 5 °C
@@ -321,7 +321,7 @@ climate:
 
   #Room4
   - platform: uartex
-    name: "Living Room 2 Heater"
+    name: "Livingroom 2 Heater"
     id: livingroom_2_heater
     visual:
       min_temperature: 5 °C
