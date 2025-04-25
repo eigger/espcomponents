@@ -20,8 +20,8 @@ CONFIG_SCHEMA = cv.All(cover.COVER_SCHEMA.extend({
     cv.Optional(CONF_COMMAND_OPEN): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_CLOSE): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_STOP): cv.templatable(command_hex_schema),
-    cv.Required(CONF_COMMAND_POSITION): cv.templatable(command_hex_schema),
-    cv.Required(CONF_COMMAND_TILT): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_POSITION): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_TILT): cv.templatable(command_hex_schema),
 }).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Cover do not support command_on!"),
     cv.Optional(CONF_COMMAND_OFF): cv.invalid("UARTEx Cover do not support command_off!"),
