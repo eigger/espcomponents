@@ -15,8 +15,11 @@ void UARTExSwitch::dump_config()
 void UARTExSwitch::write_state(bool state)
 {
     if(state == this->state) return;
-    enqueue_tx_cmd(state ? get_command_on() : get_command_off());
-    publish_state(state);
+    if (enqueue_tx_cmd(state ? get_command_on() : get_command_off()))
+    {
+        this->state = state;
+    }
+    publish_state(this->state);
 }
 
 }  // namespace uartex

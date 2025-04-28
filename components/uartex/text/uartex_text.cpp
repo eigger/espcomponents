@@ -27,9 +27,11 @@ void UARTExText::publish(const std::vector<uint8_t>& data)
 void UARTExText::control(const std::string& value)
 {
     if (this->state == value) return;
-    this->state = value;
-    enqueue_tx_cmd(get_command_text(this->state));
-    publish_state(value);
+    if (enqueue_tx_cmd(get_command_text(value)))
+    {
+        this->state = value;
+    }
+    publish_state(this->state);
 }
 
 }  // namespace uartex
