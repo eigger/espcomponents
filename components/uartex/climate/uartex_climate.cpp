@@ -357,84 +357,104 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
 
 void UARTExClimate::control(const climate::ClimateCall& call)
 {
+    bool changed = false;
     // Set mode
     if (call.get_mode().has_value() && this->mode != *call.get_mode())
     {
-        this->mode = *call.get_mode();
-        if (this->mode == climate::CLIMATE_MODE_OFF) enqueue_tx_cmd(get_command_off());
-        else if (this->mode == climate::CLIMATE_MODE_COOL) enqueue_tx_cmd(get_command_cool());
-        else if (this->mode == climate::CLIMATE_MODE_HEAT) enqueue_tx_cmd(get_command_heat());
-        else if (this->mode == climate::CLIMATE_MODE_FAN_ONLY) enqueue_tx_cmd(get_command_fan_only());
-        else if (this->mode == climate::CLIMATE_MODE_DRY) enqueue_tx_cmd(get_command_dry());
-        else if (this->mode == climate::CLIMATE_MODE_AUTO) enqueue_tx_cmd(get_command_auto());
+        climate::ClimateMode mode = *call.get_mode();
+        if (mode == climate::CLIMATE_MODE_OFF) changed = enqueue_tx_cmd(get_command_off());
+        else if (mode == climate::CLIMATE_MODE_COOL) changed = enqueue_tx_cmd(get_command_cool());
+        else if (mode == climate::CLIMATE_MODE_HEAT) changed = enqueue_tx_cmd(get_command_heat());
+        else if (mode == climate::CLIMATE_MODE_FAN_ONLY) changed = enqueue_tx_cmd(get_command_fan_only());
+        else if (mode == climate::CLIMATE_MODE_DRY) changed = enqueue_tx_cmd(get_command_dry());
+        else if (mode == climate::CLIMATE_MODE_AUTO) changed = enqueue_tx_cmd(get_command_auto());
+        if (changed) this->mode = mode;
     }
 
     // Set target temperature
     if (call.get_target_temperature().has_value() && this->target_temperature != *call.get_target_temperature())
     {
-        this->target_temperature = *call.get_target_temperature();
-        enqueue_tx_cmd(get_command_temperature(this->target_temperature));
+        float temperature = *call.get_target_temperature();
+        if (enqueue_tx_cmd(get_command_temperature(temperature)))
+        {
+            this->target_temperature = temperature;
+        }
     }
 
     // Set target humidity
     if (call.get_target_humidity().has_value() && this->target_humidity != *call.get_target_humidity())
     {
-        this->target_humidity = *call.get_target_humidity();
-        enqueue_tx_cmd(get_command_humidity(this->target_humidity));
+        float humidity = *call.get_target_humidity();
+        if (enqueue_tx_cmd(get_command_humidity(humidity)))
+        {
+            this->target_humidity = humidity;
+        }
     }
 
     // Set swing mode
     if (call.get_swing_mode().has_value() && this->swing_mode != *call.get_swing_mode())
     {
-        this->swing_mode = *call.get_swing_mode();
-        if (this->swing_mode == climate::CLIMATE_SWING_OFF) enqueue_tx_cmd(get_command_swing_off());
-        else if (this->swing_mode == climate::CLIMATE_SWING_BOTH) enqueue_tx_cmd(get_command_swing_both());
-        else if (this->swing_mode == climate::CLIMATE_SWING_VERTICAL) enqueue_tx_cmd(get_command_swing_vertical());
-        else if (this->swing_mode == climate::CLIMATE_SWING_HORIZONTAL) enqueue_tx_cmd(get_command_swing_horizontal());
+        changed = false;
+        climate::ClimateSwingMode swing_mode = *call.get_swing_mode();
+        if (swing_mode == climate::CLIMATE_SWING_OFF) changed = enqueue_tx_cmd(get_command_swing_off());
+        else if (swing_mode == climate::CLIMATE_SWING_BOTH) changed = enqueue_tx_cmd(get_command_swing_both());
+        else if (swing_mode == climate::CLIMATE_SWING_VERTICAL) changed = enqueue_tx_cmd(get_command_swing_vertical());
+        else if (swing_mode == climate::CLIMATE_SWING_HORIZONTAL) changed = enqueue_tx_cmd(get_command_swing_horizontal());
+        if (changed) this->swing_mode = swing_mode;
     }
 
     // Set fan mode
     if (call.get_fan_mode().has_value() && this->fan_mode != *call.get_fan_mode())
     {
-        this->fan_mode = *call.get_fan_mode();
-        if (this->fan_mode.value() == climate::CLIMATE_FAN_ON) enqueue_tx_cmd(get_command_fan_on());
-        else if (this->fan_mode.value() == climate::CLIMATE_FAN_OFF) enqueue_tx_cmd(get_command_fan_off());
-        else if (this->fan_mode.value() == climate::CLIMATE_FAN_AUTO) enqueue_tx_cmd(get_command_fan_auto());
-        else if (this->fan_mode.value() == climate::CLIMATE_FAN_LOW) enqueue_tx_cmd(get_command_fan_low());
-        else if (this->fan_mode.value() == climate::CLIMATE_FAN_MEDIUM) enqueue_tx_cmd(get_command_fan_medium());
-        else if (this->fan_mode.value() == climate::CLIMATE_FAN_HIGH) enqueue_tx_cmd(get_command_fan_high());
-        else if (this->fan_mode.value() == climate::CLIMATE_FAN_MIDDLE) enqueue_tx_cmd(get_command_fan_middle());
-        else if (this->fan_mode.value() == climate::CLIMATE_FAN_FOCUS) enqueue_tx_cmd(get_command_fan_focus());
-        else if (this->fan_mode.value() == climate::CLIMATE_FAN_DIFFUSE) enqueue_tx_cmd(get_command_fan_diffuse());
-        else if (this->fan_mode.value() == climate::CLIMATE_FAN_QUIET) enqueue_tx_cmd(get_command_fan_quiet());
+        changed = false;
+        optional<climate::ClimateFanMode> fan_mode = *call.get_fan_mode();
+        if (fan_mode.value() == climate::CLIMATE_FAN_ON) changed = enqueue_tx_cmd(get_command_fan_on());
+        else if (fan_mode.value() == climate::CLIMATE_FAN_OFF) changed = enqueue_tx_cmd(get_command_fan_off());
+        else if (fan_mode.value() == climate::CLIMATE_FAN_AUTO) changed = enqueue_tx_cmd(get_command_fan_auto());
+        else if (fan_mode.value() == climate::CLIMATE_FAN_LOW) changed = enqueue_tx_cmd(get_command_fan_low());
+        else if (fan_mode.value() == climate::CLIMATE_FAN_MEDIUM) changed = enqueue_tx_cmd(get_command_fan_medium());
+        else if (fan_mode.value() == climate::CLIMATE_FAN_HIGH) changed = enqueue_tx_cmd(get_command_fan_high());
+        else if (fan_mode.value() == climate::CLIMATE_FAN_MIDDLE) changed = enqueue_tx_cmd(get_command_fan_middle());
+        else if (fan_mode.value() == climate::CLIMATE_FAN_FOCUS) changed = enqueue_tx_cmd(get_command_fan_focus());
+        else if (fan_mode.value() == climate::CLIMATE_FAN_DIFFUSE) changed = enqueue_tx_cmd(get_command_fan_diffuse());
+        else if (fan_mode.value() == climate::CLIMATE_FAN_QUIET) changed = enqueue_tx_cmd(get_command_fan_quiet());
+        if (changed) this->fan_mode = fan_mode;
     }
 
     // Set preset
     if (call.get_preset().has_value() && this->preset != *call.get_preset())
     {
-        this->preset = *call.get_preset();
-        if (this->preset.value() == climate::CLIMATE_PRESET_NONE) enqueue_tx_cmd(get_command_preset_none());
-        else if (this->preset.value() == climate::CLIMATE_PRESET_HOME) enqueue_tx_cmd(get_command_preset_home());
-        else if (this->preset.value() == climate::CLIMATE_PRESET_AWAY) enqueue_tx_cmd(get_command_preset_away());
-        else if (this->preset.value() == climate::CLIMATE_PRESET_BOOST) enqueue_tx_cmd(get_command_preset_boost());
-        else if (this->preset.value() == climate::CLIMATE_PRESET_COMFORT) enqueue_tx_cmd(get_command_preset_comfort());
-        else if (this->preset.value() == climate::CLIMATE_PRESET_ECO) enqueue_tx_cmd(get_command_preset_eco());
-        else if (this->preset.value() == climate::CLIMATE_PRESET_SLEEP) enqueue_tx_cmd(get_command_preset_sleep());
-        else if (this->preset.value() == climate::CLIMATE_PRESET_ACTIVITY) enqueue_tx_cmd(get_command_preset_activity());
+        changed = false;
+        optional<climate::ClimatePreset> preset = *call.get_preset();
+        if (preset.value() == climate::CLIMATE_PRESET_NONE) changed = enqueue_tx_cmd(get_command_preset_none());
+        else if (preset.value() == climate::CLIMATE_PRESET_HOME) changed = enqueue_tx_cmd(get_command_preset_home());
+        else if (preset.value() == climate::CLIMATE_PRESET_AWAY) changed = enqueue_tx_cmd(get_command_preset_away());
+        else if (preset.value() == climate::CLIMATE_PRESET_BOOST) changed = enqueue_tx_cmd(get_command_preset_boost());
+        else if (preset.value() == climate::CLIMATE_PRESET_COMFORT) changed = enqueue_tx_cmd(get_command_preset_comfort());
+        else if (preset.value() == climate::CLIMATE_PRESET_ECO) changed = enqueue_tx_cmd(get_command_preset_eco());
+        else if (preset.value() == climate::CLIMATE_PRESET_SLEEP) changed = enqueue_tx_cmd(get_command_preset_sleep());
+        else if (preset.value() == climate::CLIMATE_PRESET_ACTIVITY) changed = enqueue_tx_cmd(get_command_preset_activity());
+        if (changed) this->preset = preset;
     }
 
     // custom fan
     if (call.get_custom_fan_mode().has_value() && this->custom_fan_mode.value() != call.get_custom_fan_mode().value())
     {
-        this->custom_fan_mode = call.get_custom_fan_mode().value();
-        enqueue_tx_cmd(get_command_custom_fan(this->custom_fan_mode.value()));
+        optional<std::string> custom_fan_mode = call.get_custom_fan_mode().value();
+        if (enqueue_tx_cmd(get_command_custom_fan(custom_fan_mode.value())))
+        {
+            this->custom_fan_mode = custom_fan_mode;
+        }
     }
 
     // custom preset
     if (call.get_custom_preset().has_value() && this->custom_preset.value() != call.get_custom_preset().value())
     {
-        this->custom_preset = call.get_custom_preset().value();
-        enqueue_tx_cmd(get_command_custom_preset(this->custom_preset.value()));
+        optional<std::string> custom_preset = call.get_custom_preset().value();
+        if (enqueue_tx_cmd(get_command_custom_preset(custom_preset.value())))
+        {
+            this->custom_preset = custom_preset;
+        }
     }
 
     publish_state();

@@ -56,19 +56,25 @@ light::LightTraits UARTExLightOutput::get_traits()
 
 void UARTExLightOutput::write_state(light::LightState* state)
 {
-    bool binary;
+    bool binary = false;
     state->current_values_as_binary(&binary);
     if (binary != this->state_)
     {
-        enqueue_tx_cmd(binary ? get_command_on() : get_command_off());
-        this->state_ = binary;
+        if (enqueue_tx_cmd(binary ? get_command_on() : get_command_off()))
+        {
+            this->state_ = binary;
+        }
+        
     }
-    float brightness;
+    float brightness = 0;
     state->current_values_as_brightness(&brightness);
-    if ((int)(brightness * 100.0) != this->brightness_ && brightness > 0)
+    brightness *= 100;
+    if ((int)brightness != this->brightness_ && brightness > 0)
     {
-        this->brightness_ = (int)(brightness * 100.0);
-        enqueue_tx_cmd(get_command_brightness(this->brightness_));
+        if (enqueue_tx_cmd(get_command_brightness(brightness)))
+        {
+            this->brightness_ = (int)brightness;
+        }
     }
     this->light_state_ = state;
 }

@@ -74,10 +74,12 @@ void UARTExNumber::publish(const std::vector<uint8_t>& data)
 void UARTExNumber::control(float value)
 {
     if (this->state == value) return;
-    this->state = value;
-    enqueue_tx_cmd(get_command_number(this->state));
-    if (this->restore_value_) this->pref_.save(&value);
-    publish_state(value);
+    if (enqueue_tx_cmd(get_command_number(value)))
+    {
+        this->state = value;
+        if (this->restore_value_) this->pref_.save(&value);
+    }    
+    publish_state(this->state);
 }
 
 }  // namespace uartex
