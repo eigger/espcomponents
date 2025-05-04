@@ -42,13 +42,13 @@ valve:
     name: "Gas Valve"
     device_class: gas
     state: [0x41]
-    state_locked:
+    state_closed:
       offset: 1
       data: [0x01]
-    state_unlocked:
+    state_open:
       offset: 1
       data: [0x00]
-    command_lock:
+    command_close:
       data: [0xAB, 0x78, 0x00]
       ack: [0x78]
 
