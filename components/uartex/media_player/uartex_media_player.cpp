@@ -97,7 +97,7 @@ void UARTExMediaPlayer::control(const media_player::MediaPlayerCall &call)
     if (call.get_volume().has_value())
     {
         float volume = call.get_volume().value();
-        if (enqueue_tx_cmd(get_command_volume(volume * 100)))
+        if (enqueue_tx_cmd(get_command_volume(volume * 100)) || this->optimistic_)
         {
             this->volume = volume;
         }
@@ -119,7 +119,7 @@ void UARTExMediaPlayer::control(const media_player::MediaPlayerCall &call)
         case media_player::MEDIA_PLAYER_COMMAND_VOLUME_UP: 
             new_volume = this->volume + 0.1f;
             if (new_volume > 1.0f) new_volume = 1.0f;
-            if (enqueue_tx_cmd(get_command_volume_up(new_volume * 100)))
+            if (enqueue_tx_cmd(get_command_volume_up(new_volume * 100)) || this->optimistic_)
             {
                 this->volume = new_volume;
             }
@@ -129,7 +129,7 @@ void UARTExMediaPlayer::control(const media_player::MediaPlayerCall &call)
         case media_player::MEDIA_PLAYER_COMMAND_VOLUME_DOWN: 
             new_volume = this->volume - 0.1f;
             if (new_volume < 0.0f) new_volume = 0.0f;
-            if (enqueue_tx_cmd(get_command_volume_down(new_volume * 100)))
+            if (enqueue_tx_cmd(get_command_volume_down(new_volume * 100)) || this->optimistic_)
             {
                 this->volume = new_volume;
             }
@@ -137,19 +137,19 @@ void UARTExMediaPlayer::control(const media_player::MediaPlayerCall &call)
             this->muted_ = false;
             break;
         case media_player::MEDIA_PLAYER_COMMAND_PLAY:
-            if (enqueue_tx_cmd(get_command_play()))
+            if (enqueue_tx_cmd(get_command_play()) || this->optimistic_)
             {
                 this->state = play_state;
             }
             break;
         case media_player::MEDIA_PLAYER_COMMAND_PAUSE:
-            if (enqueue_tx_cmd(get_command_pause()))
+            if (enqueue_tx_cmd(get_command_pause()) || this->optimistic_)
             {
                 this->state = media_player::MEDIA_PLAYER_STATE_PAUSED;
             }
             break;
         case media_player::MEDIA_PLAYER_COMMAND_STOP:
-            if (enqueue_tx_cmd(get_command_stop()))
+            if (enqueue_tx_cmd(get_command_stop()) || this->optimistic_)
             {
                 this->state = media_player::MEDIA_PLAYER_STATE_IDLE;
             }
@@ -157,14 +157,14 @@ void UARTExMediaPlayer::control(const media_player::MediaPlayerCall &call)
         case media_player::MEDIA_PLAYER_COMMAND_TOGGLE:
             if (this->state == media_player::MEDIA_PLAYER_STATE_PLAYING)
             {
-                if (enqueue_tx_cmd(get_command_pause()))
+                if (enqueue_tx_cmd(get_command_pause()) || this->optimistic_)
                 {
                     this->state = media_player::MEDIA_PLAYER_STATE_PAUSED;
                 }
             } 
             else 
             {
-                if (enqueue_tx_cmd(get_command_play()))
+                if (enqueue_tx_cmd(get_command_play()) || this->optimistic_)
                 {
                     this->state = media_player::MEDIA_PLAYER_STATE_PLAYING;
                 }

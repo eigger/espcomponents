@@ -75,7 +75,7 @@ public:
     void set_command(std::string name, std::function<cmd_t()> &&f) { this->command_func_map_[name] = f; }
     void set_command(std::string name, std::function<cmd_t(const float x)> &&f) { this->command_float_func_map_[name] = f; }
     void set_command(std::string name, std::function<cmd_t(const std::string& str)> &&f) { this->command_str_func_map_[name] = f; }
-
+    void set_optimistic(bool optimistic) { this->optimistic_ = optimistic; }
     bool enqueue_tx_cmd(const cmd_t* cmd, bool low_priority = false);
     const cmd_t* dequeue_tx_cmd();
     const cmd_t* dequeue_tx_cmd_low_priority();
@@ -114,6 +114,7 @@ protected:
     std::unordered_map<std::string, std::function<cmd_t(const std::string& str)>> command_str_func_map_{};
     
     bool rx_response_{false};
+    bool optimistic_{false};
     std::queue<const cmd_t*> tx_cmd_queue_{};
     std::queue<const cmd_t*> tx_cmd_queue_low_priority_{};
     std::vector<uint8_t> last_state_{};
