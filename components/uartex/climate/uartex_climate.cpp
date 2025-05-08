@@ -368,14 +368,14 @@ void UARTExClimate::control(const climate::ClimateCall& call)
         else if (mode == climate::CLIMATE_MODE_FAN_ONLY) changed = enqueue_tx_cmd(get_command_fan_only());
         else if (mode == climate::CLIMATE_MODE_DRY) changed = enqueue_tx_cmd(get_command_dry());
         else if (mode == climate::CLIMATE_MODE_AUTO) changed = enqueue_tx_cmd(get_command_auto());
-        if (changed) this->mode = mode;
+        if (changed || this->optimistic_) this->mode = mode;
     }
 
     // Set target temperature
     if (call.get_target_temperature().has_value() && this->target_temperature != *call.get_target_temperature())
     {
         float temperature = *call.get_target_temperature();
-        if (enqueue_tx_cmd(get_command_temperature(temperature)))
+        if (enqueue_tx_cmd(get_command_temperature(temperature)) || this->optimistic_)
         {
             this->target_temperature = temperature;
         }
@@ -385,7 +385,7 @@ void UARTExClimate::control(const climate::ClimateCall& call)
     if (call.get_target_humidity().has_value() && this->target_humidity != *call.get_target_humidity())
     {
         float humidity = *call.get_target_humidity();
-        if (enqueue_tx_cmd(get_command_humidity(humidity)))
+        if (enqueue_tx_cmd(get_command_humidity(humidity)) || this->optimistic_)
         {
             this->target_humidity = humidity;
         }
@@ -400,7 +400,7 @@ void UARTExClimate::control(const climate::ClimateCall& call)
         else if (swing_mode == climate::CLIMATE_SWING_BOTH) changed = enqueue_tx_cmd(get_command_swing_both());
         else if (swing_mode == climate::CLIMATE_SWING_VERTICAL) changed = enqueue_tx_cmd(get_command_swing_vertical());
         else if (swing_mode == climate::CLIMATE_SWING_HORIZONTAL) changed = enqueue_tx_cmd(get_command_swing_horizontal());
-        if (changed) this->swing_mode = swing_mode;
+        if (changed || this->optimistic_) this->swing_mode = swing_mode;
     }
 
     // Set fan mode
@@ -418,7 +418,7 @@ void UARTExClimate::control(const climate::ClimateCall& call)
         else if (fan_mode.value() == climate::CLIMATE_FAN_FOCUS) changed = enqueue_tx_cmd(get_command_fan_focus());
         else if (fan_mode.value() == climate::CLIMATE_FAN_DIFFUSE) changed = enqueue_tx_cmd(get_command_fan_diffuse());
         else if (fan_mode.value() == climate::CLIMATE_FAN_QUIET) changed = enqueue_tx_cmd(get_command_fan_quiet());
-        if (changed) this->fan_mode = fan_mode;
+        if (changed || this->optimistic_) this->fan_mode = fan_mode;
     }
 
     // Set preset
@@ -434,14 +434,14 @@ void UARTExClimate::control(const climate::ClimateCall& call)
         else if (preset.value() == climate::CLIMATE_PRESET_ECO) changed = enqueue_tx_cmd(get_command_preset_eco());
         else if (preset.value() == climate::CLIMATE_PRESET_SLEEP) changed = enqueue_tx_cmd(get_command_preset_sleep());
         else if (preset.value() == climate::CLIMATE_PRESET_ACTIVITY) changed = enqueue_tx_cmd(get_command_preset_activity());
-        if (changed) this->preset = preset;
+        if (changed || this->optimistic_) this->preset = preset;
     }
 
     // custom fan
     if (call.get_custom_fan_mode().has_value() && this->custom_fan_mode.value() != call.get_custom_fan_mode().value())
     {
         optional<std::string> custom_fan_mode = call.get_custom_fan_mode().value();
-        if (enqueue_tx_cmd(get_command_custom_fan(custom_fan_mode.value())))
+        if (enqueue_tx_cmd(get_command_custom_fan(custom_fan_mode.value())) || this->optimistic_)
         {
             this->custom_fan_mode = custom_fan_mode;
         }
@@ -451,7 +451,7 @@ void UARTExClimate::control(const climate::ClimateCall& call)
     if (call.get_custom_preset().has_value() && this->custom_preset.value() != call.get_custom_preset().value())
     {
         optional<std::string> custom_preset = call.get_custom_preset().value();
-        if (enqueue_tx_cmd(get_command_custom_preset(custom_preset.value())))
+        if (enqueue_tx_cmd(get_command_custom_preset(custom_preset.value())) || this->optimistic_)
         {
             this->custom_preset = custom_preset;
         }

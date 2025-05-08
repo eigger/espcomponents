@@ -58,7 +58,7 @@ void UARTExFan::control(const fan::FanCall& call)
         bool state = *call.get_state();
         if (state)
         {
-            if (enqueue_tx_cmd(get_command_on()))
+            if (enqueue_tx_cmd(get_command_on()) || this->optimistic_)
             {
                 this->state = state;
             }
@@ -67,7 +67,7 @@ void UARTExFan::control(const fan::FanCall& call)
     if (call.get_speed().has_value() && this->speed != *call.get_speed())
     {
         int speed = *call.get_speed();
-        if (enqueue_tx_cmd(get_command_speed(speed)))
+        if (enqueue_tx_cmd(get_command_speed(speed)) || this->optimistic_)
         {
             this->speed = speed;
         }
@@ -77,7 +77,7 @@ void UARTExFan::control(const fan::FanCall& call)
         bool state = *call.get_state();
         if (!state)
         {
-            if (enqueue_tx_cmd(get_command_off()))
+            if (enqueue_tx_cmd(get_command_off()) || this->optimistic_)
             {
                 this->state = state;
             }
@@ -100,7 +100,7 @@ void UARTExFan::control(const fan::FanCall& call)
     if (call.get_preset_mode().size() > 0 && this->preset_mode != call.get_preset_mode())
     {
         std::string preset_mode = call.get_preset_mode();
-        if (enqueue_tx_cmd(get_command_preset(preset_mode)))
+        if (enqueue_tx_cmd(get_command_preset(preset_mode)) || this->optimistic_)
         {
             this->preset_mode = preset_mode;
         }

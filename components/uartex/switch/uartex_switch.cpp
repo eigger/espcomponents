@@ -15,7 +15,7 @@ void UARTExSwitch::dump_config()
 void UARTExSwitch::write_state(bool state)
 {
     if(state == this->state) return;
-    if (enqueue_tx_cmd(state ? get_command_on() : get_command_off()))
+    if (enqueue_tx_cmd(state ? get_command_on() : get_command_off()) || this->optimistic_)
     {
         this->state = state;
     }
