@@ -94,8 +94,8 @@ switch:
 
 esp32_ble_tracker:
   scan_parameters:
-    interval: 1100ms
-    window: 1100ms
+    #interval: 1100ms
+    #window: 1100ms
     active: true
 #
 # The LED is disabled for ESPHome 2023.6.0+ since we do not
