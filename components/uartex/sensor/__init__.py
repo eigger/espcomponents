@@ -9,7 +9,7 @@ from ..const import CONF_COMMAND_ON, CONF_COMMAND_OFF, CONF_STATE_ON, CONF_STATE
 DEPENDENCIES = ['uartex']
 UARTExSensor = uartex_ns.class_('UARTExSensor', sensor.Sensor, UARTExDevice)
 
-CONFIG_SCHEMA = cv.All(sensor.SENSOR_SCHEMA.extend({
+CONFIG_SCHEMA = cv.All(sensor._SENSOR_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExSensor),
     cv.Optional(CONF_LAMBDA): cv.returning_lambda,
     cv.Optional(CONF_STATE_NUMBER): cv.templatable(state_num_schema),

@@ -51,7 +51,7 @@ def validate_custom_modes(value):
 
     return value
 
-CONFIG_SCHEMA = cv.All(climate.CLIMATE_SCHEMA.extend({
+CONFIG_SCHEMA = cv.All(climate._CLIMATE_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExClimate),
     cv.Optional(CONF_SENSOR): cv.use_id(sensor.Sensor),
     cv.Optional(CONF_STATE_TEMPERATURE_CURRENT): cv.templatable(state_num_schema),

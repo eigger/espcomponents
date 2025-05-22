@@ -10,7 +10,7 @@ from ..const import CONF_COMMAND_TEXT, CONF_COMMAND_ON, CONF_COMMAND_OFF, CONF_S
 DEPENDENCIES = ['uartex']
 UARTExText = uartex_ns.class_('UARTExText', text.Text, UARTExDevice)
 
-CONFIG_SCHEMA = cv.All(text.TEXT_SCHEMA.extend({
+CONFIG_SCHEMA = cv.All(text._TEXT_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExText),
     cv.Required(CONF_COMMAND_TEXT): cv.templatable(command_hex_schema),
     cv.Optional(CONF_LAMBDA): cv.returning_lambda,
