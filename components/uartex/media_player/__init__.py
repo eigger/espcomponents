@@ -13,7 +13,7 @@ from ..const import CONF_STATE_NONE, CONF_STATE_IDLE, CONF_STATE_PLAYING, CONF_S
 DEPENDENCIES = ['uartex']
 UARTExMediaPlayer = uartex_ns.class_('UARTExMediaPlayer', media_player.MediaPlayer, UARTExDevice)
 
-CONFIG_SCHEMA = cv.All(media_player.MEDIA_PLAYER_SCHEMA.extend({
+CONFIG_SCHEMA = cv.All(media_player._MEDIA_PLAYER_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(UARTExMediaPlayer),
     cv.Optional(CONF_STATE_NONE): state_schema,
     cv.Optional(CONF_STATE_IDLE): state_schema,
