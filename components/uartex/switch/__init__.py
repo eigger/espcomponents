@@ -7,7 +7,7 @@ from .. import uartex_ns, UARTExDevice
 DEPENDENCIES = ['uartex']
 UARTExSwitch = uartex_ns.class_('UARTExSwitch', switch.Switch, UARTExDevice)
 
-CONFIG_SCHEMA = switch.SWITCH_SCHEMA.extend({
+CONFIG_SCHEMA = switch.switch_schema.extend({
     cv.GenerateID(): cv.declare_id(UARTExSwitch),
 }).extend(uartex.UARTEX_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
 

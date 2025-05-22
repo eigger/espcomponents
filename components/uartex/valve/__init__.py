@@ -11,7 +11,7 @@ from ..const import CONF_COMMAND_OPEN, CONF_COMMAND_CLOSE, CONF_COMMAND_STOP, CO
 DEPENDENCIES = ['uartex']
 UARTExValve = uartex_ns.class_('UARTExValve', valve.Valve, UARTExDevice)
 
-CONFIG_SCHEMA = cv.All(valve.VALVE_SCHEMA.extend({
+CONFIG_SCHEMA = cv.All(valve.valve_schema.extend({
     cv.GenerateID(): cv.declare_id(UARTExValve),
     cv.Optional(CONF_STATE_OPEN): state_schema,
     cv.Optional(CONF_STATE_CLOSED): state_schema,

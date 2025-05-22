@@ -11,7 +11,7 @@ from ..const import CONF_COMMAND_OPEN, CONF_COMMAND_CLOSE, CONF_COMMAND_STOP, CO
 DEPENDENCIES = ['uartex']
 UARTExCover = uartex_ns.class_('UARTExCover', cover.Cover, UARTExDevice)
 
-CONFIG_SCHEMA = cv.All(cover.COVER_SCHEMA.extend({
+CONFIG_SCHEMA = cv.All(cover.cover_schema.extend({
     cv.GenerateID(): cv.declare_id(UARTExCover),
     cv.Optional(CONF_STATE_OPEN): state_schema,
     cv.Optional(CONF_STATE_CLOSED): state_schema,

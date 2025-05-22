@@ -11,7 +11,7 @@ from ..const import CONF_COMMAND_NUMBER, CONF_COMMAND_OFF, CONF_COMMAND_ON, \
 DEPENDENCIES = ['uartex']
 UARTExNumber = uartex_ns.class_('UARTExNumber', number.Number, UARTExDevice)
 
-CONFIG_SCHEMA = cv.All(number.NUMBER_SCHEMA.extend({
+CONFIG_SCHEMA = cv.All(number.number_schema.extend({
     cv.GenerateID(): cv.declare_id(UARTExNumber),
     cv.Optional(CONF_MIN_VALUE, default=0): cv.float_,
     cv.Optional(CONF_MAX_VALUE, default=10): cv.float_,

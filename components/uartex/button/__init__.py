@@ -8,7 +8,7 @@ from ..const import CONF_STATE, CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_OFF,
 DEPENDENCIES = ['uartex']
 UARTExButton = uartex_ns.class_('UARTExButton', button.Button, UARTExDevice)
 
-CONFIG_SCHEMA = button.BUTTON_SCHEMA.extend({
+CONFIG_SCHEMA = button.button_schema.extend({
     cv.GenerateID(): cv.declare_id(UARTExButton),
 }).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_STATE): cv.invalid("UARTEx buttons do not support state!"),

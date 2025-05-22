@@ -12,7 +12,7 @@ from ..const import CONF_COMMAND_LOCK, CONF_COMMAND_OFF, CONF_COMMAND_UNLOCK, CO
 DEPENDENCIES = ['uartex']
 UARTExLock = uartex_ns.class_('UARTExLock', lock.Lock, UARTExDevice)
 
-CONFIG_SCHEMA = cv.All(lock.LOCK_SCHEMA.extend({
+CONFIG_SCHEMA = cv.All(lock.lock_schema.extend({
     cv.GenerateID(): cv.declare_id(UARTExLock),
     cv.Optional(CONF_STATE_LOCKED): state_schema,
     cv.Optional(CONF_STATE_UNLOCKED): state_schema,
