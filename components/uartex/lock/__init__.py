@@ -12,8 +12,7 @@ from ..const import CONF_COMMAND_LOCK, CONF_COMMAND_OFF, CONF_COMMAND_UNLOCK, CO
 DEPENDENCIES = ['uartex']
 UARTExLock = uartex_ns.class_('UARTExLock', lock.Lock, UARTExDevice)
 
-CONFIG_SCHEMA = cv.All(lock._LOCK_SCHEMA.extend({
-    cv.GenerateID(): cv.declare_id(UARTExLock),
+CONFIG_SCHEMA = cv.All(lock.lock_schema(UARTExLock).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_STATE_LOCKED): state_schema,
     cv.Optional(CONF_STATE_UNLOCKED): state_schema,
     cv.Optional(CONF_STATE_JAMMED): state_schema,
@@ -29,7 +28,6 @@ CONFIG_SCHEMA = cv.All(lock._LOCK_SCHEMA.extend({
         cv.positive_time_period_milliseconds,
         cv.Range(max=core.TimePeriod(milliseconds=60 * 1000)),
     ),
-}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Lock do not support command_on!"),
     cv.Optional(CONF_COMMAND_OFF): cv.invalid("UARTEx Lock do not support command_off!"),
     cv.Optional(CONF_STATE_ON): cv.invalid("UARTEx Lock do not support state_on!"),

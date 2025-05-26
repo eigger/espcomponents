@@ -52,9 +52,11 @@ def validate_custom_modes(value):
 
     return value
 
-CONFIG_SCHEMA = cv.All(climate._CLIMATE_SCHEMA.extend({
-    cv.GenerateID(): cv.declare_id(UARTExClimate),
+CONFIG_SCHEMA = cv.All(climate.climate_schema(UARTExClimate).extend({
     cv.Optional(CONF_SENSOR): cv.use_id(sensor.Sensor),
+    cv.Optional(CONF_CUSTOM_FAN_MODE): validate_custom_modes,
+    cv.Optional(CONF_CUSTOM_PRESET): validate_custom_modes,
+}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_STATE_TEMPERATURE_CURRENT): cv.templatable(state_num_schema),
     cv.Optional(CONF_STATE_TEMPERATURE_TARGET): cv.templatable(state_num_schema),
     cv.Optional(CONF_STATE_HUMIDITY_CURRENT): cv.templatable(state_num_schema),
@@ -124,9 +126,6 @@ CONFIG_SCHEMA = cv.All(climate._CLIMATE_SCHEMA.extend({
     cv.Optional(CONF_COMMAND_PRESET_ACTIVITY): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_CUSTOM_FAN): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_CUSTOM_PRESET): cv.templatable(command_hex_schema),
-    cv.Optional(CONF_CUSTOM_FAN_MODE): validate_custom_modes,
-    cv.Optional(CONF_CUSTOM_PRESET): validate_custom_modes,
-}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Climate do not support command_on!"),
     cv.Optional(CONF_STATE_ON): cv.invalid("UARTEx Climate do not support state_on!")

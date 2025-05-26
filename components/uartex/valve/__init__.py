@@ -11,15 +11,13 @@ from ..const import CONF_COMMAND_OPEN, CONF_COMMAND_CLOSE, CONF_COMMAND_STOP, CO
 DEPENDENCIES = ['uartex']
 UARTExValve = uartex_ns.class_('UARTExValve', valve.Valve, UARTExDevice)
 
-CONFIG_SCHEMA = cv.All(valve._VALVE_SCHEMA.extend({
-    cv.GenerateID(): cv.declare_id(UARTExValve),
+CONFIG_SCHEMA = cv.All(valve.valve_schema(UARTExValve).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_STATE_OPEN): state_schema,
     cv.Optional(CONF_STATE_CLOSED): state_schema,
     cv.Optional(CONF_STATE_POSITION): cv.templatable(state_num_schema),
     cv.Optional(CONF_COMMAND_OPEN): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_CLOSE): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_STOP): cv.templatable(command_hex_schema),
-}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Valve do not support command_on!"),
     cv.Optional(CONF_COMMAND_OFF): cv.invalid("UARTEx Valve do not support command_off!"),
     cv.Optional(CONF_STATE_ON): cv.invalid("UARTEx Valve do not support state_on!"),

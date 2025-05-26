@@ -13,8 +13,7 @@ from ..const import CONF_STATE_NONE, CONF_STATE_IDLE, CONF_STATE_PLAYING, CONF_S
 DEPENDENCIES = ['uartex']
 UARTExMediaPlayer = uartex_ns.class_('UARTExMediaPlayer', media_player.MediaPlayer, UARTExDevice)
 
-CONFIG_SCHEMA = cv.All(media_player._MEDIA_PLAYER_SCHEMA.extend({
-    cv.GenerateID(): cv.declare_id(UARTExMediaPlayer),
+CONFIG_SCHEMA = cv.All(media_player.media_player_schema(UARTExMediaPlayer).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_STATE_NONE): state_schema,
     cv.Optional(CONF_STATE_IDLE): state_schema,
     cv.Optional(CONF_STATE_PLAYING): state_schema,
@@ -34,7 +33,6 @@ CONFIG_SCHEMA = cv.All(media_player._MEDIA_PLAYER_SCHEMA.extend({
     cv.Optional(CONF_COMMAND_REPEAT_ONE): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_REPEAT_OFF): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_CLEAR_PLAYLIST): cv.templatable(command_hex_schema),
-}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Media Player do not support command_on!"),
     cv.Optional(CONF_COMMAND_OFF): cv.invalid("UARTEx Media Player do not support command_off!"),
     cv.Optional(CONF_STATE_ON): cv.invalid("UARTEx Media Player do not support state_on!"),

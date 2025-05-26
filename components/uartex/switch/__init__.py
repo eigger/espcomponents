@@ -7,9 +7,7 @@ from .. import uartex_ns, UARTExDevice
 DEPENDENCIES = ['uartex']
 UARTExSwitch = uartex_ns.class_('UARTExSwitch', switch.Switch, UARTExDevice)
 
-CONFIG_SCHEMA = switch._SWITCH_SCHEMA.extend({
-    cv.GenerateID(): cv.declare_id(UARTExSwitch),
-}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
+CONFIG_SCHEMA = switch.switch_schema(UARTExSwitch).extend(uartex.UARTEX_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])

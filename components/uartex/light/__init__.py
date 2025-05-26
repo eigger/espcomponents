@@ -11,12 +11,10 @@ DEPENDENCIES = ['uartex']
 UARTExLightOutput = uartex_ns.class_('UARTExLightOutput', light.LightOutput, UARTExDevice)
 UARTExLightState = uartex_ns.class_('UARTExLightState', light.LightState)
 
-CONFIG_SCHEMA = light.BINARY_LIGHT_SCHEMA.extend({
-    cv.GenerateID(): cv.declare_id(UARTExLightState),
-    cv.GenerateID(CONF_OUTPUT_ID): cv.declare_id(UARTExLightOutput),
+CONFIG_SCHEMA = cv.All(light.light_schema(UARTExLightState, light.LightType.BINARY).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_STATE_BRIGHTNESS): cv.templatable(state_num_schema),
     cv.Optional(CONF_COMMAND_BRIGHTNESS): cv.templatable(command_hex_schema),
-}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
+}).extend(cv.COMPONENT_SCHEMA))
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_OUTPUT_ID])
