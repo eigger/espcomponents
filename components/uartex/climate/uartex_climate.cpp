@@ -400,6 +400,7 @@ climate::ClimateAction UARTExClimate::mode_to_action(climate::ClimateMode mode)
     else if (mode == climate::CLIMATE_MODE_HEAT) action = climate::CLIMATE_ACTION_HEATING;
     else if (mode == climate::CLIMATE_MODE_FAN_ONLY) action = climate::CLIMATE_ACTION_FAN;
     else if (mode == climate::CLIMATE_MODE_DRY) action = climate::CLIMATE_ACTION_DRYING;
+    return action;
 }
 
 void UARTExClimate::control(const climate::ClimateCall& call)
