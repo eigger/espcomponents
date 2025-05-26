@@ -19,8 +19,9 @@ CONFIG_SCHEMA = cv.All(light.light_schema(UARTExLightOutput, light.LightType.BIN
 async def to_code(config):
     var = await light.new_light(config)
     await cg.register_component(var, config)
+    del config[CONF_UPDATE_INTERVAL]
     await uartex.register_uartex_device(var, config)
-
+    
     if CONF_STATE_BRIGHTNESS in config:
         state = await state_num_expression(config[CONF_STATE_BRIGHTNESS])
         cg.add(var.set_state(CONF_STATE_BRIGHTNESS, state))
