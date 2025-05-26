@@ -135,9 +135,8 @@ CONFIG_SCHEMA = cv.All(climate.climate_schema(UARTExClimate).extend({
 
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    var = await climate.new_climate(config)
     await cg.register_component(var, config)
-    await climate.register_climate(var, config)
     await uartex.register_uartex_device(var, config)
 
     if CONF_CUSTOM_FAN_MODE in config:

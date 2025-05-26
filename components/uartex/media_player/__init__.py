@@ -40,9 +40,8 @@ CONFIG_SCHEMA = cv.All(media_player.media_player_schema(UARTExMediaPlayer).exten
 }).extend(cv.COMPONENT_SCHEMA))
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    var = await media_player.new_media_player(config)
     await cg.register_component(var, config)
-    await media_player.register_media_player(var, config)
     await uartex.register_uartex_device(var, config)
 
     if CONF_STATE_NONE in config:

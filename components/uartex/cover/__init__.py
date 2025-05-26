@@ -28,9 +28,8 @@ CONFIG_SCHEMA = cv.All(cover.cover_schema(UARTExCover).extend(uartex.UARTEX_DEVI
 }).extend(cv.COMPONENT_SCHEMA))
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    var = await cover.new_cover(config)
     await cg.register_component(var, config)
-    await cover.register_cover(var, config)
     await uartex.register_uartex_device(var, config)
 
     if CONF_STATE_OPEN in config:

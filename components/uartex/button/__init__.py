@@ -17,7 +17,6 @@ CONFIG_SCHEMA = button.button_schema(UARTExButton).extend(uartex.UARTEX_DEVICE_S
 }).extend(cv.COMPONENT_SCHEMA)
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    var = await button.new_button(config)
     await cg.register_component(var, config)
-    await button.register_button(var, config)
     await uartex.register_uartex_device(var, config)

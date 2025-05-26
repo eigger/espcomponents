@@ -30,14 +30,13 @@ CONFIG_SCHEMA = cv.All(number.number_schema(UARTExNumber).extend({
 }).extend(cv.COMPONENT_SCHEMA))
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
-    await cg.register_component(var, config)
-    await number.register_number(            
-        var,
+    var = await number.new_number(
         config,
-        min_value = config[CONF_MIN_VALUE],
-        max_value = config[CONF_MAX_VALUE],
-        step = config[CONF_STEP],)
+        min_value=config[CONF_MIN_VALUE],
+        max_value=config[CONF_MAX_VALUE],
+        step=config[CONF_STEP],
+    )
+    await cg.register_component(var, config)
     await uartex.register_uartex_device(var, config)
     
     if CONF_RESTORE_VALUE in config:

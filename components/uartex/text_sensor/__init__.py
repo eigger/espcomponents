@@ -19,9 +19,8 @@ CONFIG_SCHEMA = cv.All(text_sensor.text_sensor_schema(UARTExTextSensor).extend({
 }).extend(cv.COMPONENT_SCHEMA))
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    var = await text_sensor.new_text_sensor(config)
     await cg.register_component(var, config)
-    await text_sensor.register_text_sensor(var, config)
     await uartex.register_uartex_device(var, config)
     
     if CONF_LAMBDA in config:

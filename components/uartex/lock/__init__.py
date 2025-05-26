@@ -35,9 +35,8 @@ CONFIG_SCHEMA = cv.All(lock.lock_schema(UARTExLock).extend(uartex.UARTEX_DEVICE_
 }).extend(cv.COMPONENT_SCHEMA), cv.has_at_least_one_key(CONF_STATE_LOCKED, CONF_STATE_UNLOCKED), cv.has_at_least_one_key(CONF_COMMAND_LOCK, CONF_COMMAND_UNLOCK))
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    var = cg.lock.new_lock(config)
     await cg.register_component(var, config)
-    await lock.register_lock(var, config)
     await uartex.register_uartex_device(var, config)
 
     if CONF_STATE_LOCKED in config:

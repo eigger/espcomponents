@@ -20,9 +20,8 @@ CONFIG_SCHEMA = cv.All(fan.fan_schema(UARTExFan).extend(uartex.UARTEX_DEVICE_SCH
 }).extend(cv.COMPONENT_SCHEMA))
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    var = await fan.new_fan(config)
     await cg.register_component(var, config)
-    await fan.register_fan(var, config)
     await uartex.register_uartex_device(var, config)
 
     if CONF_STATE_SPEED in config:

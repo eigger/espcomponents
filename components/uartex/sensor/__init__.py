@@ -20,9 +20,8 @@ CONFIG_SCHEMA = cv.All(sensor.sensor_schema(UARTExSensor).extend({
 }).extend(cv.COMPONENT_SCHEMA),  cv.has_exactly_one_key(CONF_LAMBDA, CONF_STATE_NUMBER))
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    var = await sensor.new_sensor(config)
     await cg.register_component(var, config)
-    await sensor.register_sensor(var, config)
     await uartex.register_uartex_device(var, config)
     
     if CONF_LAMBDA in config:

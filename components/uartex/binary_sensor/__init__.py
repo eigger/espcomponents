@@ -14,7 +14,6 @@ CONFIG_SCHEMA = binary_sensor.binary_sensor_schema(UARTExBinarySensor).extend(ua
 }).extend(cv.COMPONENT_SCHEMA)
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    var = await binary_sensor.new_binary_sensor(config)
     await cg.register_component(var, config)
-    await binary_sensor.register_binary_sensor(var, config)
     await uartex.register_uartex_device(var, config)

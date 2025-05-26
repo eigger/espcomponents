@@ -25,9 +25,8 @@ CONFIG_SCHEMA = cv.All(valve.valve_schema(UARTExValve).extend(uartex.UARTEX_DEVI
 }).extend(cv.COMPONENT_SCHEMA))
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    var = await valve.new_valve(config)
     await cg.register_component(var, config)
-    await valve.register_valve(var, config)
     await uartex.register_uartex_device(var, config)
 
     if CONF_STATE_OPEN in config:

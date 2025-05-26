@@ -21,9 +21,8 @@ CONFIG_SCHEMA = cv.All(text.text_schema(UARTExText).extend({
 }).extend(cv.COMPONENT_SCHEMA))
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    var = await text.new_text(config)
     await cg.register_component(var, config)
-    await text.register_text(var, config)
     await uartex.register_uartex_device(var, config)
     
     if CONF_COMMAND_TEXT in config:
