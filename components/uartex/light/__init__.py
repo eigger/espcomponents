@@ -11,7 +11,7 @@ DEPENDENCIES = ['uartex']
 UARTExLightOutput = uartex_ns.class_('UARTExLightOutput', light.LightOutput, UARTExDevice)
 UARTExLightState = uartex_ns.class_('UARTExLightState', light.LightState)
 
-CONFIG_SCHEMA = cv.All(light.light_schema(UARTExLightState, light.LightType.BINARY).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
+CONFIG_SCHEMA = cv.All(light.light_schema(UARTExLightOutput, light.LightType.BINARY).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_STATE_BRIGHTNESS): cv.templatable(state_num_schema),
     cv.Optional(CONF_COMMAND_BRIGHTNESS): cv.templatable(command_hex_schema),
 }).extend(cv.COMPONENT_SCHEMA))
