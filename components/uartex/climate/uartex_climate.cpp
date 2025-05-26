@@ -120,6 +120,11 @@ climate::ClimateTraits UARTExClimate::traits()
     if (get_command_preset_sleep() || get_state_preset_sleep()) traits.add_supported_preset(climate::CLIMATE_PRESET_SLEEP);
     if (get_command_preset_activity() || get_state_preset_activity()) traits.add_supported_preset(climate::CLIMATE_PRESET_ACTIVITY);
 
+    if (get_state_action_cooling() || get_state_action_heating() || get_state_action_idle() || get_state_action_drying() || get_state_action_fan())
+    {
+        traits.set_supports_action(true);
+    }
+
     traits.set_supports_two_point_target_temperature(false);
     return traits;
 }
@@ -148,31 +153,63 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
     if (verify_state(data, get_state_off()))
     {
         this->mode = climate::CLIMATE_MODE_OFF;
+        this->action = mode_to_action(this->mode);
         changed = true;
     }
     else if (verify_state(data, get_state_cool()))
     {
         this->mode = climate::CLIMATE_MODE_COOL;
+        this->action = mode_to_action(this->mode);
         changed = true;
     }
     else if (verify_state(data, get_state_heat()))
     {
         this->mode = climate::CLIMATE_MODE_HEAT;
+        this->action = mode_to_action(this->mode);
         changed = true;
     }
     else if (verify_state(data, get_state_fan_only()))
     {
         this->mode = climate::CLIMATE_MODE_FAN_ONLY;
+        this->action = mode_to_action(this->mode);
         changed = true;
     }
     else if (verify_state(data, get_state_dry()))
     {
         this->mode = climate::CLIMATE_MODE_DRY;
+        this->action = mode_to_action(this->mode);
         changed = true;
     }
     else if (verify_state(data, get_state_auto()))
     {
         this->mode = climate::CLIMATE_MODE_AUTO;
+        changed = true;
+    }
+
+    //Action
+    if (verify_state(data, get_state_action_cooling()))
+    {
+        this->action = climate::CLIMATE_ACTION_COOLING;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_action_heating()))
+    {
+        this->action = climate::CLIMATE_ACTION_HEATING;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_action_idle()))
+    {
+        this->action = climate::CLIMATE_ACTION_IDLE;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_action_drying()))
+    {
+        this->action = climate::CLIMATE_ACTION_DRYING;
+        changed = true;
+    }
+    else if (verify_state(data, get_state_action_fan()))
+    {
+        this->action = climate::CLIMATE_ACTION_FAN;
         changed = true;
     }
 
@@ -355,6 +392,16 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
     if (changed) publish_state();
 }
 
+climate::ClimateAction UARTExClimate::mode_to_action(climate::ClimateMode mode)
+{
+    climate::ClimateAction action = this->action;
+    if (mode == climate::CLIMATE_MODE_OFF) action = climate::CLIMATE_ACTION_OFF;
+    else if (mode == climate::CLIMATE_MODE_COOL) action = climate::CLIMATE_ACTION_COOLING;
+    else if (mode == climate::CLIMATE_MODE_HEAT) action = climate::CLIMATE_ACTION_HEATING;
+    else if (mode == climate::CLIMATE_MODE_FAN_ONLY) action = climate::CLIMATE_ACTION_FAN;
+    else if (mode == climate::CLIMATE_MODE_DRY) action = climate::CLIMATE_ACTION_DRYING;
+}
+
 void UARTExClimate::control(const climate::ClimateCall& call)
 {
     bool changed = false;
@@ -368,7 +415,11 @@ void UARTExClimate::control(const climate::ClimateCall& call)
         else if (mode == climate::CLIMATE_MODE_FAN_ONLY) changed = enqueue_tx_cmd(get_command_fan_only());
         else if (mode == climate::CLIMATE_MODE_DRY) changed = enqueue_tx_cmd(get_command_dry());
         else if (mode == climate::CLIMATE_MODE_AUTO) changed = enqueue_tx_cmd(get_command_auto());
-        if (changed || this->optimistic_) this->mode = mode;
+        if (changed || this->optimistic_) 
+        {
+            this->mode = mode;
+            this->action = mode_to_action(mode);
+        }
     }
 
     // Set target temperature
