@@ -10,11 +10,10 @@ from ..const import CONF_COMMAND_TEXT, CONF_COMMAND_ON, CONF_COMMAND_OFF, CONF_S
 DEPENDENCIES = ['uartex']
 UARTExText = uartex_ns.class_('UARTExText', text.Text, UARTExDevice)
 
-CONFIG_SCHEMA = cv.All(text._TEXT_SCHEMA.extend({
-    cv.GenerateID(): cv.declare_id(UARTExText),
-    cv.Required(CONF_COMMAND_TEXT): cv.templatable(command_hex_schema),
+CONFIG_SCHEMA = cv.All(text.text_schema(UARTExText).extend({
     cv.Optional(CONF_LAMBDA): cv.returning_lambda,
 }).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
+    cv.Required(CONF_COMMAND_TEXT): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Text do not support command_on!"),
     cv.Optional(CONF_COMMAND_OFF): cv.invalid("UARTEx Text do not support command_off!"),
     cv.Optional(CONF_STATE_ON): cv.invalid("UARTEx Text do not support state_on!"),
@@ -22,9 +21,8 @@ CONFIG_SCHEMA = cv.All(text._TEXT_SCHEMA.extend({
 }).extend(cv.COMPONENT_SCHEMA))
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    var = await text.new_text(config)
     await cg.register_component(var, config)
-    await text.register_text(var, config)
     await uartex.register_uartex_device(var, config)
     
     if CONF_COMMAND_TEXT in config:

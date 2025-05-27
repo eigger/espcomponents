@@ -9,11 +9,10 @@ from ..const import CONF_COMMAND_ON, CONF_COMMAND_OFF, CONF_STATE_ON, CONF_STATE
 DEPENDENCIES = ['uartex']
 UARTExSensor = uartex_ns.class_('UARTExSensor', sensor.Sensor, UARTExDevice)
 
-CONFIG_SCHEMA = cv.All(sensor._SENSOR_SCHEMA.extend({
-    cv.GenerateID(): cv.declare_id(UARTExSensor),
+CONFIG_SCHEMA = cv.All(sensor.sensor_schema(UARTExSensor).extend({
     cv.Optional(CONF_LAMBDA): cv.returning_lambda,
-    cv.Optional(CONF_STATE_NUMBER): cv.templatable(state_num_schema),
 }).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
+    cv.Optional(CONF_STATE_NUMBER): cv.templatable(state_num_schema),
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Sensor do not support command_on!"),
     cv.Optional(CONF_COMMAND_OFF): cv.invalid("UARTEx Sensor do not support command_off!"),
     cv.Optional(CONF_STATE_ON): cv.invalid("UARTEx Sensor do not support state_on!"),
@@ -21,9 +20,8 @@ CONFIG_SCHEMA = cv.All(sensor._SENSOR_SCHEMA.extend({
 }).extend(cv.COMPONENT_SCHEMA),  cv.has_exactly_one_key(CONF_LAMBDA, CONF_STATE_NUMBER))
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    var = await sensor.new_sensor(config)
     await cg.register_component(var, config)
-    await sensor.register_sensor(var, config)
     await uartex.register_uartex_device(var, config)
     
     if CONF_LAMBDA in config:

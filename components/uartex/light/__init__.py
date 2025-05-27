@@ -11,12 +11,11 @@ DEPENDENCIES = ['uartex']
 UARTExLightOutput = uartex_ns.class_('UARTExLightOutput', light.LightOutput, UARTExDevice)
 UARTExLightState = uartex_ns.class_('UARTExLightState', light.LightState)
 
-CONFIG_SCHEMA = light.BINARY_LIGHT_SCHEMA.extend({
+CONFIG_SCHEMA = cv.All(light.light_schema(UARTExLightOutput, light.LightType.BINARY).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.GenerateID(): cv.declare_id(UARTExLightState),
-    cv.GenerateID(CONF_OUTPUT_ID): cv.declare_id(UARTExLightOutput),
     cv.Optional(CONF_STATE_BRIGHTNESS): cv.templatable(state_num_schema),
     cv.Optional(CONF_COMMAND_BRIGHTNESS): cv.templatable(command_hex_schema),
-}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
+}).extend(cv.COMPONENT_SCHEMA))
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_OUTPUT_ID])
@@ -24,7 +23,7 @@ async def to_code(config):
     del config[CONF_UPDATE_INTERVAL]
     await light.register_light(var, config)
     await uartex.register_uartex_device(var, config)
-
+    
     if CONF_STATE_BRIGHTNESS in config:
         state = await state_num_expression(config[CONF_STATE_BRIGHTNESS])
         cg.add(var.set_state(CONF_STATE_BRIGHTNESS, state))

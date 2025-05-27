@@ -9,8 +9,7 @@ from ..const import CONF_COMMAND_ON, CONF_COMMAND_OFF, CONF_STATE_ON, CONF_STATE
 DEPENDENCIES = ['uartex']
 UARTExTextSensor = uartex_ns.class_('UARTExTextSensor', text_sensor.TextSensor, UARTExDevice)
 
-CONFIG_SCHEMA = cv.All(text_sensor._TEXT_SENSOR_SCHEMA.extend({
-    cv.GenerateID(): cv.declare_id(UARTExTextSensor),
+CONFIG_SCHEMA = cv.All(text_sensor.text_sensor_schema(UARTExTextSensor).extend({
     cv.Required(CONF_LAMBDA): cv.returning_lambda,
 }).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Text Sensor do not support command_on!"),
@@ -20,9 +19,8 @@ CONFIG_SCHEMA = cv.All(text_sensor._TEXT_SENSOR_SCHEMA.extend({
 }).extend(cv.COMPONENT_SCHEMA))
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    var = await text_sensor.new_text_sensor(config)
     await cg.register_component(var, config)
-    await text_sensor.register_text_sensor(var, config)
     await uartex.register_uartex_device(var, config)
     
     if CONF_LAMBDA in config:

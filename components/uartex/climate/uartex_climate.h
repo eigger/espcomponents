@@ -20,7 +20,7 @@ protected:
     void publish(const std::vector<uint8_t>& data) override;
     void control(const climate::ClimateCall& call) override;
     climate::ClimateTraits traits() override;
-
+    climate::ClimateAction mode_to_action(climate::ClimateMode mode);
 protected:
     sensor::Sensor* sensor_{nullptr};
 
@@ -65,6 +65,12 @@ protected:
     state_t* get_state_fan_only() { return get_state("state_fan_only"); }
     state_t* get_state_dry() { return get_state("state_dry"); }
     state_t* get_state_auto() { return get_state("state_auto"); }
+
+    state_t* get_state_action_cooling() { return get_state("state_action_cooling"); }
+    state_t* get_state_action_heating() { return get_state("state_action_heating"); }
+    state_t* get_state_action_idle() { return get_state("state_action_idle"); }
+    state_t* get_state_action_drying() { return get_state("state_action_drying"); }
+    state_t* get_state_action_fan() { return get_state("state_action_fan"); }
 
     state_t* get_state_fan_on() { return get_state("state_fan_on"); }
     state_t* get_state_fan_off() { return get_state("state_fan_off"); }

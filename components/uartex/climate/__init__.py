@@ -13,7 +13,8 @@ from ..const import CONF_STATE_TEMPERATURE_CURRENT, CONF_STATE_TEMPERATURE_TARGE
     CONF_STATE_PRESET_NONE, CONF_STATE_PRESET_HOME, CONF_STATE_PRESET_AWAY, CONF_STATE_PRESET_BOOST, CONF_STATE_PRESET_COMFORT, CONF_STATE_PRESET_ECO, CONF_STATE_PRESET_SLEEP, CONF_STATE_PRESET_ACTIVITY, \
     CONF_STATE_FAN_ON, CONF_STATE_FAN_OFF, CONF_STATE_FAN_AUTO, CONF_STATE_FAN_LOW, CONF_STATE_FAN_MEDIUM, CONF_STATE_FAN_HIGH, CONF_STATE_FAN_MIDDLE, CONF_STATE_FAN_FOCUS, CONF_STATE_FAN_DIFFUSE, CONF_STATE_FAN_QUIET, \
     CONF_COMMAND_FAN_ON, CONF_COMMAND_FAN_OFF, CONF_COMMAND_FAN_AUTO, CONF_COMMAND_FAN_LOW, CONF_COMMAND_FAN_MEDIUM, CONF_COMMAND_FAN_HIGH, CONF_COMMAND_FAN_MIDDLE, CONF_COMMAND_FAN_FOCUS, CONF_COMMAND_FAN_DIFFUSE, CONF_COMMAND_FAN_QUIET, \
-    CONF_COMMAND_CUSTOM_FAN, CONF_COMMAND_CUSTOM_PRESET, CONF_STATE_CUSTOM_FAN, CONF_STATE_CUSTOM_PRESET
+    CONF_COMMAND_CUSTOM_FAN, CONF_COMMAND_CUSTOM_PRESET, CONF_STATE_CUSTOM_FAN, CONF_STATE_CUSTOM_PRESET, \
+    CONF_STATE_ACTION_COOLING, CONF_STATE_ACTION_HEATING, CONF_STATE_ACTION_IDLE, CONF_STATE_ACTION_DRYING, CONF_STATE_ACTION_FAN
     
 AUTO_LOAD = ['sensor']
 DEPENDENCIES = ['uartex']
@@ -51,9 +52,11 @@ def validate_custom_modes(value):
 
     return value
 
-CONFIG_SCHEMA = cv.All(climate._CLIMATE_SCHEMA.extend({
-    cv.GenerateID(): cv.declare_id(UARTExClimate),
+CONFIG_SCHEMA = cv.All(climate.climate_schema(UARTExClimate).extend({
     cv.Optional(CONF_SENSOR): cv.use_id(sensor.Sensor),
+    cv.Optional(CONF_CUSTOM_FAN_MODE): validate_custom_modes,
+    cv.Optional(CONF_CUSTOM_PRESET): validate_custom_modes,
+}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_STATE_TEMPERATURE_CURRENT): cv.templatable(state_num_schema),
     cv.Optional(CONF_STATE_TEMPERATURE_TARGET): cv.templatable(state_num_schema),
     cv.Optional(CONF_STATE_HUMIDITY_CURRENT): cv.templatable(state_num_schema),
@@ -63,6 +66,11 @@ CONFIG_SCHEMA = cv.All(climate._CLIMATE_SCHEMA.extend({
     cv.Optional(CONF_STATE_FAN_ONLY): state_schema,
     cv.Optional(CONF_STATE_DRY): state_schema,
     cv.Optional(CONF_STATE_AUTO): state_schema,
+    cv.Optional(CONF_STATE_ACTION_COOLING): state_schema,
+    cv.Optional(CONF_STATE_ACTION_HEATING): state_schema,
+    cv.Optional(CONF_STATE_ACTION_IDLE): state_schema,
+    cv.Optional(CONF_STATE_ACTION_DRYING): state_schema,
+    cv.Optional(CONF_STATE_ACTION_FAN): state_schema,
     cv.Optional(CONF_STATE_SWING_OFF): state_schema,
     cv.Optional(CONF_STATE_SWING_BOTH): state_schema,
     cv.Optional(CONF_STATE_SWING_VERTICAL): state_schema,
@@ -118,9 +126,6 @@ CONFIG_SCHEMA = cv.All(climate._CLIMATE_SCHEMA.extend({
     cv.Optional(CONF_COMMAND_PRESET_ACTIVITY): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_CUSTOM_FAN): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_CUSTOM_PRESET): cv.templatable(command_hex_schema),
-    cv.Optional(CONF_CUSTOM_FAN_MODE): validate_custom_modes,
-    cv.Optional(CONF_CUSTOM_PRESET): validate_custom_modes,
-}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Climate do not support command_on!"),
     cv.Optional(CONF_STATE_ON): cv.invalid("UARTEx Climate do not support state_on!")
@@ -130,9 +135,8 @@ CONFIG_SCHEMA = cv.All(climate._CLIMATE_SCHEMA.extend({
 
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    var = await climate.new_climate(config)
     await cg.register_component(var, config)
-    await climate.register_climate(var, config)
     await uartex.register_uartex_device(var, config)
 
     if CONF_CUSTOM_FAN_MODE in config:
@@ -180,6 +184,26 @@ async def to_code(config):
     if CONF_STATE_AUTO in config:
         state = state_hex_expression(config[CONF_STATE_AUTO])
         cg.add(var.set_state(CONF_STATE_AUTO, state))
+
+    if CONF_STATE_ACTION_COOLING in config:
+        state = state_hex_expression(config[CONF_STATE_ACTION_COOLING])
+        cg.add(var.set_state(CONF_STATE_ACTION_COOLING, state))
+
+    if CONF_STATE_ACTION_HEATING in config:
+        state = state_hex_expression(config[CONF_STATE_ACTION_HEATING])
+        cg.add(var.set_state(CONF_STATE_ACTION_HEATING, state))
+
+    if CONF_STATE_ACTION_IDLE in config:
+        state = state_hex_expression(config[CONF_STATE_ACTION_IDLE])
+        cg.add(var.set_state(CONF_STATE_ACTION_IDLE, state))
+
+    if CONF_STATE_ACTION_DRYING in config:
+        state = state_hex_expression(config[CONF_STATE_ACTION_DRYING])
+        cg.add(var.set_state(CONF_STATE_ACTION_DRYING, state))
+        
+    if CONF_STATE_ACTION_FAN in config:
+        state = state_hex_expression(config[CONF_STATE_ACTION_FAN])
+        cg.add(var.set_state(CONF_STATE_ACTION_FAN, state))
 
     if CONF_STATE_SWING_OFF in config:
         state = state_hex_expression(config[CONF_STATE_SWING_OFF])

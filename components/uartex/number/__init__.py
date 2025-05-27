@@ -11,19 +11,18 @@ from ..const import CONF_COMMAND_NUMBER, CONF_COMMAND_OFF, CONF_COMMAND_ON, \
 DEPENDENCIES = ['uartex']
 UARTExNumber = uartex_ns.class_('UARTExNumber', number.Number, UARTExDevice)
 
-CONFIG_SCHEMA = cv.All(number._NUMBER_SCHEMA.extend({
-    cv.GenerateID(): cv.declare_id(UARTExNumber),
+CONFIG_SCHEMA = cv.All(number.number_schema(UARTExNumber).extend({
     cv.Optional(CONF_MIN_VALUE, default=0): cv.float_,
     cv.Optional(CONF_MAX_VALUE, default=10): cv.float_,
     cv.Optional(CONF_STEP, default=1): cv.float_,
     cv.Optional(CONF_RESTORE_VALUE): cv.boolean,
+}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_STATE_NUMBER): cv.templatable(state_num_schema),
     cv.Optional(CONF_COMMAND_NUMBER): cv.templatable(command_hex_schema),
     cv.Optional(CONF_STATE_INCREMENT): state_schema,
     cv.Optional(CONF_STATE_DECREMENT): state_schema,
     cv.Optional(CONF_STATE_TO_MIN): state_schema,
     cv.Optional(CONF_STATE_TO_MAX): state_schema,
-}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Number do not support command_on!"),
     cv.Optional(CONF_COMMAND_OFF): cv.invalid("UARTEx Number do not support command_off!"),
     cv.Optional(CONF_STATE_ON): cv.invalid("UARTEx Number do not support state_on!"),
@@ -31,14 +30,13 @@ CONFIG_SCHEMA = cv.All(number._NUMBER_SCHEMA.extend({
 }).extend(cv.COMPONENT_SCHEMA))
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
-    await cg.register_component(var, config)
-    await number.register_number(            
-        var,
+    var = await number.new_number(
         config,
-        min_value = config[CONF_MIN_VALUE],
-        max_value = config[CONF_MAX_VALUE],
-        step = config[CONF_STEP],)
+        min_value=config[CONF_MIN_VALUE],
+        max_value=config[CONF_MAX_VALUE],
+        step=config[CONF_STEP],
+    )
+    await cg.register_component(var, config)
     await uartex.register_uartex_device(var, config)
     
     if CONF_RESTORE_VALUE in config:
