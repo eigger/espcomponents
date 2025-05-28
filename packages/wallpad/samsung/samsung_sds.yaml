@@ -267,3 +267,29 @@ climate:
     command_temperature: !lambda |-
       uint8_t target = x;
       return {{0xAE, 0x7F, 0x04, target, 0x00, 0x00, 0x00},{0x7F, 0x04, target}};
+
+fan:
+  - platform: uartex
+    name: "Ventilator"
+    state: [0x4E]
+    state_on:
+      offset: 1
+      data: [0x06]
+      inverted: True
+    state_off:
+      offset: 1
+      data: [0x06]
+    state_speed: !lambda |-
+      if (check_value(1, 0x03, data, len)) return 1;
+      if (check_value(1, 0x02, data, len)) return 2;
+      if (check_value(1, 0x01, data, len)) return 3;
+      return 0;
+    command_on:
+      data: [0xC2, 0x4F, 0x05, 0x00, 0x00]
+      ack: [0x4F, 0x05]
+    command_off:
+      data: [0xC2, 0x4F, 0x06, 0x00, 0x00]
+      ack: [0x4F, 0x06]
+    command_speed: !lambda |-
+      uint8_t speed = 0x04 - ((uint8_t)x);
+      return {{0xC2, 0x4F, speed, 0x00, 0x00},{0x4F, speed}};
