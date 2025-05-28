@@ -273,12 +273,11 @@ fan:
     name: "Ventilator"
     state: [0x4E]
     state_on:
-      offset: 1
-      data: [0x06]
-      inverted: True
+      offset: 3
+      data: [0x00]
     state_off:
-      offset: 1
-      data: [0x06]
+      offset: 3
+      data: [0x01]
     state_speed: !lambda |-
       if (check_value(1, 0x03, data, len)) return 1;
       if (check_value(1, 0x02, data, len)) return 2;
