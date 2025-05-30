@@ -15,7 +15,6 @@ public:
 protected:
     void publish(const std::vector<uint8_t>& data) override;
     void control(const std::string &value) override;
-    float get_setup_priority() const override { return setup_priority::HARDWARE; }
     cmd_t* get_command_select(const std::string& str) { return get_command("command_select", str); }
     optional<std::string> get_state_select(const std::vector<uint8_t>& data) { return get_state_str("state_select", data); }
 protected:
