@@ -549,6 +549,42 @@ switch:
   - command lambda(void)
 <hr/>
 
+## uartex.select
+```
+packet one) 0x02 0x01 0x02 0x03 0x01 (add)checksum 0x0D 0x0A
+    offset) head head 0    1    2
+packet one ack) 0x02 0x01 0x02 0x13 0x01 (add)checksum 0x0D 0x0A
+packet two) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
+packet two ack) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
+select:
+  - platform: uartex
+    name: "Select 1"
+    state: 
+      data: [0x02, 0x03]
+      mask: [0xff, 0x0f]
+    options:
+      - one
+      - two
+    initial_option: two
+    command_select: !lambda |-
+      if (str == "two") return {{0x02, 0x03, 0x00}, {0x02, 0x13, 0x00}};
+      return {{0x02, 0x03, 0x01}, {0x02, 0x13, 0x01}};
+
+    state_select: !lambda |-
+      if (data[2] == 0x01) return "one";
+      return "two";
+```
+### Configuration variables
+- options (Required, list):
+- initial_option (Optional, std::string):
+- restore_value (Optional, bool):
+- state (Optional, state): 
+- command_select (Required, command or lambda): 
+  - command lambda(std::string str)
+- state_select (Optional, lambda): 
+  - std::string lambda(uint8_t* data, uint16_t len)
+<hr/>
+
 ## uartex.text
 ```
 text:
