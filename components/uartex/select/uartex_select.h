@@ -9,10 +9,10 @@ class UARTExSelect : public select::Select, public UARTExDevice
 {
 public:
     void dump_config() override;
+    void setup() override;
     void set_initial_option(const std::string &initial_option) { this->initial_option_ = initial_option; }
     void set_restore_value(bool restore_value) { this->restore_value_ = restore_value; }
 protected:
-    void setup() override;
     void publish(const std::vector<uint8_t>& data) override;
     void control(const std::string &value) override;
     cmd_t* get_command_select(const std::string& str) { return get_command("command_select", str); }
