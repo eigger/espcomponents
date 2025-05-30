@@ -43,6 +43,7 @@ void UARTExSelect::setup()
             ESP_LOGD(TAG, "State from restore: %s", value.c_str());
         }
     }
+    if (value == "") value = this->at(0).value();
     this->publish_state(value);
 }
 
