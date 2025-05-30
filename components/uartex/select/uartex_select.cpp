@@ -9,7 +9,6 @@ void UARTExSelect::dump_config()
 {
 #ifdef ESPHOME_LOG_HAS_DEBUG
     log_config(TAG, "Name", get_name().c_str());
-    log_config(TAG, "State Select", get_state_select());
     uartex_dump_config(TAG);
 #endif
 }
