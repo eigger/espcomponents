@@ -40,7 +40,7 @@ async def to_code(config):
     await uartex.register_uartex_device(var, config)
     
     if CONF_RESTORE_VALUE in config:
-            cg.add(var.set_restore_value(config[CONF_RESTORE_VALUE]))
+        cg.add(var.set_restore_value(config[CONF_RESTORE_VALUE]))
 
     if CONF_STATE_NUMBER in config:
         state = await state_num_expression(config[CONF_STATE_NUMBER])

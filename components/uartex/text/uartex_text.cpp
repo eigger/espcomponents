@@ -9,7 +9,6 @@ void UARTExText::dump_config()
 {
 #ifdef ESPHOME_LOG_HAS_DEBUG
     log_config(TAG, "Name", get_name().c_str());
-    log_config(TAG, "Command Text", get_command_text());
     uartex_dump_config(TAG);
 #endif
 }
