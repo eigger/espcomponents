@@ -26,6 +26,7 @@ CONFIG_SCHEMA = cv.All(select.select_schema(UARTExSelect).extend(uartex.UARTEX_D
 
 async def to_code(config):
     var = await select.new_select(config, options=config[CONF_OPTIONS])
+    await cg.register_component(var, config)
     await uartex.register_uartex_device(var, config)
     
     if CONF_COMMAND_SELECT in config:
