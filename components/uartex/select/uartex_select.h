@@ -1,6 +1,7 @@
 #pragma once
 #include "esphome/components/uartex/uartex_device.h"
 #include "esphome/components/select/select.h"
+#include "esphome/core/preferences.h"
 
 namespace esphome {
 namespace uartex {
