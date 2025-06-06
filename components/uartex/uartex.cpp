@@ -221,6 +221,11 @@ void UARTExComponent::write_command(cmd_t cmd)
     enqueue_tx_data({nullptr, ptr}, false);
 }
 
+void UARTExComponent::write_command(cmd_t* cmd)
+{
+    enqueue_tx_data({nullptr, cmd}, false);
+}
+
 void UARTExComponent::write_flush()
 {
     this->flush();
