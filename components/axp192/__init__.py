@@ -30,8 +30,8 @@ CONFIG_SCHEMA = cv.Schema({
     cv.Optional(CONF_BATTERY_CHARGING): binary_sensor.binary_sensor_schema(
         entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
     ),
-    cv.Optional(CONF_BRIGHTNESS): number.number_schema.extend(Brightness),
-    cv.Optional(CONF_POWEROFF): button.button_schema.extend(Poweroff),
+    cv.Optional(CONF_BRIGHTNESS): number.number_schema(Brightness),
+    cv.Optional(CONF_POWEROFF): button.button_schema(Poweroff),
 }).extend(cv.polling_component_schema("60s")).extend(i2c.i2c_device_schema(0x34))
 
 
