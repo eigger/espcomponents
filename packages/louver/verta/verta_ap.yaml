@@ -1,0 +1,554 @@
+
+wifi:
+  ssid: "louver_"
+  password: ""
+
+logger:
+  level: NONE
+  
+uart:
+  baud_rate: 9600
+  data_bits: 8
+  parity: NONE
+  stop_bits: 1
+  rx_pin: GPIO26
+  tx_pin: GPIO32
+  
+external_components:
+  - source: github://eigger/espcomponents@dev
+    components: [ uartex ]
+    refresh: always  
+  - source: github://pr#7884
+    components: [ http_request ]
+    refresh: always  
+    
+uartex:
+  id: uartex_id
+  rx_timeout: 10ms
+  rx_footer: "\r\n"
+  tx_footer: "\r\n"
+
+http_request:
+  verify_ssl: False
+
+text_sensor:
+  - platform: uartex
+    internal: True
+    name: "Status"
+    lambda: |-
+      id(request_status).execute();
+      return "OK";
+      
+binary_sensor:
+  - platform: status
+    internal: True
+    name: "Status"
+    on_press: 
+      then:
+        - uartex.write: [0xE1]
+    on_release: 
+      then:
+        - uartex.write: [0xE2]
+
+# {
+#   "appState" : 4,
+#   "motState" : 0,
+#   "motDirection" : 1,
+#   "angle" : 75,
+#   "temp" : 23,
+#   "humid" : 0,
+#   "extTemp" : 0,
+#   "dewPoint" : 0,
+#   "tempMask" : 0,
+#   "humidMask" : 0,
+#   "extTempMask" : 0,
+#   "ventTemp" : 28,
+#   "ventAngle" : 15
+#   }
+script:
+  - id: request_status
+    then:
+      - http_request.get:
+          url: "http://172.217.28.1/cmd/notify_status"
+          headers:
+            Content-Type: application/json
+          capture_response: true
+          on_response:
+            then:
+              - lambda: |-
+                  json::parse_json(body, [](JsonObject root) -> bool {
+                      {
+                        static cmd_t cmd;
+                        cmd.data = {0xF0, (uint8_t)(root["appState"] ? root["appState"].as<uint8_t>() : 0)};
+                        id(uartex_id).write_command(&cmd); 
+                      }
+                      {
+                        static cmd_t cmd;
+                        cmd.data = {0xF1, (uint8_t)(root["motState"] ? root["motState"].as<uint8_t>() : 0)};
+                        id(uartex_id).write_command(&cmd); 
+                      }
+                      {
+                        static cmd_t cmd;
+                        cmd.data = {0xF3, (uint8_t)(root["angle"] ? root["angle"].as<uint8_t>() : 0)};
+                        id(uartex_id).write_command(&cmd); 
+                      }
+                      {
+                        static cmd_t cmd;
+                        cmd.data = {0xF4, (uint8_t)(root["temp"] ? root["temp"].as<uint8_t>() : 0)};
+                        id(uartex_id).write_command(&cmd); 
+                      }
+                      {
+                        static cmd_t cmd;
+                        cmd.data = {0xFB, (uint8_t)(root["ventTemp"] ? root["ventTemp"].as<uint8_t>() : 0)};
+                        id(uartex_id).write_command(&cmd); 
+                      }
+                      {
+                        static cmd_t cmd;
+                        cmd.data = {0xFC, (uint8_t)(root["ventAngle"] ? root["ventAngle"].as<uint8_t>() : 0)};
+                        id(uartex_id).write_command(&cmd); 
+                      }
+                      return true;
+                  });
+          on_error:
+            then:
+              - uartex.write: [0xFD]
+
+# <!doctype html>
+# <html>
+#   <head>
+#     <meta name=viewport content="width=device-width,initial-scale=1">
+#     <meta charset="UTF-8">
+#     <title id="Title">Louver IoT</title>
+#     <link rel="stylesheet" href="css/controls_style.css">
+#   </head>
+#   <body>
+#     <div class="wrapper">
+#       <div class="one">
+#         <div class="logoImage"> 
+#           <img src="img/group87.png"/>
+#         </div>
+#           <p class="logoTitle" >안전하고 편리한 뉴실외기실</p>
+#           <p class="logoSubTitle">Louver IoT</p>
+#       </div>
+#       <div class="two">
+#         <div class="two_two" id="appState">자동</div>
+#       </div>
+#       <div class="three">
+#         <div class="three_one">현재온도</div>
+#         <div class="three_two">환기온도</div>
+#         <div class="three_three" id="temp">0</div>
+#         <div class="three_three_unit">℃</div>
+#         <div class="three_four" id="ventTemp">0</div>
+#         <div class="three_four_unit">℃</div>
+#       </div>
+#       <div class="four">
+#         <button class="buttonImg" type="button" id="chkTempButton" >
+#           <img class="buttonImg" src="img/btn_change.png"/>
+#         </button>
+#       </div>
+#       <div class="five">
+#         <button class="buttonImg" type="button" id="upTempButton" >
+#           <img class="buttonImg"  src="img/btn_up.png"/>
+#         </button>
+#       </div>
+#       <div class="six">
+#         <button class="buttonImg" type="button" id="dnTempButton" >
+#           <img  class="buttonImg" src="img/btn_down.png"/>
+#         </button>
+#       </div>
+#       <div class="seven">
+#         <div class="three_one">현재각도</div>
+#         <div class="three_two">환기각도</div>
+#         <div class="three_three" id="angle">0</div>
+#         <div class="three_three_unit">˚</div>
+#         <div class="three_four" id="ventAngle">0</div>
+#         <div class="three_four_unit">˚</div>
+#       </div>
+#       <div class="eight">
+#         <button class="buttonImg" type="button" id="chkAngleButton" >
+#           <img class="buttonImg"  src="img/btn_change.png"/>
+#         </button>
+#       </div>
+#       <div class="nine">
+#         <button class="buttonImg" type="button" id="upAngleButton" >
+#           <img class="buttonImg"  src="img/btn_up.png"/>
+#         </button>
+#       </div>
+#       <div class="ten">
+#         <button class="buttonImg" type="button" id="dnAngleButton" >
+#           <img  class="buttonImg" src="img/btn_down.png"/>
+#         </button>
+#       </div>
+#       <div class="eleven">
+#         <img  class="imgGuide" src="img/guide.png"/>
+#       </div>
+#       <div class="twelve"><img class="imgGuideContent" src="img/guide_content.png"/></div>
+#     </div>
+#   </body>
+#   <script>
+#   var model = "Gold";
+#   </script>
+#   <script src="js/controls.js"></script>
+# </html>
+
+
+# //var angle = parseInt(document.getElementById("angle").innerHTML);
+# var appState = 0;
+# var motState = 0;
+# var motDirection = 0;
+# var ventTempFlag = false;
+# var ventTempBlinkFunc = null;
+# var ventAngleFlag = false;
+# var ventAngleBlinkFunc = null;
+# var angleFlag = false;
+# var angleBlinkFunc = null;
+# var basicUpdate = null;
+# var ws;
+
+# const MINIMUM_ANGLE = 5;
+# const MINIMUM_TEMP = 1;
+# const requestURL = '';
+# const chkTempButton = document.getElementById('chkTempButton');
+# chkTempButton.addEventListener('click', chkTemp);
+# const upTempButton = document.getElementById('upTempButton');
+# upTempButton.addEventListener('click', upTemp);
+# upTempButton.disabled = true;
+# const dnTempButton = document.getElementById('dnTempButton');
+# dnTempButton.addEventListener('click', dnTemp);
+# dnTempButton.disabled = true;
+# const chkAngleButton = document.getElementById('chkAngleButton');
+# chkAngleButton.addEventListener('click', chkAngle);
+# const upAngleButton = document.getElementById('upAngleButton');
+# upAngleButton.addEventListener('click', upAngle);
+# const dnAngleButton = document.getElementById('dnAngleButton');
+# dnAngleButton.addEventListener('click', dnAngle);
+
+# function basicUpdateSet()
+# {
+# 	//basicUpdate = setInterval(updateState, 3000);
+# }
+
+# function basicUpdateClear()
+# {
+# 	//clearInterval(basicUpdate);
+# }
+
+# basicUpdateSet();
+# ws = new WebSocket("ws://172.217.28.1/ws");
+# ws.onopen = function(evt) { wsOnOpen(evt); }
+# ws.onclose = function(evt) { wsOnClose(evt); }
+# ws.onerror = function(evt) { wsOnError(evt); }
+# ws.onmessage = function(evt) { wsOnMessage(evt); }
+
+# window.addEventListener('unload', function (e) {
+#    	alert("페이지 종료");
+#     ws.close();
+# });
+
+# function wsOnOpen(evt)
+# {
+# 	ws.send("get_status");
+# }
+
+# function wsOnClose(evt)
+# {
+# 	if(event.wasClean) {
+#     	alert("정상 종료 code="+evt.code+" reason="+evt.reason);
+# 	} else {
+# 		// 예시: 프로세스가 죽거나 네트워크에 장애가 있는 경우 event.code가 1006이 됩니다.
+# 		//alert("비정상 종료 code="+evt.code+" reason="+evt.reason);
+# 		//window.close();
+#         ws = new WebSocket("ws://172.217.28.1/ws");
+#         ws.onopen = function(evt) { wsOnOpen(evt); }
+#         ws.onclose = function(evt) { wsOnClose(evt); }
+#         ws.onerror = function(evt) { wsOnError(evt); }
+#         ws.onmessage = function(evt) { wsOnMessage(evt); }
+# 	}
+# }
+
+# function wsOnError(evt)
+# {
+# 	alert("wsOnError: " + evt.data);
+# }
+
+# function wsOnMessage(evt)
+# {
+# 	var data = JSON.parse(evt.data);
+# 	processJsonData(data);
+# }
+
+# function chkTemp()
+# {
+# 	if(ventTempFlag) {	// stop blink
+# 		ventTempFlag = false;
+# 		var obj = document.getElementById("ventTemp");
+# 		obj.style.visibility = "";
+# 		clearInterval(ventTempBlinkFunc);
+# 		updateVentTemp();
+# 		upTempButton.disabled = true;
+# 		dnTempButton.disabled = true;
+# 	} else {			// start blink
+# 		ventTempFlag = true;
+# 		ventTempBlinkFunc = setInterval(blinkVentTemp, 300);
+# 		upTempButton.disabled = false;
+# 		dnTempButton.disabled = false;
+# 	}
+# }
+
+# function blinkVentTemp()
+# {
+# 	var obj = document.getElementById("ventTemp");
+# 	obj.style.visibility = obj.style.visibility == "" ? "hidden" : "";
+# }
+
+# function upTemp()
+# {
+# 	var		val, min, max;
+
+# 	min = 0; max = 50;
+# 	if(ventTempFlag) {
+# 		val = parseInt(document.getElementById("ventTemp").innerHTML);
+# 		if(val < min) val = min;
+# 		else if(val > max) val = max;
+# 		if(val < max) document.getElementById("ventTemp").innerHTML = val + 1;
+# 	}
+# }
+
+# function dnTemp()
+# {
+# 	var		val, min, max;
+
+# 	min = 0; max = 50;
+# 	if(ventTempFlag) {
+# 		val = parseInt(document.getElementById("ventTemp").innerHTML);
+# 		if(val < min) val = min;
+# 		else if(val > max) val = max;
+# 		if(val > min) document.getElementById("ventTemp").innerHTML = val - 1;
+# 	}
+# }
+
+# function setAngleButtons()
+# {
+# 	if(ventAngleFlag == true || (appState < 5 && motState == 0) || appState == 9) {
+# 		upAngleButton.disabled = false;
+# 		dnAngleButton.disabled = false;
+# 	} else {
+# 		upAngleButton.disabled = true;
+# 		dnAngleButton.disabled = true;
+# 	}
+# }
+
+# function chkAngle()
+# {
+# 	if(ventAngleFlag) {
+# 		ventAngleFlag = false;
+# 		var obj = document.getElementById("ventAngle");
+# 		obj.style.visibility = "";
+# 		clearInterval(ventAngleBlinkFunc);
+# 		updateVentAngle();
+# 	} else {
+# 		ventAngleFlag = true;
+# 		ventAngleBlinkFunc = setInterval(blinkVentAngle, 300);
+# 	}
+# 	setAngleButtons();
+# }
+
+# function blinkVentAngle()
+# {
+# 	var obj = document.getElementById("ventAngle");
+# 	obj.style.visibility = obj.style.visibility == "" ? "hidden" : "";
+# }
+
+# function blinkCurAngle()
+# {
+# 	var obj = document.getElementById("angle");
+# 	obj.style.visibility = obj.style.visibility == "" ? "hidden" : "";
+# }
+
+# function upAngle()
+# {
+# 	var		val, min, max;
+
+# 	if(ventAngleFlag) {
+# 		min = 5; max = 90;
+# 		val = parseInt(document.getElementById("ventAngle").innerHTML);
+# 		if(val < min) val = min;
+# 		else if(val > max) val = max;
+# 		if(val > min) {
+# 			val = val - 5;
+# 			if(val < min) val = min;
+# 			document.getElementById("ventAngle").innerHTML = val;
+# 		}
+# 	} else if(appState < 5) {
+# 		min = 0; max = 90;
+# 		val = parseInt(document.getElementById("angle").innerHTML);
+# 		if(val < min) val = min;
+# 		else if(val > max) val = max;
+# 		if(val > min) updateAngle("up");
+# 	} else if(appState == 9) {
+# 		updateAngle("up");
+# 	}
+# }
+
+# function dnAngle()
+# {
+# 	var		val, min, max;
+
+# 	if(ventAngleFlag) {
+# 		min = 5; max = 90;
+# 		val = parseInt(document.getElementById("ventAngle").innerHTML);
+# 		if(val < min) val = min;
+# 		else if(val > max) val = max;
+# 		if(val < max) {
+# 			val = val + 5;
+# 			if(val > max) val = max;
+# 			document.getElementById("ventAngle").innerHTML = val;
+# 		}
+# 	} else if(appState < 5) {
+# 		min = 0; max = 90;
+# 		val = parseInt(document.getElementById("angle").innerHTML);
+# 		if(val < min) val = min;
+# 		else if(val > max) val = max;
+# 		if(val < max) updateAngle("down");
+# 	} else if(appState == 9) {
+# 		updateAngle("down");
+# 	}
+# }
+
+# function getAppState(stat)
+# {
+# 	var state = "";
+# 	if(stat == 0) state = "자  동";
+# 	else if(stat == 2) state = "환  기";
+# 	else if(stat == 3) state = "수  동";
+# 	else if(stat == 4) state = "냉  방";
+# 	else if(stat == 5) state = "비  상";
+# 	else if(stat == 6) state = "시험중";
+# 	else if(stat == 7) state = "메  뉴";
+# 	else if(stat == 8) state = "루버 이상";
+# 	else	state = "루버 점검";
+# 	return state;
+# }
+
+# function processJsonData(data)
+# {
+# 	var		oldval, newval;
+
+# /*
+# 	console.log('temp : '+data.temp+' ventTemp : '+data.ventTemp
+# 			+ 'angle : '+data.angle+' ventAngle : '+data.ventAngle
+# 			+ 'appState : '+data.appState + 'motState : '+data.motState
+# 			+ 'motDirection : '+data.motDirection);
+# */
+# 	if(appState != data.appState) {
+# 		appState = data.appState;
+# 		document.getElementById("appState").innerHTML = "<span>" + getAppState(appState) + "</span>"
+# 	}
+# 	motDirection = data.motDirection;
+# 	oldval = parseInt(document.getElementById("angle").innerHTML);
+#     newval = data.angle;
+#     if(oldval != newval) document.getElementById("angle").innerHTML = newval;
+# 	oldval = parseInt(document.getElementById("temp").innerHTML);
+# 	newval = data.temp;
+# 	if(oldval != newval) document.getElementById("temp").innerHTML = newval;
+# 	oldval = parseInt(document.getElementById("ventTemp").innerHTML);
+# 	newval = data.ventTemp;
+# 	if(ventTempFlag == false && oldval != newval)
+# 		document.getElementById("ventTemp").innerHTML = newval;
+# 	oldval = parseInt(document.getElementById("ventAngle").innerHTML);
+# 	newval = data.ventAngle;
+# 	if(ventAngleFlag == false && oldval != newval)
+# 		document.getElementById("ventAngle").innerHTML = newval;
+# 	if(motState != data.motState) {
+# 		motState = data.motState;
+# 		if(angleFlag == false && motState) {
+# 			angleFlag = true;
+# 			angleBlinkFunc = setInterval(blinkCurAngle, 300);
+#         } else if(angleFlag == true && motState == 0) {
+# 			angleFlag = false;
+# 			var obj = document.getElementById("angle");
+# 			obj.style.visibility = "";
+# 			clearInterval(angleBlinkFunc);
+# 		}
+# 	}
+# 	setAngleButtons();
+# }
+
+# function notifyStatus()
+# {
+# //	console.log('updateState at every interval rate');
+# 	var xhttp = new XMLHttpRequest();
+# 	xhttp.responseType = 'json';
+# 	xhttp.onreadystatechange = function() {
+# 		if(xhttp.readyState == 4 && xhttp.status == 200) {
+# 			var data = xhttp.response;
+# 			processJsonData(data);
+# 		}
+# 	};
+# 	xhttp.open("GET", "/cmd/notify_status", true);
+# 	xhttp.send();
+# }
+
+# function updateVentTemp()
+# {
+# 	var valueToSend = parseInt(document.getElementById("ventTemp").innerHTML);
+# 	var url = "/cmd/update"; 
+# 	var xhttp = new XMLHttpRequest();
+# 	xhttp.onreadystatechange = function () {
+# 		if(xhttp.readyState == 4 && xhttp.status == 200) {
+# 			var returnValue = xhttp.responseText;
+# 			console.log(returnValue);
+# 			notifyStatus();
+# 		}
+# 	};
+# 	xhttp.open("GET", url + "?ventTemp=" + valueToSend, true);
+# 	xhttp.send();
+# }
+
+# function updateVentAngle()
+# {
+# 	var valueToSend = parseInt(document.getElementById("ventAngle").innerHTML);
+# 	var url = "/cmd/update"; 
+# 	var xhttp = new XMLHttpRequest();
+# 	xhttp.onreadystatechange = function () {
+# 		if(xhttp.readyState == 4 && xhttp.status == 200) {
+# 			var returnValue = xhttp.responseText;
+# 			console.log(returnValue);
+# 			notifyStatus();
+# 		}
+# 	};
+# 	xhttp.open("GET", url + "?ventAngle=" + valueToSend, true);
+# 	xhttp.send();
+# }
+
+# function updateAngle(updn)
+# {
+# 	var url = "/cmd/update"; 
+# 	var xhttp = new XMLHttpRequest();
+# 	xhttp.onreadystatechange = function () {
+# 		if(xhttp.readyState == 4 && xhttp.status == 200) {
+# 			var returnValue = xhttp.responseText;
+# 			console.log(returnValue);
+# 			notifyStatus();
+# 		}
+# 	};
+# 	xhttp.open("GET", url + "?angle=" + updn, true);
+# 	xhttp.send();
+# }
+
+# http://172.217.28.1/cmd/notify_status
+# {
+#   "appState" : 4,
+#   "motState" : 0,
+#   "motDirection" : 1,
+#   "angle" : 75,
+#   "temp" : 23,
+#   "humid" : 0,
+#   "extTemp" : 0,
+#   "dewPoint" : 0,
+#   "tempMask" : 0,
+#   "humidMask" : 0,
+#   "extTempMask" : 0,
+#   "ventTemp" : 28,
+#   "ventAngle" : 15
+#   }

@@ -1,0 +1,98 @@
+    
+uart:
+  baud_rate: 9600
+  data_bits: 8
+  parity: NONE
+  stop_bits: 1
+  rx_pin: GPIO1
+  tx_pin: GPIO2
+
+external_components:
+  - source: github://eigger/espcomponents@latest
+    components: [ uartex ]
+    refresh: always  
+
+uartex:
+  rx_timeout: 100ms
+  rx_footer: "\r\n"
+  tx_footer: "\r\n"
+
+  version:
+    disabled: True
+  error:
+    disabled: True
+  log:
+    disabled: True
+
+button:
+  - platform: uartex
+    name: "Request Status"
+    command_on: "STATUS"
+
+# 	if(stat == 0) state = "자  동";
+# 	else if(stat == 2) state = "환  기";
+# 	else if(stat == 3) state = "수  동";
+# 	else if(stat == 4) state = "냉  방";
+# 	else if(stat == 5) state = "비  상";
+# 	else if(stat == 6) state = "시험중";
+# 	else if(stat == 7) state = "메  뉴";
+# 	else if(stat == 8) state = "루버 이상";
+# 	else	state = "루버 점검";
+# 	return state;
+
+text_sensor:
+  - platform: uartex
+    name: "Louver App State"
+    icon: "mdi:window-shutter"
+    state: [0xF0]
+    lambda: |-
+      if (check_value(1, 0x00, data, len)) return "자동";
+      if (check_value(1, 0x02, data, len)) return "환기";
+      if (check_value(1, 0x03, data, len)) return "수동";
+      if (check_value(1, 0x04, data, len)) return "냉방";
+      if (check_value(1, 0x05, data, len)) return "비상";
+      if (check_value(1, 0x06, data, len)) return "시험";
+      if (check_value(1, 0x07, data, len)) return "메뉴";
+      if (check_value(1, 0x08, data, len)) return "이상";
+      return "점검";
+  - platform: uartex
+    name: "Louver Motor State"
+    icon: "mdi:arrow-up-down"
+    state: [0xF1]
+    lambda: |-
+      if (check_value(1, 0x01, data, len)) return "동작";
+      return "정지";
+    command_update: "UPDATE"
+    update_interval: 1min
+
+sensor:
+  - platform: uartex
+    name: "Louver Angle"
+    icon: "mdi:angle-acute"
+    state: [0xF3]
+    state_number:
+      offset: 1
+  - platform: uartex
+    name: "Louver Temperature"
+    state: [0xF4]
+    state_number:
+      offset: 1
+    icon: "mdi:thermometer"
+    device_class: "temperature"
+    state_class: "measurement"
+    unit_of_measurement: "°C"
+  - platform: uartex
+    name: "Louver Vent Temperature"
+    state: [0xFB]
+    state_number:
+      offset: 1
+    icon: "mdi:thermometer"
+    device_class: "temperature"
+    state_class: "measurement"
+    unit_of_measurement: "°C"
+  - platform: uartex
+    name: "Louver Vent Angle"
+    icon: "mdi:angle-acute"
+    state: [0xFC]
+    state_number:
+      offset: 1
