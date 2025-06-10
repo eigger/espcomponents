@@ -271,12 +271,40 @@ uint16_t crc16(const uint16_t init, const uint16_t poly, const uint8_t data)
     return crc;
 }
 
+uint16_t crc16_reflected(const uint16_t init, const uint16_t poly, const uint8_t data)
+{
+    uint16_t crc = init;
+    crc ^= data;
+    for (int i = 0; i < 8; i++)
+    {
+        if (crc & 0x0001)
+        {
+            crc = (crc >> 1) ^ poly;
+        } 
+        else
+        {
+            crc = crc >> 1;
+        }
+    }
+    return crc;
+}
+
 std::vector<uint8_t> crc16_checksum(const uint16_t init, const uint16_t poly, const uint8_t* data, const uint16_t len)
 {
     uint16_t crc = init;
     for (int i = 0; i < len; i++)
     {
         crc = crc16(crc, poly, data[i]);
+    }
+    return { (uint8_t)(crc >> 8), (uint8_t)(crc) };
+}
+
+std::vector<uint8_t> crc16_reflected_checksum(const uint16_t init, const uint16_t poly, const uint8_t* data, const uint16_t len)
+{
+    uint16_t crc = init;
+    for (int i = 0; i < len; i++)
+    {
+        crc = crc16_reflected(crc, poly, data[i]);
     }
     return { (uint8_t)(crc >> 8), (uint8_t)(crc) };
 }
