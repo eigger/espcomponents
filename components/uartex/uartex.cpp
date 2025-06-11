@@ -65,7 +65,7 @@ bool UARTExComponent::read_from_uart()
         this->rx_parser_.clear();
         this->rx_timer_ = get_time();
     }
-    while (this->available())
+    if (this->available())
     {
         if (!this->rx_receiving_) ESP_LOGD(TAG, "Receive start");
         this->rx_receiving_ = true;
@@ -83,6 +83,7 @@ bool UARTExComponent::read_from_uart()
                 return true;
             }
         }
+        this->rx_timer_ = get_time();
     }
     return false;
     // this->rx_parser_.clear();
