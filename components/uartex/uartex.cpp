@@ -58,7 +58,7 @@ void UARTExComponent::loop()
 
 bool UARTExComponent::read_from_uart()
 {
-    if (!this->rx_receiving_ || elapsed_time(this->rx_timer_) > this->conf_rx_timeout_)
+    if (!this->rx_receiving_ || (!this->available() && elapsed_time(this->rx_timer_) > this->conf_rx_timeout_))
     {
         if (this->rx_receiving_) ESP_LOGD(TAG, "Receive failed");
         this->rx_receiving_ = false;
