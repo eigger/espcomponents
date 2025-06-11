@@ -98,7 +98,7 @@ bool UARTExComponent::verify_ack()
 void UARTExComponent::publish_data()
 {
     bool found = false;
-    auto data = this->rx_parser_.data();
+    auto& data = this->rx_parser_.data();
     this->read_callback_.call(&this->rx_parser_.buffer()[0], this->rx_parser_.buffer().size());
     publish_rx_log(this->rx_parser_.buffer());
     for (UARTExDevice* device : this->devices_)
@@ -108,6 +108,7 @@ void UARTExComponent::publish_data()
             found = true;
         }
     }
+    ESP_LOGD(TAG, "Receive data-> %s, Gap Time: %lums", to_hex_string(this->rx_parser_.buffer()).c_str(), elapsed_time(this->rx_time_));
 #ifdef ESPHOME_LOG_HAS_VERBOSE
     ESP_LOGV(TAG, "Receive data-> %s, Gap Time: %lums", to_hex_string(this->rx_parser_.buffer()).c_str(), elapsed_time(this->rx_time_));
     if (!found) ESP_LOGV(TAG, "Notfound data-> %s", to_hex_string(this->rx_parser_.buffer()).c_str());
