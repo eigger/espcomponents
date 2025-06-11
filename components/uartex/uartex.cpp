@@ -53,14 +53,14 @@ void UARTExComponent::setup()
 void UARTExComponent::loop()
 {
     if (read_from_uart()) publish_to_devices();
-    else if(!this->rx_receiving_) write_to_uart();
+    else if(!this->rx_processing_) write_to_uart();
 }
 
 bool UARTExComponent::read_from_uart()
 {
     if (this->rx_priority_ == PRIORITY_DATA)
     {
-        this->rx_receiving_ = false;
+        this->rx_processing_ = false;
         this->rx_parser_.clear();
         if (this->available())
         {
@@ -77,15 +77,15 @@ bool UARTExComponent::read_from_uart()
     }
     else if (this->rx_priority_ == PRIORITY_LOOP)
     {
-        if (!this->rx_receiving_ || (!this->available() && elapsed_time(this->rx_timer_) > this->conf_rx_timeout_))
+        if (!this->rx_processing_ || (!this->available() && elapsed_time(this->rx_timer_) > this->conf_rx_timeout_))
         {
-            this->rx_receiving_ = false;
+            this->rx_processing_ = false;
             this->rx_parser_.clear();
             this->rx_timer_ = get_time();
         }
         if (this->available())
         {
-            this->rx_receiving_ = true;
+            this->rx_processing_ = true;
             if (parse_bytes()) return true;
         }
     }
@@ -106,7 +106,7 @@ bool UARTExComponent::parse_bytes()
 
 void UARTExComponent::publish_to_devices()
 {
-    this->rx_receiving_ = false;
+    this->rx_processing_ = false;
     if (!this->rx_parser_.available()) return;
     if (!verify_data()) return;
     verify_ack();

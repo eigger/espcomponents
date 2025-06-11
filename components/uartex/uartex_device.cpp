@@ -171,7 +171,10 @@ float state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
 {
     uint32_t val = 0;
     std::string str;
-    for (size_t i = 0; i < state.length && (state.offset + i) < data.size(); i++)
+    uint16_t byte_length = state.length < 4 ? state.length : 4;
+    uint16_t length = state.length;
+    if (state.decode != DECODE_ASCII && length > 4) length = 4;
+    for (size_t i = 0; i < length && (state.offset + i) < data.size(); i++)
     {
         if (state.decode == DECODE_BCD)
         {
@@ -191,10 +194,13 @@ float state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
             else val |= static_cast<uint32_t>(data[state.offset + i]) << (8 * i);
         }
     }
-    if (state.decode == DECODE_ASCII) val = atoi(str.c_str());
+    if (state.decode == DECODE_ASCII)
+    {
+        return (float)atof(str.c_str()) / powf(10, state.precision);
+    } 
     if (state.is_signed)
     {
-        int shift = 32 - state.length * 8;
+        int shift = 32 - byte_length * 8;
         int32_t signed_val = (static_cast<int32_t>(val) << shift) >> shift;
         return signed_val / powf(10, state.precision);
     }

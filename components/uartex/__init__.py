@@ -338,7 +338,7 @@ UARTEX_DEVICE_SCHEMA = cv.Schema({
 
 STATE_NUM_SCHEMA = cv.Schema({
     cv.Required(CONF_OFFSET): cv.int_range(min=0, max=128),
-    cv.Optional(CONF_LENGTH, default=1): cv.int_range(min=1, max=4),
+    cv.Optional(CONF_LENGTH, default=1): cv.int_range(min=1, max=16),
     cv.Optional(CONF_PRECISION, default=0): cv.int_range(min=0, max=5),
     cv.Optional(CONF_SIGNED, default=True): cv.boolean,
     cv.Optional(CONF_ENDIAN, default="big"): validate_endian,
