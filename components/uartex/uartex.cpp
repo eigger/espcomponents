@@ -73,8 +73,8 @@ bool UARTExComponent::read_from_uart()
                 uint8_t byte = 0x00;
                 if (this->read_byte(&byte))
                 {
-                    if (this->rx_parser_.parse_byte(byte)) return true
-                    if (!this->rx_parser_.has_footer() && validate_data() == ERROR_NONE) return true
+                    if (this->rx_parser_.parse_byte(byte)) return true;
+                    if (!this->rx_parser_.has_footer() && validate_data() == ERROR_NONE) return true;
                     timer = get_time();
                 }
             }
