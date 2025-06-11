@@ -83,7 +83,8 @@ bool UARTExComponent::read_from_uart()
             this->rx_parser_.clear();
             this->rx_timer_ = get_time();
         }
-        if (this->available())
+        unsigned long timer = get_time();
+        while (this->available() && elapsed_time(timer) < this->conf_rx_timeout_)
         {
             this->rx_processing_ = true;
             if (parse_bytes()) return true;
