@@ -58,61 +58,55 @@ void UARTExComponent::loop()
 
 bool UARTExComponent::read_from_uart()
 {
-    bool available = this->available();
-    if (!this->rx_receiving_ || (!available && elapsed_time(this->rx_timer_) > this->conf_rx_timeout_))
+    if (this->rx_priority_ == PRIORITY_DATA)
     {
-        if (this->rx_receiving_) ESP_LOGD(TAG, "Receive failed");
         this->rx_receiving_ = false;
         this->rx_parser_.clear();
-        this->rx_timer_ = get_time();
-    }
-    if (available)
-    {
-        if (!this->rx_receiving_) ESP_LOGD(TAG, "Receive start");
-        this->rx_receiving_ = true;
-        uint8_t byte = 0x00;
-        if (this->read_byte(&byte))
+        if (this->available())
         {
-            if (this->rx_parser_.parse_byte(byte))
+            this->rx_timer_ = get_time();
+            while (elapsed_time(this->rx_timer_) < this->conf_rx_timeout_)
             {
-                this->rx_receiving_ = false;
-                return true;
-            }
-            if (!this->rx_parser_.has_footer() && validate_data() == ERROR_NONE)
-            {
-                this->rx_receiving_ = false;
-                return true;
+                while (this->available())
+                {
+                    if (parse_bytes()) return true;
+                }
+                delay(1);
             }
         }
+    }
+    else if (this->rx_priority_ == PRIORITY_LOOP)
+    {
+        if (!this->rx_receiving_ || (!this->available() && elapsed_time(this->rx_timer_) > this->conf_rx_timeout_))
+        {
+            this->rx_receiving_ = false;
+            this->rx_parser_.clear();
+            this->rx_timer_ = get_time();
+        }
+        if (this->available())
+        {
+            this->rx_receiving_ = true;
+            if (parse_bytes()) return true;
+        }
+    }
+    return false;
+}
+
+bool UARTExComponent::parse_bytes()
+{
+    uint8_t byte = 0x00;
+    if (this->read_byte(&byte))
+    {
+        if (this->rx_parser_.parse_byte(byte)) return true;
+        if (!this->rx_parser_.has_footer() && validate_data() == ERROR_NONE) return true;
         this->rx_timer_ = get_time();
     }
     return false;
-    // this->rx_parser_.clear();
-    // if (this->available())
-    // {
-    //     unsigned long timer = get_time();
-    //     ESP_LOGV(TAG, "Receive start");
-    //     while (elapsed_time(timer) < this->conf_rx_timeout_)
-    //     {
-    //         while (this->available())
-    //         {
-    //             uint8_t byte = 0x00;
-    //             if (this->read_byte(&byte))
-    //             {
-    //                 if (this->rx_parser_.parse_byte(byte)) return true;
-    //                 if (!this->rx_parser_.has_footer() && validate_data() == ERROR_NONE) return true;
-    //                 timer = get_time();
-    //             }
-    //         }
-    //         delay(1);
-    //     }
-    //     ESP_LOGV(TAG, "Receive failed");
-    // }
-    // return false;
 }
 
 void UARTExComponent::publish_to_devices()
 {
+    this->rx_receiving_ = false;
     if (!this->rx_parser_.available()) return;
     if (!verify_data()) return;
     verify_ack();
@@ -490,6 +484,11 @@ void UARTExComponent::set_tx_checksum_2(std::function<std::vector<uint8_t>(const
 {
     this->tx_checksum_f_2_ = f;
     this->tx_checksum_2_ = CHECKSUM_CUSTOM;
+}
+
+void UARTExComponent::set_rx_priority(PRIORITY priority)
+{
+    this->rx_priority_ = priority;
 }
 
 std::vector<uint8_t> UARTExComponent::get_rx_checksum(const std::vector<uint8_t> &data, const std::vector<uint8_t> &header)

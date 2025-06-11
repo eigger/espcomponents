@@ -28,6 +28,11 @@ enum CHECKSUM {
     CHECKSUM_XOR_ADD
 };
 
+enum PRIORITY {
+    PRIORITY_DATA,
+    PRIORITY_LOOP
+};
+
 struct tx_data_t
 {
     UARTExDevice* device;
@@ -56,6 +61,7 @@ public:
     void set_tx_checksum_2(CHECKSUM checksum);
     void set_rx_checksum_2(std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)> &&f);
     void set_tx_checksum_2(std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)> &&f);
+    void set_rx_priority(PRIORITY priority);
     void set_version(text_sensor::TextSensor *version) { this->version_ = version; }
     void set_error(text_sensor::TextSensor *error) { this->error_ = error; }
     void set_log(text_sensor::TextSensor *log) { this->log_ = log; }
@@ -95,6 +101,7 @@ protected:
     void publish_tx_log(const std::vector<unsigned char>& data);
     void publish_log(std::string msg);
     bool read_from_uart();
+    bool parse_bytes();
     void publish_to_devices();
     bool verify_ack();
     void publish_data();
@@ -115,6 +122,7 @@ protected:
     optional<std::vector<uint8_t>> rx_footer_{};
     optional<std::vector<uint8_t>> tx_header_{};
     optional<std::vector<uint8_t>> tx_footer_{};
+    PRIORITY rx_priority_{PRIORITY_DATA};
     CHECKSUM rx_checksum_{CHECKSUM_NONE};
     CHECKSUM tx_checksum_{CHECKSUM_NONE};
     optional<std::function<uint8_t(const uint8_t *data, const uint16_t len)>> rx_checksum_f_{};
