@@ -72,6 +72,7 @@ void UARTExComponent::read_from_uart()
                 if (!this->rx_parser_.has_footer() && validate_data() == ERROR_NONE) return;
                 timer = get_time();
             }
+            else break;
         }
         delay(1);
     }
