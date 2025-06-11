@@ -51,12 +51,8 @@ void UARTExComponent::setup()
 
 void UARTExComponent::loop()
 {
-    if (read_from_uart())
-    {
-        ESP_LOGD(TAG, "Receive end");
-        publish_to_devices();
-    }
-    write_to_uart();
+    if (read_from_uart()) publish_to_devices();
+    else write_to_uart();
 }
 
 bool UARTExComponent::read_from_uart()
