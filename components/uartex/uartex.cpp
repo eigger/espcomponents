@@ -80,6 +80,7 @@ bool UARTExComponent::read_from_uart()
             }
             delay(1);
         }
+        ESP_LOGD(TAG, "Receive failed");
     }
     return false;
 }

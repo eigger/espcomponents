@@ -322,8 +322,8 @@ unsigned long elapsed_time(const unsigned long timer)
 
 unsigned long get_time()
 {
-    //return millis();
-    return App.get_loop_component_start_time();
+    return millis();
+    //return App.get_loop_component_start_time();
 }
 
 void log_config(const char* tag, const char* title, const char* value)
