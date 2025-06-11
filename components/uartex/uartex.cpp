@@ -58,14 +58,15 @@ void UARTExComponent::loop()
 
 bool UARTExComponent::read_from_uart()
 {
-    if (!this->rx_receiving_ || (!this->available() && elapsed_time(this->rx_timer_) > this->conf_rx_timeout_))
+    bool available = this->available();
+    if (!this->rx_receiving_ || (!available && elapsed_time(this->rx_timer_) > this->conf_rx_timeout_))
     {
         if (this->rx_receiving_) ESP_LOGD(TAG, "Receive failed");
         this->rx_receiving_ = false;
         this->rx_parser_.clear();
         this->rx_timer_ = get_time();
     }
-    if (this->available())
+    if (available)
     {
         if (!this->rx_receiving_) ESP_LOGD(TAG, "Receive start");
         this->rx_receiving_ = true;
