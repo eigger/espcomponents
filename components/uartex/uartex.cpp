@@ -36,6 +36,7 @@ void UARTExComponent::setup()
     if (this->rx_checksum_2_ != CHECKSUM_NONE) this->rx_parser_.set_checksum_len(2);
     this->rx_time_ = get_time();
     this->tx_time_ = get_time();
+    this->rx_timer_ = get_time();
     if (this->rx_header_.has_value())
     {
         this->rx_parser_.add_headers(this->rx_header_.value().data);
@@ -57,28 +58,55 @@ void UARTExComponent::loop()
 
 bool UARTExComponent::read_from_uart()
 {
-    this->rx_parser_.clear();
-    if (this->available())
+    if (!this->rx_receiving_ || elapsed_time(this->rx_timer_) > this->conf_rx_timeout_)
     {
-        unsigned long timer = get_time();
-        ESP_LOGD(TAG, "Receive start");
-        while (elapsed_time(timer) < this->conf_rx_timeout_)
+        if (this->rx_receiving_) ESP_LOGD(TAG, "Receive failed");
+        this->rx_receiving_ = false;
+        this->rx_parser_.clear();
+        this->rx_timer_ = get_time();
+    }
+    while (this->available())
+    {
+        if (!this->rx_receiving_) ESP_LOGD(TAG, "Receive start");
+        this->rx_receiving_ = true;
+        uint8_t byte = 0x00;
+        if (this->read_byte(&byte))
         {
-            while (this->available())
+            if (this->rx_parser_.parse_byte(byte))
             {
-                uint8_t byte = 0x00;
-                if (this->read_byte(&byte))
-                {
-                    if (this->rx_parser_.parse_byte(byte)) return true;
-                    if (!this->rx_parser_.has_footer() && validate_data() == ERROR_NONE) return true;
-                    timer = get_time();
-                }
+                this->rx_receiving_ = false;
+                return true;
             }
-            delay(1);
+            if (!this->rx_parser_.has_footer() && validate_data() == ERROR_NONE)
+            {
+                this->rx_receiving_ = false;
+                return true;
+            }
         }
-        ESP_LOGD(TAG, "Receive failed");
     }
     return false;
+    // this->rx_parser_.clear();
+    // if (this->available())
+    // {
+    //     unsigned long timer = get_time();
+    //     ESP_LOGV(TAG, "Receive start");
+    //     while (elapsed_time(timer) < this->conf_rx_timeout_)
+    //     {
+    //         while (this->available())
+    //         {
+    //             uint8_t byte = 0x00;
+    //             if (this->read_byte(&byte))
+    //             {
+    //                 if (this->rx_parser_.parse_byte(byte)) return true;
+    //                 if (!this->rx_parser_.has_footer() && validate_data() == ERROR_NONE) return true;
+    //                 timer = get_time();
+    //             }
+    //         }
+    //         delay(1);
+    //     }
+    //     ESP_LOGV(TAG, "Receive failed");
+    // }
+    // return false;
 }
 
 void UARTExComponent::publish_to_devices()
@@ -112,10 +140,8 @@ void UARTExComponent::publish_data()
             found = true;
         }
     }
-    ESP_LOGD(TAG, "Receive data-> %s, Gap Time: %lums", to_hex_string(this->rx_parser_.buffer()).c_str(), elapsed_time(this->rx_time_));
 #ifdef ESPHOME_LOG_HAS_VERBOSE
     ESP_LOGV(TAG, "Receive data-> %s, Gap Time: %lums", to_hex_string(this->rx_parser_.buffer()).c_str(), elapsed_time(this->rx_time_));
-    if (!found) ESP_LOGV(TAG, "Notfound data-> %s", to_hex_string(this->rx_parser_.buffer()).c_str());
 #endif
 }
 

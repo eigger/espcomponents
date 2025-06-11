@@ -130,6 +130,8 @@ protected:
     std::queue<tx_data_t> tx_queue_{};
     std::queue<tx_data_t> tx_queue_low_priority_{};
     tx_data_t current_tx_data_{nullptr, nullptr};
+    bool rx_receiving_{false};
+    unsigned long rx_timer_{0};
     unsigned long rx_time_{0};
     unsigned long tx_time_{0};
     uint16_t tx_retry_cnt_{0};
