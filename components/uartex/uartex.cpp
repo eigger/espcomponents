@@ -46,7 +46,7 @@ void UARTExComponent::setup()
     this->rx_parser_.set_total_len(this->conf_rx_length_);
     if (this->error_) this->error_->publish_state("None");
     if (this->version_) this->version_->publish_state(UARTEX_VERSION);
-    ESP_LOGI(TAG, "Initaialize.");
+    ESP_LOGI(TAG, "Initaialize");
     publish_log(std::string("Boot ") + UARTEX_VERSION);
 }
 
@@ -125,19 +125,15 @@ bool UARTExComponent::verify_ack()
 
 void UARTExComponent::publish_data()
 {
-    bool found = false;
     auto& data = this->rx_parser_.data();
     this->read_callback_.call(&this->rx_parser_.buffer()[0], this->rx_parser_.buffer().size());
     publish_rx_log(this->rx_parser_.buffer());
     for (UARTExDevice* device : this->devices_)
     {
-        if (device->parse_data(data))
-        {
-            found = true;
-        }
+        device->parse_data(data);
     }
 #ifdef ESPHOME_LOG_HAS_VERBOSE
-    ESP_LOGV(TAG, "Receive data-> %s, Gap Time: %lums", to_hex_string(this->rx_parser_.buffer()).c_str(), elapsed_time(this->rx_time_));
+    ESP_LOGV(TAG, "Receive data-> %s", to_hex_string(this->rx_parser_.buffer()).c_str());
 #endif
 }
 
@@ -168,7 +164,7 @@ bool UARTExComponent::retry_tx_data()
     if (this->conf_tx_retry_cnt_ <= this->tx_retry_cnt_)
     {
         tx_cmd_result(false);
-        ESP_LOGD(TAG, "Retry fail.");
+        ESP_LOGD(TAG, "Retry failed");
         publish_error(ERROR_TX_TIMEOUT);
         this->error_callback_.call(ERROR_TX_TIMEOUT);
         return false;
@@ -232,7 +228,7 @@ void UARTExComponent::write_data(const uint8_t data)
 void UARTExComponent::write_data(const std::vector<uint8_t> &data)
 {
     this->write_array(data);
-    ESP_LOGD(TAG, "Write array-> %s", to_hex_string(data).c_str());
+    ESP_LOGD(TAG, "Write data-> %s", to_hex_string(data).c_str());
 }
 
 void UARTExComponent::enqueue_tx_data(const tx_data_t data, bool low_priority)
@@ -256,7 +252,7 @@ void UARTExComponent::write_command(cmd_t* cmd)
 void UARTExComponent::write_flush()
 {
     this->flush();
-    ESP_LOGV(TAG, "Flush.");
+    ESP_LOGV(TAG, "Flush");
 }
 
 void UARTExComponent::register_device(UARTExDevice *device)
