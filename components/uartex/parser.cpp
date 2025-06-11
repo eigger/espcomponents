@@ -73,6 +73,18 @@ bool Parser::verify_checksum(const std::vector<unsigned char>& checksum)
     return std::equal(buffer_.end() - checksum.size() - footer_.size(), buffer_.end() - footer_.size(), checksum.begin());
 }
 
+bool Parser::has_header()
+{
+    if (header_.empty()) return false;
+    return true;
+}
+
+bool Parser::has_footer()
+{
+    if (footer_.empty()) return false;
+    return true;
+}
+
 void Parser::clear()
 {
     buffer_.clear();

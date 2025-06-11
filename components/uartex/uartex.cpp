@@ -65,11 +65,11 @@ void UARTExComponent::read_from_uart()
     {
         while (this->available())
         {
-            uint8_t byte;
+            uint8_t byte = 0x00;
             if (this->read_byte(&byte))
             {
                 if (this->rx_parser_.parse_byte(byte)) return;
-                if (validate_data() == ERROR_NONE) return;
+                if (!this->rx_parser_.has_footer() && validate_data() == ERROR_NONE) return;
                 timer = get_time();
             }
         }
@@ -292,7 +292,7 @@ const cmd_t* UARTExComponent::current_tx_cmd()
 
 ERROR UARTExComponent::validate_data()
 {
-    auto data = this->rx_parser_.data();
+    auto& data = this->rx_parser_.data();
     if (data.empty())
     {
         return ERROR_SIZE;

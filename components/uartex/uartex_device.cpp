@@ -221,12 +221,14 @@ std::string to_hex_string(const uint8_t* data, const uint16_t len)
 {
     char buf[3] = {0}; 
     std::string hex_str;
-    hex_str.reserve(static_cast<size_t>(len) * 2 + 10);
-    for (uint16_t i = 0; i < len; ++i)
+    uint16_t size = len >= 120 ? 120 : len;
+    hex_str.reserve(static_cast<size_t>(size) * 2 + 10);
+    for (uint16_t i = 0; i < size; ++i)
     {
         std::snprintf(buf, sizeof(buf), "%02X", data[i]);
         hex_str.append(buf);
     }
+    if (len > 120) hex_str.append("...");
     char size_buf[16] = {0};
     std::snprintf(size_buf, sizeof(size_buf), "(%u)", len);
     hex_str.append(size_buf);
@@ -235,16 +237,20 @@ std::string to_hex_string(const uint8_t* data, const uint16_t len)
 
 std::string to_ascii_string(const uint8_t* data, const uint16_t len)
 {
-    std::string res;
-    res.reserve(static_cast<size_t>(len) + 10);
-    for (uint16_t i = 0; i < len; ++i)
+    char buf[2] = {0}; 
+    std::string ascii_str;
+    uint16_t size = len >= 240 ? 240 : len;
+    ascii_str.reserve(static_cast<size_t>(size) + 10);
+    for (uint16_t i = 0; i < size; ++i)
     {
-        res.push_back(static_cast<char>(data[i]));
+        std::snprintf(buf, sizeof(buf), "%c", data[i]);
+        ascii_str.append(buf);
     }
+    if (len > 120) ascii_str.append("...");
     char size_buf[16] = {0};
     std::snprintf(size_buf, sizeof(size_buf), "(%u)", len);
-    res.append(size_buf);
-    return res;
+    ascii_str.append(size_buf);
+    return ascii_str;
 }
 
 bool check_value(const uint16_t index, const uint8_t value, const uint8_t* data, const uint16_t len)
@@ -311,12 +317,13 @@ std::vector<uint8_t> crc16_reflected_checksum(const uint16_t init, const uint16_
 
 unsigned long elapsed_time(const unsigned long timer)
 {
-    return millis() - timer;
+    return get_time() - timer;
 }
 
 unsigned long get_time()
 {
-    return millis();
+    //return millis();
+    return App.get_loop_component_start_time();
 }
 
 void log_config(const char* tag, const char* title, const char* value)
