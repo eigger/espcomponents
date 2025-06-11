@@ -94,7 +94,7 @@ protected:
     void publish_rx_log(const std::vector<unsigned char>& data);
     void publish_tx_log(const std::vector<unsigned char>& data);
     void publish_log(std::string msg);
-    void read_from_uart();
+    bool read_from_uart();
     void publish_to_devices();
     bool verify_ack();
     void publish_data();

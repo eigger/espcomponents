@@ -51,30 +51,37 @@ void UARTExComponent::setup()
 
 void UARTExComponent::loop()
 {
-    read_from_uart();
-    publish_to_devices();
+    if (read_from_uart())
+    {
+        ESP_LOGD(TAG, "Receive end");
+        publish_to_devices();
+    }
     write_to_uart();
 }
 
-void UARTExComponent::read_from_uart()
+bool UARTExComponent::read_from_uart()
 {
     this->rx_parser_.clear();
-    if (!this->available()) return;
-    unsigned long timer = get_time();
-    while (elapsed_time(timer) < this->conf_rx_timeout_)
+    if (this->available())
     {
-        while (this->available())
+        unsigned long timer = get_time();
+        ESP_LOGD(TAG, "Receive start");
+        while (elapsed_time(timer) < this->conf_rx_timeout_)
         {
-            uint8_t byte = 0x00;
-            if (this->read_byte(&byte))
+            while (this->available())
             {
-                if (this->rx_parser_.parse_byte(byte)) return;
-                if (!this->rx_parser_.has_footer() && validate_data() == ERROR_NONE) return;
-                timer = get_time();
+                uint8_t byte = 0x00;
+                if (this->read_byte(&byte))
+                {
+                    if (this->rx_parser_.parse_byte(byte)) return true
+                    if (!this->rx_parser_.has_footer() && validate_data() == ERROR_NONE) return true
+                    timer = get_time();
+                }
             }
+            delay(1);
         }
-        delay(1);
     }
+    return false;
 }
 
 void UARTExComponent::publish_to_devices()
