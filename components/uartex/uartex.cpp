@@ -53,7 +53,7 @@ void UARTExComponent::setup()
 void UARTExComponent::loop()
 {
     if (read_from_uart()) publish_to_devices();
-    else write_to_uart();
+    else if(!this->rx_receiving_) write_to_uart();
 }
 
 bool UARTExComponent::read_from_uart()
