@@ -44,6 +44,7 @@ void UARTExComponent::setup()
     }
     if (this->rx_footer_.has_value()) this->rx_parser_.add_footers(this->rx_footer_.value());
     this->rx_parser_.set_total_len(this->conf_rx_length_);
+    this->rx_parser_.set_buffer_len(this->get_rx_buffer_size());
     if (this->error_) this->error_->publish_state("None");
     if (this->version_) this->version_->publish_state(UARTEX_VERSION);
     ESP_LOGI(TAG, "Initaialize");

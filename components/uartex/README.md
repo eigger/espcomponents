@@ -41,6 +41,7 @@ uartex:
 - rx_footer (Optional, array): Footer of Data to be Received
 - tx_header (Optional, array): Header of Data to be Transmitted
 - tx_footer (Optional, array): Header of Data to be Transmitted
+- rx_priority (Optional, enum): Defaults to data. (data, loop)
 - rx_checksum (Optional, enum, lambda): Checksum of Data to be Received. (add, xor, add_no_header, xor_no_header)
   - uint8_t = (uint8_t* data, uint16_t len)
 - tx_checksum (Optional, enum, lambda): Checksum of Data to be Transmitted. (add, xor, add_no_header, xor_no_header)
@@ -106,7 +107,7 @@ value = 0x02
 ```
 ### Configuration variables
 - offset (Required, int): (0 ~ 128)
-- length (Optional, int): Defaults to 1. (1 ~ 4)
+- length (Optional, int): Defaults to 1. (1 ~ 16)
 - precision (Optional, int): Defaults to 0. (0 ~ 5)
 - signed (Optional, bool): Defaults to True. (True, False)
 - endian (Optional, enum): Defaults to "big". ("big", "little")
