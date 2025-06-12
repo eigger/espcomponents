@@ -87,7 +87,6 @@ public:
     void set_tx_ctrl_pin(InternalGPIOPin *pin);
     void enqueue_tx_data(const tx_data_t data, bool low_priority = false);
     void write_command(cmd_t cmd);
-    void write_command(std::string key, cmd_t cmd);
 protected:
     bool is_tx_cmd_pending();
     void tx_cmd_result(bool result);
