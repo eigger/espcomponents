@@ -86,7 +86,7 @@ public:
     void set_rx_timeout(uint16_t timeout);
     void set_tx_ctrl_pin(InternalGPIOPin *pin);
     void enqueue_tx_data(const tx_data_t data, bool low_priority = false);
-    void write_command(cmd_t cmd);
+    void write_command(std::string name, cmd_t cmd);
 protected:
     bool is_tx_cmd_pending();
     void tx_cmd_result(bool result);
@@ -109,7 +109,6 @@ protected:
     void write_tx_data();
     void dequeue_tx_data_from_devices();
     uint16_t get_checksum(CHECKSUM checksum, const std::vector<uint8_t> &header, const std::vector<uint8_t> &data);
-    cmd_t* get_or_add_cmd(cmd_t new_cmd);
 protected:
     std::vector<UARTExDevice *> devices_{};
     uint16_t conf_rx_timeout_{10};
@@ -151,7 +150,7 @@ protected:
     bool log_ascii_{false};
     std::string last_log_{""};
     uint32_t log_count_{0};
-    std::vector<cmd_t> command_list_{};
+    std::unordered_map<std::string, cmd_t> command_map_{};
 };
 
 } // namespace uartex

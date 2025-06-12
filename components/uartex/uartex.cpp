@@ -239,9 +239,10 @@ void UARTExComponent::enqueue_tx_data(const tx_data_t data, bool low_priority)
     else this->tx_queue_.push(data);
 }
 
-void UARTExComponent::write_command(cmd_t cmd)
+void UARTExComponent::write_command(std::string name, cmd_t cmd)
 {
-    const cmd_t* ptr = get_or_add_cmd(cmd);
+    this->command_map_[name] = cmd;
+    const cmd_t* ptr = &this->command_map_[name];
     enqueue_tx_data({nullptr, ptr}, false);
 }
 
@@ -577,19 +578,6 @@ uint16_t UARTExComponent::get_checksum(CHECKSUM checksum, const std::vector<uint
         break;
     }
     return crc;
-}
-
-cmd_t* UARTExComponent::get_or_add_cmd(cmd_t new_cmd)
-{
-    for (auto& cmd : command_list_)
-    {
-        if (equal_cmd(cmd, new_cmd))
-        {
-            return &cmd;
-        }
-    }
-    command_list_.push_back(new_cmd);
-    return &command_list_.back();
 }
 
 }  // namespace uartex
