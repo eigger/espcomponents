@@ -243,7 +243,7 @@ void UARTExComponent::write_command(std::string key, cmd_t cmd)
 {
     command_map_[key] = cmd;
     const cmd_t* ptr = &command_map_[key];
-    enqueue_tx_data({nullptr, cmd}, false);
+    enqueue_tx_data({nullptr, ptr}, false);
 }
 
 void UARTExComponent::write_flush()
