@@ -87,7 +87,7 @@ public:
     void set_tx_ctrl_pin(InternalGPIOPin *pin);
     void enqueue_tx_data(const tx_data_t data, bool low_priority = false);
     void write_command(cmd_t cmd);
-    void write_command(cmd_t* cmd);
+    void write_command(std::string key, cmd_t cmd);
 protected:
     bool is_tx_cmd_pending();
     void tx_cmd_result(bool result);
@@ -152,7 +152,7 @@ protected:
     bool log_ascii_{false};
     std::string last_log_{""};
     uint32_t log_count_{0};
-    optional<cmd_t> command_{};
+    std::unordered_map<std::string, cmd_t> command_map_{};
 };
 
 } // namespace uartex

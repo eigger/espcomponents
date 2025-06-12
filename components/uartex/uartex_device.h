@@ -82,6 +82,10 @@ public:
     bool parse_data(const std::vector<uint8_t>& data);
     std::vector<uint8_t> last_state();
     uint8_t last_state(const uint16_t index);
+protected:
+    float get_setup_priority() const override { return setup_priority::DATA; }
+    virtual void publish(const std::vector<uint8_t>& data) {}
+    virtual void publish(const bool state) {}
     cmd_t* get_command(const std::string& name, const std::string& str);
     cmd_t* get_command(const std::string& name, const float x);
     cmd_t* get_command(const std::string& name);
@@ -97,10 +101,7 @@ public:
     cmd_t* get_command_on() { return get_command("command_on"); }
     cmd_t* get_command_off() { return get_command("command_off"); }
     cmd_t* get_command_update() { return get_command("command_update"); }
-protected:
-    float get_setup_priority() const override { return setup_priority::DATA; }
-    virtual void publish(const std::vector<uint8_t>& data) {}
-    virtual void publish(const bool state) {}
+
 protected:
     std::unordered_map<std::string, state_t> state_map_{};
     std::unordered_map<std::string, state_num_t> state_num_map_{};
