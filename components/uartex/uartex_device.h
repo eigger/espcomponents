@@ -123,6 +123,7 @@ protected:
 template<typename KeyType, typename ValueType>
 bool contains(const std::unordered_map<KeyType, ValueType>& map, const KeyType& key) { return map.find(key) != map.end(); }
 bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,  const uint16_t offset = 0);
+bool equal_cmd(const cmd_t& a, const cmd_t& b);
 std::vector<uint8_t> apply_mask(const std::vector<uint8_t>& data, const state_t* state);
 bool verify_state(const std::vector<uint8_t>& data, const state_t* state);
 float state_to_float(const std::vector<uint8_t>& data, const state_num_t state);

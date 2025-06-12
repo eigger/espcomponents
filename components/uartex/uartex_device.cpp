@@ -150,6 +150,13 @@ bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,
     return std::equal(data1.begin() + offset, data1.begin() + offset + data2.size(), data2.begin());
 }
 
+bool equal_cmd(const cmd_t& a, const cmd_t& b)
+{
+    return a.data == b.data
+        && a.ack  == b.ack
+        && a.mask == b.mask;
+}
+
 std::vector<uint8_t> apply_mask(const std::vector<uint8_t>& data, const state_t* state)
 {
     if (state == nullptr || state->mask.empty()) return data;

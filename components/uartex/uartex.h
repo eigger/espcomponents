@@ -110,7 +110,7 @@ protected:
     void write_tx_data();
     void dequeue_tx_data_from_devices();
     uint16_t get_checksum(CHECKSUM checksum, const std::vector<uint8_t> &header, const std::vector<uint8_t> &data);
-
+    cmd_t* get_or_add_cmd(cmd_t new_cmd);
 protected:
     std::vector<UARTExDevice *> devices_{};
     uint16_t conf_rx_timeout_{10};
@@ -152,7 +152,7 @@ protected:
     bool log_ascii_{false};
     std::string last_log_{""};
     uint32_t log_count_{0};
-    std::unordered_map<std::string, cmd_t> command_map_{};
+    std::vector<cmd_t> command_list_{};
 };
 
 } // namespace uartex
