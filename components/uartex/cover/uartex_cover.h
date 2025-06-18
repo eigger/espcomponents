@@ -24,8 +24,8 @@ protected:
     cmd_t* get_command_tilt(const float x) { return get_command("command_tilt", x); }
     optional<float> get_state_position(const std::vector<uint8_t>& data) { return get_state_float("state_position", data); }
     optional<float> get_state_tilt(const std::vector<uint8_t>& data) { return get_state_float("state_tilt", data); }
-    bool has_state_position() { return has_state("state_position"); } 
-    bool has_state_tilt() { return has_state("state_tilt"); } 
+    bool has_state_position() { return has_named_state("state_position"); } 
+    bool has_state_tilt() { return has_named_state("state_tilt"); } 
 protected:
 
 };

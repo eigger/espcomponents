@@ -28,6 +28,11 @@ enum CHECKSUM {
     CHECKSUM_XOR_ADD
 };
 
+enum PRIORITY {
+    PRIORITY_DATA,
+    PRIORITY_LOOP
+};
+
 struct tx_data_t
 {
     UARTExDevice* device;
@@ -56,6 +61,7 @@ public:
     void set_tx_checksum_2(CHECKSUM checksum);
     void set_rx_checksum_2(std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)> &&f);
     void set_tx_checksum_2(std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)> &&f);
+    void set_rx_priority(PRIORITY priority);
     void set_version(text_sensor::TextSensor *version) { this->version_ = version; }
     void set_error(text_sensor::TextSensor *error) { this->error_ = error; }
     void set_log(text_sensor::TextSensor *log) { this->log_ = log; }
@@ -80,8 +86,7 @@ public:
     void set_rx_timeout(uint16_t timeout);
     void set_tx_ctrl_pin(InternalGPIOPin *pin);
     void enqueue_tx_data(const tx_data_t data, bool low_priority = false);
-    void write_command(cmd_t cmd);
-    void write_command(cmd_t* cmd);
+    void write_command(std::string name, cmd_t cmd);
 protected:
     bool is_tx_cmd_pending();
     void tx_cmd_result(bool result);
@@ -94,7 +99,8 @@ protected:
     void publish_rx_log(const std::vector<unsigned char>& data);
     void publish_tx_log(const std::vector<unsigned char>& data);
     void publish_log(std::string msg);
-    void read_from_uart();
+    bool read_from_uart();
+    bool parse_bytes();
     void publish_to_devices();
     bool verify_ack();
     void publish_data();
@@ -103,7 +109,6 @@ protected:
     void write_tx_data();
     void dequeue_tx_data_from_devices();
     uint16_t get_checksum(CHECKSUM checksum, const std::vector<uint8_t> &header, const std::vector<uint8_t> &data);
-
 protected:
     std::vector<UARTExDevice *> devices_{};
     uint16_t conf_rx_timeout_{10};
@@ -115,6 +120,7 @@ protected:
     optional<std::vector<uint8_t>> rx_footer_{};
     optional<std::vector<uint8_t>> tx_header_{};
     optional<std::vector<uint8_t>> tx_footer_{};
+    PRIORITY rx_priority_{PRIORITY_DATA};
     CHECKSUM rx_checksum_{CHECKSUM_NONE};
     CHECKSUM tx_checksum_{CHECKSUM_NONE};
     optional<std::function<uint8_t(const uint8_t *data, const uint16_t len)>> rx_checksum_f_{};
@@ -130,6 +136,8 @@ protected:
     std::queue<tx_data_t> tx_queue_{};
     std::queue<tx_data_t> tx_queue_low_priority_{};
     tx_data_t current_tx_data_{nullptr, nullptr};
+    bool rx_processing_{false};
+    unsigned long rx_timer_{0};
     unsigned long rx_time_{0};
     unsigned long tx_time_{0};
     uint16_t tx_retry_cnt_{0};
@@ -142,7 +150,7 @@ protected:
     bool log_ascii_{false};
     std::string last_log_{""};
     uint32_t log_count_{0};
-    optional<cmd_t> command_{};
+    std::unordered_map<std::string, cmd_t> command_map_{};
 };
 
 } // namespace uartex

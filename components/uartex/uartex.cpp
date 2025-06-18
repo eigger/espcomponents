@@ -36,6 +36,7 @@ void UARTExComponent::setup()
     if (this->rx_checksum_2_ != CHECKSUM_NONE) this->rx_parser_.set_checksum_len(2);
     this->rx_time_ = get_time();
     this->tx_time_ = get_time();
+    this->rx_timer_ = get_time();
     if (this->rx_header_.has_value())
     {
         this->rx_parser_.add_headers(this->rx_header_.value().data);
@@ -43,42 +44,71 @@ void UARTExComponent::setup()
     }
     if (this->rx_footer_.has_value()) this->rx_parser_.add_footers(this->rx_footer_.value());
     this->rx_parser_.set_total_len(this->conf_rx_length_);
+    this->rx_parser_.set_buffer_len(this->parent_->get_rx_buffer_size());
     if (this->error_) this->error_->publish_state("None");
     if (this->version_) this->version_->publish_state(UARTEX_VERSION);
-    ESP_LOGI(TAG, "Initaialize.");
+    ESP_LOGI(TAG, "Initaialize");
     publish_log(std::string("Boot ") + UARTEX_VERSION);
 }
 
 void UARTExComponent::loop()
 {
-    read_from_uart();
-    publish_to_devices();
-    write_to_uart();
+    if (read_from_uart()) publish_to_devices();
+    else if(!this->rx_processing_) write_to_uart();
 }
 
-void UARTExComponent::read_from_uart()
+bool UARTExComponent::read_from_uart()
 {
-    this->rx_parser_.clear();
-    if (!this->available()) return;
-    unsigned long timer = get_time();
-    while (elapsed_time(timer) < this->conf_rx_timeout_)
+    if (this->rx_priority_ == PRIORITY_DATA)
     {
-        while (this->available())
+        this->rx_processing_ = false;
+        this->rx_parser_.clear();
+        if (this->available())
         {
-            uint8_t byte;
-            if (this->read_byte(&byte))
+            this->rx_timer_ = get_time();
+            while (elapsed_time(this->rx_timer_) < this->conf_rx_timeout_)
             {
-                if (this->rx_parser_.parse_byte(byte)) return;
-                if (validate_data() == ERROR_NONE) return;
-                timer = get_time();
+                while (this->available())
+                {
+                    if (parse_bytes()) return true;
+                }
+                delay(1);
             }
         }
-        delay(1);
     }
+    else if (this->rx_priority_ == PRIORITY_LOOP)
+    {
+        if (!this->rx_processing_ || (!this->available() && elapsed_time(this->rx_timer_) > this->conf_rx_timeout_))
+        {
+            this->rx_processing_ = false;
+            this->rx_parser_.clear();
+            this->rx_timer_ = get_time();
+        }
+        unsigned long timer = get_time();
+        while (this->available() && elapsed_time(timer) < this->conf_rx_timeout_)
+        {
+            this->rx_processing_ = true;
+            if (parse_bytes()) return true;
+        }
+    }
+    return false;
+}
+
+bool UARTExComponent::parse_bytes()
+{
+    uint8_t byte = 0x00;
+    if (this->read_byte(&byte))
+    {
+        if (this->rx_parser_.parse_byte(byte)) return true;
+        if (!this->rx_parser_.has_footer() && validate_data() == ERROR_NONE) return true;
+        this->rx_timer_ = get_time();
+    }
+    return false;
 }
 
 void UARTExComponent::publish_to_devices()
 {
+    this->rx_processing_ = false;
     if (!this->rx_parser_.available()) return;
     if (!verify_data()) return;
     verify_ack();
@@ -97,20 +127,15 @@ bool UARTExComponent::verify_ack()
 
 void UARTExComponent::publish_data()
 {
-    bool found = false;
-    auto data = this->rx_parser_.data();
+    auto& data = this->rx_parser_.data();
     this->read_callback_.call(&this->rx_parser_.buffer()[0], this->rx_parser_.buffer().size());
     publish_rx_log(this->rx_parser_.buffer());
     for (UARTExDevice* device : this->devices_)
     {
-        if (device->parse_data(data))
-        {
-            found = true;
-        }
+        device->parse_data(data);
     }
 #ifdef ESPHOME_LOG_HAS_VERBOSE
-    ESP_LOGV(TAG, "Receive data-> %s, Gap Time: %lums", to_hex_string(this->rx_parser_.buffer()).c_str(), elapsed_time(this->rx_time_));
-    if (!found) ESP_LOGV(TAG, "Notfound data-> %s", to_hex_string(this->rx_parser_.buffer()).c_str());
+    ESP_LOGV(TAG, "Receive data-> %s", to_hex_string(this->rx_parser_.buffer()).c_str());
 #endif
 }
 
@@ -141,7 +166,7 @@ bool UARTExComponent::retry_tx_data()
     if (this->conf_tx_retry_cnt_ <= this->tx_retry_cnt_)
     {
         tx_cmd_result(false);
-        ESP_LOGD(TAG, "Retry fail.");
+        ESP_LOGD(TAG, "Retry failed");
         publish_error(ERROR_TX_TIMEOUT);
         this->error_callback_.call(ERROR_TX_TIMEOUT);
         return false;
@@ -205,7 +230,7 @@ void UARTExComponent::write_data(const uint8_t data)
 void UARTExComponent::write_data(const std::vector<uint8_t> &data)
 {
     this->write_array(data);
-    ESP_LOGD(TAG, "Write array-> %s", to_hex_string(data).c_str());
+    ESP_LOGD(TAG, "Write data-> %s", to_hex_string(data).c_str());
 }
 
 void UARTExComponent::enqueue_tx_data(const tx_data_t data, bool low_priority)
@@ -214,22 +239,17 @@ void UARTExComponent::enqueue_tx_data(const tx_data_t data, bool low_priority)
     else this->tx_queue_.push(data);
 }
 
-void UARTExComponent::write_command(cmd_t cmd)
+void UARTExComponent::write_command(std::string name, cmd_t cmd)
 {
-    command_ = cmd;
-    const cmd_t* ptr = &command_.value();
+    this->command_map_[name] = cmd;
+    const cmd_t* ptr = &this->command_map_[name];
     enqueue_tx_data({nullptr, ptr}, false);
-}
-
-void UARTExComponent::write_command(cmd_t* cmd)
-{
-    enqueue_tx_data({nullptr, cmd}, false);
 }
 
 void UARTExComponent::write_flush()
 {
     this->flush();
-    ESP_LOGV(TAG, "Flush.");
+    ESP_LOGV(TAG, "Flush");
 }
 
 void UARTExComponent::register_device(UARTExDevice *device)
@@ -292,7 +312,7 @@ const cmd_t* UARTExComponent::current_tx_cmd()
 
 ERROR UARTExComponent::validate_data()
 {
-    auto data = this->rx_parser_.data();
+    auto& data = this->rx_parser_.data();
     if (data.empty())
     {
         return ERROR_SIZE;
@@ -457,6 +477,11 @@ void UARTExComponent::set_tx_checksum_2(std::function<std::vector<uint8_t>(const
 {
     this->tx_checksum_f_2_ = f;
     this->tx_checksum_2_ = CHECKSUM_CUSTOM;
+}
+
+void UARTExComponent::set_rx_priority(PRIORITY priority)
+{
+    this->rx_priority_ = priority;
 }
 
 std::vector<uint8_t> UARTExComponent::get_rx_checksum(const std::vector<uint8_t> &data, const std::vector<uint8_t> &header)

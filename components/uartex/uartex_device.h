@@ -93,7 +93,7 @@ protected:
     state_num_t* get_state_num(const std::string& name);
     optional<float> get_state_float(const std::string& name, const std::vector<uint8_t>& data);
     optional<std::string> get_state_str(const std::string& name, const std::vector<uint8_t>& data);
-    bool has_state(const std::string& name);
+    bool has_named_state(const std::string& name);
     state_t* get_state() { return get_state("state"); }
     state_t* get_state_on() { return get_state("state_on"); }
     state_t* get_state_off() { return get_state("state_off"); }
@@ -123,6 +123,7 @@ protected:
 template<typename KeyType, typename ValueType>
 bool contains(const std::unordered_map<KeyType, ValueType>& map, const KeyType& key) { return map.find(key) != map.end(); }
 bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,  const uint16_t offset = 0);
+bool equal_cmd(const cmd_t& a, const cmd_t& b);
 std::vector<uint8_t> apply_mask(const std::vector<uint8_t>& data, const state_t* state);
 bool verify_state(const std::vector<uint8_t>& data, const state_t* state);
 float state_to_float(const std::vector<uint8_t>& data, const state_num_t state);

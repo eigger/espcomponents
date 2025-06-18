@@ -52,7 +52,7 @@ bool Parser::add_footers(const std::vector<unsigned char>& footer)
 bool Parser::parse_byte(const unsigned char byte)
 {
     buffer_.push_back(byte);
-    if (total_len_ > 0 && buffer_.size() > total_len_)
+    if (total_len_ > 0 && buffer_.size() > total_len_ || buffer_.size() > buffer_len_)
     {
         buffer_.erase(buffer_.begin());
     }
@@ -71,6 +71,18 @@ bool Parser::verify_checksum(const std::vector<unsigned char>& checksum)
     if (checksum_len_ != checksum.size()) return false;
     if (buffer_.size() < checksum.size() + footer_.size()) return false;
     return std::equal(buffer_.end() - checksum.size() - footer_.size(), buffer_.end() - footer_.size(), checksum.begin());
+}
+
+bool Parser::has_header()
+{
+    if (header_.empty()) return false;
+    return true;
+}
+
+bool Parser::has_footer()
+{
+    if (footer_.empty()) return false;
+    return true;
 }
 
 void Parser::clear()
@@ -148,4 +160,10 @@ void Parser::set_checksum_len(size_t len)
 void Parser::set_total_len(size_t len)
 {
     total_len_ = len;
+}
+
+void Parser::set_buffer_len(size_t len)
+{
+    buffer_len_ = len;
+    buffer_.reserve(len + 1);
 }

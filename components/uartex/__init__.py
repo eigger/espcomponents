@@ -8,7 +8,7 @@ from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, CONF_TRIGGER_ID, \
 from esphome.util import SimpleRegistry
 from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTER, \
     CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, CONF_RX_CHECKSUM_2, CONF_TX_CHECKSUM_2, \
-    CONF_UARTEX_ID, CONF_ERROR, CONF_LOG, CONF_ON_TX_TIMEOUT, \
+    CONF_UARTEX_ID, CONF_ERROR, CONF_LOG, CONF_ON_TX_TIMEOUT, CONF_RX_PRIORITY, \
     CONF_ACK, CONF_ON_WRITE, CONF_ON_READ, \
     CONF_STATE, CONF_MASK, \
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
@@ -73,6 +73,17 @@ DECODES = {
 def validate_decode(value):
     if isinstance(value, str):
         return cv.enum(DECODES, upper=True)(value)
+    raise cv.Invalid("data type error")
+
+Priority = uartex_ns.enum("PRIORITY")
+PRIORITYS = {
+    "DATA": Priority.PRIORITY_DATA,
+    "LOOP": Priority.PRIORITY_LOOP
+}
+
+def validate_priority(value):
+    if isinstance(value, str):
+        return cv.enum(PRIORITYS, upper=True)(value)
     raise cv.Invalid("data type error")
 
 def uartex_declare_type(value):
@@ -171,6 +182,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_TX_CHECKSUM): validate_checksum,
     cv.Optional(CONF_RX_CHECKSUM_2): validate_checksum,
     cv.Optional(CONF_TX_CHECKSUM_2): validate_checksum,
+    cv.Optional(CONF_RX_PRIORITY): validate_priority,
     cv.Optional(CONF_VERSION): text_sensor.text_sensor_schema(text_sensor.TextSensor).extend(
     {
         cv.Optional(CONF_NAME, default="Version"): cv._validate_entity_name,
@@ -308,6 +320,9 @@ async def to_code(config):
             template_ = await cg.templatable(data, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.void)
             cg.add(var.set_on_read(template_))
 
+    if CONF_RX_PRIORITY in config:
+        cg.add(var.set_rx_priority(config[CONF_RX_PRIORITY]))
+
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
 UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_UARTEX_ID): uartex_declare_type,
@@ -323,7 +338,7 @@ UARTEX_DEVICE_SCHEMA = cv.Schema({
 
 STATE_NUM_SCHEMA = cv.Schema({
     cv.Required(CONF_OFFSET): cv.int_range(min=0, max=128),
-    cv.Optional(CONF_LENGTH, default=1): cv.int_range(min=1, max=4),
+    cv.Optional(CONF_LENGTH, default=1): cv.int_range(min=1, max=16),
     cv.Optional(CONF_PRECISION, default=0): cv.int_range(min=0, max=5),
     cv.Optional(CONF_SIGNED, default=True): cv.boolean,
     cv.Optional(CONF_ENDIAN, default="big"): validate_endian,

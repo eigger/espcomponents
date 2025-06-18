@@ -20,7 +20,7 @@ protected:
     void write_state(light::LightState* state) override;
     cmd_t* get_command_brightness(const float x) { return get_command("command_brightness", x); }
     optional<float> get_state_brightness(const std::vector<uint8_t>& data) { return get_state_float("state_brightness", data); }
-    bool has_state_brightness() { return has_state("state_brightness"); } 
+    bool has_state_brightness() { return has_named_state("state_brightness"); } 
 protected:
     bool state_{false};
     int brightness_{0};

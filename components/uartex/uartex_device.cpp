@@ -135,7 +135,7 @@ optional<std::string> UARTExDevice::get_state_str(const std::string& name, const
     return optional<std::string>();
 }
 
-bool UARTExDevice::has_state(const std::string& name)
+bool UARTExDevice::has_named_state(const std::string& name)
 {
     if (contains(this->state_float_func_map_, name)) return true;
     if (contains(this->state_str_func_map_, name)) return true;
@@ -148,6 +148,13 @@ bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,
 {
     if (data1.size() - offset < data2.size()) return false;
     return std::equal(data1.begin() + offset, data1.begin() + offset + data2.size(), data2.begin());
+}
+
+bool equal_cmd(const cmd_t& a, const cmd_t& b)
+{
+    return a.data == b.data
+        && a.ack  == b.ack
+        && a.mask == b.mask;
 }
 
 std::vector<uint8_t> apply_mask(const std::vector<uint8_t>& data, const state_t* state)
@@ -171,7 +178,10 @@ float state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
 {
     uint32_t val = 0;
     std::string str;
-    for (size_t i = 0; i < state.length && (state.offset + i) < data.size(); i++)
+    uint16_t byte_length = state.length < 4 ? state.length : 4;
+    uint16_t length = state.length;
+    if (state.decode != DECODE_ASCII && length > 4) length = 4;
+    for (size_t i = 0; i < length && (state.offset + i) < data.size(); i++)
     {
         if (state.decode == DECODE_BCD)
         {
@@ -191,10 +201,13 @@ float state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
             else val |= static_cast<uint32_t>(data[state.offset + i]) << (8 * i);
         }
     }
-    if (state.decode == DECODE_ASCII) val = atoi(str.c_str());
+    if (state.decode == DECODE_ASCII)
+    {
+        return (float)atof(str.c_str()) / powf(10, state.precision);
+    } 
     if (state.is_signed)
     {
-        int shift = 32 - state.length * 8;
+        int shift = 32 - byte_length * 8;
         int32_t signed_val = (static_cast<int32_t>(val) << shift) >> shift;
         return signed_val / powf(10, state.precision);
     }
@@ -221,12 +234,14 @@ std::string to_hex_string(const uint8_t* data, const uint16_t len)
 {
     char buf[3] = {0}; 
     std::string hex_str;
-    hex_str.reserve(static_cast<size_t>(len) * 2 + 10);
-    for (uint16_t i = 0; i < len; ++i)
+    uint16_t size = len >= 120 ? 120 : len;
+    hex_str.reserve(static_cast<size_t>(size) * 2 + 10);
+    for (uint16_t i = 0; i < size; ++i)
     {
         std::snprintf(buf, sizeof(buf), "%02X", data[i]);
         hex_str.append(buf);
     }
+    if (len > 120) hex_str.append("...");
     char size_buf[16] = {0};
     std::snprintf(size_buf, sizeof(size_buf), "(%u)", len);
     hex_str.append(size_buf);
@@ -235,16 +250,20 @@ std::string to_hex_string(const uint8_t* data, const uint16_t len)
 
 std::string to_ascii_string(const uint8_t* data, const uint16_t len)
 {
-    std::string res;
-    res.reserve(static_cast<size_t>(len) + 10);
-    for (uint16_t i = 0; i < len; ++i)
+    char buf[2] = {0}; 
+    std::string ascii_str;
+    uint16_t size = len >= 240 ? 240 : len;
+    ascii_str.reserve(static_cast<size_t>(size) + 10);
+    for (uint16_t i = 0; i < size; ++i)
     {
-        res.push_back(static_cast<char>(data[i]));
+        std::snprintf(buf, sizeof(buf), "%c", data[i]);
+        ascii_str.append(buf);
     }
+    if (len > 120) ascii_str.append("...");
     char size_buf[16] = {0};
     std::snprintf(size_buf, sizeof(size_buf), "(%u)", len);
-    res.append(size_buf);
-    return res;
+    ascii_str.append(size_buf);
+    return ascii_str;
 }
 
 bool check_value(const uint16_t index, const uint8_t value, const uint8_t* data, const uint16_t len)
@@ -311,12 +330,13 @@ std::vector<uint8_t> crc16_reflected_checksum(const uint16_t init, const uint16_
 
 unsigned long elapsed_time(const unsigned long timer)
 {
-    return millis() - timer;
+    return get_time() - timer;
 }
 
 unsigned long get_time()
 {
     return millis();
+    //return App.get_loop_component_start_time();
 }
 
 void log_config(const char* tag, const char* title, const char* value)
