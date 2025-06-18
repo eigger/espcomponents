@@ -135,7 +135,7 @@ optional<std::string> UARTExDevice::get_state_str(const std::string& name, const
     return optional<std::string>();
 }
 
-bool UARTExDevice::has_state(const std::string& name)
+bool UARTExDevice::has_named_state(const std::string& name)
 {
     if (contains(this->state_float_func_map_, name)) return true;
     if (contains(this->state_str_func_map_, name)) return true;

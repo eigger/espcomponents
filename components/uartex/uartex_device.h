@@ -93,7 +93,7 @@ protected:
     state_num_t* get_state_num(const std::string& name);
     optional<float> get_state_float(const std::string& name, const std::vector<uint8_t>& data);
     optional<std::string> get_state_str(const std::string& name, const std::vector<uint8_t>& data);
-    bool has_state(const std::string& name);
+    bool has_named_state(const std::string& name);
     state_t* get_state() { return get_state("state"); }
     state_t* get_state_on() { return get_state("state_on"); }
     state_t* get_state_off() { return get_state("state_off"); }

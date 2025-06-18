@@ -105,10 +105,10 @@ protected:
     optional<std::string> get_state_custom_fan(const std::vector<uint8_t>& data) { return get_state_str("state_custom_fan", data); }
     optional<std::string> get_state_custom_preset(const std::vector<uint8_t>& data) { return get_state_str("state_custom_preset", data); }
 
-    bool has_state_temperature_current() { return has_state("state_temperature_current"); } 
-    bool has_state_temperature_target() { return has_state("state_temperature_target"); } 
-    bool has_state_humidity_current() { return has_state("state_humidity_current"); } 
-    bool has_state_humidity_target() { return has_state("state_humidity_target"); } 
+    bool has_state_temperature_current() { return has_named_state("state_temperature_current"); } 
+    bool has_state_temperature_target() { return has_named_state("state_temperature_target"); } 
+    bool has_state_humidity_current() { return has_named_state("state_humidity_current"); } 
+    bool has_state_humidity_target() { return has_named_state("state_humidity_target"); } 
 
     std::set<std::string> custom_fan_modes_{};
     std::set<std::string> custom_preset_modes_{};

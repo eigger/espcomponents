@@ -21,7 +21,7 @@ protected:
     cmd_t* get_command_close() { return get_command("command_close"); }
     cmd_t* get_command_stop() { return get_command("command_stop"); }
     optional<float> get_state_position(const std::vector<uint8_t>& data) { return get_state_float("state_position", data); }
-    bool has_state_position() { return has_state("state_position"); } 
+    bool has_state_position() { return has_named_state("state_position"); } 
 protected:
 
 };
