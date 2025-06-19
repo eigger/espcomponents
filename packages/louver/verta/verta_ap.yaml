@@ -15,7 +15,7 @@ uart:
   tx_pin: GPIO32
   
 external_components:
-  - source: github://eigger/espcomponents@dev
+  - source: github://eigger/espcomponents@latest
     components: [ uartex ]
     refresh: always
     
