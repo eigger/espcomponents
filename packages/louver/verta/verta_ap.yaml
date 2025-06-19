@@ -15,9 +15,10 @@ uart:
   tx_pin: GPIO32
   
 external_components:
-  - source: github://eigger/espcomponents@dev
+  - source: github://eigger/espcomponents@latest
     components: [ uartex ]
-    refresh: always  
+    refresh: always
+    
   - source: github://pr#7884
     components: [ http_request ]
     refresh: always  
@@ -33,16 +34,30 @@ http_request:
 
 text_sensor:
   - platform: uartex
+    state: [0xFF]
     internal: True
-    name: "Status"
+    id: id_update
     lambda: |-
       id(request_status).execute();
       return "OK";
-      
+  - platform: uartex
+    state: [0xFB]
+    internal: True
+    id: id_vent_temp
+    lambda: |-
+      id(request_vent_temp).execute(data[1]);
+      return "OK";
+  - platform: uartex
+    state: [0xFC]
+    internal: True
+    id: id_vent_angle
+    lambda: |-
+      id(request_vent_angle).execute(data[1]);
+      return "OK";
 binary_sensor:
   - platform: status
     internal: True
-    name: "Status"
+    id: id_status
     on_press: 
       then:
         - uartex.write: [0xE1]
@@ -70,49 +85,42 @@ script:
     then:
       - http_request.get:
           url: "http://172.217.28.1/cmd/notify_status"
-          headers:
+          request_headers:
             Content-Type: application/json
           capture_response: true
           on_response:
             then:
               - lambda: |-
                   json::parse_json(body, [](JsonObject root) -> bool {
-                      {
-                        static cmd_t cmd;
-                        cmd.data = {0xF0, (uint8_t)(root["appState"] ? root["appState"].as<uint8_t>() : 0)};
-                        id(uartex_id).write_command(&cmd); 
-                      }
-                      {
-                        static cmd_t cmd;
-                        cmd.data = {0xF1, (uint8_t)(root["motState"] ? root["motState"].as<uint8_t>() : 0)};
-                        id(uartex_id).write_command(&cmd); 
-                      }
-                      {
-                        static cmd_t cmd;
-                        cmd.data = {0xF3, (uint8_t)(root["angle"] ? root["angle"].as<uint8_t>() : 0)};
-                        id(uartex_id).write_command(&cmd); 
-                      }
-                      {
-                        static cmd_t cmd;
-                        cmd.data = {0xF4, (uint8_t)(root["temp"] ? root["temp"].as<uint8_t>() : 0)};
-                        id(uartex_id).write_command(&cmd); 
-                      }
-                      {
-                        static cmd_t cmd;
-                        cmd.data = {0xFB, (uint8_t)(root["ventTemp"] ? root["ventTemp"].as<uint8_t>() : 0)};
-                        id(uartex_id).write_command(&cmd); 
-                      }
-                      {
-                        static cmd_t cmd;
-                        cmd.data = {0xFC, (uint8_t)(root["ventAngle"] ? root["ventAngle"].as<uint8_t>() : 0)};
-                        id(uartex_id).write_command(&cmd); 
-                      }
+                      id(uartex_id).write_command("app", {0xF0, (uint8_t)(root["appState"] ? root["appState"].as<uint8_t>() : 0)}); 
+                      id(uartex_id).write_command("mot", {0xF1, (uint8_t)(root["motState"] ? root["motState"].as<uint8_t>() : 0)}); 
+                      id(uartex_id).write_command("angle", {0xF3, (uint8_t)(root["angle"] ? root["angle"].as<uint8_t>() : 0)}); 
+                      id(uartex_id).write_command("temp", {0xF4, (uint8_t)(root["temp"] ? root["temp"].as<uint8_t>() : 0)}); 
+                      id(uartex_id).write_command("vtemp", {0xFB, (uint8_t)(root["ventTemp"] ? root["ventTemp"].as<uint8_t>() : 0)});
+                      id(uartex_id).write_command("vangle", {0xFC, (uint8_t)(root["ventAngle"] ? root["ventAngle"].as<uint8_t>() : 0)}); 
                       return true;
                   });
           on_error:
             then:
               - uartex.write: [0xFD]
-
+  - id: request_vent_temp
+    parameters:
+      vent_temp: uint8_t
+    then:
+      - http_request.get:
+          url: !lambda |-
+            return ((std::string) "http://172.217.28.1/cmd/update?ventTemp=" + std::to_string(vent_temp)).c_str();
+          request_headers:
+            Content-Type: application/json
+  - id: request_vent_angle
+    parameters:
+      vent_angle: uint8_t
+    then:
+      - http_request.get:
+          url: !lambda |-
+            return ((std::string) "http://172.217.28.1/cmd/update?ventAngle=" + std::to_string(vent_angle)).c_str();
+          request_headers:
+            Content-Type: application/json
 # <!doctype html>
 # <html>
 #   <head>
