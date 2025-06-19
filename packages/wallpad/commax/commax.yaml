@@ -321,8 +321,8 @@ fan:
   - platform: uartex
     name: "Fan 1"
     state:
-      data: [0xF0]
-      mask: [0xF1]
+      data: [0xF0, 0x00, 0x01]
+      mask: [0xF1, 0x00, 0xFF]
     state_on:
       offset: 1
       data: [0x00]
