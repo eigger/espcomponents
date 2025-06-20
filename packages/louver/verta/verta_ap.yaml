@@ -39,6 +39,7 @@ text_sensor:
     id: id_update
     lambda: |-
       id(request_status).execute();
+      id(request_setup).execute();
       return "OK";
   - platform: uartex
     state: [0xFB]
@@ -53,6 +54,13 @@ text_sensor:
     id: id_vent_angle
     lambda: |-
       id(request_vent_angle).execute(data[1]);
+      return "OK";
+  - platform: uartex
+    state: [0xFD]
+    internal: True
+    id: id_cool_angle
+    lambda: |-
+      id(request_cool_angle).execute(data[1]);
       return "OK";
 binary_sensor:
   - platform: status
@@ -102,7 +110,24 @@ script:
                   });
           on_error:
             then:
-              - uartex.write: [0xFD]
+              - uartex.write: [0xFE]
+  - id: request_setup
+    then:
+      - http_request.get:
+          url: "http://172.217.28.1/cmd/notify_setup"
+          request_headers:
+            Content-Type: application/json
+          capture_response: true
+          on_response:
+            then:
+              - lambda: |-
+                  json::parse_json(body, [](JsonObject root) -> bool {
+                      id(uartex_id).write_command("cangle", {0xFD, (uint8_t)(root["coolAngle"] ? root["coolAngle"].as<uint8_t>() : 0)}); 
+                      return true;
+                  });
+          on_error:
+            then:
+              - uartex.write: [0xFE]
   - id: request_vent_temp
     parameters:
       vent_temp: uint8_t
@@ -119,6 +144,15 @@ script:
       - http_request.get:
           url: !lambda |-
             return ((std::string) "http://172.217.28.1/cmd/update?ventAngle=" + std::to_string(vent_angle)).c_str();
+          request_headers:
+            Content-Type: application/json
+  - id: request_cool_angle
+    parameters:
+      cool_angle: uint8_t
+    then:
+      - http_request.get:
+          url: !lambda |-
+            return ((std::string) "http://172.217.28.1/cmd/update?coolAngle=" + std::to_string(cool_angle)).c_str();
           request_headers:
             Content-Type: application/json
 # <!doctype html>
@@ -559,4 +593,370 @@ script:
 #   "extTempMask" : 0,
 #   "ventTemp" : 28,
 #   "ventAngle" : 15
-#   }
+# #   }
+
+# //var angle = parseInt(document.getElementById("angle").innerHTML);
+# var coolAngleFlag = false;
+# var coolAngleBlinkFunc = null;
+# var manualTimeFlag = false;
+# var manualTimeBlinkFunc = null;
+# var sleepTimeFlag = false;
+# var sleepTimeBlinkFunc = null;
+
+# var basicUpdate = null;
+
+# const requestURL = '';
+
+# const chkSetupUpdateButton = document.getElementById('chkSetupUpdateButton');
+# chkSetupUpdateButton.addEventListener('click', chkSetupUpdate);
+
+# const chkCoolAngleButton = document.getElementById('chkCoolAngleButton');
+# chkCoolAngleButton.addEventListener('click', chkCoolAngle);
+# const upCoolAngleButton = document.getElementById('upCoolAngleButton');
+# upCoolAngleButton.addEventListener('click', upCoolAngle);
+# upCoolAngleButton.disabled = true;
+# const dnCoolAngleButton = document.getElementById('dnCoolAngleButton');
+# dnCoolAngleButton.addEventListener('click', dnCoolAngle);
+# dnCoolAngleButton.disabled = true;
+
+# const chkManualTimeButton = document.getElementById('chkManualTimeButton');
+# chkManualTimeButton.addEventListener('click', chkManualTime);
+# const upManualTimeButton = document.getElementById('upManualTimeButton');
+# upManualTimeButton.addEventListener('click', upManualTime);
+# upManualTimeButton.disabled = true;
+# const dnManualTimeButton = document.getElementById('dnManualTimeButton');
+# dnManualTimeButton.addEventListener('click', dnManualTime);
+# dnManualTimeButton.disabled = true;
+
+# if(model != "Black") {
+# 	const chkSleepTimeButton = document.getElementById('chkSleepTimeButton');
+# 	chkSleepTimeButton.addEventListener('click', chkSleepTime);
+# 	const upSleepTimeButton = document.getElementById('upSleepTimeButton');
+# 	upSleepTimeButton.addEventListener('click', upSleepTime);
+# 	upSleepTimeButton.disabled = true;
+# 	const dnSleepTimeButton = document.getElementById('dnSleepTimeButton');
+# 	dnSleepTimeButton.addEventListener('click', dnSleepTime);
+# 	dnSleepTimeButton.disabled = true;
+# }
+
+# const chkPasswordDeleteButton = document.getElementById('chkPasswordDeleteButton');
+# chkPasswordDeleteButton.addEventListener('click', chkPasswordDelete);
+
+# const chkSystemResetButton = document.getElementById('chkSystemResetButton');
+# chkSystemResetButton.addEventListener('click', chkSystemReset);
+
+# function basicUpdateSet()
+# {
+# 	//basicUpdate = setInterval(notifySetup, 3000);
+# }
+
+# function basicUpdateClear()
+# {
+# 	//clearInterval(basicUpdate);
+# }
+
+# basicUpdateSet();
+# window.addEventListener('unload', function (e) {
+#    	alert("페이지 종료");
+# });
+
+# notifySetup();
+
+# function chkSetupUpdate()
+# {
+# 	notifySetup();
+# }
+
+
+# function chkCoolAngle()
+# {
+# 	if(coolAngleFlag) {	// stop blink
+# 		coolAngleFlag = false;
+# 		var obj = document.getElementById("coolAngle");
+# 		obj.style.visibility = "";
+# 		clearInterval(coolAngleBlinkFunc);
+# 		updateCoolAngle();
+# 		upCoolAngleButton.disabled = true;
+# 		dnCoolAngleButton.disabled = true;
+# 	} else {			// start blink
+# 		coolAngleFlag = true;
+# 		coolAngleBlinkFunc = setInterval(blinkCoolAngle, 300);
+# 		upCoolAngleButton.disabled = false;
+# 		dnCoolAngleButton.disabled = false;
+# 	}
+# }
+
+# function blinkCoolAngle()
+# {
+# 	var obj = document.getElementById("coolAngle");
+# 	obj.style.visibility = obj.style.visibility == "" ? "hidden" : "";
+# }
+
+# function upCoolAngle()
+# {	
+# 	var		val, min, max;
+
+# 	min = 45; max = 90;
+# 	if(coolAngleFlag) {
+# 		val = parseInt(document.getElementById("coolAngle").innerHTML);
+# 		if(val < min) val = min;
+# 		else if(coolAngle > max) val = max;
+# 		if(val < max) document.getElementById("coolAngle").innerHTML = val + 5;
+# 	}
+# }
+
+# function dnCoolAngle()
+# {
+# 	var		val, min, max;
+
+# 	min = 45; max = 90;
+# 	if(coolAngleFlag) {
+# 		val = parseInt(document.getElementById("coolAngle").innerHTML);
+# 		if(val < min) val = min;
+# 		else if(val > max) val = max;
+# 		if(val > min) document.getElementById("coolAngle").innerHTML = val - 5;
+# 	}
+# }
+
+# function chkManualTime()
+# {
+# 	if(manualTimeFlag) {	// stop blink
+# 		manualTimeFlag = false;
+# 		var obj = document.getElementById("manualTime");
+# 		obj.style.visibility = "";
+# 		clearInterval(manualTimeBlinkFunc);
+# 		updateManualTime();
+# 		upManualTimeButton.disabled = true;
+# 		dnManualTimeButton.disabled = true;
+# 	} else {			// start blink
+# 		manualTimeFlag = true;
+# 		manualTimeBlinkFunc = setInterval(blinkManualTime, 300);
+# 		upManualTimeButton.disabled = false;
+# 		dnManualTimeButton.disabled = false;
+# 	}
+# }
+
+# function blinkManualTime()
+# {
+# 	var obj = document.getElementById("manualTime");
+# 	obj.style.visibility = obj.style.visibility == "" ? "hidden" : "";
+# }
+
+# function upManualTime()
+# {
+# 	var		val, min, max;
+
+# 	min = 0; max = 12;
+# 	if(manualTimeFlag) {
+# 		val = parseInt(document.getElementById("manualTime").innerHTML);
+# 		if(val < min) val = min;
+# 		else if(val > max) val = max;
+# 		if(val < max) document.getElementById("manualTime").innerHTML = val + 1;
+# 	}
+# }
+
+# function dnManualTime()
+# {
+# 	var		val, min, max;
+
+# 	min = 0; max = 12;
+# 	if(manualTimeFlag) {
+# 		val = parseInt(document.getElementById("manualTime").innerHTML);
+# 		if(val < min) val = min;
+# 		else if(val > max) val = max;
+# 		if(val > min) document.getElementById("manualTime").innerHTML = val - 1;
+# 	}
+# }
+
+# function chkSleepTime()
+# {
+# 	if(sleepTimeFlag) {	// stop blink
+# 		sleepTimeFlag = false;
+# 		var obj = document.getElementById("sleepTime");
+# 		obj.style.visibility = "";
+# 		clearInterval(sleepTimeBlinkFunc);
+# 		updateSleepTime();
+# 		upSleepTimeButton.disabled = true;
+# 		dnSleepTimeButton.disabled = true;
+# 	} else {			// start blink
+# 		sleepTimeFlag = true;
+# 		sleepTimeBlinkFunc = setInterval(blinkSleepTime, 300);
+# 		upSleepTimeButton.disabled = false;
+# 		dnSleepTimeButton.disabled = false;
+# 	}
+# }
+
+# function blinkSleepTime()
+# {
+# 	var obj = document.getElementById("sleepTime");
+# 	obj.style.visibility = obj.style.visibility == "" ? "hidden" : "";
+# }
+
+# function upSleepTime()
+# {
+# 	var		val, min, max;
+
+# 	min = 1; max = 60;
+# 	if(sleepTimeFlag) {
+# 		val = parseInt(document.getElementById("sleepTime").innerHTML);
+# 		if(val < min) val = min;
+# 		else if(val > max) val = max;
+# 		if(val < max) document.getElementById("sleepTime").innerHTML = val + 1;
+# 	}
+# }
+
+# function dnSleepTime()
+# {
+# 	var		val, min, max;
+
+# 	min = 1; max = 60;
+# 	if(sleepTimeFlag) {
+# 		val = parseInt(document.getElementById("sleepTime").innerHTML);
+# 		if(val < min) val = min;
+# 		else if(val > max) val = max;
+# 		if(val > min) document.getElementById("sleepTime").innerHTML = val - 1;
+# 	}
+# }
+
+# function processJsonData(data)
+# {
+# 	var		oldval, newval;
+
+# 	oldval = parseInt(document.getElementById("coolAngle").innerHTML);
+# 	newval = data.coolAngle;
+# 	if(coolAngleFlag == false && oldval != newval)
+# 		document.getElementById("coolAngle").innerHTML = newval;
+# 	oldval = parseInt(document.getElementById("manualTime").innerHTML);
+# 	newval = data.manualTime;
+# 	if(manualTimeFlag == false && oldval != newval)
+# 		document.getElementById("manualTime").innerHTML = newval;
+# 	if(model != "Black") {
+# 		oldval = parseInt(document.getElementById("sleepTime").innerHTML);
+# 		newval = data.sleepTime;
+# 		if(sleepTimeFlag == false && oldval != newval)
+# 			document.getElementById("sleepTime").innerHTML = newval;
+# 	}
+# }
+
+# function notifySetup()
+# {
+# 	var xhttp = new XMLHttpRequest();
+# 	xhttp.responseType = 'json';
+# 	xhttp.onreadystatechange = function() {
+# 		if(xhttp.readyState == 4 && xhttp.status == 200) {
+# 			var data = xhttp.response;
+# 			processJsonData(data);
+# 		}
+# 	};
+# 	xhttp.open("GET", "/cmd/notify_setup", true);
+# 	xhttp.send();
+# }
+
+# function chkPasswordDelete()
+# {
+# 	if(confirm("정말로 수행하시겠습니까?")) {
+# 		var xhttp = new XMLHttpRequest();
+# 		xhttp.onreadystatechange = function() {
+# 			if(xhttp.readyState == 4 && xhttp.status == 200) {
+# 				var returnValue = xhttp.responseText;
+# 				console.log(returnValue);
+# 			}
+# 		};
+# 		xhttp.open("GET", "/cmd/password_delete", true);
+# 		xhttp.send();
+# 	}
+# }
+
+# function chkSystemReset()
+# {
+# 	if(confirm("정말로 수행하시겠습니까?")) {
+# 		var xhttp = new XMLHttpRequest();
+# 		xhttp.onreadystatechange = function() {
+# 			if(xhttp.readyState == 4 && xhttp.status == 200) {
+# 				var returnValue = xhttp.responseText;
+# 				console.log(returnValue);
+# 			}
+# 		};
+# 		xhttp.open("GET", "/cmd/system_reset", true);
+# 		xhttp.send();
+# 	}
+# }
+
+# function updateCoolAngle()
+# {
+# 	var valueToSend = parseInt(document.getElementById("coolAngle").innerHTML);
+# 	var url = "/cmd/update"; 
+# 	var xhttp = new XMLHttpRequest();
+# 	xhttp.onreadystatechange = function () {
+# 		if(xhttp.readyState == 4 && xhttp.status == 200) {
+# 			var returnValue = xhttp.responseText;
+# 			console.log(returnValue);
+# 			notifySetup();
+# 		}
+# 	};
+# 	xhttp.open("GET", url + "?coolAngle=" + valueToSend, true);
+# 	xhttp.send();
+# }
+
+# function updateManualTime()
+# {
+# 	var valueToSend = parseInt(document.getElementById("manualTime").innerHTML);
+# 	var url = "/cmd/update"; 
+# 	var xhttp = new XMLHttpRequest();
+# 	xhttp.onreadystatechange = function () {
+# 		if(xhttp.readyState == 4 && xhttp.status == 200) {
+# 			var returnValue = xhttp.responseText;
+# 			console.log(returnValue);
+# 			notifySetup();
+# 		}
+# 	};
+# 	xhttp.open("GET", url + "?manualTime=" + valueToSend, true);
+# 	xhttp.send();
+# }
+
+# function updateSleepTime()
+# {
+# 	var valueToSend = parseInt(document.getElementById("sleepTime").innerHTML);
+# 	var url = "/cmd/update"; 
+# 	var xhttp = new XMLHttpRequest();
+# 	xhttp.onreadystatechange = function () {
+# 		if(xhttp.readyState == 4 && xhttp.status == 200) {
+# 			var returnValue = xhttp.responseText;
+# 			console.log(returnValue);
+# 			notifySetup();
+# 		}
+# 	};
+# 	xhttp.open("GET", url + "?sleepTime=" + valueToSend, true);
+# 	xhttp.send();
+# }
+
+# function chkPasswordDelete()
+# {
+# 	if(confirm("정말로 수행하시겠습니까?")) {
+# 		var xhttp = new XMLHttpRequest();
+# 		xhttp.onreadystatechange = function() {
+# 			if(xhttp.readyState == 4 && xhttp.status == 200) {
+# 				const data = JSON.parse(xhttp.responseText);
+# 				processJsonData(data);
+# 			}
+# 		};
+# 		xhttp.open("GET", "/cmd/password_delete", true);
+# 		xhttp.send();
+# 	}
+# }
+
+# function chkSystemReset()
+# {
+# 	if(confirm("정말로 수행하시겠습니까?")) {
+# 		var xhttp = new XMLHttpRequest();
+# 		xhttp.onreadystatechange = function() {
+# 			if(xhttp.readyState == 4 && xhttp.status == 200) {
+# 				const data = JSON.parse(xhttp.responseText);
+# 				processJsonData(data);
+# 			}
+# 		};
+# 		xhttp.open("GET", "/cmd/system_reset", true);
+# 		xhttp.send();
+# 	}
+# }
+

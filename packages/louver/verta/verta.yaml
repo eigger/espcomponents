@@ -23,10 +23,10 @@ uartex:
   log:
     disabled: True
 
-button:
-  - platform: uartex
-    name: "Request Status"
-    command_on: [0xFF]
+# button:
+#   - platform: uartex
+#     name: "Request Status"
+#     command_on: [0xFF]
 
 # 	if(stat == 0) state = "자  동";
 # 	else if(stat == 2) state = "환  기";
@@ -42,7 +42,7 @@ number:
   - platform: uartex
     name: "Louver Vent Temperature"
     icon: "mdi:thermometer"
-    mode: box
+    #mode: box
     max_value: 50
     state: [0xFB]
     state_number:
@@ -54,7 +54,7 @@ number:
   - platform: uartex
     name: "Louver Vent Angle"
     icon: "mdi:angle-acute"
-    mode: box
+    #mode: box
     max_value: 90
     step: 5
     state: [0xFC]
@@ -64,12 +64,27 @@ number:
     restore_value: true
     command_number: !lambda |-
       return {{0xFC, (uint8_t)x}};
+  - platform: uartex
+    name: "Louver Cool Angle"
+    icon: "mdi:angle-acute"
+    #mode: box
+    max_value: 90
+    step: 5
+    state: [0xFD]
+    state_number:
+      offset: 1
+    unit_of_measurement: "°"
+    restore_value: true
+    command_number: !lambda |-
+      return {{0xFD, (uint8_t)x}};
       
 text_sensor:
   - platform: uartex
     name: "Louver App State"
     icon: "mdi:window-shutter"
     state: [0xF0]
+    command_update: [0xFF]
+    update_interval: 1min
     lambda: |-
       if (check_value(1, 0x00, data, len)) return "자동";
       if (check_value(1, 0x02, data, len)) return "환기";
@@ -80,15 +95,14 @@ text_sensor:
       if (check_value(1, 0x07, data, len)) return "메뉴";
       if (check_value(1, 0x08, data, len)) return "이상";
       return "점검";
-  - platform: uartex
-    name: "Louver Motor State"
-    icon: "mdi:arrow-up-down"
-    state: [0xF1]
-    lambda: |-
-      if (check_value(1, 0x01, data, len)) return "동작";
-      return "정지";
-    command_update: [0xFF]
-    update_interval: 1min
+  # - platform: uartex
+  #   name: "Louver Motor State"
+  #   icon: "mdi:arrow-up-down"
+  #   state: [0xF1]
+  #   lambda: |-
+  #     if (check_value(1, 0x01, data, len)) return "동작";
+  #     return "정지";
+
 
 sensor:
   - platform: uartex
@@ -125,12 +139,12 @@ sensor:
   #   state_number:
   #     offset: 1
 
-cover:
-  - platform: template
-    name: "Louver Cover"
-    lambda: |-
-      float angle = id(louver_angle).state;
-      if (isnan(angle) || angle <= 0) return COVER_CLOSED;
-      if (angle >= 90) return COVER_OPEN;
-      return angle / 90;
-    has_position: true
+# cover:
+#   - platform: template
+#     name: "Louver Cover"
+#     lambda: |-
+#       float angle = id(louver_angle).state;
+#       if (isnan(angle) || angle <= 0) return COVER_CLOSED;
+#       if (angle >= 90) return COVER_OPEN;
+#       return angle / 90;
+#     has_position: true
