@@ -9,6 +9,7 @@ uart:
 sensor:
   - platform: pm1006
     update_interval: 5min
+    accuracy_decimals: 1
     pm_2_5:
       name: "PM2.5"
       filters:
