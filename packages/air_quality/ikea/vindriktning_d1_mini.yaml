@@ -11,6 +11,7 @@ sensor:
     update_interval: 5min
     pm_2_5:
       name: "PM2.5"
+      accuracy_decimals: 2
       filters:
         - filter_out: nan
         - heartbeat: 20s  # 최소 15초마다 값 확인
