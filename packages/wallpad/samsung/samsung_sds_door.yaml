@@ -1,0 +1,148 @@
+uart:
+  baud_rate: 9600
+  data_bits: 8
+  parity: EVEN
+  stop_bits: 1
+  rx_pin: GPIO22
+  tx_pin: GPIO19
+
+external_components:
+  - source: github://eigger/espcomponents@latest
+    components: [ uartex ]
+    refresh: always  
+
+uartex:
+  rx_timeout: 10ms
+  tx_delay: 50ms
+  tx_timeout: 500ms
+  tx_retry_cnt: 3
+  rx_header: [0xB0]
+  rx_checksum: !lambda |-
+    uint8_t crc = 0xB0;
+    for (size_t i = 0; i < len; i++)
+      crc ^= data[i];
+    if (data[0] < 0x7C) crc ^= 0x80;
+    return crc;
+  tx_checksum: !lambda |-
+    uint8_t crc = 0x00;
+    for (size_t i = 0; i < len; i++)
+      crc ^= data[i];
+    crc ^= 0x80;
+    return crc;
+
+  version:
+    disabled: False
+  error:
+    disabled: False
+  log:
+    disabled: False
+
+binary_sensor:
+  - platform: uartex
+    id: door_bell
+    name: "Bell"
+    icon: "mdi:bell-ring"
+    state: 
+      data: [0x30]
+      mask: [0xF0]
+    state_on:
+      data: [0x31, 0x00, 0x01]
+    state_off:
+      data: [0x3E, 0x01]
+      mask: [0xFF, 0x01]
+    on_press:
+      then:
+        - script.execute: open_door_sequence
+
+  - platform: uartex
+    id: door_bell_common
+    name: "Bell Common"
+    icon: "mdi:bell-ring"
+    state: 
+      data: [0x30]
+      mask: [0xF0]
+    state_on:
+      data: [0x32, 0x00, 0x01]
+    state_off:
+      data: [0x3E, 0x06]
+      mask: [0xFF, 0x06]
+    on_press:
+      then:
+        - script.execute: open_door_sequence_common
+
+button:
+  - platform: uartex
+    id: door_call
+    name: "Call"
+    icon: "mdi:phone"
+    command_on: 
+      data: [0xA5, 0x36, 0x01]
+      ack: [0x42]
+
+  - platform: uartex
+    id: door_open
+    name: "Open"
+    icon: "mdi:door-sliding-open"
+    command_on: 
+      data: [0xA5, 0x3B, 0x00]
+      ack: [0x42]
+
+  - platform: uartex
+    id: door_call_common
+    name: "Call Common"
+    icon: "mdi:phone"
+    command_on: 
+      data: [0xA5, 0x36, 0x02]
+      ack: [0x42]
+
+  - platform: uartex
+    id: door_open_common
+    name: "Open Common"
+    icon: "mdi:door-sliding-open"
+    command_on: 
+      data: [0xA5, 0x3B, 0x01]
+      ack: [0x42]
+
+switch:
+  - platform: template
+    id: auto_door_open_common
+    name: "Auto Open Common"
+    icon: "mdi:door-open"
+    optimistic: True
+    restore_mode: ALWAYS_ON
+    on_turn_off:
+      then:
+        - script.stop: open_door_sequence_common
+        
+  - platform: template
+    id: auto_door_open
+    name: "Auto Open"
+    icon: "mdi:door-open"
+    optimistic: True
+    restore_mode: ALWAYS_OFF
+    on_turn_off:
+      then:
+        - script.stop: open_door_sequence
+
+script:
+  - id: open_door_sequence_common
+    then:
+      - if:
+          condition:
+            - switch.is_on: auto_door_open_common
+          then:
+            - delay: 1000ms
+            - button.press: door_call_common
+            - delay: 1000ms
+            - button.press: door_open_common
+
+  - id: open_door_sequence
+    then:
+      - if:
+          condition:
+            - switch.is_on: auto_door_open
+          then:
+            - delay: 1000ms
+            - button.press: door_call
+            - delay: 1000ms
+            - button.press: door_open
