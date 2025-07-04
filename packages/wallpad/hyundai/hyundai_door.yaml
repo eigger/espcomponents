@@ -74,7 +74,7 @@ binary_sensor:
     icon: "mdi:bell-ring"
     state:
       data: [0xB4, 0x00, 0x00]
-      maks: [0xB4, 0xFF, 0xFF]
+      mask: [0xB4, 0xFF, 0xFF]
     state_on:
       offset: 0
       data: [0xB5]
@@ -88,7 +88,7 @@ binary_sensor:
     icon: "mdi:bell-ring"
     state:
       data: [0x58, 0x00, 0x00]
-      maks: [0x58, 0xFF, 0xFF]
+      mask: [0x58, 0xFF, 0xFF]
     state_on:
       offset: 0
       data: [0x5A]
