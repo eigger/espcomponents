@@ -17,13 +17,13 @@ or [알리익스프레스(RS485 Tail)](https://ko.aliexpress.com/item/1005003297
 
 <img src="https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/673/C008_PinMap_01.jpg" alt="M5Stack Atom Lite" width="100%">
 
-- 485Base + Atom Lite
+- 485Base + Atom Lite (기본)
   ```yaml
   uart:
     rx_pin: GPIO22
     tx_pin: GPIO19
   ```
-- 485Tail + Atom Lite
+- 485Tail + Atom Lite (아래 항목 yaml 추가)
   ```yaml
   uart:
     rx_pin: GPIO32
@@ -31,13 +31,13 @@ or [알리익스프레스(RS485 Tail)](https://ko.aliexpress.com/item/1005003297
   ```
 <img src="https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/471/C124_PinMap_01.jpg" alt="M5Stack Atom Lite" width="100%">
 
-- 485Base + AtomS3 Lite
+- 485Base + AtomS3 Lite (아래 항목 yaml 추가)
   ```yaml
   uart:
     rx_pin: GPIO05
     tx_pin: GPIO06
   ```
-- 485Tail + AtomS3 Lite
+- 485Tail + AtomS3 Lite (아래 항목 yaml 추가)
   ```yaml
   uart:
     rx_pin: GPIO01
