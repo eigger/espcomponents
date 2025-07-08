@@ -13,6 +13,7 @@ sensor:
       name: "PM2.5"
       accuracy_decimals: 2
       filters:
+        - round: 2
         - filter_out: nan
         - heartbeat: 20s  # 최소 15초마다 값 확인
         - sliding_window_moving_average:
