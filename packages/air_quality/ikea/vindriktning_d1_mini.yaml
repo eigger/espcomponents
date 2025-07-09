@@ -10,6 +10,7 @@ sensor:
   - platform: pm1006
     update_interval: 5min
     pm_2_5:
+      id: pm_25
       name: "PM2.5"
       accuracy_decimals: 2
       filters:
@@ -20,3 +21,15 @@ sensor:
             send_every: 1
             send_first_at: 1
         - round: 2
+
+text_sensor:
+  - platform: template
+    update_interval: 5min
+    name: "Air Quality"
+    icon: "mdi:blur"
+    accuracy_decimals: 0
+    lambda: !lambda |-
+      float pm25 = id(pm_25).state;
+      if (pm25 <= 35) return "Good";
+      if (pm25 <= 85) return "Moderate";
+      return "Unhealthy";
