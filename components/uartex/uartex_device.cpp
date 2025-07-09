@@ -266,6 +266,26 @@ std::string to_ascii_string(const uint8_t* data, const uint16_t len)
     return ascii_str;
 }
 
+std::vector<std::string> split(const std::string& str, const std::string& delimiter)
+{
+    std::vector<std::string> tokens;
+    size_t pos_start = 0, pos;
+    size_t delim_len = delimiter.length();
+    while ((pos = str.find(delimiter, pos_start)) != std::string::npos)
+    {
+        tokens.emplace_back(str.substr(pos_start, pos - pos_start));
+        pos_start = pos + delim_len;
+    }
+    tokens.emplace_back(str.substr(pos_start));
+    return tokens;
+}
+
+std::string get_token(const std::vector<std::string>& tokens, size_t index, const std::string& default_val) 
+{
+    if (index < 0 || index >= tokens.size()) return default_val;
+    return tokens[index];
+}
+
 bool check_value(const uint16_t index, const uint8_t value, const uint8_t* data, const uint16_t len)
 {
     if (index < 0 || index >= len) return false;
