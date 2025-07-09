@@ -25,6 +25,7 @@ sensor:
 text_sensor:
   - platform: template
     update_interval: 5min
+    name: "Air Quality"
     icon: "mdi:blur"
     accuracy_decimals: 0
     lambda: !lambda |-
