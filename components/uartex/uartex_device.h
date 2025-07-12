@@ -132,6 +132,8 @@ std::string to_hex_string(const std::vector<unsigned char>& data);
 std::string to_ascii_string(const std::vector<unsigned char>& data);
 std::string to_hex_string(const uint8_t* data, const uint16_t len);
 std::string to_ascii_string(const uint8_t* data, const uint16_t len);
+std::vector<std::string> split(const std::string& str, const std::string& delimiter = ",");
+std::string get_token(const std::vector<std::string>& tokens, size_t index, const std::string& default_val = "");
 bool check_value(const uint16_t index, const uint8_t value, const uint8_t* data, const uint16_t len);
 uint16_t crc16(const uint16_t init, const uint16_t poly, const uint8_t data);
 uint16_t crc16_reflected(const uint16_t init, const uint16_t poly, const uint8_t data);
