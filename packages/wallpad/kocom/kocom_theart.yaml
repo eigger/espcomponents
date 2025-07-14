@@ -14,8 +14,8 @@ external_components:
 uartex:
   rx_timeout: 10ms
   rx_length: 21
-  tx_delay: 100ms
-  tx_timeout: 500ms
+  tx_delay: 500ms
+  tx_timeout: 1s
   tx_retry_cnt: 3
 
   rx_header: [0xAA, 0x55]
@@ -26,12 +26,49 @@ uartex:
   rx_checksum: add_no_header
   tx_checksum: add_no_header
 
+  rx_priority: loop
+
   version:
     disabled: False
   error:
     disabled: False
   log:
     disabled: False
+
+esphome:
+  areas:
+    - id: area_livingroom
+      name: ""
+    - id: area_bedroom
+      name: ""
+    - id: area_room_1
+      name: ""
+    - id: area_room_2
+      name: ""
+    - id: area_kitchen
+      name: ""
+    - id: area_entrance
+      name: ""
+
+  devices:
+    - id: device_livingroom
+      area_id: area_livingroom
+      name: "${friendly_name} Livingroom"
+    - id: device_bedroom
+      area_id: area_bedroom
+      name: "${friendly_name} Bedroom"
+    - id: device_room_1
+      area_id: area_room_1
+      name: "${friendly_name} Room 1"
+    - id: device_room_2
+      area_id: area_room_2
+      name: "${friendly_name} Room 2"
+    - id: device_kitchen
+      area_id: area_kitchen
+      name: "${friendly_name} Kitchen"
+    - id: device_entrance
+      area_id: area_entrance
+      name: "${friendly_name} Entrance"
 
 light:
   #Room0
@@ -61,6 +98,7 @@ light:
       data: [0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x3a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
       ack: [0x30, 0xdc, 0x00, 0x0e, 0x00]
     update_interval: 2h
+    device_id: device_livingroom
 
   - platform: uartex
     name: "Livingroom Light 2"
@@ -84,6 +122,7 @@ light:
       uint8_t light2 = 0x00;
       uint8_t light3 = id(livingroom_light_3).current_values.is_on() ? 0xff : 0x00;
       return {{0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x00, light1, light2, light3, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc, 0x00, 0x0e, 0x00}};
+    device_id: device_livingroom
 
   - platform: uartex
     name: "Livingroom Light 3"
@@ -107,6 +146,7 @@ light:
       uint8_t light2 = id(livingroom_light_2).current_values.is_on() ? 0xff : 0x00;
       uint8_t light3 = 0x00;
       return {{0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x00, light1, light2, light3, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc, 0x00, 0x0e, 0x00}};
+    device_id: device_livingroom
 
 #Heater
 #8 -> power on: 0x11(hot water: 0x12), power off: 0x01(hot water: 0x02)
@@ -175,6 +215,7 @@ climate:
       data: [0x30, 0xbc, 0x00, 0x36, 0x00, 0x01, 0x00, 0x3a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
       ack: [0x30, 0xdc, 0x00, 0x36, 0x00]
     update_interval: 2h
+    device_id: device_livingroom
 
   #Room1
   - platform: uartex
@@ -230,6 +271,7 @@ climate:
       data: [0x30, 0xbc, 0x00, 0x36, 0x01, 0x01, 0x00, 0x3a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
       ack: [0x30, 0xdc, 0x00, 0x36, 0x01]
     update_interval: 2h
+    device_id: device_bedroom
 
   #Room2
   - platform: uartex
@@ -281,6 +323,7 @@ climate:
       data: [0x30, 0xbc, 0x00, 0x36, 0x02, 0x01, 0x00, 0x3a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
       ack: [0x30, 0xdc, 0x00, 0x36, 0x02]
     update_interval: 2h
+    device_id: device_room_1
 
   #Room3
   - platform: uartex
@@ -332,6 +375,7 @@ climate:
       data: [0x30, 0xbc, 0x00, 0x36, 0x03, 0x01, 0x00, 0x3a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
       ack: [0x30, 0xdc, 0x00, 0x36, 0x03]
     update_interval: 2h
+    device_id: device_room_2
 
   #Room4
   - platform: uartex
@@ -383,6 +427,7 @@ climate:
       data: [0x30, 0xbc, 0x00, 0x36, 0x04, 0x01, 0x00, 0x3a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
       ack: [0x30, 0xdc, 0x00, 0x36, 0x04]
     update_interval: 2h
+    device_id: device_livingroom
 
 sensor:
   - platform: uartex
@@ -396,6 +441,7 @@ sensor:
     state_class: "measurement"
     state_number:
       offset: 12
+    device_id: device_livingroom
   - platform: uartex
     name: "Bedroom Temperature"
     state: 
@@ -407,6 +453,7 @@ sensor:
     state_class: "measurement"
     state_number:
       offset: 12
+    device_id: device_bedroom
   - platform: uartex
     name: "Room 1 Temperature"
     state: 
@@ -418,6 +465,7 @@ sensor:
     state_class: "measurement"
     state_number:
       offset: 12
+    device_id: device_room_1
   - platform: uartex
     name: "Room 2 Temperature"
     state: 
@@ -429,6 +477,7 @@ sensor:
     state_class: "measurement"
     state_number:
       offset: 12
+    device_id: device_room_2
   - platform: uartex
     name: "Livingroom 2 Temperature"
     state: 
@@ -440,6 +489,7 @@ sensor:
     state_class: "measurement"
     state_number:
       offset: 12
+    device_id: device_livingroom
 
 #OFF <AA 55 30 BC 00 01 00 2C 00 02 00 00 00 00 00 00 00 00 1B 0D 0D 
 #OFF  AA 55 30 DC 00 2C 00 01 00 02 00 00 00 00 00 00 00 00 3B 0D 0D
@@ -484,6 +534,7 @@ lock:
       data: [0x30, 0xbc, 0x00, 0x2c, 0x00, 0x01, 0x00, 0x3a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
       ack: [0x30, 0xdc, 0x00, 0x2c, 0x00]
     update_interval: 2h
+    device_id: device_kitchen
 
 text_sensor:
   - platform: uartex
@@ -496,15 +547,33 @@ text_sensor:
       if (check_value(8, 0x00, data, len)) return "호출";
       if (check_value(8, 0x03, data, len)) return "도착";
       return "Unknown";
-
+    device_id: device_entrance
 # AA 55 30 BC 00 01 00 44 00 01 03 00 00 00 00 00 00 00 35 0D 0D
-button:
+switch:
   - platform: uartex
     name: "Elevator Call"
     icon: "mdi:elevator"
+    optimistic: true
+    state_off:
+      data: [0x30, 0x00, 0x00, 0x44]
+      mask: [0xff, 0x00, 0xff, 0xff]
     command_on: 
       data: [0x30, 0xbc, 0x00, 0x01, 0x00, 0x44, 0x00, 0x01, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
       ack: [0x30, 0xdc]
+    device_id: device_entrance
+    # on_turn_on:
+    #   then:
+    #     - delay: 500ms
+    #     - switch.turn_off: id_elevator_call
+# button:
+#   - platform: uartex
+#     id: id_elevator_call
+#     name: "Elevator Call"
+#     icon: "mdi:elevator"
+#     command_on: 
+#       data: [0x30, 0xbc, 0x00, 0x01, 0x00, 0x44, 0x00, 0x01, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+#       ack: [0x30, 0xdc]
+#     device_id: device_entrance
 
   # - platform: template
   #   name: "Refresh"
