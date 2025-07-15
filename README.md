@@ -15,4 +15,12 @@
 
 # [uartex](/components/uartex)
 - uartex is an extended component of ESPHome UART that enables easy integration of sensors by utilizing UART data.
+- [월패드 연동](https://github.com/eigger/espcomponents/wiki)
+
+# [jaalee_jht](/components/jaalee_jht)
+- Component for Jaalee JHT Bluetooth Temperature and Humidity Sensor.
+
+# [bbq10_keyboard](/components/bbq10_keyboard)
+- Component for Lilygo Watch Keyboard.<br>
+  <img src="https://lilygo.cc/cdn/shop/products/Q374-watch-keyboard-lilygo.jpg?v=1679983894" width="200">
 
