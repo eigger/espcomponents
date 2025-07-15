@@ -16,3 +16,4 @@ bbq10_keyboard:
     name: Last Key
 
 ```
+<img src="https://lilygo.cc/cdn/shop/products/Q374-watch-keyboard-lilygo.jpg?v=1679983894" width="400">
