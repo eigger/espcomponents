@@ -27,6 +27,13 @@
 
 ---
 
+## [axp192](/components/axp192)
+**AXP192 Power Management Component**  
+- ESPHome component for AXP192 power management chip.
+- Provides power management and monitoring functions.
+  
+---
+
 ## [bbq10_keyboard](/components/bbq10_keyboard)
 **Lilygo Watch Keyboard Component**  
 - Supports BBQ10 Keyboard for Lilygo Watch.
@@ -35,10 +42,12 @@
 
 ---
 
-## [axp192](/components/axp192)
-**AXP192 Power Management Component**  
-- ESPHome component for AXP192 power management chip.
-- Provides power management and monitoring functions.
+## [lilygo_t_keyboard](/components/lilygo_t_keyboard)
+**Lilygo T Keyboard Component**  
+- Supports Lilygo T Keyboard.
+- Product image:  
+  <img src="https://cdn.shopify.com/s/files/1/0617/7190/7253/files/T-Keyboard.jpg?v=1708422205" width="200">
   
 ---
+
 
