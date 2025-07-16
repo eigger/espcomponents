@@ -13,6 +13,32 @@
 💡 Have a question or suggestion? Join the [Discussion](https://github.com/eigger/espcomponents/discussions)!
 
 
-# [uartex](/components/uartex)
-- uartex is an extended component of ESPHome UART that enables easy integration of sensors by utilizing UART data.
+## [uartex](/components/uartex)
+**UART Extension Component**  
+- Extends ESPHome UART integration for easier sensor data handling.
+- Key feature: Seamless integration of sensors using UART data.
+- Reference: [월패드 연동 가이드](https://github.com/eigger/espcomponents/wiki)
+
+---
+
+## [jaalee_jht](/components/jaalee_jht)
+**Jaalee JHT Bluetooth Temperature and Humidity Sensor Component**  
+- Supports Jaalee JHT Bluetooth Temperature and Humidity Sensor.
+
+---
+
+## [bbq10_keyboard](/components/bbq10_keyboard)
+**Lilygo Watch Keyboard Component**  
+- Supports BBQ10 Keyboard for Lilygo Watch.
+- Product image:  
+  <img src="https://lilygo.cc/cdn/shop/products/Q374-watch-keyboard-lilygo.jpg?v=1679983894" width="200">
+
+---
+
+## [axp192](/components/axp192)
+**AXP192 Power Management Component**  
+- ESPHome component for AXP192 power management chip.
+- Provides power management and monitoring functions.
+  
+---
 
