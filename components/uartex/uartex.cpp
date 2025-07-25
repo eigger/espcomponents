@@ -211,6 +211,7 @@ void UARTExComponent::write_tx_cmd()
     {
         command.insert(command.end(), this->tx_footer_.value().begin(), this->tx_footer_.value().end());
     }
+    publish_tx_log(command);
     write_data(command);
     write_flush();
     if (this->tx_ctrl_pin_) this->tx_ctrl_pin_->digital_write(false);
@@ -218,7 +219,6 @@ void UARTExComponent::write_tx_cmd()
     this->tx_time_ = get_time();
     if (current_tx_cmd()->ack.empty()) tx_cmd_result(true);
     this->write_callback_.call(&command[0], command.size());
-    publish_tx_log(command);
 }
 
 void UARTExComponent::write_data(const uint8_t data)
