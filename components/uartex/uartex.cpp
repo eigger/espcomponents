@@ -241,7 +241,7 @@ void UARTExComponent::enqueue_tx_data(const tx_data_t data, bool low_priority)
 
 void UARTExComponent::write_command(cmd_t cmd)
 {
-    std::string name = "command_queue_" + str::to_string(tx_command_cnt_);
+    std::string name = "command_queue_" + std::to_string(tx_command_cnt_);
     write_command(name, cmd);
     if (++tx_command_cnt_ >= conf_tx_command_queue_size_) tx_command_cnt_ = 0;
 }
