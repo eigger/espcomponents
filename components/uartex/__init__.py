@@ -12,7 +12,7 @@ from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTE
     CONF_ACK, CONF_ON_WRITE, CONF_ON_READ, \
     CONF_STATE, CONF_MASK, \
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
-    CONF_COMMAND_UPDATE, CONF_RX_TIMEOUT, CONF_TX_TIMEOUT, CONF_TX_RETRY_CNT, \
+    CONF_COMMAND_UPDATE, CONF_RX_TIMEOUT, CONF_TX_TIMEOUT, CONF_TX_RETRY_CNT, CONF_TX_COMMAND_QUEUE_SIZE, \
     CONF_STATE_RESPONSE, CONF_LENGTH, CONF_PRECISION, CONF_RX_LENGTH, \
     CONF_TX_CTRL_PIN, CONF_TX_DELAY, CONF_DISABLED, CONF_ASCII, CONF_SIGNED, CONF_ENDIAN, CONF_DECODE
 
@@ -157,6 +157,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         cv.Range(max=core.TimePeriod(milliseconds=2000)),
     ),
     cv.Optional(CONF_TX_RETRY_CNT, default=3): cv.int_range(min=1, max=10),
+    cv.Optional(CONF_TX_COMMAND_QUEUE_SIZE, default=10): cv.int_range(min=1, max=50),
     cv.Optional(CONF_ON_TX_TIMEOUT): automation.validate_automation(
         {
             cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(TxTimeoutTrigger),
@@ -243,6 +244,9 @@ async def to_code(config):
 
     if CONF_TX_RETRY_CNT in config:
         cg.add(var.set_tx_retry_cnt(config[CONF_TX_RETRY_CNT]))
+
+    if CONF_TX_COMMAND_QUEUE_SIZE in config:
+        cg.add(var.set_tx_command_queue_size(config[CONF_TX_COMMAND_QUEUE_SIZE]))
     
     for conf in config.get(CONF_ON_TX_TIMEOUT, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)

@@ -239,6 +239,13 @@ void UARTExComponent::enqueue_tx_data(const tx_data_t data, bool low_priority)
     else this->tx_queue_.push(data);
 }
 
+void UARTExComponent::write_command(cmd_t cmd)
+{
+    std::string name = "command_queue_" + str::to_string(tx_command_cnt_);
+    write_command(name, cmd);
+    if (++tx_command_cnt_ >= conf_tx_command_queue_size_) tx_command_cnt_ = 0;
+}
+
 void UARTExComponent::write_command(std::string name, cmd_t cmd)
 {
     this->command_map_[name] = cmd;
@@ -270,6 +277,11 @@ void UARTExComponent::set_tx_timeout(uint16_t timeout)
 void UARTExComponent::set_tx_retry_cnt(uint16_t tx_retry_cnt)
 {
     this->conf_tx_retry_cnt_ = tx_retry_cnt;
+}
+
+void UARTExComponent::set_tx_command_queue_size(uint16_t size)
+{
+    this->conf_tx_command_queue_size_ = size;
 }
 
 void UARTExComponent::set_rx_length(uint16_t rx_length)

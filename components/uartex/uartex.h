@@ -82,11 +82,13 @@ public:
     void set_tx_delay(uint16_t tx_delay);
     void set_tx_timeout(uint16_t timeout);
     void set_tx_retry_cnt(uint16_t tx_retry_cnt);
+    void set_tx_command_queue_size(uint16_t size);
     void set_rx_length(uint16_t rx_length);
     void set_rx_timeout(uint16_t timeout);
     void set_tx_ctrl_pin(InternalGPIOPin *pin);
     void enqueue_tx_data(const tx_data_t data, bool low_priority = false);
     void write_command(std::string name, cmd_t cmd);
+    void write_command(cmd_t cmd);
 protected:
     bool is_tx_cmd_pending();
     void tx_cmd_result(bool result);
@@ -115,6 +117,7 @@ protected:
     uint16_t conf_tx_delay_{50};
     uint16_t conf_tx_timeout_{50};
     uint16_t conf_tx_retry_cnt_{3};
+    uint16_t conf_tx_command_queue_size_{10};
     uint16_t conf_rx_length_{0};
     optional<header_t> rx_header_{};
     optional<std::vector<uint8_t>> rx_footer_{};
@@ -141,6 +144,7 @@ protected:
     unsigned long rx_time_{0};
     unsigned long tx_time_{0};
     uint16_t tx_retry_cnt_{0};
+    uint16_t tx_command_cnt_{0};
 
     InternalGPIOPin *tx_ctrl_pin_{nullptr};
     Parser rx_parser_{};
