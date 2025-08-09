@@ -1,12 +1,22 @@
 ## uartex
-```
+
+> ℹ️ **INFO** 
+>
+> To enable real-time status updates in Home Assistant, add the following option.
+>```yaml
+>api:
+>  batch_delay: 0ms
+>```
+>
+---
+```yaml
 external_components:
   - source: github://eigger/espcomponents@latest
     components: [ uartex ]
     refresh: always
 ```
 
-```
+```yaml
 packet) 0x02 0x01 0x00 0x00 0x00 (add)checksum 0x0D 0x0A
 
 uartex:
