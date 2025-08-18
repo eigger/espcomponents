@@ -51,6 +51,14 @@ uartex:
 #    command_close:
 #      data: [0xAB, 0x78, 0x00]
 #      ack: [0x78]
+button:
+  - platform: uartex
+    name: "Gas Valve Close"
+    icon: "mdi:gas-burner"
+    command_on: 
+      data: [0xAB, 0x78, 0x00]
+      ack: [0x78]
+
 
 light:
   - platform: uartex
