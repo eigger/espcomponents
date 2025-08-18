@@ -12,13 +12,14 @@ external_components:
     refresh: always  
 
 uartex:
+  id: uartex_id
   rx_timeout: 10ms
-  tx_delay: 50ms
+  tx_delay: 0ms
   tx_timeout: 500ms
   tx_retry_cnt: 3
-  rx_header: [0xB0]
+  rx_header: [0xA4]
   rx_checksum: !lambda |-
-    uint8_t crc = 0xB0;
+    uint8_t crc = 0xA4;
     for (size_t i = 0; i < len; i++)
       crc ^= data[i];
     if (data[0] < 0x7C) crc ^= 0x80;
@@ -40,73 +41,138 @@ uartex:
 binary_sensor:
   - platform: uartex
     id: door_bell
-    name: "Bell"
+    name: "Bell Private"
     icon: "mdi:bell-ring"
     state: 
       data: [0x30]
       mask: [0xF0]
     state_on:
-      data: [0x31, 0x00, 0x01]
+      data: [0x31, 0x00]
     state_off:
       data: [0x3E, 0x01]
       mask: [0xFF, 0x01]
     on_press:
       then:
+        - globals.set:
+            id: door_state
+            value: '"D_BELL"'
         - script.execute: open_door_sequence
+    on_release:
+      then:
+        - globals.set:
+            id: door_state
+            value: '"D_IDLE"'
 
   - platform: uartex
     id: door_bell_common
-    name: "Bell Common"
+    name: "Bell Public"
     icon: "mdi:bell-ring"
     state: 
       data: [0x30]
       mask: [0xF0]
     state_on:
-      data: [0x32, 0x00, 0x01]
+      data: [0x32, 0x00]
     state_off:
       data: [0x3E, 0x06]
       mask: [0xFF, 0x06]
     on_press:
       then:
+        - globals.set:
+            id: door_state
+            value: '"D_BELL"'
         - script.execute: open_door_sequence_common
+    on_release:
+      then:
+        - globals.set:
+            id: door_state
+            value: '"D_IDLE"'
+
+globals:
+  - id: door_state
+    type: std::string
+    initial_value: '"D_IDLE"'
+
+text_sensor:
+ - platform: uartex
+   name: "Response"
+   internal: True
+   lambda: |-
+     if (data[0] == 0x5A) 
+     {
+      id(uartex_id).write_command("init", {0xB0, 0x5A, 0x00}); 
+     }
+     else if (data[0] == 0x41)
+     {
+      if (id(door_state) == "D_IDLE") id(uartex_id).write_command("query", {0xB0, 0x41, 0x00}); 
+      else if (id(door_state) == "D_CALL" || id(door_state) == "D_CALL_P") 
+      {
+        uint8_t value = id(door_state) == "D_CALL" ? 0x01 : 0x02;
+        id(uartex_id).write_command("query", {0xB0, 0x36, value}); //01현관, 02공동
+        id(door_state) = "D_CALLED";
+      }
+      else if (id(door_state) == "D_OPEN" || id(door_state) == "D_OPEN_P")
+      {
+        uint8_t value = id(door_state) == "D_OPEN" ? 0x00 : 0x06;
+        id(uartex_id).write_command("query", {0xB0, 0x3B, value}); //00현관, 06공동
+        id(door_state) = "D_OPENED";
+      }
+      else id(uartex_id).write_command("query", {0xB0, 0x42, 0x00}); 
+     }
+     else if (data[0] == 0x42) id(uartex_id).write_command("block", {0xB0, 0x41, 0x00}); 
+     else if (data[0] == 0x32) id(uartex_id).write_command("public", {0xB0, 0x32, 0x00}); 
+     else if (data[0] == 0x31) id(uartex_id).write_command("private", {0xB0, 0x31, 0x00}); 
+     else if (data[0] == 0x36) id(uartex_id).write_command("opena", {0xB0, 0x42, 0x00});
+     else if (data[0] == 0x38) id(uartex_id).write_command("vopena", {0xB0, 0x42, 0x00}); 
+     else if (data[0] == 0x35) id(uartex_id).write_command("vconna", {0xB0, 0x35, 0x00}); 
+     else if (data[0] == 0x3B) id(uartex_id).write_command("open2a", {0xB0, 0x42, 0x00}); 
+     else if (data[0] == 0x3E) id(uartex_id).write_command("end", {0xB0, 0x3E, data[1]}); //01현관, 02공동
+     return to_hex_string(data, len);
 
 button:
-  - platform: uartex
+  - platform: template
     id: door_call
-    name: "Call"
+    name: "Call Private"
     icon: "mdi:phone"
-    command_on: 
-      data: [0xA5, 0x36, 0x01]
-      ack: [0x42]
+    on_press: 
+      then:
+        - globals.set:
+            id: door_state
+            value: '"D_CALL"'
 
-  - platform: uartex
+  - platform: template
     id: door_open
-    name: "Open"
+    name: "Open Private"
     icon: "mdi:door-sliding-open"
-    command_on: 
-      data: [0xA5, 0x3B, 0x00]
-      ack: [0x42]
+    on_press: 
+      then:
+        - globals.set:
+            id: door_state
+            value: '"D_OPEN"'
 
-  - platform: uartex
+  - platform: template
     id: door_call_common
-    name: "Call Common"
+    name: "Call Public"
     icon: "mdi:phone"
-    command_on: 
-      data: [0xA5, 0x36, 0x02]
-      ack: [0x42]
+    on_press: 
+      then:
+        - globals.set:
+            id: door_state
+            value: '"D_CALL_P"'
 
-  - platform: uartex
+  - platform: template
     id: door_open_common
-    name: "Open Common"
+    name: "Open Public"
     icon: "mdi:door-sliding-open"
-    command_on: 
-      data: [0xA5, 0x3B, 0x01]
-      ack: [0x42]
+    on_press: 
+      then:
+        - globals.set:
+            id: door_state
+            value: '"D_OPEN_P"'
 
 switch:
   - platform: template
     id: auto_door_open_common
-    name: "Auto Open Common"
+    name: "Auto Open Public"
     icon: "mdi:door-open"
     optimistic: True
     restore_mode: ALWAYS_ON
@@ -116,7 +182,7 @@ switch:
         
   - platform: template
     id: auto_door_open
-    name: "Auto Open"
+    name: "Auto Open Private"
     icon: "mdi:door-open"
     optimistic: True
     restore_mode: ALWAYS_OFF
