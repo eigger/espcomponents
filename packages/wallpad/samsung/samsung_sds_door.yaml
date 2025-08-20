@@ -197,9 +197,9 @@ script:
           condition:
             - switch.is_on: auto_door_open_common
           then:
-            - delay: 1000ms
+            - delay: 2000ms
             - button.press: door_call_common
-            - delay: 1000ms
+            - delay: 3000ms
             - button.press: door_open_common
 
   - id: open_door_sequence
@@ -208,7 +208,7 @@ script:
           condition:
             - switch.is_on: auto_door_open
           then:
-            - delay: 1000ms
+            - delay: 2000ms
             - button.press: door_call
-            - delay: 1000ms
+            - delay: 3000ms
             - button.press: door_open
