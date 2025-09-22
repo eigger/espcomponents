@@ -133,6 +133,9 @@ script:
           condition:
             - switch.is_on: id_enable_auto_open
           then:
+            - delay: 3s
             - switch.turn_on: id_door_call
+            - delay: 1s
             - button.press: id_door_open
+            - delay: 500ms
             - switch.turn_off: id_door_call
