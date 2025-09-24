@@ -540,6 +540,7 @@ text_sensor:
   - platform: uartex
     name: "Elevator"
     icon: "mdi:elevator"
+    id: id_elevator_state
     state: 
       data: [0x30, 0x00, 0x00, 0x01, 0x00, 0x44, 0x00]
       mask: [0xff, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff]
@@ -560,11 +561,10 @@ switch:
     command_on: 
       data: [0x30, 0xbc, 0x00, 0x01, 0x00, 0x44, 0x00, 0x01, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
       ack: [0x30, 0xdc]
+    on_turn_on:
+      - lambda: |-
+          id(id_elevator_state).publish_state("호출");
     device_id: device_entrance
-    # on_turn_on:
-    #   then:
-    #     - delay: 500ms
-    #     - switch.turn_off: id_elevator_call
 # button:
 #   - platform: uartex
 #     id: id_elevator_call
