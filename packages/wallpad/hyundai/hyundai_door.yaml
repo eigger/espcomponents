@@ -159,10 +159,11 @@ script:
           condition:
             - switch.is_on: id_enable_auto_open_common
           then:
-            - delay: 3s
+            - delay: 5s
             - switch.turn_on: id_door_call_common
             - delay: 1s
             - button.press: id_door_open_common
+            - delay: 3s
             - switch.turn_off: id_door_call_common
   - id: open_door_sequence
     then:
@@ -170,8 +171,9 @@ script:
           condition:
             - switch.is_on: id_enable_auto_open
           then:
-            - delay: 3s
+            - delay: 5s
             - switch.turn_on: id_door_call
             - delay: 1s
             - button.press: id_door_open
+            - delay: 3s
             - switch.turn_off: id_door_call
