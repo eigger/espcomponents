@@ -67,7 +67,6 @@ uartex:
 # 7F 5F 00 00 EE // W <- S 공동현관문 호출 수신
 # 7F 61 00 00 EE // W <- S 공동현관문 열기 (통화중에만 가능)
 # 7F 60 00 00 EE // W <- S 통화 종료
-
 binary_sensor:
   - platform: uartex
     name: "Door Bell"
@@ -81,6 +80,9 @@ binary_sensor:
     state_off:
       offset: 0
       data: [0xB6]
+    on_press:
+      then:
+        - script.execute: open_door_sequence
 
   - platform: uartex
     id: id_door_bell_common
@@ -97,28 +99,52 @@ binary_sensor:
       data: [0x5C]
     on_press:
       then:
-        - script.execute: open_door_sequence
+        - script.execute: open_common_door_sequence
 
 button:
+  - platform: uartex
+    id: id_door_open_common
+    name: "Door Open Common"
+    icon: "mdi:door-sliding-open"
+    command_on: 
+      data: [0x61, 0x00, 0x00]
   - platform: uartex
     id: id_door_open
     name: "Door Open"
     icon: "mdi:door-sliding-open"
     command_on: 
-      data: [0x61, 0x00, 0x00]
+      data: [0xB4, 0x00, 0x00]
 
 switch:
   - platform: uartex
-    id: id_door_call
-    name: "Door Call"
+    id: id_door_call_common
+    name: "Door Call Common"
     icon: "mdi:phone"
     command_on: 
       data: [0x5F, 0x00, 0x00]
     command_off: 
       data: [0x60, 0x00, 0x00]
   - platform: template
+    id: id_enable_auto_open_common
+    name: "Auto Opening Common"
+    icon: "mdi:door-open"
+    optimistic: True
+    restore_mode: ALWAYS_ON
+    on_turn_off:
+      then:
+        - script.stop: open_common_door_sequence
+
+  - platform: uartex
+    id: id_door_call
+    name: "Door Call"
+    icon: "mdi:phone"
+    command_on: 
+      data: [0xB7, 0x00, 0x00]
+    command_off: 
+      data: [0xBB, 0x00, 0x00]
+  - platform: template
     id: id_enable_auto_open
-    name: "Enable Auto Door Opening"
+    name: "Auto Opening"
     icon: "mdi:door-open"
     optimistic: True
     restore_mode: ALWAYS_ON
@@ -127,6 +153,17 @@ switch:
         - script.stop: open_door_sequence
 
 script:
+  - id: open_common_door_sequence
+    then:
+      - if:
+          condition:
+            - switch.is_on: id_enable_auto_open_common
+          then:
+            - delay: 3s
+            - switch.turn_on: id_door_call_common
+            - delay: 1s
+            - button.press: id_door_open_common
+            - switch.turn_off: id_door_call_common
   - id: open_door_sequence
     then:
       - if:
@@ -137,5 +174,4 @@ script:
             - switch.turn_on: id_door_call
             - delay: 1s
             - button.press: id_door_open
-            - delay: 500ms
             - switch.turn_off: id_door_call
