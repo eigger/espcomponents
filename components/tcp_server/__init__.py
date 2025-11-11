@@ -42,7 +42,7 @@ def command_hex_schema(value):
 # TCP_Server Schema
 CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.GenerateID(): cv.declare_id(TCP_ServerComponent),
-    cv.Optional(CONF_TCP_PORT): cv.positive_int,
+    cv.Required(CONF_TCP_PORT): cv.positive_int,
     cv.Optional(CONF_ON_WRITE): automation.validate_automation(
         {
             cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(WriteTrigger),
