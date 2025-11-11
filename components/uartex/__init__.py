@@ -19,7 +19,7 @@ from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTE
 
 AUTO_LOAD = ["text_sensor"]
 CODEOWNERS = ["@eigger"]
-DEPENDENCIES = ["uart"]
+DEPENDENCIES = ["uart", "network"]
 uartex_ns = cg.esphome_ns.namespace('uartex')
 UARTExComponent = uartex_ns.class_('UARTExComponent', cg.Component, uart.UARTDevice)
 UARTExDevice = uartex_ns.class_('UARTExDevice', cg.PollingComponent)
