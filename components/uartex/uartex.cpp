@@ -49,6 +49,31 @@ void UARTExComponent::setup()
     if (this->version_) this->version_->publish_state(UARTEX_VERSION);
     ESP_LOGI(TAG, "Initaialize");
     publish_log(std::string("Boot ") + UARTEX_VERSION);
+
+    if (this->tcp_port_ > 0) {
+        this->server_ = new network::AsyncServer(this->tcp_port_);
+        this->server_->onClient([this](void *arg, network::AsyncClient *client) {
+            if (this->client_ != nullptr) {
+                ESP_LOGW(TAG, "Already connected, disconnecting new client");
+                client->close();
+                return;
+            }
+            this->client_ = client;
+            ESP_LOGI(TAG, "New client connected");
+
+            this->client_->onDisconnect([this](void *arg, network::AsyncClient *client) {
+                ESP_LOGI(TAG, "Client disconnected");
+                this->client_ = nullptr;
+            });
+
+            this->client_->onData([this](void *arg, network::AsyncClient *client, void *data, size_t len) {
+                if (this->tcp_mode_ == TCP_MODE_READ_WRITE) {
+                    this->write_array((uint8_t*)data, len);
+                }
+            });
+        });
+        this->server_->begin();
+    }
 }
 
 void UARTExComponent::loop()
@@ -130,6 +155,9 @@ void UARTExComponent::publish_data()
     auto& data = this->rx_parser_.data();
     this->read_callback_.call(&this->rx_parser_.buffer()[0], this->rx_parser_.buffer().size());
     publish_rx_log(this->rx_parser_.buffer());
+    if (this->client_ && this->client_->can_send()) {
+        this->client_->add((const char*)this->rx_parser_.buffer().data(), this->rx_parser_.buffer().size());
+    }
     for (UARTExDevice* device : this->devices_)
     {
         device->parse_data(data);
@@ -214,6 +242,9 @@ void UARTExComponent::write_tx_cmd()
     write_data(command);
     write_flush();
     if (this->tx_ctrl_pin_) this->tx_ctrl_pin_->digital_write(false);
+    if (this->client_ && this->client_->can_send()) {
+        this->client_->add((const char*)command.data(), command.size());
+    }
     this->tx_retry_cnt_++;
     this->tx_time_ = get_time();
     if (current_tx_cmd()->ack.empty()) tx_cmd_result(true);
@@ -297,6 +328,16 @@ void UARTExComponent::set_rx_timeout(uint16_t timeout)
 void UARTExComponent::set_tx_ctrl_pin(InternalGPIOPin *pin)
 {
     this->tx_ctrl_pin_ = pin;
+}
+
+void UARTExComponent::set_tcp_port(uint16_t port)
+{
+    this->tcp_port_ = port;
+}
+
+void UARTExComponent::set_tcp_mode(TCP_MODE mode)
+{
+    this->tcp_mode_ = mode;
 }
 
 bool UARTExComponent::is_tx_cmd_pending()

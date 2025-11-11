@@ -2,6 +2,7 @@
 #include "esphome/core/automation.h"
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/text_sensor/text_sensor.h"
+#include "esphome/components/network/async_tcp.h"
 #include "uartex_device.h"
 #include "parser.h"
 #include "version.h"
@@ -31,6 +32,11 @@ enum CHECKSUM {
 enum PRIORITY {
     PRIORITY_DATA,
     PRIORITY_LOOP
+};
+
+enum TCP_MODE {
+    TCP_MODE_READ_ONLY,
+    TCP_MODE_READ_WRITE,
 };
 
 struct tx_data_t
@@ -86,6 +92,8 @@ public:
     void set_rx_length(uint16_t rx_length);
     void set_rx_timeout(uint16_t timeout);
     void set_tx_ctrl_pin(InternalGPIOPin *pin);
+    void set_tcp_port(uint16_t port);
+    void set_tcp_mode(TCP_MODE mode);
     void enqueue_tx_data(const tx_data_t data, bool low_priority = false);
     void write_command(std::string name, cmd_t cmd);
     void write_command(cmd_t cmd);
@@ -147,6 +155,10 @@ protected:
     uint16_t tx_command_cnt_{0};
 
     InternalGPIOPin *tx_ctrl_pin_{nullptr};
+    uint16_t tcp_port_{0};
+    TCP_MODE tcp_mode_{TCP_MODE_READ_WRITE};
+    network::AsyncServer* server_{nullptr};
+    network::AsyncClient* client_{nullptr};
     Parser rx_parser_{};
     text_sensor::TextSensor* version_{nullptr};
     text_sensor::TextSensor* error_{nullptr};
