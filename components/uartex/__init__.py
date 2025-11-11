@@ -10,6 +10,7 @@ from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTE
     CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, CONF_RX_CHECKSUM_2, CONF_TX_CHECKSUM_2, \
     CONF_UARTEX_ID, CONF_ERROR, CONF_LOG, CONF_ON_TX_TIMEOUT, CONF_RX_PRIORITY, \
     CONF_ACK, CONF_ON_WRITE, CONF_ON_READ, \
+    CONF_TCP_ENABLED, CONF_TCP_PORT, CONF_TCP_MODE, \
     CONF_STATE, CONF_MASK, \
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
     CONF_COMMAND_UPDATE, CONF_RX_TIMEOUT, CONF_TX_TIMEOUT, CONF_TX_RETRY_CNT, CONF_TX_COMMAND_QUEUE_SIZE, \
@@ -44,6 +45,17 @@ CHECKSUMS = {
     "ADD_NO_HEADER": Checksum.CHECKSUM_ADD_NO_HEADER,
     "XOR_ADD": Checksum.CHECKSUM_XOR_ADD,
 }
+
+TCPMode = uartex_ns.enum("TCP_MODE")
+TCP_MODES = {
+    "READ-ONLY": TCPMode.TCP_MODE_READ_ONLY,
+    "READ-WRITE": TCPMode.TCP_MODE_READ_WRITE,
+}
+
+def validate_tcp_mode(value):
+    if isinstance(value, str):
+        return cv.enum(TCP_MODES, upper=True)(value)
+    raise cv.Invalid("data type error")
 
 def validate_checksum(value):
     if cg.is_template(value):
@@ -206,6 +218,9 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         cv.Optional(CONF_DISABLED, default=False): cv.boolean,
         cv.Optional(CONF_ASCII, default=False): cv.boolean,
     }),
+    cv.Optional(CONF_TCP_ENABLED, default=False): cv.boolean,
+    cv.Optional(CONF_TCP_PORT): cv.positive_int,
+    cv.Optional(CONF_TCP_MODE, default="READ-WRITE"): validate_tcp_mode,
 }).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA), cv.has_at_most_one_key(CONF_RX_CHECKSUM, CONF_RX_CHECKSUM_2), cv.has_at_most_one_key(CONF_TX_CHECKSUM, CONF_TX_CHECKSUM_2))
 
 async def to_code(config):
@@ -326,6 +341,12 @@ async def to_code(config):
 
     if CONF_RX_PRIORITY in config:
         cg.add(var.set_rx_priority(config[CONF_RX_PRIORITY]))
+
+    if config[CONF_TCP_ENABLED]:
+        if CONF_TCP_PORT not in config:
+            raise cv.Invalid("tcp_port must be specified when tcp_enabled is true")
+        cg.add(var.set_tcp_port(config[CONF_TCP_PORT]))
+        cg.add(var.set_tcp_mode(config[CONF_TCP_MODE]))
 
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
 UARTEX_DEVICE_SCHEMA = cv.Schema({

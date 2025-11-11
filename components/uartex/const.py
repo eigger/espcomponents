@@ -164,3 +164,6 @@ CONF_SPEED_CNT = 'speed_cnt'
 CONF_ON_WRITE = 'on_write'
 CONF_ON_READ = 'on_read'
 
+CONF_TCP_ENABLED = 'tcp_enabled'
+CONF_TCP_PORT = 'tcp_port'
+CONF_TCP_MODE = 'tcp_mode'
