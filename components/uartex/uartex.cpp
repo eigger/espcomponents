@@ -51,28 +51,27 @@ void UARTExComponent::setup()
     publish_log(std::string("Boot ") + UARTEX_VERSION);
 
     if (this->tcp_port_ > 0) {
-        this->server_ = new network::AsyncServer(this->tcp_port_);
-        this->server_->onClient([this](void *arg, network::AsyncClient *client) {
-            if (this->client_ != nullptr) {
-                ESP_LOGW(TAG, "Already connected, disconnecting new client");
-                client->close();
-                return;
-            }
-            this->client_ = client;
-            ESP_LOGI(TAG, "New client connected");
-
-            this->client_->onDisconnect([this](void *arg, network::AsyncClient *client) {
-                ESP_LOGI(TAG, "Client disconnected");
-                this->client_ = nullptr;
-            });
-
-            this->client_->onData([this](void *arg, network::AsyncClient *client, void *data, size_t len) {
-                if (this->tcp_mode_ == TCP_MODE_READ_WRITE) {
-                    this->write_array((uint8_t*)data, len);
-                }
-            });
-        });
-        this->server_->begin();
+        this->server_ = socket::Socket::create(socket::SocketType::SOCKET_TYPE_STREAM);
+        if (!this->server_) {
+            ESP_LOGE(TAG, "Could not create socket");
+            return;
+        }
+        if (this->server_->set_non_blocking(true) != 0) {
+            ESP_LOGE(TAG, "Failed to set non-blocking");
+            this->server_.reset();
+            return;
+        }
+        if (this->server_->bind(this->tcp_port_) != 0) {
+            ESP_LOGE(TAG, "Failed to bind to port %u", this->tcp_port_);
+            this->server_.reset();
+            return;
+        }
+        if (this->server_->listen(1) != 0) {
+            ESP_LOGE(TAG, "Failed to listen");
+            this->server_.reset();
+            return;
+        }
+        ESP_LOGI(TAG, "Socket server started on port %d", this->tcp_port_);
     }
 }
 
@@ -80,6 +79,27 @@ void UARTExComponent::loop()
 {
     if (read_from_uart()) publish_to_devices();
     else if(!this->rx_processing_) write_to_uart();
+
+    if (this->server_) {
+        if (this->client_ == nullptr) {
+            this->client_ = this->server_->accept();
+            if (this->client_) {
+                ESP_LOGI(TAG, "New client connected");
+                this->client_->set_non_blocking(true);
+            }
+        } else {
+            if (!this->client_->is_connected()) {
+                ESP_LOGI(TAG, "Client disconnected");
+                this->client_.reset();
+            } else {
+                uint8_t buffer[256];
+                int len = this->client_->read(buffer, sizeof(buffer));
+                if (len > 0 && this->tcp_mode_ == TCP_MODE_READ_WRITE) {
+                    this->write_array(buffer, len);
+                }
+            }
+        }
+    }
 }
 
 bool UARTExComponent::read_from_uart()
@@ -155,8 +175,8 @@ void UARTExComponent::publish_data()
     auto& data = this->rx_parser_.data();
     this->read_callback_.call(&this->rx_parser_.buffer()[0], this->rx_parser_.buffer().size());
     publish_rx_log(this->rx_parser_.buffer());
-    if (this->client_ && this->client_->can_send()) {
-        this->client_->add((const char*)this->rx_parser_.buffer().data(), this->rx_parser_.buffer().size());
+    if (this->client_) {
+        this->client_->write(this->rx_parser_.buffer());
     }
     for (UARTExDevice* device : this->devices_)
     {
@@ -242,8 +262,8 @@ void UARTExComponent::write_tx_cmd()
     write_data(command);
     write_flush();
     if (this->tx_ctrl_pin_) this->tx_ctrl_pin_->digital_write(false);
-    if (this->client_ && this->client_->can_send()) {
-        this->client_->add((const char*)command.data(), command.size());
+    if (this->client_) {
+        this->client_->write(command);
     }
     this->tx_retry_cnt_++;
     this->tx_time_ = get_time();
