@@ -51,23 +51,27 @@ void UARTExComponent::setup()
     publish_log(std::string("Boot ") + UARTEX_VERSION);
 
     if (this->tcp_port_ > 0) {
-        this->server_ = socket::Socket::create(socket::SocketType::SOCKET_TYPE_STREAM);
+        this->server_ = socket::socket_ip(SOCK_STREAM, IPPROTO_TCP);
         if (!this->server_) {
-            ESP_LOGE(TAG, "Could not create socket");
+            ESP_LOGW(TAG, "Could not create socket");
             return;
         }
-        if (this->server_->set_non_blocking(true) != 0) {
-            ESP_LOGE(TAG, "Failed to set non-blocking");
-            this->server_.reset();
-            return;
-        }
-        if (this->server_->bind(this->tcp_port_) != 0) {
-            ESP_LOGE(TAG, "Failed to bind to port %u", this->tcp_port_);
+
+        struct sockaddr_storage server_addr;
+        socklen_t sl = socket::set_sockaddr_any(reinterpret_cast<struct sockaddr *>(&server_addr), sizeof(server_addr), this->tcp_port_);
+
+        if (this->server_->bind(reinterpret_cast<struct sockaddr *>(&server_addr), sl) != 0) {
+            ESP_LOGW(TAG, "bind failed");
             this->server_.reset();
             return;
         }
         if (this->server_->listen(1) != 0) {
-            ESP_LOGE(TAG, "Failed to listen");
+            ESP_LOGW(TAG, "listen failed");
+            this->server_.reset();
+            return;
+        }
+        if (this->server_->setblocking(false) != 0) {
+            ESP_LOGW(TAG, "setblocking failed");
             this->server_.reset();
             return;
         }
@@ -82,21 +86,26 @@ void UARTExComponent::loop()
 
     if (this->server_) {
         if (this->client_ == nullptr) {
-            this->client_ = this->server_->accept();
+            struct sockaddr_storage client_addr;
+            socklen_t sl = sizeof(client_addr);
+            this->client_ = this->server_->accept(reinterpret_cast<struct sockaddr *>(&client_addr), &sl);
             if (this->client_) {
                 ESP_LOGI(TAG, "New client connected");
-                this->client_->set_non_blocking(true);
+                this->client_->setblocking(false);
             }
         } else {
-            if (!this->client_->is_connected()) {
-                ESP_LOGI(TAG, "Client disconnected");
-                this->client_.reset();
-            } else {
-                uint8_t buffer[256];
-                int len = this->client_->read(buffer, sizeof(buffer));
-                if (len > 0 && this->tcp_mode_ == TCP_MODE_READ_WRITE) {
+            uint8_t buffer[256];
+            ssize_t len = this->client_->read(buffer, sizeof(buffer));
+            if (len > 0) {
+                if (this->tcp_mode_ == TCP_MODE_READ_WRITE) {
                     this->write_array(buffer, len);
                 }
+            } else if (len == 0) {
+                ESP_LOGI(TAG, "Client disconnected");
+                this->client_.reset();
+            } else if (errno != EAGAIN) {
+                ESP_LOGW(TAG, "Socket read error: %s", strerror(errno));
+                this->client_.reset();
             }
         }
     }
@@ -176,7 +185,7 @@ void UARTExComponent::publish_data()
     this->read_callback_.call(&this->rx_parser_.buffer()[0], this->rx_parser_.buffer().size());
     publish_rx_log(this->rx_parser_.buffer());
     if (this->client_) {
-        this->client_->write(this->rx_parser_.buffer());
+        this->client_->write(this->rx_parser_.buffer().data(), this->rx_parser_.buffer().size());
     }
     for (UARTExDevice* device : this->devices_)
     {
@@ -263,7 +272,7 @@ void UARTExComponent::write_tx_cmd()
     write_flush();
     if (this->tx_ctrl_pin_) this->tx_ctrl_pin_->digital_write(false);
     if (this->client_) {
-        this->client_->write(command);
+        this->client_->write(command.data(), command.size());
     }
     this->tx_retry_cnt_++;
     this->tx_time_ = get_time();
