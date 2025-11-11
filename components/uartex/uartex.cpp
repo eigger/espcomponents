@@ -51,28 +51,31 @@ void UARTExComponent::setup()
     publish_log(std::string("Boot ") + UARTEX_VERSION);
 
     if (this->tcp_port_ > 0) {
-        this->server_ = new network::AsyncServer(this->tcp_port_);
-        this->server_->onClient([this](void *arg, network::AsyncClient *client) {
-            if (this->client_ != nullptr) {
-                ESP_LOGW(TAG, "Already connected, disconnecting new client");
-                client->close();
-                return;
-            }
-            this->client_ = client;
-            ESP_LOGI(TAG, "New client connected");
+        this->server_ = socket::socket_ip(SOCK_STREAM, IPPROTO_TCP);
+        if (!this->server_) {
+            ESP_LOGW(TAG, "Could not create socket");
+            return;
+        }
 
-            this->client_->onDisconnect([this](void *arg, network::AsyncClient *client) {
-                ESP_LOGI(TAG, "Client disconnected");
-                this->client_ = nullptr;
-            });
+        struct sockaddr_storage server_addr;
+        socklen_t sl = socket::set_sockaddr_any(reinterpret_cast<struct sockaddr *>(&server_addr), sizeof(server_addr), this->tcp_port_);
 
-            this->client_->onData([this](void *arg, network::AsyncClient *client, void *data, size_t len) {
-                if (this->tcp_mode_ == TCP_MODE_READ_WRITE) {
-                    this->write_array((uint8_t*)data, len);
-                }
-            });
-        });
-        this->server_->begin();
+        if (this->server_->bind(reinterpret_cast<struct sockaddr *>(&server_addr), sl) != 0) {
+            ESP_LOGW(TAG, "bind failed");
+            this->server_.reset();
+            return;
+        }
+        if (this->server_->listen(1) != 0) {
+            ESP_LOGW(TAG, "listen failed");
+            this->server_.reset();
+            return;
+        }
+        if (this->server_->setblocking(false) != 0) {
+            ESP_LOGW(TAG, "setblocking failed");
+            this->server_.reset();
+            return;
+        }
+        ESP_LOGI(TAG, "Socket server started on port %d", this->tcp_port_);
     }
 }
 
@@ -80,6 +83,32 @@ void UARTExComponent::loop()
 {
     if (read_from_uart()) publish_to_devices();
     else if(!this->rx_processing_) write_to_uart();
+
+    if (this->server_) {
+        if (this->client_ == nullptr) {
+            struct sockaddr_storage client_addr;
+            socklen_t sl = sizeof(client_addr);
+            this->client_ = this->server_->accept(reinterpret_cast<struct sockaddr *>(&client_addr), &sl);
+            if (this->client_) {
+                ESP_LOGI(TAG, "New client connected");
+                this->client_->setblocking(false);
+            }
+        } else {
+            uint8_t buffer[256];
+            ssize_t len = this->client_->read(buffer, sizeof(buffer));
+            if (len > 0) {
+                if (this->tcp_mode_ == TCP_MODE_READ_WRITE) {
+                    this->write_array(buffer, len);
+                }
+            } else if (len == 0) {
+                ESP_LOGI(TAG, "Client disconnected");
+                this->client_.reset();
+            } else if (errno != EAGAIN) {
+                ESP_LOGW(TAG, "Socket read error: %s", strerror(errno));
+                this->client_.reset();
+            }
+        }
+    }
 }
 
 bool UARTExComponent::read_from_uart()
@@ -155,8 +184,8 @@ void UARTExComponent::publish_data()
     auto& data = this->rx_parser_.data();
     this->read_callback_.call(&this->rx_parser_.buffer()[0], this->rx_parser_.buffer().size());
     publish_rx_log(this->rx_parser_.buffer());
-    if (this->client_ && this->client_->can_send()) {
-        this->client_->add((const char*)this->rx_parser_.buffer().data(), this->rx_parser_.buffer().size());
+    if (this->client_) {
+        this->client_->write(this->rx_parser_.buffer().data(), this->rx_parser_.buffer().size());
     }
     for (UARTExDevice* device : this->devices_)
     {
@@ -242,8 +271,8 @@ void UARTExComponent::write_tx_cmd()
     write_data(command);
     write_flush();
     if (this->tx_ctrl_pin_) this->tx_ctrl_pin_->digital_write(false);
-    if (this->client_ && this->client_->can_send()) {
-        this->client_->add((const char*)command.data(), command.size());
+    if (this->client_) {
+        this->client_->write(command.data(), command.size());
     }
     this->tx_retry_cnt_++;
     this->tx_time_ = get_time();

@@ -2,7 +2,7 @@
 #include "esphome/core/automation.h"
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/text_sensor/text_sensor.h"
-#include "esphome/components/network/async_tcp.h"
+#include "esphome/components/socket/socket.h"
 #include "uartex_device.h"
 #include "parser.h"
 #include "version.h"
@@ -80,7 +80,7 @@ public:
     void dump_config() override;
     void setup() override;
     void loop() override;
-    float get_setup_priority() const override { return setup_priority::BUS - 1.0f; }
+    float get_setup_priority() const override { return setup_priority::LATE; }
     void write_data(const uint8_t data);
     void write_data(const std::vector<uint8_t> &data);
     void write_flush();
@@ -157,8 +157,8 @@ protected:
     InternalGPIOPin *tx_ctrl_pin_{nullptr};
     uint16_t tcp_port_{0};
     TCP_MODE tcp_mode_{TCP_MODE_READ_WRITE};
-    network::AsyncServer* server_{nullptr};
-    network::AsyncClient* client_{nullptr};
+    std::unique_ptr<socket::Socket> server_{nullptr};
+    std::unique_ptr<socket::Socket> client_{nullptr};
     Parser rx_parser_{};
     text_sensor::TextSensor* version_{nullptr};
     text_sensor::TextSensor* error_{nullptr};
