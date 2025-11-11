@@ -80,7 +80,7 @@ public:
     void dump_config() override;
     void setup() override;
     void loop() override;
-    float get_setup_priority() const override { return setup_priority::BUS - 1.0f; }
+    float get_setup_priority() const override { return setup_priority::LATE; }
     void write_data(const uint8_t data);
     void write_data(const std::vector<uint8_t> &data);
     void write_flush();
