@@ -1,4 +1,11 @@
 ```yaml
+external_components:
+  - source: github://eigger/espcomponents@latest
+    components: [ tcp_server ]
+    refresh: always
+```
+
+```yaml
 tcp_server:
   id: id_tcp
   port: 8888

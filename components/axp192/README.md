@@ -1,11 +1,7 @@
-```
+```yaml
 external_components:
-  - source:
-      type: git
-      url: https://github.com/eigger/espcomponents/
-      ref: dev
+  - source: github://eigger/espcomponents@latest
     components: [ axp192 ]
-    refresh: always
 
 i2c:
    - id: bus_a
