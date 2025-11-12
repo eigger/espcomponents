@@ -75,7 +75,7 @@ bool TCP_ServerComponent::write_array(const uint8_t* data, size_t len)
     if (!this->client_ || data == nullptr || len == 0) return false;
     size_t sent = 0;
     while (sent < len) {
-        ssize_t n = this->client_->write_array(data + sent, len - sent);
+        ssize_t n = this->client_->write(data + sent, len - sent);
         if (n > 0) {
             sent += static_cast<size_t>(n);
         } else if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
