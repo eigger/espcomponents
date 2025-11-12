@@ -88,19 +88,19 @@ async def to_code(config):
 HEX_SCHEMA_REGISTRY = SimpleRegistry()
 
 
-@automation.register_action('tcp_server.write', TCP_ServerWriteAction, cv.maybe_simple_value({
-    cv.GenerateID(): cv.use_id(TCP_ServerComponent),
-    cv.Required(CONF_DATA): cv.templatable(validate_hex_data)
-}, key=CONF_DATA))
+# @automation.register_action('tcp_server.write', TCP_ServerWriteAction, cv.maybe_simple_value({
+#     cv.GenerateID(): cv.use_id(TCP_ServerComponent),
+#     cv.Required(CONF_DATA): cv.templatable(validate_hex_data)
+# }, key=CONF_DATA))
 
-async def tcp_server_write_to_code(config, action_id, template_arg, args):
-    var = cg.new_Pvariable(action_id, template_arg)
-    await cg.register_parented(var, config[CONF_ID])
-    data = config[CONF_DATA]
+# async def tcp_server_write_to_code(config, action_id, template_arg, args):
+#     var = cg.new_Pvariable(action_id, template_arg)
+#     await cg.register_parented(var, config[CONF_ID])
+#     data = config[CONF_DATA]
 
-    if cg.is_template(data):
-        templ = await cg.templatable(data, args, vector_uint8)
-        cg.add(var.set_data_template(templ))
-    else:
-        cg.add(var.set_data_static(data))
-    return var
+#     if cg.is_template(data):
+#         templ = await cg.templatable(data, args, vector_uint8)
+#         cg.add(var.set_data_template(templ))
+#     else:
+#         cg.add(var.set_data_static(data))
+#     return var

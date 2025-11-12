@@ -30,39 +30,39 @@ public:
     }
 };
 
-template <typename... Ts>
-class TCP_ServerWriteAction : public Action<Ts...>, public Parented<TCP_ServerComponent>
-{
-public:
-    void set_data_template(std::function<std::vector<uint8_t>(Ts...)> func)
-    {
-        this->data_func_ = func;
-        this->static_ = false;
-    }
-    void set_data_static(std::vector<uint8_t>& data)
-    {
-        this->data_static_ = data;
-        this->static_ = true;
-    }
+// template <typename... Ts>
+// class TCP_ServerWriteAction : public Action<Ts...>, public Parented<TCP_ServerComponent>
+// {
+// public:
+//     void set_data_template(std::function<std::vector<uint8_t>(Ts...)> func)
+//     {
+//         this->data_func_ = func;
+//         this->static_ = false;
+//     }
+//     void set_data_static(std::vector<uint8_t>& data)
+//     {
+//         this->data_static_ = data;
+//         this->static_ = true;
+//     }
 
-    void play(Ts... x) override
-    {
-        if (this->static_)
-        {
-            this->parent_->write(this->data_static_);
-        }
-        else
-        {
-            data_static_ = this->data_func_(x...);
-            this->parent_->write(this->data_static_);
-        }
-    }
+//     void play(Ts... x) override
+//     {
+//         if (this->static_)
+//         {
+//             this->parent_->write(this->data_static_);
+//         }
+//         else
+//         {
+//             data_static_ = this->data_func_(x...);
+//             this->parent_->write(this->data_static_);
+//         }
+//     }
 
-protected:
-    bool static_{false};
-    std::function<std::vector<uint8_t>(Ts...)> data_func_{};
-    std::vector<uint8_t> data_static_{};
-};
+// protected:
+//     bool static_{false};
+//     std::function<std::vector<uint8_t>(Ts...)> data_func_{};
+//     std::vector<uint8_t> data_static_{};
+// };
 
 }  // namespace tcp_server
 }  // namespace esphome
