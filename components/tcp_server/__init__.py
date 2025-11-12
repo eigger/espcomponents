@@ -42,7 +42,7 @@ def command_hex_schema(value):
 # TCP_Server Schema
 CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.GenerateID(): cv.declare_id(TCP_ServerComponent),
-    cv.Required(CONF_PORT): cv.positive_int,
+    cv.Required(CONF_PORT): cv.port,
     cv.Optional(CONF_RECV_BUFFER_SIZE, default=256): cv.validate_bytes,
     cv.Optional(CONF_ON_WRITE): automation.validate_automation(
         {
