@@ -11,5 +11,5 @@ uartex:
   id: id_uartex
   on_read:
     then:
-      - lambda : id(id_tcp).write(data, len);
+      - lambda : id(id_tcp).write_array(data, len);
 ```

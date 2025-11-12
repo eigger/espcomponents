@@ -18,10 +18,10 @@ public:
     void setup() override;
     void loop() override;
     float get_setup_priority() const override { return setup_priority::LATE; }
-    bool write(const uint8_t* data, size_t len);
-    bool write(const std::vector<uint8_t>& data);
-    bool write(std::string_view s);
-    bool write(uint8_t* data, uint16_t len);
+    bool write_array(const uint8_t* data, size_t len);
+    bool write_array(const std::vector<uint8_t>& data);
+    bool write_array(std::string_view s);
+    bool write_array(uint8_t* data, uint16_t len);
 protected:
     
     CallbackManager<void(const uint8_t *data, const uint16_t len)> write_callback_{};
