@@ -49,12 +49,12 @@ public:
     {
         if (this->static_)
         {
-            this->parent_->write(this->data_static_);
+            this->parent_->write_array(this->data_static_);
         }
         else
         {
             data_static_ = this->data_func_(x...);
-            this->parent_->write(this->data_static_);
+            this->parent_->write_array(this->data_static_);
         }
     }
 
