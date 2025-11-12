@@ -1,0 +1,519 @@
+ 
+esp32:
+  board: m5stack-atom
+  framework:
+    type: esp-idf
+
+external_components:
+  - source: github://eigger/espcomponents@latest
+    components: [ jaalee_jht ]
+    refresh: always  
+    
+api:
+  reboot_timeout: 0s
+
+esphome:
+  on_boot:
+    then:
+      - delay: 5s
+      - wifi.enable:      # Wi-Fi 켜기
+      - ble.enable:       # BLE 스택 켜기
+
+esp32_ble:
+  enable_on_boot: false 
+
+wifi:
+  enable_on_boot: false
+  on_connect: 
+    then:
+      - delay: 10s
+      - udp.write: "version:${version}"
+
+
+i2c:
+  sda: GPIO19
+  scl: GPIO22
+
+light:
+  - platform: esp32_rmt_led_strip
+    id: led
+    internal: True
+    pin: GPIO27
+    default_transition_length: 0s
+    chipset: SK6812
+    num_leds: 1
+    rgb_order: grb
+    #rmt_channel: 0
+    restore_mode: ALWAYS_OFF
+    effects:
+      - pulse:
+          transition_length: 250ms
+          update_interval: 250ms
+
+udp:
+
+packet_transport:
+  - platform: udp
+    update_interval: 1s
+    binary_sensors: 
+      - id_ble_connectivity
+    sensors:
+      - id_internal_temperature
+      - id_cabin_temperature
+      - id_cabin_humidity
+      - id_cabin_battery_level
+      - id_bed_temperature
+      - id_bed_humidity
+      - id_bed_battery_level
+      - engine_run_time
+      - engine_coolant_temperature
+      - fuel_level
+      - ambient_air_temperature
+      - car_battery
+      - engine_rpm
+      - engine_load
+      - car_speed
+      - car_acceleration
+      - id_sht_temperature
+      - id_sht_humidity
+      - id_qmp_temperature
+      - id_qmp_pressure
+
+globals:
+  - id: odb_init
+    type: bool
+    initial_value: 'false'
+
+#https://github.com/esphome/feature-requests/issues/935
+esp32_ble_tracker:
+  # scan_parameters:
+  #   interval: 1100ms
+  #   window: 1100ms
+  #   active: true
+  # on_ble_advertise:
+  #   - then:
+  #       - lambda: |-
+  #           if (x.get_name().size() == 0) return;
+  #           id(script_logs).execute("BLE Name(" + x.get_name() + "), " + x.address_str());
+  on_ble_manufacturer_data_advertise:
+    - manufacturer_id: 035D
+      then:
+        - lambda: |-
+            std::string hex_string;
+            for (auto b : x) {
+              char buf[4];  // "FF " + null
+              sprintf(buf, "%02X ", b);  // 2자리 대문자 hex
+              hex_string += buf;
+            }
+            //ESP_LOGI("BLE", "Manufacturer data: %s", hex_string.c_str());
+            id(manufacturer_data).publish_state(hex_string);
+            if (x.size() != 14) return;
+            char buf[20];
+            sprintf(buf, "%02d-%02d %02d:%02d B%d %c%c", x[7], x[8], x[9], x[10], 0xFF - x[11] + 1, x[12], x[13]);
+            std::string info = std::string(buf);
+            id(parking_info).publish_state(info);
+
+ble_client:
+  - mac_address: C0:25:E8:53:2C:90
+    id: vlinker
+    name: vLinker
+    on_connect:
+      then:
+        
+        - lambda: id(script_ble_write).execute("ATZ");    #Reset
+        - delay: 100ms
+        - lambda: id(script_ble_write).execute("ATE0");   #Echo off
+        - delay: 100ms
+        - lambda: id(script_ble_write).execute("ATL0");   #Linefeed off
+        - delay: 100ms
+        - lambda: id(script_ble_write).execute("ATS0");   #Space off
+        - delay: 100ms
+        - lambda: id(script_ble_write).execute("ATH0");   #Header off
+        - delay: 100ms
+        - lambda: id(script_ble_write).execute("ATSP6");  #Protocol
+        - delay: 100ms
+        - lambda: id(odb_init) = true;
+        - lambda: id(id_ble_connectivity).publish_state(true); 
+    on_disconnect:
+      then:
+        - lambda: id(id_ble_connectivity).publish_state(false);
+            
+binary_sensor:
+  - platform: template
+    id: "id_ble_connectivity"
+    name: "BLE Connectivity"
+    device_class: connectivity
+
+sensor:
+  - platform: sht3xd
+    temperature:
+      id: "id_sht_temperature"
+      name: "SHT Temperature"
+    humidity:
+      id: "id_sht_humidity"
+      name: "SHT Humidity"
+    address: 0x44
+    update_interval: 60s
+  - platform: qmp6988
+    temperature:
+      id: "id_qmp_temperature"
+      name: "QMP Temperature"
+      oversampling: 16x
+    pressure:
+      id: "id_qmp_pressure"
+      name: "QMP Pressure"
+      oversampling: 16x
+    address: 0x70
+    update_interval: 60s
+    iir_filter: 2x
+
+  - platform: internal_temperature
+    id: "id_internal_temperature"
+    name: "Atom Internal Temperature"
+    update_interval: 5min
+    filters:
+      - filter_out: nan
+      - heartbeat: 15s
+      - sliding_window_moving_average:
+          window_size: 30
+          send_every: 1
+          send_first_at: 1
+
+  - platform: jaalee_jht
+    mac_address: DA:E8:DD:E2:9A:47
+    temperature:
+      id: "id_cabin_temperature"
+      name: "Cabin Temperature"
+    humidity:
+      id: "id_cabin_humidity"
+      name: "Cabin Humidity"
+    battery_level:
+      id: "id_cabin_battery_level"
+      name: "Cabin Battery Level"
+
+  - platform: jaalee_jht
+    mac_address: F5:A8:DB:76:1A:F5
+    temperature:
+      id: "id_bed_temperature"
+      name: "Bed Temperature"
+    humidity:
+      id: "id_bed_humidity"
+      name: "Bed Humidity"
+    battery_level:
+      id: "id_bed_battery_level"
+      name: "Bed Battery Level"
+
+  - platform: template
+    id: "engine_run_time"
+    name: "Engine Run Time"
+    icon: mdi:clock-outline
+    state_class: "measurement"
+    unit_of_measurement: "sec"
+    accuracy_decimals: 0
+    update_interval: never
+
+  - platform: template
+    id: "engine_coolant_temperature"
+    name: "Engine Coolant Temperature"
+    icon: mdi:coolant-temperature
+    state_class: "measurement"
+    device_class: "temperature"
+    update_interval: never
+    # filters:
+    #   # 순간 스파이크 제거
+    #   - median:
+    #       window_size: 9
+    #       send_every: 3
+    #       send_first_at: 1
+    #   # 지수이동평균(부드럽게)
+    #   - exponential_moving_average:
+    #       alpha: 0.2      # 0.1~0.3 권장
+    #       send_every: 1
+    #   # 미세 떨림 무시
+    #   - delta: 0.3        # 0.3°C 이하 변화 무시
+    #   - throttle: 15s
+
+  - platform: template
+    id: "fuel_level"
+    name: "Fuel Level"
+    icon: mdi:gas-station
+    state_class: "measurement"
+    unit_of_measurement: "%"
+    update_interval: never
+    filters:
+      # 순간 스파이크 제거
+      - median:
+          window_size: 11
+          send_every: 5
+          send_first_at: 1
+      # 부드럽게
+      - exponential_moving_average:
+          alpha: 0.1      # 연료 게이지는 천천히 변하는 편
+          send_every: 1
+      # 미세 떨림 무시
+      - delta: 0.5        # 0.5% 이하 변화 무시
+      # 15초 평균/출력
+      - throttle: 5min
+
+  - platform: template
+    id: "ambient_air_temperature"
+    name: "Ambient Air Temperature"
+    icon: mdi:thermometer
+    state_class: "measurement"
+    device_class: "temperature"
+    update_interval: never
+    # filters:
+    #   - median:
+    #       window_size: 9
+    #       send_every: 3
+    #       send_first_at: 1
+    #   - exponential_moving_average:
+    #       alpha: 0.2
+    #       send_every: 1
+    #   - delta: 0.3
+    #   - throttle: 15s
+
+  - platform: template
+    id: "car_battery"
+    name: "Car Battery"
+    icon: mdi:car-battery
+    state_class: "measurement"
+    device_class: "voltage"
+    update_interval: never
+    # filters:
+    #   - median:
+    #       window_size: 9
+    #       send_every: 3
+    #       send_first_at: 1
+    #   - exponential_moving_average:
+    #       alpha: 0.2
+    #       send_every: 1
+    #   - delta: 0.05
+    #   - throttle: 15s
+
+  - platform: template
+    id: "engine_rpm"
+    name: "Engine RPM"
+    icon: mdi:cog-clockwise
+    state_class: "measurement"
+    unit_of_measurement: rpm
+    update_interval: never
+
+  - platform: template
+    id: "engine_load"
+    name: "Engine Load"
+    icon: mdi:engine
+    state_class: "measurement"
+    unit_of_measurement: "%"
+    update_interval: never
+
+  - platform: template
+    id: "car_speed"
+    name: "Car Speed"
+    icon: mdi:speedometer
+    state_class: "measurement"
+    unit_of_measurement: km/h
+    device_class: speed
+    update_interval: never
+
+  - platform: template
+    id: "car_acceleration"
+    name: "Car Acceleration"
+    icon: mdi:speedometer
+    state_class: "measurement"
+    unit_of_measurement: km/h/s
+    device_class: speed
+    update_interval: never
+
+# GM Odometer,22,A6F3,7E2,4,(C*65536)+(B*256)+A,0,42949672.9,km
+# GM Vehicle Odometer,22,221367,7E2,4,(C*65536)+(B*256)+A,0,42949672.9,km
+# GM ODO Distance,22,25AE,7E2,4,(C*65536)+(B*256)+A,0,42949672.9,km
+# [GM]Oil Life (Engine)	Oil.Life	0x22119f	(A/255)*100
+# [GM]Transmission Fluid Temp (GM Method 1)	Trans.Fl.Tmp	0x221940	A-40
+# ~Displayed Fuel Level %	Fuel%_Disp	0x12	A/2.55	0	100	Percent	A982F1			1	0
+# ~Displayed Oil Pressure	Oil_Display	0x11	A*4*.14503778
+# ~Fuel Level % (tank)	Fuel Level	0x221155	A/255*100
+# 엔진 오일 수명 : 1a6d, 0 ~ 100, %, (b/255)*100
+# 엔진 오일 압력 : 22115c, 0 ~ 1000, Kpa, a * 4
+# 연료 온도 : 223218, 0 ~ 100, c, a - 40
+# 오일 온도 : 221154, 0 ~ 100, c, a - 40
+# 외부 온도 : 220046, 0 ~ 100, c, a- 40
+# 기어 단수 : 222300, 0 ~ 100, a
+# 변속기 오일온도: 22210a, 0 ~ 100, c, a - 50
+
+# 0x00	지원 PID 0x01–0x20 비트맵	4	각 비트 = PID 지원 여부
+# 0x01	모니터 상태	4	ECU 상태 비트
+# 0x02	DTC 프리즈 프레임	2	고장 코드 발생시 프리즈된 데이터
+# 0x03	연료 시스템 상태	2	각 연료 시스템 클로즈드 루프 여부
+# 0x04	계산 부하값	1	% = 100×A/255
+# 0x05	냉각수 온도	1	°C = A−40
+# 0x06	단기 연료 트림 (뱅크 1)	1	% = (A−128)×100/128
+# 0x07	장기 연료 트림 (뱅크 1)	1	% = (A−128)×100/128
+# 0x08	단기 연료 트림 (뱅크 2)	1	% = (A−128)×100/128
+# 0x09	장기 연료 트림 (뱅크 2)	1	% = (A−128)×100/128
+# 0x0A	연료 압력	1	kPa = 3×A
+# 0x0B	매니폴드 절대압	1	kPa = A
+# 0x0C	엔진 RPM	2	RPM = ((A×256)+B)/4
+# 0x0D	차량 속도	1	km/h = A
+# 0x0E	점화 타이밍 조정	1	°BTDC = (A/2)−64
+# 0x0F	흡기 온도	1	°C = A−40
+# 0x10	MAF 유량	2	g/s = ((A×256)+B)/100
+# 0x11	스로틀 위치	1	% = 100×A/255
+# 0x12	보드별 2차 공기 상태	1	비트 플래그
+# 0x13	O2 센서 존재 여부	1	비트 플래그
+# 0x14–0x1B	O2 센서 1~8 전압 & 트림	2	전압 = A/200, 트림 = (B−128)×100/128
+# 0x1C	OBD 표준	1	값에 따라 OBD-II/EOBD 등 표시
+# 0x1D	O2 센서 존재 (2뱅크 이상)	1	비트 플래그
+# 0x1E	보조 공기 상태	1	
+# 0x1F	엔진 런타임	2	sec = (A×256)+B
+# 0x20	지원 PID 0x21–0x40 비트맵	4	
+# 0x21	MIL 점등 후 주행 거리	2	km = (A×256)+B
+# 0x22	연료 레일 압력 (게이지)	2	kPa = 10×((A×256)+B)
+# 0x23	연료 레일 압력 (디젤/가솔린 DI)	2	kPa = ((A×256)+B)*0.079
+# 0x24–0x2B	O2 센서 연료 트림 (와이드밴드)	4	λ, 전류 계산
+# 0x2C	명령형 EGR	1	% = 100×A/255
+# 0x2D	EGR 오류	1	% = ((A−128)×100)/128
+# 0x2E	명령형 증발 퍼지	1	% = 100×A/255
+# 0x2F	연료 탱크 레벨	1	% = 100×A/255
+# 0x30	워머 O2 센서 지원	1	
+# 0x31	촉매 모니터 상태	1	비트
+# 0x32–0x33	촉매 온도 (뱅크1,2)	2	°C = ((A×256)+B)/10
+# 0x34–0x3B	O2 센서 연속 모니터	2	
+# 0x3C–0x3F	촉매 모니터 (2뱅크)	1–2	
+# 0x40	지원 PID 0x41–0x60 비트맵	4	
+# 0x42	제어 모듈 전압	2	V = ((A×256)+B)/1000
+# 0x43	절대 부하값	2	% = 100×((A×256)+B)/255
+# 0x44	명령형 연료-공기 비율	2	λ = ((A×256)+B)/32768
+# 0x45	상대 스로틀 위치	1	% = 100×A/255
+# 0x46	주변온도	1	°C = A−40
+# 0x47	절대 스로틀 위치 B	1	% = 100×A/255
+# 0x48	절대 스로틀 위치 C	1	% = 100×A/255
+# 0x49	가속 페달 위치 D	1	% = 100×A/255
+# 0x4A	가속 페달 위치 E	1	% = 100×A/255
+# 0x4B	가속 페달 위치 F	1	% = 100×A/255
+# 0x4C	스로틀 제어 A	1	% = 100×A/255
+# 0x4D	엔진 오일 온도	1	°C = A−40
+# 0x4E	연료 주입 타이밍	2	° = ((A×256)+B−26880)/128
+# 0x4F	연료 레일 압력 (상대)	2	kPa = ((A×256)+B)*10
+
+interval:
+  - interval: 100ms
+    then:
+      - if:
+          condition:
+            lambda: 'return id(odb_init);'   # true일 때만 동작
+          then:
+            - lambda: |-
+                static int count = 0;
+                static std::vector<std::string> cmd_list = {
+                  "011F", //엔진 런타임
+                  "0105", //냉각수 온도
+                  "012F", //연료탱크 레벨
+                  "0146", //주변 온도
+                  "0142",  //배터리
+                  "010C", //RPM
+                  "010D",  //속도
+                  "0104"  //부하
+                };
+                if (!cmd_list.empty()) {
+                  auto& cmd = cmd_list[count++];
+                  id(script_ble_write).execute(cmd);
+                  if (count >= cmd_list.size()) count = 0;
+                }
+
+text_sensor:
+  - platform: ble_client
+    ble_client_id: vlinker
+    internal: True
+    update_interval: never
+    notify: True
+    name: "vLinker response"
+    id: vlink_response_text
+    service_uuid: 18F0
+    characteristic_uuid: 2AF0
+    on_notify: 
+      then:
+        - lambda: |-
+            if (x.size() < 6) return;
+            if (x.substr(0, 2) == "41")
+            {
+              uint8_t pid = x.size() >= 4 ? std::stoi(x.substr(2, 2), nullptr, 16) : 0;
+              uint8_t a = x.size() >= 6 ? std::stoi(x.substr(4, 2), nullptr, 16) : 0;
+              uint8_t b = x.size() >= 8 ? std::stoi(x.substr(6, 2), nullptr, 16) : 0;
+              if (pid == 0x05)  //냉각수 온도
+              {
+                id(engine_coolant_temperature).publish_state(a - 40);
+              }
+              else if (pid == 0x1F)  //엔진 런타임
+              {
+                id(engine_run_time).publish_state((a * 256) + b);
+              }
+              else if (pid == 0x2F) //연로탱크 레벨
+              {
+                id(fuel_level).publish_state(100 * a / 255);
+              }
+              else if (pid == 0x46) //주변 온도
+              {
+                id(ambient_air_temperature).publish_state(a - 40);
+              }
+              else if (pid == 0x42) //배터리
+              {
+                id(car_battery).publish_state(((a * 256) + b) / 1000);       
+              }
+              else if (pid == 0x0C) //RPM
+              {
+                id(engine_rpm).publish_state(((a * 256) + b) / 4);       
+              }
+              else if (pid == 0x0D) //Speed
+              {
+                id(car_speed).publish_state(a);
+                static int old_speed = 0;
+                static unsigned long timer = millis();
+                if (timer - millis() > 1000)
+                {
+                  id(car_acceleration).publish_state(a - old_speed);
+                  old_speed = a;
+                  timer = millis();
+                }
+
+              }
+              else if (pid == 0x04) //Load
+              {
+                id(engine_load).publish_state(100 * a / 255);       
+              }
+            }
+            else if (x.substr(0, 2) == "62")
+            {
+              uint16_t pid = x.size() >= 6 ? std::stoi(x.substr(2, 4), nullptr, 16) : 0;
+              uint8_t a = x.size() >= 8 ? std::stoi(x.substr(6, 2), nullptr, 16) : 0;
+              uint8_t b = x.size() >= 10 ? std::stoi(x.substr(8, 2), nullptr, 16) : 0;
+            }
+
+  - platform: template
+    id: manufacturer_data
+    name: "Manufacturer Data"
+    icon: "mdi:package-variant-closed"
+    
+  - platform: template
+    id: parking_info
+    name: "Parking Info"
+    icon: "mdi:car"
+    on_value: 
+      then:
+        - udp.write: !lambda |-
+            std::string s = "parking:" + x;
+            return std::vector<uint8_t>(s.begin(), s.end());
+script:
+  - id: script_ble_write
+    mode: queued
+    parameters:
+      msg: string
+    then:
+      - ble_client.ble_write:
+          id: vlinker
+          service_uuid: 18F0
+          characteristic_uuid: 2AF1
+          value: !lambda |-
+            std::vector<uint8_t> v(msg.begin(), msg.end());
+            v.push_back('\r');
+            return v;
