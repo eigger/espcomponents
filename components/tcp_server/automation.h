@@ -39,7 +39,7 @@ public:
         this->data_func_ = func;
         this->static_ = false;
     }
-    void set_data_static(const std::vector<uint8_t>& data)
+    void set_data_static(std::vector<uint8_t>& data)
     {
         this->data_static_ = data;
         this->static_ = true;
