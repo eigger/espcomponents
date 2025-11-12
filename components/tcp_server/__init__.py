@@ -3,7 +3,7 @@ import esphome.config_validation as cv
 from esphome import automation
 from esphome.const import CONF_ID, CONF_DATA, CONF_TRIGGER_ID
 from esphome.util import SimpleRegistry
-from .const import CONF_RECV_BUFFER_SIZE, CONF_ON_WRITE, CONF_ON_READ, CONF_TCP_PORT
+from .const import CONF_RECV_BUFFER_SIZE, CONF_ON_WRITE, CONF_ON_READ, CONF_PORT
 
 CODEOWNERS = ["@eigger"]
 DEPENDENCIES = ["socket"]
@@ -42,7 +42,7 @@ def command_hex_schema(value):
 # TCP_Server Schema
 CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.GenerateID(): cv.declare_id(TCP_ServerComponent),
-    cv.Required(CONF_TCP_PORT): cv.positive_int,
+    cv.Required(CONF_PORT): cv.positive_int,
     cv.Optional(CONF_RECV_BUFFER_SIZE, default=256): cv.validate_bytes,
     cv.Optional(CONF_ON_WRITE): automation.validate_automation(
         {
@@ -81,8 +81,8 @@ async def to_code(config):
             template_ = await cg.templatable(data, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.void)
             cg.add(var.set_on_read(template_))
 
-    if CONF_TCP_PORT in config:
-        cg.add(var.set_tcp_port(config[CONF_TCP_PORT]))
+    if CONF_PORT in config:
+        cg.add(var.set_port(config[CONF_PORT]))
     cg.add(var.set_recv_buffer_size(config[CONF_RECV_BUFFER_SIZE]))
 
 HEX_SCHEMA_REGISTRY = SimpleRegistry()

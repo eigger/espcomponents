@@ -13,7 +13,7 @@ void TCP_ServerComponent::dump_config()
 void TCP_ServerComponent::setup()
 {
     recv_buffer_.resize(recv_buffer_size_);
-    if (this->tcp_port_ > 0) {
+    if (this->port_ > 0) {
         this->server_ = socket::socket_ip(SOCK_STREAM, IPPROTO_TCP);
         if (!this->server_) {
             ESP_LOGW(TAG, "Could not create socket");
@@ -21,7 +21,7 @@ void TCP_ServerComponent::setup()
         }
 
         struct sockaddr_storage server_addr;
-        socklen_t sl = socket::set_sockaddr_any(reinterpret_cast<struct sockaddr *>(&server_addr), sizeof(server_addr), this->tcp_port_);
+        socklen_t sl = socket::set_sockaddr_any(reinterpret_cast<struct sockaddr *>(&server_addr), sizeof(server_addr), this->port_);
 
         if (this->server_->bind(reinterpret_cast<struct sockaddr *>(&server_addr), sl) != 0) {
             ESP_LOGW(TAG, "bind failed");
@@ -38,7 +38,7 @@ void TCP_ServerComponent::setup()
             this->server_.reset();
             return;
         }
-        ESP_LOGI(TAG, "Socket server started on port %d", this->tcp_port_);
+        ESP_LOGI(TAG, "Socket server started on port %d", this->port_);
     }
     ESP_LOGI(TAG, "Initaialize");
 

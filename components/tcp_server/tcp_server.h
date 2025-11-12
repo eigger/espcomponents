@@ -9,7 +9,7 @@ class TCP_ServerComponent : public Component
 {
 public:
     TCP_ServerComponent() = default;
-    void set_tcp_port(uint16_t port) { this->tcp_port_ = port; }
+    void set_port(uint16_t port) { this->port_ = port; }
     void set_recv_buffer_size(size_t size) { this->recv_buffer_size_ = size; }
     void add_on_write_callback(std::function<void(const uint8_t *data, const uint16_t len)> &&callback) { this->write_callback_.add(std::move(callback)); }
     void add_on_read_callback(std::function<void(const uint8_t *data, const uint16_t len)> &&callback) { this->read_callback_.add(std::move(callback)); }
@@ -24,7 +24,7 @@ protected:
     
     CallbackManager<void(const uint8_t *data, const uint16_t len)> write_callback_{};
     CallbackManager<void(const uint8_t *data, const uint16_t len)> read_callback_{};
-    uint16_t tcp_port_{0};
+    uint16_t port_{0};
     size_t recv_buffer_size_{256};
     std::vector<uint8_t> recv_buffer_{};
     std::unique_ptr<socket::Socket> server_{nullptr};
