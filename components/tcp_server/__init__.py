@@ -3,7 +3,7 @@ import esphome.config_validation as cv
 from esphome import automation
 from esphome.const import CONF_ID, CONF_DATA, CONF_TRIGGER_ID
 from esphome.util import SimpleRegistry
-from .const import CONF_TCP_SERVER_ID, CONF_ON_WRITE, CONF_ON_READ, CONF_TCP_PORT
+from .const import CONF_RECV_BUFFER_SIZE, CONF_ON_WRITE, CONF_ON_READ, CONF_TCP_PORT
 
 CODEOWNERS = ["@eigger"]
 DEPENDENCIES = ["socket"]
@@ -43,6 +43,7 @@ def command_hex_schema(value):
 CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.GenerateID(): cv.declare_id(TCP_ServerComponent),
     cv.Required(CONF_TCP_PORT): cv.positive_int,
+    cv.Optional(CONF_RECV_BUFFER_SIZE, default=256): cv.validate_bytes,
     cv.Optional(CONF_ON_WRITE): automation.validate_automation(
         {
             cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(WriteTrigger),
@@ -82,24 +83,24 @@ async def to_code(config):
 
     if CONF_TCP_PORT in config:
         cg.add(var.set_tcp_port(config[CONF_TCP_PORT]))
+    cg.add(var.set_recv_buffer_size(config[CONF_RECV_BUFFER_SIZE]))
 
 HEX_SCHEMA_REGISTRY = SimpleRegistry()
 
 
-# @automation.register_action('tcp_server.write', TCP_ServerWriteAction, cv.maybe_simple_value({
-#     cv.GenerateID(): cv.use_id(TCP_ServerComponent),
-#     cv.Required(CONF_DATA): cv.templatable(validate_hex_data)
-# }, key=CONF_DATA))
+@automation.register_action('tcp_server.write', TCP_ServerWriteAction, cv.maybe_simple_value({
+    cv.GenerateID(): cv.use_id(TCP_ServerComponent),
+    cv.Required(CONF_DATA): cv.templatable(validate_hex_data)
+}, key=CONF_DATA))
 
-# async def tcp_server_write_to_code(config, action_id, template_arg, args):
-#     var = cg.new_Pvariable(action_id, template_arg)
-#     await cg.register_parented(var, config[CONF_ID])
-#     data = config[CONF_DATA]
+async def tcp_server_write_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    await cg.register_parented(var, config[CONF_ID])
+    data = config[CONF_DATA]
 
-#     if cg.is_template(data):
-#         templ = await cg.templatable(data, args, cmd_t)
-#         cg.add(var.set_data_template(templ))
-#     else:
-#         cmd = command_hex_expression(config)
-#         cg.add(var.set_data_static(cmd))
-#     return var
+    if cg.is_template(data):
+        templ = await cg.templatable(data, args, vector_uint8)
+        cg.add(var.set_data_template(templ))
+    else:
+        cg.add(var.set_data_static(data))
+    return var

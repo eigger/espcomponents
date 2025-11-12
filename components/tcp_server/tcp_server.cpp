@@ -12,6 +12,7 @@ void TCP_ServerComponent::dump_config()
 
 void TCP_ServerComponent::setup()
 {
+    recv_buffer_.resize(recv_buffer_size_);
     if (this->tcp_port_ > 0) {
         this->server_ = socket::socket_ip(SOCK_STREAM, IPPROTO_TCP);
         if (!this->server_) {
@@ -55,10 +56,9 @@ void TCP_ServerComponent::loop()
                 this->client_->setblocking(false);
             }
         } else {
-            uint8_t buffer[256];
-            ssize_t len = this->client_->read(buffer, sizeof(buffer));
+            ssize_t len = this->client_->read(&recv_buffer_[0], recv_buffer_.size());
             if (len > 0) {
-                this->read_callback_.call(buffer, len);
+                this->read_callback_.call(&recv_buffer_[0], len);
             } else if (len == 0) {
                 ESP_LOGI(TAG, "Client disconnected");
                 this->client_.reset();
@@ -80,6 +80,10 @@ bool TCP_ServerComponent::write(uint8_t *data, uint16_t len)
     return false;
 }
 
+bool TCP_ServerComponent::write(const std::vector<unsigned char>& data)
+{
+    return write(&data[0], data.size());
+}
 
 }  // namespace tcp_server
 }  // namespace esphome
