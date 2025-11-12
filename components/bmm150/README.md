@@ -1,9 +1,8 @@
-```
+```yaml
 external_components:
-  - source: github://eigger/espcomponents/releases/latest
+  - source: github://eigger/espcomponents@latest
     components: [ bmm150 ]
-    refresh: always
-
+    
 i2c:
   sda: GPIO21
   scl: GPIO22
