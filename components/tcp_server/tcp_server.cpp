@@ -80,7 +80,7 @@ bool TCP_ServerComponent::write(uint8_t *data, uint16_t len)
     return false;
 }
 
-bool TCP_ServerComponent::write(const std::vector<unsigned char>& data)
+bool TCP_ServerComponent::write(std::vector<uint8_t>& data)
 {
     return write(&data[0], data.size());
 }

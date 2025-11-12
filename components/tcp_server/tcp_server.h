@@ -19,7 +19,7 @@ public:
     void loop() override;
     float get_setup_priority() const override { return setup_priority::LATE; }
     bool write(uint8_t *data, uint16_t len);
-    bool write(const std::vector<unsigned char>& data);
+    bool write(std::vector<uint8_t>& data);
 protected:
     
     CallbackManager<void(const uint8_t *data, const uint16_t len)> write_callback_{};
