@@ -70,19 +70,41 @@ void TCP_ServerComponent::loop()
     }
 }
 
-bool TCP_ServerComponent::write(uint8_t *data, uint16_t len)
+bool TCP_ServerComponent::write(const uint8_t* data, size_t len) 
 {
-    if (this->client_) {
-        this->client_->write(data, len);
-        this->write_callback_.call(data, len);
-        return true;
+    if (!this->client_ || data == nullptr || len == 0) return false;
+    size_t sent = 0;
+    while (sent < len) {
+        ssize_t n = this->client_->write(data + sent, len - sent);
+        if (n > 0) {
+            sent += static_cast<size_t>(n);
+        } else if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            break;
+        } else {
+            ESP_LOGW(TAG, "Socket write error: %s", strerror(errno));
+            break;
+        }
     }
-    return false;
+
+    if (sent > 0) {
+        this->write_callback_.call(data, sent);
+    }
+    return sent == len;
 }
 
-bool TCP_ServerComponent::write(std::vector<uint8_t>& data)
+bool TCP_ServerComponent::write(const std::vector<uint8_t>& data) 
 {
-    return write(&data[0], data.size());
+    return this->write(data.data(), data.size());
+}
+
+bool TCP_ServerComponent::write(std::string_view s) 
+{
+    return this->write(reinterpret_cast<const uint8_t*>(s.data()), s.size());
+}
+
+bool TCP_ServerComponent::write(uint8_t* data, uint16_t len) 
+{
+    return this->write(static_cast<const uint8_t*>(data), static_cast<size_t>(len));
 }
 
 }  // namespace tcp_server
