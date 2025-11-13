@@ -487,7 +487,7 @@ void UARTExClimate::control(const climate::ClimateCall& call)
     }
 
     // custom fan
-    if (call.get_custom_fan_mode().has_value() && std::strcmp(this->get_custom_fan_mode(), call.get_custom_fan_mode()) != 0)
+    if (call.has_custom_fan_mode() && std::strcmp(this->get_custom_fan_mode(), call.get_custom_fan_mode()) != 0)
     {
         const char* custom_fan_mode = call.get_custom_fan_mode();
         if (enqueue_tx_cmd(get_command_custom_fan(std::string(custom_fan_mode))) || this->optimistic_)
@@ -497,7 +497,7 @@ void UARTExClimate::control(const climate::ClimateCall& call)
     }
 
     // custom preset
-    if (call.get_custom_preset().has_value() && std::strcmp(this->get_custom_preset(), call.get_custom_preset()) != 0)
+    if (call.has_custom_preset() && std::strcmp(this->get_custom_preset(), call.get_custom_preset()) != 0)
     {
         const char* custom_preset = call.get_custom_preset();
         if (enqueue_tx_cmd(get_command_custom_preset(std::string(custom_preset))) || this->optimistic_)
