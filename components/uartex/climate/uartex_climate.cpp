@@ -1,7 +1,5 @@
 #include "uartex_climate.h"
-#if ESPHOME_VERSION_CODE < VERSION_CODE(2025, 11, 0)
-#error "This component requires ESPHome 2025.11.0 or newer"
-#endif
+
 namespace esphome {
 namespace uartex {
 
