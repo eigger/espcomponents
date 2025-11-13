@@ -36,7 +36,7 @@ void UARTExFan::publish(const std::vector<uint8_t>& data)
         changed = true;
     }
     optional<std::string> preset = get_state_preset(data);
-    if(preset.has_value() && this->has_preset_mode() && (this->get_preset_mode() == nulltpr || this->get_preset_mode() != preset.value()))
+    if(preset.has_value() && this->has_preset_mode() && (this->get_preset_mode() == nullptr || this->get_preset_mode() != preset.value()))
     {
         const char* preset_char = find_mode(preset_modes_, preset.value());
         if (preset_char != nullptr && this->set_preset_mode_(preset_char)) changed = true;
