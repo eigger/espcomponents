@@ -10,7 +10,7 @@ class UARTExFan : public fan::Fan, public UARTExDevice
 public:
     void dump_config() override;
     void set_speed_count(uint16_t count) { this->speed_count_ = count; }
-    void set_preset_modes(std::initializer_list<const char *> &presets) { this->preset_modes_ = presets; }
+    void set_preset_modes(std::initializer_list<const char *> presets) { this->preset_modes_ = presets; }
 protected:
     fan::FanTraits get_traits() override;
     void publish(const std::vector<uint8_t>& data) override;
