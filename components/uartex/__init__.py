@@ -142,6 +142,8 @@ def command_hex_schema(value):
         return COMMAND_SCHEMA(value)
     return shorthand_command_hex(value)
 
+cv.All(cv.version_number, cv.validate_esphome_version)(MIN_ESPHOME_VERSION)
+
 # UARTEx Schema
 CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.GenerateID(): cv.declare_id(UARTExComponent),
