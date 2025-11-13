@@ -97,7 +97,7 @@ void UARTExFan::control(const fan::FanCall& call)
         //     this->direction = direction;
         // }
     }
-    if (call.has_preset_mode() && std::strcmp(this->get_preset_mode(), call.get_preset_mode()) != 0)
+    if (call.has_preset_mode() && (this->get_preset_mode() == nullptr || std::strcmp(this->get_preset_mode(), call.get_preset_mode()) != 0))
     {
         const char* preset_mode = call.get_preset_mode();
         if (enqueue_tx_cmd(get_command_preset(preset_mode == nullptr ? "" : std::string(preset_mode))) || this->optimistic_)
