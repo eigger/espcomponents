@@ -4,12 +4,9 @@ on:
   release:
     types:
       - published
-      #- unpublished
-      #- created
-      #- edited
-      #- deleted
-      #- prereleased
-      #- released
+      - deleted
+      - edited
+      - unpublished
   workflow_dispatch:
 
 jobs:
@@ -22,30 +19,56 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const latestTag = 'latest';
-            let currentRelease;
-            console.log("Fetching the latest release using the API");
-            try {
-              const latestResponse = await github.rest.repos.getLatestRelease({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-              });
-              currentRelease = latestResponse.data;
-            } catch (error) {
-              throw new Error("No published release found to update latest");
-            }
-            console.log("Current Release:", currentRelease);
 
-            // 릴리즈의 target_commitish 대신 실제 릴리즈 태그의 commit SHA를 가져옵니다.
+            async function getLatestReleaseSafe() {
+              try {
+                console.log("Fetching the latest release using the API");
+                const latestResponse = await github.rest.repos.getLatestRelease({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                });
+                console.log("Current latest release:", latestResponse.data.tag_name);
+                return latestResponse.data;
+              } catch (error) {
+                if (error.status === 404) {
+                  console.log("No published (non-prerelease) release found.");
+                  return null;
+                }
+                throw error;
+              }
+            }
+
+            const currentRelease = await getLatestReleaseSafe();
+
+            // 정식 릴리즈가 하나도 없으면 latest 태그를 삭제하거나 그냥 끝낼지 선택
+            if (!currentRelease) {
+              console.log("No latest release. Trying to delete 'latest' tag if exists.");
+              try {
+                await github.rest.git.deleteRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: `tags/${latestTag}`,
+                });
+                console.log("Deleted 'latest' tag because there is no published release.");
+              } catch (error) {
+                console.log("No 'latest' tag to delete or failed to delete:", error.message);
+              }
+              return;
+            }
+
             const releaseTagName = currentRelease.tag_name;
             console.log(`Fetching commit SHA for release tag: ${releaseTagName}`);
+
             const tagRef = await github.rest.git.getRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
               ref: `tags/${releaseTagName}`,
             });
+
             const currentSha = tagRef.data.object.sha;
             console.log(`Found commit SHA for latest release: ${currentSha}`);
 
+            // latest 태그를 업데이트 또는 생성
             try {
               await github.rest.git.updateRef({
                 owner: context.repo.owner,
@@ -56,6 +79,7 @@ jobs:
               });
               console.log('Updated tag latest');
             } catch (error) {
+              console.log("Failed to update 'latest', will try to create. Reason:", error.message);
               await github.rest.git.createRef({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
