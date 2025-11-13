@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <unordered_map>
-#include <set>
 
 #include "esphome/core/hal.h"
 #include "esphome/core/log.h"
