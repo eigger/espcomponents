@@ -330,7 +330,7 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
 
     // custom fan
     optional<std::string> custom_fan = get_state_custom_fan(data);
-    if (custom_fan.has_value() && this->has_custom_fan_mode() && (this->get_custom_fan_mode() == nullptr || this->get_custom_fan_mode() != custom_fan.value()))
+    if (custom_fan.has_value() && (this->get_custom_fan_mode() == nullptr || this->get_custom_fan_mode() != custom_fan.value()))
     {
         const char* fan_char = find_mode(custom_fan_modes_, custom_fan.value());
         if (fan_char != nullptr && this->set_custom_fan_mode_(fan_char)) changed = true;
@@ -339,7 +339,7 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
     // custom preset
     optional<std::string> custom_preset = get_state_custom_preset(data);
     if (custom_preset.has_value()) ESP_LOGD(TAG, "publish custom preset %s", custom_preset.value().c_str());
-    if (custom_preset.has_value() && this->has_custom_preset() && (this->get_custom_preset() == nullptr || this->get_custom_preset() != custom_preset.value()))
+    if (custom_preset.has_value() && (this->get_custom_preset() == nullptr || this->get_custom_preset() != custom_preset.value()))
     {
         const char* preset_char = find_mode(custom_preset_modes_, custom_preset.value());
         if (preset_char != nullptr && this->set_custom_preset_(preset_char)) changed = true;
