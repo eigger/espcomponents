@@ -34,6 +34,11 @@ WriteTrigger = uartex_ns.class_("WriteTrigger", automation.Trigger.template())
 ReadTrigger = uartex_ns.class_("ReadTrigger", automation.Trigger.template())
 
 MULTI_CONF = True
+
+def validate_version(config):
+    cv.All(cv.version_number, cv.validate_esphome_version)("2025.11.0")
+    return config
+
 Checksum = uartex_ns.enum("CHECKSUM")
 CHECKSUMS = {
     "NONE": Checksum.CHECKSUM_NONE,
