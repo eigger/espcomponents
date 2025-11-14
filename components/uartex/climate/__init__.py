@@ -4,7 +4,7 @@ from esphome.components import climate, uartex, sensor
 from esphome.const import CONF_ID, CONF_SENSOR, CONF_CUSTOM_FAN_MODE, CONF_CUSTOM_PRESET
 from .. import uartex_ns, UARTExDevice, \
     state_schema, state_num_schema, state_hex_expression, state_num_expression, state_string_expression, \
-    command_hex_schema, command_expression, command_float_expression, command_string_expression
+    command_hex_schema, command_expression, command_float_expression, command_string_expression, validate_version
 from ..const import CONF_STATE_TEMPERATURE_CURRENT, CONF_STATE_TEMPERATURE_TARGET, CONF_STATE_HUMIDITY_CURRENT, CONF_STATE_HUMIDITY_TARGET, \
     CONF_STATE_ON, CONF_STATE_AUTO, CONF_STATE_HEAT, CONF_STATE_COOL, CONF_STATE_FAN_ONLY, CONF_STATE_DRY, CONF_STATE_SWING_OFF, CONF_STATE_SWING_BOTH, CONF_STATE_SWING_VERTICAL, CONF_STATE_SWING_HORIZONTAL, \
     CONF_COMMAND_ON, CONF_COMMAND_AUTO, CONF_COMMAND_HEAT, CONF_COMMAND_COOL, CONF_COMMAND_FAN_ONLY, CONF_COMMAND_DRY, CONF_COMMAND_SWING_OFF, CONF_COMMAND_SWING_BOTH, CONF_COMMAND_SWING_VERTICAL, CONF_COMMAND_SWING_HORIZONTAL, \
@@ -16,10 +16,8 @@ from ..const import CONF_STATE_TEMPERATURE_CURRENT, CONF_STATE_TEMPERATURE_TARGE
     CONF_COMMAND_CUSTOM_FAN, CONF_COMMAND_CUSTOM_PRESET, CONF_STATE_CUSTOM_FAN, CONF_STATE_CUSTOM_PRESET, \
     CONF_STATE_ACTION_COOLING, CONF_STATE_ACTION_HEATING, CONF_STATE_ACTION_IDLE, CONF_STATE_ACTION_DRYING, CONF_STATE_ACTION_FAN
     
-AUTO_LOAD = ['sensor']
 DEPENDENCIES = ['uartex']
 UARTExClimate = uartex_ns.class_('UARTExClimate', climate.Climate, UARTExDevice)
-
 
 _CUSTOM_MODES_SCHEMA = cv.All(
     cv.ensure_list(cv.string_strict),
@@ -129,7 +127,7 @@ CONFIG_SCHEMA = cv.All(climate.climate_schema(UARTExClimate).extend({
     cv.Optional(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Climate do not support command_on!"),
     cv.Optional(CONF_STATE_ON): cv.invalid("UARTEx Climate do not support state_on!")
-}).extend(cv.COMPONENT_SCHEMA), cv.has_exactly_one_key(CONF_SENSOR, CONF_STATE_TEMPERATURE_CURRENT))
+}).extend(cv.COMPONENT_SCHEMA), cv.has_exactly_one_key(CONF_SENSOR, CONF_STATE_TEMPERATURE_CURRENT), validate_version)
 
 
 

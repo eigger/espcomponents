@@ -4,7 +4,7 @@ from esphome.components import fan, uartex
 from esphome.const import CONF_ID, CONF_PRESET_MODES
 from .. import uartex_ns, UARTExDevice, \
     state_num_schema, state_num_expression, state_string_expression, \
-    command_hex_schema, command_float_expression, command_string_expression
+    command_hex_schema, command_float_expression, command_string_expression, validate_version
 from ..const import CONF_SPEED_CNT, CONF_STATE_SPEED, CONF_COMMAND_SPEED, CONF_STATE_PRESET, CONF_COMMAND_PRESET
 
 DEPENDENCIES = ['uartex']
@@ -17,7 +17,7 @@ CONFIG_SCHEMA = cv.All(fan.fan_schema(UARTExFan).extend(uartex.UARTEX_DEVICE_SCH
     cv.Required(CONF_COMMAND_SPEED): cv.templatable(command_hex_schema),
     cv.Optional(CONF_STATE_PRESET): cv.returning_lambda,
     cv.Optional(CONF_COMMAND_PRESET): cv.templatable(command_hex_schema),
-}).extend(cv.COMPONENT_SCHEMA))
+}).extend(cv.COMPONENT_SCHEMA), validate_version)
 
 async def to_code(config):
     var = await fan.new_fan(config)
