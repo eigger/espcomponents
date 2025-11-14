@@ -338,10 +338,12 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
 
     // custom preset
     optional<std::string> custom_preset = get_state_custom_preset(data);
+    if (custom_preset.has_value()) ESP_LOGD(TAG, "publish custom preset %s", custom_preset.value().c_str());
     if (custom_preset.has_value() && this->has_custom_preset() && (this->get_custom_preset() == nullptr || this->get_custom_preset() != custom_preset.value()))
     {
         const char* preset_char = find_mode(custom_preset_modes_, custom_preset.value());
         if (preset_char != nullptr && this->set_custom_preset_(preset_char)) changed = true;
+        ESP_LOGD(TAG, "publish custom char %s, %d", preset_char == nullptr ? "" : preset_char, changed ? 1 : 0);
     }
     
     // Current temperature
