@@ -11,6 +11,8 @@ DEPENDENCIES = ['uartex']
 UARTExLightOutput = uartex_ns.class_('UARTExLightOutput', light.LightOutput, UARTExDevice)
 UARTExLightState = uartex_ns.class_('UARTExLightState', light.LightState)
 
+cv.All(cv.version_number, cv.validate_esphome_version)("2025.11.0")
+
 CONFIG_SCHEMA = cv.All(light.light_schema(UARTExLightOutput, light.LightType.BINARY).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.GenerateID(): cv.declare_id(UARTExLightState),
     cv.Optional(CONF_STATE_BRIGHTNESS): cv.templatable(state_num_schema),

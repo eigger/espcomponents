@@ -10,6 +10,8 @@ from ..const import CONF_SPEED_CNT, CONF_STATE_SPEED, CONF_COMMAND_SPEED, CONF_S
 DEPENDENCIES = ['uartex']
 UARTExFan = uartex_ns.class_('UARTExFan', fan.Fan, UARTExDevice)
 
+cv.All(cv.version_number, cv.validate_esphome_version)("2025.11.0")
+
 CONFIG_SCHEMA = cv.All(fan.fan_schema(UARTExFan).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
     cv.Optional(CONF_SPEED_CNT, default=3): cv.int_range(min=1, max=100),
     cv.Optional(CONF_PRESET_MODES): fan.validate_preset_modes,

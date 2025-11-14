@@ -16,10 +16,10 @@ from ..const import CONF_STATE_TEMPERATURE_CURRENT, CONF_STATE_TEMPERATURE_TARGE
     CONF_COMMAND_CUSTOM_FAN, CONF_COMMAND_CUSTOM_PRESET, CONF_STATE_CUSTOM_FAN, CONF_STATE_CUSTOM_PRESET, \
     CONF_STATE_ACTION_COOLING, CONF_STATE_ACTION_HEATING, CONF_STATE_ACTION_IDLE, CONF_STATE_ACTION_DRYING, CONF_STATE_ACTION_FAN
     
-AUTO_LOAD = ['sensor']
 DEPENDENCIES = ['uartex']
 UARTExClimate = uartex_ns.class_('UARTExClimate', climate.Climate, UARTExDevice)
 
+cv.All(cv.version_number, cv.validate_esphome_version)("2025.11.0")
 
 _CUSTOM_MODES_SCHEMA = cv.All(
     cv.ensure_list(cv.string_strict),
