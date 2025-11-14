@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <unordered_map>
-#include <set>
 
 #include "esphome/core/hal.h"
 #include "esphome/core/log.h"
@@ -144,7 +143,7 @@ protected:
     std::queue<const cmd_t*> tx_cmd_queue_low_priority_{};
     std::vector<uint8_t> last_state_{};
 };
-
+const char* find_mode(const std::vector<const char*>& modes, const std::string& target);
 template<typename KeyType, typename ValueType>
 bool contains(const std::unordered_map<KeyType, ValueType>& map, const KeyType& key) { return map.find(key) != map.end(); }
 bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,  const uint16_t offset = 0);

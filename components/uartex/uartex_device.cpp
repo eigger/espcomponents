@@ -144,6 +144,19 @@ bool UARTExDevice::has_named_state(const std::string& name)
     return false;
 }
 
+const char* find_mode(const std::vector<const char*>& modes, const std::string& target)
+{
+    auto it = std::find_if(modes.begin(), modes.end(), [&](const char* m)
+        {
+            return m != nullptr && target == m;
+        }
+    );
+    if (it != modes.end()) {
+        return *it;
+    }
+    return nullptr;
+}
+
 bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2, const uint16_t offset)
 {
     if (data1.size() - offset < data2.size()) return false;
