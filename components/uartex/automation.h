@@ -58,9 +58,9 @@ public:
     }
 
 #if ESPHOME_VERSION_CODE >= VERSION_CODE(2025, 11, 0)
-  void play(const Ts&... x) override
+    void play(const Ts&... x) override
 #else
-  void play(Ts... x) override
+    void play(Ts... x) override
 #endif
     {
         if (this->static_)
