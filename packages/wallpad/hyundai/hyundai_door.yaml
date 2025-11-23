@@ -69,6 +69,7 @@ uartex:
 # 7F 60 00 00 EE // W <- S 통화 종료
 binary_sensor:
   - platform: uartex
+    id: id_door_bell
     name: "Door Bell"
     icon: "mdi:bell-ring"
     state:
@@ -165,6 +166,7 @@ script:
             - button.press: id_door_open_common
             - delay: 3s
             - switch.turn_off: id_door_call_common
+            - lambda: id(id_door_bell_common).publish_state(false);
   - id: open_door_sequence
     then:
       - if:
@@ -177,3 +179,4 @@ script:
             - button.press: id_door_open
             - delay: 3s
             - switch.turn_off: id_door_call
+            - lambda: id(id_door_bell).publish_state(false);
