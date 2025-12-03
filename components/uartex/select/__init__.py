@@ -38,7 +38,9 @@ async def to_code(config):
         cg.add(var.set_state(CONF_STATE_SELECT, state))
     
     if CONF_INITIAL_OPTION in config:
-        cg.add(var.set_initial_option(config[CONF_INITIAL_OPTION]))
+        initial_option_index = config[CONF_OPTIONS].index(config[CONF_INITIAL_OPTION])
+        if initial_option_index != 0:
+            cg.add(var.set_initial_option_index(initial_option_index))
 
     if CONF_RESTORE_VALUE in config:
         cg.add(var.set_restore_value(config[CONF_RESTORE_VALUE]))

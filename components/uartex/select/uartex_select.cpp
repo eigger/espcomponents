@@ -15,62 +15,51 @@ void UARTExSelect::dump_config()
 
 void UARTExSelect::setup()
 {
-    std::string value;
     ESP_LOGD(TAG, "Setting up");
-    if (!this->restore_value_)
+    size_t index = this->initial_option_index_;
+    if (this->restore_value_)
     {
-        value = this->initial_option_;
-        ESP_LOGD(TAG, "State from initial: %s", value.c_str());
-    } 
-    else 
-    {
-        size_t index;
-        this->pref_ = global_preferences->make_preference<size_t>(this->get_object_id_hash());
-        if (!this->pref_.load(&index)) 
+        this->pref_ = global_preferences->make_preference<size_t>(this->get_preference_hash());
+        size_t restored_index;
+        if (this->pref_.load(&restored_index) && this->has_index(restored_index))
         {
-            value = this->initial_option_;
-            ESP_LOGD(TAG, "State from initial (could not load stored index): %s", value.c_str());
-        } 
-        else if (!this->has_index(index)) 
-        {
-            value = this->initial_option_;
-            ESP_LOGD(TAG, "State from initial (restored index %d out of bounds): %s", index, value.c_str());
+            index = restored_index;
+            ESP_LOGD(TAG, "State from restore: %s", this->option_at(index));
         } 
         else 
         {
-            value = this->at(index).value();
-            ESP_LOGD(TAG, "State from restore: %s", value.c_str());
+            ESP_LOGD(TAG, "State from initial (could not load or invalid stored index): %s", this->option_at(index));
         }
+    } 
+    else
+    {
+        ESP_LOGD(TAG, "State from initial: %s", this->option_at(index));
     }
-    this->publish_state(value);
+    this->publish_state(index);
 }
 
 void UARTExSelect::publish(const std::vector<uint8_t>& data) 
 {
     optional<std::string> val = get_state_select(data);
-    if(val.has_value() && this->state != val.value())
+    if(val.has_value() && this->current_option() != val.value())
     {
-        if (this->has_option(val.value()))
+        auto idx = this->index_of(val.value());
+        if (idx.has_value())
         {
-            this->state = val.value();
-            this->publish_state(val.value());
+            this->publish_state(idx.value());
         }
     }
 }
 
-void UARTExSelect::control(const std::string& value)
+void UARTExSelect::control(size_t index)
 {
-    if (this->state == value) return;
-    if (enqueue_tx_cmd(get_command_select(value)) || this->optimistic_)
+    if (this->active_index().has_value() && active_index().value() == index) return;
+    optional<std::string> val = this->at(index);
+    if (enqueue_tx_cmd(get_command_select(val.has_value() ? val.value() : "")) || this->optimistic_)
     {
-        this->state = value;
+        this->publish_state(index);
     }
-    this->publish_state(this->state);
-    if (this->restore_value_)
-    {
-        auto index = this->index_of(value);
-        this->pref_.save(&index.value());
-    }
+    if (this->restore_value_) this->pref_.save(&index);
 }
 
 }  // namespace uartex
