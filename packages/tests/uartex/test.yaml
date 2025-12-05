@@ -1,0 +1,434 @@
+esp32:
+  board: m5stack-atom
+  framework:
+    type: esp-idf
+
+uart:
+  baud_rate: 9600
+  data_bits: 8
+  parity: NONE
+  stop_bits: 1
+  rx_pin: GPIO22
+  tx_pin: GPIO19
+
+external_components:
+  - source: github://eigger/espcomponents@latest
+    components: [ uartex ]
+    refresh: always
+
+#packet) 0x02 0x01 0x00 0x00 0x00 (add)checksum 0x0D 0x0A
+uartex:
+  rx_timeout: 10ms
+  tx_delay: 50ms
+  tx_timeout: 500ms
+  tx_retry_cnt: 3
+
+  rx_header: [0x02, 0x01]
+  rx_footer: [0x0D, 0x0A]
+  tx_header: [0x02, 0x01]
+  tx_footer: [0x0D, 0x0A]
+
+  rx_checksum: add
+  tx_checksum: add
+
+  version:
+    disabled: False
+  error:
+    disabled: False
+  log:
+    disabled: False
+
+#packet on) 0x02 0x01 0x02 0x03 0x01 (add)checksum 0x0D 0x0A
+#   offset) head head 0    1    2
+#packet on ack) 0x02 0x01 0x02 0x13 0x01 (add)checksum 0x0D 0x0A
+#packet off) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
+#packet off ack) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
+light:
+  - platform: uartex
+    name: "Room 0 Light 1"
+    id: room_0_light_1
+    state: 
+      data: [0x02, 0x03]
+      mask: [0xff, 0x0f]
+    state_on:
+      offset: 2
+      data: [0x01]
+    state_off:
+      offset: 2
+      data: [0x00]
+    state_brightness:
+      offset: 3
+      length: 1
+      precision: 0
+    command_on:
+      data: [0x02, 0x03, 0x01]
+      ack: [0x02, 0x13, 0x01]
+    command_off: !lambda |-
+      return {{0x02, 0x03, 0x00}, {0x02, 0x13, 0x00}};
+    command_brightness:
+      data: [0x02, 0x03, 0x01]
+      ack: [0x02, 0x13, 0x01]
+
+#packet on) 0x02 0x01 0x02 0x03 0x01 (add)checksum 0x0D 0x0A
+#   offset) head head 0    1    2
+#packet off) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
+binary_sensor:
+  - platform: uartex
+    name: Binary_Sensor1
+    state: [0x02, 0x03]
+    state_on:
+      offset: 2
+      data: [0x01]
+    state_off:
+      offset: 2
+      data: [0x00]
+
+#packet on) 0x02 0x01 0x02 0x03 0x01 (add)checksum 0x0D 0x0A
+#   offset) head head 0    1    2
+button:
+  - platform: uartex
+    name: "Elevator Call"
+    icon: "mdi:elevator"
+    command_on: 
+      data: [0x02, 0x03, 0x01]
+
+#packet off) 0x02 0x01 0x02 0x03 0x00 target current (add)checksum 0x0D 0x0A
+#    offset) head head 0    1    2    3      4
+#packet off ack) 0x02 0x01 0x02 0x13 0x00 target current (add)checksum 0x0D 0x0A
+#packet heat) 0x02 0x01 0x02 0x03 0x01 target current (add)checksum 0x0D 0x0A
+#packet heat ack) 0x02 0x01 0x02 0x13 0x01 target current (add)checksum 0x0D 0x0A
+climate:
+  - platform: uartex
+    name: "Room 0 Heater"
+    id: room_0_heater
+    visual:
+      min_temperature: 5 °C
+      max_temperature: 30 °C
+      temperature_step: 1 °C
+    state: 
+      data: [0x02, 0x03]
+      mask: [0xff, 0x0f]
+    state_temperature_current:
+      offset: 4
+      length: 1
+      precision: 0
+    state_temperature_target:
+      offset: 3
+      length: 1
+      precision: 0
+    state_off:
+      offset: 2
+      data: [0x00]
+    state_heat:
+      offset: 2
+      data: [0x01]
+    state_cool:
+      offset: 2
+      data: [0x01]
+    state_fan_only:
+      offset: 2
+      data: [0x01]
+    state_dry:
+      offset: 2
+      data: [0x01]
+    state_auto:
+      offset: 2
+      data: [0x01]
+    state_swing_off:
+      offset: 2
+      data: [0x01]
+    state_swing_both:
+      offset: 2
+      data: [0x01]
+    state_swing_vertical:
+      offset: 2
+      data: [0x01]
+    state_swing_horizontal:
+      offset: 2
+      data: [0x01]
+    state_fan_on:
+      offset: 2
+      data: [0x01]
+    state_fan_off:
+      offset: 2
+      data: [0x01]
+    state_fan_auto:
+      offset: 2
+      data: [0x01]
+    state_fan_low:
+      offset: 2
+      data: [0x01]
+    state_fan_medium:
+      offset: 2
+      data: [0x01]
+    state_fan_high:
+      offset: 2
+      data: [0x01]
+    state_fan_middle:
+      offset: 2
+      data: [0x01]
+    state_fan_focus:
+      offset: 2
+      data: [0x01]
+    state_fan_diffuse:
+      offset: 2
+      data: [0x01]
+    state_fan_quiet:
+      offset: 2
+      data: [0x01]
+    state_preset_none:
+      offset: 2
+      data: [0x01]
+    state_preset_home:
+      offset: 2
+      data: [0x01]
+    state_preset_away:
+      offset: 2
+      data: [0x01]
+    state_preset_boost:
+      offset: 2
+      data: [0x01]
+    state_preset_comfort:
+      offset: 2
+      data: [0x01]
+    state_preset_eco:
+      offset: 2
+      data: [0x01]
+    state_preset_sleep:
+      offset: 2
+      data: [0x01]
+    state_preset_activity:
+      offset: 2
+      data: [0x01]
+    command_off:
+      data: [0x02, 0x03, 0x00]
+      ack: [0x02, 0x13, 0x00]
+    command_heat: !lambda |-
+      float target = id(room_0_heater).target_temperature;
+      return {{0x02, 0x03, 0x01, (uint8_t)target, 0x00},{0x02, 0x13, 0x01}};
+    command_temperature: !lambda |-
+      float target = x;
+      return {{0x02, 0x03, 0x01, (uint8_t)target, 0x00},{0x02, 0x13, 0x01}};
+    custom_fan_mode:
+      - "windfree"
+    custom_preset:
+      - "power"
+    command_custom_fan: !lambda |-
+      std::string mode = str;
+      return {{0x30, 0xbc, 0x00, 0x36, 0x00, 0x01, 0x00, 0x00, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
+    command_custom_preset: !lambda |-
+      std::string mode = str;
+      return {{0x30, 0xbc, 0x00, 0x36, 0x00, 0x01, 0x00, 0x00, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
+    state_custom_fan: !lambda |-
+      return "windfree";
+    state_custom_preset: !lambda |-
+      return "power";
+
+#packet off) 0x02 0x01 0x02 0x03 0x00 speed (add)checksum 0x0D 0x0A
+#    offset) head head 0    1    2    3
+#packet off ack) 0x02 0x01 0x02 0x13 0x00 speed (add)checksum 0x0D 0x0A
+#packet on) 0x02 0x01 0x02 0x03 0x01 speed (add)checksum 0x0D 0x0A
+#packet on ack) 0x02 0x01 0x02 0x13 0x01 speed (add)checksum 0x0D 0x0A
+fan:
+  - platform: uartex
+    name: "Fan1"
+    state:
+      data: [0x02, 0x03]
+      mask: [0xff, 0x0f]
+    state_on:
+      offset: 2
+      data: [0x01]
+    state_off:
+      offset: 2
+      data: [0x00]
+    command_on:
+      data: [0x02, 0x03, 0x01]
+      ack: [0x02, 0x13]
+    command_off:
+      data: [0x02, 0x03, 0x00]
+      ack: [0x02, 0x13]
+    command_speed: !lambda |-
+      return {{0x02, 0x03, 0x01, (uint8_t)x},{0x02, 0x13}};
+    state_speed: !lambda |-
+      return data[3];
+    state_preset: !lambda |-
+      return "test1";
+    command_preset: !lambda |-
+      return {{0x02, 0x03, 0x01, 0x00},{0x02, 0x13}};
+    preset_modes:
+      - "test1"
+      - "test2"
+#packet unlock) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
+#       offset) head head 0    1    2
+#packet unlock ack) 0x02 0x01 0x02 0x13 0x00 (add)checksum 0x0D 0x0A
+#packet lock) 0x02 0x01 0x02 0x03 0x01 (add)checksum 0x0D 0x0A
+#packet lock ack) 0x02 0x01 0x02 0x13 0x01 (add)checksum 0x0D 0x0A
+lock:
+  - platform: uartex
+    name: "Lock1"
+    state:
+      data: [0x02, 0x03]
+      mask: [0xff, 0x0f]
+    state_locked:
+      offset: 2
+      data: [0x01]
+    state_unlocked:
+      offset: 2
+      data: [0x00]
+    state_locking:
+      offset: 2
+      data: [0x02]
+    state_unlocking:
+      offset: 2
+      data: [0x03]
+    state_jammed:
+      offset: 2
+      data: [0x04]
+    command_lock:
+      data: [0x02, 0x03, 0x01]
+      ack: [0x02, 0x13]
+    command_unlock:
+      data: [0x02, 0x03, 0x00]
+      ack: [0x02, 0x13]
+
+#packet) 0x02 0x01 0x02 0x03 0x00 number (add)checksum 0x0D 0x0A
+#offset) head head 0    1    2    3
+#packet ack) 0x02 0x01 0x02 0x13 0x00 number (add)checksum 0x0D 0x0A
+number:
+  - platform: uartex
+    name: "Number1"
+    state:
+      data: [0x02, 0x03]
+      mask: [0xff, 0x0f]
+    max_value: 10
+    min_value: 1
+    step: 1
+    state_number:
+      offset: 3
+      length: 1
+      precision: 0
+    command_number: !lambda |-
+      return {{0x02, 0x03, 0x00, (uint8_t)x},{0x02, 0x13}};
+
+#packet) 0x02 0x01 0x02 0x03 0x00 value (add)checksum 0x0D 0x0A
+#offset) head head 0    1    2    3
+sensor:
+  - platform: uartex
+    name: Sensor1
+    state: [0x02, 0x03, 0x00]
+    state_number:
+      offset: 3
+      length: 1
+      precision: 0
+
+#packet on) 0x02 0x01 0x02 0x03 0x01 (add)checksum 0x0D 0x0A
+#   offset) head head 0    1    2
+#packet on ack) 0x02 0x01 0x02 0x13 0x01 (add)checksum 0x0D 0x0A
+#packet off) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
+#packet off ack) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
+switch:
+  - platform: uartex
+    name: "Switch1"
+    state: 
+      data: [0x02, 0x03]
+      mask: [0xff, 0x0f]
+    state_on:
+      offset: 2
+      data: [0x01]
+    state_off:
+      offset: 2
+      data: [0x00]
+    command_on:
+      data: [0x02, 0x03, 0x01]
+      ack: [0x02, 0x13, 0x01]
+    command_off: !lambda |-
+      return {{0x02, 0x03, 0x00}, {0x02, 0x13, 0x00}};
+
+#packet one) 0x02 0x01 0x02 0x03 0x01 (add)checksum 0x0D 0x0A
+#    offset) head head 0    1    2
+#packet one ack) 0x02 0x01 0x02 0x13 0x01 (add)checksum 0x0D 0x0A
+#packet two) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
+#packet two ack) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
+select:
+  - platform: uartex
+    name: "Select 1"
+    state: 
+      data: [0x02, 0x03]
+      mask: [0xff, 0x0f]
+    options:
+      - one
+      - two
+    initial_option: two
+    command_select: !lambda |-
+      if (str == "two") return {{0x02, 0x03, 0x00}, {0x02, 0x13, 0x00}};
+      return {{0x02, 0x03, 0x01}, {0x02, 0x13, 0x01}};
+
+    state_select: !lambda |-
+      if (data[2] == 0x01) return "one";
+      return "two";
+
+text:
+  - platform: uartex
+    name: "Text"
+    mode: text
+    command_text: !lambda |-
+      return {{0x0F, 0x01, 0x01},{0x0F, 0x01}};
+
+#packet on) 0x02 0x01 0x02 0x03 0x01 (add)checksum 0x0D 0x0A
+#   offset) head head 0    1    2
+#packet off) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
+text_sensor:
+  - platform: uartex
+    name: "Text Sensor"
+    state: [0x02, 0x03]
+    lambda: |-
+      if (data[2] == 0x01) return "ON";
+      return "OFF";
+
+#packet open) 0x02 0x01 0x02 0x03 0x01 (add)checksum 0x0D 0x0A
+#offset) head head 0    1    2    3
+#packet open ack) 0x02 0x01 0x02 0x13 0x01 (add)checksum 0x0D 0x0A
+#packet close) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
+#packet close ack) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
+valve:
+  - platform: uartex
+    name: "Valve1"
+    state: 
+      data: [0x02, 0x03]
+      mask: [0xff, 0x0f]
+    state_open:
+      offset: 2
+      data: [0x01]
+    state_closed:
+      offset: 2
+      data: [0x00]
+    command_open:
+      data: [0x02, 0x03, 0x01]
+      ack: [0x02, 0x13, 0x01]
+    command_close:
+      data: [0x02, 0x03, 0x00]
+      ack: [0x02, 0x13, 0x00]
+
+#packet play) 0x02 0x01 0x02 0x03 0x01 (add)checksum 0x0D 0x0A
+#offset) head head 0    1    2    3
+#packet play ack) 0x02 0x01 0x02 0x13 0x01 (add)checksum 0x0D 0x0A
+#packet pause) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
+#packet pause ack) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
+media_player:
+  - platform: uartex
+    name: "Player1"
+    state: 
+      data: [0x02, 0x03]
+      mask: [0xff, 0x0f]
+    state_playing:
+      offset: 2
+      data: [0x01]
+    state_paused:
+      offset: 2
+      data: [0x00]
+    command_play:
+      data: [0x02, 0x03, 0x01]
+      ack: [0x02, 0x13, 0x01]
+    command_pause:
+      data: [0x02, 0x03, 0x00]
+      ack: [0x02, 0x13, 0x00]
