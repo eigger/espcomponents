@@ -142,7 +142,7 @@ switch:
     command_on: 
       data: [0xB7, 0x00, 0x00]
     command_off: 
-      data: [0xBB, 0x00, 0x00]
+      data: [0xB8, 0x00, 0x00]
   - platform: template
     id: id_enable_auto_open
     name: "Auto Opening"
