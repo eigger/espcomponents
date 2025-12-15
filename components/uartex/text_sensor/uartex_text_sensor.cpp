@@ -20,9 +20,8 @@ void UARTExTextSensor::setup()
 void UARTExTextSensor::publish(const std::vector<uint8_t>& data) 
 {
     optional<std::string> val = get_state_str("lambda", data);
-    if(val.has_value() && this->raw_state != val.value())
+    if(val.has_value() && this->get_raw_state() != val.value())
     {
-        this->raw_state = val.value();
         publish_state(val.value());
     }
 }
