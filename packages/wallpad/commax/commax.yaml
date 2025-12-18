@@ -384,6 +384,59 @@ sensor:
       offset: 2
       length: 1
       precision: 0
+      
+#전력 소비 센서 (Power Consumption)
+#상태      Head,   PWR,   ID,  TYPE,   D1,   D2,   D3,   add checksum
+#TYPE 0x11: Wattage (전력량)
+#D1,D2,D3는 BCD 인코딩된 값 (XXXX.X W)
+  - platform: uartex
+    name: "Plug 1 Power"
+    device_class: power
+    unit_of_measurement: "W"
+    icon: "mdi:flash"
+    state:
+      data: [0xF9, 0x00, 0x01, 0x11]
+      mask: [0xFF, 0x00, 0xFF, 0xFF]
+    state_number: !lambda |-
+      uint16_t val = (bcd_to_int(data[4]) * 10000) + (bcd_to_int(data[5]) * 100) + bcd_to_int(data[6]);
+      return val * 0.1f;
+
+  - platform: uartex
+    name: "Plug 2 Power"
+    device_class: power
+    unit_of_measurement: "W"
+    icon: "mdi:flash"
+    state:
+      data: [0xF9, 0x00, 0x02, 0x11]
+      mask: [0xFF, 0x00, 0xFF, 0xFF]
+    state_number: !lambda |-
+      uint16_t val = (bcd_to_int(data[4]) * 10000) + (bcd_to_int(data[5]) * 100) + bcd_to_int(data[6]);
+      return val * 0.1f;
+
+  - platform: uartex
+    name: "Plug 3 Power"
+    device_class: power
+    unit_of_measurement: "W"
+    icon: "mdi:flash"
+    state:
+      data: [0xF9, 0x00, 0x03, 0x11]
+      mask: [0xFF, 0x00, 0xFF, 0xFF]
+    state_number: !lambda |-
+      uint16_t val = (bcd_to_int(data[4]) * 10000) + (bcd_to_int(data[5]) * 100) + bcd_to_int(data[6]);
+      return val * 0.1f;
+
+  - platform: uartex
+    name: "Plug 4 Power"
+    device_class: power
+    unit_of_measurement: "W"
+    icon: "mdi:flash"
+    state:
+      data: [0xF9, 0x00, 0x04, 0x11]
+      mask: [0xFF, 0x00, 0xFF, 0xFF]
+    state_number: !lambda |-
+      uint16_t val = (bcd_to_int(data[4]) * 10000) + (bcd_to_int(data[5]) * 100) + bcd_to_int(data[6]);
+      return val * 0.1f;
+
 
 #명령 0xA0, 0x01, 0x01, 0x00, 0x08, 0x15, 0x00, add checksum 
 button:
@@ -394,21 +447,94 @@ button:
       data: [0xA0, 0x01, 0x01, 0x00, 0x08, 0x15, 0x00]
       ack: [0x23]
 
+#스마트 콘센트 (Plugs)
+#상태      Head,   PWR,  ID,   TYPE,  D1,   D2,   D3,   add checksum
+#TYPE 11 (Wattage), 21 (Eco - ignored)
+#PWR: 00(Off), 01(On), 10(Off+Auto), 11(On+Auto)
+#명령      Head,   ID,   CMD,  PWR,   00,   00,   00,   add checksum
+#명령 ON   0x7A,   ID,   01,   01,    00,   00,   00
+#명령 OFF  0x7A,   ID,   01,   00,    00,   00,   00
 switch:
   - platform: uartex
-    name: "Switch 7"
+    name: "Plug 1"
+    icon: "mdi:power-socket-eu"
     state:
-      data: [0xF8, 0x00, 0x07]
-      mask: [0xF8, 0x00, 0xFF]
+      data: [0xF9, 0x00, 0x01]
+      mask: [0xFF, 0x00, 0xFF]
     state_on:
       offset: 1
       data: [0x01]
+      mask: [0x01]
     state_off:
       offset: 1
       data: [0x00]
+      mask: [0x01]
     command_on:
-      data: [0x7A, 0x07, 0x01, 0x01, 0x00, 0x00, 0x00]
-      ack: [0xFA, 0x01, 0x07]
+      data: [0x7A, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00]
+      ack: [0xF9, 0x01, 0x01]
     command_off:
-      data: [0x7A, 0x07, 0x01, 0x00, 0x00, 0x00, 0x00]
-      ack: [0xFA, 0x00, 0x07]
+      data: [0x7A, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00]
+      ack: [0xF9, 0x00, 0x01]
+
+  - platform: uartex
+    name: "Plug 2"
+    icon: "mdi:power-socket-eu"
+    state:
+      data: [0xF9, 0x00, 0x02]
+      mask: [0xFF, 0x00, 0xFF]
+    state_on:
+      offset: 1
+      data: [0x01]
+      mask: [0x01]
+    state_off:
+      offset: 1
+      data: [0x00]
+      mask: [0x01]
+    command_on:
+      data: [0x7A, 0x02, 0x01, 0x01, 0x00, 0x00, 0x00]
+      ack: [0xF9, 0x01, 0x02]
+    command_off:
+      data: [0x7A, 0x02, 0x01, 0x00, 0x00, 0x00, 0x00]
+      ack: [0xF9, 0x00, 0x02]
+
+  - platform: uartex
+    name: "Plug 3"
+    icon: "mdi:power-socket-eu"
+    state:
+      data: [0xF9, 0x00, 0x03]
+      mask: [0xFF, 0x00, 0xFF]
+    state_on:
+      offset: 1
+      data: [0x01]
+      mask: [0x01]
+    state_off:
+      offset: 1
+      data: [0x00]
+      mask: [0x01]
+    command_on:
+      data: [0x7A, 0x03, 0x01, 0x01, 0x00, 0x00, 0x00]
+      ack: [0xF9, 0x01, 0x03]
+    command_off:
+      data: [0x7A, 0x03, 0x01, 0x00, 0x00, 0x00, 0x00]
+      ack: [0xF9, 0x00, 0x03]
+
+  - platform: uartex
+    name: "Plug 4"
+    icon: "mdi:power-socket-eu"
+    state:
+      data: [0xF9, 0x00, 0x04]
+      mask: [0xFF, 0x00, 0xFF]
+    state_on:
+      offset: 1
+      data: [0x01]
+      mask: [0x01]
+    state_off:
+      offset: 1
+      data: [0x00]
+      mask: [0x01]
+    command_on:
+      data: [0x7A, 0x04, 0x01, 0x01, 0x00, 0x00, 0x00]
+      ack: [0xF9, 0x01, 0x04]
+    command_off:
+      data: [0x7A, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00]
+      ack: [0xF9, 0x00, 0x04]
