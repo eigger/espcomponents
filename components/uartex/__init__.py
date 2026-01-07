@@ -10,7 +10,7 @@ from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTE
     CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, CONF_RX_CHECKSUM_2, CONF_TX_CHECKSUM_2, \
     CONF_UARTEX_ID, CONF_ERROR, CONF_LOG, CONF_ON_TX_TIMEOUT, CONF_RX_PRIORITY, \
     CONF_ACK, CONF_ON_WRITE, CONF_ON_READ, \
-    CONF_STATE, CONF_MASK, \
+    CONF_STATE, CONF_MASK, CONF_MATCH, \
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
     CONF_COMMAND_UPDATE, CONF_RX_TIMEOUT, CONF_TX_TIMEOUT, CONF_TX_RETRY_CNT, CONF_TX_COMMAND_QUEUE_SIZE, \
     CONF_STATE_RESPONSE, CONF_LENGTH, CONF_PRECISION, CONF_RX_LENGTH, \
@@ -80,6 +80,17 @@ def validate_decode(value):
         return cv.enum(DECODES, upper=True)(value)
     raise cv.Invalid("data type error")
 
+Match = uartex_ns.enum("MATCH")
+MATCHES = {
+    "PREFIX": Match.MATCH_PREFIX,
+    "EXACT": Match.MATCH_EXACT
+}
+
+def validate_match(value):
+    if isinstance(value, str):
+        return cv.enum(MATCHES, upper=True)(value)
+    raise cv.Invalid("data type error")
+
 Priority = uartex_ns.enum("PRIORITY")
 PRIORITYS = {
     "DATA": Priority.PRIORITY_DATA,
@@ -105,7 +116,8 @@ STATE_SCHEMA = cv.Schema({
     cv.Required(CONF_DATA): validate_hex_data,
     cv.Optional(CONF_MASK, default=[]): validate_hex_data,
     cv.Optional(CONF_OFFSET, default=0): cv.int_range(min=0, max=128),
-    cv.Optional(CONF_INVERTED, default=False): cv.boolean
+    cv.Optional(CONF_INVERTED, default=False): cv.boolean,
+    cv.Optional(CONF_MATCH, default="PREFIX"): validate_match
 })
 
 def shorthand_state(value):
@@ -408,7 +420,8 @@ def state_hex_expression(conf):
     mask = conf[CONF_MASK]
     offset = conf[CONF_OFFSET]
     inverted = conf[CONF_INVERTED]
-    return state_t(data, mask, offset, inverted)
+    match = conf[CONF_MATCH]
+    return state_t(data, mask, offset, inverted, match)
 
 def state_num_hex_expression(conf):
     if conf is None:

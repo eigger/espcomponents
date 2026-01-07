@@ -20,6 +20,7 @@ CONF_TX_CHECKSUM_2 = 'tx_checksum2'
 CONF_RX_PRIORITY = 'rx_priority'
 CONF_TX_COMMAND_QUEUE_SIZE = 'tx_command_queue_size'
 CONF_MASK = 'mask'
+CONF_MATCH = 'match'
 CONF_ERROR = 'error'
 CONF_LOG = 'log'
 CONF_DISABLED = "disabled"

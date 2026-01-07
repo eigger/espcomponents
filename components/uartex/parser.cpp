@@ -4,6 +4,7 @@ Parser::Parser()
 {
     checksum_len_ = 0;
     total_len_ = 0;
+    buffer_len_ = 256;
 }
 
 Parser::~Parser()

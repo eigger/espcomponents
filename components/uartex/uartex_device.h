@@ -27,6 +27,10 @@ enum DECODE {
     DECODE_ASCII
 };
 
+enum MATCH {
+    MATCH_PREFIX,
+    MATCH_EXACT
+};
 
 struct state_t
 {
@@ -34,13 +38,15 @@ struct state_t
     std::vector<uint8_t> mask;
     uint16_t offset;
     bool inverted;
-    state_t() = default;
+    MATCH match;
+    state_t() : offset(0), inverted(false), match(MATCH_PREFIX) {}
     state_t(
         std::initializer_list<uint8_t> data, 
         std::initializer_list<uint8_t> mask = {}, 
         uint16_t offset = 0, 
-        bool inverted = false)
-    : data(data), mask(mask), offset(offset), inverted(inverted) {}
+        bool inverted = false,
+        MATCH match = MATCH_PREFIX)
+    : data(data), mask(mask), offset(offset), inverted(inverted), match(match) {}
 };
 
 struct state_num_t

@@ -128,8 +128,9 @@ bool UARTExComponent::verify_ack()
 void UARTExComponent::publish_data()
 {
     auto& data = this->rx_parser_.data();
-    this->read_callback_.call(&this->rx_parser_.buffer()[0], this->rx_parser_.buffer().size());
-    publish_rx_log(this->rx_parser_.buffer());
+    auto& buf = this->rx_parser_.buffer();
+    if (!buf.empty()) this->read_callback_.call(buf.data(), buf.size());
+    publish_rx_log(buf);
     for (UARTExDevice* device : this->devices_)
     {
         device->parse_data(data);
@@ -217,7 +218,7 @@ void UARTExComponent::write_tx_cmd()
     this->tx_retry_cnt_++;
     this->tx_time_ = get_time();
     if (current_tx_cmd()->ack.empty()) tx_cmd_result(true);
-    this->write_callback_.call(&command[0], command.size());
+    if (!command.empty()) this->write_callback_.call(command.data(), command.size());
     publish_tx_log(command);
 }
 
