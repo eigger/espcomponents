@@ -105,11 +105,17 @@ uartex:
 | `rx_footer` | bytes | - | Receive packet footer |
 | `tx_header` | bytes | - | Transmit packet header |
 | `tx_footer` | bytes | - | Transmit packet footer |
-| `rx_checksum` | enum | - | Receive checksum type |
-| `tx_checksum` | enum | - | Transmit checksum type |
+| `rx_checksum` | enum | - | Receive checksum (1 byte) |
+| `tx_checksum` | enum | - | Transmit checksum (1 byte) |
+| `rx_checksum2` | enum | - | Receive checksum (multi-byte) |
+| `tx_checksum2` | enum | - | Transmit checksum (multi-byte) |
 | `rx_priority` | enum | `data` | Processing priority: `data`, `loop` |
 
+> **Note**: Use either `rx_checksum` or `rx_checksum2`, not both. Same applies to `tx_checksum` and `tx_checksum2`.
+
 #### Checksum Types
+
+**Single-byte checksum** (`rx_checksum`, `tx_checksum`):
 
 | Type | Description |
 |------|-------------|
@@ -117,8 +123,14 @@ uartex:
 | `xor` | XOR of all bytes |
 | `add_no_header` | Sum excluding header |
 | `xor_no_header` | XOR excluding header |
-| `xor_add` | XOR + ADD combined (2 bytes) |
 | Lambda | Custom: `uint8_t lambda(uint8_t* data, uint16_t len)` |
+
+**Multi-byte checksum** (`rx_checksum2`, `tx_checksum2`):
+
+| Type | Description |
+|------|-------------|
+| `xor_add` | XOR + ADD combined (2 bytes) |
+| Lambda | Custom: `std::vector<uint8_t> lambda(uint8_t* data, uint16_t len)` |
 
 **Checksum Position**:
 - With footer: Checksum is inserted **before the footer**
