@@ -1,14 +1,27 @@
-## uartex
+# UARTEx Component
 
-> ℹ️ **INFO** 
->
-> To enable real-time status updates in Home Assistant, add the following option.
->```yaml
->api:
->  batch_delay: 0ms
->```
->
+[![ESPHome](https://img.shields.io/badge/ESPHome-Custom%20Component-blue)](https://esphome.io/)
+[![Version](https://img.shields.io/badge/version-6.1.0-green)](https://github.com/eigger/espcomponents)
+
+A custom ESPHome component that extends UART communication to easily integrate various serial protocols with Home Assistant.
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Configuration Reference](#configuration-reference)
+  - [Core Component](#core-component)
+  - [Data Schemas](#data-schemas)
+- [Platforms](#platforms)
+- [Actions](#actions)
+- [Troubleshooting](#troubleshooting)
+
 ---
+
+## Installation
+
+Add the following to your ESPHome configuration:
+
 ```yaml
 external_components:
   - source: github://eigger/espcomponents@latest
@@ -16,166 +29,222 @@ external_components:
     refresh: always
 ```
 
+> **Note**: For real-time status updates in Home Assistant, add:
+> ```yaml
+> api:
+>   batch_delay: 0ms
+> ```
+
+---
+
+## Quick Start
+
 ```yaml
-packet) 0x02 0x01 0x00 0x00 0x00 (add)checksum 0x0D 0x0A
+uart:
+  id: uart_bus
+  tx_pin: GPIO1
+  rx_pin: GPIO3
+  baud_rate: 9600
 
 uartex:
+  uart_id: uart_bus
+  rx_header: [0x02, 0x01]
+  rx_footer: [0x0D, 0x0A]
+  tx_header: [0x02, 0x01]
+  tx_footer: [0x0D, 0x0A]
+  rx_checksum: add
+  tx_checksum: add
+
+switch:
+  - platform: uartex
+    name: "My Switch"
+    state_on:
+      data: [0x01, 0x01]
+    state_off:
+      data: [0x01, 0x00]
+    command_on:
+      data: [0x01, 0x01]
+    command_off:
+      data: [0x01, 0x00]
+```
+
+---
+
+## Configuration Reference
+
+### Core Component
+
+```yaml
+uartex:
+  uart_id: uart_bus
   rx_timeout: 10ms
   tx_delay: 50ms
   tx_timeout: 500ms
   tx_retry_cnt: 3
-
-  rx_header: [0x02, 0x01] or "\x02\x01"
-  rx_footer: [0x0D, 0x0A] or "\r\n"
-  tx_header: [0x02, 0x01] or "\x02\x01"
-  tx_footer: [0x0D, 0x0A] or "\r\n"
-
+  tx_command_queue_size: 10
+  rx_header: [0x02, 0x01]
+  rx_footer: [0x0D, 0x0A]
+  tx_header: [0x02, 0x01]
+  tx_footer: [0x0D, 0x0A]
   rx_checksum: add
   tx_checksum: add
+```
 
+#### Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `rx_timeout` | time | `10ms` | Receive timeout (max: 2000ms) |
+| `rx_length` | int | - | Fixed packet length (1-256) |
+| `tx_delay` | time | `50ms` | Delay between transmissions (max: 2000ms) |
+| `tx_timeout` | time | `50ms` | ACK response timeout (max: 2000ms) |
+| `tx_retry_cnt` | int | `3` | Retry count on ACK failure (1-10) |
+| `tx_command_queue_size` | int | `10` | Command queue size (1-50) |
+| `tx_ctrl_pin` | pin | - | RS485 direction control pin |
+| `rx_header` | bytes | - | Receive packet header |
+| `rx_footer` | bytes | - | Receive packet footer |
+| `tx_header` | bytes | - | Transmit packet header |
+| `tx_footer` | bytes | - | Transmit packet footer |
+| `rx_checksum` | enum | - | Receive checksum type |
+| `tx_checksum` | enum | - | Transmit checksum type |
+| `rx_priority` | enum | `data` | Processing priority: `data`, `loop` |
+
+#### Checksum Types
+
+| Type | Description |
+|------|-------------|
+| `add` | Sum of all bytes |
+| `xor` | XOR of all bytes |
+| `add_no_header` | Sum excluding header |
+| `xor_no_header` | XOR excluding header |
+| `xor_add` | XOR + ADD combined (2 bytes) |
+| Lambda | Custom: `uint8_t lambda(uint8_t* data, uint16_t len)` |
+
+#### Diagnostic Sensors
+
+```yaml
+uartex:
   version:
-    disabled: False
+    name: "UARTEx Version"
+    disabled: false
   error:
-    disabled: False
+    name: "UARTEx Error"
+    disabled: false
   log:
-    disabled: False
+    name: "UARTEx Log"
+    disabled: false
+    ascii: false  # Set true for ASCII format
 ```
-### Configuration variables
-- rx_timeout (Optional, Time): Data Receive Timeout. Defaults to 10ms. Max 2000ms
-- rx_length (Optional, int): The length of the received data when the data length is fixed. Max 256
-- tx_delay (Optional, Time): Data Send Delay. Defaults to 50ms. Max 2000ms
-- tx_timeout (Optional, Time): ACK Reception Timeout. Defaults to 50ms. Max 2000ms
-- tx_retry_cnt (Optional, int): Retry Count on ACK Failure. Defaults to 3. Max 10
-- tx_ctrl_pin (Optional, gpio): Control PIN GPIO
-- rx_header (Optional, array): Header of Data to be Received
-- rx_footer (Optional, array): Footer of Data to be Received
-- tx_header (Optional, array): Header of Data to be Transmitted
-- tx_footer (Optional, array): Header of Data to be Transmitted
-- rx_priority (Optional, enum): Defaults to data. (data, loop)
-- rx_checksum (Optional, enum, lambda): Checksum of Data to be Received. (add, xor, add_no_header, xor_no_header)
-  - uint8_t = (uint8_t* data, uint16_t len)
-- tx_checksum (Optional, enum, lambda): Checksum of Data to be Transmitted. (add, xor, add_no_header, xor_no_header)
-  - uint8_t = (uint8_t* data, uint16_t len)
-- rx_checksum2 (Optional, enum or lambda): Checksum array of Data to be Received. (add, xor, add_no_header, xor_no_header)
-  - vector\<uint8_t\> = (uint8_t* data, uint16_t len)
-- tx_checksum2 (Optional, enum or lambda): Checksum array of Data to be Transmitted. (add, xor, add_no_header, xor_no_header)
-  - vector\<uint8_t\> = (uint8_t* data, uint16_t len)
-- on_read (Optional, lambda): Event of Data to be Received
-  - void = (uint8_t* data, uint16_t len)
-- on_write (Optional, lambda): Event of Data to be Transmitted
-  - void = (uint8_t* data, uint16_t len)
-- version (Optional): Version of Uartex
-- error (Optional): Error of Uartex
-- log (Optional): Log of Uartex
-<hr/>
 
-## State Schema
+#### Event Triggers
+
+```yaml
+uartex:
+  on_read:
+    - lambda: |-
+        ESP_LOGD("uartex", "Received %d bytes", len);
+  on_write:
+    - lambda: |-
+        ESP_LOGD("uartex", "Sent %d bytes", len);
+  on_tx_timeout:
+    - logger.log: "Transmission timeout!"
 ```
-packet) 0x02 0x01 0x01 0x02 0x00 (add)checksum 0x0D 0x0A
-offset) head head 0    1    2
 
-state: 
-  data: [0x01, 0x02] or "ascii string"
-  mask: [0xff, 0xff] or "ascii string"
-  offset: 0
-  inverted: False
+---
+
+### Data Schemas
+
+#### State Schema
+
+Defines how to match received data to a specific state.
+
+```yaml
+state:
+  data: [0x01, 0x02]    # Data to match
+  mask: [0xFF, 0xFF]    # Bit mask (optional)
+  offset: 0             # Byte offset from header
+  inverted: false       # Invert match result
+  match: prefix         # Match mode: prefix, exact
 ```
-### Configuration variables
-- data (Required, array or string): 
-- mask (Optional, array or string): Defaults to []
-- offset (Optional, int): Defaults to 0.
-- inverted (Optional, bool): Defaults to False.
-<hr/>
 
-## Command Schema
+**Shorthand**: `state: [0x01, 0x02]`
+
+#### State Num Schema
+
+Parses numeric values from received data.
+
+```yaml
+state_number:
+  offset: 2          # Byte position
+  length: 1          # Number of bytes (1-16)
+  precision: 0       # Decimal places (0-5)
+  signed: true       # Signed integer
+  endian: big        # Byte order: big, little
+  decode: none       # Decode: none, bcd, ascii
 ```
-packet) 0x02 0x01 0x01 0x02 0x01 (add)checksum 0x0D 0x0A
-packet ack) 0x02 0x01 0xff 0x02 0x01 (add)checksum 0x0D 0x0A
 
-excluding the header, checksum, and footer
-command: 
-  cmd: [0x01, 0x02, 0x01] or "ascii string"
-  ack: [0xff] or "ascii string"
+#### State Lambda Types
+
+States also support lambda expressions for custom parsing:
+
+| Lambda Type | Signature | Used By |
+|-------------|-----------|---------|
+| **Float** | `float lambda(uint8_t* data, uint16_t len)` | `state_number`, `state_brightness`, `state_speed`, `state_temperature_*`, `state_humidity_*`, `state_position`, `state_tilt`, `state_volume` |
+| **String** | `std::string lambda(uint8_t* data, uint16_t len)` | `state_select`, `state_preset`, `state_custom_fan`, `state_custom_preset`, `lambda` (text_sensor) |
+
+**Example**:
+```cpp
+state_number: !lambda |-
+  // Parse 2-byte big-endian value with 1 decimal place
+  int16_t raw = (data[2] << 8) | data[3];
+  return raw / 10.0f;
 ```
-### Configuration variables
-- cmd (Required, array or string): 
-- ack (Optional, array or string): Defaults to []
-- mask (Optional, array or string): Defaults to []
-<hr/>
 
-## State Num Schema
+#### Command Schema
+
+Defines data to transmit and optional ACK verification.
+
+```yaml
+command:
+  data: [0x01, 0x02, 0x01]  # Command bytes
+  ack: [0xFF]               # Expected ACK (optional)
+  mask: []                  # ACK mask (optional)
 ```
-packet) 0x02 0x01 0x00 0x01 0x02 (add)checksum 0x0D 0x0A
-offset) head head 0    1    2
 
-state_num: 
-  offset: 2
-  length: 1
-  precision: 0
+**Shorthand**: `command_on: [0x01, 0x02, 0x01]`
 
-value = 0x02 
+#### Command Lambda Types
+
+Commands support lambda expressions for dynamic data. The lambda signature varies by command type:
+
+| Lambda Type | Signature | Used By |
+|-------------|-----------|---------|
+| **Void** | `cmd_t lambda()` | `command_on`, `command_off`, `command_open`, `command_close`, `command_stop`, `command_lock`, `command_unlock`, `command_play`, `command_pause`, `command_mute`, `command_heat`, `command_cool`, etc. |
+| **Float** | `cmd_t lambda(float x)` | `command_brightness`, `command_speed`, `command_number`, `command_temperature`, `command_humidity`, `command_volume`, `command_position`, `command_tilt` |
+| **String** | `cmd_t lambda(std::string str)` | `command_select`, `command_text`, `command_preset`, `command_custom_fan`, `command_custom_preset` |
+
+**Return format (`cmd_t`)**:
+```cpp
+// Data only
+return {0x01, 0x02, 0x03};
+
+// Data + ACK
+return {{0x01, 0x02, 0x03}, {0x01, 0x12}};
+
+// Data + ACK + Mask
+return {{0x01, 0x02, 0x03}, {0x01, 0x12}, {0xFF, 0xFF}};
 ```
-### Configuration variables
-- offset (Required, int): (0 ~ 128)
-- length (Optional, int): Defaults to 1. (1 ~ 16)
-- precision (Optional, int): Defaults to 0. (0 ~ 5)
-- signed (Optional, bool): Defaults to True. (True, False)
-- endian (Optional, enum): Defaults to "big". ("big", "little")
-- decode (Optional, enum): Defaults to "none". ("none", "bcd", "ascii")
-<hr/>
 
-## uartex.light
-```
-packet on) 0x02 0x01 0x02 0x03 0x01 (add)checksum 0x0D 0x0A
-   offset) head head 0    1    2
-packet on ack) 0x02 0x01 0x02 0x13 0x01 (add)checksum 0x0D 0x0A
-packet off) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
-packet off ack) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
+---
 
-light:
-  - platform: uartex
-    name: "Room 0 Light 1"
-    id: room_0_light_1
-    state: 
-      data: [0x02, 0x03]
-      mask: [0xff, 0x0f]
-    state_on:
-      offset: 2
-      data: [0x01]
-    state_off:
-      offset: 2
-      data: [0x00]
-    command_on:
-      data: [0x02, 0x03, 0x01]
-      ack: [0x02, 0x13, 0x01]
-    command_off: !lambda |-
-      return {{0x02, 0x03, 0x00}, {0x02, 0x13, 0x00}};
-```
-### Configuration variables
-- state (Optional, state): 
-- state_on (Required, state): 
-- state_off (Required, state): 
-- state_brightness (Optional, state_num or lambda):
-  - float lambda(uint8_t* data, uint16_t len)
-- command_on (Required, command or lambda): 
-  - command lambda(void)
-- command_off (Required, command or lambda): 
-  - command lambda(void)
-- command_brightness (Optional, command or lambda): 
-  - command lambda(float x)
-- command_update (Optional, command or lambda): 
-  - command lambda(void)
-<hr/>
+## Platforms
 
-## uartex.binary_sensor
-```
-packet on) 0x02 0x01 0x02 0x03 0x01 (add)checksum 0x0D 0x0A
-   offset) head head 0    1    2
-packet off) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
+### Binary Sensor
 
+```yaml
 binary_sensor:
   - platform: uartex
-    name: Binary_Sensor1
+    name: "Motion Sensor"
     state: [0x02, 0x03]
     state_on:
       offset: 2
@@ -184,558 +253,490 @@ binary_sensor:
       offset: 2
       data: [0x00]
 ```
-### Configuration variables
-- state (Optional, state): 
-- state_on (Required, state): 
-- state_off (Required, state): 
-- command_update (Optional, command or lambda): 
-  - command lambda(void)
-<hr/>
 
-## uartex.button
-```
-packet on) 0x02 0x01 0x02 0x03 0x01 (add)checksum 0x0D 0x0A
-   offset) head head 0    1    2
+| Option | Required | Description |
+|--------|----------|-------------|
+| `state` | No | Base state filter |
+| `state_on` | **Yes** | ON state match |
+| `state_off` | **Yes** | OFF state match |
+| `command_update` | No | Status request command |
 
+---
+
+### Button
+
+```yaml
 button:
   - platform: uartex
     name: "Elevator Call"
-    icon: "mdi:elevator"
-    command_on: 
-      data: [0x02, 0x03, 0x01]
-```
-### Configuration variables
-- command_on (Required, command or lambda): 
-  - command lambda(void)
-<hr/>
-
-## uartex.climate
-```
-packet off) 0x02 0x01 0x02 0x03 0x00 target current (add)checksum 0x0D 0x0A
-    offset) head head 0    1    2    3      4
-packet off ack) 0x02 0x01 0x02 0x13 0x00 target current (add)checksum 0x0D 0x0A
-packet heat) 0x02 0x01 0x02 0x03 0x01 target current (add)checksum 0x0D 0x0A
-packet heat ack) 0x02 0x01 0x02 0x13 0x01 target current (add)checksum 0x0D 0x0A
-
-climate:
-  - platform: uartex
-    name: "Room 0 Heater"
-    id: room_0_heater
-    visual:
-      min_temperature: 5 °C
-      max_temperature: 30 °C
-      temperature_step: 1 °C
-    state: 
-      data: [0x02, 0x03]
-      mask: [0xff, 0x0f]
-    state_temperature_current:
-      offset: 4
-      length: 1
-      precision: 0
-    state_temperature_target:
-      offset: 3
-      length: 1
-      precision: 0
-    state_off:
-      offset: 2
-      data: [0x00]
-    state_heat:
-      offset: 2
-      data: [0x01]
-    command_off:
-      data: [0x02, 0x03, 0x00]
-      ack: [0x02, 0x13, 0x00]
-    command_heat: !lambda |-
-      float target = id(room_0_heater).target_temperature;
-      return {{0x02, 0x03, 0x01, (uint8_t)target, 0x00},{0x02, 0x13, 0x01}};
-    command_temperature: !lambda |-
-      float target = x;
-      return {{0x02, 0x03, 0x01, (uint8_t)target, 0x00},{0x02, 0x13, 0x01}};
-```
-### Configuration variables
-- state (Optional, state): 
-- state_off (Required, state): 
-- state_temperature_current (Optional, state_num or lambda):
-  - float lambda(uint8_t* data, uint16_t len)
-- state_temperature_target (Optional, state_num or lambda):
-  - float lambda(uint8_t* data, uint16_t len)
-- state_humidity_current (Optional, state_num or lambda):
-  - float lambda(uint8_t* data, uint16_t len)
-- state_humidity_target (Optional, state_num or lambda):
-  - float lambda(uint8_t* data, uint16_t len)
-- state_cool (Optional, state): 
-- state_heat (Optional, state): 
-- state_fan_only (Optional, state): 
-- state_dry (Optional, state): 
-- state_auto (Optional, state): 
-- state_swing_off (Optional, state): 
-- state_swing_both (Optional, state): 
-- state_swing_vertical (Optional, state): 
-- state_swing_horizontal (Optional, state): 
-- state_fan_on (Optional, state): 
-- state_fan_off (Optional, state): 
-- state_fan_auto (Optional, state): 
-- state_fan_low (Optional, state): 
-- state_fan_medium (Optional, state): 
-- state_fan_high (Optional, state): 
-- state_fan_middle (Optional, state): 
-- state_fan_focus (Optional, state): 
-- state_fan_diffuse (Optional, state): 
-- state_fan_quiet (Optional, state): 
-- state_preset_none (Optional, state): 
-- state_preset_home (Optional, state): 
-- state_preset_away (Optional, state): 
-- state_preset_boost (Optional, state): 
-- state_preset_comfort (Optional, state): 
-- state_preset_eco (Optional, state): 
-- state_preset_sleep (Optional, state): 
-- state_preset_activity (Optional, state): 
-- state_custom_fan (Optional, lambda): 
-  - std::string lambda(uint8_t* data, uint16_t len)
-- state_custom_preset (Optional, lambda): 
-  - std::string lambda(uint8_t* data, uint16_t len)
-- command_off (Optional, command or lambda): 
-  - command lambda(void)
-- command_temperature (Optional, command or lambda): 
-  - command lambda(float x)
-- command_humidity (Optional, command or lambda): 
-  - command lambda(float x)
-- command_cool (Optional, command or lambda): 
-  - command lambda(void)
-- command_heat (Optional, command or lambda): 
-  - command lambda(void)
-- command_fan_only (Optional, command or lambda): 
-  - command lambda(void)
-- command_dry (Optional, command or lambda): 
-  - command lambda(void)
-- command_auto (Optional, command or lambda): 
-  - command lambda(void)
-- command_swing_off (Optional, command or lambda): 
-  - command lambda(void)
-- command_swing_both (Optional, command or lambda): 
-  - command lambda(void)
-- command_swing_vertical (Optional, command or lambda): 
-  - command lambda(void)
-- command_swing_horizontal (Optional, command or lambda): 
-  - command lambda(void)
-- command_fan_on (Optional, command or lambda): 
-  - command lambda(void)
-- command_fan_off (Optional, command or lambda): 
-  - command lambda(void)
-- command_fan_auto (Optional, command or lambda): 
-  - command lambda(void)
-- command_fan_low (Optional, command or lambda): 
-  - command lambda(void)
-- command_fan_medium (Optional, command or lambda): 
-  - command lambda(void)
-- command_fan_high (Optional, command or lambda): 
-  - command lambda(void)
-- command_fan_middle (Optional, command or lambda): 
-  - command lambda(void)
-- command_fan_focus (Optional, command or lambda): 
-  - command lambda(void)
-- command_fan_diffuse (Optional, command or lambda): 
-  - command lambda(void)
-- command_fan_quiet (Optional, command or lambda): 
-  - command lambda(void)
-- command_preset_none (Optional, command or lambda): 
-  - command lambda(void)
-- command_preset_away (Optional, command or lambda): 
-  - command lambda(void)
-- command_preset_boost (Optional, command or lambda): 
-  - command lambda(void)
-- command_preset_comfort (Optional, command or lambda): 
-  - command lambda(void)
-- command_preset_eco (Optional, command or lambda): 
-  - command lambda(void)
-- command_preset_sleep (Optional, command or lambda): 
-  - command lambda(void)
-- command_preset_activity (Optional, command or lambda): 
-  - command lambda(void)
-- command_update (Optional, command or lambda): 
-  - command lambda(void)
-- command_custom_fan (Optional, lambda): 
-  - command lambda(std::string str)
-- command_custom_preset (Optional, lambda): 
-  - command lambda(std::string str)
-- custom_fan_mode (Optional, list): A list of custom fan mode for this climate
-- custom_preset (Optional, list): A list of custom preset mode for this climate
-<hr/>
-
-## uartex.fan
-```
-packet off) 0x02 0x01 0x02 0x03 0x00 speed (add)checksum 0x0D 0x0A
-    offset) head head 0    1    2    3
-packet off ack) 0x02 0x01 0x02 0x13 0x00 speed (add)checksum 0x0D 0x0A
-packet on) 0x02 0x01 0x02 0x03 0x01 speed (add)checksum 0x0D 0x0A
-packet on ack) 0x02 0x01 0x02 0x13 0x01 speed (add)checksum 0x0D 0x0A
-
-fan:
-  - platform: uartex
-    name: "Fan1"
-    state:
-      data: [0x02, 0x03]
-      mask: [0xff, 0x0f]
-    state_on:
-      offset: 2
-      data: [0x01]
-    state_off:
-      offset: 2
-      data: [0x00]
     command_on:
       data: [0x02, 0x03, 0x01]
-      ack: [0x02, 0x13]
-    command_off:
-      data: [0x02, 0x03, 0x00]
-      ack: [0x02, 0x13]
-    command_speed: !lambda |-
-      return {{0x02, 0x03, 0x01, (uint8_t)x},{0x02, 0x13}};
-    state_speed: !lambda |-
-      return data[3];
 ```
-### Configuration variables
-- state (Optional, state): 
-- state_on (Required, state): 
-- state_off (Required, state): 
-- state_speed (Optional, state_num or lambda):
-  - float lambda(uint8_t* data, uint16_t len)
-- state_preset (Optional, lambda): 
-  - std::string lambda(uint8_t* data, uint16_t len)
-- command_on (Required, command or lambda): 
-  - command lambda(void)
-- command_off (Required, command or lambda): 
-  - command lambda(void)
-- command_speed (Optional, command or lambda): 
-  - command lambda(float x)
-- command_preset (Required, lambda): 
-  - command lambda(std::string str)
-- command_update (Optional, command or lambda): 
-  - command lambda(void)
-- preset_modes (Optional, list): A list of preset modes for this fan
-<hr/>
 
-## uartex.lock
-```
-packet unlock) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
-       offset) head head 0    1    2
-packet unlock ack) 0x02 0x01 0x02 0x13 0x00 (add)checksum 0x0D 0x0A
-packet lock) 0x02 0x01 0x02 0x03 0x01 (add)checksum 0x0D 0x0A
-packet lock ack) 0x02 0x01 0x02 0x13 0x01 (add)checksum 0x0D 0x0A
+| Option | Required | Description |
+|--------|----------|-------------|
+| `command_on` | **Yes** | Press command |
 
-lock:
-  - platform: uartex
-    name: "Lock1"
-    state:
-      data: [0x02, 0x03]
-      mask: [0xff, 0x0f]
-    state_locked:
-      offset: 2
-      data: [0x01]
-    state_unlocked:
-      offset: 2
-      data: [0x00]
-    state_locking:
-      offset: 2
-      data: [0x02]
-    state_unlocking:
-      offset: 2
-      data: [0x03]
-    state_jammed:
-      offset: 2
-      data: [0x04]
-    command_lock:
-      data: [0x02, 0x03, 0x01]
-      ack: [0x02, 0x13]
-    command_unlock:
-      data: [0x02, 0x03, 0x00]
-      ack: [0x02, 0x13]
-```
-### Configuration variables
-- state (Optional, state): 
-- state_locked (Optional, state): 
-- state_unlocked (Optional, state): 
-- state_locking (Optional, state): 
-- state_unlocking (Optional, state): 
-- state_jammed (Optional, state): 
-- command_lock (Optional, command or lambda): 
-  - command lambda(void)
-- command_unlock (Optional, command or lambda): 
-  - command lambda(void)
-<hr/>
+---
 
-## uartex.number
-```
-packet) 0x02 0x01 0x02 0x03 0x00 number (add)checksum 0x0D 0x0A
-offset) head head 0    1    2    3
-packet ack) 0x02 0x01 0x02 0x13 0x00 number (add)checksum 0x0D 0x0A
+### Switch
 
-number:
-  - platform: uartex
-    name: "Number1"
-    state:
-      data: [0x02, 0x03]
-      mask: [0xff, 0x0f]
-    max_value: 10
-    min_value: 1
-    step: 1
-    state_number:
-      offset: 3
-      length: 1
-      precision: 0
-    command_number: !lambda |-
-      return {{0x02, 0x03, 0x00, (uint8_t)x},{0x02, 0x13}};
-```
-### Configuration variables
-- state (Optional, state): 
-- state_increment (Optional, state): 
-- state_decrement (Optional, state):
-- state_to_min (Optional, state):
-- state_to_max (Optional, state): 
-- state_number (Optional, state_num or lambda):
-  - float lambda(uint8_t* data, uint16_t len)
-- command_number (Optional, command or lambda): 
-  - command lambda(float x)
-- command_update (Optional, command or lambda): 
-  - command lambda(void)
-<hr/>
-
-## uartex.sensor
-```
-packet) 0x02 0x01 0x02 0x03 0x00 value (add)checksum 0x0D 0x0A
-offset) head head 0    1    2    3
-sensor:
-  - platform: uartex
-    name: Sensor1
-    state: [0x02, 0x03, 0x00]
-    state_number:
-      offset: 3
-      length: 1
-      precision: 0
-```
-### Configuration variables
-- state (Optional, state): 
-- state_number (Optional, state_num or lambda): 
-  - float lambda(uint8_t* data, uint16_t len)
-- lambda (Optional, lambda): 
-  - float lambda(uint8_t* data, uint16_t len)
-- command_update (Optional, command or lambda): 
-  - command lambda(void)
-<hr/>
-
-## uartex.switch
-```
-packet on) 0x02 0x01 0x02 0x03 0x01 (add)checksum 0x0D 0x0A
-   offset) head head 0    1    2
-packet on ack) 0x02 0x01 0x02 0x13 0x01 (add)checksum 0x0D 0x0A
-packet off) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
-packet off ack) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
-
+```yaml
 switch:
   - platform: uartex
-    name: "Switch1"
-    state: 
-      data: [0x02, 0x03]
-      mask: [0xff, 0x0f]
+    name: "Power Switch"
     state_on:
-      offset: 2
-      data: [0x01]
+      data: [0x01, 0x01]
     state_off:
-      offset: 2
-      data: [0x00]
+      data: [0x01, 0x00]
     command_on:
-      data: [0x02, 0x03, 0x01]
-      ack: [0x02, 0x13, 0x01]
-    command_off: !lambda |-
-      return {{0x02, 0x03, 0x00}, {0x02, 0x13, 0x00}};
+      data: [0x01, 0x01]
+      ack: [0x01, 0x11]
+    command_off:
+      data: [0x01, 0x00]
+      ack: [0x01, 0x10]
 ```
-### Configuration variables
-- state (Optional, state): 
-- state_on (Required, state): 
-- state_off (Required, state): 
-- command_on (Required, command or lambda): 
-  - command lambda(void)
-- command_off (Required, command or lambda): 
-  - command lambda(void)
-- command_update (Optional, command or lambda): 
-  - command lambda(void)
-<hr/>
 
-## uartex.select
-```
-packet one) 0x02 0x01 0x02 0x03 0x01 (add)checksum 0x0D 0x0A
-    offset) head head 0    1    2
-packet one ack) 0x02 0x01 0x02 0x13 0x01 (add)checksum 0x0D 0x0A
-packet two) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
-packet two ack) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
-select:
+| Option | Required | Description |
+|--------|----------|-------------|
+| `state_on` | **Yes** | ON state match |
+| `state_off` | **Yes** | OFF state match |
+| `command_on` | **Yes** | ON command |
+| `command_off` | **Yes** | OFF command |
+
+---
+
+### Light
+
+```yaml
+light:
   - platform: uartex
-    name: "Select 1"
-    state: 
-      data: [0x02, 0x03]
-      mask: [0xff, 0x0f]
-    options:
-      - one
-      - two
-    initial_option: two
-    command_select: !lambda |-
-      if (str == "two") return {{0x02, 0x03, 0x00}, {0x02, 0x13, 0x00}};
-      return {{0x02, 0x03, 0x01}, {0x02, 0x13, 0x01}};
-
-    state_select: !lambda |-
-      if (data[2] == 0x01) return "one";
-      return "two";
+    name: "Room Light"
+    state_on:
+      data: [0x01, 0x01]
+    state_off:
+      data: [0x01, 0x00]
+    state_brightness:
+      offset: 2
+      length: 1
+    command_on:
+      data: [0x01, 0x01]
+    command_off:
+      data: [0x01, 0x00]
+    command_brightness: !lambda |-
+      return {{0x01, 0x02, (uint8_t)(x * 255)}, {0x01, 0x12}};
 ```
-### Configuration variables
-- options (Required, list):
-- initial_option (Optional, std::string):
-- restore_value (Optional, bool):
-- state (Optional, state): 
-- command_select (Required, command or lambda): 
-  - command lambda(std::string str)
-- state_select (Optional, lambda): 
-  - std::string lambda(uint8_t* data, uint16_t len)
-<hr/>
 
-## uartex.text
-```
-text:
+| Option | Required | Description |
+|--------|----------|-------------|
+| `state_on` | **Yes** | ON state match |
+| `state_off` | **Yes** | OFF state match |
+| `state_brightness` | No | Brightness state (0-1.0) |
+| `command_on` | **Yes** | ON command |
+| `command_off` | **Yes** | OFF command |
+| `command_brightness` | No | Brightness command: `cmd_t lambda(float x)` |
+
+---
+
+### Sensor
+
+```yaml
+sensor:
   - platform: uartex
-    name: "Text"
-    command_text: !lambda |-
-      return {{0x0F, 0x01, 0x01},{0x0F, 0x01}};
+    name: "Temperature"
+    state: [0x03, 0x01]
+    state_number:
+      offset: 2
+      length: 2
+      precision: 1
+      signed: true
 ```
-### Configuration variables
-- command_text (Required, command or lambda): 
-  - command lambda(std::string str)
-<hr/>
 
-## uartex.text_sensor
-```
-packet on) 0x02 0x01 0x02 0x03 0x01 (add)checksum 0x0D 0x0A
-   offset) head head 0    1    2
-packet off) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
+| Option | Required | Description |
+|--------|----------|-------------|
+| `state` | No | Base state filter |
+| `state_number` | No | Numeric value parser |
+| `lambda` | No | Custom parser: `float lambda(uint8_t* data, uint16_t len)` |
 
+---
+
+### Text Sensor
+
+```yaml
 text_sensor:
   - platform: uartex
-    name: "Text Sensor"
+    name: "Status"
     state: [0x02, 0x03]
     lambda: |-
-      if (data[2] == 0x01) return "ON";
-      return "OFF";
+      if (data[2] == 0x01) return "Running";
+      if (data[2] == 0x02) return "Idle";
+      return "Unknown";
 ```
-### Configuration variables
-- state (Optional, state): 
-- lambda (Optional, lambda): 
-  - std::string lambda(uint8_t* data, uint16_t len)
-- command_update (Optional, command or lambda): 
-  - command lambda(void)
-<hr/>
 
-## uartex.valve
-```
-packet open) 0x02 0x01 0x02 0x03 0x01 (add)checksum 0x0D 0x0A
-offset) head head 0    1    2    3
-packet open ack) 0x02 0x01 0x02 0x13 0x01 (add)checksum 0x0D 0x0A
-packet close) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
-packet close ack) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
+| Option | Required | Description |
+|--------|----------|-------------|
+| `state` | No | Base state filter |
+| `lambda` | No | Text parser: `std::string lambda(uint8_t* data, uint16_t len)` |
 
-valve:
+---
+
+### Number
+
+```yaml
+number:
   - platform: uartex
-    name: "Valve1"
-    state: 
-      data: [0x02, 0x03]
-      mask: [0xff, 0x0f]
-    state_open:
+    name: "Speed Level"
+    min_value: 1
+    max_value: 10
+    step: 1
+    state_number:
       offset: 2
+    command_number: !lambda |-
+      return {{0x02, 0x01, (uint8_t)x}, {0x02, 0x11}};
+```
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `state_number` | No | Current value parser |
+| `command_number` | No | Set value: `cmd_t lambda(float x)` |
+
+---
+
+### Select
+
+```yaml
+select:
+  - platform: uartex
+    name: "Mode"
+    options:
+      - "Auto"
+      - "Manual"
+      - "Off"
+    state_select: !lambda |-
+      if (data[2] == 0x01) return "Auto";
+      if (data[2] == 0x02) return "Manual";
+      return "Off";
+    command_select: !lambda |-
+      if (str == "Auto") return {{0x02, 0x01}, {}};
+      if (str == "Manual") return {{0x02, 0x02}, {}};
+      return {{0x02, 0x00}, {}};
+```
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `options` | **Yes** | Available options |
+| `state_select` | No | State parser: `std::string lambda(...)` |
+| `command_select` | **Yes** | Selection command: `cmd_t lambda(std::string str)` |
+
+---
+
+### Text
+
+```yaml
+text:
+  - platform: uartex
+    name: "Message"
+    command_text: !lambda |-
+      std::vector<uint8_t> cmd = {0x10};
+      for (char c : str) cmd.push_back(c);
+      return {cmd, {}};
+```
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `command_text` | **Yes** | Text command: `cmd_t lambda(std::string str)` |
+
+---
+
+### Climate
+
+```yaml
+climate:
+  - platform: uartex
+    name: "Thermostat"
+    visual:
+      min_temperature: 16
+      max_temperature: 30
+      temperature_step: 1
+    state_temperature_current:
+      offset: 3
+    state_temperature_target:
+      offset: 4
+    state_off:
+      data: [0x00]
+    state_heat:
+      data: [0x01]
+    command_off:
+      data: [0x03, 0x00]
+    command_heat: !lambda |-
+      return {{0x03, 0x01, (uint8_t)id(thermostat).target_temperature}, {}};
+    command_temperature: !lambda |-
+      return {{0x03, 0x01, (uint8_t)x}, {}};
+```
+
+<details>
+<summary><b>All Climate Options</b></summary>
+
+**Mode States**: `state_off`, `state_cool`, `state_heat`, `state_fan_only`, `state_dry`, `state_auto`
+
+**Temperature**: `state_temperature_current`, `state_temperature_target`, `command_temperature`
+
+**Humidity**: `state_humidity_current`, `state_humidity_target`, `command_humidity`
+
+**Fan Modes**: `state_fan_auto`, `state_fan_low`, `state_fan_medium`, `state_fan_high`, `state_fan_quiet`
+
+**Swing Modes**: `state_swing_off`, `state_swing_both`, `state_swing_vertical`, `state_swing_horizontal`
+
+**Presets**: `state_preset_home`, `state_preset_away`, `state_preset_eco`, `state_preset_sleep`, etc.
+
+**Custom Modes**: `custom_fan_mode`, `custom_preset`, `state_custom_fan`, `command_custom_fan`
+
+</details>
+
+---
+
+### Fan
+
+```yaml
+fan:
+  - platform: uartex
+    name: "Ventilator"
+    state_on:
+      data: [0x01]
+    state_off:
+      data: [0x00]
+    state_speed:
+      offset: 1
+    command_on:
+      data: [0x04, 0x01]
+    command_off:
+      data: [0x04, 0x00]
+    command_speed: !lambda |-
+      return {{0x04, 0x01, (uint8_t)x}, {}};
+```
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `state_on` | **Yes** | ON state |
+| `state_off` | **Yes** | OFF state |
+| `state_speed` | No | Speed level (0-100) |
+| `state_preset` | No | Preset parser |
+| `command_on` | **Yes** | ON command |
+| `command_off` | **Yes** | OFF command |
+| `command_speed` | No | Speed command: `cmd_t lambda(float x)` |
+| `preset_modes` | No | Available presets list |
+
+---
+
+### Cover
+
+```yaml
+cover:
+  - platform: uartex
+    name: "Blinds"
+    state_open:
       data: [0x01]
     state_closed:
-      offset: 2
+      data: [0x00]
+    state_position:
+      offset: 1
+    command_open:
+      data: [0x05, 0x01]
+    command_close:
+      data: [0x05, 0x00]
+    command_stop:
+      data: [0x05, 0x02]
+    command_position: !lambda |-
+      return {{0x05, 0x03, (uint8_t)(x * 100)}, {}};
+```
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `state_open` | No | Open state |
+| `state_closed` | No | Closed state |
+| `state_position` | No | Position (0.0-1.0) |
+| `state_tilt` | No | Tilt angle (0.0-1.0) |
+| `command_open` | No | Open command |
+| `command_close` | No | Close command |
+| `command_stop` | No | Stop command |
+| `command_position` | No | Position command |
+| `command_tilt` | No | Tilt command |
+
+---
+
+### Lock
+
+```yaml
+lock:
+  - platform: uartex
+    name: "Door Lock"
+    state_locked:
+      data: [0x01]
+    state_unlocked:
+      data: [0x00]
+    command_lock:
+      data: [0x06, 0x01]
+    command_unlock:
+      data: [0x06, 0x00]
+```
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `state_locked` | No | Locked state |
+| `state_unlocked` | No | Unlocked state |
+| `state_locking` | No | Locking in progress |
+| `state_unlocking` | No | Unlocking in progress |
+| `state_jammed` | No | Jammed state |
+| `command_lock` | No | Lock command |
+| `command_unlock` | No | Unlock command |
+
+---
+
+### Valve
+
+```yaml
+valve:
+  - platform: uartex
+    name: "Water Valve"
+    state_open:
+      data: [0x01]
+    state_closed:
       data: [0x00]
     command_open:
-      data: [0x02, 0x03, 0x01]
-      ack: [0x02, 0x13, 0x01]
+      data: [0x07, 0x01]
     command_close:
-      data: [0x02, 0x03, 0x00]
-      ack: [0x02, 0x13, 0x00]
+      data: [0x07, 0x00]
 ```
-### Configuration variables
-- state (Optional, state): 
-- state_open (Optional, state): 
-- state_closed (Optional, state): 
-- state_position (Optional, state_num or lambda):
-  - float lambda(uint8_t* data, uint16_t len)
-- command_open (Optional, command or lambda): 
-  - command lambda(void)
-- command_close (Optional, command or lambda): 
-  - command lambda(void)
-- command_stop (Optional, command or lambda): 
-  - command lambda(void)
-- command_update (Optional, command or lambda): 
-  - command lambda(void)
-<hr/>
 
-## uartex.media_player
-```
-packet play) 0x02 0x01 0x02 0x03 0x01 (add)checksum 0x0D 0x0A
-offset) head head 0    1    2    3
-packet play ack) 0x02 0x01 0x02 0x13 0x01 (add)checksum 0x0D 0x0A
-packet pause) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
-packet pause ack) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
+| Option | Required | Description |
+|--------|----------|-------------|
+| `state_open` | No | Open state |
+| `state_closed` | No | Closed state |
+| `state_position` | No | Position (0.0-1.0) |
+| `command_open` | No | Open command |
+| `command_close` | No | Close command |
+| `command_stop` | No | Stop command |
 
+---
+
+### Media Player
+
+```yaml
 media_player:
   - platform: uartex
-    name: "Player1"
-    state: 
-      data: [0x02, 0x03]
-      mask: [0xff, 0x0f]
+    name: "Audio Player"
     state_playing:
-      offset: 2
       data: [0x01]
     state_paused:
-      offset: 2
+      data: [0x02]
+    state_idle:
       data: [0x00]
+    state_volume:
+      offset: 1
     command_play:
-      data: [0x02, 0x03, 0x01]
-      ack: [0x02, 0x13, 0x01]
+      data: [0x08, 0x01]
     command_pause:
-      data: [0x02, 0x03, 0x00]
-      ack: [0x02, 0x13, 0x00]
+      data: [0x08, 0x02]
+    command_volume: !lambda |-
+      return {{0x08, 0x10, (uint8_t)(x * 100)}, {}};
 ```
-### Configuration variables
-- state (Optional, state): 
-- state_none (Optional, state): 
-- state_idle (Optional, state): 
-- state_playing (Optional, state): 
-- state_paused (Optional, state): 
-- state_announcing (Optional, state): 
-- state_volume (Optional, state_num or lambda): 
-  - float lambda(uint8_t* data, uint16_t len)
-- command_stop (Optional, command or lambda): 
-  - command lambda(void)
-- command_play (Optional, command or lambda): 
-  - command lambda(void)
-- command_pause (Optional, command or lambda): 
-  - command lambda(void)
-- command_mute (Optional, command or lambda): 
-  - command lambda(void)
-- command_unmute (Optional, command or lambda): 
-  - command lambda(void)
-- command_toggle (Optional, command or lambda): 
-  - command lambda(void)
-- command_volume (Optional, command or lambda): 
-  - command lambda(float x)
-- command_volume_up (Optional, command or lambda): 
-  - command lambda(float x)
-- command_volume_down (Optional, command or lambda): 
-  - command lambda(float x)
-- command_enqueue (Optional, command or lambda): 
-  - command lambda(void)
-- command_repeat_one (Optional, command or lambda): 
-  - command lambda(void)
-- command_repeat_off (Optional, command or lambda): 
-  - command lambda(void)
-- command_clear_playlist (Optional, command or lambda): 
-  - command lambda(void)
-- command_update (Optional, command or lambda): 
-  - command lambda(void)
-<hr/>
+
+<details>
+<summary><b>All Media Player Options</b></summary>
+
+**States**: `state_none`, `state_idle`, `state_playing`, `state_paused`, `state_announcing`, `state_volume`
+
+**Commands**: `command_play`, `command_pause`, `command_stop`, `command_toggle`, `command_mute`, `command_unmute`, `command_volume`, `command_volume_up`, `command_volume_down`, `command_enqueue`, `command_repeat_one`, `command_repeat_off`, `command_clear_playlist`
+
+</details>
+
+---
+
+## Actions
+
+### uartex.write
+
+Send raw data through UART.
+
+```yaml
+on_...:
+  - uartex.write:
+      data: [0x02, 0x01, 0x00]
+      ack: [0x02, 0x11]
+```
+
+With lambda:
+
+```yaml
+on_...:
+  - uartex.write:
+      data: !lambda |-
+        return {0x02, 0x01, (uint8_t)id(sensor1).state};
+```
+
+---
+
+## Common Device Options
+
+These options are available for all UARTEx platforms:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `state` | state | - | Base state filter |
+| `state_response` | state | - | Response state match |
+| `command_update` | command | - | Polling command |
+| `optimistic` | bool | `false` | Optimistic state updates |
+| `update_interval` | time | `60s` | Polling interval |
+
+---
+
+## Lambda Examples
+
+### Command with ACK
+
+```cpp
+// Simple command
+return {0x01, 0x02, 0x03};
+
+// Command with ACK
+return {{0x01, 0x02, 0x03}, {0x01, 0x12}};
+
+// Command with ACK and mask
+return {{0x01, 0x02, 0x03}, {0x01, 0x12}, {0xFF, 0xFF}};
+```
+
+### Dynamic Command
+
+```cpp
+command_on: !lambda |-
+  uint8_t value = id(some_sensor).state;
+  return {{0x01, value}, {0x01}};
+```
+
+---
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| No communication | Check UART pins, baud rate, and wiring |
+| ACK timeout | Increase `tx_timeout`, verify ACK pattern |
+| State not updating | Check `state` filter and `offset` values |
+| Checksum errors | Verify checksum type matches device protocol |
+
+Enable logging for debugging:
+
+```yaml
+logger:
+  level: DEBUG
+
+uartex:
+  log:
+    disabled: false
+```
+
+---
+
+## License
+
+MIT License - [@eigger](https://github.com/eigger)
