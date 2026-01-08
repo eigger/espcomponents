@@ -29,7 +29,7 @@ external_components:
     refresh: always
 ```
 
-> **Note**: For real-time status updates in Home Assistant, add:
+> **Note**: For time-sensitive sensors (e.g., `log` sensor) that require immediate updates in Home Assistant, disable API batching:
 > ```yaml
 > api:
 >   batch_delay: 0ms
@@ -120,6 +120,16 @@ uartex:
 | `xor_add` | XOR + ADD combined (2 bytes) |
 | Lambda | Custom: `uint8_t lambda(uint8_t* data, uint16_t len)` |
 
+**Checksum Position**:
+- With footer: Checksum is inserted **before the footer**
+- Without footer: Checksum is appended **at the end**
+
+```
+With footer:    [header][data][checksum][footer]
+Without footer: [header][data][checksum]
+```
+
+
 #### Diagnostic Sensors
 
 ```yaml
@@ -182,6 +192,26 @@ state_number:
   endian: big        # Byte order: big, little
   decode: none       # Decode: none, bcd, ascii
 ```
+
+#### Understanding Offset
+
+The `offset` value indicates the byte position **after the header**. The header bytes are excluded from offset counting.
+
+**Packet Structure Example**:
+```
+Full Packet: [0x02][0x01][0xAA][0xBB][0xCC][0xDD][0x0D][0x0A]
+             |--header--||---------data---------||--footer--|
+Offset:                    0     1     2     3
+```
+
+With `rx_header: [0x02, 0x01]` and `rx_footer: [0x0D, 0x0A]`:
+- `offset: 0` → byte `0xAA`
+- `offset: 1` → byte `0xBB`
+- `offset: 2` → byte `0xCC`
+- `offset: 3` → byte `0xDD`
+
+> **Note**: Header, checksum, and footer are automatically handled by UARTEx. The `offset` applies only to the payload data portion.
+
 
 #### State Lambda Types
 
