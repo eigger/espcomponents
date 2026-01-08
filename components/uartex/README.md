@@ -283,6 +283,14 @@ return {{0x01, 0x02, 0x03}, {0x01, 0x12}, {0xFF, 0xFF}};
 
 ### Binary Sensor
 
+**Packet Example**:
+```
+RX ON:  [0x02][0x01][0x02][0x03][0x01][chk][0x0D][0x0A]
+RX OFF: [0x02][0x01][0x02][0x03][0x00][chk][0x0D][0x0A]
+        |--header--|---------data---------|    |footer|
+Offset:              0     1     2
+```
+
 ```yaml
 binary_sensor:
   - platform: uartex
@@ -307,6 +315,12 @@ binary_sensor:
 
 ### Button
 
+**Packet Example**:
+```
+TX:     [0x02][0x01][0x02][0x03][0x01][chk][0x0D][0x0A]
+        |--header--|---------data---------|    |footer|
+```
+
 ```yaml
 button:
   - platform: uartex
@@ -322,6 +336,16 @@ button:
 ---
 
 ### Switch
+
+**Packet Example**:
+```
+RX ON:  [0x02][0x01][0x01][0x01][chk][0x0D][0x0A]
+RX OFF: [0x02][0x01][0x01][0x00][chk][0x0D][0x0A]
+TX ON:  [0x02][0x01][0x01][0x01][chk][0x0D][0x0A]
+ACK ON: [0x02][0x01][0x01][0x11][chk][0x0D][0x0A]
+        |--header--|----data----|    |footer|
+Offset:              0     1
+```
 
 ```yaml
 switch:
@@ -349,6 +373,15 @@ switch:
 ---
 
 ### Light
+
+**Packet Example**:
+```
+RX ON:       [0x02][0x01][0x01][0x01][0x80][chk][0x0D][0x0A]
+RX OFF:      [0x02][0x01][0x01][0x00][0x00][chk][0x0D][0x0A]
+             |--header--|------data--------|    |footer|
+Offset:                    0     1     2
+                                      └─ brightness (0x80 = 128)
+```
 
 ```yaml
 light:
@@ -381,6 +414,14 @@ light:
 ---
 
 ### Sensor
+
+**Packet Example**:
+```
+RX:     [0x02][0x01][0x03][0x01][0x01][0x0A][chk][0x0D][0x0A]
+        |--header--|------data--------------|    |footer|
+Offset:              0     1     2     3
+                                └─────┴─ value: 0x010A = 266 → 26.6 (precision: 1)
+```
 
 ```yaml
 sensor:
@@ -492,6 +533,17 @@ text:
 
 ### Climate
 
+**Packet Example**:
+```
+RX OFF:  [0x02][0x01][0x00][0x18][0x16][chk][0x0D][0x0A]
+RX HEAT: [0x02][0x01][0x01][0x18][0x16][chk][0x0D][0x0A]
+         |--header--|------data--------|    |footer|
+Offset:               0     1     2
+                      │     │     └─ current temp (0x16 = 22°C)
+                      │     └─ target temp (0x18 = 24°C)
+                      └─ mode (0x00=off, 0x01=heat)
+```
+
 ```yaml
 climate:
   - platform: uartex
@@ -500,14 +552,14 @@ climate:
       min_temperature: 16
       max_temperature: 30
       temperature_step: 1
-    state_temperature_current:
-      offset: 3
-    state_temperature_target:
-      offset: 4
     state_off:
       data: [0x00]
     state_heat:
       data: [0x01]
+    state_temperature_target:
+      offset: 1
+    state_temperature_current:
+      offset: 2
     command_off:
       data: [0x03, 0x00]
     command_heat: !lambda |-
@@ -538,6 +590,16 @@ climate:
 ---
 
 ### Fan
+
+**Packet Example**:
+```
+RX ON:  [0x02][0x01][0x01][0x03][chk][0x0D][0x0A]
+RX OFF: [0x02][0x01][0x00][0x00][chk][0x0D][0x0A]
+        |--header--|----data----|    |footer|
+Offset:              0     1
+                     │     └─ speed (0x03 = level 3)
+                     └─ state (0x01=on, 0x00=off)
+```
 
 ```yaml
 fan:
@@ -571,6 +633,16 @@ fan:
 ---
 
 ### Cover
+
+**Packet Example**:
+```
+RX OPEN:   [0x02][0x01][0x01][0x64][chk][0x0D][0x0A]
+RX CLOSED: [0x02][0x01][0x00][0x00][chk][0x0D][0x0A]
+           |--header--|----data----|    |footer|
+Offset:                 0     1
+                        │     └─ position (0x64 = 100%)
+                        └─ state (0x01=open, 0x00=closed)
+```
 
 ```yaml
 cover:
@@ -607,6 +679,14 @@ cover:
 ---
 
 ### Lock
+
+**Packet Example**:
+```
+RX LOCKED:   [0x02][0x01][0x01][chk][0x0D][0x0A]
+RX UNLOCKED: [0x02][0x01][0x00][chk][0x0D][0x0A]
+             |--header--|-data|    |footer|
+Offset:                   0
+```
 
 ```yaml
 lock:
