@@ -41,7 +41,6 @@ CONFIG_SCHEMA = cv.All(water_heater.water_heater_schema(UARTExWaterHeater).exten
 
 async def to_code(config):
     var = await water_heater.new_water_heater(config)
-    await cg.register_component(var, config)
     await uartex.register_uartex_device(var, config)
 
     if CONF_SENSOR in config:
