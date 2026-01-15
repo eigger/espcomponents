@@ -18,8 +18,7 @@ public:
     water_heater::WaterHeaterCallInternal make_call() override { return water_heater::WaterHeaterCallInternal(this); }
     
     // Resolve diamond inheritance ambiguity from Component
-    using water_heater::WaterHeater::set_component_source;
-    using water_heater::WaterHeater::get_component_source;
+    //using water_heater::WaterHeater::set_component_source;
 
 protected:
     void publish(const std::vector<uint8_t>& data) override;
