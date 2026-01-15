@@ -97,12 +97,12 @@ void UARTExFan::control(const fan::FanCall& call)
         //     this->direction = direction;
         // }
     }
-    if (call.has_preset_mode() && (this->get_preset_mode() == nullptr || this->get_preset_mode() != call.get_preset_mode()))
+    if (call.has_preset_mode() && (this->get_preset_mode() == nullptr || std::strcmp(this->get_preset_mode(), call.get_preset_mode()) != 0))
     {
-        auto preset_mode = call.get_preset_mode();
-        if (enqueue_tx_cmd(get_command_preset(preset_mode == nullptr ? "" : preset_mode.str())) || this->optimistic_)
+        const char* preset_mode = call.get_preset_mode();
+        if (enqueue_tx_cmd(get_command_preset(preset_mode == nullptr ? "" : std::string(preset_mode))) || this->optimistic_)
         {
-            this->set_preset_mode_(preset_mode.c_str());
+            this->set_preset_mode_(preset_mode);
         }
     }
     publish_state();
