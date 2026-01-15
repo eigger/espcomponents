@@ -34,14 +34,14 @@ protected:
     cmd_t* get_command_away_off() { return get_command("command_away_off"); }
 
     // State getters
-    state_t* get_state_eco() { return get_state("state_eco"); }
-    state_t* get_state_electric() { return get_state("state_electric"); }
-    state_t* get_state_performance() { return get_state("state_performance"); }
-    state_t* get_state_high_demand() { return get_state("state_high_demand"); }
-    state_t* get_state_heat_pump() { return get_state("state_heat_pump"); }
-    state_t* get_state_gas() { return get_state("state_gas"); }
-    state_t* get_state_away_on() { return get_state("state_away_on"); }
-    state_t* get_state_away_off() { return get_state("state_away_off"); }
+    state_t* get_state_eco() { return UARTExDevice::get_state("state_eco"); }
+    state_t* get_state_electric() { return UARTExDevice::get_state("state_electric"); }
+    state_t* get_state_performance() { return UARTExDevice::get_state("state_performance"); }
+    state_t* get_state_high_demand() { return UARTExDevice::get_state("state_high_demand"); }
+    state_t* get_state_heat_pump() { return UARTExDevice::get_state("state_heat_pump"); }
+    state_t* get_state_gas() { return UARTExDevice::get_state("state_gas"); }
+    state_t* get_state_away_on() { return UARTExDevice::get_state("state_away_on"); }
+    state_t* get_state_away_off() { return UARTExDevice::get_state("state_away_off"); }
 
     // Numeric state getters
     optional<float> get_state_temperature_current(const std::vector<uint8_t>& data) { return get_state_float("state_temperature_current", data); }

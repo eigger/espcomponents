@@ -45,13 +45,15 @@ water_heater::WaterHeaterTraits UARTExWaterHeater::traits()
     }
     
     // Add supported modes based on configured states/commands
-    if (get_command_off() || get_state_off()) traits.get_supported_modes().insert(water_heater::WATER_HEATER_MODE_OFF);
-    if (get_command_eco() || get_state_eco()) traits.get_supported_modes().insert(water_heater::WATER_HEATER_MODE_ECO);
-    if (get_command_electric() || get_state_electric()) traits.get_supported_modes().insert(water_heater::WATER_HEATER_MODE_ELECTRIC);
-    if (get_command_performance() || get_state_performance()) traits.get_supported_modes().insert(water_heater::WATER_HEATER_MODE_PERFORMANCE);
-    if (get_command_high_demand() || get_state_high_demand()) traits.get_supported_modes().insert(water_heater::WATER_HEATER_MODE_HIGH_DEMAND);
-    if (get_command_heat_pump() || get_state_heat_pump()) traits.get_supported_modes().insert(water_heater::WATER_HEATER_MODE_HEAT_PUMP);
-    if (get_command_gas() || get_state_gas()) traits.get_supported_modes().insert(water_heater::WATER_HEATER_MODE_GAS);
+    water_heater::WaterHeaterModeMask supported_modes;
+    if (get_command_off() || get_state_off()) supported_modes.insert(water_heater::WATER_HEATER_MODE_OFF);
+    if (get_command_eco() || get_state_eco()) supported_modes.insert(water_heater::WATER_HEATER_MODE_ECO);
+    if (get_command_electric() || get_state_electric()) supported_modes.insert(water_heater::WATER_HEATER_MODE_ELECTRIC);
+    if (get_command_performance() || get_state_performance()) supported_modes.insert(water_heater::WATER_HEATER_MODE_PERFORMANCE);
+    if (get_command_high_demand() || get_state_high_demand()) supported_modes.insert(water_heater::WATER_HEATER_MODE_HIGH_DEMAND);
+    if (get_command_heat_pump() || get_state_heat_pump()) supported_modes.insert(water_heater::WATER_HEATER_MODE_HEAT_PUMP);
+    if (get_command_gas() || get_state_gas()) supported_modes.insert(water_heater::WATER_HEATER_MODE_GAS);
+    traits.set_supported_modes(supported_modes);
     
     // Away mode support
     if (get_command_away_on() || get_command_away_off() || get_state_away_on() || get_state_away_off())
