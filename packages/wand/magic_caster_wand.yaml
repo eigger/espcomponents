@@ -1,0 +1,273 @@
+# Magic Caster Wand ESPHome Configuration
+# Harry Potter Magic Caster Wand BLE Integration
+# Reference: https://github.com/eigger/hass-magic-caster-wand
+
+substitutions:
+  device_name: magic-caster-wand
+  friendly_name: Magic Caster Wand
+  # 실제 지팡이 MAC 주소로 변경 필요 (MCW-XXXX 형태의 장치명)
+  mcw_mac_address: "00:00:00:00:00:00"
+
+# BLE UUIDs
+# Service UUID: 57420001-587e-48a0-974c-544d6163c577
+# Command UUID: 57420002-587e-48a0-974c-544d6163c577
+# Notify UUID: 57420003-587e-48a0-974c-544d6163c577
+# Battery UUID: 00002a19-0000-1000-8000-00805f9b34fb
+
+esp32_ble_tracker:
+
+ble_client:
+  - mac_address: ${mcw_mac_address}
+    id: mcw_client
+    name: "Magic Caster Wand"
+    on_connect:
+      then:
+        - lambda: id(mcw_connectivity).publish_state(true);
+        - delay: 500ms
+        # 버튼 감도 초기화 (0x00~0x03: 0x05, 0x04~0x07: 0x08)
+        - lambda: |-
+            id(script_mcw_write).execute({0xDC, 0x00, 0x05});
+        - delay: 50ms
+        - lambda: |-
+            id(script_mcw_write).execute({0xDC, 0x01, 0x05});
+        - delay: 50ms
+        - lambda: |-
+            id(script_mcw_write).execute({0xDC, 0x02, 0x05});
+        - delay: 50ms
+        - lambda: |-
+            id(script_mcw_write).execute({0xDC, 0x03, 0x05});
+        - delay: 50ms
+        - lambda: |-
+            id(script_mcw_write).execute({0xDC, 0x04, 0x08});
+        - delay: 50ms
+        - lambda: |-
+            id(script_mcw_write).execute({0xDC, 0x05, 0x08});
+        - delay: 50ms
+        - lambda: |-
+            id(script_mcw_write).execute({0xDC, 0x06, 0x08});
+        - delay: 50ms
+        - lambda: |-
+            id(script_mcw_write).execute({0xDC, 0x07, 0x08});
+    on_disconnect:
+      then:
+        - lambda: id(mcw_connectivity).publish_state(false);
+        - lambda: |-
+            id(mcw_button_1).publish_state(false);
+            id(mcw_button_2).publish_state(false);
+            id(mcw_button_3).publish_state(false);
+            id(mcw_button_4).publish_state(false);
+
+globals:
+  - id: mcw_last_spell
+    type: std::string
+    initial_value: '""'
+
+binary_sensor:
+  - platform: template
+    id: mcw_connectivity
+    name: "${friendly_name} Connected"
+    device_class: connectivity
+    
+  - platform: template
+    id: mcw_button_1
+    name: "${friendly_name} Button 1"
+    icon: "mdi:gesture-tap-button"
+    
+  - platform: template
+    id: mcw_button_2
+    name: "${friendly_name} Button 2"
+    icon: "mdi:gesture-tap-button"
+    
+  - platform: template
+    id: mcw_button_3
+    name: "${friendly_name} Button 3"
+    icon: "mdi:gesture-tap-button"
+    
+  - platform: template
+    id: mcw_button_4
+    name: "${friendly_name} Button 4"
+    icon: "mdi:gesture-tap-button"
+
+sensor:
+  # 배터리 레벨 (표준 BLE Battery Service)
+  - platform: ble_client
+    ble_client_id: mcw_client
+    id: mcw_battery
+    name: "${friendly_name} Battery"
+    service_uuid: "180F"
+    characteristic_uuid: "2A19"
+    notify: true
+    icon: "mdi:battery"
+    unit_of_measurement: "%"
+    device_class: battery
+    state_class: measurement
+    accuracy_decimals: 0
+    lambda: |-
+      return (float)x[0];
+
+text_sensor:
+  # 스펠 감지 센서
+  - platform: template
+    id: mcw_spell
+    name: "${friendly_name} Spell"
+    icon: "mdi:auto-fix"
+    
+  # 알림 수신을 위한 BLE 센서 (Notify UUID)
+  - platform: ble_client
+    ble_client_id: mcw_client
+    id: mcw_notify_receiver
+    internal: true
+    update_interval: never
+    notify: true
+    service_uuid: "57420001-587e-48a0-974c-544d6163c577"
+    characteristic_uuid: "57420003-587e-48a0-974c-544d6163c577"
+    on_notify:
+      then:
+        - lambda: |-
+            // x는 std::string 타입
+            if (x.size() < 1) return;
+            
+            uint8_t opcode = (uint8_t)x[0];
+            
+            // 0x10: 버튼 상태
+            if (opcode == 0x10 && x.size() >= 2) {
+              uint8_t mask = (uint8_t)x[1];
+              id(mcw_button_1).publish_state(mask & 0x01);
+              id(mcw_button_2).publish_state(mask & 0x02);
+              id(mcw_button_3).publish_state(mask & 0x04);
+              id(mcw_button_4).publish_state(mask & 0x08);
+            }
+            // 0x24: 스펠 캐스트
+            else if (opcode == 0x24 && x.size() >= 5) {
+              uint8_t spell_len = (uint8_t)x[3];
+              if (x.size() >= 4 + spell_len) {
+                std::string spell_name = x.substr(4, spell_len);
+                // null 문자 및 밑줄 처리
+                spell_name.erase(std::remove(spell_name.begin(), spell_name.end(), '\0'), spell_name.end());
+                std::replace(spell_name.begin(), spell_name.end(), '_', ' ');
+                if (!spell_name.empty()) {
+                  id(mcw_last_spell) = spell_name;
+                  id(mcw_spell).publish_state(spell_name);
+                  ESP_LOGI("mcw", "Spell detected: %s", spell_name.c_str());
+                }
+              }
+            }
+            // 0xFB: 버튼 캘리브레이션 완료
+            else if (opcode == 0xFB) {
+              ESP_LOGI("mcw", "Button calibration complete");
+            }
+            // 0xFC: IMU 캘리브레이션 완료
+            else if (opcode == 0xFC) {
+              ESP_LOGI("mcw", "IMU calibration complete");
+            }
+
+# BLE 쓰기 스크립트
+script:
+  - id: script_mcw_write
+    mode: queued
+    parameters:
+      data: std::vector<uint8_t>
+    then:
+      - ble_client.ble_write:
+          id: mcw_client
+          service_uuid: "57420001-587e-48a0-974c-544d6163c577"
+          characteristic_uuid: "57420002-587e-48a0-974c-544d6163c577"
+          value: !lambda |-
+            return data;
+
+  # LED 제어 스크립트
+  - id: script_mcw_set_led
+    parameters:
+      group: int      # 0=TIP, 1=POMMEL, 2=MID_LOWER, 3=MID_UPPER
+      red: int
+      green: int
+      blue: int
+      duration_ms: int
+    then:
+      - lambda: |-
+          std::vector<uint8_t> cmd = {
+            0x68,  // MACRO_CONTROL
+            0x22,  // LIGHT_CONTROL_TRANSITION
+            (uint8_t)group,
+            (uint8_t)red,
+            (uint8_t)green,
+            (uint8_t)blue,
+            (uint8_t)((duration_ms >> 8) & 0xFF),
+            (uint8_t)(duration_ms & 0xFF)
+          };
+          id(script_mcw_write).execute(cmd);
+
+  # LED 클리어 스크립트
+  - id: script_mcw_clear_leds
+    then:
+      - lambda: |-
+          std::vector<uint8_t> cmd = {0x68, 0x20};  // MACRO_CONTROL + CLEAR_ALL
+          id(script_mcw_write).execute(cmd);
+
+  # 진동 스크립트
+  - id: script_mcw_buzz
+    parameters:
+      duration_ms: int
+    then:
+      - lambda: |-
+          std::vector<uint8_t> cmd = {
+            0x68,  // MACRO_CONTROL
+            0x50,  // HAP_BUZZ
+            (uint8_t)((duration_ms >> 8) & 0xFF),
+            (uint8_t)(duration_ms & 0xFF)
+          };
+          id(script_mcw_write).execute(cmd);
+
+  # 캘리브레이션 스크립트
+  - id: script_mcw_calibration
+    then:
+      # Factory unlock
+      - lambda: |-
+          id(script_mcw_write).execute({0xFE, 0x55, 0xAA});
+      - delay: 500ms
+      # IMU 캘리브레이션
+      - lambda: |-
+          id(script_mcw_write).execute({0xFC});
+      - delay: 1500ms
+      # Factory unlock
+      - lambda: |-
+          id(script_mcw_write).execute({0xFE, 0x55, 0xAA});
+      - delay: 500ms
+      # 버튼 캘리브레이션
+      - lambda: |-
+          id(script_mcw_write).execute({0xFB});
+
+button:
+  # 캘리브레이션 버튼
+  - platform: template
+    id: mcw_calibration_button
+    name: "${friendly_name} Calibration"
+    icon: "mdi:compass-outline"
+    on_press:
+      - script.execute: script_mcw_calibration
+      
+  # LED 테스트 버튼
+  - platform: template
+    id: mcw_led_test
+    name: "${friendly_name} LED Test"
+    icon: "mdi:led-on"
+    on_press:
+      - script.execute:
+          id: script_mcw_set_led
+          group: 0  # TIP
+          red: 255
+          green: 128
+          blue: 0
+          duration_ms: 1000
+      - delay: 1100ms
+      - script.execute: script_mcw_clear_leds
+
+  # 진동 테스트 버튼
+  - platform: template
+    id: mcw_buzz_test
+    name: "${friendly_name} Buzz Test"
+    icon: "mdi:vibrate"
+    on_press:
+      - script.execute:
+          id: script_mcw_buzz
+          duration_ms: 200
