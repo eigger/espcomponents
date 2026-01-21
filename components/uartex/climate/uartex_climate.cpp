@@ -330,7 +330,7 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
 
     // custom fan
     optional<std::string> custom_fan = get_state_custom_fan(data);
-    if (custom_fan.has_value() && (this->get_custom_fan_mode() == nullptr || this->get_custom_fan_mode() != custom_fan.value()))
+    if (custom_fan.has_value() && (this->get_custom_fan_mode() != custom_fan.value()))
     {
         const char* fan_char = find_mode(custom_fan_modes_, custom_fan.value());
         if (fan_char != nullptr && this->set_custom_fan_mode_(fan_char)) changed = true;
@@ -338,7 +338,7 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
 
     // custom preset
     optional<std::string> custom_preset = get_state_custom_preset(data);
-    if (custom_preset.has_value() && (this->get_custom_preset() == nullptr || this->get_custom_preset() != custom_preset.value()))
+    if (custom_preset.has_value() && (this->get_custom_preset() != custom_preset.value()))
     {
         const char* preset_char = find_mode(custom_preset_modes_, custom_preset.value());
         if (preset_char != nullptr && this->set_custom_preset_(preset_char)) changed = true;
@@ -489,22 +489,22 @@ void UARTExClimate::control(const climate::ClimateCall& call)
     }
 
     // custom fan
-    if (call.has_custom_fan_mode() && (this->get_custom_fan_mode() == nullptr || std::strcmp(this->get_custom_fan_mode(), call.get_custom_fan_mode()) != 0))
+    if (call.has_custom_fan_mode() && (this->get_custom_fan_mode() != call.get_custom_fan_mode()))
     {
-        const char* custom_fan_mode = call.get_custom_fan_mode();
-        if (enqueue_tx_cmd(get_command_custom_fan(custom_fan_mode == nullptr ? "" : std::string(custom_fan_mode))) || this->optimistic_)
+        StringRef custom_fan_mode = call.get_custom_fan_mode();
+        if (enqueue_tx_cmd(get_command_custom_fan(custom_fan_mode.str())) || this->optimistic_)
         {
-            this->set_custom_fan_mode_(custom_fan_mode);
+            this->set_custom_fan_mode_(custom_fan_mode.c_str());
         }
     }
 
     // custom preset
-    if (call.has_custom_preset() && (this->get_custom_preset() == nullptr || std::strcmp(this->get_custom_preset(), call.get_custom_preset()) != 0))
+    if (call.has_custom_preset() && (this->get_custom_preset() != call.get_custom_preset()))
     {
-        const char* custom_preset = call.get_custom_preset();
-        if (enqueue_tx_cmd(get_command_custom_preset(custom_preset == nullptr ? "" : std::string(custom_preset))) || this->optimistic_)
+        StringRef custom_preset = call.get_custom_preset();
+        if (enqueue_tx_cmd(get_command_custom_preset(custom_preset.str())) || this->optimistic_)
         {
-            this->set_custom_preset_(custom_preset);
+            this->set_custom_preset_(custom_preset.c_str());
         }
     }
 

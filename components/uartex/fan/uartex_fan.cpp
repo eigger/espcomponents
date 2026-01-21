@@ -36,7 +36,7 @@ void UARTExFan::publish(const std::vector<uint8_t>& data)
         changed = true;
     }
     optional<std::string> preset = get_state_preset(data);
-    if(preset.has_value() && (this->get_preset_mode() == nullptr || this->get_preset_mode() != preset.value()))
+    if(preset.has_value() && (this->get_preset_mode() != preset.value()))
     {
         const char* preset_char = find_mode(preset_modes_, preset.value());
         if (preset_char != nullptr && this->set_preset_mode_(preset_char)) changed = true;
@@ -97,7 +97,7 @@ void UARTExFan::control(const fan::FanCall& call)
         //     this->direction = direction;
         // }
     }
-    if (call.has_preset_mode() && (this->get_preset_mode() == nullptr || std::strcmp(this->get_preset_mode(), call.get_preset_mode()) != 0))
+    if (call.has_preset_mode() && (this->get_preset_mode() != call.get_preset_mode()))
     {
         const char* preset_mode = call.get_preset_mode();
         if (enqueue_tx_cmd(get_command_preset(preset_mode == nullptr ? "" : std::string(preset_mode))) || this->optimistic_)
