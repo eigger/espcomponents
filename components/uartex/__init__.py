@@ -13,7 +13,7 @@ from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTE
     CONF_STATE, CONF_MASK, CONF_MATCH, \
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
     CONF_COMMAND_UPDATE, CONF_RX_TIMEOUT, CONF_TX_TIMEOUT, CONF_TX_RETRY_CNT, CONF_TX_COMMAND_QUEUE_SIZE, \
-    CONF_STATE_RESPONSE, CONF_LENGTH, CONF_PRECISION, CONF_RX_LENGTH, \
+    CONF_STATE_RESPONSE, CONF_LENGTH, CONF_PRECISION, CONF_RX_LENGTH, CONF_RX_DATA_LENGTH, CONF_ADJUST, \
     CONF_TX_CTRL_PIN, CONF_TX_DELAY, CONF_DISABLED, CONF_ASCII, CONF_SIGNED, CONF_ENDIAN, CONF_DECODE
 
 AUTO_LOAD = ["text_sensor"]
@@ -154,6 +154,16 @@ def command_hex_schema(value):
         return COMMAND_SCHEMA(value)
     return shorthand_command_hex(value)
 
+RX_DATA_LENGTH_SCHEMA = cv.Schema({
+    cv.Required(CONF_OFFSET): cv.int_range(min=0, max=128),
+    cv.Optional(CONF_LENGTH, default=1): cv.int_range(min=1, max=4),
+    cv.Optional(CONF_ENDIAN, default="big"): validate_endian,
+    cv.Optional(CONF_ADJUST, default=0): cv.int_range(min=-128, max=128),
+})
+
+def rx_data_length_schema(value):
+    return RX_DATA_LENGTH_SCHEMA(value)
+
 # UARTEx Schema
 CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.GenerateID(): cv.declare_id(UARTExComponent),
@@ -187,6 +197,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         }
     ),
     cv.Optional(CONF_RX_LENGTH): cv.int_range(min=1, max=256),
+    cv.Optional(CONF_RX_DATA_LENGTH): rx_data_length_schema,
     cv.Optional(CONF_TX_CTRL_PIN): pins.gpio_output_pin_schema,
     cv.Optional(CONF_RX_HEADER): header_schema,
     cv.Optional(CONF_RX_FOOTER): validate_hex_data,
@@ -219,7 +230,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
         cv.Optional(CONF_DISABLED, default=False): cv.boolean,
         cv.Optional(CONF_ASCII, default=False): cv.boolean,
     }),
-}).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA), cv.has_at_most_one_key(CONF_RX_CHECKSUM, CONF_RX_CHECKSUM_2), cv.has_at_most_one_key(CONF_TX_CHECKSUM, CONF_TX_CHECKSUM_2))
+}).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA), cv.has_at_most_one_key(CONF_RX_LENGTH, CONF_RX_DATA_LENGTH), cv.has_at_most_one_key(CONF_RX_CHECKSUM, CONF_RX_CHECKSUM_2), cv.has_at_most_one_key(CONF_TX_CHECKSUM, CONF_TX_CHECKSUM_2))
 
 async def to_code(config):
     cg.add_global(uartex_ns.using)
@@ -275,6 +286,10 @@ async def to_code(config):
 
     if CONF_RX_LENGTH in config:
         cg.add(var.set_rx_length(config[CONF_RX_LENGTH]))
+
+    if CONF_RX_DATA_LENGTH in config:
+        conf = config[CONF_RX_DATA_LENGTH]
+        cg.add(var.set_rx_data_length(conf[CONF_OFFSET], conf[CONF_LENGTH], conf[CONF_ENDIAN], conf[CONF_ADJUST]))
 
     if CONF_TX_CTRL_PIN in config:
         tx_ctrl_pin = await cg.gpio_pin_expression(config[CONF_TX_CTRL_PIN])
