@@ -17,5 +17,5 @@ R <-> GPIO5 (D1)
 
 | 5 | 6 | 7 | 8 |
 |---|---|---|---|
-| ![](../../documents/geiger/5.jpeg) | ![](../../documents/geiger/6.jpeg) | ![](../../documents/geiger/7.jpeg) | ![](../../documents/geiger/8.jpeg) |
+| ![](../../documents/geiger/5.jpeg) | ![](../../documents/geiger/6.jpeg) | ![](../../documents/geiger/7.jpeg) | ![](../../documents/geiger/8.png) |
 
