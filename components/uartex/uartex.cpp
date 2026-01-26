@@ -8,6 +8,12 @@ void UARTExComponent::dump_config()
 #ifdef ESPHOME_LOG_HAS_DEBUG
     log_config(TAG, "rx_timeout", this->conf_rx_timeout_);
     log_config(TAG, "rx_length", this->conf_rx_length_);
+    if (this->conf_rx_data_length_.has_value())
+    {
+        auto& dl = this->conf_rx_data_length_.value();
+        ESP_LOGD(TAG, "  rx_data_length: offset=%d, length=%d, endian=%s, adjust=%d",
+            dl.offset, dl.length, dl.endian == ENDIAN_BIG ? "big" : "little", dl.adjust);
+    }
     log_config(TAG, "tx_timeout", this->conf_tx_timeout_);
     log_config(TAG, "tx_delay", this->conf_tx_delay_);
     log_config(TAG, "tx_retry_cnt", this->conf_tx_retry_cnt_);
@@ -44,6 +50,11 @@ void UARTExComponent::setup()
     }
     if (this->rx_footer_.has_value()) this->rx_parser_.add_footers(this->rx_footer_.value());
     this->rx_parser_.set_total_len(this->conf_rx_length_);
+    if (this->conf_rx_data_length_.has_value())
+    {
+        auto& dl = this->conf_rx_data_length_.value();
+        this->rx_parser_.set_data_length(dl.offset, dl.length, dl.endian == ENDIAN_BIG, dl.adjust);
+    }
     this->rx_parser_.set_buffer_len(this->parent_->get_rx_buffer_size());
     if (this->error_) this->error_->publish_state("None");
     if (this->version_) this->version_->publish_state(UARTEX_VERSION);
@@ -288,6 +299,11 @@ void UARTExComponent::set_tx_command_queue_size(uint16_t size)
 void UARTExComponent::set_rx_length(uint16_t rx_length)
 {
     this->conf_rx_length_ = rx_length;
+}
+
+void UARTExComponent::set_rx_data_length(uint8_t offset, uint8_t length, ENDIAN endian, int8_t adjust)
+{
+    this->conf_rx_data_length_ = rx_data_length_t{offset, length, endian, adjust};
 }
 
 void UARTExComponent::set_rx_timeout(uint16_t timeout)

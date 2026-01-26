@@ -1,7 +1,7 @@
 # UARTEx Component
 
 [![ESPHome](https://img.shields.io/badge/ESPHome-Custom%20Component-blue)](https://esphome.io/)
-[![Version](https://img.shields.io/badge/version-6.1.0-green)](https://github.com/eigger/espcomponents)
+[![Version](https://img.shields.io/badge/version-6.3.0-green)](https://github.com/eigger/espcomponents)
 
 A custom ESPHome component that extends UART communication to easily integrate various serial protocols with Home Assistant.
 
@@ -96,6 +96,7 @@ uartex:
 |--------|------|---------|-------------|
 | `rx_timeout` | time | `10ms` | Receive timeout (max: 2000ms) |
 | `rx_length` | int | - | Fixed packet length (1-256) |
+| `rx_data_length` | schema | - | Dynamic length parsing (see below) |
 | `tx_delay` | time | `50ms` | Delay between transmissions (max: 2000ms) |
 | `tx_timeout` | time | `50ms` | ACK response timeout (max: 2000ms) |
 | `tx_retry_cnt` | int | `3` | Retry count on ACK failure (1-10) |
@@ -111,7 +112,45 @@ uartex:
 | `tx_checksum2` | enum | - | Transmit checksum (multi-byte) |
 | `rx_priority` | enum | `data` | Processing priority: `data`, `loop` |
 
-> **Note**: Use either `rx_checksum` or `rx_checksum2`, not both. Same applies to `tx_checksum` and `tx_checksum2`.
+> **Note**: 
+> - Use either `rx_length` or `rx_data_length`, not both.
+> - Use either `rx_checksum` or `rx_checksum2`, not both. Same applies to `tx_checksum` and `tx_checksum2`.
+
+#### Dynamic Length Parsing (`rx_data_length`)
+
+For protocols where the packet length is embedded within the packet itself:
+
+```yaml
+uartex:
+  rx_header: [0xAA, 0xBB]
+  rx_data_length:
+    offset: 0        # Length field position (after header)
+    length: 1        # Length field size (1-4 bytes)
+    endian: big      # Byte order: big, little
+    adjust: 0        # Length adjustment value
+  rx_checksum: add
+```
+
+**Options**:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `offset` | int | **Required** | Position of length field after header (0-128) |
+| `length` | int | `1` | Size of length field in bytes (1-4) |
+| `endian` | enum | `big` | Byte order: `big`, `little` |
+| `adjust` | int | `0` | Value to add to parsed length (-128 to 128) |
+
+**Packet Structure Example**:
+```
+Packet: [Header:2][Length:1][Data:N][Checksum:1]
+        [0xAA][0xBB][0x03][0x11][0x22][0x33][0xCC]
+                     ↑
+                     Length field = 3 (data bytes)
+
+Total calculated: header(2) + offset(0) + length_field(1) + data(3) + adjust(0) + checksum(1) = 7 bytes
+```
+
+**Use Case**: Protocols where data length varies and is specified in the packet header.
 
 #### Checksum Types
 
