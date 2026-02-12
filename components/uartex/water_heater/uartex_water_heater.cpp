@@ -222,7 +222,7 @@ void UARTExWaterHeater::control(const water_heater::WaterHeaterCall& call)
     }
     
     // Set away mode
-    if (call.get_state() & water_heater::WATER_HEATER_STATE_AWAY)
+    if (call.get_away().has_value() && call.get_away().value())
     {
         if (!this->is_away())
         {
@@ -241,7 +241,7 @@ void UARTExWaterHeater::control(const water_heater::WaterHeaterCall& call)
     }
     
     // Set on/off state
-    if (call.get_state() & water_heater::WATER_HEATER_STATE_ON)
+    if (call.get_on().has_value() && call.get_on().value())
     {
         if (!this->is_on())
         {
