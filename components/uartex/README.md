@@ -780,6 +780,72 @@ valve:
 
 ---
 
+### Water Heater
+
+**Packet Example**:
+```
+RX ECO:  [0x02][0x01][0x01][0x28][0x32][chk][0x0D][0x0A]
+RX GAS:  [0x02][0x01][0x06][0x28][0x32][chk][0x0D][0x0A]
+         |--header--|------data--------|    |footer|
+Offset:               0     1     2
+                      │     │     └─ current temp (0x32 = 50°C)
+                      │     └─ target temp (0x28 = 40°C)
+                      └─ mode (0x01=eco, 0x06=gas)
+```
+
+```yaml
+water_heater:
+  - platform: uartex
+    name: "Water Heater"
+    visual:
+      min_temperature: 30
+      max_temperature: 75
+      target_temperature_step: 1
+    state_off:
+      data: [0x00]
+    state_eco:
+      data: [0x01]
+    state_electric:
+      data: [0x02]
+    state_performance:
+      data: [0x03]
+    state_high_demand:
+      data: [0x04]
+    state_heat_pump:
+      data: [0x05]
+    state_gas:
+      data: [0x06]
+    state_temperature_target:
+      offset: 1
+    state_temperature_current:
+      offset: 2
+    command_off:
+      data: [0x09, 0x00]
+    command_eco:
+      data: [0x09, 0x01]
+    command_electric:
+      data: [0x09, 0x02]
+    command_gas:
+      data: [0x09, 0x06]
+    command_temperature: !lambda |-
+      return {{0x09, 0x10, (uint8_t)x}, {}};
+```
+
+<details>
+<summary><b>All Water Heater Options</b></summary>
+
+**Mode States**: `state_off`, `state_eco`, `state_electric`, `state_performance`, `state_high_demand`, `state_heat_pump`, `state_gas`
+
+**Temperature**: `state_temperature_current`, `state_temperature_target`, `command_temperature`
+
+**Away Mode**: `state_away_on`, `state_away_off`, `command_away_on`, `command_away_off`
+
+**Commands**: `command_off`, `command_on`, `command_eco`, `command_electric`, `command_performance`, `command_high_demand`, `command_heat_pump`, `command_gas`
+
+</details>
+
+---
+
 ### Media Player
 
 ```yaml
