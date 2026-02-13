@@ -89,6 +89,7 @@ bool Parser::has_footer()
 void Parser::clear()
 {
     buffer_.clear();
+    dynamic_total_len_ = 0;
 }
 
 bool Parser::parse_header()
@@ -115,15 +116,66 @@ bool Parser::parse_footer()
     if (footer_.empty()) return false;
     if (buffer_.size() < footer_.size()) return false;
     if (total_len_ > 0 && buffer_.size() != total_len_) return false;
+    
+    // Dynamic data length mode: don't match footer until we have enough bytes
+    if (has_data_length_)
+    {
+        if (!calculate_dynamic_length()) return false;
+        if (buffer_.size() < dynamic_total_len_) return false;
+    }
+    
     return std::equal(buffer_.end() - footer_.size(), buffer_.end(), footer_.begin());
 }
 
 bool Parser::parse_length()
 {
-    if (total_len_ == 0) return false;
-    if (footer_.size() > 0) return false;
-    if (buffer_.size() != total_len_) return false;
-    if (checksum_len_ > 0) return false;
+    // Fixed total length mode
+    if (total_len_ > 0)
+    {
+        if (footer_.size() > 0) return false;
+        if (buffer_.size() != total_len_) return false;
+        if (checksum_len_ > 0) return false;
+        return true;
+    }
+    
+    // Dynamic data length mode
+    if (!has_data_length_) return false;
+    if (!calculate_dynamic_length()) return false;
+    if (buffer_.size() < dynamic_total_len_) return false;
+    
+    return true;
+}
+
+bool Parser::calculate_dynamic_length()
+{
+    // Check minimum required size to read length field
+    size_t min_size = header_.size() + data_length_offset_ + data_length_size_;
+    if (buffer_.size() < min_size) return false;
+    
+    // Calculate dynamic total length if not yet calculated
+    if (dynamic_total_len_ == 0)
+    {
+        size_t length_pos = header_.size() + data_length_offset_;
+        uint32_t data_len = 0;
+        
+        if (data_length_big_endian_)
+        {
+            for (uint8_t i = 0; i < data_length_size_; i++)
+            {
+                data_len = (data_len << 8) | buffer_[length_pos + i];
+            }
+        }
+        else
+        {
+            for (int8_t i = data_length_size_ - 1; i >= 0; i--)
+            {
+                data_len = (data_len << 8) | buffer_[length_pos + i];
+            }
+        }
+        
+        dynamic_total_len_ = header_.size() + data_length_offset_ + data_length_size_ + data_len + data_length_adjust_ + checksum_len_ + footer_.size();
+    }
+    
     return true;
 }
 
@@ -167,4 +219,13 @@ void Parser::set_buffer_len(size_t len)
 {
     buffer_len_ = len;
     buffer_.reserve(len + 1);
+}
+
+void Parser::set_data_length(uint8_t offset, uint8_t length, bool big_endian, int8_t adjust)
+{
+    has_data_length_ = true;
+    data_length_offset_ = offset;
+    data_length_size_ = length;
+    data_length_big_endian_ = big_endian;
+    data_length_adjust_ = adjust;
 }
