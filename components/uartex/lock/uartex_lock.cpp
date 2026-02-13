@@ -88,9 +88,9 @@ void UARTExLock::publish(const std::vector<uint8_t>& data)
 
 void UARTExLock::control(const lock::LockCall& call)
 {
+    if (!call.get_state().has_value()) return;
     if (this->state != *call.get_state())
     {
-
         this->timer_ = get_time();
         switch (*call.get_state())
         {

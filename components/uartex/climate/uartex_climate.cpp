@@ -280,7 +280,7 @@ void UARTExClimate::publish(const std::vector<uint8_t>& data)
         this->fan_mode = climate::CLIMATE_FAN_DIFFUSE;
         changed = true;
     }
-    else if (verify_state(data, get_state_fan_on()))
+    else if (verify_state(data, get_state_fan_quiet()))
     {
         this->fan_mode = climate::CLIMATE_FAN_QUIET;
         changed = true;

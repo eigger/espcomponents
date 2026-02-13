@@ -124,6 +124,7 @@ state_num_t* UARTExDevice::get_state_num(const std::string& name)
 
 optional<float> UARTExDevice::get_state_float(const std::string& name, const std::vector<uint8_t>& data)
 {
+    if (data.empty()) return optional<float>();
     if (contains(this->state_float_func_map_, name)) return (this->state_float_func_map_[name])(&data[0], data.size());
     if (contains(this->state_num_map_, name)) return state_to_float(data, this->state_num_map_[name]);
     return optional<float>();
@@ -131,6 +132,7 @@ optional<float> UARTExDevice::get_state_float(const std::string& name, const std
 
 optional<std::string> UARTExDevice::get_state_str(const std::string& name, const std::vector<uint8_t>& data)
 {
+    if (data.empty()) return optional<std::string>();
     if (contains(this->state_str_func_map_, name)) return (this->state_str_func_map_[name])(&data[0], data.size());
     return optional<std::string>();
 }
@@ -159,7 +161,7 @@ const char* find_mode(const std::vector<const char*>& modes, const std::string& 
 
 bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2, const uint16_t offset)
 {
-    if (data1.size() - offset < data2.size()) return false;
+    if (offset > data1.size() || data1.size() - offset < data2.size()) return false;
     return std::equal(data1.begin() + offset, data1.begin() + offset + data2.size(), data2.begin());
 }
 

@@ -237,7 +237,7 @@ void UARTExWaterHeater::control(const water_heater::WaterHeaterCall& call)
     // Set on/off state
     if (call.get_on().has_value() && call.get_on().value())
     {
-        if (!this->is_on() && get_command_away_on() != nullptr)
+        if (!this->is_on() && get_command_on() != nullptr)
         {
             if (enqueue_tx_cmd(get_command_on()) || this->optimistic_)
             {

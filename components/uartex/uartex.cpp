@@ -45,10 +45,16 @@ void UARTExComponent::setup()
     this->rx_timer_ = get_time();
     if (this->rx_header_.has_value())
     {
-        this->rx_parser_.add_headers(this->rx_header_.value().data);
-        this->rx_parser_.add_header_masks(this->rx_header_.value().mask);
+        if (!this->rx_parser_.add_headers(this->rx_header_.value().data))
+            ESP_LOGE(TAG, "Failed to set rx header");
+        if (!this->rx_parser_.add_header_masks(this->rx_header_.value().mask))
+            ESP_LOGE(TAG, "Failed to set rx header mask");
     }
-    if (this->rx_footer_.has_value()) this->rx_parser_.add_footers(this->rx_footer_.value());
+    if (this->rx_footer_.has_value())
+    {
+        if (!this->rx_parser_.add_footers(this->rx_footer_.value()))
+            ESP_LOGE(TAG, "Failed to set rx footer");
+    }
     this->rx_parser_.set_total_len(this->conf_rx_length_);
     if (this->conf_rx_data_length_.has_value())
     {
@@ -58,7 +64,7 @@ void UARTExComponent::setup()
     this->rx_parser_.set_buffer_len(this->parent_->get_rx_buffer_size());
     if (this->error_) this->error_->publish_state("None");
     if (this->version_) this->version_->publish_state(UARTEX_VERSION);
-    ESP_LOGI(TAG, "Initaialize");
+    ESP_LOGI(TAG, "Initialize");
     publish_log(std::string("Boot ") + UARTEX_VERSION);
 }
 
@@ -515,6 +521,7 @@ void UARTExComponent::set_rx_priority(PRIORITY priority)
 
 std::vector<uint8_t> UARTExComponent::get_rx_checksum(const std::vector<uint8_t> &data, const std::vector<uint8_t> &header)
 {
+    if (data.empty()) return {};
     if (this->rx_checksum_f_.has_value())
     {
         uint8_t crc = (*this->rx_checksum_f_)(&data[0], data.size());
@@ -542,6 +549,7 @@ std::vector<uint8_t> UARTExComponent::get_rx_checksum(const std::vector<uint8_t>
 
 std::vector<uint8_t> UARTExComponent::get_tx_checksum(const std::vector<uint8_t> &data)
 {
+    if (data.empty()) return {};
     if (this->tx_checksum_f_.has_value())
     {
         uint8_t crc = (*this->tx_checksum_f_)(&data[0], data.size());
