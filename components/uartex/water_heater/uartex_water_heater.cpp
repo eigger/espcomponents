@@ -201,7 +201,7 @@ void UARTExWaterHeater::control(const water_heater::WaterHeaterCall& call)
         if (changed || this->optimistic_)
         {
             this->set_mode_(mode);
-            if (mode == water_heater::WATER_HEATER_MODE_oFF) this->set_state_flag_(water_heater::WATER_HEATER_STATE_ON, false);
+            if (mode == water_heater::WATER_HEATER_MODE_OFF) this->set_state_flag_(water_heater::WATER_HEATER_STATE_ON, false);
         }
     }
     
