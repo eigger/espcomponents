@@ -96,6 +96,7 @@ void UARTExWaterHeater::publish(const std::vector<uint8_t>& data)
     if (verify_state(data, get_state_off()))
     {
         this->set_mode_(water_heater::WATER_HEATER_MODE_OFF);
+        this->set_state_flag_(water_heater::WATER_HEATER_STATE_ON, false);
         changed = true;
     }
     else if (verify_state(data, get_state_eco()))
@@ -156,14 +157,6 @@ void UARTExWaterHeater::publish(const std::vector<uint8_t>& data)
             changed = true;
         }
     }
-    else if (verify_state(data, get_state_off()))
-    {
-        if (this->is_on())
-        {
-            this->set_state_flag_(water_heater::WATER_HEATER_STATE_ON, false);
-            changed = true;
-        }
-    }
     
     // Current temperature
     if (this->sensor_ == nullptr)
@@ -208,6 +201,7 @@ void UARTExWaterHeater::control(const water_heater::WaterHeaterCall& call)
         if (changed || this->optimistic_)
         {
             this->set_mode_(mode);
+            if (mode == water_heater::WATER_HEATER_MODE_oFF) this->set_state_flag_(water_heater::WATER_HEATER_STATE_ON, false);
         }
     }
     
@@ -243,7 +237,7 @@ void UARTExWaterHeater::control(const water_heater::WaterHeaterCall& call)
     // Set on/off state
     if (call.get_on().has_value() && call.get_on().value())
     {
-        if (!this->is_on())
+        if (!this->is_on() && get_command_away_on() != nullptr)
         {
             if (enqueue_tx_cmd(get_command_on()) || this->optimistic_)
             {
@@ -251,13 +245,7 @@ void UARTExWaterHeater::control(const water_heater::WaterHeaterCall& call)
             }
         }
     }
-    else if (get_command_off() != nullptr && this->is_on())
-    {
-        if (enqueue_tx_cmd(get_command_off()) || this->optimistic_)
-        {
-            this->set_state_flag_(water_heater::WATER_HEATER_STATE_ON, false);
-        }
-    }
+
     
     publish_state();
 }
