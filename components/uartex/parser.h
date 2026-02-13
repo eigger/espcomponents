@@ -31,7 +31,9 @@ public:
     void set_checksum_len(size_t len);
     void set_total_len(size_t len);
     void set_buffer_len(size_t len);
+    void set_data_length(uint8_t offset, uint8_t length, bool big_endian, int8_t adjust);
 private:
+    bool calculate_dynamic_length();
     std::vector<unsigned char> header_;
     std::vector<unsigned char> header_mask_;
     std::vector<unsigned char> footer_;
@@ -39,5 +41,12 @@ private:
     size_t checksum_len_;
     size_t total_len_;
     size_t buffer_len_;
+    // Dynamic data length parsing
+    bool has_data_length_{false};
+    uint8_t data_length_offset_{0};
+    uint8_t data_length_size_{1};
+    bool data_length_big_endian_{true};
+    int8_t data_length_adjust_{0};
+    size_t dynamic_total_len_{0};
 };
 
