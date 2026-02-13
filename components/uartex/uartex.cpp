@@ -253,6 +253,11 @@ void UARTExComponent::write_data(const std::vector<uint8_t> &data)
 
 void UARTExComponent::enqueue_tx_data(const tx_data_t data, bool low_priority)
 {
+    if (data.cmd != nullptr && data.cmd->data.empty())
+    {
+        ESP_LOGW(TAG, "enqueue_tx_data: ignored empty command");
+        return;
+    }
     if (low_priority) this->tx_queue_low_priority_.push(data);
     else this->tx_queue_.push(data);
 }

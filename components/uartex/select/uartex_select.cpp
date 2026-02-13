@@ -19,7 +19,7 @@ void UARTExSelect::setup()
     size_t index = this->initial_option_index_;
     if (this->restore_value_)
     {
-        this->pref_ = this->pref_ = this->make_entity_preference<size_t>();
+        this->pref_ = this->make_entity_preference<size_t>();
         size_t restored_index;
         if (this->pref_.load(&restored_index) && this->has_index(restored_index))
         {
