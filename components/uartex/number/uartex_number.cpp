@@ -23,7 +23,7 @@ void UARTExNumber::setup()
     float value = this->traits.get_min_value();;
     if (this->restore_value_)
     {
-        this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+        this->pref_ = this->make_entity_preference<float>();
         this->pref_.load(&value);
     }
     this->state = value;
