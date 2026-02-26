@@ -9,7 +9,7 @@ from esphome.util import SimpleRegistry
 from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTER, \
     CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, CONF_RX_CHECKSUM_2, CONF_TX_CHECKSUM_2, \
     CONF_UARTEX_ID, CONF_ERROR, CONF_LOG, CONF_ON_TX_TIMEOUT, CONF_RX_PRIORITY, \
-    CONF_ACK, CONF_ON_WRITE, CONF_ON_READ, \
+    CONF_ACK, CONF_ON_WRITE, CONF_ON_READ, CONF_ON_MATCH, \
     CONF_STATE, CONF_MASK, CONF_MATCH, \
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
     CONF_COMMAND_UPDATE, CONF_RX_TIMEOUT, CONF_TX_TIMEOUT, CONF_TX_RETRY_CNT, CONF_TX_COMMAND_QUEUE_SIZE, \
@@ -33,6 +33,8 @@ uint8_ptr_const = uint8_const.operator('ptr')
 TxTimeoutTrigger = uartex_ns.class_("TxTimeoutTrigger", automation.Trigger.template())
 WriteTrigger = uartex_ns.class_("WriteTrigger", automation.Trigger.template())
 ReadTrigger = uartex_ns.class_("ReadTrigger", automation.Trigger.template())
+MatchTrigger = uartex_ns.class_("MatchTrigger", automation.Trigger.template())
+MatchTrigger_v2 = uartex_ns.class_("MatchTrigger_v2", automation.Trigger.template())
 
 MULTI_CONF = True
 
@@ -196,6 +198,12 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
             cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(ReadTrigger),
         }
     ),
+    cv.Optional(CONF_ON_MATCH): automation.validate_automation(
+        {
+            cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(MatchTrigger_v2),
+            cv.Required(CONF_MATCH): state_schema,
+        }
+    ),
     cv.Optional(CONF_RX_LENGTH): cv.int_range(min=1, max=256),
     cv.Optional(CONF_RX_DATA_LENGTH): rx_data_length_schema,
     cv.Optional(CONF_TX_CTRL_PIN): pins.gpio_output_pin_schema,
@@ -283,6 +291,11 @@ async def to_code(config):
     for conf in config.get(CONF_ON_READ, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], conf)
+
+    for conf in config.get(CONF_ON_MATCH, []):
+        state = state_hex_expression(conf[CONF_MATCH])
+        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var, state)
+        await automation.build_automation(trigger, [(cmd_t, 'x')], conf)
 
     if CONF_RX_LENGTH in config:
         cg.add(var.set_rx_length(config[CONF_RX_LENGTH]))
