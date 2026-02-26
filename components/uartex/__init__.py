@@ -201,7 +201,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_ON_MATCH): automation.validate_automation(
         {
             cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(MatchTrigger_v2),
-            cv.Required(CONF_MATCH): state_schema,
+            cv.Optional(CONF_STATE): state_schema,
         }
     ),
     cv.Optional(CONF_RX_LENGTH): cv.int_range(min=1, max=256),
@@ -293,7 +293,7 @@ async def to_code(config):
         await automation.build_automation(trigger, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], conf)
 
     for conf in config.get(CONF_ON_MATCH, []):
-        state = state_hex_expression(conf[CONF_MATCH])
+        state = state_hex_expression(conf[CONF_STATE])
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var, state)
         await automation.build_automation(trigger, [(cmd_t, 'x')], conf)
 
