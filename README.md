@@ -1,5 +1,8 @@
-[![latest version](https://img.shields.io/github/release/eigger/espcomponents?display_name=tag&include_prereleases&label=latest%20version)](https://github.com/eigger/espcomponents/releases)
 # ESPHome external components 
+[![ESPHome External Component](https://img.shields.io/badge/ESPHome-External%20Component-000000?logo=esphome)](https://esphome.io/components/external_components/)
+[![GitHub Release](https://img.shields.io/github/release/eigger/espcomponents.svg)](https://github.com/eigger/espcomponents/releases)
+[![License](https://img.shields.io/github/license/eigger/espcomponents)](https://github.com/eigger/espcomponents/blob/master/LICENSE)
+
 <a href="https://esphome.io/">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://media.esphome.io/logo/logo-text-on-dark.svg", alt="ESPHome Logo">
