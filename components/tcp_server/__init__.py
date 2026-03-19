@@ -88,7 +88,7 @@ async def to_code(config):
 HEX_SCHEMA_REGISTRY = SimpleRegistry()
 
 
-@automation.register_action('tcp_server.write', TCP_ServerWriteAction, synchronous=True, schema=cv.maybe_simple_value({
+@automation.register_action('tcp_server.write', TCP_ServerWriteAction, cv.maybe_simple_value({
     cv.GenerateID(): cv.use_id(TCP_ServerComponent),
     cv.Required(CONF_DATA): cv.templatable(validate_hex_data)
 }, key=CONF_DATA))
