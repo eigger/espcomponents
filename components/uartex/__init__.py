@@ -481,7 +481,7 @@ async def command_string_expression(conf):
     else:
         return command_hex_expression(conf)
 
-@automation.register_action('uartex.write', UARTExWriteAction, synchronous=True, schema=cv.maybe_simple_value({
+@automation.register_action('uartex.write', UARTExWriteAction, cv.maybe_simple_value({
     cv.GenerateID(): cv.use_id(UARTExComponent),
     cv.Required(CONF_DATA): cv.templatable(validate_hex_data),
     cv.Optional(CONF_ACK, default=[]): validate_hex_data,
