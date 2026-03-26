@@ -1,0 +1,294 @@
+
+esp32:
+  board: esp32-c3-devkitm-1
+  flash_size: 4MB
+  variant: ESP32C3
+  framework:
+    type: esp-idf
+    version: recommended
+    sdkconfig_options:
+      # @grigi found in testing that these options resulted in better responsiveness.
+      # BLE 4.2 is supported by ALL ESP32 boards that have bluetooth, the original and derivatives.
+      CONFIG_BT_BLE_42_FEATURES_SUPPORTED: y
+      # Also enable this on any derivative boards (S2, C3 etc) but not the original ESP32.
+      CONFIG_BT_BLE_50_FEATURES_SUPPORTED: y
+      # Extend the watchdog timeout, so the device reboots if the device appears locked up for over 10 seconds.
+      CONFIG_ESP_TASK_WDT_TIMEOUT_S: "10"
+
+esphome:
+  platformio_options:
+    board_build.flash_mode: dio
+
+esp32_ble_tracker:
+  scan_parameters:
+    # Don't auto start BLE scanning, we control it in the `api` block's automation.
+    continuous: false
+    active: true  # send scan-request packets to gather more info, like device name for some devices.
+    # interval: 320ms  # default 320ms - how long to spend on each advert channel
+    # window:   300ms  # default 30ms - how long to actually "listen" in each interval. Reduce this if device is unstable.
+    # # If the device cannot keep up or becomes unstable, reduce the "window" setting. This may be
+    # # required if your device is controlling other sensors or doing PWM for lights etc.
+
+# Enable Home Assistant API
+api:
+  on_client_connected:
+    - esp32_ble_tracker.start_scan:
+       continuous: true
+  on_client_disconnected:
+    - esp32_ble_tracker.stop_scan:
+
+bluetooth_proxy:
+  active: true
+
+light:
+  - platform: status_led
+    name: "Status LED"
+    id: led
+    pin: GPIO2
+    disabled_by_default: true
+    entity_category: config
+
+i2c:
+  sda: GPIO18
+  scl: GPIO19
+  scan: true
+
+uart:
+  id: uart_ld2450
+  tx_pin: GPIO8
+  rx_pin: GPIO5
+  baud_rate: 256000
+  parity: NONE
+  stop_bits: 1
+
+ld2450:
+  id: ld2450_radar
+  uart_id: uart_ld2450
+
+button:
+  - platform: ld2450
+    ld2450_id: ld2450_radar
+    factory_reset:
+      name: "LD2450 Factory Reset"
+      entity_category: "config"
+    restart:
+      name: "LD2450 Restart"
+      entity_category: "config"
+
+  - platform: factory_reset
+    name: "Restart with Factory Default Settings"
+    id: Reset
+    entity_category: config
+
+  - platform: restart
+    name: Restart_esp
+    id: restart_esp
+    entity_category: config
+
+sensor:
+  - platform: ld2450
+    ld2450_id: ld2450_radar
+    target_count:
+      name: "Presence Target Count"
+      id: target_count
+    still_target_count:
+      name: "Still Target Count"
+      id: still_target_count
+    moving_target_count:
+      name: "Moving Target Count"
+      id: moving_target_count
+    target_1:
+      x:
+        name: Target-1 X
+        id: target_1_x
+      y:
+        name: Target-1 Y
+        id: target_1_y
+      speed:
+        name: Target-1 Speed
+        id: target_1_speed
+      angle:
+        name: Target-1 Angle
+        id: target_1_angle
+      distance:
+        name: Target-1 Distance
+        id: target_1_distance
+      resolution:
+        name: Target-1 Resolution
+        id: target_1_resolution
+    target_2:
+      x:
+        name: "Target-2 X"
+        id: target_2_x
+      y:
+        name: "Target-2 Y"
+        id: target_2_y
+      speed:
+        name: "Target-2 Speed"
+        id: target_2_speed
+      angle:
+        name: "Target-2 Angle"
+        id: target_2_angle
+      distance:
+        name: "Target-2 Distance"
+        id: target_2_distance
+      resolution:
+        name: "Target-2 Resolution"
+        id: target_2_resolution
+    target_3:
+      x:
+        name: "Target-3 X"
+        id: target_3_x
+      y:
+        name: "Target-3 Y"
+        id: target_3_y
+      speed:
+        name: "Target-3 Speed"
+        id: target_3_speed
+      angle:
+        name: "Target-3 Angle"
+        id: target_3_angle
+      distance:
+        name: "Target-3 Distance"
+        id: target_3_distance
+      resolution:
+        name: "Target-3 Resolution"
+        id: target_3_resolution
+    zone_1:
+      target_count:
+        name: "Zone-1 All Target Count"
+        id: zone_1_target_count
+      still_target_count:
+        name: "Zone-1 Still Target Count"
+        id: zone_1_still_target_count
+      moving_target_count:
+        name: "Zone-1 Moving Target Count"
+        id: zone_1_moving_target_count
+    zone_2:
+      target_count:
+        name: "Zone-2 All Target Count"
+        id: zone_2_target_count
+      still_target_count:
+        name: "Zone-2 Still Target Count"
+        id: zone_2_still_target_count
+      moving_target_count:
+        name: "Zone-2 Moving Target Count"
+        id: zone_2_moving_target_count
+    zone_3:
+      target_count:
+        name: "Zone-3 All Target Count"
+        id: zone_3_target_count
+      still_target_count:
+        name: "Zone-3 Still Target Count"
+        id: zone_3_still_target_count
+      moving_target_count:
+        name: "Zone-3 Moving Target Count"
+        id: zone_3_moving_target_count
+
+  - platform: bh1750
+    name: "Light Sensor"
+    id: bh1750_sensor
+    address: 0x23
+    update_interval: 5s
+
+binary_sensor:
+  - platform: ld2450
+    ld2450_id: ld2450_radar
+    has_target:
+      name: "Presence"
+    has_moving_target:
+      name: "Moving Target"
+    has_still_target:
+      name: "Still Target"
+
+  - platform: gpio
+    pin:
+      number: GPIO9
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "Button"
+    disabled_by_default: true
+    on_multi_click:
+      - timing:
+          - ON for at least 4s
+        then:
+          - button.press: Reset
+
+  - platform: gpio
+    pin:
+      number: GPIO3
+      mode:
+        input: true
+        pullup: true
+    name: "Pir Sensor"
+    id: pir
+    filters:
+      - delayed_on: 50ms
+      - delayed_off: 10s
+    device_class: motion
+
+switch:
+  - platform: ld2450
+    ld2450_id: ld2450_radar
+    # bluetooth:
+    #   name: "Bluetooth"
+    multi_target:
+      name: "Multi Target Tracking"
+
+text_sensor:
+  - platform: ld2450
+    ld2450_id: ld2450_radar
+    version:
+      name: "LD2450 Firmware"
+    mac_address:
+      name: "LD2450 BT MAC"
+    target_1:
+      direction:
+        name: "Target-1 Direction"
+    target_2:
+      direction:
+        name: "Target-2 Direction"
+    target_3:
+      direction:
+        name: "Target-3 Direction"
+
+number:
+  - platform: ld2450
+    ld2450_id: ld2450_radar
+    presence_timeout:
+      name: "Timeout"
+    zone_1:
+      x1:
+        name: "Zone-1 X1"
+      y1:
+        name: "Zone-1 Y1"
+      x2:
+        name: "Zone-1 X2"
+      y2:
+        name: "Zone-1 Y2"
+    zone_2:
+      x1:
+        name: "Zone-2 X1"
+      y1:
+        name: "Zone-2 Y1"
+      x2:
+        name: "Zone-2 X2"
+      y2:
+        name: "Zone-2 Y2"
+    zone_3:
+      x1:
+        name: "Zone-3 X1"
+      y1:
+        name: "Zone-3 Y1"
+      x2:
+        name: "Zone-3 X2"
+      y2:
+        name: "Zone-3 Y2"
+
+select:
+  - platform: ld2450
+    ld2450_id: ld2450_radar
+    # baud_rate:
+    #   name: "Baud rate"
+    zone_type:
+      name: "Zone Type"
