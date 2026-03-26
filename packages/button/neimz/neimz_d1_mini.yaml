@@ -1,0 +1,62 @@
+esp8266:
+  board: d1_mini
+
+text_sensor:
+  - platform: template
+    name: "Button Action"
+    id: button_action_sensor
+    icon: "mdi:gesture-tap"
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: D2
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    name: "Button"
+    filters:
+      - delayed_on: 20ms
+      - delayed_off: 20ms
+      
+    # 🌟 추가된 부분: 버튼이 눌리는 즉시 상태를 "Pressed"로 변경
+    on_press:
+      - text_sensor.template.publish:
+          id: button_action_sensor
+          state: "Pressed"
+          
+    on_multi_click:
+      # 1. 더블 클릭
+      - timing:
+          - ON for at most 0.25s
+          - OFF for at most 0.25s
+          - ON for at most 0.25s
+          - OFF for at least 0.2s
+        then:
+          - logger.log: "👉 더블 클릭 감지!"
+          - text_sensor.template.publish:
+              id: button_action_sensor
+              state: "Double Click"
+          # Idle 복귀 로직 삭제됨 (마지막 상태 유지)
+
+      # 2. 싱글 클릭
+      - timing:
+          - ON for at most 0.25s
+          - OFF for at least 0.3s
+        then:
+          - logger.log: "👉 싱글 클릭 감지!"
+          - text_sensor.template.publish:
+              id: button_action_sensor
+              state: "Single Click"
+          # Idle 복귀 로직 삭제됨
+
+      # 3. 홀드 (Hold)
+      - timing:
+          - ON for at least 0.8s
+        then:
+          - logger.log: "👉 홀드 (길게 누르기) 감지!"
+          - text_sensor.template.publish:
+              id: button_action_sensor
+              state: "Hold"
+          # Idle 복귀 로직 삭제됨
