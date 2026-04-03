@@ -135,6 +135,8 @@ script:
                 timeout: 5s
             - delay: 1000ms
             - button.press: door_open_common
+            #- lambda: id(id_door_bell_common).publish_state(false);
+            - lambda: id(door_bell_common).publish_state(false);
 
   - id: open_door_sequence
     then:
