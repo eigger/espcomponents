@@ -1,21 +1,82 @@
 esphome:
+  name: "${name}"
+  friendly_name: "${friendly_name}"
   on_boot:
     - script.execute:
         id: script_logs
         log: ${version}
-    - delay: 10s
+    - script.execute:
+        id: script_splash_fade_in
+    - lvgl.label.update:
+        id: lbl_splash_status
+        text: "Initializing systems..."
+    - lvgl.bar.update:
+        id: bar_splash_progress
+        value: 15
+    - delay: 1500ms
+    - lvgl.label.update:
+        id: lbl_splash_status
+        text: "Connecting network..."
+    - lvgl.bar.update:
+        id: bar_splash_progress
+        value: 45
+    - delay: 1500ms
+    - lvgl.label.update:
+        id: lbl_splash_status
+        text: "Loading dashboard..."
+    - lvgl.bar.update:
+        id: bar_splash_progress
+        value: 80
+    - delay: 900ms
+    - lvgl.label.update:
+        id: lbl_splash_status
+        text: "Ready"
+    - lvgl.bar.update:
+        id: bar_splash_progress
+        value: 100
+    - delay: 500ms
+    - script.execute:
+        id: script_splash_fade_out
     - lvgl.widget.hide:
         id: obj_splash
     - lvgl.widget.show:
-        id: info_stack
-    - lvgl.widget.show:
-        id: obj_info
-    # - lvgl.widget.show:
-    #     id: obj_log
+        id: obj_header
+    - lvgl.page.show:
+        id: main_page
+        animation: FADE_IN
+        time: 500ms
+    - lvgl.label.update:
+        id: lbl_number
+        text: ${number}
+    - lvgl.label.update:
+        id: lbl_version
+        text: ${version}
     - light.turn_on:
         id: backlight
         brightness: 40%
-    
+
+logger:
+  level: NONE
+
+ota:
+  platform: esphome
+  password: !secret ota_password
+
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: Asia/Seoul
+    servers:
+      - 0.pool.ntp.org
+      - 1.pool.ntp.org
+      - 2.pool.ntp.org
+    on_time_sync:
+      then:
+        - lvgl.widget.show:
+            id: lbl_date
+        - lvgl.widget.show:
+            id: lbl_time
+
 esp32:
   board: esp32-p4-evboard
   flash_size: 16MB
@@ -23,7 +84,7 @@ esp32:
     type: esp-idf
     advanced:
       enable_idf_experimental_features: true
-      
+
 api:
   batch_delay: 1s
   reboot_timeout: 0s
@@ -40,56 +101,82 @@ esp32_hosted:
   reset_pin: GPIO15
   slot: 1
 
-ota:
-
 wifi:
-  on_connect: 
+  ssid: !secret colorado_wifi_ssid
+  password: !secret colorado_wifi_password
+  reboot_timeout: 0s
+  use_address: !secret colorado_wg_address
+  fast_connect: true
+  on_connect:
     then:
       - lambda: id(script_logs).execute("Wifi Connected");
       - lvgl.widget.show:
           id: lbl_wifi
-
-  on_disconnect: 
+  on_disconnect:
     then:
       - lambda: id(script_logs).execute("Wifi Disconnected");
       - lvgl.widget.hide:
           id: lbl_wifi
 
-time:
-  - platform: sntp
-    on_time_sync: 
+wireguard:
+  address: !secret colorado_wg_address
+  private_key: !secret colorado_wg_private_key
+  peer_endpoint: !secret wg_peer_endpoint
+  peer_public_key: !secret colorado_wg_peer_public_key
+  peer_allowed_ips:
+    - 192.168.0.0/16
+  netmask: 255.255.0.0
+
+external_components:
+  - source: github://eigger/espcomponents@latest
+    components: [ jaalee_jht ]
+    refresh: 1h
+
+esp32_ble_tracker:
+  on_ble_manufacturer_data_advertise:
+    - manufacturer_id: 035D
+      then:
+        - lambda: |-
+            std::string hex_string;
+            for (auto b : x) {
+              char buf[4];
+              sprintf(buf, "%02X ", b);
+              hex_string += buf;
+            }
+            id(script_logs).execute(hex_string);
+            id(manufacturer_data).publish_state(hex_string);
+            if (x.size() != 14) return;
+            char buf[20];
+            sprintf(buf, "%02d-%02d %02d:%02d B%d %c%c", x[7], x[8], x[9], x[10], 0xFF - x[11] + 1, x[12], x[13]);
+            std::string info = std::string(buf);
+            id(parking_info).publish_state(info);
+
+ble_client:
+  - mac_address: ${mac_vlinker}
+    id: vlinker
+    name: vLinker
+    on_connect:
       then:
         - lvgl.widget.show:
-            id: lbl_date
-        - lvgl.widget.show:
-            id: lbl_time
-        
-external_components:
-  - source: github://eigger/espcomponents@dev
-    components: [ jaalee_jht ]
-    refresh: 1h  
-  # - source: github://patrick3399/esphome_components
-  #   components: [ bmi270 ]
-  #   refresh: 1h  
-
-udp:
-  on_receive:
-    then: 
-      - lambda: |- 
-          std::string str(data.begin(), data.end());
-          size_t separator = str.find(':');
-          if (separator != std::string::npos)
-          {
-            std::string key = str.substr(0, separator);
-            std::string value = str.substr(separator + 1);
-            if (key == "version") id(script_logs).execute("Atom Version:" + value);
-            else if (key == "parking") id(parking_info).publish_state(value);
-          }
-
-
-packet_transport:
-  - platform: udp
-    update_interval: 1s
+            id: lbl_bluetooth
+        - lambda: id(script_ble_write).execute("ATZ");
+        - delay: 100ms
+        - lambda: id(script_ble_write).execute("ATE0");
+        - delay: 100ms
+        - lambda: id(script_ble_write).execute("ATL0");
+        - delay: 100ms
+        - lambda: id(script_ble_write).execute("ATS0");
+        - delay: 100ms
+        - lambda: id(script_ble_write).execute("ATH0");
+        - delay: 100ms
+        - lambda: id(script_ble_write).execute("ATSP6");
+        - delay: 100ms
+        - lambda: id(odb_init) = true;
+    on_disconnect:
+      then:
+        - lambda: id(odb_init) = false;
+        - lvgl.widget.hide:
+            id: lbl_bluetooth
 
 psram:
   mode: hex
@@ -100,7 +187,6 @@ i2c:
     sda: GPIO31
     scl: GPIO32
     frequency: 400kHz
-
   - id: ext_bus
     sda: GPIO53
     scl: GPIO54
@@ -109,33 +195,98 @@ pi4ioe5v6408:
   - id: pi4ioe1
     i2c_id: bsp_bus
     address: 0x43
-    # 0: O - wifi_antenna_int_ext
-    # 1: O - speaker_enable
-    # 2: O - external_5v_power
-    # 3: NC
-    # 4: O - lcd reset
-    # 5: O - touch panel reset
-    # 6: O - camera reset
-    # 7: I - headphone detect
   - id: pi4ioe2
     i2c_id: bsp_bus
     address: 0x44
-    # 0: O - wifi_power
-    # 1: NC
-    # 2: NC
-    # 3: O - usb_5v_power
-    # 4: O - poweroff pulse
-    # 5: O - quick charge enable (inverted)
-    # 6: I - charging status
-    # 7: O - charge enable
 
 globals:
+  - id: odb_init
+    type: bool
+    initial_value: 'false'
+  - id: obd_cmd_index
+    type: int
+    initial_value: '0'
+  - id: alert_dismissed
+    type: bool
+    initial_value: 'false'
+  - id: alert_active
+    type: bool
+    initial_value: 'false'
   - id: g_logs
     type: std::vector<std::string>
     restore_value: no
     initial_value: ''
+  # ── 텍스트 색상 함수 (버그 수정: mode 8/10 분리)
+  - id: fn_state_color
+    type: "std::function<lv_color_t(float, int)>"
+    initial_value: |-
+      [](float val, int mode) -> lv_color_t {
+         lv_color_t c_gray   = lv_color_hex(0x7F8EA3);
+         // 대시보드 톤(회청·골드 악센트)에 맞춘 뮤트 팔레트 — 순색 피함
+         lv_color_t c_blue   = lv_color_hex(0x7A9DB8);
+         lv_color_t c_white  = lv_color_hex(0xFFFFFF);
+         lv_color_t c_yellow = lv_color_hex(0xF1C36C);
+         lv_color_t c_red    = lv_color_hex(0xC85850);
+         lv_color_t c_orange = lv_color_hex(0xD9A060);
 
+         if (isnan(val)) return c_gray;
+
+         if (mode == 1 || mode == 2) { // 일반/실내 온도
+           if (val < 5)  return c_blue;
+           else if (val < 70) return c_white;
+           else if (val < 95) return c_yellow;
+           return c_red;
+         } else if (mode == 3) { // 습도
+           if (val < 30) return c_yellow;
+           else if (val < 70) return c_white;
+           return c_blue;
+         } else if (mode == 5) { // 냉각수
+           if (val < 60)  return c_blue;
+           else if (val < 95) return c_white;
+           else if (val < 110) return c_yellow;
+           return c_red;
+         } else if (mode == 6) { // 연료 (정상=골드, 예전 아크 F1C36C 와 통일)
+           if (val > 30) return c_yellow;
+           else if (val > 15) return c_orange;
+           return c_red;
+         } else if (mode == 7) { // 배터리
+           if (val < 12.0) return c_red;
+           else if (val < 12.5) return c_yellow;
+           else if (val < 14.8) return c_white;
+           return c_red;
+         } else if (mode == 8) { // RPM
+           if (val > 3500) return c_red;
+           else if (val > 2500) return c_orange;
+           return c_yellow;
+         } else if (mode == 9) { // 엔진 부하 %
+           if (val > 95) return c_red;
+           else if (val > 75) return c_orange;
+           return c_yellow;
+         } else if (mode == 10) { // Speed (분리 수정)
+           if (val > 120) return c_red;
+           else if (val > 100) return c_yellow;
+           return c_white;
+         } else if (mode == 11) { // 운행시간 (초): 10분 미만 파랑, 10분~1시간 흰, 1~2시간 주황, 2시간+ 빨강
+           if (val < 600) return c_blue;
+           if (val < 3600) return c_white;
+           if (val < 7200) return c_orange;
+           return c_red;
+         } else if (mode == 12) { // TVOC
+           if (val > 3333) return c_red;
+           else if (val > 1000) return c_yellow;
+           return c_white;
+         } else if (mode == 13) { // CO2
+           if (val > 2000) return c_red;
+           else if (val > 1000) return c_yellow;
+           return c_white;
+         }
+         return c_white;
+      }
 switch:
+  - platform: restart
+    name: "Restart"
+  - platform: safe_mode
+    name: "Restart Safemode"
   - platform: gpio
     id: wifi_power
     name: "WiFi Power"
@@ -149,7 +300,6 @@ switch:
     pin:
       pi4ioe5v6408: pi4ioe2
       number: 3
-    restore_mode: ALWAYS_ON
   - platform: gpio
     id: quick_charge
     name: "Quick Charge"
@@ -163,7 +313,7 @@ switch:
     pin:
       pi4ioe5v6408: pi4ioe2
       number: 7
-
+    restore_mode: ALWAYS_OFF
   - platform: gpio
     id: wifi_antenna_int_ext
     pin:
@@ -175,7 +325,7 @@ switch:
     pin:
       pi4ioe5v6408: pi4ioe1
       number: 1
-    restore_mode: ALWAYS_ON
+    restore_mode: ALWAYS_OFF
   - platform: gpio
     id: external_5v_power
     name: "External 5V Power"
@@ -185,6 +335,21 @@ switch:
     restore_mode: ALWAYS_ON
 
 binary_sensor:
+  - platform: status
+    name: "Status"
+  - platform: wireguard
+    status:
+      name: 'WireGuard Status'
+      on_press:
+        then:
+          - lambda: id(script_logs).execute("VPN Connected");
+          - lvgl.widget.show:
+              id: lbl_vpn
+      on_release:
+        then:
+          - lambda: id(script_logs).execute("VPN Disconnected");
+          - lvgl.widget.hide:
+              id: lbl_vpn
   - platform: gpio
     id: charging
     name: "Charging Status"
@@ -192,7 +357,6 @@ binary_sensor:
       pi4ioe5v6408: pi4ioe2
       number: 6
       mode: INPUT_PULLDOWN
-
   - platform: gpio
     id: headphone_detect
     name: "Headphone Detect"
@@ -200,20 +364,6 @@ binary_sensor:
       pi4ioe5v6408: pi4ioe1
       number: 7
 
-  - platform: packet_transport
-    provider: ${provider}
-    id: "id_ble_connectivity"
-    on_press:
-      then:
-        - lambda: id(script_logs).execute("vLinker Connected");
-        - lvgl.widget.show:
-            id: lbl_bluetooth
-    on_release:
-      then:
-        - lambda: id(script_logs).execute("vLinker Disconnected");
-        - lvgl.widget.hide:
-            id: lbl_bluetooth
-            
 select:
   - platform: template
     id: wifi_antenna_select
@@ -230,13 +380,35 @@ select:
             - switch.turn_off: wifi_antenna_int_ext
           else:
             - switch.turn_on: wifi_antenna_int_ext
-  - platform: es8388
-    dac_output:
-      name: DAC Output
-    adc_input_mic:
-      name: ADC Input Mic
 
 sensor:
+  - platform: uptime
+    name: "Uptime"
+    type: timestamp
+  - platform: wifi_signal
+    name: "WiFi signal"
+    icon: mdi:wifi-arrow-up-down
+    update_interval: 60s
+    internal: true
+    id: wifi_sig
+    filters:
+      - sliding_window_moving_average:
+          window_size: 15
+          send_every: 15
+  - platform: template
+    name: "WiFi Quality"
+    icon: "mdi:wifi"
+    update_interval: 60s
+    unit_of_measurement: '%'
+    entity_category: "diagnostic"
+    state_class: measurement
+    accuracy_decimals: 0
+    lambda: !lambda |-
+      float dBm = id(wifi_sig).state;
+      if (isnan(dBm)) return -1;
+      if (dBm <= -100) return 0;
+      if (dBm >= -50) return 100;
+      return round(2 * (dBm + 100));
   - platform: ina226
     i2c_id: bsp_bus
     address: 0x41
@@ -247,34 +419,6 @@ sensor:
       name: Battery Voltage
     current:
       name: Battery Current
-      # Positive means discharging
-      # Negative means charging
-  # - platform: bmi270
-  #   address: 0x68
-  #   accel_x:
-  #     name: "BMI270 Accel X"
-  #     internal: True
-  #   accel_y:
-  #     name: "BMI270 Accel Y"
-  #     internal: True
-  #   accel_z:
-  #     name: "BMI270 Accel Z"
-  #     internal: True
-  #   gyro_x:
-  #     name: "BMI270 Gyro X"
-  #     internal: True
-  #   gyro_y:
-  #     name: "BMI270 Gyro Y"
-  #     internal: True
-  #   gyro_z:
-  #     name: "BMI270 Gyro Z"
-  #     internal: True
-  #   temperature:
-  #     name: "BMI270 Temperature"
-  #     internal: True
-  #   power_save_mode: NORMAL # OR NORMAL LOW_POWER
-  #   update_interval: 1s
-
   - platform: internal_temperature
     name: "Internal Temperature"
     id: "id_tab5_internal_temperature"
@@ -291,483 +435,221 @@ sensor:
         - lvgl.label.update:
             id: lbl_tab5_temperature
             text: !lambda |-
-              char buf[5];
-              sprintf(buf, "%.1f", x);
-              return std::string(buf);
-        - lvgl.widget.update:
-            id: obj_tab5_temperature
-            bg_color: !lambda |-
-              if (isnan(x)) return lv_color_hex(0x222222);
-              else if (x < 1) return lv_color_hex(0x0A1A80);
-              else if (x < 26) return lv_color_hex(0x0a43f0);
-              else if (x < 50) return lv_color_hex(0x0ABF35);
-              else if (x < 70) return lv_color_hex(0xF06A0A);
-              return lv_color_hex(0xF0100A);
-
-  - platform: packet_transport
-    provider: ${provider}
-    id: "id_internal_temperature"
-    on_value:
-      then:
-        - lvgl.label.update:
-            id: lbl_atom_temperature
-            text: !lambda |-
-              char buf[5];
-              sprintf(buf, "%.1f", x);
-              return std::string(buf);
-        - lvgl.widget.update:
-            id: obj_atom_temperature
-            bg_color: !lambda |-
-              if (isnan(x)) return lv_color_hex(0x222222);
-              else if (x < 1) return lv_color_hex(0x0A1A80);
-              else if (x < 26) return lv_color_hex(0x0a43f0);
-              else if (x < 50) return lv_color_hex(0x0ABF35);
-              else if (x < 70) return lv_color_hex(0xF06A0A);
-              return lv_color_hex(0xF0100A);
+              if (isnan(x)) return std::string("--");
+              char buf[10]; snprintf(buf, sizeof(buf), "%.1f", x); return std::string(buf);
+            text_color: !lambda return id(fn_state_color)(x, 1);
+  - platform: jaalee_jht
+    mac_address: ${mac_cabin_jht}
+    temperature:
+      id: "id_cabin_temperature"
+      name: "Cabin Temperature"
+      on_value:
+        then:
+          - lvgl.label.update:
+              id: lbl_cabin_temperature
+              text: !lambda |-
+                if (isnan(x)) return std::string("--");
+                char buf[10]; snprintf(buf, sizeof(buf), "%.1f", x); return std::string(buf);
+              text_color: !lambda return id(fn_state_color)(x, 2);
+    humidity:
+      id: "id_cabin_humidity"
+      name: "Cabin Humidity"
+      on_value:
+        then:
+          - lvgl.label.update:
+              id: lbl_cabin_humidity
+              text: !lambda |-
+                if (isnan(x)) return std::string("--");
+                char buf[10]; snprintf(buf, sizeof(buf), "%.1f", x); return std::string(buf);
+              text_color: !lambda return id(fn_state_color)(x, 3);
+    battery_level:
+      id: "id_cabin_battery_level"
+      name: "Cabin Battery Level"
+      internal: true
+  - platform: jaalee_jht
+    mac_address: ${mac_bed_jht}
+    temperature:
+      id: "id_bed_temperature"
+      name: "Bed Temperature"
+      on_value:
+        then:
+          - lvgl.label.update:
+              id: lbl_bed_temperature
+              text: !lambda |-
+                if (isnan(x)) return std::string("--");
+                char buf[10]; snprintf(buf, sizeof(buf), "%.1f", x); return std::string(buf);
+              text_color: !lambda return id(fn_state_color)(x, 2);
+    humidity:
+      id: "id_bed_humidity"
+      name: "Bed Humidity"
+      on_value:
+        then:
+          - lvgl.label.update:
+              id: lbl_bed_humidity
+              text: !lambda |-
+                if (isnan(x)) return std::string("--");
+                char buf[10]; snprintf(buf, sizeof(buf), "%.1f", x); return std::string(buf);
+              text_color: !lambda return id(fn_state_color)(x, 3);
+    battery_level:
+      id: "id_bed_battery_level"
+      name: "Bed Battery Level"
+      internal: true
   - platform: template
-    name: "Atom Internal Temperature"
-    state_class: "measurement"
-    device_class: "temperature"
-    update_interval: 1min
-    lambda: return id(id_internal_temperature).state;
-
-  - platform: packet_transport
-    provider: ${provider}
-    id: "id_cabin_temperature"
-    on_value:
-      then:
-        - lvgl.label.update:
-            id: lbl_cabin_temperature
-            text: !lambda |-
-              char buf[5];
-              sprintf(buf, "%.1f", x);
-              return std::string(buf);
-        - lvgl.widget.update:
-            id: obj_cabin_temperature
-            bg_color: !lambda |-
-              if (isnan(x)) return lv_color_hex(0x222222);
-              else if (x < 1) return lv_color_hex(0x0A1A80);
-              else if (x < 20) return lv_color_hex(0x0a43f0);
-              else if (x < 26) return lv_color_hex(0x0ABF35);
-              else if (x < 31) return lv_color_hex(0xF06A0A);
-              return lv_color_hex(0xF0100A);
-  - platform: template
-    name: "Cabin Temperature"
-    state_class: "measurement"
-    device_class: "temperature"
-    update_interval: 1min
-    lambda: return id(id_cabin_temperature).state;
-
-  - platform: packet_transport
-    provider: ${provider}
-    id: "id_cabin_humidity"
-    on_value:
-      then:
-        - lvgl.label.update:
-            id: lbl_cabin_humidity
-            text: !lambda |-
-              char buf[5];
-              sprintf(buf, "%.1f", x);
-              return std::string(buf);
-        - lvgl.widget.update:
-            id: obj_cabin_humidity
-            bg_color: !lambda |-
-              if (isnan(x)) return lv_color_hex(0x222222);
-              else if (x < 21) return lv_color_hex(0xF0100A);
-              else if (x < 41) return lv_color_hex(0xF06A0A);
-              else if (x < 61) return lv_color_hex(0x0ABF35);
-              else if (x < 81) return lv_color_hex(0x0a43f0);
-              return lv_color_hex(0x0A1A80);
-  - platform: template
-    name: "Cabin Humidity"
-    state_class: "measurement"
-    device_class: "humidity"
-    update_interval: 1min
-    lambda: return id(id_cabin_humidity).state;
-
-  - platform: packet_transport
-    provider: ${provider}
-    id: "id_bed_temperature"
-    on_value:
-      then:
-        - lvgl.label.update:
-            id: lbl_bed_temperature
-            text: !lambda |-
-              char buf[5];
-              sprintf(buf, "%.1f", x);
-              return std::string(buf);
-        - lvgl.widget.update:
-            id: obj_bed_temperature
-            bg_color: !lambda |-
-              if (isnan(x)) return lv_color_hex(0x222222);
-              else if (x < 1) return lv_color_hex(0x0A1A80);
-              else if (x < 20) return lv_color_hex(0x0a43f0);
-              else if (x < 26) return lv_color_hex(0x0ABF35);
-              else if (x < 31) return lv_color_hex(0xF06A0A);
-              return lv_color_hex(0xF0100A);
-  - platform: template
-    name: "Bed Temperature"
-    state_class: "measurement"
-    device_class: "temperature"
-    update_interval: 1min
-    lambda: return id(id_bed_temperature).state;
-
-  - platform: packet_transport
-    provider: ${provider}
-    id: "id_bed_humidity"
-    on_value:
-      then:
-        - lvgl.label.update:
-            id: lbl_bed_humidity
-            text: !lambda |-
-              char buf[5];
-              sprintf(buf, "%.1f", x);
-              return std::string(buf);
-        - lvgl.widget.update:
-            id: obj_bed_humidity
-            bg_color: !lambda |-
-              if (isnan(x)) return lv_color_hex(0x222222);
-              else if (x < 21) return lv_color_hex(0xF0100A);
-              else if (x < 41) return lv_color_hex(0xF06A0A);
-              else if (x < 61) return lv_color_hex(0x0ABF35);
-              else if (x < 81) return lv_color_hex(0x0a43f0);
-              return lv_color_hex(0x0A1A80);
-  - platform: template
-    name: "Bed Humidity"
-    state_class: "measurement"
-    device_class: "humidity"
-    update_interval: 1min
-    lambda: return id(id_bed_humidity).state;
-
-  - platform: template
-    name: "Run Time"
+    id: "engine_run_time"
+    name: "Engine Run Time"
     icon: mdi:clock-outline
     state_class: "measurement"
-    unit_of_measurement: "min"
+    unit_of_measurement: "sec"
     accuracy_decimals: 0
-    update_interval: 1s
-    lambda: |-
-      unsigned long seconds = millis() / 1000;
-      int minutes = seconds / 60;
-      return minutes;
-    # on_value: 
-    #   then:
-    #     - lvgl.widget.update:
-    #         id: obj_run_time
-    #         bg_color: !lambda |-
-    #           if (isnan(x)) return lv_color_hex(0x222222);
-    #           else if (x < 1) return lv_color_hex(0x0A1A80);
-    #           else if (x < 10) return lv_color_hex(0x0a43f0);
-    #           else if (x < 60) return lv_color_hex(0x0ABF35);
-    #           else if (x < 120) return lv_color_hex(0xF06A0A);
-    #           return lv_color_hex(0xF0100A);
-
-  - platform: packet_transport
-    provider: ${provider}
-    id: "engine_run_time"
-    on_value: 
-      then:
-        - lvgl.widget.show:
-            id: lbl_bluetooth
-        - lvgl.widget.update:
-            id: obj_engine_run_time
-            bg_color: !lambda |-
-              if (isnan(x)) return lv_color_hex(0x222222);
-              else if (x / 60 < 1) return lv_color_hex(0x0A1A80);
-              else if (x / 60 < 10) return lv_color_hex(0x0a43f0);
-              else if (x / 60 < 60) return lv_color_hex(0x0ABF35);
-              else if (x / 60 < 120) return lv_color_hex(0xF06A0A);
-              return lv_color_hex(0xF0100A); 
+    update_interval: never
   - platform: template
-    name: "Engine Run Time"
-    icon: mdi:timelapse
-    state_class: "measurement"
-    unit_of_measurement: min
-    accuracy_decimals: 0
-    update_interval: 1min
-    lambda: return id(engine_run_time).state / 60; 
-
-  - platform: packet_transport
-    provider: ${provider}
     id: "engine_coolant_temperature"
-    # filters:
-    #   # 순간 스파이크 제거
-    #   - median:
-    #       window_size: 9
-    #       send_every: 3
-    #       send_first_at: 1
-    #   # 지수이동평균(부드럽게)
-    #   - exponential_moving_average:
-    #       alpha: 0.2      # 0.1~0.3 권장
-    #       send_every: 1
-    #   # 미세 떨림 무시
-    #   - delta: 0.3        # 0.3°C 이하 변화 무시
-    #   - throttle: 15s
-    on_value: 
-      then:
-        - lvgl.label.update:
-            id: lbl_engine_coolant_temperature
-            text: !lambda |-
-              char buf[5];
-              sprintf(buf, "%.1f", x);
-              return std::string(buf);
-        - lvgl.widget.update:
-            id: obj_engine_coolant_temperature
-            bg_color: !lambda |-
-              if (isnan(x)) return lv_color_hex(0x2A2A2A);
-              else if (x < 70) return lv_color_hex(0x0A1A80);
-              else if (x < 80) return lv_color_hex(0x0a43f0);
-              else if (x < 95) return lv_color_hex(0x0ABF35);
-              else if (x < 105) return lv_color_hex(0xF06A0A);
-              return lv_color_hex(0xF0100A);
-  - platform: template
     name: "Engine Coolant Temperature"
     icon: mdi:coolant-temperature
     state_class: "measurement"
     device_class: "temperature"
-    update_interval: 1min
-    lambda: return id(engine_coolant_temperature).state;
-
-  - platform: packet_transport
-    provider: ${provider}
-    id: "fuel_level"
-    icon: mdi:gas-station
-    state_class: "measurement"
-    unit_of_measurement: "%"
-    filters:
-      # 순간 스파이크 제거
-      - median:
-          window_size: 11
-          send_every: 5
-          send_first_at: 1
-      # 부드럽게
-      - exponential_moving_average:
-          alpha: 0.1      # 연료 게이지는 천천히 변하는 편
-          send_every: 1
-      # 미세 떨림 무시
-      - delta: 0.5        # 0.5% 이하 변화 무시
-      # 15초 평균/출력
-      - throttle: 5min
-    on_value: 
+    update_interval: never
+    on_value:
       then:
         - lvgl.label.update:
-            id: lbl_fuel_level
+            id: lbl_engine_coolant_temperature
             text: !lambda |-
-              char buf[5];
-              sprintf(buf, "%.0f", x);
-              return std::string(buf);
-        - lvgl.widget.update:
-            id: obj_fuel_level
-            bg_color: !lambda |-
-              if (isnan(x)) return lv_color_hex(0x2A2A2A);
-              //else if (x > 80) return lv_color_hex(0x0A1A80);
-              //else if (x > 60) return lv_color_hex(0x0a43f0);
-              else if (x > 50) return lv_color_hex(0x0ABF35);
-              else if (x > 15) return lv_color_hex(0xF06A0A);
-              return lv_color_hex(0xF0100A);
+              if (isnan(x)) return std::string("--");
+              char buf[10]; snprintf(buf, sizeof(buf), "%.0f", x); return std::string(buf);
+            text_color: !lambda return id(fn_state_color)(x, 5);
   - platform: template
+    id: "fuel_level"
     name: "Fuel Level"
     icon: mdi:gas-station
     state_class: "measurement"
     unit_of_measurement: "%"
-    update_interval: 1min
-    lambda: return id(fuel_level).state;
-
-  - platform: packet_transport
-    provider: ${provider}
+    update_interval: never
+    filters:
+      - median:
+          window_size: 11
+          send_every: 5
+          send_first_at: 1
+      - exponential_moving_average:
+          alpha: 0.1
+          send_every: 1
+      - delta: 0.5
+      - throttle: 5min
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: lbl_fuel_level
+            text: !lambda |-
+              if (isnan(x)) return std::string("--");
+              char buf[10]; snprintf(buf, sizeof(buf), "%.0f", x); return std::string(buf);
+            text_color: !lambda return id(fn_state_color)(x, 6);
+        - lvgl.arc.update:
+            id: arc_fuel
+            value: !lambda return (int)x;
+        - lvgl.widget.update:
+            id: arc_fuel
+            indicator:
+              arc_color: !lambda return id(fn_state_color)(x, 6);
+              arc_width: 12
+  - platform: template
     id: "ambient_air_temperature"
-    # filters:
-    #   - median:
-    #       window_size: 9
-    #       send_every: 3
-    #       send_first_at: 1
-    #   - exponential_moving_average:
-    #       alpha: 0.2
-    #       send_every: 1
-    #   - delta: 0.3
-    #   - throttle: 15s
-    on_value: 
+    name: "Ambient Air Temperature"
+    icon: mdi:thermometer
+    state_class: "measurement"
+    device_class: "temperature"
+    update_interval: never
+    on_value:
       then:
         - lvgl.label.update:
             id: lbl_ambient_air_temperature
             text: !lambda |-
-              char buf[5];
-              sprintf(buf, "%.1f", x);
-              return std::string(buf);
-        - lvgl.widget.update:
-            id: obj_ambient_air_temperature
-            bg_color: !lambda |-
-              if (isnan(x)) return lv_color_hex(0x222222);
-              else if (x < 1) return lv_color_hex(0x0A1A80);
-              else if (x < 20) return lv_color_hex(0x0a43f0);
-              else if (x < 26) return lv_color_hex(0x0ABF35);
-              else if (x < 31) return lv_color_hex(0xF06A0A);
-              return lv_color_hex(0xF0100A); 
+              if (isnan(x)) return std::string("--");
+              char buf[10]; snprintf(buf, sizeof(buf), "%.1f", x); return std::string(buf);
+            text_color: !lambda return id(fn_state_color)(x, 2);
   - platform: template
-    name: "Ambient Air Temperature"
-    state_class: "measurement"
-    device_class: "temperature"
-    update_interval: 1min
-    lambda: return id(ambient_air_temperature).state;             
-
-  - platform: packet_transport
-    provider: ${provider}
     id: "car_battery"
-    # filters:
-    #   - median:
-    #       window_size: 9
-    #       send_every: 3
-    #       send_first_at: 1
-    #   - exponential_moving_average:
-    #       alpha: 0.2
-    #       send_every: 1
-    #   - delta: 0.05
-    #   - throttle: 15s
-    on_value: 
-      then:
-        - lvgl.label.update:
-            id: lbl_car_battery
-            text: !lambda |-
-              char buf[5];
-              sprintf(buf, "%.1f", x);
-              return std::string(buf);
-        - lvgl.widget.update:
-            id: obj_car_battery
-            bg_color: !lambda |-
-              if (isnan(x)) return lv_color_hex(0x222222);
-              else if (x < 12.5) return lv_color_hex(0x0A1A80);
-              else if (x < 13) return lv_color_hex(0x0a43f0);
-              else if (x < 14.5) return lv_color_hex(0x0ABF35);
-              else if (x < 15) return lv_color_hex(0xF06A0A);
-              return lv_color_hex(0xF0100A);     
-  - platform: template
     name: "Car Battery"
     icon: mdi:car-battery
     state_class: "measurement"
     device_class: "voltage"
-    update_interval: 1min
-    lambda: return id(car_battery).state;   
-
-  - platform: packet_transport
-    provider: ${provider}
-    id: "engine_rpm"
-    on_value: 
+    update_interval: never
+    on_value:
       then:
         - lvgl.label.update:
-            id: lbl_engine_rpm
+            id: lbl_car_battery
             text: !lambda |-
-              char buf[5];
-              sprintf(buf, "%.0f", x);
-              return std::string(buf);
-        - lvgl.widget.update:
-            id: obj_engine_rpm
-            bg_color: !lambda |-
-              if (isnan(x)) return lv_color_hex(0x222222);
-              else if (x < 1000) return lv_color_hex(0x0A1A80);
-              else if (x < 1500) return lv_color_hex(0x0a43f0);
-              else if (x < 2000) return lv_color_hex(0x0ABF35);
-              else if (x < 2500) return lv_color_hex(0xF06A0A);
-              return lv_color_hex(0xF0100A); 
+              if (isnan(x)) return std::string("--");
+              char buf[10]; snprintf(buf, sizeof(buf), "%.1f", x); return std::string(buf);
+            text_color: !lambda return id(fn_state_color)(x, 7);
   - platform: template
+    id: "engine_rpm"
     name: "Engine RPM"
     icon: mdi:cog-clockwise
     state_class: "measurement"
     unit_of_measurement: rpm
-    update_interval: 1s
-    lambda: return id(engine_rpm).state;   
-
-  - platform: packet_transport
-    provider: ${provider}
-    id: "engine_load"
-    on_value: 
+    update_interval: never
+    on_value:
       then:
         - lvgl.label.update:
-            id: lbl_engine_load
+            id: lbl_engine_rpm
             text: !lambda |-
-              char buf[5];
-              sprintf(buf, "%.0f", x);
-              return std::string(buf);
+              if (isnan(x)) return std::string("--");
+              char buf[10]; snprintf(buf, sizeof(buf), "%.0f", x); return std::string(buf);
+            text_color: !lambda return id(fn_state_color)(x, 8);
+        - lvgl.arc.update:
+            id: arc_rpm
+            value: !lambda return (int)x;
         - lvgl.widget.update:
-            id: obj_engine_load
-            bg_color: !lambda |-
-              if (isnan(x)) return lv_color_hex(0x222222);
-              else if (x < 20) return lv_color_hex(0x0A1A80);
-              else if (x < 40) return lv_color_hex(0x0a43f0);
-              else if (x < 60) return lv_color_hex(0x0ABF35);
-              else if (x < 80) return lv_color_hex(0xF06A0A);
-              return lv_color_hex(0xF0100A); 
+            id: arc_rpm
+            indicator:
+              arc_color: !lambda return id(fn_state_color)(x, 8);
+              arc_width: 10
   - platform: template
+    id: "engine_load"
     name: "Engine Load"
     icon: mdi:engine
     state_class: "measurement"
     unit_of_measurement: "%"
-    update_interval: 1s
-    lambda: return id(engine_load).state;   
-
-  - platform: packet_transport
-    provider: ${provider}
-    id: "car_speed"
-    on_value: 
+    update_interval: never
+    on_value:
       then:
         - lvgl.label.update:
-            id: lbl_car_speed
+            id: lbl_engine_load_left
             text: !lambda |-
-              char buf[5];
-              sprintf(buf, "%.0f", x);
-              return std::string(buf);
-        - lvgl.label.update:
-            id: lbl_speed
-            text: !lambda |-
-              char buf[5];
-              sprintf(buf, "%02d", (int)x);
-              return std::string(buf);
+              if (isnan(x)) return std::string("--");
+              char buf[10]; snprintf(buf, sizeof(buf), "%.0f", x); return std::string(buf);
+            text_color: !lambda return id(fn_state_color)(x, 9);
+        - lvgl.arc.update:
+            id: arc_engine_load_left
+            value: !lambda return (int)x;
         - lvgl.widget.update:
-            id: obj_car_speed
-            bg_color: !lambda |-
-              if (isnan(x)) return lv_color_hex(0x222222);
-              else if (x < 30) return lv_color_hex(0x0A1A80);
-              else if (x < 60) return lv_color_hex(0x0a43f0);
-              else if (x < 90) return lv_color_hex(0x0ABF35);
-              else if (x < 120) return lv_color_hex(0xF06A0A);
-              return lv_color_hex(0xF0100A); 
+            id: arc_engine_load_left
+            indicator:
+              arc_color: !lambda return id(fn_state_color)(x, 9);
+              arc_width: 12
   - platform: template
+    id: "car_speed"
     name: "Car Speed"
     icon: mdi:speedometer
     state_class: "measurement"
     unit_of_measurement: km/h
     device_class: speed
-    update_interval: 1s
-    lambda: return id(car_speed).state; 
-
-  - platform: packet_transport
-    provider: ${provider}
-    id: "car_acceleration"
-    on_value: 
+    update_interval: never
+    on_value:
       then:
         - lvgl.label.update:
-            id: lbl_car_acceleration
+            id: lbl_speed
             text: !lambda |-
-              char buf[5];
-              sprintf(buf, "%.0f", x);
-              return std::string(buf);
-        - lvgl.widget.update:
-            id: obj_car_acceleration
-            bg_color: !lambda |-
-              if (isnan(x)) return lv_color_hex(0x222222);
-              else if (fabs(x) < 5) return lv_color_hex(0x0A1A80);
-              else if (fabs(x) < 10) return lv_color_hex(0x0a43f0);
-              else if (fabs(x) < 15) return lv_color_hex(0x0ABF35);
-              else if (fabs(x) < 20) return lv_color_hex(0xF06A0A);
-              return lv_color_hex(0xF0100A); 
+              if (isnan(x)) return std::string("0");
+              char buf[10]; snprintf(buf, sizeof(buf), "%d", (int)x); return std::string(buf);
+            text_color: !lambda return id(fn_state_color)(x, 10);
   - platform: template
+    id: "car_acceleration"
     name: "Car Acceleration"
     icon: mdi:speedometer
     state_class: "measurement"
     unit_of_measurement: km/h/s
     device_class: speed
-    update_interval: 1s
-    lambda: return id(car_acceleration).state; 
-
+    update_interval: never
   - platform: sgp30
     i2c_id: ext_bus
     update_interval: 1s
@@ -775,189 +657,162 @@ sensor:
       name: "eCO2"
       id: id_sgp30_eco2
       accuracy_decimals: 1
-      on_value: 
-        then:
-          - lvgl.label.update:
-              id: lbl_cabin_eco2
-              text: !lambda |-
-                char buf[5];
-                sprintf(buf, "%.0f", x);
-                return std::string(buf);
-          - lvgl.widget.update:
-              id: obj_cabin_eco2
-              bg_color: !lambda |-
-                if (isnan(x)) return lv_color_hex(0x222222);
-                else if (fabs(x) < 700) return lv_color_hex(0x0ABF35);
-                else if (fabs(x) < 2000) return lv_color_hex(0xF06A0A);
-                return lv_color_hex(0xF0100A); 
     tvoc:
       name: "TVOC"
       id: id_sgp30_tvoc
       accuracy_decimals: 1
-      on_value: 
+      on_value:
         then:
           - lvgl.label.update:
               id: lbl_cabin_tvoc
               text: !lambda |-
-                char buf[5];
-                sprintf(buf, "%.0f", x);
-                return std::string(buf);
-          - lvgl.widget.update:
-              id: obj_cabin_tvoc
-              bg_color: !lambda |-
-                if (isnan(x)) return lv_color_hex(0x222222);
-                else if (fabs(x) < 333) return lv_color_hex(0x0ABF35);
-                else if (fabs(x) < 3333) return lv_color_hex(0xF06A0A);
-                return lv_color_hex(0xF0100A); 
+                if (isnan(x)) return std::string("--");
+                char buf[10]; snprintf(buf, sizeof(buf), "%.0f", x); return std::string(buf);
+              text_color: !lambda return id(fn_state_color)(x, 12);
     store_baseline: yes
     address: 0x58
+  - platform: scd4x
+    i2c_id: ext_bus
+    update_interval: 1s
+    co2:
+      name: "CO2"
+      id: id_scd40_co2
+      accuracy_decimals: 1
+      on_value:
+        then:
+          - lvgl.label.update:
+              id: lbl_cabin_co2
+              text: !lambda |-
+                if (isnan(x)) return std::string("--");
+                char buf[10]; snprintf(buf, sizeof(buf), "%.0f", x); return std::string(buf);
+              text_color: !lambda return id(fn_state_color)(x, 13);
 
-  - platform: packet_transport
-    provider: ${provider}
-    id: "id_sht_temperature"
-    # on_value: 
-    #   then:
-    #     - lvgl.label.update:
-    #         id: lbl_ambient_air_temperature
-    #         text: !lambda |-
-    #           char buf[5];
-    #           sprintf(buf, "%.1f", x);
-    #           return std::string(buf);
-    #     - lvgl.widget.update:
-    #         id: obj_ambient_air_temperature
-    #         bg_color: !lambda |-
-    #           if (isnan(x)) return lv_color_hex(0x222222);
-    #           else if (x < 1) return lv_color_hex(0x0A1A80);
-    #           else if (x < 20) return lv_color_hex(0x0a43f0);
-    #           else if (x < 26) return lv_color_hex(0x0ABF35);
-    #           else if (x < 31) return lv_color_hex(0xF06A0A);
-    #           return lv_color_hex(0xF0100A); 
-  - platform: template
-    name: "SHT Temperature"
-    state_class: "measurement"
-    device_class: "temperature"
-    update_interval: 1min
-    lambda: return id(id_sht_temperature).state;
+    temperature:
+      name: "SCD Temperature"
+      id: id_scd40_temperature
+    humidity:
+      name: "SCD Humidity"
+      id: id_scd40_humidity
 
-  - platform: packet_transport
-    provider: ${provider}
-    id: "id_sht_humidity"
-    # on_value:
-    #   then:
-    #     - lvgl.label.update:
-    #         id: lbl_bed_humidity
-    #         text: !lambda |-
-    #           char buf[5];
-    #           sprintf(buf, "%.1f", x);
-    #           return std::string(buf);
-    #     - lvgl.widget.update:
-    #         id: obj_bed_humidity
-    #         bg_color: !lambda |-
-    #           if (isnan(x)) return lv_color_hex(0x222222);
-    #           else if (x < 21) return lv_color_hex(0xF0100A);
-    #           else if (x < 41) return lv_color_hex(0xF06A0A);
-    #           else if (x < 61) return lv_color_hex(0x0ABF35);
-    #           else if (x < 81) return lv_color_hex(0x0a43f0);
-    #           return lv_color_hex(0x0A1A80);
-  - platform: template
-    name: "SHT Humidity"
-    state_class: "measurement"
-    device_class: "humidity"
-    update_interval: 1min
-    lambda: return id(id_sht_humidity).state;
-
-  - platform: packet_transport
-    provider: ${provider}
-    id: "id_qmp_temperature"
-    # on_value: 
-    #   then:
-    #     - lvgl.label.update:
-    #         id: lbl_ambient_air_temperature
-    #         text: !lambda |-
-    #           char buf[5];
-    #           sprintf(buf, "%.1f", x);
-    #           return std::string(buf);
-    #     - lvgl.widget.update:
-    #         id: obj_ambient_air_temperature
-    #         bg_color: !lambda |-
-    #           if (isnan(x)) return lv_color_hex(0x222222);
-    #           else if (x < 1) return lv_color_hex(0x0A1A80);
-    #           else if (x < 20) return lv_color_hex(0x0a43f0);
-    #           else if (x < 26) return lv_color_hex(0x0ABF35);
-    #           else if (x < 31) return lv_color_hex(0xF06A0A);
-    #           return lv_color_hex(0xF0100A); 
-  - platform: template
-    name: "QMP Temperature"
-    state_class: "measurement"
-    device_class: "temperature"
-    update_interval: 1min
-    lambda: return id(id_qmp_temperature).state;
-
-  - platform: packet_transport
-    provider: ${provider}
-    id: "id_qmp_pressure"
-    on_value: 
-      then:
-        - lvgl.label.update:
-            id: lbl_cabin_pressure
-            text: !lambda |-
-              char buf[5];
-              sprintf(buf, "%.0f", x);
-              return std::string(buf);
-        - lvgl.widget.update:
-            id: obj_cabin_pressure
-            bg_color: !lambda |-
-              if (isnan(x)) return lv_color_hex(0x222222);
-              else if (x < 990) return lv_color_hex(0x0A1A80);
-              else if (x < 1005) return lv_color_hex(0x0a43f0);
-              else if (x < 1020) return lv_color_hex(0x0ABF35);
-              else if (x < 1030) return lv_color_hex(0xF06A0A);
-              return lv_color_hex(0xF0100A); 
-  - platform: template
-    name: "QMP Pressure"
-    state_class: "measurement"
-    device_class: "pressure"
-    update_interval: 1min
-    lambda: return id(id_qmp_pressure).state;
+interval:
+  # ── 경고 팝업 제어 (1초 주기)
+  - interval: 1s
+    then:
+      - lambda: |-
+          bool a = false;
+          if (!isnan(id(car_speed).state) && id(car_speed).state > 110) a = true;
+          else if (!isnan(id(id_scd40_co2).state) && id(id_scd40_co2).state > 2500) a = true;
+          else if (!isnan(id(id_scd40_co2).state) && id(id_scd40_co2).state > 1500) a = true;
+          else if (!isnan(id(id_sgp30_tvoc).state) && id(id_sgp30_tvoc).state > 5000) a = true;
+          else if (!isnan(id(id_sgp30_tvoc).state) && id(id_sgp30_tvoc).state > 3333) a = true;
+          else if (!isnan(id(car_acceleration).state) && id(car_acceleration).state > 9.0) a = true;
+          else if (!isnan(id(car_acceleration).state) && id(car_acceleration).state < -9.0) a = true;
+          else if (!isnan(id(engine_load).state) && id(engine_load).state > 95) a = true;
+          else if (!isnan(id(id_tab5_internal_temperature).state) && id(id_tab5_internal_temperature).state > 70) a = true;
+          else if (!isnan(id(fuel_level).state) && id(fuel_level).state < 10) a = true;
+          id(alert_active) = a;
+          if (!a) id(alert_dismissed) = false;
+      - if:
+          condition:
+            lambda: 'return id(alert_active) && !id(alert_dismissed);'
+          then:
+            - lvgl.widget.show:
+                id: popup_alert
+            - lvgl.label.update:
+                id: lbl_alert_msg
+                text: !lambda |-
+                  const char* msg = "";
+                  if (!isnan(id(car_speed).state) && id(car_speed).state > 110) msg = "과속 주의!";
+                  else if (!isnan(id(id_scd40_co2).state) && id(id_scd40_co2).state > 2500) msg = "졸음 경고!";
+                  else if (!isnan(id(id_scd40_co2).state) && id(id_scd40_co2).state > 1500) msg = "졸음 주의!";
+                  else if (!isnan(id(id_sgp30_tvoc).state) && id(id_sgp30_tvoc).state > 5000) msg = "가스 주의!";
+                  else if (!isnan(id(id_sgp30_tvoc).state) && id(id_sgp30_tvoc).state > 3333) msg = "환기 필요!";
+                  else if (!isnan(id(car_acceleration).state) && id(car_acceleration).state > 9.0) msg = "급가속!";
+                  else if (!isnan(id(car_acceleration).state) && id(car_acceleration).state < -9.0) msg = "급감속!";
+                  else if (!isnan(id(engine_load).state) && id(engine_load).state > 95) msg = "엔진 과부하!";
+                  else if (!isnan(id(id_tab5_internal_temperature).state) && id(id_tab5_internal_temperature).state > 70) msg = "장치 과열!";
+                  else if (!isnan(id(fuel_level).state) && id(fuel_level).state < 10) msg = "주유 필요!";
+                  return std::string(msg);
+            - lvgl.widget.update:
+                id: popup_alert
+                bg_color: !lambda |-
+                  const char* msg = "";
+                  if (!isnan(id(car_speed).state) && id(car_speed).state > 110) msg = "과속 주의!";
+                  else if (!isnan(id(id_scd40_co2).state) && id(id_scd40_co2).state > 2500) msg = "졸음 경고!";
+                  else if (!isnan(id(id_scd40_co2).state) && id(id_scd40_co2).state > 1500) msg = "졸음 주의!";
+                  else if (!isnan(id(id_sgp30_tvoc).state) && id(id_sgp30_tvoc).state > 5000) msg = "가스 주의!";
+                  else if (!isnan(id(id_sgp30_tvoc).state) && id(id_sgp30_tvoc).state > 3333) msg = "환기 필요!";
+                  else if (!isnan(id(car_acceleration).state) && id(car_acceleration).state > 9.0) msg = "급가속!";
+                  else if (!isnan(id(car_acceleration).state) && id(car_acceleration).state < -9.0) msg = "급감속!";
+                  else if (!isnan(id(engine_load).state) && id(engine_load).state > 95) msg = "엔진 과부하!";
+                  else if (!isnan(id(id_tab5_internal_temperature).state) && id(id_tab5_internal_temperature).state > 70) msg = "장치 과열!";
+                  else if (!isnan(id(fuel_level).state) && id(fuel_level).state < 10) msg = "주유 필요!";
+                  bool is_critical = (strcmp(msg, "과속 주의!") == 0 || strcmp(msg, "졸음 경고!") == 0
+                                   || strcmp(msg, "급가속!") == 0 || strcmp(msg, "급감속!") == 0
+                                   || strcmp(msg, "장치 과열!") == 0);
+                  return is_critical ? lv_color_hex(0xA0190F) : lv_color_hex(0x8A5500);
+      - if:
+          condition:
+            lambda: 'return !id(alert_active) || id(alert_dismissed);'
+          then:
+            - lvgl.widget.hide:
+                id: popup_alert
+  # ── OBD 폴링 (응답 대기 없이 고정 간격으로 PID 순환; BLE/ELM 지연 여유)
+  - interval: 100ms
+    then:
+      - if:
+          condition:
+            lambda: 'return id(odb_init);'
+          then:
+            - lambda: |-
+                static std::vector<std::string> cmd_list = {
+                  "0105", "011F", "012F", "0146",
+                  "0142", "010C", "010D", "0104"
+                };
+                if (!cmd_list.empty()) {
+                  id(script_ble_write).execute(cmd_list[id(obd_cmd_index)]);
+                  id(obd_cmd_index) = (id(obd_cmd_index) + 1) % cmd_list.size();
+                }
 
 text_sensor:
-  - platform: template
-    name: "Run Time"
+  - platform: wifi_info
+    ip_address:
+      name: "IP"
+      icon: mdi:ip-outline
+  - platform: ble_client
+    ble_client_id: vlinker
     internal: True
-    update_interval: 1s
-    lambda: |-
-      char buf[20];
-      int seconds = millis() / 1000;
-      int minutes = seconds / 60;
-      int hours = minutes / 60;
-      if (hours > 0) sprintf(buf, "%d:%02d:%02d", hours, minutes % 60, seconds % 60);
-      else if (minutes > 0) sprintf(buf, "%02d:%02d", minutes % 60, seconds % 60);
-      else sprintf(buf, "%02d", seconds % 60);
-      return std::string(buf);
-    # on_value:
-    #   then:
-    #     - lvgl.label.update:
-    #         id: lbl_run_time
-    #         text: !lambda return x;
-  - platform: template
-    name: "Engine Run Time"
-    internal: True
-    update_interval: 1s
-    lambda: |-
-      if (isnan(id(engine_run_time).state)) return std::string("--");
-      char buf[20];
-      int seconds = id(engine_run_time).state;
-      int minutes = seconds / 60;
-      int hours = minutes / 60;
-      if (hours > 0) sprintf(buf, "%d:%02d:%02d", hours, minutes % 60, seconds % 60);
-      else if (minutes > 0) sprintf(buf, "%02d:%02d", minutes % 60, seconds % 60);
-      else sprintf(buf, "%02d", seconds % 60);
-      return std::string(buf);
-    on_value:
+    update_interval: never
+    notify: True
+    name: "vLinker response"
+    id: vlink_response_text
+    service_uuid: 18F0
+    characteristic_uuid: 2AF0
+    on_notify:
       then:
-        - lvgl.label.update:
-            id: lbl_engine_run_time
-            text: !lambda return x;
+        - lambda: |-
+            if (x.size() < 6) return;
+            if (x.substr(0, 2) == "41") {
+              uint8_t pid = x.size() >= 4 ? std::stoi(x.substr(2, 2), nullptr, 16) : 0;
+              uint8_t a   = x.size() >= 6 ? std::stoi(x.substr(4, 2), nullptr, 16) : 0;
+              uint8_t b   = x.size() >= 8 ? std::stoi(x.substr(6, 2), nullptr, 16) : 0;
+              if (pid == 0x05) id(engine_coolant_temperature).publish_state(a - 40);
+              else if (pid == 0x1F) id(engine_run_time).publish_state((a * 256) + b);
+              else if (pid == 0x2F) id(fuel_level).publish_state(100 * a / 255);
+              else if (pid == 0x46) id(ambient_air_temperature).publish_state(a - 40);
+              else if (pid == 0x42) id(car_battery).publish_state(((a * 256) + b) / 1000.0);
+              else if (pid == 0x0C) id(engine_rpm).publish_state(((a * 256) + b) / 4);
+              else if (pid == 0x0D) {
+                id(car_speed).publish_state(a);
+                static int old_speed = 0;
+                static unsigned long timer = millis();
+                if (millis() - timer > 1000) {
+                  id(car_acceleration).publish_state(a - old_speed);
+                  old_speed = a; timer = millis();
+                }
+              }
+              else if (pid == 0x04) id(engine_load).publish_state(100 * a / 255);
+            }
   - platform: template
     name: "Time"
     internal: True
@@ -992,23 +847,30 @@ text_sensor:
     name: "Manufacturer Data"
     id: manufacturer_data
     icon: "mdi:package-variant-closed"
-
   - platform: template
     name: "Parking Info"
     id: parking_info
     icon: "mdi:car"
-    on_value: 
+  - platform: template
+    name: "Template Engine Run Time"
+    internal: True
+    update_interval: 1s
+    lambda: |-
+      if (isnan(id(engine_run_time).state)) return std::string("--:--");
+      char buf[20];
+      int seconds = (int)id(engine_run_time).state;
+      int minutes = seconds / 60;
+      int hours = minutes / 60;
+      if (hours > 0) sprintf(buf, "%d:%02d:%02d", hours, minutes % 60, seconds % 60);
+      else sprintf(buf, "%02d:%02d", minutes, seconds % 60);
+      return std::string(buf);
+    on_value:
       then:
         - lvgl.label.update:
-            id: lbl_parking
+            id: lbl_engine_run_time
             text: !lambda return x;
-        - lvgl.widget.update:
-            id: obj_parking
-            bg_color: !lambda |-
-              if (x.empty()) return lv_color_hex(0x222222);
-              return lv_color_hex(0x0ABF35); 
+            text_color: !lambda return id(fn_state_color)(id(engine_run_time).state, 11);
 
-## Display
 touchscreen:
   - platform: gt911
     i2c_id: bsp_bus
@@ -1017,11 +879,14 @@ touchscreen:
     reset_pin:
       pi4ioe5v6408: pi4ioe1
       number: 5
+    transform:
+      swap_xy: true
+      mirror_x: true
     calibration:
       x_min: 0
-      x_max: 720
+      x_max: 1280
       y_min: 0
-      y_max: 1280
+      y_max: 720
     id: touch
 
 esp_ldo:
@@ -1030,16 +895,14 @@ esp_ldo:
 
 display:
   - platform: mipi_dsi
-    model: M5Stack-Tab5
-    reset_pin:
-      pi4ioe5v6408: pi4ioe1
-      number: 4
-    #show_test_card: true
-    color_order: RGB
-    rotation: 270
     dimensions:
       height: 1280
       width: 720
+    model: M5Stack-Tab5
+    rotation: 270°
+    reset_pin:
+      pi4ioe5v6408: pi4ioe1
+      number: 4
 
 output:
   - platform: ledc
@@ -1052,610 +915,639 @@ light:
     output: backlight_pwm
     name: "Display Backlight"
     id: backlight
-    restore_mode: ALWAYS_ON
+    restore_mode: RESTORE_DEFAULT_ON
     default_transition_length: 250ms
 
-# The DAC Output select needs to be manually (or with an automation) changed to `LINE1` for the onboard speaker
-i2s_audio:
-  - id: mic_bus
-    i2s_lrclk_pin: GPIO29
-    i2s_bclk_pin: GPIO27
-    i2s_mclk_pin: GPIO30
-
-audio_adc:
-  - platform: es7210
-    id: es7210_adc
-    i2c_id: bsp_bus
-    bits_per_sample: 16bit
-    sample_rate: 16000
-
-microphone:
-  - platform: i2s_audio
-    id: tab5_microphone
-    i2s_din_pin: GPIO28
-    sample_rate: 16000
-    bits_per_sample: 16bit
-    adc_type: external
-
-audio_dac:
-  - platform: es8388
-    id: es8388_dac
-    i2c_id: bsp_bus
-
-speaker:
-  - platform: i2s_audio
-    id: tab5_speaker
-    i2s_dout_pin: GPIO26
-    audio_dac: es8388_dac
-    dac_type: external
-    channel: mono
-    buffer_duration: 100ms
-    bits_per_sample: 16bit
-    sample_rate: 48000
-
-media_player:
-  - platform: speaker
-    name: None
-    id: speaker_player
-    announcement_pipeline:
-      speaker: tab5_speaker
-      format: FLAC
-      sample_rate: 48000
-      num_channels: 1
-    on_announcement:
-      # Stop the wake word (mWW or VA) if the mic is capturing
-      - if:
-          condition:
-            - microphone.is_capturing:
-          then:
-            - micro_wake_word.stop:
-    on_idle:
-      # Since VA isn't running, this is the end of user-intiated media playback. Restart the wake word.
-      - if:
-          condition:
-            not:
-              voice_assistant.is_running:
-          then:
-            - micro_wake_word.start:
-
-micro_wake_word:
-  id: mww
-  models:
-    - okay_nabu
-    - hey_mycroft
-    - hey_jarvis
-  on_wake_word_detected:
-    - voice_assistant.start:
-        wake_word: !lambda return wake_word;
-
-voice_assistant:
-  id: va
-  microphone: tab5_microphone
-  media_player: speaker_player
-  micro_wake_word: mww
-  on_end:
-    # Wait a short amount of time to see if an announcement starts
-    - wait_until:
-        condition:
-          - media_player.is_announcing:
-        timeout: 0.5s
-    # Announcement is finished and the I2S bus is free
-    - wait_until:
-        - and:
-            - not:
-                media_player.is_announcing:
-            - not:
-                speaker.is_playing:
-    - micro_wake_word.start:
-  on_client_connected:
-    - micro_wake_word.start:
-  on_client_disconnected:
-    - micro_wake_word.stop:
-
-
-
-
-#bg_color: 0x222222 #gray
-#bg_color: 0x0ABF35 #green
-#bg_color: 0x0a43f0 #blue
-#bg_color: 0xF06A0A #orange
-#bg_color: 0x0A1A80 #deep blue
-#bg_color: 0xF0100A #red
+# =================================================================
+# LVGL - "Focus Drive" UI
+# 레이아웃 (1280 x 720 after rotation):
+#   ┌─────────────────── HEADER (72px) ───────────────────────────┐
+#   │  [날짜]                [아이콘]              [시간]          │
+#   ├─────────────────────────────────────────────────────────────┤
+#   │  L: 연료 Arc  │  C: 속도(Hero) + RPM Arc  │  R: 운행+엔진  │
+#   │    (w310)     │         (w660)             │    (w310)      │
+#   │               │                            │                │
+#   ├─────────────────────────────────────────────────────────────┤
+#   │  BOTTOM STRIP (h=95): 실내온/습│실외온/습│외기│CO2│TVOC│탑5 │
+#   └─────────────────────────────────────────────────────────────┘
+# =================================================================
 lvgl:
   byte_order: little_endian
+
   top_layer:
-    bg_color: 0x000000
     widgets:
+      # ── 상단 헤더 (경고는 헤더 내부 최상단 레이어) ──
+      - obj:
+          id: obj_header
+          hidden: true
+          bg_color: 0x0D1117
+          border_width: 0
+          border_color: 0x1E2A38
+          align: top_mid
+          pad_all: 0
+          width: 1280
+          height: 72
+          x: 0
+          y: 0
+          widgets:
+            - obj:
+                align: left_mid
+                x: 14
+                y: 0
+                width: 14
+                height: 14
+                radius: 7
+                bg_color: 0xFF5F57
+                border_width: 0
+                pad_all: 0
+                clickable: false
+            - obj:
+                align: left_mid
+                x: 34
+                y: 0
+                width: 14
+                height: 14
+                radius: 7
+                bg_color: 0xFEBC2E
+                border_width: 0
+                pad_all: 0
+                clickable: false
+            - obj:
+                align: left_mid
+                x: 54
+                y: 0
+                width: 14
+                height: 14
+                radius: 7
+                bg_color: 0x28C840
+                border_width: 0
+                pad_all: 0
+                clickable: false
+            - image:
+                src: img_wifi
+                id: lbl_wifi
+                hidden: true
+                image_recolor: 0xF1C36C
+                image_recolor_opa: 100%
+                align: left_mid
+                x: 95
+                y: 0
+            - image:
+                src: img_vpn
+                id: lbl_vpn
+                hidden: true
+                image_recolor: 0xF1C36C
+                image_recolor_opa: 100%
+                align: left_mid
+                x: 160
+                y: 0
+            - image:
+                src: img_bluetooth
+                id: lbl_bluetooth
+                hidden: true
+                image_recolor: 0xF1C36C
+                image_recolor_opa: 100%
+                align: left_mid
+                x: 225
+                y: 0
+            - label:
+                id: lbl_date
+                hidden: true
+                text: ""
+                align: right_mid
+                x: -150
+                y: 0
+                text_color: 0xF1C36C
+                text_font: notosans30
+            - label:
+                id: lbl_time
+                hidden: true
+                text: ""
+                align: right_mid
+                x: -10
+                y: 0
+                text_color: 0xE8EEF7
+                text_font: notosans45
+            - button:
+                id: popup_alert
+                hidden: true
+                align: center
+                width: 300
+                height: 70
+                bg_color: 0xA0190F
+                bg_opa: COVER
+                radius: 12
+                border_width: 1
+                border_color: 0xFFFFFF
+                border_opa: 28%
+                pad_all: 8
+                shadow_width: 12
+                shadow_ofs_x: 0
+                shadow_ofs_y: 5
+                shadow_spread: 0
+                shadow_color: 0x000000
+                shadow_opa: 38%
+                outline_width: 0
+                pressed:
+                  shadow_width: 4
+                  shadow_ofs_y: 2
+                  border_opa: 18%
+                on_click:
+                  then:
+                    - lambda: |-
+                        id(alert_dismissed) = true;
+                    - lvgl.widget.hide:
+                        id: popup_alert
+                widgets:
+                  - label:
+                      id: lbl_alert_msg
+                      text: ""
+                      align: center
+                      text_color: 0xFFFFFF
+                      text_font: notosans30
+
+      # ── 부팅 스플래시 (obj_splash_content: 페이드 + 스피너) ──
       - obj:
           id: obj_splash
-          bg_color: 0x000000
+          bg_color: 0x0B0F14
           border_width: 0
-          radius: 12
-          pad_all: 8
+          pad_all: 0
           align: center
-          width: 1270
-          height: 710
+          width: 1280
+          height: 720
           widgets:
-            - label:
-                text: "Colorado"
-                align: top_mid
-                x: 0
-                y: 0
-                text_color: 0xFFFFFF
-                text_font: notosans150
-            - label:
-                text: "Z71"
+            - obj:
+                id: obj_splash_content
                 align: center
-                x: -150
-                y: -50
-                text_color: 0xFF0000
-                text_font: notosans150
-            - label:
-                text: "Mid-Night"
-                align: center
-                x: 150
-                y: -30
-                text_color: 0xFFFFFF
-                text_font: notosans70
-            - label:
-                text: "82머 5979"
-                align: center
-                x: 150
-                y: 110
-                text_color: 0xFFFFFF
-                text_font: notosans70
-            - label:
-                text: ${version}
-                align: bottom_mid
-                x: 0
-                y: -10
-                text_color: 0xFFFFFF
-                text_font: notosans70
-                
-  pages:
-    - id: head_page
-      bg_color: 0x000000
-      widgets:
-        # ── 헤더(56px): 좌 날짜 / 우 시각
-        - obj:
-            bg_color: 0x222222
-            border_width: 0
-            radius: 12
-            pad_all: 0
-            align: top_left
-            width: 630
-            height: 70
-            x: 0
-            y: 5
-            widgets:
-              - label:
-                  hidden: true
-                  id: lbl_date
-                  text: ""
-                  align: left_mid
-                  x: 5
-                  y: -2
-                  text_color: 0xFFFFFF
-                  text_font: notosans45
-              - label:
-                  hidden: true
-                  id: lbl_time
-                  text: ""
-                  align: right_mid
-                  x: -5
-                  y: -2
-                  text_color: 0xFFFFFF
-                  text_font: notosans45             
-              - image:
-                  hidden: true
-                  src: img_bluetooth
-                  id: lbl_bluetooth
-                  image_recolor: 0xFFFFFF
-                  image_recolor_opa: 100%
-                  align: right_mid
-                  x: -150
-                  y: 0
-              - image:
-                  hidden: true
-                  src: img_vpn
-                  id: lbl_vpn
-                  image_recolor: 0xFFFFFF
-                  image_recolor_opa: 100%
-                  align: right_mid
-                  x: -210
-                  y: 0
-              - image:
-                  hidden: true
-                  src: img_wifi
-                  id: lbl_wifi
-                  image_recolor: 0xFFFFFF
-                  image_recolor_opa: 100%
-                  align: right_mid
-                  x: -270
-                  y: 0
-        - obj:
-            id: obj_info
-            hidden: true
-            bg_color: 0x222222
-            border_width: 0
-            radius: 12
-            pad_all: 0
-            align: top_left
-            x: 0
-            y: 85
-            width: 630
-            height: 630
-            widgets:
-              - label: { id: lbl_info, text: "", align: center, y: 120, text_color: 0xFFFFFF, text_font: notosans100 }
-              - label: { id: lbl_speed, text: "00", align: center, y: -100, text_color: 0xFFFFFF, text_font: roboto300 }                    
-              - obj:
-                  #id: obj_parking
-                  align: bottom_left
-                  y: 0
-                  width: 620
-                  height: 70
-                  radius: 12
-                  bg_color: 0x222222
-                  pad_all: 0
-                  border_width: 0
-                  widgets:
-                    - obj: { id: obj_parking, align: left_mid, x: 0, width: 60, height: 70, bg_color: 0x222222, pad_all: 0, border_width: 0 }
-                    - image: { src: img_parking, image_recolor: 0xFFFFFF, image_recolor_opa: 100%, align: left_mid, x: 5, y : 0 }
-                    - label: { id: lbl_parking, text: "--", align: right_mid, x: -10, text_color: 0xFFFFFF, text_font: notosans45 }
+                width: 1280
+                height: 720
+                bg_opa: 0%
+                border_width: 0
+                pad_all: 0
+                clickable: false
+                opa: 0%
+                widgets:
+                  - label: { text: "COLORADO", align: top_mid, y: 88, text_color: 0xE6EDF8, text_font: notosans100 }
+                  - label: { text: "Z71", align: center, x: -118, y: -68, text_color: 0xB14639, text_font: notosans150 }
+                  - label: { text: "MIDNIGHT", align: center, x: 148, y: -48, text_color: 0xB9C6D7, text_font: notosans45 }
+                  - label: { text: "${number}", align: center, y: 128, text_color: 0xF1C36C, text_font: notosans70 }
+                  - label: { id: lbl_splash_status, text: "Booting...", align: bottom_mid, y: -128, text_color: 0xA9B8CA, text_font: notosans30 }
+                  - bar:
+                      id: bar_splash_progress
+                      align: bottom_mid
+                      y: -78
+                      width: 680
+                      height: 16
+                      min_value: 0
+                      max_value: 100
+                      value: 0
+                      bg_color: 0x1E2A38
+                      indicator: { bg_color: 0xF1C36C }
+                      border_width: 0
+                      radius: 8
+                  - spinner:
+                      align: bottom_mid
+                      x: -378
+                      y: -78
+                      width: 28
+                      height: 28
+                      spin_time: 800ms
+                      arc_length: 90deg
+                      arc_width: 3
+                      bg_color: 0x1E2A38
+                      indicator:
+                        arc_color: 0xF1C36C
+                  - label: { text: "${version}", align: bottom_mid, y: -38, text_color: 0x7F8EA3, text_font: notosans20 }
 
-        # ── 오른쪽: 정보 카드 스택(4장)
+  pages:
+    # =============================================================
+    # MAIN PAGE: Focus Drive (단일 페이지)
+    # =============================================================
+    - id: main_page
+      bg_color: 0x0B0F14
+      widgets:
+
+        # ────────────────────────────────────────────────────────
+        # 좌측 패널 (x=0, w=310): 연료 Arc 게이지
+        # ────────────────────────────────────────────────────────
         - obj:
-            id: info_stack
-            align: top_right
+            align: top_left
             x: 0
-            y: 0
-            width: 630
-            height: 720
+            y: 72
+            width: 310
+            height: 570
             bg_opa: 0%
             border_width: 0
-            hidden: true
             pad_all: 0
             widgets:
-              - obj:
-                  #id: obj_engine_run_time
-                  align: top_left
-                  y: 5
-                  width: 310
-                  height: 70
-                  radius: 12
-                  bg_color: 0x222222
-                  pad_all: 0
-                  border_width: 0
+              # 연료 Arc (메인 위젯)
+              - arc:
+                  id: arc_fuel
+                  align: top_mid
+                  x: 0
+                  y: 30
+                  width: 270
+                  height: 270
+                  arc_width: 12
+                  bg_color: 0x1A2536
+                  indicator:
+                    arc_color: 0xF1C36C
+                    arc_width: 12
+                  min_value: 0
+                  max_value: 100
+                  value: 0
+                  start_angle: 135
+                  end_angle: 45
+                  clickable: false
                   widgets:
-                    - obj: { id: obj_engine_run_time, align: left_mid, x: 0, width: 60, height: 70, bg_color: 0x222222, pad_all: 0, border_width: 0 }
-                    - image: { src: img_timer, image_recolor: 0xFFFFFF, image_recolor_opa: 100%, align: left_mid, x: 5, y : 0 }
-                    - label: { id: lbl_engine_run_time, text: "--", align: right_mid, x: -10, text_color: 0xFFFFFF, text_font: notosans45 }
-                    - label: { text: "운행", align: left_mid, x: 65, text_color: 0xFFFFFF, text_font: notosans20 }
-              
-              - obj:
-                  #id: obj_fuel_level
-                  align: top_left
-                  y: 85
-                  width: 310
-                  height: 70
-                  radius: 12
-                  bg_color: 0x222222
-                  pad_all: 0
-                  border_width: 0
+                    - label:
+                        id: lbl_fuel_level
+                        text: "--"
+                        align: center
+                        y: -18
+                        text_color: 0xFFFFFF
+                        text_font: notosans70
+                    - label:
+                        text: "%"
+                        align: center
+                        y: 50
+                        text_color: 0x7F8EA3
+                        text_font: notosans25
+              # 연료 아이콘 + 라벨
+              - image:
+                  src: img_fuel
+                  align: top_mid
+                  y: 235
+                  image_recolor: 0xF1C36C
+                  image_recolor_opa: 100%
+              - label:
+                  text: "연 료"
+                  align: top_mid
+                  y: 285
+                  text_color: 0x7F8EA3
+                  text_font: notosans25
+              # 엔진 부하 Arc (연료 라벨 아래, 연료 Arc와 동일 중앙 정렬)
+              - arc:
+                  id: arc_engine_load_left
+                  align: top_mid
+                  x: 0
+                  y: 350
+                  width: 188
+                  height: 188
+                  arc_width: 12
+                  bg_color: 0x1A2536
+                  indicator:
+                    arc_color: 0xF1C36C
+                    arc_width: 12
+                  min_value: 0
+                  max_value: 100
+                  value: 0
+                  start_angle: 135
+                  end_angle: 45
+                  clickable: false
                   widgets:
-                    - obj: { id: obj_fuel_level, align: left_mid, x: 0, width: 60, height: 70, bg_color: 0x222222, pad_all: 0, border_width: 0 }
-                    - image: { src: img_fuel, image_recolor: 0xFFFFFF, image_recolor_opa: 100%, align: left_mid, x: 5 }
-                    - label: { id: lbl_fuel_level, text: "--", align: right_mid, x: -25, text_color: 0xFFFFFF, text_font: notosans45 }
-                    - label: { text: "%", align: right_mid, x: -3, text_color: 0xFFFFFF, text_font: notosans20 }
-                    - label: { text: "연료", align: left_mid, x: 65, text_color: 0xFFFFFF, text_font: notosans20 }
+                    - label:
+                        id: lbl_engine_load_left
+                        text: "--"
+                        align: center
+                        y: -18
+                        text_color: 0xFFFFFF
+                        text_font: notosans45
+                    - label:
+                        text: "%"
+                        align: center
+                        y: 34
+                        text_color: 0x7F8EA3
+                        text_font: notosans20
+                    - label:
+                        text: "엔진부하"
+                        align: center
+                        y: 68
+                        text_color: 0x7F8EA3
+                        text_font: notosans20
 
-              - obj:
-                  #id: obj_car_battery
-                  align: top_left
-                  y: 165
-                  width: 310
-                  height: 70
-                  radius: 12
-                  bg_color: 0x222222
+        # ────────────────────────────────────────────────────────
+        # 중앙 패널 (x=310, w=660): 속도 Hero + RPM Arc
+        # ────────────────────────────────────────────────────────
+        - obj:
+            align: top_mid
+            x: 0
+            y: 87
+            width: 660
+            height: 570
+            bg_opa: 0%
+            border_width: 0
+            pad_all: 0
+            widgets:
+              # RPM Arc (외곽 링)
+              - arc:
+                  id: arc_rpm
+                  align: top_mid
+                  x: 0
+                  y: 20
+                  width: 530
+                  height: 530
+                  arc_width: 10
+                  bg_color: 0x1A2536
+                  indicator:
+                    arc_color: 0xF1C36C
+                    arc_width: 10
+                  min_value: 0
+                  max_value: 8000
+                  value: 0
+                  start_angle: 150
+                  end_angle: 30
+                  clickable: false
                   pad_all: 0
-                  border_width: 0
                   widgets:
-                    - obj: { id: obj_car_battery, align: left_mid, x: 0, width: 60, height: 70, bg_color: 0x222222, pad_all: 0, border_width: 0 }
-                    - image: { src: img_car_battery, image_recolor: 0xFFFFFF, image_recolor_opa: 100%, align: left_mid, x: 5 }
-                    - label: { id: lbl_car_battery, text: "--", align: right_mid, x: -25, text_color: 0xFFFFFF, text_font: notosans45 }
-                    - label: { text: "V", align: right_mid, x: -3, text_color: 0xFFFFFF, text_font: notosans20 }
-                    - label: { text: "배터리", align: left_mid, x: 65, text_color: 0xFFFFFF, text_font: notosans20 }
+                    # 속도 (Hero)
+                    - label:
+                        id: lbl_speed
+                        text: "0"
+                        align: center
+                        y: -35
+                        text_color: 0xFFFFFF
+                        text_font: notosans150
+                    - label:
+                        text: "km/h"
+                        align: center
+                        y: 100
+                        text_color: 0x7F8EA3
+                        text_font: notosans25
+                    # RPM 수치 (속도 아래)
+                    - label:
+                        id: lbl_engine_rpm
+                        text: "--"
+                        align: center
+                        y: 150
+                        text_color: 0x7F8EA3
+                        text_font: notosans25
+                    - label:
+                        text: "rpm"
+                        align: center
+                        y: 185
+                        text_color: 0x546070
+                        text_font: notosans20
 
+        # ────────────────────────────────────────────────────────
+        # 우측 패널 (x=970, w=310): 운행시간 + 엔진 데이터
+        # ────────────────────────────────────────────────────────
+        - obj:
+            align: top_right
+            x: 0
+            y: 72
+            width: 310
+            height: 570
+            bg_opa: 0%
+            border_width: 0
+            pad_all: 0
+            widgets:
+              # ── 운행 시간 카드 (Primary) ──
               - obj:
-                  #id: obj_ambient_air_temperature
-                  align: top_left
-                  y: 245
-                  width: 310
-                  height: 70
-                  radius: 12
-                  bg_color: 0x222222
+                  align: top_mid
+                  y: 24
+                  width: 290
+                  height: 120
+                  bg_color: 0x141C26
+                  radius: 16
+                  border_width: 1
+                  border_color: 0x1E2A38
                   pad_all: 0
-                  border_width: 0
                   widgets:
-                    - obj: { id: obj_ambient_air_temperature, align: left_mid, x: 0, width: 60, height: 70, bg_color: 0x222222, pad_all: 0, border_width: 0 }
-                    - image: { src: img_thermometer_lines, image_recolor: 0xFFFFFF, image_recolor_opa: 100%, align: left_mid, x: 5 }
-                    - label: { id: lbl_ambient_air_temperature, text: "--", align: right_mid, x: -25, text_color: 0xFFFFFF, text_font: notosans45 }
-                    - label: { text: "°C", align: right_mid, x: -3, text_color: 0xFFFFFF, text_font: notosans20 }
-                    - label: { text: "외부온도", align: left_mid, x: 65, text_color: 0xFFFFFF, text_font: notosans20 }
-              
+                    - image: { src: img_timer, align: left_mid, x: 15, image_recolor: 0xF1C36C, image_recolor_opa: 100% }
+                    - label: { text: "운행", align: top_left, x: 75, y: 22, text_color: 0x7F8EA3, text_font: notosans20 }
+                    - label: { id: lbl_engine_run_time, text: "--:--", align: bottom_mid, x: 30, y: -18, text_color: 0x7F8EA3, text_font: notosans45 }
+              # ── 냉각수 온도 카드 ──
               - obj:
-                  #id: obj_engine_rpm
-                  align: top_left
-                  y: 325
-                  width: 310
-                  height: 70
+                  align: top_mid
+                  y: 159
+                  width: 290
+                  height: 85
+                  bg_color: 0x141C26
                   radius: 12
-                  bg_color: 0x222222
+                  border_width: 1
+                  border_color: 0x1E2A38
                   pad_all: 0
-                  border_width: 0
                   widgets:
-                    - obj: { id: obj_engine_rpm, align: left_mid, x: 0, width: 60, height: 70, bg_color: 0x222222, pad_all: 0, border_width: 0 }
-                    - image: { src: img_rpm, image_recolor: 0xFFFFFF, image_recolor_opa: 100%, align: left_mid, x: 5, y : 0 }
-                    - label: { id: lbl_engine_rpm, text: "--", align: right_mid, x: -10, text_color: 0xFFFFFF, text_font: notosans45 }
-                    - label: { text: "RPM", align: left_mid, x: 65, text_color: 0xFFFFFF, text_font: notosans20 }
+                    - image: { src: img_coolant, align: left_mid, x: 10, image_recolor: 0x7F8EA3, image_recolor_opa: 100% }
+                    - label: { text: "냉각수", align: left_mid, x: 68, text_color: 0x7F8EA3, text_font: notosans20 }
+                    - label: { id: lbl_engine_coolant_temperature, text: "--", align: right_mid, x: -35, text_color: 0xF7FBFF, text_font: notosans45 }
+                    - label: { text: "°C", align: right_mid, x: -5, text_color: 0x7F8EA3, text_font: notosans20 }
+              # ── 배터리 카드 ──
+              - obj:
+                  align: top_mid
+                  y: 259
+                  width: 290
+                  height: 85
+                  bg_color: 0x141C26
+                  radius: 12
+                  border_width: 1
+                  border_color: 0x1E2A38
+                  pad_all: 0
+                  widgets:
+                    - image: { src: img_car_battery, align: left_mid, x: 10, image_recolor: 0x7F8EA3, image_recolor_opa: 100% }
+                    - label: { text: "배터리", align: left_mid, x: 68, text_color: 0x7F8EA3, text_font: notosans20 }
+                    - label: { id: lbl_car_battery, text: "--", align: right_mid, x: -30, text_color: 0xF7FBFF, text_font: notosans45 }
+                    - label: { text: "V", align: right_mid, x: -5, text_color: 0x7F8EA3, text_font: notosans20 }
+              # ── 외기 온도 카드 (엔진부하 자리) ──
+              - obj:
+                  align: top_mid
+                  y: 359
+                  width: 290
+                  height: 85
+                  bg_color: 0x141C26
+                  radius: 12
+                  border_width: 1
+                  border_color: 0x1E2A38
+                  pad_all: 0
+                  widgets:
+                    - image: { src: img_thermometer_lines, align: left_mid, x: 10, image_recolor: 0x7F8EA3, image_recolor_opa: 100% }
+                    - label: { text: "외기", align: left_mid, x: 68, text_color: 0x7F8EA3, text_font: notosans20 }
+                    - label: { id: lbl_ambient_air_temperature, text: "--", align: right_mid, x: -30, text_color: 0xF7FBFF, text_font: notosans45 }
+                    - label: { text: "°C", align: right_mid, x: -5, text_color: 0x7F8EA3, text_font: notosans20 }
+              # ── 번호판 + 버전 (하단 작게) ──
+              - obj:
+                  align: bottom_mid
+                  y: -10
+                  width: 290
+                  height: 60
+                  bg_opa: 0%
+                  border_width: 0
+                  pad_all: 0
+                  widgets:
+                    - label: { id: lbl_number, text: "--", align: left_mid, text_color: 0xFFFFFF, text_font: notosans20 }
+                    - label: { id: lbl_version, text: "--", align: right_mid, text_color: 0xFFFFFF, text_font: notosans16 }
 
+        # ────────────────────────────────────────────────────────
+        # 하단 환경 스트립 (y=625, h=95)
+        # 7개 카드: 실내온도 | 실내습도 | 실외온도 | 실외습도 | CO2 | TVOC | TAB5
+        # ────────────────────────────────────────────────────────
+        - obj:
+            align: bottom_left
+            x: 0
+            y: 0
+            width: 1280
+            height: 95
+            bg_color: 0x0D1117
+            border_width: 0
+            border_color: 0x1E2A38
+            pad_all: 0
+            widgets:
+              # 실내 온도
               - obj:
-                  #id: obj_engine_load
-                  align: top_left
-                  y: 405
-                  width: 310
-                  height: 70
+                  align: left_mid
+                  x: 14
+                  width: 172
+                  height: 73
+                  bg_color: 0x141C26
                   radius: 12
-                  bg_color: 0x222222
+                  border_width: 1
+                  border_color: 0x1E2A38
                   pad_all: 0
-                  border_width: 0
                   widgets:
-                    - obj: { id: obj_engine_load, align: left_mid, x: 0, width: 60, height: 70, bg_color: 0x222222, pad_all: 0, border_width: 0 }
-                    - image: { src: img_load, image_recolor: 0xFFFFFF, image_recolor_opa: 100%, align: left_mid, x: 5 }
-                    - label: { id: lbl_engine_load, text: "--", align: right_mid, x: -25, text_color: 0xFFFFFF, text_font: notosans45 }
-                    - label: { text: "%", align: right_mid, x: -3, text_color: 0xFFFFFF, text_font: notosans20 }
-                    - label: { text: "부하", align: left_mid, x: 65, text_color: 0xFFFFFF, text_font: notosans20 }
-
+                    - image: { src: img_thermometer_sm, align: top_left, x: 10, image_recolor: 0xF1C36C, image_recolor_opa: 100% }
+                    - label: { text: "실내온도", align: top_mid, x: 0, y: 8, text_color: 0x7F8EA3, text_font: notosans16 }
+                    - label: { id: lbl_cabin_temperature, text: "--", align: bottom_left, x: 46, y: -5, text_color: 0xE0E8F4, text_font: notosans25 }
+                    - label: { text: "°C", align: bottom_right, x: -5, y: -7, text_color: 0x7F8EA3, text_font: notosans16 }
+              # 실내 습도
               - obj:
-                  #id: obj_engine_coolant_temperature
-                  align: top_left
-                  y: 485
-                  width: 310
-                  height: 70
+                  align: left_mid
+                  x: 194
+                  width: 172
+                  height: 73
+                  bg_color: 0x141C26
                   radius: 12
-                  bg_color: 0x222222
+                  border_width: 1
+                  border_color: 0x1E2A38
                   pad_all: 0
-                  border_width: 0
                   widgets:
-                    - obj: { id: obj_engine_coolant_temperature, align: left_mid, x: 0, width: 60, height: 70, bg_color: 0x222222, pad_all: 0, border_width: 0 }
-                    - image: { src: img_coolant, image_recolor: 0xFFFFFF, image_recolor_opa: 100%, align: left_mid, x: 5 }
-                    - label: { id: lbl_engine_coolant_temperature, text: "--", align: right_mid, x: -25, text_color: 0xFFFFFF, text_font: notosans45 }
-                    - label: { text: "°C", align: right_mid, x: -3, text_color: 0xFFFFFF, text_font: notosans20 }
-                    - label: { text: "냉각수", align: left_mid, x: 65, text_color: 0xFFFFFF, text_font: notosans20 }
-
+                    - image: { src: img_water_sm, align: top_left, x: 10, image_recolor: 0xF1C36C, image_recolor_opa: 100% }
+                    - label: { text: "실내습도", align: top_mid, x: 0, y: 8, text_color: 0x7F8EA3, text_font: notosans16 }
+                    - label: { id: lbl_cabin_humidity, text: "--", align: bottom_left, x: 46, y: -5, text_color: 0xE0E8F4, text_font: notosans25 }
+                    - label: { text: "%", align: bottom_right, x: -5, y: -7, text_color: 0x7F8EA3, text_font: notosans16 }
+              # 실외 온도 (Bed)
               - obj:
-                  #id: obj_car_speed
-                  align: top_left
-                  y: 565
-                  width: 310
-                  height: 70
+                  align: left_mid
+                  x: 374
+                  width: 172
+                  height: 73
+                  bg_color: 0x141C26
                   radius: 12
-                  bg_color: 0x222222
+                  border_width: 1
+                  border_color: 0x1E2A38
                   pad_all: 0
-                  border_width: 0
                   widgets:
-                    - obj: { id: obj_car_speed, align: left_mid, x: 0, width: 60, height: 70, bg_color: 0x222222, pad_all: 0, border_width: 0 }
-                    - image: { src: img_speed, image_recolor: 0xFFFFFF, image_recolor_opa: 100%, align: left_mid, x: 5, y : 0 }
-                    - label: { id: lbl_car_speed, text: "--", align: right_mid, x: -10, text_color: 0xFFFFFF, text_font: notosans45 }
-                    - label: { text: "속도", align: left_mid, x: 65, text_color: 0xFFFFFF, text_font: notosans20 }
-
+                    - image: { src: img_thermometer_sm, align: top_left, x: 10, image_recolor: 0xF1C36C, image_recolor_opa: 100% }
+                    - label: { text: "실외온도", align: top_mid, x: 0, y: 8, text_color: 0x7F8EA3, text_font: notosans16 }
+                    - label: { id: lbl_bed_temperature, text: "--", align: bottom_left, x: 46, y: -5, text_color: 0xE0E8F4, text_font: notosans25 }
+                    - label: { text: "°C", align: bottom_right, x: -5, y: -7, text_color: 0x7F8EA3, text_font: notosans16 }
+              # 실외 습도 (Bed)
               - obj:
-                  #id: obj_car_acceleration
-                  align: top_left
-                  y: 645
-                  width: 310
-                  height: 70
+                  align: left_mid
+                  x: 554
+                  width: 172
+                  height: 73
+                  bg_color: 0x141C26
                   radius: 12
-                  bg_color: 0x222222
+                  border_width: 1
+                  border_color: 0x1E2A38
                   pad_all: 0
-                  border_width: 0
                   widgets:
-                    - obj: { id: obj_car_acceleration, align: left_mid, x: 0, width: 60, height: 70, bg_color: 0x222222, pad_all: 0, border_width: 0 }
-                    - image: { src: img_acc, image_recolor: 0xFFFFFF, image_recolor_opa: 100%, align: left_mid, x: 5, y : 0 }
-                    - label: { id: lbl_car_acceleration, text: "--", align: right_mid, x: -10, text_color: 0xFFFFFF, text_font: notosans45 }
-                    - label: { text: "가속도", align: left_mid, x: 65, text_color: 0xFFFFFF, text_font: notosans20 }
-
+                    - image: { src: img_water_sm, align: top_left, x: 10, image_recolor: 0xF1C36C, image_recolor_opa: 100% }
+                    - label: { text: "실외습도", align: top_mid, x: 0, y: 8, text_color: 0x7F8EA3, text_font: notosans16 }
+                    - label: { id: lbl_bed_humidity, text: "--", align: bottom_left, x: 46, y: -5, text_color: 0xE0E8F4, text_font: notosans25 }
+                    - label: { text: "%", align: bottom_right, x: -5, y: -7, text_color: 0x7F8EA3, text_font: notosans16 }
+              # CO2
               - obj:
-                  #id: obj_cabin_temperature
-                  align: top_right
-                  y: 5
-                  width: 310
-                  height: 70
+                  align: left_mid
+                  x: 734
+                  width: 172
+                  height: 73
+                  bg_color: 0x141C26
                   radius: 12
-                  bg_color: 0x222222
+                  border_width: 1
+                  border_color: 0x1E2A38
                   pad_all: 0
-                  border_width: 0
                   widgets:
-                    - obj: { id: obj_cabin_temperature, align: left_mid, x: 0, width: 60, height: 70, bg_color: 0x222222, pad_all: 0, border_width: 0 }
-                    - image: { src: img_car_seat, image_recolor: 0xFFFFFF, image_recolor_opa: 100%, align: left_mid, x: 0, y : 5 }
-                    - image: { src: img_thermometer, image_recolor: 0xFFFFFF, image_recolor_opa: 100%, align: left_mid, x: 15, y: -5 }
-                    - label: { id: lbl_cabin_temperature, text: "--", align: right_mid, x: -25, text_color: 0xFFFFFF, text_font: notosans45 }
-                    - label: { text: "°C", align: right_mid, x: -3, text_color: 0xFFFFFF, text_font: notosans20 }
-                    - label: { text: "실내온도", align: left_mid, x: 65, text_color: 0xFFFFFF, text_font: notosans20 }
-
+                    - image: { src: img_co2_sm, align: top_left, x: 10, image_recolor: 0xF1C36C, image_recolor_opa: 100% }
+                    - label: { text: "CO2", align: top_mid, x: 0, y: 8, text_color: 0x7F8EA3, text_font: notosans16 }
+                    - label: { id: lbl_cabin_co2, text: "--", align: bottom_left, x: 46, y: -5, text_color: 0xE0E8F4, text_font: notosans25 }
+                    - label: { text: "ppm", align: bottom_right, x: -5, y: -7, text_color: 0x7F8EA3, text_font: notosans16 }
+              # TVOC
               - obj:
-                  #id: obj_cabin_humidity
-                  align: top_right
-                  y: 85
-                  width: 310
-                  height: 70
+                  align: left_mid
+                  x: 914
+                  width: 172
+                  height: 73
+                  bg_color: 0x141C26
                   radius: 12
-                  bg_color: 0x222222
+                  border_width: 1
+                  border_color: 0x1E2A38
                   pad_all: 0
-                  border_width: 0
                   widgets:
-                    - obj: { id: obj_cabin_humidity, align: left_mid, x: 0, width: 60, height: 70, bg_color: 0x222222, pad_all: 0, border_width: 0 }
-                    - image: { src: img_car_seat, image_recolor: 0xFFFFFF, image_recolor_opa: 100%, align: left_mid, x: 0, y: 5 }
-                    - image: { src: img_water, image_recolor: 0xFFFFFF, image_recolor_opa: 100%, align: left_mid, x: 15, y : -5 }
-                    - label: { id: lbl_cabin_humidity, text: "--", align: right_mid, x: -25, text_color: 0xFFFFFF, text_font: notosans45 }
-                    - label: { text: "%", align: right_mid, x: -3, text_color: 0xFFFFFF, text_font: notosans20 }
-                    - label: { text: "실내습도", align: left_mid, x: 65, text_color: 0xFFFFFF, text_font: notosans20 }
-
+                    - image: { src: img_tvoc_sm, align: top_left, x: 10, image_recolor: 0xF1C36C, image_recolor_opa: 100% }
+                    - label: { text: "TVOC", align: top_mid, x: 0, y: 8, text_color: 0x7F8EA3, text_font: notosans16 }
+                    - label: { id: lbl_cabin_tvoc, text: "--", align: bottom_left, x: 46, y: -5, text_color: 0xE0E8F4, text_font: notosans25 }
+                    - label: { text: "ppb", align: bottom_right, x: -5, y: -7, text_color: 0x7F8EA3, text_font: notosans16 }
+              # TAB5 내부
               - obj:
-                  #id: obj_bed_temperature
-                  align: top_right
-                  y: 165
-                  width: 310
-                  height: 70
+                  align: left_mid
+                  x: 1094
+                  width: 172
+                  height: 73
+                  bg_color: 0x141C26
                   radius: 12
-                  bg_color: 0x222222
+                  border_width: 1
+                  border_color: 0x1E2A38
                   pad_all: 0
-                  border_width: 0
                   widgets:
-                    - obj: { id: obj_bed_temperature, align: left_mid, x: 0, width: 60, height: 70, bg_color: 0x222222, pad_all: 0, border_width: 0 }
-                    - image: { src: img_car_pickup, image_recolor: 0xFFFFFF, image_recolor_opa: 100%, align: left_mid, x: 15, y : 20 }
-                    - image: { src: img_thermometer, image_recolor: 0xFFFFFF, image_recolor_opa: 100%, align: left_mid, x: 0, y : -10 }
-                    - label: { id: lbl_bed_temperature, text: "--", align: right_mid, x: -25, text_color: 0xFFFFFF, text_font: notosans45 }
-                    - label: { text: "°C", align: right_mid, x: -3, text_color: 0xFFFFFF, text_font: notosans20 }
-                    - label: { text: "실외온도", align: left_mid, x: 65, text_color: 0xFFFFFF, text_font: notosans20 }
+                    - image: { src: img_tab5_sm, align: top_left, x: 10, image_recolor: 0xF1C36C, image_recolor_opa: 100% }
+                    - label: { text: "기기온도", align: top_mid, x: 0, y: 8, text_color: 0x7F8EA3, text_font: notosans16 }
+                    - label: { id: lbl_tab5_temperature, text: "--", align: bottom_left, x: 46, y: -5, text_color: 0xE0E8F4, text_font: notosans25 }
+                    - label: { text: "°C", align: bottom_right, x: -5, y: -7, text_color: 0x7F8EA3, text_font: notosans16 }
 
-              - obj:
-                  #id: obj_bed_humidity
-                  align: top_right
-                  y: 245
-                  width: 310
-                  height: 70
-                  radius: 12
-                  bg_color: 0x222222
-                  pad_all: 0
-                  border_width: 0
-                  widgets:
-                    - obj: { id: obj_bed_humidity, align: left_mid, x: 0, width: 60, height: 70, bg_color: 0x222222, pad_all: 0, border_width: 0 }
-                    - image: { src: img_car_pickup, image_recolor: 0xFFFFFF, image_recolor_opa: 100%, align: left_mid, x: 15, y : 20 }
-                    - image: { src: img_water, image_recolor: 0xFFFFFF, image_recolor_opa: 100%, align: left_mid, x: 0, y : -10 }
-                    - label: { id: lbl_bed_humidity, text: "--", align: right_mid, x: -25, text_color: 0xFFFFFF, text_font: notosans45 }
-                    - label: { text: "%", align: right_mid, x: -3, text_color: 0xFFFFFF, text_font: notosans20 }
-                    - label: { text: "실외습도", align: left_mid, x: 65, text_color: 0xFFFFFF, text_font: notosans20 }
-              
-
-              - obj:
-                  #id: obj_atom_temperature
-                  align: top_right
-                  y: 325
-                  width: 310
-                  height: 70
-                  radius: 12
-                  bg_color: 0x222222
-                  pad_all: 0
-                  border_width: 0
-                  widgets:
-                    - obj: { id: obj_atom_temperature, align: left_mid, x: 0, width: 60, height: 70, bg_color: 0x222222, pad_all: 0, border_width: 0 }
-                    - image: { src: img_atom, image_recolor: 0xFFFFFF, image_recolor_opa: 100%, align: left_mid, x: 5 }
-                    - label: { id: lbl_atom_temperature, text: "--", align: right_mid, x: -25, text_color: 0xFFFFFF, text_font: notosans45 }
-                    - label: { text: "°C", align: right_mid, x: -3, text_color: 0xFFFFFF, text_font: notosans20 }
-                    - label: { text: "ATOM", align: left_mid, x: 65, text_color: 0xFFFFFF, text_font: notosans20 }
-
-              - obj:
-                  #id: obj_cabin_pressure
-                  align: top_right
-                  y: 405
-                  width: 310
-                  height: 70
-                  radius: 12
-                  bg_color: 0x222222
-                  pad_all: 0
-                  border_width: 0
-                  widgets:
-                    - obj: { id: obj_cabin_pressure, align: left_mid, x: 0, width: 60, height: 70, bg_color: 0x222222, pad_all: 0, border_width: 0 }
-                    - image: { src: img_pressure, image_recolor: 0xFFFFFF, image_recolor_opa: 100%, align: left_mid, x: 5 }
-                    - label: { id: lbl_cabin_pressure, text: "--", align: right_mid, x: -25, text_color: 0xFFFFFF, text_font: notosans45 }
-                    - label: { text: "기압", align: left_mid, x: 65, text_color: 0xFFFFFF, text_font: notosans20 }
-                    #- label: { text: "°C", align: right_mid, x: -3, text_color: 0xFFFFFF, text_font: notosans20 }
-
-              - obj:
-                  #id: obj_tab5_temperature
-                  align: top_right
-                  y: 485
-                  width: 310
-                  height: 70
-                  radius: 12
-                  bg_color: 0x222222
-                  pad_all: 0
-                  border_width: 0
-                  widgets:
-                    - obj: { id: obj_tab5_temperature, align: left_mid, x: 0, width: 60, height: 70, bg_color: 0x222222, pad_all: 0, border_width: 0 }
-                    - image: { src: img_tab5, image_recolor: 0xFFFFFF, image_recolor_opa: 100%, align: left_mid, x: 5 }
-                    - label: { id: lbl_tab5_temperature, text: "--", align: right_mid, x: -25, text_color: 0xFFFFFF, text_font: notosans45 }
-                    - label: { text: "°C", align: right_mid, x: -3, text_color: 0xFFFFFF, text_font: notosans20 }
-                    - label: { text: "TAB5", align: left_mid, x: 65, text_color: 0xFFFFFF, text_font: notosans20 }
-
-              - obj:
-                  #id: obj_cabin_eco2
-                  align: top_right
-                  y: 565
-                  width: 310
-                  height: 70
-                  radius: 12
-                  bg_color: 0x222222
-                  pad_all: 0
-                  border_width: 0
-                  widgets:
-                    - obj: { id: obj_cabin_eco2, align: left_mid, x: 0, width: 60, height: 70, bg_color: 0x222222, pad_all: 0, border_width: 0 }
-                    - image: { src: img_eco2, image_recolor: 0xFFFFFF, image_recolor_opa: 100%, align: left_mid, x: 5 }
-                    - label: { id: lbl_cabin_eco2, text: "--", align: right_mid, x: -25, text_color: 0xFFFFFF, text_font: notosans45 }
-                    - label: { text: "ECO2", align: left_mid, x: 65, text_color: 0xFFFFFF, text_font: notosans20 }
-                    #- label: { text: "°C", align: right_mid, x: -3, text_color: 0xFFFFFF, text_font: notosans20 }
-
-              - obj:
-                  #id: obj_cabin_tvoc
-                  align: top_right
-                  y: 645
-                  width: 310
-                  height: 70
-                  radius: 12
-                  bg_color: 0x222222
-                  pad_all: 0
-                  border_width: 0
-                  widgets:
-                    - obj: { id: obj_cabin_tvoc, align: left_mid, x: 0, width: 60, height: 70, bg_color: 0x222222, pad_all: 0, border_width: 0 }
-                    - image: { src: img_tvoc, image_recolor: 0xFFFFFF, image_recolor_opa: 100%, align: left_mid, x: 5 }
-                    - label: { id: lbl_cabin_tvoc, text: "--", align: right_mid, x: -25, text_color: 0xFFFFFF, text_font: notosans45 }
-                    - label: { text: "TVOC", align: left_mid, x: 65, text_color: 0xFFFFFF, text_font: notosans20 }
-                    #- label: { text: "°C", align: right_mid, x: -3, text_color: 0xFFFFFF, text_font: notosans20 }
-
-        # ── 하단 로그 바(항상 표시 / 원하면 hidden: true로 바꿔 토글)
+        # 로그 (개발용, 숨김)
         - obj:
             id: obj_log
             hidden: true
-            bg_color: 0x202020
-            border_width: 0
+            bg_color: 0x0D1117
+            border_width: 1
+            border_color: 0x1E2A38
             radius: 12
-            pad_all: 0
             align: bottom_mid
-            width: 710
-            height: 300
+            y: -100
+            width: 900
+            height: 180
             widgets:
               - textarea:
                   id: textarea_log
                   one_line: false
-                  text_align: left
-                  text_color: 0xFFFFFF
+                  text_color: 0xD5DFED
                   text_font: notosans20
                   width: 100%
                   height: 100%
-                  bg_color: 0x202020
+                  bg_color: 0x0D1117
                   border_width: 0
 
 font:
   - file: "gfonts://Noto+Sans+KR"
+    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%실내외온습도기압가속냉각수부하배터리연료운행머버전번호판뚝'
     id: notosans16
     size: 16
   - file: "gfonts://Noto+Sans+KR"
-    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%실내외온습도기압가속냉각수부하배터리연료운행'
+    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%실내외온습도기압가속냉각수부하배터리연료운행머버전번호판뚝엔진'
     id: notosans20
     size: 20
   - file: "gfonts://Noto+Sans+KR"
-    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz월화수목금토일'
+    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%실내외온습냉각수부하배터리연료운행엔진머버전번호판'
+    id: notosans25
+    size: 25
+  - file: "gfonts://Noto+Sans+KR"
+    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%월화수목금토일머운행배터리냉각부하엔진과속주의졸음경고가스환기필요급감장치열유'
+    id: notosans30
+    size: 30
+  - file: "gfonts://Noto+Sans+KR"
+    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz월화수목금토일머운행배터리냉각부하엔진과속주의졸음경고가스환기필요급감장치열유'
     id: notosans45
     size: 45
   - file: "gfonts://Noto+Sans+KR"
@@ -1663,7 +1555,7 @@ font:
     id: notosans70
     size: 70
   - file: "gfonts://Noto+Sans+KR"
-    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz졸음주의환기유필요엔진부하과속열급가감스'
+    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz졸음주의환기유필요엔진부하과속열급가감스경고장치'
     id: notosans100
     size: 100
   - file: "gfonts://Noto+Sans+KR"
@@ -1755,7 +1647,7 @@ image:
     resize: 50x50
     type: binary
   - file: mdi:molecule-co2
-    id: img_eco2
+    id: img_co2
     resize: 50x50
     type: binary
   - file: mdi:weather-dust
@@ -1766,9 +1658,77 @@ image:
     id: img_pressure
     resize: 50x50
     type: binary
-    
-# ───── 스크립트 (회전/귀 시퀀스) ─────
+  - file: mdi:new-box
+    id: img_version
+    resize: 50x50
+    type: binary
+  # 하단 센서 패널 전용 (작은 아이콘, zoom 대신 실제 리사이즈)
+  - file: mdi:thermometer
+    id: img_thermometer_sm
+    resize: 36x36
+    type: binary
+  - file: mdi:water
+    id: img_water_sm
+    resize: 36x36
+    type: binary
+  - file: mdi:molecule-co2
+    id: img_co2_sm
+    resize: 36x36
+    type: binary
+  - file: mdi:weather-dust
+    id: img_tvoc_sm
+    resize: 28x28
+    type: binary
+  - file: mdi:memory
+    id: img_tab5_sm
+    resize: 36x36
+    type: binary
+
 script:
+  - id: script_splash_fade_in
+    then:
+      - lvgl.widget.update:
+          id: obj_splash_content
+          opa: 30%
+      - delay: 50ms
+      - lvgl.widget.update:
+          id: obj_splash_content
+          opa: 58%
+      - delay: 50ms
+      - lvgl.widget.update:
+          id: obj_splash_content
+          opa: 100%
+  - id: script_splash_fade_out
+    then:
+      - lvgl.widget.update:
+          id: obj_splash_content
+          opa: 70%
+      - delay: 40ms
+      - lvgl.widget.update:
+          id: obj_splash_content
+          opa: 38%
+      - delay: 40ms
+      - lvgl.widget.update:
+          id: obj_splash_content
+          opa: 12%
+      - delay: 40ms
+      - lvgl.widget.update:
+          id: obj_splash_content
+          opa: 0%
+      - delay: 60ms
+  - id: script_ble_write
+    mode: queued
+    parameters:
+      msg: string
+    then:
+      - ble_client.ble_write:
+          id: vlinker
+          service_uuid: 18F0
+          characteristic_uuid: 2AF1
+          value: !lambda |-
+            std::vector<uint8_t> v(msg.begin(), msg.end());
+            v.push_back('\r');
+            return v;
   - id: script_logs
     parameters:
       log: string
@@ -1783,33 +1743,9 @@ script:
             vec.push_back(std::string(buf));
             if (vec.size() > 10) vec.erase(vec.begin());
             std::string str;
-            for (auto temp : vec)
-            {
+            for (auto temp : vec) {
               str += temp;
               if (!temp.ends_with("\r\n")) str += "\r\n";
             }
             id(g_logs) = vec;
             return str;
-
-interval:
-  - interval: 1s
-    then:
-      - lvgl.label.update:
-            id: lbl_info
-            text: !lambda |-
-              static bool blink = false;
-              blink = !blink;
-              if (!blink) return "";
-
-              if (!isnan(id(car_acceleration).state) && id(car_acceleration).state > 4) return  "급가속!";
-              if (!isnan(id(car_acceleration).state) && id(car_acceleration).state < -4) return  "급감속!";
-              if (!isnan(id(engine_load).state) && id(engine_load).state > 95) return  "엔진 부하!";
-              if (!isnan(id(car_speed).state) && id(car_speed).state > 110) return  "과속 주의!";
-              if (!isnan(id(id_sgp30_tvoc).state) && id(id_sgp30_tvoc).state > 5000) return  "가스! 가스! 가스!";
-              if (!isnan(id(id_sgp30_tvoc).state) && id(id_sgp30_tvoc).state > 3333) return  "환기 필요!";
-              if (!isnan(id(id_sgp30_eco2).state) && id(id_sgp30_eco2).state > 2000) return "졸음 주의!";
-              if (!isnan(id(id_internal_temperature).state) && id(id_internal_temperature).state > 70) return  "기기 과열 주의!";
-              if (!isnan(id(id_tab5_internal_temperature).state) && id(id_tab5_internal_temperature).state > 70) return  "기기 과열 주의!";
-              if (!isnan(id(fuel_level).state) && id(fuel_level).state < 10) return  "주유 필요!";
-              return "";
-          
