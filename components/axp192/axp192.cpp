@@ -12,12 +12,12 @@ void AXP192Component::setup()
     begin(false, false, false, false, false);
     if (this->brightness_)
     {
-        this->brightness_->add_on_state_callback(std::bind(&AXP192Component::brightness_callback, this, std::placeholders::_1));
+        this->brightness_->add_on_state_callback([this](float value) { this->brightness_callback(value); });
         this->brightness_->publish_state(100);
     }
     if (this->poweroff_)
     {
-        this->poweroff_->add_on_press_callback(std::bind(&AXP192Component::poweroff_callback, this));
+        this->poweroff_->add_on_press_callback([this]() { this->poweroff_callback(); });
     }
 }
 
