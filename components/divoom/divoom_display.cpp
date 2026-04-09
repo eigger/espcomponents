@@ -38,12 +38,12 @@ void DivoomDisplay::setup()
     if (this->bt_connected_) this->bt_connected_->publish_state(false);
     if (this->select_time_) 
     {
-        this->select_time_->add_on_state_callback(std::bind(&DivoomDisplay::select_time_callback, this, std::placeholders::_1, std::placeholders::_2));
+        this->select_time_->add_on_state_callback([this](std::string value, size_t index) { this->select_time_callback(value, index); });
         this->select_time_->publish_state(this->select_time_->at(0).value());
     }
     if (this->brightness_)
     {
-        this->brightness_->add_on_state_callback(std::bind(&DivoomDisplay::brightness_callback, this, std::placeholders::_1));
+        this->brightness_->add_on_state_callback([this](float value) { this->brightness_callback(value); });
         this->brightness_->publish_state(100);
     }
     timer_ = get_time();
