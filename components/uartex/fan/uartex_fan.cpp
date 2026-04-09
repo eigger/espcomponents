@@ -22,7 +22,6 @@ fan::FanTraits UARTExFan::get_traits()
         traits.set_speed(true);
         traits.set_supported_speed_count(this->speed_count_);
     }
-    if (!this->preset_modes_.empty()) traits.set_supported_preset_modes(this->preset_modes_);
     return traits;
 }
 

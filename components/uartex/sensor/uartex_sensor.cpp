@@ -18,12 +18,12 @@ void UARTExSensor::publish(const std::vector<uint8_t>& data)
 {
     {
         optional<float> val = get_state_float("lambda", data);
-        if(val.has_value() && this->raw_state != val.value()) publish_state(val.value());
+        if(val.has_value() && this->get_raw_state() != val.value()) publish_state(val.value());
     }
 
     {
         optional<float> val = get_state_number(data);
-        if(val.has_value() && this->raw_state != val.value()) publish_state(val.value());
+        if(val.has_value() && this->get_raw_state() != val.value()) publish_state(val.value());
     }
 }
 
