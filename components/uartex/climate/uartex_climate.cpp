@@ -86,9 +86,6 @@ climate::ClimateTraits UARTExClimate::traits()
     {
         traits.add_feature_flags(climate::CLIMATE_SUPPORTS_TARGET_HUMIDITY);
     }
-    if (!this->custom_fan_modes_.empty()) traits.set_supported_custom_fan_modes(this->custom_fan_modes_);
-    if (!this->custom_preset_modes_.empty()) traits.set_supported_custom_presets(this->custom_preset_modes_);
-
     if (get_command_cool() || get_state_cool()) traits.add_supported_mode(climate::CLIMATE_MODE_COOL);
     if (get_command_heat() || get_state_heat()) traits.add_supported_mode(climate::CLIMATE_MODE_HEAT);
     if (get_command_fan_only() || get_state_fan_only()) traits.add_supported_mode(climate::CLIMATE_MODE_FAN_ONLY);

@@ -13,8 +13,14 @@ public:
     void dump_config() override;
     void setup() override;
     void set_sensor(sensor::Sensor* sensor) { this->sensor_ = sensor; }
-    void set_custom_fan_modes(std::initializer_list<const char *> modes) { this->custom_fan_modes_ = modes; }
-    void set_custom_preset_modes(std::initializer_list<const char *> modes) { this->custom_preset_modes_ = modes; }
+    void set_custom_fan_modes(std::initializer_list<const char *> modes) {
+        this->custom_fan_modes_ = modes;
+        this->set_supported_custom_fan_modes(this->custom_fan_modes_);
+    }
+    void set_custom_preset_modes(std::initializer_list<const char *> modes) {
+        this->custom_preset_modes_ = modes;
+        this->set_supported_custom_presets(this->custom_preset_modes_);
+    }
 
 protected:
     void publish(const std::vector<uint8_t>& data) override;
