@@ -37,14 +37,17 @@ packages:
 
 - **Pin D6 (GPIO12)** <-> Resistor <-> LED (+)
 - **GND** <-> LED (-)
+  
+## Gallery
 
-## Images
+<div align="center">
+  <img src="../../documents/led/1.gif" width="48%">
+  <img src="../../documents/led/2.jpg" width="20%">
+</div>
+<div align="center">
+  <img src="../../documents/led/3.jpg" width="32%">
+  <img src="../../documents/led/4.jpg" width="32%">
+  <img src="../../documents/led/5.jpg" width="32%">
+</div>
 
-| 1 | 2 | 3 |
-|---|---|---|
-| ![Puppy Lamp 1](../../documents/led/2.jpg) | ![Puppy Lamp 2](../../documents/led/3.jpg) | ![Puppy Lamp 3](../../documents/led/4.jpg) |
-
-| 4 | 5 |
-|---|---|
-| ![Puppy Lamp 4](../../documents/led/5.jpg) | ![Puppy Lamp 5](../../documents/led/1.gif) |
 
