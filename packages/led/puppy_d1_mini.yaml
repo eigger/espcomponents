@@ -1,0 +1,12 @@
+esp8266:
+  board: d1_mini
+
+output:
+  - platform: esp8266_pwm
+    pin: D6
+    id: led_pwm_output
+
+light:
+  - platform: monochromatic
+    output: led_pwm_output
+    name: "LED"
