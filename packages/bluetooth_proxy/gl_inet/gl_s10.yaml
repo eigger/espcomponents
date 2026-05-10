@@ -18,7 +18,7 @@ ethernet:
   
 # Enable logging
 logger:
-  level: ERROR
+  level: NONE
 
 api:
 
@@ -92,12 +92,17 @@ switch:
         - output.turn_off: power_led
         - output.turn_off: status_led
 
+esp32_ble:
+  max_connections: 4
+
 esp32_ble_tracker:
   scan_parameters:
-    #interval: 1100ms
-    #window: 1100ms
     active: true
-#
+
+bluetooth_proxy:
+  active: true
+  connection_slots: 4
+  
 # The LED is disabled for ESPHome 2023.6.0+ since we do not
 # decode the advertising packets on device anymore, and adding
 # the LED blink would force the device to decode the packets
@@ -113,9 +118,6 @@ esp32_ble_tracker:
             - output.turn_on: bluetooth_led
             - delay: 0.5s
             - output.turn_off: bluetooth_led
-
-bluetooth_proxy:
-  active: true
 
 # output settings for LED's marked Power and Bluetooth
 # power LED use: see code line 15
