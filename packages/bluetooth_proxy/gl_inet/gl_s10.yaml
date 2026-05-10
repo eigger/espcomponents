@@ -98,11 +98,7 @@ esp32_ble:
 esp32_ble_tracker:
   scan_parameters:
     active: true
-
-bluetooth_proxy:
-  active: true
-  connection_slots: 4
-  
+ 
 # The LED is disabled for ESPHome 2023.6.0+ since we do not
 # decode the advertising packets on device anymore, and adding
 # the LED blink would force the device to decode the packets
@@ -118,7 +114,11 @@ bluetooth_proxy:
             - output.turn_on: bluetooth_led
             - delay: 0.5s
             - output.turn_off: bluetooth_led
-
+            
+bluetooth_proxy:
+  active: true
+  connection_slots: 4
+  
 # output settings for LED's marked Power and Bluetooth
 # power LED use: see code line 15
 # bluetooth LED use: see code line 60
