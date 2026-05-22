@@ -2,8 +2,9 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import ble_client, esp32_ble_tracker
 from esphome.const import (
-    CONF_ID, CONF_SERVICE_UUID, CONF_BLE_CLIENT_ID,
+    CONF_ID, CONF_SERVICE_UUID,
 )
+CONF_BLE_CLIENT_ID = "ble_client_id"
 from .const import (
     CONF_BLE_ELM327_ID, CONF_RX_CHAR_UUID, CONF_TX_CHAR_UUID,
     CONF_INIT_COMMANDS, CONF_TX_DELAY, CONF_PID, CONF_MODE, CONF_FORMULA, CONF_PRESET,
