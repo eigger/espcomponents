@@ -378,35 +378,39 @@ sensor:
 
 ---
 
-## GM Extended PIDs (Mode 22)
+## GM Extended PIDs (Chevrolet Colorado / GMC Canyon)
 
-Mode `"22"` uses UDS "Read Data By Identifier". The 4-char PID is the 2-byte identifier.
+Combines Mode `01` extended PIDs and Mode `22` UDS PIDs.
 
-```
-Command : "22{pid}\r"   e.g. "221001\r"
-Response: "62 10 01 DD DD … >"  (3-byte header stripped automatically)
-```
+### PID Reference
 
-### Chevrolet Colorado / GMC Canyon
+| Mode | PID | Name | Formula | Unit |
+|------|-----|------|---------|------|
+| `01` | `A6` | Odometer | `uint32_t v = ((uint32_t)a<<24)\|((uint32_t)b<<16)\|((uint32_t)c<<8)\|d; return v / 10.0f;` | `km` |
+| `22` | `199A` | Gear position (raw) | `return a;` | — |
+| `22` | `19F0` | Engine oil life | `return (a * 100.0f) / 255.0f;` | `%` |
+| `22` | `1940` | Transmission fluid temp | `return a - 40.0f;` | `°C` |
 
-| PID | Name | Formula | Unit |
-|-----|------|---------|------|
-| `1001` | Odometer | `uint32_t v = ((uint32_t)a<<24)\|((uint32_t)b<<16)\|((uint32_t)c<<8)\|d; return v / 10.0f;` | `km` |
-| `1005` | Gear position (raw) | `return a;` | — |
-
-#### Gear position mapping example
+### Full example
 
 ```yaml
 esp32_ble_tracker:
 
 ble_elm327:
   mac_address: "AA:BB:CC:DD:EE:FF"
+  init_commands:
+    - "ATZ"
+    - "ATE0"
+    - "ATL0"
+    - "ATS0"
+    - "ATH0"
+    - "ATSP6"
 
 sensor:
   - platform: ble_elm327
     name: "Odometer"
-    pid: "1001"
-    mode: "22"
+    pid: "A6"
+    mode: "01"
     update_interval: 30s
     formula: |-
       uint32_t v = ((uint32_t)a << 24)
@@ -415,17 +419,56 @@ sensor:
                  |  (uint32_t)d;
       return v / 10.0f;
     unit_of_measurement: "km"
+    device_class: distance
     state_class: total_increasing
+    accuracy_decimals: 0
+    on_value:
+      then:
+        - lambda: |-
+            static float initial = -1.0f;
+            if (!isnan(x) && x > 0) {
+              if (initial < 0) initial = x;
+              id(trip_distance).publish_state(x - initial);
+            }
+
+  - platform: template
+    id: trip_distance
+    name: "Trip Distance"
+    unit_of_measurement: "km"
+    device_class: distance
+    state_class: measurement
+    accuracy_decimals: 0
 
   - platform: ble_elm327
     name: "Gear Position"
-    pid: "1005"
+    pid: "199A"
     mode: "22"
     update_interval: 1s
     formula: "return a;"
+
+  - platform: ble_elm327
+    name: "Engine Oil Life"
+    pid: "19F0"
+    mode: "22"
+    update_interval: 60s
+    formula: "return (a * 100.0f) / 255.0f;"
+    unit_of_measurement: "%"
+    state_class: measurement
+    accuracy_decimals: 0
+
+  - platform: ble_elm327
+    name: "Transmission Fluid Temperature"
+    pid: "1940"
+    mode: "22"
+    update_interval: 10s
+    formula: "return a - 40.0f;"
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 0
 ```
 
-Map the raw gear value to a text label in Home Assistant with a `value_template` or using a `template` sensor.
+The odometer `on_value` lambda uses a `static` variable to record the first reading each boot and derive trip distance. For persistence across reboots use an ESPHome `global:` variable instead.
 
 ---
 
