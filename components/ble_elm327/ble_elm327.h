@@ -92,7 +92,12 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
   void set_tx_delay(uint32_t ms) { tx_delay_ms_ = ms; }
 
  protected:
-  enum class ElmState { IDLE, READY };
+  enum class ElmState { IDLE, CONNECTED, READY };
+
+  struct TxItem {
+    std::string cmd;
+    BleElm327Device *dev{nullptr};
+  };
 
   bool send_command(const std::string &cmd);
   void on_notify(const uint8_t *data, uint16_t length);
@@ -111,11 +116,10 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
   // State machine
   ElmState elm_state_{ElmState::IDLE};
   std::vector<std::string> init_commands_;
-  std::queue<std::string> init_tx_queue_;
 
-  // Device registry & TX queue
+  // Device registry & unified TX queue (init commands: dev=nullptr, sensor: dev=device)
   std::vector<BleElm327Device *> devices_;
-  std::queue<BleElm327Device *> tx_queue_;
+  std::queue<TxItem> tx_queue_;
   size_t collect_idx_{0};  // round-robin start index to prevent starvation
 
   // Timing

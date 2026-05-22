@@ -47,13 +47,17 @@ float BleElm327Device::parse_float(const std::vector<uint8_t> &data) {
 // ── BleElm327Component ──────────────────────────────────────────────────────
 
 void BleElm327Component::loop() {
-  // Drain init commands first (same tx_delay, no response waiting)
-  if (!init_tx_queue_.empty()) {
+  if (elm_state_ == ElmState::IDLE) return;
+
+  // Drain queued command (init or sensor) with tx_delay
+  if (!tx_queue_.empty()) {
     if (millis() - last_tx_time_ < tx_delay_ms_) return;
-    send_command(init_tx_queue_.front());
-    init_tx_queue_.pop();
+    auto item = tx_queue_.front();
+    tx_queue_.pop();
+    if (item.dev) item.dev->on_dequeue();
+    send_command(item.cmd);
     last_tx_time_ = millis();
-    if (init_tx_queue_.empty()) {
+    if (elm_state_ == ElmState::CONNECTED && tx_queue_.empty()) {
       elm_state_ = ElmState::READY;
       ESP_LOGI(TAG, "ELM327 initialized and ready");
     }
@@ -68,21 +72,12 @@ void BleElm327Component::loop() {
     for (size_t i = 0; i < n; i++) {
       auto *d = devices_[(collect_idx_ + i) % n];
       if (d->consume_enqueued()) {
-        tx_queue_.push(d);
+        tx_queue_.push({d->get_command(), d});
         collect_idx_ = (collect_idx_ + i + 1) % n;
         break;
       }
     }
   }
-
-  if (tx_queue_.empty()) return;
-  if (millis() - last_tx_time_ < tx_delay_ms_) return;
-
-  auto *dev = tx_queue_.front();
-  tx_queue_.pop();
-  dev->on_dequeue();
-  send_command(dev->get_command());
-  last_tx_time_ = millis();
 }
 
 void BleElm327Component::dump_config() {
@@ -116,7 +111,6 @@ void BleElm327Component::gattc_event_handler(esp_gattc_cb_event_t event, esp_gat
       client_state_ = espbt::ClientState::IDLE;
       rx_char_handle_ = 0;
       tx_char_handle_ = 0;
-      while (!init_tx_queue_.empty()) init_tx_queue_.pop();
       while (!tx_queue_.empty()) tx_queue_.pop();
       for (auto *d : devices_) d->on_dequeue();
       ESP_LOGW(TAG, "Disconnected from ELM327");
@@ -143,11 +137,12 @@ void BleElm327Component::gattc_event_handler(esp_gattc_cb_event_t event, esp_gat
         break;
       }
       last_tx_time_ = millis();
+      elm_state_ = ElmState::CONNECTED;
+      for (const auto &cmd : init_commands_) tx_queue_.push({cmd, nullptr});
       if (init_commands_.empty()) {
         elm_state_ = ElmState::READY;
         ESP_LOGI(TAG, "No init commands — ELM327 ready");
       } else {
-        for (const auto &cmd : init_commands_) init_tx_queue_.push(cmd);
         ESP_LOGI(TAG, "Queued %u init commands", (unsigned) init_commands_.size());
       }
       break;
