@@ -1,7 +1,7 @@
 # BLE ELM327 Component
 
 [![ESPHome](https://img.shields.io/badge/ESPHome-Custom%20Component-blue)](https://esphome.io/)
-[![Version](https://img.shields.io/badge/version-1.1.0-green)](https://github.com/eigger/espcomponents)
+[![Version](https://img.shields.io/github/v/tag/eigger/espcomponents?color=green&label=version)](https://github.com/eigger/espcomponents)
 
 > [!WARNING]
 > **Experimental / Unverified**: This custom component is experimental and has not been extensively verified. It may not function correctly on all devices, ESPHome versions, or vehicle configurations. Use with caution at your own risk.
