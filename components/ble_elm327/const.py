@@ -1,4 +1,5 @@
 CONF_BLE_ELM327_ID = "ble_elm327_id"
+CONF_BLE_CLIENT_ID = "ble_client_id"
 CONF_RX_CHAR_UUID = "rx_char_uuid"
 CONF_TX_CHAR_UUID = "tx_char_uuid"
 CONF_INIT_COMMANDS = "init_commands"
