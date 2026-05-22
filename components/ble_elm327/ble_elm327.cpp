@@ -47,6 +47,19 @@ float BleElm327Device::parse_float(const std::vector<uint8_t> &data) {
 // ── BleElm327Component ──────────────────────────────────────────────────────
 
 void BleElm327Component::loop() {
+  // Drain init commands first (same tx_delay, no response waiting)
+  if (!init_tx_queue_.empty()) {
+    if (millis() - last_tx_time_ < tx_delay_ms_) return;
+    send_command(init_tx_queue_.front());
+    init_tx_queue_.pop();
+    last_tx_time_ = millis();
+    if (init_tx_queue_.empty()) {
+      elm_state_ = ElmState::READY;
+      ESP_LOGI(TAG, "ELM327 initialized and ready");
+    }
+    return;
+  }
+
   if (elm_state_ != ElmState::READY) return;
 
   // Collect one ready device per loop (round-robin to prevent starvation)
@@ -62,7 +75,6 @@ void BleElm327Component::loop() {
     }
   }
 
-  // Send next queued command (with inter-command delay, no response waiting)
   if (tx_queue_.empty()) return;
   if (millis() - last_tx_time_ < tx_delay_ms_) return;
 
@@ -95,7 +107,6 @@ void BleElm327Component::gattc_event_handler(esp_gattc_cb_event_t event, esp_gat
       }
       gattc_if_ = gattc_if;
       memcpy(remote_bda_, param->open.remote_bda, sizeof(esp_bd_addr_t));
-      elm_state_ = ElmState::CONNECTED;
       client_state_ = espbt::ClientState::ESTABLISHED;
       ESP_LOGI(TAG, "Connected to ELM327");
       break;
@@ -105,6 +116,7 @@ void BleElm327Component::gattc_event_handler(esp_gattc_cb_event_t event, esp_gat
       client_state_ = espbt::ClientState::IDLE;
       rx_char_handle_ = 0;
       tx_char_handle_ = 0;
+      while (!init_tx_queue_.empty()) init_tx_queue_.pop();
       while (!tx_queue_.empty()) tx_queue_.pop();
       for (auto *d : devices_) d->on_dequeue();
       ESP_LOGW(TAG, "Disconnected from ELM327");
@@ -130,14 +142,13 @@ void BleElm327Component::gattc_event_handler(esp_gattc_cb_event_t event, esp_gat
         ESP_LOGW(TAG, "Notify registration failed: %d", param->reg_for_notify.status);
         break;
       }
-      init_cmd_idx_ = 0;
+      last_tx_time_ = millis();
       if (init_commands_.empty()) {
         elm_state_ = ElmState::READY;
         ESP_LOGI(TAG, "No init commands — ELM327 ready");
       } else {
-        elm_state_ = ElmState::INITIALIZING;
-        send_command(init_commands_[0]);
-        last_tx_time_ = millis();
+        for (const auto &cmd : init_commands_) init_tx_queue_.push(cmd);
+        ESP_LOGI(TAG, "Queued %u init commands", (unsigned) init_commands_.size());
       }
       break;
 
@@ -173,23 +184,10 @@ void BleElm327Component::on_notify(const uint8_t *data, uint16_t length) {
 
 void BleElm327Component::process_response(const std::string &response) {
   ESP_LOGD(TAG, "<< %s", response.c_str());
-  const std::string &resp = response;
-
-  // ── Init sequence ────────────────────────────────────────────────────
-  if (elm_state_ == ElmState::INITIALIZING) {
-    init_cmd_idx_++;
-    if (init_cmd_idx_ >= init_commands_.size()) {
-      elm_state_ = ElmState::READY;
-      last_tx_time_ = millis();
-      ESP_LOGI(TAG, "ELM327 initialized and ready");
-    } else {
-      send_command(init_commands_[init_cmd_idx_]);
-      last_tx_time_ = millis();
-    }
-    return;
-  }
 
   if (elm_state_ != ElmState::READY) return;
+
+  const std::string &resp = response;
 
   // Strip whitespace, CR, LF, '>' — works with both ATS0 (compact) and default (spaced) format
   std::string hex;

@@ -147,13 +147,15 @@ ble_elm327:
 #### Internal State Machine
 
 ```
-IDLE → (BLE connect) → CONNECTED
-     → (service discovery) → sends init_commands[0]
-     → INITIALIZING → (response '>' per command) → next command …
+IDLE → (BLE connect + service discovery + notify registered)
+     → queues init_commands into init_tx_queue
+     → loop() drains init_tx_queue at tx_delay intervals
      → READY
 ```
 
-In **READY** state, `loop()` drains the per-device TX queue with `tx_delay` between each write — commands are sent without waiting for a response. When a response arrives it is broadcast to **all** registered devices; each device checks whether the mode + PID bytes match its own configuration and updates its state if they do.
+In **READY** state, `loop()` collects per-device poll requests and drains them with `tx_delay` between each write — commands are sent without waiting for a response. When a response arrives it is broadcast to **all** registered devices; each device checks whether the mode + PID bytes match its own configuration and updates its state if they do.
+
+Init commands are sent with the same `tx_delay` timing as sensor commands. Responses to AT commands during init are silently ignored (they don't match any sensor's mode + PID).
 
 ---
 
