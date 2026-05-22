@@ -125,8 +125,6 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
   uint32_t tx_delay_ms_{50};
   uint32_t last_tx_time_{0};
 
-  // RX buffer
-  std::string response_buffer_;
 };
 
 }  // namespace ble_elm327

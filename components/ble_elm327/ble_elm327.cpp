@@ -107,8 +107,7 @@ void BleElm327Component::gattc_event_handler(esp_gattc_cb_event_t event, esp_gat
       rx_char_handle_ = 0;
       tx_char_handle_ = 0;
       while (!tx_queue_.empty()) tx_queue_.pop();
-      for (auto *d : devices_) d->on_dequeue();  // reset in_queue_ so devices can re-enqueue after reconnect
-      response_buffer_.clear();
+      for (auto *d : devices_) d->on_dequeue();
       ESP_LOGW(TAG, "Disconnected from ELM327");
       break;
 
@@ -169,26 +168,8 @@ bool BleElm327Component::send_command(const std::string &cmd) {
 }
 
 void BleElm327Component::on_notify(const uint8_t *data, uint16_t length) {
-  if (elm_state_ == ElmState::INITIALIZING) {
-    // During init, accumulate until '>' because ATZ echo may arrive before OK
-    for (uint16_t i = 0; i < length; i++) {
-      char c = static_cast<char>(data[i]);
-      if (c == '\n') continue;
-      response_buffer_ += c;
-    }
-    if (response_buffer_.size() > 512) {
-      response_buffer_.clear();
-      return;
-    }
-    if (!response_buffer_.empty() && response_buffer_.back() == '>') {
-      process_response(response_buffer_);
-      response_buffer_.clear();
-    }
-  } else {
-    // READY state: each notification is one complete response (ATS0 compact format)
-    std::string resp(reinterpret_cast<const char *>(data), length);
-    process_response(resp);
-  }
+  std::string resp(reinterpret_cast<const char *>(data), length);
+  process_response(resp);
 }
 
 void BleElm327Component::process_response(const std::string &response) {
