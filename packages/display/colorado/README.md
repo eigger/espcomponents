@@ -6,10 +6,10 @@ ESPHome configuration for a vehicle dashboard based on the ESP32-P4 EV Board (`e
 
 | 1. M5Stack Tab5 | 2. vLinker BLE OBD2 Adapter | 3. Jaalee JHT Climate Sensor |
 | :---: | :---: | :---: |
-| ![M5Stack Tab5](../../../documents/colorado/1.png) | ![vLinker BLE OBD2](../../../documents/colorado/2.jpg) | ![Jaalee JHT](../../../documents/colorado/3.png) |
+| <img src="../../../documents/colorado/1.png" width="200" alt="M5Stack Tab5"> | <img src="../../../documents/colorado/2.jpg" width="300" alt="vLinker BLE OBD2"> | <img src="../../../documents/colorado/3.png" width="300" alt="Jaalee JHT"> |
 
 ### 4. Comprehensive Dashboard Results
-![Comprehensive Results](../../../documents/colorado/4.jpg)
+<img src="../../../documents/colorado/4.jpg" width="400" alt="Comprehensive Results">
 
 ## Features
 
