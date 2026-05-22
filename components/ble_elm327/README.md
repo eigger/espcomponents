@@ -373,17 +373,28 @@ sensor:
 |--------|-----|------|---------|-------------|
 | `gm_ect_volts` | `1149` | `V` | `return a * 0.02f;` | Coolant Temp Sensor Voltage |
 | `gm_iat_volts` | `114B` | `V` | `return a * 0.02f;` | Intake Air Temp Sensor Voltage |
+| `gm_oil_life_alt` | `1151` | `%` | `return a * 0.392f;` | Engine Oil Life Monitor (Alt) |
 | `gm_oil_temp` | `1154` | `°C` | `return a - 40.0f;` | Engine Oil Temperature |
 | `gm_fuel_level_volts` | `1155` | `V` | `return a * 0.02f;` | Fuel Level Sensor Voltage |
 | `gm_oil_pressure` | `115C` | `psi` | `return (a * 0.65f) - 17.5f;` | Engine Oil Pressure |
 | `gm_fuel_trim_cell` | `1160` | — | `return a;` | Fuel Trim Cell |
+| `gm_battery_temp` | `1163` | `°C` | `return a - 40.0f;` | Battery Temperature |
+| `gm_battery_current` | `1173` | `A` | `return ((int16_t)((a << 8) \| b)) / 10.0f;` | Battery Current |
 | `gm_fuel_injector_pw` | `119B` | `ms` | `return (a * 256.0f + b) * 0.001f;` | Fuel Injector Pulse Width |
+| `gm_fuel_pump_duty` | `119C` | `%` | `return a * 0.392f;` | Fuel Pump Duty Cycle |
 | `gm_oil_life` | `119F` | `%` | `return a / 2.55f;` | Engine Oil Life Monitor |
 | `gm_knock_retard` | `11A6` | `°` | `return a * 0.0878906f;` | Knock Retard |
+| `gm_prnd_status` | `11B0` | — | `return a;` | GM PRND Status (Gear Position) |
 | `gm_fan_duty` | `162B` | `%` | `return a / 2.55f;` | Cooling Fan Duty Cycle |
+| `gm_tcc_duty_cycle` | `192A` | `%` | `return a * 0.392f;` | Torque Converter Clutch Duty Cycle |
 | `gm_trans_temp` | `1940` | `°C` | `return a - 40.0f;` | Transmission Fluid Temp |
+| `gm_tcc_slip_speed` | `1941` | `rpm` | `return a * 256.0f + b;` | Torque Converter Clutch Slip Speed |
 | `gm_tcc_slip` | `1991` | `rpm` | `return ((int16_t)((a << 8) \| b)) / 8.0f;` | Torque Converter Clutch Slip |
 | `gm_current_gear` | `199A` | — | `return a;` | Current Gear Position |
+| `gm_tpms_lf` | `2813` | `psi` | `return a * 0.145f;` | Tire Pressure Left Front |
+| `gm_tpms_rf` | `2814` | `psi` | `return a * 0.145f;` | Tire Pressure Right Front |
+| `gm_tpms_lr` | `2815` | `psi` | `return a * 0.145f;` | Tire Pressure Left Rear |
+| `gm_tpms_rr` | `2816` | `psi` | `return a * 0.145f;` | Tire Pressure Right Rear |
 
 ---
 
@@ -607,17 +618,28 @@ Combines Mode `01` extended PIDs and Mode `22` UDS PIDs.
 | `01` | `A6` | Odometer | `uint32_t v = ((uint32_t)a<<24)\|((uint32_t)b<<16)\|((uint32_t)c<<8)\|d; return v / 10.0f;` | `km` |
 | `22` | `1149` | ECT Sensor Voltage | `return a * 0.02f;` | `V` |
 | `22` | `114B` | IAT Sensor Voltage | `return a * 0.02f;` | `V` |
+| `22` | `1151` | Engine Oil Life Monitor (Alt) | `return a * 0.392f;` | `%` |
 | `22` | `1154` | Engine Oil Temperature | `return a - 40.0f;` | `°C` |
 | `22` | `1155` | Fuel Level Sensor Voltage | `return a * 0.02f;` | `V` |
 | `22` | `115C` | Engine Oil Pressure | `return (a * 0.65f) - 17.5f;` | `psi` |
 | `22` | `1160` | Fuel Trim Cell | `return a;` | — |
+| `22` | `1163` | Battery Temperature | `return a - 40.0f;` | `°C` |
+| `22` | `1173` | Battery Current | `return ((int16_t)((a << 8) \| b)) / 10.0f;` | `A` |
 | `22` | `119B` | Fuel Injector Pulse Width | `return (a * 256.0f + b) * 0.001f;` | `ms` |
+| `22` | `119C` | Fuel Pump Duty Cycle | `return a * 0.392f;` | `%` |
 | `22` | `119F` | Engine Oil Life Monitor | `return a / 2.55f;` | `%` |
 | `22` | `11A6` | Knock Retard | `return a * 0.0878906f;` | `°` |
+| `22` | `11B0` | GM PRND Status (Gear Position) | `return a;` | — |
 | `22` | `162B` | Cooling Fan Duty Cycle | `return a / 2.55f;` | `%` |
+| `22` | `192A` | Torque Converter Clutch Duty Cycle | `return a * 0.392f;` | `%` |
 | `22` | `1940` | Transmission Fluid Temp | `return a - 40.0f;` | `°C` |
+| `22` | `1941` | Torque Converter Clutch Slip Speed | `return a * 256.0f + b;` | `rpm` |
 | `22` | `1991` | Torque Converter Clutch Slip | `return ((int16_t)((a << 8) \| b)) / 8.0f;` | `rpm` |
 | `22` | `199A` | Gear Position (raw) | `return a;` | — |
+| `22` | `2813` | Tire Pressure Left Front | `return a * 0.145f;` | `psi` |
+| `22` | `2814` | Tire Pressure Right Front | `return a * 0.145f;` | `psi` |
+| `22` | `2815` | Tire Pressure Left Rear | `return a * 0.145f;` | `psi` |
+| `22` | `2816` | Tire Pressure Right Rear | `return a * 0.145f;` | `psi` |
 
 ### Full example
 
