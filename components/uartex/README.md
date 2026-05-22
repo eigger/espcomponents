@@ -1,7 +1,6 @@
 # UARTEx Component
 
 [![ESPHome](https://img.shields.io/badge/ESPHome-Custom%20Component-blue)](https://esphome.io/)
-[![Version](https://img.shields.io/github/v/tag/eigger/espcomponents?color=green&label=version)](https://github.com/eigger/espcomponents)
 
 A custom ESPHome component that extends UART communication to easily integrate various serial protocols with Home Assistant.
 
