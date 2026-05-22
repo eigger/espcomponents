@@ -46,12 +46,10 @@ external_components:
 esp32_ble_tracker:
 
 ble_elm327:
-  id: elm
   mac_address: "AA:BB:CC:DD:EE:FF"
 
 sensor:
   - platform: ble_elm327
-    ble_elm327_id: elm
     name: "Engine RPM"
     pid: "0C"
     mode: "01"
@@ -60,7 +58,6 @@ sensor:
     unit_of_measurement: "rpm"
 
   - platform: ble_elm327
-    ble_elm327_id: elm
     name: "Vehicle Speed"
     pid: "0D"
     mode: "01"
@@ -148,8 +145,8 @@ ble_elm327:
 
 ```
 IDLE → (BLE connect + service discovery + notify registered)
-     → queues init_commands into init_tx_queue
-     → loop() drains init_tx_queue at tx_delay intervals
+     → CONNECTED: init_commands queued into tx_queue
+     → loop() drains tx_queue at tx_delay intervals
      → READY
 ```
 
@@ -183,7 +180,6 @@ All sub-platforms (sensor, …) share these options:
 ```yaml
 sensor:
   - platform: ble_elm327
-    ble_elm327_id: elm
     name: "Engine RPM"
     pid: "0C"
     mode: "01"
@@ -204,19 +200,16 @@ Standard OBD-II Mode 01 PIDs are built in. Use `preset:` instead of specifying `
 ```yaml
 sensor:
   - platform: ble_elm327
-    ble_elm327_id: elm
     name: "Engine RPM"
     preset: rpm
     update_interval: 1s
 
   - platform: ble_elm327
-    ble_elm327_id: elm
     name: "Vehicle Speed"
     preset: speed
     update_interval: 1s
 
   - platform: ble_elm327
-    ble_elm327_id: elm
     name: "Coolant Temperature"
     preset: coolant_temp
     update_interval: 10s
@@ -227,7 +220,6 @@ You can still override any individual field when using a preset:
 ```yaml
 sensor:
   - platform: ble_elm327
-    ble_elm327_id: elm
     name: "Fuel Level"
     preset: fuel_level
     update_interval: 60s
@@ -342,12 +334,10 @@ Full example — standard sensors:
 esp32_ble_tracker:
 
 ble_elm327:
-  id: elm
   mac_address: "AA:BB:CC:DD:EE:FF"
 
 sensor:
   - platform: ble_elm327
-    ble_elm327_id: elm
     name: "Engine RPM"
     pid: "0C"
     mode: "01"
@@ -357,7 +347,6 @@ sensor:
     state_class: measurement
 
   - platform: ble_elm327
-    ble_elm327_id: elm
     name: "Vehicle Speed"
     pid: "0D"
     mode: "01"
@@ -367,7 +356,6 @@ sensor:
     state_class: measurement
 
   - platform: ble_elm327
-    ble_elm327_id: elm
     name: "Coolant Temperature"
     pid: "05"
     mode: "01"
@@ -378,7 +366,6 @@ sensor:
     state_class: measurement
 
   - platform: ble_elm327
-    ble_elm327_id: elm
     name: "Fuel Level"
     pid: "2F"
     mode: "01"
@@ -413,12 +400,10 @@ Response: "62 10 01 DD DD … >"  (3-byte header stripped automatically)
 esp32_ble_tracker:
 
 ble_elm327:
-  id: elm
   mac_address: "AA:BB:CC:DD:EE:FF"
 
 sensor:
   - platform: ble_elm327
-    ble_elm327_id: elm
     name: "Odometer"
     pid: "1001"
     mode: "22"
@@ -433,7 +418,6 @@ sensor:
     state_class: total_increasing
 
   - platform: ble_elm327
-    ble_elm327_id: elm
     name: "Gear Position"
     pid: "1005"
     mode: "22"
@@ -453,7 +437,7 @@ Map the raw gear value to a text label in Home Assistant with a `value_template`
 | Connects but no data | Wrong service / characteristic UUID | Scan the adapter's BLE services and update `service_uuid`, `rx_char_uuid`, `tx_char_uuid` |
 | `RX characteristic not found` | UUID mismatch | Some adapters use 128-bit UUIDs — use the full form in config |
 | Sensor never updates | PID/mode mismatch or ECU doesn't support it | Enable DEBUG logs and confirm the response byte matches `0x40 + mode`; check `ATDP` to verify protocol |
-| Init fails (stays INITIALIZING) | Adapter doesn't respond to `ATZ` | Set `init_commands: []` or use a shorter sequence |
+| Sensors never update after connect | Adapter slow to respond to init commands | Increase `tx_delay` or set `init_commands: []` |
 | Data wrong / garbled | Wrong `formula` | Check raw response in DEBUG logs and adjust formula |
 | Sensors update too fast / slow | Per-sensor `update_interval` | Tune each sensor's `update_interval` independently |
 
