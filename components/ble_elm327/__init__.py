@@ -87,7 +87,8 @@ BLE_ELM327_DEVICE_SCHEMA = cv.Schema(
 
 
 class LambdaString(str):
-    esp_range = None
+    def __getattr__(self, name):
+        return None
 
 
 def inject_preset(config):
