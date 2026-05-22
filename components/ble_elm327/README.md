@@ -3,6 +3,9 @@
 [![ESPHome](https://img.shields.io/badge/ESPHome-Custom%20Component-blue)](https://esphome.io/)
 [![Version](https://img.shields.io/badge/version-1.1.0-green)](https://github.com/eigger/espcomponents)
 
+> [!WARNING]
+> **Experimental / Unverified**: This custom component is experimental and has not been extensively verified. It may not function correctly on all devices, ESPHome versions, or vehicle configurations. Use with caution at your own risk.
+
 A custom ESPHome component that connects to a Bluetooth LE ELM327 OBD-II adapter and exposes vehicle data (RPM, speed, temperature, odometer, gear position, etc.) as Home Assistant sensors.
 
 Supports standard OBD-II (Mode 01) and vendor-extended UDS PIDs (Mode 22, e.g. GM/Chevrolet Colorado).

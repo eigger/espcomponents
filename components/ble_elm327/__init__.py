@@ -10,9 +10,24 @@ from .const import (
 )
 from .presets import OBD_PRESETS
 
+# Dynamic stack-inspection hack to automatically inject empty list config for auto-loaded 'ble_client'
+# This avoids validation errors (required 'mac_address') when the user has no 'ble_client:' block in YAML.
+try:
+    import sys
+    frame = sys._getframe(0)
+    while frame:
+        for var_name, var_val in list(frame.f_locals.items()):
+            if isinstance(var_val, dict) and 'esphome' in var_val and 'ble_elm327' in var_val:
+                if 'ble_client' not in var_val or var_val['ble_client'] is None:
+                    var_val['ble_client'] = []
+        frame = frame.f_back
+except Exception:
+    pass
+
 AUTO_LOAD = ["ble_client"]
 CODEOWNERS = ["@eigger"]
 MULTI_CONF = True
+
 
 ble_elm327_ns = cg.esphome_ns.namespace("ble_elm327")
 # Component is NOT a PollingComponent — per-device polling only
