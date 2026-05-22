@@ -966,6 +966,15 @@ OBD_PRESETS = {
         CONF_ACCURACY_DECIMALS: 1,
         CONF_ICON: "mdi:oil",
     },
+    "gm_battery_current": {
+        CONF_MODE: "22",
+        CONF_PID: "1173",
+        CONF_FORMULA: "return ((int16_t)((a << 8) | b)) / 10.0f;",
+        CONF_UNIT_OF_MEASUREMENT: "A",
+        CONF_DEVICE_CLASS: "current",
+        CONF_STATE_CLASS: "measurement",
+        CONF_ACCURACY_DECIMALS: 1,
+    },
     "gm_knock_retard": {
         CONF_MODE: "22",
         CONF_PID: "11A6",
