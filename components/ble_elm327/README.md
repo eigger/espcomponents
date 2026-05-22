@@ -384,7 +384,7 @@ sensor:
 | `gm_fuel_pump_duty` | `119C` | `%` | `return a * 0.392f;` | Fuel Pump Duty Cycle |
 | `gm_oil_life` | `119F` | `%` | `return a / 2.55f;` | Engine Oil Life Monitor |
 | `gm_knock_retard` | `11A6` | `°` | `return a * 0.0878906f;` | Knock Retard |
-| `gm_prnd_status` | `11B0` | — | `return a;` | Gear Position Status |
+| `gm_prnd_status` | `11B0` | — | `return a;` | GM PRND Status (Gear Position) |
 | `gm_fan_duty` | `162B` | `%` | `return a / 2.55f;` | Cooling Fan Duty Cycle |
 | `gm_tcc_duty_cycle` | `192A` | `%` | `return a * 0.392f;` | Torque Converter Clutch Duty Cycle |
 | `gm_trans_temp` | `1940` | `°C` | `return a - 40.0f;` | Transmission Fluid Temp |
@@ -629,7 +629,7 @@ Combines Mode `01` extended PIDs and Mode `22` UDS PIDs.
 | `22` | `119C` | Fuel Pump Duty Cycle | `return a * 0.392f;` | `%` |
 | `22` | `119F` | Engine Oil Life Monitor | `return a / 2.55f;` | `%` |
 | `22` | `11A6` | Knock Retard | `return a * 0.0878906f;` | `°` |
-| `22` | `11B0` | Gear Position Status | `return a;` | — |
+| `22` | `11B0` | GM PRND Status (Gear Position) | `return a;` | — |
 | `22` | `162B` | Cooling Fan Duty Cycle | `return a / 2.55f;` | `%` |
 | `22` | `192A` | Torque Converter Clutch Duty Cycle | `return a * 0.392f;` | `%` |
 | `22` | `1940` | Transmission Fluid Temp | `return a - 40.0f;` | `°C` |
