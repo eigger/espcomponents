@@ -39,13 +39,11 @@ class BleElm327Device : public PollingComponent {
 
   void set_pid(const std::string &pid) { pid_ = pid; }
   void set_mode(const std::string &mode) { mode_ = mode; }
-  void set_response_size(int size) { response_size_ = size; }
   void set_formula(std::function<float(uint8_t, uint8_t, uint8_t, uint8_t)> f) { formula_ = f; }
 
   std::string get_command() const { return mode_ + pid_ + "\r"; }
   std::string get_pid() const { return pid_; }
   std::string get_mode() const { return mode_; }
-  int get_response_size() const { return response_size_; }
 
   // Called by the component with every parsed response frame.
   // Checks mode+PID match; calls publish_data() if matched.
@@ -61,7 +59,6 @@ class BleElm327Device : public PollingComponent {
   bool in_queue_{false};
   std::string pid_;
   std::string mode_{"01"};
-  int response_size_{2};
   optional<std::function<float(uint8_t, uint8_t, uint8_t, uint8_t)>> formula_;
 };
 

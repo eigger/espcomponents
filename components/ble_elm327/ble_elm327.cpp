@@ -40,8 +40,7 @@ float BleElm327Device::parse_float(const std::vector<uint8_t> &data) {
     return (*formula_)(a, b, c, d);
   }
   float val = 0;
-  int count = std::min(response_size_, static_cast<int>(data.size()));
-  for (int i = 0; i < count; i++) val = val * 256.0f + data[i];
+  for (size_t i = 0; i < data.size(); i++) val = val * 256.0f + data[i];
   return val;
 }
 

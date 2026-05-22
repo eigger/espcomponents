@@ -18,7 +18,6 @@ CONF_INIT_COMMANDS = "init_commands"
 CONF_TX_DELAY = "tx_delay"
 CONF_PID = "pid"
 CONF_MODE = "mode"
-CONF_RESPONSE_SIZE = "response_size"
 CONF_FORMULA = "formula"
 CONF_PRESET = "preset"
 
@@ -26,49 +25,49 @@ CONF_PRESET = "preset"
 # Keys match ESPHome CONF_* constants so they can be injected directly into
 # the config dict before schema validation runs.
 OBD_PRESETS = {
-    "engine_load":     {CONF_PID: "04", CONF_MODE: "01", CONF_RESPONSE_SIZE: 1,
+    "engine_load":     {CONF_PID: "04", CONF_MODE: "01",
                         CONF_FORMULA: "return a / 2.55f;",
                         CONF_UNIT_OF_MEASUREMENT: "%",    CONF_STATE_CLASS: "measurement", CONF_ACCURACY_DECIMALS: 1},
-    "coolant_temp":    {CONF_PID: "05", CONF_MODE: "01", CONF_RESPONSE_SIZE: 1,
+    "coolant_temp":    {CONF_PID: "05", CONF_MODE: "01",
                         CONF_FORMULA: "return a - 40.0f;",
                         CONF_UNIT_OF_MEASUREMENT: "°C",   CONF_DEVICE_CLASS: "temperature", CONF_STATE_CLASS: "measurement", CONF_ACCURACY_DECIMALS: 1},
-    "fuel_pressure":   {CONF_PID: "0A", CONF_MODE: "01", CONF_RESPONSE_SIZE: 1,
+    "fuel_pressure":   {CONF_PID: "0A", CONF_MODE: "01",
                         CONF_FORMULA: "return a * 3.0f;",
                         CONF_UNIT_OF_MEASUREMENT: "kPa",  CONF_STATE_CLASS: "measurement", CONF_ACCURACY_DECIMALS: 0},
-    "intake_pressure": {CONF_PID: "0B", CONF_MODE: "01", CONF_RESPONSE_SIZE: 1,
+    "intake_pressure": {CONF_PID: "0B", CONF_MODE: "01",
                         CONF_FORMULA: "return a;",
                         CONF_UNIT_OF_MEASUREMENT: "kPa",  CONF_DEVICE_CLASS: "pressure", CONF_STATE_CLASS: "measurement", CONF_ACCURACY_DECIMALS: 0},
-    "rpm":             {CONF_PID: "0C", CONF_MODE: "01", CONF_RESPONSE_SIZE: 2,
+    "rpm":             {CONF_PID: "0C", CONF_MODE: "01",
                         CONF_FORMULA: "return (a * 256.0f + b) / 4.0f;",
                         CONF_UNIT_OF_MEASUREMENT: "rpm",  CONF_STATE_CLASS: "measurement", CONF_ACCURACY_DECIMALS: 0},
-    "speed":           {CONF_PID: "0D", CONF_MODE: "01", CONF_RESPONSE_SIZE: 1,
+    "speed":           {CONF_PID: "0D", CONF_MODE: "01",
                         CONF_FORMULA: "return a;",
                         CONF_UNIT_OF_MEASUREMENT: "km/h", CONF_DEVICE_CLASS: "speed", CONF_STATE_CLASS: "measurement", CONF_ACCURACY_DECIMALS: 0},
-    "intake_air_temp": {CONF_PID: "0F", CONF_MODE: "01", CONF_RESPONSE_SIZE: 1,
+    "intake_air_temp": {CONF_PID: "0F", CONF_MODE: "01",
                         CONF_FORMULA: "return a - 40.0f;",
                         CONF_UNIT_OF_MEASUREMENT: "°C",   CONF_DEVICE_CLASS: "temperature", CONF_STATE_CLASS: "measurement", CONF_ACCURACY_DECIMALS: 1},
-    "maf":             {CONF_PID: "10", CONF_MODE: "01", CONF_RESPONSE_SIZE: 2,
+    "maf":             {CONF_PID: "10", CONF_MODE: "01",
                         CONF_FORMULA: "return (a * 256.0f + b) / 100.0f;",
                         CONF_UNIT_OF_MEASUREMENT: "g/s",  CONF_STATE_CLASS: "measurement", CONF_ACCURACY_DECIMALS: 2},
-    "throttle":        {CONF_PID: "11", CONF_MODE: "01", CONF_RESPONSE_SIZE: 1,
+    "throttle":        {CONF_PID: "11", CONF_MODE: "01",
                         CONF_FORMULA: "return a / 2.55f;",
                         CONF_UNIT_OF_MEASUREMENT: "%",    CONF_STATE_CLASS: "measurement", CONF_ACCURACY_DECIMALS: 1},
-    "run_time":        {CONF_PID: "1F", CONF_MODE: "01", CONF_RESPONSE_SIZE: 2,
+    "run_time":        {CONF_PID: "1F", CONF_MODE: "01",
                         CONF_FORMULA: "return a * 256.0f + b;",
                         CONF_UNIT_OF_MEASUREMENT: "s",    CONF_DEVICE_CLASS: "duration", CONF_STATE_CLASS: "total_increasing", CONF_ACCURACY_DECIMALS: 0},
-    "fuel_level":      {CONF_PID: "2F", CONF_MODE: "01", CONF_RESPONSE_SIZE: 1,
+    "fuel_level":      {CONF_PID: "2F", CONF_MODE: "01",
                         CONF_FORMULA: "return a / 2.55f;",
                         CONF_UNIT_OF_MEASUREMENT: "%",    CONF_DEVICE_CLASS: "battery", CONF_STATE_CLASS: "measurement", CONF_ACCURACY_DECIMALS: 1},
-    "barometric":      {CONF_PID: "33", CONF_MODE: "01", CONF_RESPONSE_SIZE: 1,
+    "barometric":      {CONF_PID: "33", CONF_MODE: "01",
                         CONF_FORMULA: "return a;",
                         CONF_UNIT_OF_MEASUREMENT: "hPa",  CONF_DEVICE_CLASS: "atmospheric_pressure", CONF_STATE_CLASS: "measurement", CONF_ACCURACY_DECIMALS: 0},
-    "ambient_temp":    {CONF_PID: "46", CONF_MODE: "01", CONF_RESPONSE_SIZE: 1,
+    "ambient_temp":    {CONF_PID: "46", CONF_MODE: "01",
                         CONF_FORMULA: "return a - 40.0f;",
                         CONF_UNIT_OF_MEASUREMENT: "°C",   CONF_DEVICE_CLASS: "temperature", CONF_STATE_CLASS: "measurement", CONF_ACCURACY_DECIMALS: 1},
-    "oil_temp":        {CONF_PID: "5C", CONF_MODE: "01", CONF_RESPONSE_SIZE: 1,
+    "oil_temp":        {CONF_PID: "5C", CONF_MODE: "01",
                         CONF_FORMULA: "return a - 40.0f;",
                         CONF_UNIT_OF_MEASUREMENT: "°C",   CONF_DEVICE_CLASS: "temperature", CONF_STATE_CLASS: "measurement", CONF_ACCURACY_DECIMALS: 1},
-    "battery_voltage": {CONF_PID: "42", CONF_MODE: "01", CONF_RESPONSE_SIZE: 2,
+    "battery_voltage": {CONF_PID: "42", CONF_MODE: "01",
                         CONF_FORMULA: "return (a * 256.0f + b) / 1000.0f;",
                         CONF_UNIT_OF_MEASUREMENT: "V",    CONF_DEVICE_CLASS: "voltage", CONF_STATE_CLASS: "measurement", CONF_ACCURACY_DECIMALS: 2},
 }
@@ -140,7 +139,6 @@ BLE_ELM327_DEVICE_SCHEMA = cv.Schema(
         cv.Optional(CONF_PRESET): cv.one_of(*OBD_PRESETS),
         cv.Optional(CONF_PID): cv.string_strict,
         cv.Optional(CONF_MODE, default="01"): cv.string_strict,
-        cv.Optional(CONF_RESPONSE_SIZE, default=2): cv.positive_int,
         cv.Optional(CONF_FORMULA): cv.returning_lambda,
     }
 ).extend(cv.polling_component_schema("60s"))
@@ -174,7 +172,6 @@ async def register_ble_elm327_device(var, config):
     cg.add(paren.add_device(var))
     cg.add(var.set_pid(config[CONF_PID]))
     cg.add(var.set_mode(config[CONF_MODE]))
-    cg.add(var.set_response_size(config[CONF_RESPONSE_SIZE]))
 
     if CONF_FORMULA in config:
         formula_ = await cg.process_lambda(

@@ -163,11 +163,10 @@ All sub-platforms (sensor, …) share these options:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `ble_elm327_id` | id | **Required** | ID of the parent `ble_elm327` component |
+| `ble_elm327_id` | id | auto | ID of the parent `ble_elm327` component. Can be omitted when there is only one `ble_elm327` in the config. |
 | `preset` | string | - | Built-in OBD-II preset name (see [Presets](#presets)). Mutually exclusive with `pid`. |
 | `pid` | string | **Required** (unless `preset`) | OBD-II PID hex string — 2 chars for mode 01, 4 chars for mode 22 |
 | `mode` | string | `"01"` | OBD-II service mode (`"01"` standard, `"22"` UDS/extended) |
-| `response_size` | int | `2` | Expected data byte count (used by the default formula) |
 | `formula` | lambda | - | Custom value parser (see [Formula Lambda](#formula-lambda)) |
 | `update_interval` | time | `60s` | Per-sensor polling interval |
 
@@ -186,11 +185,9 @@ sensor:
     name: "Engine RPM"
     pid: "0C"
     mode: "01"
-    response_size: 2
     update_interval: 1s
     formula: "return (a * 256.0f + b) / 4.0f;"
     unit_of_measurement: "rpm"
-    device_class: ""
     state_class: measurement
 ```
 
@@ -312,13 +309,7 @@ formula: |-
   return raw / 10.0f;                                 # 4-byte big-endian ÷ 10
 ```
 
-When no `formula` is provided the component concatenates up to `response_size` bytes as a big-endian integer:
-
-```
-response_size: 1  →  a
-response_size: 2  →  a * 256 + b
-response_size: 4  →  a..d as uint32
-```
+When no `formula` is provided the component concatenates all received payload bytes as a big-endian integer.
 
 ---
 
@@ -358,7 +349,6 @@ sensor:
     name: "Engine RPM"
     pid: "0C"
     mode: "01"
-    response_size: 2
     update_interval: 1s
     formula: "return (a * 256.0f + b) / 4.0f;"
     unit_of_measurement: "rpm"
@@ -430,7 +420,6 @@ sensor:
     name: "Odometer"
     pid: "1001"
     mode: "22"
-    response_size: 4
     update_interval: 30s
     formula: |-
       uint32_t v = ((uint32_t)a << 24)
