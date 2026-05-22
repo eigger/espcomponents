@@ -297,6 +297,36 @@ sensor:
 | `actual_torque` | `62` | `%` | `return a - 125.0f;` |
 | `ref_torque` | `63` | `N·m` | `return a * 256.0f + b;` |
 
+#### Oxygen Sensors (Mode 01)
+
+| Preset | PID | Unit | Formula |
+|--------|-----|------|---------|
+| `o2_sensor_b1s1_voltage` | `14` | `V` | `return a / 200.0f;` |
+| `o2_sensor_b1s2_voltage` | `15` | `V` | `return a / 200.0f;` |
+| `o2_sensor_b2s1_voltage` | `18` | `V` | `return a / 200.0f;` |
+| `o2_sensor_b2s2_voltage` | `19` | `V` | `return a / 200.0f;` |
+
+#### GM Specific (Mode 22)
+
+> [!WARNING]
+> **Unverified / Platform-Dependent**: Manufacturer-specific (Mode 22) presets are highly dependent on the vehicle's specific ECU/TCM architecture, year, and model. They are community-sourced, unverified, and might not function or return correct data on all vehicle configurations.
+
+| Preset | PID | Unit | Formula | Description |
+|--------|-----|------|---------|-------------|
+| `gm_ect_volts` | `1149` | `V` | `return a * 0.02f;` | Coolant Temp Sensor Voltage |
+| `gm_iat_volts` | `114B` | `V` | `return a * 0.02f;` | Intake Air Temp Sensor Voltage |
+| `gm_oil_temp` | `1154` | `°C` | `return a - 40.0f;` | Engine Oil Temperature |
+| `gm_fuel_level_volts` | `1155` | `V` | `return a * 0.02f;` | Fuel Level Sensor Voltage |
+| `gm_oil_pressure` | `115C` | `psi` | `return (a * 0.65f) - 17.5f;` | Engine Oil Pressure |
+| `gm_fuel_trim_cell` | `1160` | — | `return a;` | Fuel Trim Cell |
+| `gm_fuel_injector_pw` | `119B` | `ms` | `return (a * 256.0f + b) * 0.001f;` | Fuel Injector Pulse Width |
+| `gm_oil_life` | `119F` | `%` | `return a / 2.55f;` | Engine Oil Life Monitor |
+| `gm_knock_retard` | `11A6` | `°` | `return a * 0.0878906f;` | Knock Retard |
+| `gm_fan_duty` | `162B` | `%` | `return a / 2.55f;` | Cooling Fan Duty Cycle |
+| `gm_trans_temp` | `1940` | `°C` | `return a - 40.0f;` | Transmission Fluid Temp |
+| `gm_tcc_slip` | `1991` | `rpm` | `return ((int16_t)((a << 8) \| b)) / 8.0f;` | Torque Converter Clutch Slip |
+| `gm_current_gear` | `199A` | — | `return a;` | Current Gear Position |
+
 ---
 
 ## Response Parsing
