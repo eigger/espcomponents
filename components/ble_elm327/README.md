@@ -565,41 +565,23 @@ ble_elm327:
 sensor:
   - platform: ble_elm327
     name: "Engine RPM"
-    pid: "0C"
-    mode: "01"
+    preset: rpm
     update_interval: 1s
-    formula: "return (a * 256.0f + b) / 4.0f;"
-    unit_of_measurement: "rpm"
-    state_class: measurement
 
   - platform: ble_elm327
     name: "Vehicle Speed"
-    pid: "0D"
-    mode: "01"
+    preset: speed
     update_interval: 1s
-    formula: "return a;"
-    unit_of_measurement: "km/h"
-    state_class: measurement
 
   - platform: ble_elm327
     name: "Coolant Temperature"
-    pid: "05"
-    mode: "01"
+    preset: coolant_temp
     update_interval: 10s
-    formula: "return a - 40.0f;"
-    unit_of_measurement: "°C"
-    device_class: temperature
-    state_class: measurement
 
   - platform: ble_elm327
     name: "Fuel Level"
-    pid: "2F"
-    mode: "01"
+    preset: fuel_level
     update_interval: 30s
-    formula: "return a / 2.55f;"
-    unit_of_measurement: "%"
-    device_class: battery
-    state_class: measurement
 ```
 
 ---
@@ -649,19 +631,8 @@ ble_elm327:
 sensor:
   - platform: ble_elm327
     name: "Odometer"
-    pid: "A6"
-    mode: "01"
+    preset: odometer
     update_interval: 30s
-    formula: |-
-      uint32_t v = ((uint32_t)a << 24)
-                 | ((uint32_t)b << 16)
-                 | ((uint32_t)c <<  8)
-                 |  (uint32_t)d;
-      return v / 10.0f;
-    unit_of_measurement: "km"
-    device_class: distance
-    state_class: total_increasing
-    accuracy_decimals: 0
     on_value:
       then:
         - lambda: |-
@@ -681,31 +652,18 @@ sensor:
 
   - platform: ble_elm327
     name: "Gear Position"
-    pid: "199A"
-    mode: "22"
+    preset: gm_current_gear
     update_interval: 1s
-    formula: "return a;"
 
   - platform: ble_elm327
     name: "Engine Oil Life"
-    pid: "119F"
-    mode: "22"
+    preset: gm_oil_life
     update_interval: 60s
-    formula: "return a / 2.55f;"
-    unit_of_measurement: "%"
-    state_class: measurement
-    accuracy_decimals: 0
 
   - platform: ble_elm327
     name: "Transmission Fluid Temperature"
-    pid: "1940"
-    mode: "22"
+    preset: gm_trans_temp
     update_interval: 10s
-    formula: "return a - 40.0f;"
-    unit_of_measurement: "°C"
-    device_class: temperature
-    state_class: measurement
-    accuracy_decimals: 0
 ```
 
 The odometer `on_value` lambda uses a `static` variable to record the first reading each boot and derive trip distance. For persistence across reboots use an ESPHome `global:` variable instead.
