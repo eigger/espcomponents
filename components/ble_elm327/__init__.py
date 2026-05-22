@@ -44,7 +44,7 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_SERVICE_UUID, default="FFF0"): esp32_ble_tracker.bt_uuid,
         cv.Optional(CONF_RX_CHAR_UUID, default="FFF1"): esp32_ble_tracker.bt_uuid,
         cv.Optional(CONF_TX_CHAR_UUID, default="FFF2"): esp32_ble_tracker.bt_uuid,
-        cv.Optional(CONF_INIT_COMMANDS, default=["ATZ", "ATE0", "ATL0", "ATSP0"]):
+        cv.Optional(CONF_INIT_COMMANDS, default=["ATZ", "ATE0", "ATL0", "ATS0", "ATSP0"]):
             cv.ensure_list(cv.string_strict),
         cv.Optional(CONF_TX_DELAY, default=50): cv.positive_int,           # ms
     }

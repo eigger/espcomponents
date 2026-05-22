@@ -119,6 +119,7 @@ The default sequence resets the adapter and configures it for silent operation:
 | `ATZ` | Reset ELM327 |
 | `ATE0` | Echo off |
 | `ATL0` | Linefeeds off |
+| `ATS0` | Spaces off — compact hex responses (`"41051A"` instead of `"41 05 1A"`) |
 | `ATSP0` | Auto-detect OBD protocol |
 
 To skip initialisation entirely (e.g. adapter is already configured):

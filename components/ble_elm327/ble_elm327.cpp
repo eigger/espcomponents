@@ -169,31 +169,31 @@ bool BleElm327Component::send_command(const std::string &cmd) {
 }
 
 void BleElm327Component::on_notify(const uint8_t *data, uint16_t length) {
-  for (uint16_t i = 0; i < length; i++) {
-    char c = static_cast<char>(data[i]);
-    if (c == '\n') continue;
-    response_buffer_ += c;
-  }
-  if (response_buffer_.size() > 512) {
-    ESP_LOGW(TAG, "Response buffer overflow, clearing");
-    response_buffer_.clear();
-    return;
-  }
-  // ELM327 ends every response with the '>' prompt
-  if (!response_buffer_.empty() && response_buffer_.back() == '>') {
-    process_response(response_buffer_);
-    response_buffer_.clear();
+  if (elm_state_ == ElmState::INITIALIZING) {
+    // During init, accumulate until '>' because ATZ echo may arrive before OK
+    for (uint16_t i = 0; i < length; i++) {
+      char c = static_cast<char>(data[i]);
+      if (c == '\n') continue;
+      response_buffer_ += c;
+    }
+    if (response_buffer_.size() > 512) {
+      response_buffer_.clear();
+      return;
+    }
+    if (!response_buffer_.empty() && response_buffer_.back() == '>') {
+      process_response(response_buffer_);
+      response_buffer_.clear();
+    }
+  } else {
+    // READY state: each notification is one complete response (ATS0 compact format)
+    std::string resp(reinterpret_cast<const char *>(data), length);
+    process_response(resp);
   }
 }
 
 void BleElm327Component::process_response(const std::string &response) {
-  // Strip '>' prompt and trailing whitespace/CR
-  std::string resp = response;
-  auto prompt = resp.rfind('>');
-  if (prompt != std::string::npos) resp = resp.substr(0, prompt);
-  while (!resp.empty() && (resp.back() == ' ' || resp.back() == '\r')) resp.pop_back();
-
-  ESP_LOGD(TAG, "<< %s", resp.c_str());
+  ESP_LOGD(TAG, "<< %s", response.c_str());
+  const std::string &resp = response;
 
   // ── Init sequence ────────────────────────────────────────────────────
   if (elm_state_ == ElmState::INITIALIZING) {
@@ -211,22 +211,18 @@ void BleElm327Component::process_response(const std::string &response) {
 
   if (elm_state_ != ElmState::READY) return;
 
-  // Parse space-separated hex tokens
+  // Strip whitespace, CR, LF, '>' — works with both ATS0 (compact) and default (spaced) format
+  std::string hex;
+  for (char c : resp)
+    if (isxdigit(static_cast<unsigned char>(c))) hex += c;
+
+  // Must have at least 4 hex chars (1-byte response code + 1-byte PID/data)
+  if (hex.size() < 4) return;
+
+  // Parse consecutive 2-char groups into bytes
   std::vector<uint8_t> bytes;
-  size_t pos = 0;
-  while (pos < resp.size()) {
-    while (pos < resp.size() && resp[pos] == ' ') pos++;
-    size_t end = pos;
-    while (end < resp.size() && resp[end] != ' ' && resp[end] != '\r') end++;
-    if (end == pos) break;
-    std::string token = resp.substr(pos, end - pos);
-    pos = end;
-    bool valid = !token.empty();
-    for (char c : token)
-      if (!isxdigit(static_cast<unsigned char>(c))) { valid = false; break; }
-    if (!valid) continue;
-    bytes.push_back(static_cast<uint8_t>(std::stoul(token, nullptr, 16)));
-  }
+  for (size_t i = 0; i + 1 < hex.size(); i += 2)
+    bytes.push_back(static_cast<uint8_t>(std::stoul(hex.substr(i, 2), nullptr, 16)));
 
   if (bytes.empty()) return;
 
