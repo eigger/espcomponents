@@ -10,7 +10,7 @@ from .const import (
 )
 from .presets import OBD_PRESETS
 
-DEPENDENCIES = ["ble_client"]
+AUTO_LOAD = ["ble_client"]
 CODEOWNERS = ["@eigger"]
 MULTI_CONF = True
 
