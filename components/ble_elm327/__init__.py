@@ -2,29 +2,15 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import ble_client, esp32_ble_tracker
 from esphome.const import (
-    CONF_ID, CONF_SERVICE_UUID, CONF_MAC_ADDRESS,
+    CONF_ID, CONF_SERVICE_UUID, CONF_BLE_CLIENT_ID,
 )
 from .const import (
-    CONF_BLE_ELM327_ID, CONF_INTERNAL_BLE_CLIENT_ID, CONF_RX_CHAR_UUID, CONF_TX_CHAR_UUID,
+    CONF_BLE_ELM327_ID, CONF_RX_CHAR_UUID, CONF_TX_CHAR_UUID,
     CONF_INIT_COMMANDS, CONF_TX_DELAY, CONF_PID, CONF_MODE, CONF_FORMULA, CONF_PRESET,
 )
 from .presets import OBD_PRESETS
 
-# Dynamic stack-inspection hack to automatically inject empty list config for auto-loaded 'ble_client'
-# This avoids validation errors (required 'mac_address') when the user has no 'ble_client:' block in YAML.
-try:
-    import sys
-    frame = sys._getframe(0)
-    while frame:
-        for var_name, var_val in list(frame.f_locals.items()):
-            if isinstance(var_val, dict) and 'esphome' in var_val and 'ble_elm327' in var_val:
-                if 'ble_client' not in var_val or var_val['ble_client'] is None:
-                    var_val['ble_client'] = []
-        frame = frame.f_back
-except Exception:
-    pass
-
-AUTO_LOAD = ["ble_client"]
+DEPENDENCIES = ["ble_client"]
 CODEOWNERS = ["@eigger"]
 MULTI_CONF = True
 
@@ -50,8 +36,7 @@ def _add_uuid(var, uuid_val, fn16, fn32, fn128):
 CONFIG_SCHEMA = cv.Schema(
     {
         cv.GenerateID(): cv.declare_id(BleElm327Component),
-        cv.GenerateID(CONF_INTERNAL_BLE_CLIENT_ID): cv.declare_id(ble_client.BLEClient),
-        cv.Required(CONF_MAC_ADDRESS): cv.mac_address,
+        cv.Required(CONF_BLE_CLIENT_ID): cv.use_id(ble_client.BLEClient),
         cv.Optional(CONF_SERVICE_UUID, default="FFF0"): esp32_ble_tracker.bt_uuid,
         cv.Optional(CONF_RX_CHAR_UUID, default="FFF1"): esp32_ble_tracker.bt_uuid,
         cv.Optional(CONF_TX_CHAR_UUID, default="FFF2"): esp32_ble_tracker.bt_uuid,
@@ -59,19 +44,15 @@ CONFIG_SCHEMA = cv.Schema(
             cv.ensure_list(cv.string_strict),
         cv.Optional(CONF_TX_DELAY, default=50): cv.positive_int,           # ms
     }
-).extend(esp32_ble_tracker.ESP_BLE_DEVICE_SCHEMA)
+)
 
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
 
-    # Auto-create an internal BLEClient bound to mac_address — user needs no separate ble_client: block
-    ble = cg.new_Pvariable(config[CONF_INTERNAL_BLE_CLIENT_ID])
-    await cg.register_component(ble, {})
-    await esp32_ble_tracker.register_ble_device(ble, config)
-    cg.add(ble.set_address(config[CONF_MAC_ADDRESS].as_hex))
-    cg.add(ble.register_ble_node(var))
+    parent = await cg.get_variable(config[CONF_BLE_CLIENT_ID])
+    cg.add(parent.register_ble_node(var))
 
     _add_uuid(var, config[CONF_SERVICE_UUID],
               "set_service_uuid16", "set_service_uuid32", "set_service_uuid128")

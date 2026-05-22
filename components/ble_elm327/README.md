@@ -10,7 +10,7 @@ A custom ESPHome component that connects to a Bluetooth LE ELM327 OBD-II adapter
 
 Supports standard OBD-II (Mode 01) and vendor-extended UDS PIDs (Mode 22, e.g. GM/Chevrolet Colorado).
 
-The component manages its own BLE connection internally — no separate `ble_client:` block is needed.
+The component registers as a node under ESPHome's standard `ble_client:` component.
 
 ## Table of Contents
 
@@ -48,8 +48,12 @@ external_components:
 ```yaml
 esp32_ble_tracker:
 
+ble_client:
+  - mac_address: "AA:BB:CC:DD:EE:FF"
+    id: obd_client
+
 ble_elm327:
-  mac_address: "AA:BB:CC:DD:EE:FF"
+  ble_client_id: obd_client
 
 sensor:
   - platform: ble_elm327
@@ -76,9 +80,13 @@ sensor:
 ### Core Component
 
 ```yaml
+ble_client:
+  - mac_address: "AA:BB:CC:DD:EE:FF"
+    id: obd_client
+
 ble_elm327:
   id: elm
-  mac_address: "AA:BB:CC:DD:EE:FF"
+  ble_client_id: obd_client
   service_uuid: "FFF0"
   rx_char_uuid: "FFF1"
   tx_char_uuid: "FFF2"
@@ -94,7 +102,7 @@ ble_elm327:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `mac_address` | MAC | **Required** | Bluetooth MAC address of the ELM327 adapter |
+| `ble_client_id` | ID | **Required** | The ID of the parent `ble_client` component |
 | `service_uuid` | UUID | `FFF0` | BLE service UUID of the ELM327 adapter |
 | `rx_char_uuid` | UUID | `FFF1` | BLE notify characteristic UUID (adapter → ESP32) |
 | `tx_char_uuid` | UUID | `FFF2` | BLE write characteristic UUID (ESP32 → adapter) |
@@ -127,7 +135,7 @@ To skip initialisation entirely (e.g. adapter is already configured):
 
 ```yaml
 ble_elm327:
-  mac_address: "AA:BB:CC:DD:EE:FF"
+  ble_client_id: obd_client
   init_commands: []
 ```
 
@@ -135,7 +143,7 @@ Custom init sequence example (CAN 500 kbps, headers on):
 
 ```yaml
 ble_elm327:
-  mac_address: "AA:BB:CC:DD:EE:FF"
+  ble_client_id: obd_client
   init_commands:
     - "ATZ"
     - "ATE0"
@@ -547,8 +555,12 @@ Full example — standard sensors:
 ```yaml
 esp32_ble_tracker:
 
+ble_client:
+  - mac_address: "AA:BB:CC:DD:EE:FF"
+    id: obd_client
+
 ble_elm327:
-  mac_address: "AA:BB:CC:DD:EE:FF"
+  ble_client_id: obd_client
 
 sensor:
   - platform: ble_elm327
@@ -620,8 +632,12 @@ Combines Mode `01` extended PIDs and Mode `22` UDS PIDs.
 ```yaml
 esp32_ble_tracker:
 
+ble_client:
+  - mac_address: "AA:BB:CC:DD:EE:FF"
+    id: obd_client
+
 ble_elm327:
-  mac_address: "AA:BB:CC:DD:EE:FF"
+  ble_client_id: obd_client
   init_commands:
     - "ATZ"
     - "ATE0"
