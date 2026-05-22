@@ -21,6 +21,10 @@ Additionally, it automatically handles the mandatory Bosch binary configuration 
 - [Range and ODR References](#range-and-odr-references)
   - [Accelerometer Range & ODR](#accelerometer-range--odr)
   - [Gyroscope Range & ODR](#gyroscope-range--odr)
+- [Orientation Examples](#orientation-examples)
+  - [Orientation 1 — Flat (Z-up)](#orientation-1--flat-z-up)
+  - [Orientation 2 — Portrait (Y-up)](#orientation-2--portrait-y-up)
+  - [Orientation 3 — Landscape (X-up)](#orientation-3--landscape-x-up)
 - [I2C Communication & Architecture](#i2c-communication--architecture)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
@@ -139,6 +143,152 @@ sensor:
     gyro_odr: 800HZ
     gyro_x:
       name: "Gyro X"
+```
+
+---
+
+## Orientation Examples
+
+The BMI270 is a 6-axis IMU (accelerometer + gyroscope). Roll and Pitch can be derived from accelerometer data using ESPHome's `template` sensor.
+
+> **Note:** BMI270 has no built-in magnetometer, so absolute heading (Yaw/azimuth) cannot be determined from this sensor alone.
+
+### Roll & Pitch from Accelerometer
+
+The lambda formulas for Roll and Pitch depend on how the sensor is physically mounted. Choose the section that matches your device orientation.
+
+The shared sensor block below is the same for all orientations — only the `template` lambdas differ:
+
+```yaml
+i2c:
+  sda: 21
+  scl: 22
+  id: bus_a
+
+sensor:
+  - platform: bmi270
+    address: 0x68
+    update_interval: 100ms
+    accel_odr: 100HZ
+    accel_x:
+      id: bmi270_accel_x
+      internal: true
+    accel_y:
+      id: bmi270_accel_y
+      internal: true
+    accel_z:
+      id: bmi270_accel_z
+      internal: true
+```
+
+---
+
+#### Orientation 1 — Flat (Z-up)
+
+Sensor lying horizontally, Z-axis pointing up (most common PCB-on-table mounting).
+
+```
+        Z↑
+        |
+        +——— X (forward)
+       /
+      Y (left)
+```
+
+```yaml
+  - platform: template
+    name: "Roll"                       # left/right tilt
+    unit_of_measurement: "°"
+    accuracy_decimals: 1
+    update_interval: 100ms
+    lambda: |-
+      return atan2(id(bmi270_accel_y).state,
+                   id(bmi270_accel_z).state) * 180.0f / M_PI;
+
+  - platform: template
+    name: "Pitch"                      # forward/backward tilt
+    unit_of_measurement: "°"
+    accuracy_decimals: 1
+    update_interval: 100ms
+    lambda: |-
+      float ax = id(bmi270_accel_x).state;
+      float ay = id(bmi270_accel_y).state;
+      float az = id(bmi270_accel_z).state;
+      return atan2(-ax, sqrt(ay * ay + az * az)) * 180.0f / M_PI;
+```
+
+**Output ranges:** Roll ±180°, Pitch ±90°
+
+---
+
+#### Orientation 2 — Portrait (Y-up)
+
+Sensor standing upright, Y-axis pointing up (e.g., wall-mounted vertically, connector at bottom).
+
+```
+        Y↑
+        |
+        +——— X (forward)
+       /
+      Z (toward viewer)
+```
+
+```yaml
+  - platform: template
+    name: "Roll"                       # left/right tilt
+    unit_of_measurement: "°"
+    accuracy_decimals: 1
+    update_interval: 100ms
+    lambda: |-
+      return atan2(id(bmi270_accel_z).state,
+                   id(bmi270_accel_y).state) * 180.0f / M_PI;
+
+  - platform: template
+    name: "Pitch"                      # forward/backward tilt
+    unit_of_measurement: "°"
+    accuracy_decimals: 1
+    update_interval: 100ms
+    lambda: |-
+      float ax = id(bmi270_accel_x).state;
+      float ay = id(bmi270_accel_y).state;
+      float az = id(bmi270_accel_z).state;
+      return atan2(-ax, sqrt(az * az + ay * ay)) * 180.0f / M_PI;
+```
+
+---
+
+#### Orientation 3 — Landscape (X-up)
+
+Sensor mounted on its side, X-axis pointing up (e.g., side-mounted panel).
+
+```
+        X↑
+        |
+        +——— Z (forward)
+       /
+      Y (left)
+```
+
+```yaml
+  - platform: template
+    name: "Roll"                       # left/right tilt
+    unit_of_measurement: "°"
+    accuracy_decimals: 1
+    update_interval: 100ms
+    lambda: |-
+      return atan2(id(bmi270_accel_y).state,
+                   id(bmi270_accel_x).state) * 180.0f / M_PI;
+
+  - platform: template
+    name: "Pitch"                      # forward/backward tilt
+    unit_of_measurement: "°"
+    accuracy_decimals: 1
+    update_interval: 100ms
+    lambda: |-
+      float ax = id(bmi270_accel_x).state;
+      float ay = id(bmi270_accel_y).state;
+      float az = id(bmi270_accel_z).state;
+      return atan2(-az, sqrt(ay * ay + ax * ax)) * 180.0f / M_PI;
 ```
 
 ---
