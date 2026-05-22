@@ -7,14 +7,19 @@ from .. import (
     BleElm327Device,
     BLE_ELM327_DEVICE_SCHEMA,
     register_ble_elm327_device,
+    inject_preset,
 )
 
 DEPENDENCIES = ["ble_elm327"]
 
 BleElm327Sensor = ble_elm327_ns.class_("BleElm327Sensor", sensor.Sensor, BleElm327Device)
 
-# BLE_ELM327_DEVICE_SCHEMA already extends polling_component_schema("60s")
-CONFIG_SCHEMA = sensor.sensor_schema(BleElm327Sensor).extend(BLE_ELM327_DEVICE_SCHEMA)
+# inject_preset runs first: fills in pid/mode/formula/unit/etc. from OBD_PRESETS,
+# then sensor_schema + BLE_ELM327_DEVICE_SCHEMA validate the completed config.
+CONFIG_SCHEMA = cv.All(
+    inject_preset,
+    sensor.sensor_schema(BleElm327Sensor).extend(BLE_ELM327_DEVICE_SCHEMA),
+)
 
 
 async def to_code(config):

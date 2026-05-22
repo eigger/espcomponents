@@ -18,6 +18,7 @@ The component manages its own BLE connection internally — no separate `ble_cli
   - [Device Schema](#device-schema)
 - [Platforms](#platforms)
   - [Sensor](#sensor)
+- [Presets](#presets)
 - [Response Parsing](#response-parsing)
 - [Formula Lambda](#formula-lambda)
 - [Common OBD-II PIDs](#common-obd-ii-pids)
@@ -163,7 +164,8 @@ All sub-platforms (sensor, …) share these options:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `ble_elm327_id` | id | **Required** | ID of the parent `ble_elm327` component |
-| `pid` | string | **Required** | OBD-II PID hex string — 2 chars for mode 01, 4 chars for mode 22 |
+| `preset` | string | - | Built-in OBD-II preset name (see [Presets](#presets)). Mutually exclusive with `pid`. |
+| `pid` | string | **Required** (unless `preset`) | OBD-II PID hex string — 2 chars for mode 01, 4 chars for mode 22 |
 | `mode` | string | `"01"` | OBD-II service mode (`"01"` standard, `"22"` UDS/extended) |
 | `response_size` | int | `2` | Expected data byte count (used by the default formula) |
 | `formula` | lambda | - | Custom value parser (see [Formula Lambda](#formula-lambda)) |
@@ -193,6 +195,65 @@ sensor:
 ```
 
 All standard ESPHome sensor options (`unit_of_measurement`, `device_class`, `state_class`, `accuracy_decimals`, `filters`, …) are supported.
+
+---
+
+## Presets
+
+Standard OBD-II Mode 01 PIDs are built in. Use `preset:` instead of specifying `pid`, `mode`, `formula`, `unit_of_measurement`, `device_class`, `state_class`, and `accuracy_decimals` manually.
+
+```yaml
+sensor:
+  - platform: ble_elm327
+    ble_elm327_id: elm
+    name: "Engine RPM"
+    preset: rpm
+    update_interval: 1s
+
+  - platform: ble_elm327
+    ble_elm327_id: elm
+    name: "Vehicle Speed"
+    preset: speed
+    update_interval: 1s
+
+  - platform: ble_elm327
+    ble_elm327_id: elm
+    name: "Coolant Temperature"
+    preset: coolant_temp
+    update_interval: 10s
+```
+
+You can still override any individual field when using a preset:
+
+```yaml
+sensor:
+  - platform: ble_elm327
+    ble_elm327_id: elm
+    name: "Fuel Level"
+    preset: fuel_level
+    update_interval: 60s
+    accuracy_decimals: 0   # override the preset default of 1
+```
+
+### Available Presets
+
+| Preset | PID | Unit | Formula |
+|--------|-----|------|---------|
+| `engine_load` | `04` | `%` | `return a / 2.55f;` |
+| `coolant_temp` | `05` | `°C` | `return a - 40.0f;` |
+| `fuel_pressure` | `0A` | `kPa` | `return a * 3.0f;` |
+| `intake_pressure` | `0B` | `kPa` | `return a;` |
+| `rpm` | `0C` | `rpm` | `return (a * 256.0f + b) / 4.0f;` |
+| `speed` | `0D` | `km/h` | `return a;` |
+| `intake_air_temp` | `0F` | `°C` | `return a - 40.0f;` |
+| `maf` | `10` | `g/s` | `return (a * 256.0f + b) / 100.0f;` |
+| `throttle` | `11` | `%` | `return a / 2.55f;` |
+| `run_time` | `1F` | `s` | `return a * 256.0f + b;` |
+| `fuel_level` | `2F` | `%` | `return a / 2.55f;` |
+| `battery_voltage` | `42` | `V` | `return (a * 256.0f + b) / 1000.0f;` |
+| `barometric` | `33` | `hPa` | `return a;` |
+| `ambient_temp` | `46` | `°C` | `return a - 40.0f;` |
+| `oil_temp` | `5C` | `°C` | `return a - 40.0f;` |
 
 ---
 
