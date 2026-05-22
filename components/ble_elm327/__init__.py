@@ -86,6 +86,10 @@ BLE_ELM327_DEVICE_SCHEMA = cv.Schema(
 ).extend(cv.polling_component_schema("60s"))
 
 
+class LambdaString(str):
+    esp_range = None
+
+
 def inject_preset(config):
     """Inject preset values as defaults before schema validation.
 
@@ -105,6 +109,8 @@ def inject_preset(config):
             f"Valid presets: {', '.join(OBD_PRESETS)}"
         )
     for key, val in p.items():
+        if key == CONF_FORMULA and isinstance(val, str) and not hasattr(val, 'esp_range'):
+            val = LambdaString(val)
         config.setdefault(key, val)
     return config
 
