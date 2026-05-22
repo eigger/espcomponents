@@ -582,6 +582,17 @@ sensor:
     name: "Fuel Level"
     preset: fuel_level
     update_interval: 30s
+
+  # Demonstration of a custom OBD-II sensor without using a built-in preset
+  - platform: ble_elm327
+    name: "Intake Air Temperature"
+    pid: "0F"
+    mode: "01"
+    update_interval: 10s
+    formula: "return a - 40.0f;"
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
 ```
 
 ---
@@ -664,6 +675,26 @@ sensor:
     name: "Transmission Fluid Temperature"
     preset: gm_trans_temp
     update_interval: 10s
+
+  # Demonstration of a custom manufacturer-specific UDS (Mode 22) sensor without preset (1-byte payload)
+  - platform: ble_elm327
+    name: "Engine Oil Pressure"
+    pid: "115C"
+    mode: "22"
+    update_interval: 5s
+    formula: "return (a * 0.65f) - 17.5f;"
+    unit_of_measurement: "psi"
+    state_class: measurement
+
+  # Demonstration of a custom manufacturer-specific UDS (Mode 22) sensor without preset (2-byte payload)
+  - platform: ble_elm327
+    name: "Torque Converter Clutch Slip"
+    pid: "1991"
+    mode: "22"
+    update_interval: 2s
+    formula: "return ((int16_t)((a << 8) | b)) / 8.0f;"
+    unit_of_measurement: "rpm"
+    state_class: measurement
 ```
 
 The odometer `on_value` lambda uses a `static` variable to record the first reading each boot and derive trip distance. For persistence across reboots use an ESPHome `global:` variable instead.
