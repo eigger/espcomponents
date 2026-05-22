@@ -228,23 +228,74 @@ sensor:
 
 ### Available Presets
 
+#### Engine
+
 | Preset | PID | Unit | Formula |
 |--------|-----|------|---------|
 | `engine_load` | `04` | `%` | `return a / 2.55f;` |
 | `coolant_temp` | `05` | `°C` | `return a - 40.0f;` |
+| `short_term_fuel_trim_b1` | `06` | `%` | `return (a * 100.0f / 128.0f) - 100.0f;` |
+| `long_term_fuel_trim_b1` | `07` | `%` | `return (a * 100.0f / 128.0f) - 100.0f;` |
+| `short_term_fuel_trim_b2` | `08` | `%` | `return (a * 100.0f / 128.0f) - 100.0f;` |
+| `long_term_fuel_trim_b2` | `09` | `%` | `return (a * 100.0f / 128.0f) - 100.0f;` |
 | `fuel_pressure` | `0A` | `kPa` | `return a * 3.0f;` |
 | `intake_pressure` | `0B` | `kPa` | `return a;` |
 | `rpm` | `0C` | `rpm` | `return (a * 256.0f + b) / 4.0f;` |
 | `speed` | `0D` | `km/h` | `return a;` |
+| `timing_advance` | `0E` | `°` | `return a / 2.0f - 64.0f;` |
 | `intake_air_temp` | `0F` | `°C` | `return a - 40.0f;` |
 | `maf` | `10` | `g/s` | `return (a * 256.0f + b) / 100.0f;` |
 | `throttle` | `11` | `%` | `return a / 2.55f;` |
 | `run_time` | `1F` | `s` | `return a * 256.0f + b;` |
+
+#### Fuel / Distance
+
+| Preset | PID | Unit | Formula |
+|--------|-----|------|---------|
+| `distance_with_mil` | `21` | `km` | `return a * 256.0f + b;` |
+| `fuel_rail_pressure` | `22` | `kPa` | `return 0.079f * (a * 256.0f + b);` |
+| `commanded_egr` | `2C` | `%` | `return a / 2.55f;` |
 | `fuel_level` | `2F` | `%` | `return a / 2.55f;` |
-| `battery_voltage` | `42` | `V` | `return (a * 256.0f + b) / 1000.0f;` |
+| `distance_since_cleared` | `31` | `km` | `return a * 256.0f + b;` |
 | `barometric` | `33` | `hPa` | `return a;` |
+| `fuel_rate` | `5E` | `L/h` | `return (a * 256.0f + b) / 20.0f;` |
+| `ethanol_percent` | `52` | `%` | `return a / 2.55f;` |
+| `fuel_injection_timing` | `5D` | `°` | `return (a * 256.0f + b) / 128.0f - 210.0f;` |
+| `odometer` | `A6` | `km` | `uint32_t v = ...; return v / 10.0f;` |
+
+#### Temperature
+
+| Preset | PID | Unit | Formula |
+|--------|-----|------|---------|
+| `catalyst_temp_b1s1` | `3C` | `°C` | `return (a * 256.0f + b) / 10.0f - 40.0f;` |
+| `catalyst_temp_b2s1` | `3D` | `°C` | `return (a * 256.0f + b) / 10.0f - 40.0f;` |
+| `catalyst_temp_b1s2` | `3E` | `°C` | `return (a * 256.0f + b) / 10.0f - 40.0f;` |
+| `catalyst_temp_b2s2` | `3F` | `°C` | `return (a * 256.0f + b) / 10.0f - 40.0f;` |
 | `ambient_temp` | `46` | `°C` | `return a - 40.0f;` |
 | `oil_temp` | `5C` | `°C` | `return a - 40.0f;` |
+
+#### Module / Throttle / Pedal
+
+| Preset | PID | Unit | Formula |
+|--------|-----|------|---------|
+| `battery_voltage` | `42` | `V` | `return (a * 256.0f + b) / 1000.0f;` |
+| `absolute_load` | `43` | `%` | `return (a * 256.0f + b) * 100.0f / 255.0f;` |
+| `commanded_afr` | `44` | — | `return 2.0f * (a * 256.0f + b) / 65536.0f;` |
+| `relative_throttle` | `45` | `%` | `return a / 2.55f;` |
+| `accel_pedal_d` | `49` | `%` | `return a / 2.55f;` |
+| `accel_pedal_e` | `4A` | `%` | `return a / 2.55f;` |
+| `relative_accel_pedal` | `5A` | `%` | `return a / 2.55f;` |
+| `hybrid_battery` | `5B` | `%` | `return a / 2.55f;` |
+| `time_with_mil` | `4D` | `min` | `return a * 256.0f + b;` |
+| `time_since_cleared` | `4E` | `min` | `return a * 256.0f + b;` |
+
+#### Torque
+
+| Preset | PID | Unit | Formula |
+|--------|-----|------|---------|
+| `demand_torque` | `61` | `%` | `return a - 125.0f;` |
+| `actual_torque` | `62` | `%` | `return a - 125.0f;` |
+| `ref_torque` | `63` | `N·m` | `return a * 256.0f + b;` |
 
 ---
 
@@ -309,24 +360,54 @@ When no `formula` is provided the component concatenates all received payload by
 
 ## Common OBD-II PIDs
 
-Mode `"01"` — 2-char PID, response stripped to data bytes.
+Mode `"01"` — all PIDs below have a built-in `preset:` shortcut (see [Presets](#presets)).
 
-| PID | Name | Formula | Unit |
-|-----|------|---------|------|
-| `04` | Engine load | `return a / 2.55f;` | `%` |
-| `05` | Coolant temperature | `return a - 40.0f;` | `°C` |
-| `0A` | Fuel pressure | `return a * 3.0f;` | `kPa` |
-| `0B` | Intake manifold pressure | `return a;` | `kPa` |
-| `0C` | Engine RPM | `return (a * 256.0f + b) / 4.0f;` | `rpm` |
-| `0D` | Vehicle speed | `return a;` | `km/h` |
-| `0F` | Intake air temperature | `return a - 40.0f;` | `°C` |
-| `10` | MAF air flow | `return (a * 256.0f + b) / 100.0f;` | `g/s` |
-| `11` | Throttle position | `return a / 2.55f;` | `%` |
-| `1F` | Run time since engine start | `return a * 256.0f + b;` | `s` |
-| `2F` | Fuel tank level | `return a / 2.55f;` | `%` |
-| `33` | Barometric pressure | `return a;` | `kPa` |
-| `46` | Ambient air temperature | `return a - 40.0f;` | `°C` |
-| `5C` | Engine oil temperature | `return a - 40.0f;` | `°C` |
+| PID | Preset | Name | Bytes | Formula | Unit |
+|-----|--------|------|-------|---------|------|
+| `04` | `engine_load` | Calculated engine load | 1 | `a / 2.55f` | `%` |
+| `05` | `coolant_temp` | Engine coolant temperature | 1 | `a - 40` | `°C` |
+| `06` | `short_term_fuel_trim_b1` | Short-term fuel trim bank 1 | 1 | `(a*100/128) - 100` | `%` |
+| `07` | `long_term_fuel_trim_b1` | Long-term fuel trim bank 1 | 1 | `(a*100/128) - 100` | `%` |
+| `08` | `short_term_fuel_trim_b2` | Short-term fuel trim bank 2 | 1 | `(a*100/128) - 100` | `%` |
+| `09` | `long_term_fuel_trim_b2` | Long-term fuel trim bank 2 | 1 | `(a*100/128) - 100` | `%` |
+| `0A` | `fuel_pressure` | Fuel pressure (gauge) | 1 | `a * 3` | `kPa` |
+| `0B` | `intake_pressure` | Intake manifold pressure | 1 | `a` | `kPa` |
+| `0C` | `rpm` | Engine speed | 2 | `(256a + b) / 4` | `rpm` |
+| `0D` | `speed` | Vehicle speed | 1 | `a` | `km/h` |
+| `0E` | `timing_advance` | Timing advance | 1 | `a/2 - 64` | `°` |
+| `0F` | `intake_air_temp` | Intake air temperature | 1 | `a - 40` | `°C` |
+| `10` | `maf` | MAF air flow rate | 2 | `(256a + b) / 100` | `g/s` |
+| `11` | `throttle` | Throttle position | 1 | `a / 2.55` | `%` |
+| `1F` | `run_time` | Run time since engine start | 2 | `256a + b` | `s` |
+| `21` | `distance_with_mil` | Distance traveled with MIL on | 2 | `256a + b` | `km` |
+| `22` | `fuel_rail_pressure` | Fuel rail pressure (relative) | 2 | `0.079 × (256a + b)` | `kPa` |
+| `2C` | `commanded_egr` | Commanded EGR | 1 | `a / 2.55` | `%` |
+| `2F` | `fuel_level` | Fuel tank level | 1 | `a / 2.55` | `%` |
+| `31` | `distance_since_cleared` | Distance since codes cleared | 2 | `256a + b` | `km` |
+| `33` | `barometric` | Absolute barometric pressure | 1 | `a` | `hPa` |
+| `3C` | `catalyst_temp_b1s1` | Catalyst temperature B1S1 | 2 | `(256a + b)/10 - 40` | `°C` |
+| `3D` | `catalyst_temp_b2s1` | Catalyst temperature B2S1 | 2 | `(256a + b)/10 - 40` | `°C` |
+| `3E` | `catalyst_temp_b1s2` | Catalyst temperature B1S2 | 2 | `(256a + b)/10 - 40` | `°C` |
+| `3F` | `catalyst_temp_b2s2` | Catalyst temperature B2S2 | 2 | `(256a + b)/10 - 40` | `°C` |
+| `42` | `battery_voltage` | Control module voltage | 2 | `(256a + b) / 1000` | `V` |
+| `43` | `absolute_load` | Absolute load value | 2 | `(256a + b) × 100 / 255` | `%` |
+| `44` | `commanded_afr` | Commanded air-fuel ratio | 2 | `2 × (256a + b) / 65536` | ratio |
+| `45` | `relative_throttle` | Relative throttle position | 1 | `a / 2.55` | `%` |
+| `46` | `ambient_temp` | Ambient air temperature | 1 | `a - 40` | `°C` |
+| `49` | `accel_pedal_d` | Accelerator pedal position D | 1 | `a / 2.55` | `%` |
+| `4A` | `accel_pedal_e` | Accelerator pedal position E | 1 | `a / 2.55` | `%` |
+| `4D` | `time_with_mil` | Time run with MIL on | 2 | `256a + b` | `min` |
+| `4E` | `time_since_cleared` | Time since codes cleared | 2 | `256a + b` | `min` |
+| `52` | `ethanol_percent` | Ethanol fuel percentage | 1 | `a / 2.55` | `%` |
+| `5A` | `relative_accel_pedal` | Relative accelerator pedal | 1 | `a / 2.55` | `%` |
+| `5B` | `hybrid_battery` | Hybrid battery remaining life | 1 | `a / 2.55` | `%` |
+| `5C` | `oil_temp` | Engine oil temperature | 1 | `a - 40` | `°C` |
+| `5D` | `fuel_injection_timing` | Fuel injection timing | 2 | `(256a + b)/128 - 210` | `°` |
+| `5E` | `fuel_rate` | Engine fuel rate | 2 | `(256a + b) / 20` | `L/h` |
+| `61` | `demand_torque` | Driver's demand torque | 1 | `a - 125` | `%` |
+| `62` | `actual_torque` | Actual engine torque | 1 | `a - 125` | `%` |
+| `63` | `ref_torque` | Engine reference torque | 2 | `256a + b` | `N·m` |
+| `A6` | `odometer` | Odometer | 4 | `(a<<24\|b<<16\|c<<8\|d) / 10` | `km` |
 
 Full example — standard sensors:
 
