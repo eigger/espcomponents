@@ -30,6 +30,14 @@
 
 ---
 
+## [ble_elm327](/components/ble_elm327)
+**BLE ELM327 OBD-II Reader Component**  
+- Connects to Bluetooth LE ELM327 OBD-II adapters.
+- Exposes vehicle data (RPM, speed, temperature, odometer, gear position, etc.) via robust built-in presets or custom parsing formulas.
+- Fully integrates with standard ESPHome `ble_client` architecture.
+
+---
+
 ## [axp192](/components/axp192)
 **AXP192 Power Management Component**  
 - ESPHome component for AXP192 power management chip.
