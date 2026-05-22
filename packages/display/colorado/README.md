@@ -2,10 +2,19 @@
 
 ESPHome configuration for a vehicle dashboard based on the ESP32-P4 EV Board (`esp32-p4-evboard`). This dashboard provides real-time vehicle telemetry via an OBD2 Bluetooth adapter, climate tracking using BLE sensors, and air quality monitoring.
 
+## Preview
+
+| 1. M5Stack Tab5 | 2. vLinker BLE OBD2 Adapter | 3. Jaalee JHT Climate Sensor |
+| :---: | :---: | :---: |
+| ![M5Stack Tab5](../../../documents/colorado/1.png) | ![vLinker BLE OBD2](../../../documents/colorado/2.jpg) | ![Jaalee JHT](../../../documents/colorado/3.png) |
+
+### 4. Comprehensive Dashboard Results
+![Comprehensive Results](../../../documents/colorado/4.jpg)
+
 ## Features
 
-- **Vehicle Telemetry**: Connects to a vLinker BLE OBD2 adapter to read Engine RPM, Coolant Temperature, Fuel Level, Engine Load, Speed, and Runtime.
-- **Climate Monitoring**: Tracks cabin and bed temperature/humidity using Jaalee JHT BLE sensors.
+- **Vehicle Telemetry**: Integrates with the custom [ble_elm327](/components/ble_elm327) component to connect to a vLinker BLE OBD2 adapter, exposing Engine RPM, Coolant Temperature, Fuel Level, Engine Load, Speed, Odometer, Gear Position, and Runtime directly as native ESPHome sensors.
+- **Climate Monitoring**: Tracks cabin and bed temperature/humidity using the custom [jaalee_jht](/components/jaalee_jht) BLE component.
 - **Air Quality**: Monitors CO2, eCO2, and TVOC using onboard SCD4x and SGP30 I2C sensors.
 - **Dynamic UI**: LVGL-based UI with dynamic color changes based on sensor values and pop-up alerts for critical conditions (e.g., Overheating, High RPM, Low Fuel, Speeding, Drowsiness Warning via High CO2).
 - **Power Management**: Monitors power consumption using INA226 and controls power peripherals (USB power, Quick Charge, Speakers, etc.) via PI4IOE5V6408 I2C GPIO expanders.
@@ -39,10 +48,16 @@ Make sure you have the following defined in your `secrets.yaml`:
 - `ota_password`
 - `colorado_wifi_ssid`
 - `colorado_wifi_password`
+- `wifi_ssid`
+- `wifi_password`
 - `colorado_wg_address`
 - `colorado_wg_private_key`
 - `wg_peer_endpoint`
 - `colorado_wg_peer_public_key`
+- `mqtt_broker_local`
+- `mqtt_user`
+- `mqtt_password`
+
 
 ## Hardware Configurations
 
