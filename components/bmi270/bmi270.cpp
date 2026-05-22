@@ -122,10 +122,11 @@ void BMI270Component::setup() {
   delay(5);
 
   // 7. Re-enable advanced power save
-  if (!this->write_byte(BMI270_REG_PWR_CONF, 0x02)) {  // bit1 = fifo_self_wakeup
+  if (!this->write_byte(BMI270_REG_PWR_CONF, 0x03)) {  // bit0 = adv_power_save, bit1 = fifo_self_wakeup
     this->mark_failed();
     return;
   }
+
 
   ESP_LOGCONFIG(TAG, "BMI270 initialised successfully");
 }
