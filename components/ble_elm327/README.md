@@ -384,11 +384,11 @@ sensor:
 | `gm_fuel_pump_duty` | `119C` | `%` | `return a * 0.392f;` | Fuel Pump Duty Cycle |
 | `gm_oil_life` | `119F` | `%` | `return a / 2.55f;` | Engine Oil Life Monitor |
 | `gm_knock_retard` | `11A6` | `°` | `return a * 0.0878906f;` | Knock Retard |
-| `gm_prnd_status` | `11B0` | — | `return a;` | GM PRND Status (Gear Position) |
 | `gm_fan_duty` | `162B` | `%` | `return a / 2.55f;` | Cooling Fan Duty Cycle |
 | `gm_tcc_duty_cycle` | `192A` | `%` | `return a * 0.392f;` | Torque Converter Clutch Duty Cycle |
 | `gm_trans_temp` | `1940` | `°C` | `return a - 40.0f;` | Transmission Fluid Temp |
 | `gm_tcc_slip_speed` | `1941` | `rpm` | `return a * 256.0f + b;` | Torque Converter Clutch Slip Speed |
+| `gm_prnd_status` | `1951` | — | `return a;` | GM PRND Status (Gear Position) |
 | `gm_tcc_slip` | `1991` | `rpm` | `return ((int16_t)((a << 8) \| b)) / 8.0f;` | Torque Converter Clutch Slip |
 | `gm_current_gear` | `199A` | — | `return a;` | Current Gear Position |
 | `gm_tpms_lf` | `2813` | `psi` | `return a * 0.145f;` | Tire Pressure Left Front |
@@ -629,11 +629,11 @@ Combines Mode `01` extended PIDs and Mode `22` UDS PIDs.
 | `22` | `119C` | Fuel Pump Duty Cycle | `return a * 0.392f;` | `%` |
 | `22` | `119F` | Engine Oil Life Monitor | `return a / 2.55f;` | `%` |
 | `22` | `11A6` | Knock Retard | `return a * 0.0878906f;` | `°` |
-| `22` | `11B0` | GM PRND Status (Gear Position) | `return a;` | — |
 | `22` | `162B` | Cooling Fan Duty Cycle | `return a / 2.55f;` | `%` |
 | `22` | `192A` | Torque Converter Clutch Duty Cycle | `return a * 0.392f;` | `%` |
 | `22` | `1940` | Transmission Fluid Temp | `return a - 40.0f;` | `°C` |
 | `22` | `1941` | Torque Converter Clutch Slip Speed | `return a * 256.0f + b;` | `rpm` |
+| `22` | `1951` | GM PRND Status (Gear Position) | `return a;` | — |
 | `22` | `1991` | Torque Converter Clutch Slip | `return ((int16_t)((a << 8) \| b)) / 8.0f;` | `rpm` |
 | `22` | `199A` | Gear Position (raw) | `return a;` | — |
 | `22` | `2813` | Tire Pressure Left Front | `return a * 0.145f;` | `psi` |

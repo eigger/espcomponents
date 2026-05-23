@@ -1069,7 +1069,7 @@ OBD_PRESETS = {
     },
     "gm_prnd_status": {
         CONF_MODE: "22",
-        CONF_PID: "11B0",
+        CONF_PID: "1951",
         CONF_FORMULA: "return a;",
         CONF_UNIT_OF_MEASUREMENT: "",
         CONF_STATE_CLASS: "measurement",
