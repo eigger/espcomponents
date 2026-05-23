@@ -978,7 +978,7 @@ OBD_PRESETS = {
     "gm_oil_life_alt": {
         CONF_MODE: "22",
         CONF_PID: "1151",
-        CONF_FORMULA: "return a * 0.392f;",
+        CONF_FORMULA: "return a * 100.0f / 255.0f;",
         CONF_UNIT_OF_MEASUREMENT: "%",
         CONF_STATE_CLASS: "measurement",
         CONF_ACCURACY_DECIMALS: 1,
