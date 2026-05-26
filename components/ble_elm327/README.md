@@ -389,6 +389,7 @@ sensor:
 | `gm_trans_temp` | `1940` | `°C` | `return a - 40.0f;` | Transmission Fluid Temp |
 | `gm_tcc_slip_speed` | `1941` | `rpm` | `return a * 256.0f + b;` | Torque Converter Clutch Slip Speed |
 | `gm_prnd_status` | `1951` | — | `return a;` | GM PRND Status (Gear Position) |
+| `gm_prnd_status_alt` | `2889` | — | `return a;` | GM PRND Status (Gear Position) (Alt) |
 | `gm_tcc_slip` | `1991` | `rpm` | `return ((int16_t)((a << 8) \| b)) / 8.0f;` | Torque Converter Clutch Slip |
 | `gm_current_gear` | `199A` | — | `return a;` | Current Gear Position |
 | `gm_tpms_lf` | `2813` | `psi` | `return a * 0.145f;` | Tire Pressure Left Front |
@@ -634,6 +635,7 @@ Combines Mode `01` extended PIDs and Mode `22` UDS PIDs.
 | `22` | `1940` | Transmission Fluid Temp | `return a - 40.0f;` | `°C` |
 | `22` | `1941` | Torque Converter Clutch Slip Speed | `return a * 256.0f + b;` | `rpm` |
 | `22` | `1951` | GM PRND Status (Gear Position) | `return a;` | — |
+| `22` | `2889` | GM PRND Status (Gear Position) (Alt) | `return a;` | — |
 | `22` | `1991` | Torque Converter Clutch Slip | `return ((int16_t)((a << 8) \| b)) / 8.0f;` | `rpm` |
 | `22` | `199A` | Gear Position (raw) | `return a;` | — |
 | `22` | `2813` | Tire Pressure Left Front | `return a * 0.145f;` | `psi` |
