@@ -3,9 +3,7 @@ substitutions:
   friendly_name: "ESP Colorado TAB5"
   version: "v260525 rev.2"
   number: "82머 5979"
-  mac_vlinker: "C0:25:E8:53:2C:90"
-  mac_cabin_jht: "DA:E8:DD:E2:9A:47"
-  mac_bed_jht: "F5:A8:DB:76:1A:F5"
+
 
 esphome:
   name: "${name}"
