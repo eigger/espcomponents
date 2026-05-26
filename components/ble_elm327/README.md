@@ -373,12 +373,15 @@ sensor:
 |--------|-----|------|---------|-------------|
 | `gm_ect_volts` | `1149` | `V` | `return a * 0.02f;` | Coolant Temp Sensor Voltage |
 | `gm_iat_volts` | `114B` | `V` | `return a * 0.02f;` | Intake Air Temp Sensor Voltage |
+| `gm_fuel_level` | `111D` | `%` | `return a * 100.0f / 255.0f;` | Fuel Level |
 | `gm_oil_life_alt` | `1151` | `%` | `return a * 100.0f / 255.0f;` | Engine Oil Life Monitor (Alt) |
+| `gm_oil_life_alt2` | `119E` | `%` | `return a * 100.0f / 255.0f;` | Engine Oil Life Monitor (Alt 2) |
 | `gm_oil_temp` | `1154` | `°C` | `return a - 40.0f;` | Engine Oil Temperature |
 | `gm_fuel_level_volts` | `1155` | `V` | `return a * 0.02f;` | Fuel Level Sensor Voltage |
 | `gm_oil_pressure` | `115C` | `psi` | `return (a * 0.65f) - 17.5f;` | Engine Oil Pressure |
 | `gm_fuel_trim_cell` | `1160` | — | `return a;` | Fuel Trim Cell |
 | `gm_battery_temp` | `1163` | `°C` | `return a - 40.0f;` | Battery Temperature |
+| `gm_battery_soc` | `4028` | `%` | `return a * 100.0f / 255.0f;` | Battery State of Charge |
 | `gm_battery_current` | `1173` | `A` | `return ((int16_t)((a << 8) \| b)) / 10.0f;` | Battery Current |
 | `gm_fuel_injector_pw` | `119B` | `ms` | `return (a * 256.0f + b) * 0.001f;` | Fuel Injector Pulse Width |
 | `gm_fuel_pump_duty` | `119C` | `%` | `return a * 0.392f;` | Fuel Pump Duty Cycle |
@@ -618,13 +621,16 @@ Combines Mode `01` extended PIDs and Mode `22` UDS PIDs.
 |------|-----|------|---------|------|
 | `01` | `A6` | Odometer | `uint32_t v = ((uint32_t)a<<24)\|((uint32_t)b<<16)\|((uint32_t)c<<8)\|d; return v / 10.0f;` | `km` |
 | `22` | `1149` | ECT Sensor Voltage | `return a * 0.02f;` | `V` |
+| `22` | `111D` | Fuel Level | `return a * 100.0f / 255.0f;` | `%` |
 | `22` | `114B` | IAT Sensor Voltage | `return a * 0.02f;` | `V` |
 | `22` | `1151` | Engine Oil Life Monitor (Alt) | `return a * 100.0f / 255.0f;` | `%` |
+| `22` | `119E` | Engine Oil Life Monitor (Alt 2) | `return a * 100.0f / 255.0f;` | `%` |
 | `22` | `1154` | Engine Oil Temperature | `return a - 40.0f;` | `°C` |
 | `22` | `1155` | Fuel Level Sensor Voltage | `return a * 0.02f;` | `V` |
 | `22` | `115C` | Engine Oil Pressure | `return (a * 0.65f) - 17.5f;` | `psi` |
 | `22` | `1160` | Fuel Trim Cell | `return a;` | — |
 | `22` | `1163` | Battery Temperature | `return a - 40.0f;` | `°C` |
+| `22` | `4028` | Battery State of Charge | `return a * 100.0f / 255.0f;` | `%` |
 | `22` | `1173` | Battery Current | `return ((int16_t)((a << 8) \| b)) / 10.0f;` | `A` |
 | `22` | `119B` | Fuel Injector Pulse Width | `return (a * 256.0f + b) * 0.001f;` | `ms` |
 | `22` | `119C` | Fuel Pump Duty Cycle | `return a * 0.392f;` | `%` |

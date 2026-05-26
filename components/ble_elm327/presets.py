@@ -930,6 +930,15 @@ OBD_PRESETS = {
         CONF_STATE_CLASS: "measurement",
         CONF_ACCURACY_DECIMALS: 2,
     },
+    "gm_fuel_level": {
+        CONF_MODE: "22",
+        CONF_PID: "111D",
+        CONF_FORMULA: "return a * 100.0f / 255.0f;",
+        CONF_UNIT_OF_MEASUREMENT: "%",
+        CONF_STATE_CLASS: "measurement",
+        CONF_ACCURACY_DECIMALS: 1,
+        CONF_ICON: "mdi:gas-station",
+    },
     "gm_oil_pressure": {
         CONF_MODE: "22",
         CONF_PID: "115C",
@@ -984,6 +993,15 @@ OBD_PRESETS = {
         CONF_ACCURACY_DECIMALS: 1,
         CONF_ICON: "mdi:oil",
     },
+    "gm_oil_life_alt2": {
+        CONF_MODE: "22",
+        CONF_PID: "119E",
+        CONF_FORMULA: "return a * 100.0f / 255.0f;",
+        CONF_UNIT_OF_MEASUREMENT: "%",
+        CONF_STATE_CLASS: "measurement",
+        CONF_ACCURACY_DECIMALS: 1,
+        CONF_ICON: "mdi:oil",
+    },
     "gm_battery_current": {
         CONF_MODE: "22",
         CONF_PID: "1173",
@@ -1002,6 +1020,15 @@ OBD_PRESETS = {
         CONF_STATE_CLASS: "measurement",
         CONF_ACCURACY_DECIMALS: 1,
         CONF_ICON: "mdi:thermometer",
+    },
+    "gm_battery_soc": {
+        CONF_MODE: "22",
+        CONF_PID: "4028",
+        CONF_FORMULA: "return a * 100.0f / 255.0f;",
+        CONF_UNIT_OF_MEASUREMENT: "%",
+        CONF_STATE_CLASS: "measurement",
+        CONF_ACCURACY_DECIMALS: 1,
+        CONF_ICON: "mdi:battery-charging",
     },
     "gm_knock_retard": {
         CONF_MODE: "22",
