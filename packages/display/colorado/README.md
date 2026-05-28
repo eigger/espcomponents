@@ -78,3 +78,69 @@ Configure your device MAC addresses via `substitutions` variables as shown in th
 - **INA226 (I2C 0x41)**: Battery voltage and current monitoring.
 - **SGP30 (I2C 0x58)**: eCO2 and TVOC air quality monitoring.
 - **SCD4x**: High accuracy CO2 concentration, temp, and humidity polling.
+
+## LubeLogger Odometer Auto-Sync
+
+Automatically push the odometer reading from this dashboard to [LubeLogger](https://github.com/hargata/lubelog) via Home Assistant's REST integration.
+
+### 1. Define the `rest_command` in `configuration.yaml`
+
+```yaml
+rest_command:
+  lubelogger_add_odometer:
+    url: "http://YOUR_LUBELOGGER_IP:5000/api/vehicle/odometerrecords/add"
+    method: post
+    content_type: 'application/json'
+    username: !secret lubelogger_username
+    password: !secret lubelogger_password
+    headers:
+      culture-invariant: "true"
+    payload: >
+      {
+        "vehicleId": {{ vehicle_id | default(1) }},
+        "date": "{{ date | default(now().strftime('%Y-%m-%d'), true) }}",
+        "odometer": {{ odometer | default(16500) }},
+        "notes": "{{ notes | default('Home Assistant auto sync') }}"
+        {% if initial_odometer is defined and initial_odometer != '' %}
+        , "initialOdometer": {{ initial_odometer }}
+        {% endif %}
+      }
+```
+
+Add the LubeLogger credentials to `secrets.yaml`:
+
+```yaml
+lubelogger_username: "your_user"
+lubelogger_password: "your_password"
+```
+
+### 2. Automation — Submit on Engine Stop
+
+Triggers when the engine load drops to zero (engine stopped) and the current trip distance is above 0.1 km. The initial odometer is derived from `odometer - trip_distance` so LubeLogger records the full trip range.
+
+```yaml
+alias: Register Odometer
+description: Sends the trip record to LubeLogger when the engine stops.
+triggers:
+  - entity_id: sensor.esp_colorado_tab5_engine_load
+    below: 1
+    trigger: numeric_state
+conditions:
+  - condition: numeric_state
+    entity_id: sensor.esp_colorado_tab5_trip_distance
+    above: 0.1
+actions:
+  - variables:
+      current_odo: "{{ states('sensor.esp_colorado_tab5_odometer') | float(0) | int(0) }}"
+      current_trip: "{{ states('sensor.esp_colorado_tab5_trip_distance') | float(0) }}"
+      current_fuel: "{{ states('sensor.esp_colorado_tab5_fuel_level') | float(0) }}"
+      init_odo: "{{ (current_odo - current_trip) | int(0) }}"
+  - data:
+      vehicle_id: 1
+      odometer: "{{ current_odo }}"
+      initial_odometer: "{{ init_odo }}"
+      notes: "Auto record (fuel: {{ current_fuel | round(1) }}%)"
+    response_variable: api_response
+    action: rest_command.lubelogger_add_odometer
+mode: single
+```

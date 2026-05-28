@@ -50,7 +50,7 @@ esphome:
         brightness: 40%
 
 logger:
-  level: DEBUG
+  level: NONE
 
 ota:
   platform: esphome
@@ -95,7 +95,7 @@ mqtt:
   username: !secret mqtt_user
   password: !secret mqtt_password
   reboot_timeout: 0s
-  
+
   birth_message:
   will_message:
 
@@ -724,7 +724,7 @@ sensor:
     id: "odometer"
     name: "Odometer"
     preset: odometer
-    update_interval: 60s
+    update_interval: 30s
     on_value:
       then:
         - lambda: |-
@@ -767,6 +767,56 @@ sensor:
               return std::string(buf);
 
   - platform: ble_elm327
+    id: "prnd_status_alt"
+    name: "PRND Status"
+    preset: gm_prnd_status_alt
+    update_interval: 1s
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: lbl_prnd
+            text: !lambda |-
+              if (isnan(x)) return std::string("-");
+              int val = (int)x;
+              if (val == 8) return std::string("P");
+              if (val == 7) return std::string("R");
+              if (val == 6) return std::string("N");
+              if (val == 18) return std::string("D");
+              return std::string("L");
+
+  - platform: ble_elm327
+    id: "actual_torque"
+    name: "Actual Torque"
+    preset: actual_torque
+    update_interval: 1s
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: lbl_actual_torque
+            text: !lambda |-
+              if (isnan(x)) return std::string("--");
+              char buf[10]; snprintf(buf, sizeof(buf), "%.0f", x); return std::string(buf);
+            text_color: !lambda return id(fn_state_color)(x, 9);
+        - lvgl.bar.update:
+            id: bar_actual_torque
+            value: !lambda return (int)x;
+        - lvgl.widget.update:
+            id: bar_actual_torque
+            indicator:
+              bg_color: !lambda return id(fn_state_color)(x, 9);
+        - lvgl.widget.update:
+            id: widget_img_actual_torque
+            image_recolor: !lambda return id(fn_state_color)(x, 9);
+
+  # - platform: ble_elm327
+  #   name: "AFM"
+  #   pid: "1975"
+  #   mode: "22"
+  #   update_interval: 1s
+  #   formula: "return a;"
+  #   unit_of_measurement: ""
+
+  - platform: ble_elm327
     id: "engine_oil_pressure"
     name: "Engine Oil Pressure"
     preset: gm_oil_pressure
@@ -799,35 +849,6 @@ sensor:
               if (x < 15 || x > 80) return lv_color_hex(0xC85850);
               return lv_color_hex(0xF1C36C);
 
-  - platform: ble_elm327
-    id: "intake_manifold_pressure"
-    name: "Intake Manifold Pressure"
-    preset: intake_pressure
-    update_interval: 1s
-    on_value:
-      then:
-        - lvgl.label.update:
-            id: lbl_intake_pressure
-            text: !lambda |-
-              if (isnan(x)) return std::string("--");
-              char buf[10]; snprintf(buf, sizeof(buf), "%.0f", x); return std::string(buf);
-            text_color: !lambda |-
-              if (isnan(x)) return lv_color_hex(0x7F8EA3);
-              return lv_color_hex(0xFFFFFF);
-        - lvgl.bar.update:
-            id: bar_intake_pressure
-            value: !lambda return (int)x;
-        - lvgl.widget.update:
-            id: bar_intake_pressure
-            indicator:
-              bg_color: !lambda |-
-                if (isnan(x)) return lv_color_hex(0x1A2536);
-                return lv_color_hex(0xF1C36C);
-        - lvgl.widget.update:
-            id: widget_img_intake_pressure
-            image_recolor: !lambda |-
-              if (isnan(x)) return lv_color_hex(0x7F8EA3);
-              return lv_color_hex(0xF1C36C);
 
   - platform: ble_elm327
     id: "transmission_temperature"
@@ -929,6 +950,7 @@ sensor:
     accuracy_decimals: 1
     state_class: measurement
     update_interval: 200ms
+    internal: True
     filters:
       - sliding_window_moving_average:
           window_size: 5
@@ -967,6 +989,7 @@ sensor:
     accuracy_decimals: 1
     state_class: measurement
     update_interval: 200ms
+    internal: True
     filters:
       - sliding_window_moving_average:
           window_size: 5
@@ -1005,7 +1028,7 @@ interval:
           bool a = false;
           std::string msg = "";
           uint32_t color_hex = 0x8A5500;
-          
+
           if (!isnan(id(car_speed).state) && id(car_speed).state > 110) { msg = "과속 주의!"; a = true; color_hex = 0xA0190F; }
           else if (!isnan(id(id_scd40_co2).state) && id(id_scd40_co2).state > 2500) { msg = "졸음 경고!"; a = true; color_hex = 0xA0190F; }
           else if (!isnan(id(id_scd40_co2).state) && id(id_scd40_co2).state > 1500) { msg = "졸음 주의!"; a = true; color_hex = 0x8A5500; }
@@ -1021,13 +1044,13 @@ interval:
             a = true;
             color_hex = 0x2864C8;
           }
-          
+
           id(alert_active) = a;
           if (!a) id(alert_dismissed) = false;
-          
+
           id(g_alert_msg) = msg;
           id(g_alert_color) = color_hex;
-          
+
           static std::string last_logged_msg = "";
           if (msg != last_logged_msg) {
             if (!msg.empty()) {
@@ -1210,8 +1233,8 @@ lvgl:
           id: obj_restart_popup
           hidden: true
           align: center
-          width: 500
-          height: 280
+          width: 520
+          height: 310
           bg_color: 0x141C26
           border_width: 1
           border_color: 0x1E2A38
@@ -1226,20 +1249,20 @@ lvgl:
                 align: top_mid
                 y: 10
                 text_color: 0xF1C36C
-                text_font: notosans30
+                text_font: notosans40
             - label:
                 text: "시스템을 재시작하시겠습니까?"
                 align: center
-                y: -15
+                y: -10
                 text_color: 0xFFFFFF
-                text_font: notosans20
+                text_font: notosans30
             - button:
                 id: btn_restart_yes
                 align: bottom_left
                 x: 30
                 y: -10
-                width: 180
-                height: 55
+                width: 190
+                height: 65
                 bg_color: 0xC85850
                 radius: 8
                 border_width: 0
@@ -1251,14 +1274,14 @@ lvgl:
                       text: "예"
                       align: center
                       text_color: 0xFFFFFF
-                      text_font: notosans20
+                      text_font: notosans30
             - button:
                 id: btn_restart_no
                 align: bottom_right
                 x: -30
                 y: -10
-                width: 180
-                height: 55
+                width: 190
+                height: 65
                 bg_color: 0x2A3542
                 radius: 8
                 border_width: 0
@@ -1273,7 +1296,7 @@ lvgl:
                       text: "아니오"
                       align: center
                       text_color: 0xFFFFFF
-                      text_font: notosans20
+                      text_font: notosans30
 
       # ── 상단 헤더 (경고는 헤더 내부 최상단 레이어) ──
       - obj:
@@ -1389,10 +1412,10 @@ lvgl:
                 hidden: true
                 text: ""
                 align: right_mid
-                x: -150
+                x: -170
                 y: 0
                 text_color: 0xF1C36C
-                text_font: notosans30
+                text_font: notosans40
             - label:
                 id: lbl_time
                 hidden: true
@@ -1503,13 +1526,13 @@ lvgl:
       widgets:
 
         # ────────────────────────────────────────────────────────
-        # 좌측 패널 (x=0, w=310): 연료 Arc 게이지
+        # 좌측 패널 (x=0, w=380): 연료 Arc 게이지
         # ────────────────────────────────────────────────────────
         - obj:
             align: top_left
             x: 0
             y: 72
-            width: 310
+            width: 370
             height: 553
             bg_opa: 0%
             border_width: 0
@@ -1520,7 +1543,7 @@ lvgl:
               - obj:
                   align: top_mid
                   y: 6
-                  width: 290
+                  width: 350
                   height: 100
                   bg_color: 0x141C26
                   radius: 12
@@ -1542,7 +1565,7 @@ lvgl:
                         x: 65
                         y: 15
                         text_color: 0x7F8EA3
-                        text_font: notosans20
+                        text_font: notosans30
                     - label:
                         id: lbl_throttle
                         text: "--"
@@ -1550,12 +1573,12 @@ lvgl:
                         x: -38
                         y: 10
                         text_color: 0xFFFFFF
-                        text_font: notosans30
+                        text_font: notosans45
                     - label:
                         text: "%"
                         align: top_right
                         x: -15
-                        y: 18
+                        y: 22
                         text_color: 0x7F8EA3
                         text_font: notosans20
                     - bar:
@@ -1563,7 +1586,66 @@ lvgl:
                         align: bottom_mid
                         x: 0
                         y: -12
-                        width: 260
+                        width: 320
+                        height: 18
+                        min_value: 0
+                        max_value: 100
+                        value: 0
+                        bg_color: 0x1A2536
+                        bg_opa: COVER
+                        indicator:
+                          bg_color: 0xF1C36C
+                          bg_opa: COVER
+                        radius: 10
+
+              # ── 토크 카드 (progress) ──
+              - obj:
+                  align: top_mid
+                  y: 116
+                  width: 350
+                  height: 100
+                  bg_color: 0x141C26
+                  radius: 12
+                  border_width: 1
+                  border_color: 0x1E2A38
+                  pad_all: 0
+                  widgets:
+                    - image:
+                        id: widget_img_actual_torque
+                        src: img_torque
+                        align: top_left
+                        x: 10
+                        y: 10
+                        image_recolor: 0xF1C36C
+                        image_recolor_opa: 100%
+                    - label:
+                        text: "토크"
+                        align: top_left
+                        x: 65
+                        y: 15
+                        text_color: 0x7F8EA3
+                        text_font: notosans30
+                    - label:
+                        id: lbl_actual_torque
+                        text: "--"
+                        align: top_right
+                        x: -38
+                        y: 10
+                        text_color: 0xFFFFFF
+                        text_font: notosans45
+                    - label:
+                        text: "%"
+                        align: top_right
+                        x: -15
+                        y: 22
+                        text_color: 0x7F8EA3
+                        text_font: notosans20
+                    - bar:
+                        id: bar_actual_torque
+                        align: bottom_mid
+                        x: 0
+                        y: -12
+                        width: 320
                         height: 18
                         min_value: 0
                         max_value: 100
@@ -1578,8 +1660,8 @@ lvgl:
               # ── 엔진 부하 카드 (progress) ──
               - obj:
                   align: top_mid
-                  y: 116
-                  width: 290
+                  y: 226
+                  width: 350
                   height: 100
                   bg_color: 0x141C26
                   radius: 12
@@ -1601,7 +1683,7 @@ lvgl:
                         x: 65
                         y: 15
                         text_color: 0x7F8EA3
-                        text_font: notosans20
+                        text_font: notosans30
                     - label:
                         id: lbl_engine_load_left
                         text: "--"
@@ -1609,12 +1691,12 @@ lvgl:
                         x: -38
                         y: 10
                         text_color: 0xFFFFFF
-                        text_font: notosans30
+                        text_font: notosans45
                     - label:
                         text: "%"
                         align: top_right
                         x: -15
-                        y: 18
+                        y: 22
                         text_color: 0x7F8EA3
                         text_font: notosans20
                     - bar:
@@ -1622,7 +1704,7 @@ lvgl:
                         align: bottom_mid
                         x: 0
                         y: -12
-                        width: 260
+                        width: 320
                         height: 18
                         min_value: 0
                         max_value: 100
@@ -1637,8 +1719,8 @@ lvgl:
               # ── 엔진 오일 압력 카드 (progress) ──
               - obj:
                   align: top_mid
-                  y: 226
-                  width: 290
+                  y: 336
+                  width: 350
                   height: 100
                   bg_color: 0x141C26
                   radius: 12
@@ -1660,20 +1742,20 @@ lvgl:
                         x: 65
                         y: 15
                         text_color: 0x7F8EA3
-                        text_font: notosans20
+                        text_font: notosans30
                     - label:
                         id: lbl_oil_pressure
                         text: "--"
                         align: top_right
-                        x: -48
+                        x: -55
                         y: 10
                         text_color: 0xFFFFFF
-                        text_font: notosans30
+                        text_font: notosans45
                     - label:
                         text: "psi"
                         align: top_right
                         x: -15
-                        y: 18
+                        y: 22
                         text_color: 0x7F8EA3
                         text_font: notosans20
                     - bar:
@@ -1681,69 +1763,10 @@ lvgl:
                         align: bottom_mid
                         x: 0
                         y: -12
-                        width: 260
+                        width: 320
                         height: 18
                         min_value: 0
                         max_value: 100
-                        value: 0
-                        bg_color: 0x1A2536
-                        bg_opa: COVER
-                        indicator:
-                          bg_color: 0xF1C36C
-                          bg_opa: COVER
-                        radius: 10
-
-              # ── 매니폴드 압력 카드 (progress) ──
-              - obj:
-                  align: top_mid
-                  y: 336
-                  width: 290
-                  height: 100
-                  bg_color: 0x141C26
-                  radius: 12
-                  border_width: 1
-                  border_color: 0x1E2A38
-                  pad_all: 0
-                  widgets:
-                    - image:
-                        id: widget_img_intake_pressure
-                        src: img_pressure
-                        align: top_left
-                        x: 10
-                        y: 10
-                        image_recolor: 0xF1C36C
-                        image_recolor_opa: 100%
-                    - label:
-                        text: "흡기압력"
-                        align: top_left
-                        x: 65
-                        y: 15
-                        text_color: 0x7F8EA3
-                        text_font: notosans20
-                    - label:
-                        id: lbl_intake_pressure
-                        text: "--"
-                        align: top_right
-                        x: -58
-                        y: 10
-                        text_color: 0xFFFFFF
-                        text_font: notosans30
-                    - label:
-                        text: "kPa"
-                        align: top_right
-                        x: -15
-                        y: 18
-                        text_color: 0x7F8EA3
-                        text_font: notosans20
-                    - bar:
-                        id: bar_intake_pressure
-                        align: bottom_mid
-                        x: 0
-                        y: -12
-                        width: 260
-                        height: 18
-                        min_value: 0
-                        max_value: 120
                         value: 0
                         bg_color: 0x1A2536
                         bg_opa: COVER
@@ -1756,7 +1779,7 @@ lvgl:
               - obj:
                   align: top_mid
                   y: 446
-                  width: 290
+                  width: 350
                   height: 100
                   bg_color: 0x141C26
                   radius: 12
@@ -1778,7 +1801,7 @@ lvgl:
                         x: 65
                         y: 15
                         text_color: 0x7F8EA3
-                        text_font: notosans20
+                        text_font: notosans30
                     - label:
                         id: lbl_fuel_level
                         text: "--"
@@ -1786,12 +1809,12 @@ lvgl:
                         x: -38
                         y: 10
                         text_color: 0xFFFFFF
-                        text_font: notosans30
+                        text_font: notosans45
                     - label:
                         text: "%"
                         align: top_right
                         x: -15
-                        y: 18
+                        y: 22
                         text_color: 0x7F8EA3
                         text_font: notosans20
                     - bar:
@@ -1799,7 +1822,7 @@ lvgl:
                         align: bottom_mid
                         x: 0
                         y: -12
-                        width: 260
+                        width: 340
                         height: 18
                         min_value: 0
                         max_value: 100
@@ -1812,13 +1835,13 @@ lvgl:
                         radius: 10
 
         # ────────────────────────────────────────────────────────
-        # 중앙 패널 (x=310, w=660): 속도 Hero + RPM Arc
+        # 중앙 패널 (x=380, w=520): 속도 Hero + RPM Arc
         # ────────────────────────────────────────────────────────
         - obj:
             align: top_mid
             x: 0
             y: 72
-            width: 660
+            width: 540
             height: 553
             bg_opa: 0%
             border_width: 0
@@ -1846,13 +1869,13 @@ lvgl:
                   clickable: false
                   pad_all: 0
                   widgets:
-                    # 기어 단수 배지 (속도 위)
+                    # 기어 단수 & PRND 통합 배지 (속도 위)
                     - obj:
                         align: center
                         x: 0
                         y: -150
-                        width: 86
-                        height: 86
+                        width: 160
+                        height: 110
                         radius: 43
                         bg_opa: 0%
                         border_width: 0
@@ -1862,16 +1885,27 @@ lvgl:
                           - label:
                               id: lbl_gear
                               text: "-"
-                              align: center
-                              y: -10
+                              align: left_mid
+                              x: 83
+                              y: -5
                               text_color: 0xF1C36C
-                              text_font: notosans45
+                              text_font: notosans70
                           - label:
-                              text: "GEAR"
-                              align: bottom_mid
-                              y: -4
-                              text_color: 0x7F8EA3
-                              text_font: notosans16
+                              id: lbl_prnd
+                              text: "-"
+                              align: right_mid
+                              x: -83
+                              y: -5
+                              text_color: 0xF1C36C
+                              text_font: notosans70
+                    # 기어/PRND 통합 설명 라벨 (가운데 표시)
+                    - label:
+                        text: "GEAR"
+                        align: center
+                        x: 0
+                        y: -112
+                        text_color: 0x7F8EA3
+                        text_font: notosans16
                     # 속도 (Hero)
                     - label:
                          id: lbl_speed
@@ -1891,15 +1925,15 @@ lvgl:
                         id: lbl_engine_rpm
                         text: "--"
                         align: center
-                        y: 92
+                        y: 125
                         text_color: 0x7F8EA3
-                        text_font: notosans30
+                        text_font: notosans45
                     - label:
                         text: "rpm"
                         align: center
-                        y: 128
+                        y: 162
                         text_color: 0x546070
-                        text_font: notosans20
+                        text_font: notosans30
 
               # ── 인클리노미터 (차량 실루엣 듀얼 뷰) ──
               - obj:
@@ -1907,7 +1941,7 @@ lvgl:
                   align: bottom_mid
                   x: 0
                   y: -8
-                  width: 600
+                  width: 520
                   height: 95
                   bg_opa: 0%
                   border_width: 0
@@ -1920,7 +1954,7 @@ lvgl:
                         align: left_mid
                         x: 0
                         y: 0
-                        width: 290
+                        width: 250
                         height: 95
                         bg_color: 0x141C26
                         radius: 12
@@ -1945,10 +1979,6 @@ lvgl:
                                     id(script_logs).execute(buf);
                                   }
                                 }
-                            - lvgl.widget.show:
-                                id: obj_restart_backdrop
-                            - lvgl.widget.show:
-                                id: obj_restart_popup
                         widgets:
                           - label:
                               id: lbl_pitch_title
@@ -1956,7 +1986,7 @@ lvgl:
                               align: top_mid
                               y: 4
                               text_color: 0x7F8EA3
-                              text_font: notosans16
+                              text_font: notosans20
                           - image:
                               id: img_pitch_icon
                               src: img_truck_side
@@ -1981,7 +2011,7 @@ lvgl:
                         align: right_mid
                         x: 0
                         y: 0
-                        width: 290
+                        width: 250
                         height: 95
                         bg_color: 0x141C26
                         radius: 12
@@ -2006,10 +2036,6 @@ lvgl:
                                     id(script_logs).execute(buf);
                                   }
                                 }
-                            - lvgl.widget.show:
-                                id: obj_restart_backdrop
-                            - lvgl.widget.show:
-                                id: obj_restart_popup
                         widgets:
                           - label:
                               id: lbl_roll_title
@@ -2017,7 +2043,7 @@ lvgl:
                               align: top_mid
                               y: 4
                               text_color: 0x7F8EA3
-                              text_font: notosans16
+                              text_font: notosans20
                           - image:
                               id: img_roll_icon
                               src: img_truck_front
@@ -2038,13 +2064,13 @@ lvgl:
                               text_font: notosans30
 
         # ────────────────────────────────────────────────────────
-        # 우측 패널 (x=970, w=310): 운행시간 + 엔진 데이터
+        # 우측 패널 (x=910, w=370): 운행시간 + 엔진 데이터
         # ────────────────────────────────────────────────────────
         - obj:
             align: top_right
             x: 0
             y: 72
-            width: 310
+            width: 370
             height: 553
             bg_opa: 0%
             border_width: 0
@@ -2055,7 +2081,7 @@ lvgl:
               - obj:
                   align: top_mid
                   y: 10
-                  width: 290
+                  width: 350
                   height: 80
                   bg_color: 0x141C26
                   radius: 12
@@ -2064,14 +2090,14 @@ lvgl:
                   pad_all: 0
                   widgets:
                     - image: { id: widget_img_timer, src: img_timer, align: left_mid, x: 10, image_recolor: 0xF1C36C, image_recolor_opa: 100% }
-                    - label: { text: "운행", align: left_mid, x: 65, text_color: 0x7F8EA3, text_font: notosans20 }
-                    - label: { id: lbl_engine_run_time, text: "", align: right_mid, x: -15, text_color: 0x7F8EA3, text_font: notosans30 }
+                    - label: { text: "운행", align: left_mid, x: 65, text_color: 0x7F8EA3, text_font: notosans30 }
+                    - label: { id: lbl_engine_run_time, text: "", align: right_mid, x: -15, text_color: 0x7F8EA3, text_font: notosans45 }
 
               # ── 운행거리 카드 (신설) ──
               - obj:
                   align: top_mid
                   y: 100
-                  width: 290
+                  width: 350
                   height: 80
                   bg_color: 0x141C26
                   radius: 12
@@ -2080,15 +2106,15 @@ lvgl:
                   pad_all: 0
                   widgets:
                     - image: { id: widget_img_trip, src: img_odometer, align: left_mid, x: 10, image_recolor: 0x7F8EA3, image_recolor_opa: 100% }
-                    - label: { text: "운행거리", align: left_mid, x: 65, text_color: 0x7F8EA3, text_font: notosans20 }
-                    - label: { id: lbl_trip_distance, text: "--", align: right_mid, x: -58, text_color: 0xF7FBFF, text_font: notosans30 }
+                    - label: { text: "운행거리", align: left_mid, x: 65, text_color: 0x7F8EA3, text_font: notosans30 }
+                    - label: { id: lbl_trip_distance, text: "--", align: right_mid, x: -65, text_color: 0xF7FBFF, text_font: notosans45 }
                     - label: { text: "km", align: right_mid, x: -15, text_color: 0x7F8EA3, text_font: notosans20 }
 
               # ── 냉각수 온도 카드 ──
               - obj:
                   align: top_mid
                   y: 190
-                  width: 290
+                  width: 350
                   height: 80
                   bg_color: 0x141C26
                   radius: 12
@@ -2097,15 +2123,15 @@ lvgl:
                   pad_all: 0
                   widgets:
                     - image: { id: widget_img_coolant, src: img_coolant, align: left_mid, x: 10, image_recolor: 0x7F8EA3, image_recolor_opa: 100% }
-                    - label: { text: "냉각수", align: left_mid, x: 65, text_color: 0x7F8EA3, text_font: notosans20 }
-                    - label: { id: lbl_engine_coolant_temperature, text: "--", align: right_mid, x: -40, text_color: 0xF7FBFF, text_font: notosans30 }
+                    - label: { text: "냉각수", align: left_mid, x: 65, text_color: 0x7F8EA3, text_font: notosans30 }
+                    - label: { id: lbl_engine_coolant_temperature, text: "--", align: right_mid, x: -48, text_color: 0xF7FBFF, text_font: notosans45 }
                     - label: { text: "°C", align: right_mid, x: -15, text_color: 0x7F8EA3, text_font: notosans20 }
 
               # ── 미션 온도 카드 ──
               - obj:
                   align: top_mid
                   y: 280
-                  width: 290
+                  width: 350
                   height: 80
                   bg_color: 0x141C26
                   radius: 12
@@ -2114,32 +2140,15 @@ lvgl:
                   pad_all: 0
                   widgets:
                     - image: { id: widget_img_trans_temp, src: img_oil_temp, align: left_mid, x: 10, image_recolor: 0x7F8EA3, image_recolor_opa: 100% }
-                    - label: { text: "미션온도", align: left_mid, x: 65, text_color: 0x7F8EA3, text_font: notosans20 }
-                    - label: { id: lbl_transmission_temperature, text: "--", align: right_mid, x: -40, text_color: 0xF7FBFF, text_font: notosans30 }
+                    - label: { text: "미션온도", align: left_mid, x: 65, text_color: 0x7F8EA3, text_font: notosans30 }
+                    - label: { id: lbl_transmission_temperature, text: "--", align: right_mid, x: -48, text_color: 0xF7FBFF, text_font: notosans45 }
                     - label: { text: "°C", align: right_mid, x: -15, text_color: 0x7F8EA3, text_font: notosans20 }
-
-              # ── 배터리 카드 ──
-              - obj:
-                  align: top_mid
-                  y: 370
-                  width: 290
-                  height: 80
-                  bg_color: 0x141C26
-                  radius: 12
-                  border_width: 1
-                  border_color: 0x1E2A38
-                  pad_all: 0
-                  widgets:
-                    - image: { id: widget_img_battery, src: img_car_battery, align: left_mid, x: 10, image_recolor: 0x7F8EA3, image_recolor_opa: 100% }
-                    - label: { text: "배터리", align: left_mid, x: 65, text_color: 0x7F8EA3, text_font: notosans20 }
-                    - label: { id: lbl_car_battery, text: "--", align: right_mid, x: -35, text_color: 0xF7FBFF, text_font: notosans30 }
-                    - label: { text: "V", align: right_mid, x: -15, text_color: 0x7F8EA3, text_font: notosans20 }
 
               # ── 흡기 온도 카드 ──
               - obj:
                   align: top_mid
-                  y: 460
-                  width: 290
+                  y: 370
+                  width: 350
                   height: 80
                   bg_color: 0x141C26
                   radius: 12
@@ -2148,9 +2157,26 @@ lvgl:
                   pad_all: 0
                   widgets:
                     - image: { id: widget_img_ambient, src: img_thermometer_lines, align: left_mid, x: 10, image_recolor: 0x7F8EA3, image_recolor_opa: 100% }
-                    - label: { text: "흡기온도", align: left_mid, x: 65, text_color: 0x7F8EA3, text_font: notosans20 }
-                    - label: { id: lbl_intake_temp_display, text: "--", align: right_mid, x: -40, text_color: 0xF7FBFF, text_font: notosans30 }
+                    - label: { text: "흡기온도", align: left_mid, x: 65, text_color: 0x7F8EA3, text_font: notosans30 }
+                    - label: { id: lbl_intake_temp_display, text: "--", align: right_mid, x: -48, text_color: 0xF7FBFF, text_font: notosans45 }
                     - label: { text: "°C", align: right_mid, x: -15, text_color: 0x7F8EA3, text_font: notosans20 }
+
+              # ── 배터리 카드 ──
+              - obj:
+                  align: top_mid
+                  y: 460
+                  width: 350
+                  height: 80
+                  bg_color: 0x141C26
+                  radius: 12
+                  border_width: 1
+                  border_color: 0x1E2A38
+                  pad_all: 0
+                  widgets:
+                    - image: { id: widget_img_battery, src: img_car_battery, align: left_mid, x: 10, image_recolor: 0x7F8EA3, image_recolor_opa: 100% }
+                    - label: { text: "배터리", align: left_mid, x: 65, text_color: 0x7F8EA3, text_font: notosans30 }
+                    - label: { id: lbl_car_battery, text: "--", align: right_mid, x: -42, text_color: 0xF7FBFF, text_font: notosans45 }
+                    - label: { text: "V", align: right_mid, x: -15, text_color: 0x7F8EA3, text_font: notosans20 }
 
 
         # ────────────────────────────────────────────────────────
@@ -2171,8 +2197,8 @@ lvgl:
               # 1. 실내 환경 (온습도 병합)
               - obj:
                   align: left_mid
-                  x: 12
-                  width: 410
+                  x: 10
+                  width: 406
                   height: 90
                   bg_color: 0x141C26
                   radius: 12
@@ -2190,9 +2216,9 @@ lvgl:
                     - label: { text: "%", align: left_mid, x: 365, y: 18, text_color: 0x7F8EA3, text_font: notosans16 }
               # 2. 적재함 환경 (온습도 병합)
               - obj:
-                  align: left_mid
-                  x: 435
-                  width: 410
+                  align: center
+                  x: 0
+                  width: 406
                   height: 90
                   bg_color: 0x141C26
                   radius: 12
@@ -2210,9 +2236,9 @@ lvgl:
                     - label: { text: "%", align: left_mid, x: 365, y: 18, text_color: 0x7F8EA3, text_font: notosans16 }
               # 3. 공기질 (CO2, TVOC 병합)
               - obj:
-                  align: left_mid
-                  x: 858
-                  width: 410
+                  align: right_mid
+                  x: -10
+                  width: 406
                   height: 90
                   bg_color: 0x141C26
                   radius: 12
@@ -2242,16 +2268,128 @@ lvgl:
             width: 1280
             height: 648
             pad_all: 0
+            scrollbar_mode: "OFF"
+            scrollable: false
             widgets:
               - textarea:
                   id: textarea_log
+                  align: top_left
+                  x: 0
+                  y: 0
                   one_line: false
                   text_color: 0xD5DFED
                   text_font: notosans20
-                  width: 100%
+                  width: 1000
                   height: 100%
                   bg_color: 0x0D1117
                   border_width: 0
+                  scrollbar_mode: "OFF"
+                  scrollable: false
+              - obj:
+                  id: obj_log_menu_panel
+                  align: top_right
+                  x: 0
+                  y: 0
+                  width: 275
+                  height: 100%
+                  bg_color: 0x0D1117
+                  border_width: 0
+                  radius: 0
+                  pad_all: 15
+                  scrollbar_mode: "OFF"
+                  scrollable: false
+                  widgets:
+                    - label:
+                        text: "화면 밝기"
+                        align: top_left
+                        x: 10
+                        y: 20
+                        text_color: 0x7F8EA3
+                        text_font: notosans30
+                    - slider:
+                        id: slider_backlight
+                        align: top_mid
+                        y: 75
+                        width: 240
+                        height: 20
+                        min_value: 10
+                        max_value: 100
+                        value: 40
+                        bg_color: 0x1A2536
+                        bg_opa: COVER
+                        indicator:
+                          bg_color: 0xF1C36C
+                          bg_opa: COVER
+                        knob:
+                          bg_color: 0xFFFFFF
+                          bg_opa: COVER
+                        on_value:
+                          then:
+                            - light.control:
+                                id: backlight
+                                brightness: !lambda 'return x / 100.0f;'
+                    - button:
+                        id: btn_reset_calibration
+                        align: top_mid
+                        y: 135
+                        width: 250
+                        height: 65
+                        bg_color: 0x2A3542
+                        radius: 8
+                        border_width: 0
+                        on_click:
+                          then:
+                            - lambda: |-
+                                id(g_pitch_offset) = 0.0f;
+                                id(g_roll_offset) = 0.0f;
+                                id(script_logs).execute("Pitch/Roll calibration reset");
+                        widgets:
+                          - label:
+                              text: "기울기 보정 초기화"
+                              align: center
+                              text_color: 0xFFFFFF
+                              text_font: notosans30
+                    - button:
+                        id: btn_clear_logs
+                        align: top_mid
+                        y: 220
+                        width: 250
+                        height: 65
+                        bg_color: 0x2A3542
+                        radius: 8
+                        border_width: 0
+                        on_click:
+                          then:
+                            - lambda: |-
+                                id(g_logs).clear();
+                                id(script_logs).execute("Logs cleared");
+                        widgets:
+                          - label:
+                              text: "로그 기록 지우기"
+                              align: center
+                              text_color: 0xFFFFFF
+                              text_font: notosans30
+                    - button:
+                        id: btn_log_restart
+                        align: bottom_mid
+                        y: -20
+                        width: 250
+                        height: 65
+                        bg_color: 0xC85850
+                        radius: 8
+                        border_width: 0
+                        on_click:
+                          then:
+                            - lvgl.widget.show:
+                                id: obj_restart_backdrop
+                            - lvgl.widget.show:
+                                id: obj_restart_popup
+                        widgets:
+                          - label:
+                              text: "시스템 재시작"
+                              align: center
+                              text_color: 0xFFFFFF
+                              text_font: notosans30
 
 font:
   - file: "gfonts://Noto+Sans+KR"
@@ -2259,18 +2397,19 @@ font:
     id: notosans16
     size: 16
   - file: "gfonts://Noto+Sans+KR"
-    glyphs: '#()_-+@*/:;?!,.=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%실내외온습도기압가속냉각수부하배터리연료운행머버전번호판뚝엔진미션오일명주거[]력팬스템을재시작겠니까예아소모율류로틀개량흡'
+    glyphs: '#()_-+@*/:;?!,.=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%실내외온습도기압가속냉각수부하배터리연료운행머버전번호판뚝엔진미션오일명주거[]력팬스템을재시작겠니까예아소모율류로틀개량흡토크화면밝울보정초그록지우'
     id: notosans20
     size: 20
   - file: "gfonts://Noto+Sans+KR"
-    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%실내외온습도기압가속냉각수부하배터리연료운행머버전번호판뚝엔진미션오일명주거력팬'
+    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%실내외온습도기압가속냉각수부하배터리연료운행머버전번호판뚝엔진미션오일명주거력팬화면밝울보정초로그록지우시스템재작'
     id: notosans25
     size: 25
   - file: "gfonts://Noto+Sans+KR"
-    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%월화수목금토일머운행배터리냉각부하엔진과속주의졸음경고가스환기필요급감장치열유력팬템재시작겠습니까예아오'
+    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%월화수목금토일머운행배터리냉각부하엔진과속주의졸음경고가스환기필요급감장치열유력팬템재시작겠습니까예아오면밝울보정로그록지우을초틀크압연료거미션온도흡자이'
     id: notosans30
     size: 30
   - file: "gfonts://Noto+Sans+KR"
+    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz시스템재작월일화수목금토'
     id: notosans40
     size: 40
   - file: "gfonts://Noto+Sans+KR"
@@ -2288,9 +2427,6 @@ font:
   - file: "gfonts://Noto+Sans+KR"
     id: notosans150
     size: 150
-  - file: "gfonts://Roboto"
-    id: roboto300
-    size: 300
 
 image:
   - file: mdi:oil-temperature
@@ -2307,6 +2443,10 @@ image:
     type: binary
   - file: mdi:fan
     id: img_fan
+    resize: 50x50
+    type: binary
+  - file: mdi:gauge-low
+    id: img_torque
     resize: 50x50
     type: binary
   - file: mdi:counter
