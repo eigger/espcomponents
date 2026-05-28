@@ -40,6 +40,8 @@ class BleElm327Device : public PollingComponent {
   void set_pid(const std::string &pid) { pid_ = pid; }
   void set_mode(const std::string &mode) { mode_ = mode; }
   void set_formula(std::function<float(uint8_t, uint8_t, uint8_t, uint8_t)> f) { formula_ = f; }
+  void add_pre_command(const std::string &cmd) { pre_commands_.push_back(cmd + "\r"); }
+  const std::vector<std::string> &get_pre_commands() const { return pre_commands_; }
 
   std::string get_command() const { return mode_ + pid_ + "\r"; }
   std::string get_pid() const { return pid_; }
@@ -59,6 +61,7 @@ class BleElm327Device : public PollingComponent {
   bool in_queue_{false};
   std::string pid_;
   std::string mode_{"01"};
+  std::vector<std::string> pre_commands_;
   optional<std::function<float(uint8_t, uint8_t, uint8_t, uint8_t)>> formula_;
 };
 
@@ -116,6 +119,9 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
   // State machine
   ElmState elm_state_{ElmState::IDLE};
   std::vector<std::string> init_commands_;
+  // Tracks pre_commands currently applied on the ELM327 (e.g., last ATSH).
+  // When a device's pre_commands differs, they are re-queued before its PID request.
+  std::vector<std::string> current_pre_commands_;
 
   // Device registry & unified TX queue (init commands: dev=nullptr, sensor: dev=device)
   std::vector<BleElm327Device *> devices_;

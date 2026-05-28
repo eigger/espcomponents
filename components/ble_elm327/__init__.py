@@ -6,7 +6,8 @@ from esphome.const import (
 )
 from .const import (
     CONF_BLE_ELM327_ID, CONF_BLE_CLIENT_ID, CONF_RX_CHAR_UUID, CONF_TX_CHAR_UUID,
-    CONF_INIT_COMMANDS, CONF_TX_DELAY, CONF_PID, CONF_MODE, CONF_FORMULA, CONF_PRESET,
+    CONF_INIT_COMMANDS, CONF_PRE_COMMANDS, CONF_TX_DELAY,
+    CONF_PID, CONF_MODE, CONF_FORMULA, CONF_PRESET,
 )
 from .presets import OBD_PRESETS
 
@@ -77,6 +78,7 @@ BLE_ELM327_DEVICE_SCHEMA = cv.Schema(
         cv.Optional(CONF_PRESET): cv.one_of(*OBD_PRESETS),
         cv.Optional(CONF_PID): cv.string_strict,
         cv.Optional(CONF_MODE, default="01"): cv.string_strict,
+        cv.Optional(CONF_PRE_COMMANDS, default=[]): cv.ensure_list(cv.string_strict),
         cv.Optional(CONF_FORMULA): cv.returning_lambda,
     }
 ).extend(cv.polling_component_schema("60s"))
@@ -117,6 +119,9 @@ async def register_ble_elm327_device(var, config):
     cg.add(paren.add_device(var))
     cg.add(var.set_pid(config[CONF_PID]))
     cg.add(var.set_mode(config[CONF_MODE]))
+
+    for cmd in config.get(CONF_PRE_COMMANDS, []):
+        cg.add(var.add_pre_command(cmd))
 
     if CONF_FORMULA in config:
         formula_ = await cg.process_lambda(
