@@ -9,7 +9,9 @@ ESPHome configuration for a vehicle dashboard based on the ESP32-P4 EV Board (`e
 | <img src="../../../documents/colorado/1.png" width="200" alt="M5Stack Tab5"> | <img src="../../../documents/colorado/2.jpg" width="300" alt="vLinker BLE OBD2"> | <img src="../../../documents/colorado/3.png" width="300" alt="Jaalee JHT"> |
 
 ### 4. Comprehensive Dashboard Results
-<img src="../../../documents/colorado/4.jpg" width="400" alt="Comprehensive Results">
+| 4 | 5 |
+| :---: | :---: |
+| <img src="../../../documents/colorado/4.jpg" width="400" alt="Comprehensive Results 4"> | <img src="../../../documents/colorado/5.jpg" width="400" alt="Comprehensive Results 5"> |
 
 ## Features
 
