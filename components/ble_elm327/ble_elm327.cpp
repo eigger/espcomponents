@@ -72,6 +72,11 @@ void BleElm327Component::loop() {
     for (size_t i = 0; i < n; i++) {
       auto *d = devices_[(collect_idx_ + i) % n];
       if (d->consume_enqueued()) {
+        const auto &pre = d->get_pre_commands();
+        if (pre != current_pre_commands_) {
+          for (const auto &c : pre) tx_queue_.push({c, nullptr});
+          current_pre_commands_ = pre;
+        }
         tx_queue_.push({d->get_command(), d});
         collect_idx_ = (collect_idx_ + i + 1) % n;
         break;
@@ -116,6 +121,7 @@ void BleElm327Component::gattc_event_handler(esp_gattc_cb_event_t event, esp_gat
       tx_char_handle_ = 0;
       while (!tx_queue_.empty()) tx_queue_.pop();
       for (auto *d : devices_) d->on_dequeue();
+      current_pre_commands_.clear();
       ESP_LOGW(TAG, "Disconnected from ELM327");
       break;
 
