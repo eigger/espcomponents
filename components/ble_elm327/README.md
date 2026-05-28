@@ -18,6 +18,7 @@ The component registers as a node under ESPHome's standard `ble_client:` compone
 - [Configuration Reference](#configuration-reference)
   - [Core Component](#core-component)
   - [Device Schema](#device-schema)
+    - [Per-device Pre-commands](#per-device-pre-commands)
 - [Platforms](#platforms)
   - [Sensor](#sensor)
 - [Presets](#presets)
@@ -176,10 +177,47 @@ All sub-platforms (sensor, …) share these options:
 | `preset` | string | - | Built-in OBD-II preset name (see [Presets](#presets)). Mutually exclusive with `pid`. |
 | `pid` | string | **Required** (unless `preset`) | OBD-II PID hex string — 2 chars for mode 01, 4 chars for mode 22 |
 | `mode` | string | `"01"` | OBD-II service mode (`"01"` standard, `"22"` UDS/extended) |
+| `pre_commands` | list | `[]` | AT commands sent before this device's PID request when the active header on the ELM327 differs. See [Per-device Pre-commands](#per-device-pre-commands). |
 | `formula` | lambda | - | Custom value parser (see [Formula Lambda](#formula-lambda)) |
 | `update_interval` | time | `60s` | Per-sensor polling interval |
 
 > **Note**: Each sensor has an **independent** `update_interval`. Requests from all sensors are queued and sent one at a time with `tx_delay` between them.
+
+#### Per-device Pre-commands
+
+Some PIDs are only answered by a specific ECU and require an OBD header (e.g. `ATSH 7E4`) to be set before the request. `pre_commands` is a list of raw AT commands queued **immediately before** the device's PID command — but only when the currently applied header on the ELM327 differs from this device's `pre_commands`.
+
+The component tracks the last applied `pre_commands` and re-sends them only when the next polled device needs a different header. Sensors that share the same `pre_commands` keep the header sticky — the AT command goes out once and subsequent polls go straight to the PID request — so BLE traffic stays minimal.
+
+```yaml
+sensor:
+  # PRND status from the TCM at 7E4
+  - platform: ble_elm327
+    name: "PRND Status"
+    pid: "1951"
+    mode: "22"
+    pre_commands:
+      - "ATSH 7E4"
+    update_interval: 1s
+
+  # Transmission temp also from the TCM — header stays applied, no re-send
+  - platform: ble_elm327
+    name: "Transmission Temp"
+    preset: gm_trans_temp
+    pre_commands:
+      - "ATSH 7E4"
+    update_interval: 10s
+
+  # Standard ECU PID — different (or no) header, so its own pre_commands fires
+  - platform: ble_elm327
+    name: "Engine RPM"
+    preset: rpm
+    update_interval: 1s
+```
+
+On disconnect the tracked header is cleared, so the first device polled after a reconnect re-applies its `pre_commands`.
+
+> **Note**: `pre_commands` is for per-device, on-demand setup (typically `ATSH`, `ATCRA`, `ATFCSH`). For one-shot adapter setup that should run once at connect time, use the top-level `init_commands` instead.
 
 ---
 
