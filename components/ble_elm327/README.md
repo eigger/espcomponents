@@ -26,6 +26,7 @@ The component registers as a node under ESPHome's standard `ble_client:` compone
 - [Formula Lambda](#formula-lambda)
 - [Common OBD-II PIDs](#common-obd-ii-pids)
 - [GM Extended PIDs (Mode 22)](#gm-extended-pids-mode-22)
+- [Stellantis / PSA EV Extended PIDs (Mode 22)](#stellantis--psa-ev-extended-pids-mode-22)
 - [Troubleshooting](#troubleshooting)
 
 ---
@@ -765,6 +766,83 @@ sensor:
 ```
 
 The odometer `on_value` lambda uses a `static` variable to record the first reading each boot and derive trip distance. For persistence across reboots use an ESPHome `global:` variable instead.
+
+---
+
+## Stellantis / PSA EV Extended PIDs (Mode 22)
+
+These PIDs and formulas are verified working on a **2021 Citroen E-Berlingo** (which shares the same platform/ECU architecture as the **Peugeot e-208**, Opel/Vauxhall Corsa-e, Peugeot e-2008, Citroen ë-C4, etc.).
+
+### PID Reference
+
+| Mode | PID | Pre-commands | Name | Formula | Unit |
+|------|-----|--------------|------|---------|------|
+| `22` | `D860` | `ATSH 6B4` | State of Health (SOH) | `return ((b * 256.0f) + c) / 16.0f;` | `%` |
+| `22` | `D410` | `ATSH 6B4` | State of Charge (SOC) | `return ((a * 256.0f) + b) / 512.0f;` | `%` |
+| `22` | `D815` | `ATSH 6B4` | HV Battery Voltage | `return ((a * 256.0f) + b) / 16.0f;` | `V` |
+| `22` | `D49C` | `ATSH 6A6` | Odometer | `return ((b * 65536.0f) + (c * 256.0f) + d);` | `km` |
+
+### Full Example
+
+```yaml
+sensor:
+  - platform: ble_elm327
+    ble_elm327_id: obd_elm
+    name: "SOH"
+    mode: "22"
+    pid: "D860"
+    pre_commands:
+      - "ATSH 6B4"
+    update_interval: 30s
+    formula: |-
+      return ((b * 256.0f) + c) / 16.0f;
+    unit_of_measurement: "%"
+    accuracy_decimals: 1
+    state_class: measurement
+
+  - platform: ble_elm327
+    ble_elm327_id: obd_elm
+    name: "SOC"
+    mode: "22"
+    pid: "D410"
+    pre_commands:
+      - "ATSH 6B4"
+    update_interval: 30s
+    formula: |-
+      return ((a * 256.0f) + b) / 512.0f;
+    unit_of_measurement: "%"
+    accuracy_decimals: 1
+    state_class: measurement
+
+  - platform: ble_elm327
+    ble_elm327_id: obd_elm
+    name: "HV Voltage"
+    mode: "22"
+    pid: "D815"
+    pre_commands:
+      - "ATSH 6B4"
+    update_interval: 30s
+    formula: |-
+      return ((a * 256.0f) + b) / 16.0f;
+    unit_of_measurement: "V"
+    accuracy_decimals: 1
+    state_class: measurement
+    device_class: voltage
+
+  - platform: ble_elm327
+    ble_elm327_id: obd_elm
+    name: "Odometer"
+    mode: "22"
+    pid: "D49C"
+    pre_commands:
+      - "ATSH 6A6"
+    update_interval: 35s
+    formula: |-
+      return ((b * 65536.0f) + (c * 256.0f) + d);
+    unit_of_measurement: "km"
+    accuracy_decimals: 0
+    state_class: total_increasing
+```
 
 ---
 
