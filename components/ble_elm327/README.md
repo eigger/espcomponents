@@ -7,7 +7,7 @@
 
 A custom ESPHome component that connects to a Bluetooth LE ELM327 OBD-II adapter and exposes vehicle data (RPM, speed, temperature, odometer, gear position, etc.) as Home Assistant sensors.
 
-Supports standard OBD-II (Mode 01) and vendor-extended UDS PIDs (Mode 22, e.g. GM/Chevrolet Colorado).
+Supports standard OBD-II (Mode 01) and vendor-extended UDS PIDs (Mode 22, e.g. GM).
 
 The component registers as a node under ESPHome's standard `ble_client:` component.
 
@@ -22,10 +22,10 @@ The component registers as a node under ESPHome's standard `ble_client:` compone
 - [Platforms](#platforms)
   - [Sensor](#sensor)
 - [Presets](#presets)
+  - [GM Extended PIDs (Mode 22)](#gm-extended-pids-mode-22)
 - [Response Parsing](#response-parsing)
 - [Formula Lambda](#formula-lambda)
 - [Common OBD-II PIDs](#common-obd-ii-pids)
-- [GM Extended PIDs (Mode 22)](#gm-extended-pids-mode-22)
 - [Stellantis / PSA EV Extended PIDs (Mode 22)](#stellantis--psa-ev-extended-pids-mode-22)
 - [Troubleshooting](#troubleshooting)
 
@@ -420,7 +420,7 @@ sensor:
 | `o2_sensor_b2s4_voltage` | `1B` | `V` | `return a / 200.0f;` |
 | `aux_input_status` | `1E` | — | `return a;` |
 
-#### GM Specific (Mode 22)
+#### GM Extended PIDs (Mode 22)
 
 > [!WARNING]
 > **Unverified / Platform-Dependent**: Manufacturer-specific (Mode 22) presets are highly dependent on the vehicle's specific ECU/TCM architecture, year, and model. They are community-sourced, unverified, and might not function or return correct data on all vehicle configurations.
@@ -459,6 +459,78 @@ sensor:
 | `gm_dpf_soot_level` | `336A` | `%` | `return a;` | DPF Soot Load |
 | `gm_dpf_regen_status` | `20F2` | — | `return a;` | DPF Regeneration Active (`0` = OFF, `1` = ON) |
 | `gm_fuel_level_liters` | `132A` | `L` | `return (a * 256.0f + b) / 64.0f;` | Fuel Tank Volume in Liters |
+| `gm_oil_pressure_alt` | `1470` | `psi` | `return a * 3.985f;` | Engine Oil Pressure (Alt DID) |
+| `gm_engine_run_time` | `11A1` | `s` | `return a * 256.0f + b;` | Elapsed Time Since Engine Start |
+| `gm_engine_torque` | `19DE` | `ft·lb` | `return (a * 256.0f + b) * 5.0f;` | Engine Torque |
+| `gm_barometer_v6` | `1251` | `inHg` | `return a * 3.0f;` | Barometric Pressure (V6) |
+| `gm_ignition_1_voltage` | `1141` | `V` | `return a / 10.0f;` | Ignition 1 Voltage |
+| `gm_desired_idle` | `1192` | `rpm` | `return a * 12.5f;` | Desired Idle Speed |
+| `gm_calculated_maf` | `11AC` | `g/s` | `return (a * 256.0f + b) / 128.0f;` | Calculated Air Flow |
+| `gm_ac_high_pressure` | `1144` | `psi` | `return (a * 1.83f) - 14.7f;` | A/C High Side Pressure |
+| `gm_fan_desired_rpm` | `163F` | `rpm` | `return a * 16.0f;` | Cooling Fan Desired Speed |
+| `gm_fan_command` | `1641` | `%` | `return a * 100.0f / 255.0f;` | Cooling Fan Command |
+| `gm_trans_slip_speed` | `1992` | `rpm` | `return a / 40.0f;` | Transmission Slip Speed (TCM) |
+| `gm_trans_output_speed` | `1942` | `rpm` | `return (a * 256.0f + b) * 0.125f;` | Transmission Output Speed (TCM) |
+| `gm_misfire_cyl1` | `1205` | — | `return a;` | Misfire Count Cylinder 1 |
+| `gm_misfire_cyl2` | `1206` | — | `return a;` | Misfire Count Cylinder 2 |
+| `gm_misfire_cyl3` | `1207` | — | `return a;` | Misfire Count Cylinder 3 |
+| `gm_misfire_cyl4` | `1208` | — | `return a;` | Misfire Count Cylinder 4 |
+
+> TCM PIDs (`gm_trans_temp`, `gm_trans_slip_speed`, `gm_trans_output_speed`, `gm_tcc_slip_speed`, etc.) usually require `pre_commands: ["ATSH 7E2"]` on the sensor. ECM PIDs typically use `7E0` when a header is needed.
+
+##### Example
+
+```yaml
+esp32_ble_tracker:
+
+ble_client:
+  - mac_address: "AA:BB:CC:DD:EE:FF"
+    id: obd_client
+
+ble_elm327:
+  ble_client_id: obd_client
+  init_commands:
+    - "ATZ"
+    - "ATE0"
+    - "ATL0"
+    - "ATS0"
+    - "ATH0"
+    - "ATSP6"
+
+sensor:
+  - platform: ble_elm327
+    name: "Odometer"
+    preset: odometer
+    update_interval: 30s
+
+  - platform: ble_elm327
+    name: "Gear Position"
+    preset: gm_current_gear
+    pre_commands:
+      - "ATSH 7E0"
+    update_interval: 1s
+
+  - platform: ble_elm327
+    name: "Engine Oil Life"
+    preset: gm_oil_life
+    pre_commands:
+      - "ATSH 7E0"
+    update_interval: 60s
+
+  - platform: ble_elm327
+    name: "Transmission Fluid Temperature"
+    preset: gm_trans_temp
+    pre_commands:
+      - "ATSH 7E2"
+    update_interval: 10s
+
+  - platform: ble_elm327
+    name: "Engine Oil Pressure"
+    preset: gm_oil_pressure_alt
+    pre_commands:
+      - "ATSH 7E0"
+    update_interval: 5s
+```
 
 #### PSA EV Specific (Mode 22)
 
@@ -697,129 +769,6 @@ sensor:
     device_class: temperature
     state_class: measurement
 ```
-
----
-
-## GM Extended PIDs (Chevrolet Colorado / GMC Canyon)
-
-Combines Mode `01` extended PIDs and Mode `22` UDS PIDs.
-
-### PID Reference
-
-| Mode | PID | Name | Formula | Unit |
-|------|-----|------|---------|------|
-| `01` | `A6` | Odometer | `uint32_t v = ((uint32_t)a<<24)\|((uint32_t)b<<16)\|((uint32_t)c<<8)\|d; return v / 10.0f;` | `km` |
-| `22` | `1149` | ECT Sensor Voltage | `return a * 0.02f;` | `V` |
-| `22` | `111D` | Fuel Level | `return a * 100.0f / 255.0f;` | `%` |
-| `22` | `114B` | IAT Sensor Voltage | `return a * 0.02f;` | `V` |
-| `22` | `1151` | Engine Oil Life Monitor (Alt) | `return a * 100.0f / 255.0f;` | `%` |
-| `22` | `119E` | Engine Oil Life Monitor (Alt 2) | `return a * 100.0f / 255.0f;` | `%` |
-| `22` | `1154` | Engine Oil Temperature | `return a - 40.0f;` | `°C` |
-| `22` | `1155` | Fuel Level Sensor Voltage | `return a * 0.02f;` | `V` |
-| `22` | `115C` | Engine Oil Pressure | `return (a * 0.65f) - 17.5f;` | `psi` |
-| `22` | `1160` | Fuel Trim Cell | `return a;` | — |
-| `22` | `1163` | Battery Temperature | `return a - 40.0f;` | `°C` |
-| `22` | `4028` | Battery State of Charge | `return a * 100.0f / 255.0f;` | `%` |
-| `22` | `1173` | Battery Current | `return ((int16_t)((a << 8) \| b)) / 10.0f;` | `A` |
-| `22` | `119B` | Fuel Injector Pulse Width | `return (a * 256.0f + b) * 0.001f;` | `ms` |
-| `22` | `119C` | Fuel Pump Duty Cycle | `return a * 0.392f;` | `%` |
-| `22` | `119F` | Engine Oil Life Monitor | `return a / 2.55f;` | `%` |
-| `22` | `11A6` | Knock Retard | `return a * 0.0878906f;` | `°` |
-| `22` | `162B` | Cooling Fan Duty Cycle | `return a / 2.55f;` | `%` |
-| `22` | `192A` | Torque Converter Clutch Duty Cycle | `return a * 0.392f;` | `%` |
-| `22` | `1940` | Transmission Fluid Temp | `return a - 40.0f;` | `°C` |
-| `22` | `1941` | Torque Converter Clutch Slip Speed | `return a * 256.0f + b;` | `rpm` |
-| `22` | `1951` | GM PRND Status (Gear Position) | `return a;` | — |
-| `22` | `2889` | GM PRND Status (Gear Position) (Alt) | `return a;` | — |
-| `22` | `1991` | Torque Converter Clutch Slip | `return ((int16_t)((a << 8) \| b)) / 8.0f;` | `rpm` |
-| `22` | `199A` | Gear Position (raw) | `return a;` | — |
-| `22` | `2813` | Tire Pressure Left Front | `return a * 0.145f;` | `psi` |
-| `22` | `2814` | Tire Pressure Right Front | `return a * 0.145f;` | `psi` |
-| `22` | `2815` | Tire Pressure Left Rear | `return a * 0.145f;` | `psi` |
-| `22` | `2816` | Tire Pressure Right Rear | `return a * 0.145f;` | `psi` |
-| `22` | `3039` | Distance Since Last DPF Regeneration | `return a * 256.0f + b;` | `km` |
-| `22` | `336A` | DPF Soot Load | `return a;` | `%` |
-| `22` | `20F2` | DPF Regeneration Active | `return a;` | `0`/`1` |
-| `22` | `132A` | Fuel Tank Volume | `return (a * 256.0f + b) / 64.0f;` | `L` |
-
-### Full example
-
-```yaml
-esp32_ble_tracker:
-
-ble_client:
-  - mac_address: "AA:BB:CC:DD:EE:FF"
-    id: obd_client
-
-ble_elm327:
-  ble_client_id: obd_client
-  init_commands:
-    - "ATZ"
-    - "ATE0"
-    - "ATL0"
-    - "ATS0"
-    - "ATH0"
-    - "ATSP6"
-
-sensor:
-  - platform: ble_elm327
-    name: "Odometer"
-    preset: odometer
-    update_interval: 30s
-    on_value:
-      then:
-        - lambda: |-
-            static float initial = -1.0f;
-            if (!isnan(x) && x > 0) {
-              if (initial < 0) initial = x;
-              id(trip_distance).publish_state(x - initial);
-            }
-
-  - platform: template
-    id: trip_distance
-    name: "Trip Distance"
-    unit_of_measurement: "km"
-    device_class: distance
-    state_class: measurement
-    accuracy_decimals: 0
-
-  - platform: ble_elm327
-    name: "Gear Position"
-    preset: gm_current_gear
-    update_interval: 1s
-
-  - platform: ble_elm327
-    name: "Engine Oil Life"
-    preset: gm_oil_life
-    update_interval: 60s
-
-  - platform: ble_elm327
-    name: "Transmission Fluid Temperature"
-    preset: gm_trans_temp
-    update_interval: 10s
-
-  # Demonstration of a custom manufacturer-specific UDS (Mode 22) sensor without preset (1-byte payload)
-  - platform: ble_elm327
-    name: "Engine Oil Pressure"
-    pid: "115C"
-    mode: "22"
-    update_interval: 5s
-    formula: "return (a * 0.65f) - 17.5f;"
-    unit_of_measurement: "psi"
-    state_class: measurement
-
-  # Demonstration of a custom manufacturer-specific UDS (Mode 22) sensor without preset (2-byte payload)
-  - platform: ble_elm327
-    name: "Torque Converter Clutch Slip"
-    pid: "1991"
-    mode: "22"
-    update_interval: 2s
-    formula: "return ((int16_t)((a << 8) | b)) / 8.0f;"
-    unit_of_measurement: "rpm"
-    state_class: measurement
-```
-
-The odometer `on_value` lambda uses a `static` variable to record the first reading each boot and derive trip distance. For persistence across reboots use an ESPHome `global:` variable instead.
 
 ---
 
