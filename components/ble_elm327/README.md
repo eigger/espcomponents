@@ -295,6 +295,7 @@ sensor:
 | `intake_air_temp` | `0F` | `°C` | `return a - 40.0f;` |
 | `maf` | `10` | `g/s` | `return (a * 256.0f + b) / 100.0f;` |
 | `throttle` | `11` | `%` | `return a / 2.55f;` |
+| `commanded_secondary_air` | `12` | — | `return a;` |
 | `run_time` | `1F` | `s` | `return a * 256.0f + b;` |
 | `maf_sensor_a` | `66` | `g/s` | `return (a * 256.0f + b) / 32.0f;` |
 | `maf_sensor_b` | `66` | `g/s` | `return (c * 256.0f + d) / 32.0f;` |
@@ -305,16 +306,26 @@ sensor:
 |--------|-----|------|---------|
 | `distance_with_mil` | `21` | `km` | `return a * 256.0f + b;` |
 | `fuel_rail_pressure` | `22` | `kPa` | `return 0.079f * (a * 256.0f + b);` |
+| `fuel_rail_gauge_pressure` | `23` | `kPa` | `return (a * 256.0f + b) * 10.0f;` |
 | `commanded_egr` | `2C` | `%` | `return a / 2.55f;` |
+| `egr_error` | `2D` | `%` | `return (a * 100.0f / 128.0f) - 100.0f;` |
 | `commanded_evap_purge` | `2E` | `%` | `return a / 2.55f;` |
 | `fuel_level` | `2F` | `%` | `return a / 2.55f;` |
+| `warm_ups_since_cleared` | `30` | — | `return a;` |
 | `distance_since_cleared` | `31` | `km` | `return a * 256.0f + b;` |
-| `evap_vapor_pressure` | `32` | `kPa` | `return ((int16_t)((a << 8) \| b)) / 4000.0f;` |
-| `barometric` | `33` | `hPa` | `return a;` |
+| `evap_vapor_pressure` | `32` | `Pa` | `return ((int16_t)((a << 8) \| b)) / 4.0f;` |
+| `barometric` | `33` | `kPa` | `return a;` |
 | `absolute_evap_vapor_pressure` | `53` | `kPa` | `return (a * 256.0f + b) / 200.0f;` |
-| `evap_vapor_pressure_wide` | `54` | `kPa` | `return ((int16_t)((a << 8) \| b)) / 1000.0f;` |
+| `evap_vapor_pressure_wide` | `54` | `Pa` | `return (float)((int16_t)((a << 8) \| b));` |
+| `short_term_o2_trim_b1s3` | `55` | `%` | `return (a * 100.0f / 128.0f) - 100.0f;` |
+| `long_term_o2_trim_b1s3` | `56` | `%` | `return (a * 100.0f / 128.0f) - 100.0f;` |
+| `short_term_o2_trim_b2s4` | `57` | `%` | `return (a * 100.0f / 128.0f) - 100.0f;` |
+| `long_term_o2_trim_b2s4` | `58` | `%` | `return (a * 100.0f / 128.0f) - 100.0f;` |
 | `fuel_rail_pressure_abs` | `59` | `kPa` | `return (a * 256.0f + b) * 10.0f;` |
+| `max_maf_rate` | `50` | `g/s` | `return a * 10.0f;` |
+| `fuel_type` | `51` | — | `return a;` |
 | `fuel_rate` | `5E` | `L/h` | `return (a * 256.0f + b) / 20.0f;` |
+| `emission_requirements` | `5F` | — | `return a;` |
 | `ethanol_percent` | `52` | `%` | `return a / 2.55f;` |
 | `fuel_injection_timing` | `5D` | `°` | `return (a * 256.0f + b) / 128.0f - 210.0f;` |
 | `engine_fuel_rate_alt` | `9D` | `g/s` | `return (a * 256.0f + b) / 50.0f;` |
@@ -359,6 +370,7 @@ sensor:
 | `absolute_throttle_c` | `48` | `%` | `return a / 2.55f;` |
 | `accel_pedal_d` | `49` | `%` | `return a / 2.55f;` |
 | `accel_pedal_e` | `4A` | `%` | `return a / 2.55f;` |
+| `absolute_throttle_f` | `4B` | `%` | `return a / 2.55f;` |
 | `throttle_actuator_ctrl` | `4C` | `%` | `return a / 2.55f;` |
 | `time_with_mil` | `4D` | `min` | `return a * 256.0f + b;` |
 | `time_since_cleared` | `4E` | `min` | `return a * 256.0f + b;` |
@@ -400,8 +412,13 @@ sensor:
 |--------|-----|------|---------|
 | `o2_sensor_b1s1_voltage` | `14` | `V` | `return a / 200.0f;` |
 | `o2_sensor_b1s2_voltage` | `15` | `V` | `return a / 200.0f;` |
+| `o2_sensor_b1s3_voltage` | `16` | `V` | `return a / 200.0f;` |
+| `o2_sensor_b1s4_voltage` | `17` | `V` | `return a / 200.0f;` |
 | `o2_sensor_b2s1_voltage` | `18` | `V` | `return a / 200.0f;` |
 | `o2_sensor_b2s2_voltage` | `19` | `V` | `return a / 200.0f;` |
+| `o2_sensor_b2s3_voltage` | `1A` | `V` | `return a / 200.0f;` |
+| `o2_sensor_b2s4_voltage` | `1B` | `V` | `return a / 200.0f;` |
+| `aux_input_status` | `1E` | — | `return a;` |
 
 #### GM Specific (Mode 22)
 
@@ -536,19 +553,28 @@ Mode `"01"` — all PIDs below have a built-in `preset:` shortcut (see [Presets]
 | `0F` | `intake_air_temp` | Intake air temperature | 1 | `a - 40` | `°C` |
 | `10` | `maf` | MAF air flow rate | 2 | `(256a + b) / 100` | `g/s` |
 | `11` | `throttle` | Throttle position | 1 | `a / 2.55` | `%` |
+| `12` | `commanded_secondary_air` | Commanded secondary air status | 1 | `a` | — |
 | `14` | `o2_sensor_b1s1_voltage` | O2 Sensor Bank 1 Sensor 1 Voltage | 1 | `a / 200` | `V` |
 | `15` | `o2_sensor_b1s2_voltage` | O2 Sensor Bank 1 Sensor 2 Voltage | 1 | `a / 200` | `V` |
+| `16` | `o2_sensor_b1s3_voltage` | O2 Sensor Bank 1 Sensor 3 Voltage | 1 | `a / 200` | `V` |
+| `17` | `o2_sensor_b1s4_voltage` | O2 Sensor Bank 1 Sensor 4 Voltage | 1 | `a / 200` | `V` |
 | `18` | `o2_sensor_b2s1_voltage` | O2 Sensor Bank 2 Sensor 1 Voltage | 1 | `a / 200` | `V` |
 | `19` | `o2_sensor_b2s2_voltage` | O2 Sensor Bank 2 Sensor 2 Voltage | 1 | `a / 200` | `V` |
+| `1A` | `o2_sensor_b2s3_voltage` | O2 Sensor Bank 2 Sensor 3 Voltage | 1 | `a / 200` | `V` |
+| `1B` | `o2_sensor_b2s4_voltage` | O2 Sensor Bank 2 Sensor 4 Voltage | 1 | `a / 200` | `V` |
+| `1E` | `aux_input_status` | Aux input status | 1 | `a` | — |
 | `1F` | `run_time` | Run time since engine start | 2 | `256a + b` | `s` |
 | `21` | `distance_with_mil` | Distance traveled with MIL on | 2 | `256a + b` | `km` |
 | `22` | `fuel_rail_pressure` | Fuel rail pressure (relative) | 2 | `0.079 × (256a + b)` | `kPa` |
+| `23` | `fuel_rail_gauge_pressure` | Fuel rail gauge pressure | 2 | `(256a + b) × 10` | `kPa` |
 | `2C` | `commanded_egr` | Commanded EGR | 1 | `a / 2.55` | `%` |
+| `2D` | `egr_error` | EGR error | 1 | `(a×100/128) − 100` | `%` |
 | `2E` | `commanded_evap_purge` | Commanded EVAP Purge | 1 | `a / 2.55` | `%` |
 | `2F` | `fuel_level` | Fuel tank level | 1 | `a / 2.55` | `%` |
+| `30` | `warm_ups_since_cleared` | Warm-ups since codes cleared | 1 | `a` | — |
 | `31` | `distance_since_cleared` | Distance since codes cleared | 2 | `256a + b` | `km` |
-| `32` | `evap_vapor_pressure` | Evap Vapor Pressure | 2 | `((int16_t)((a << 8) \| b)) / 4000` | `kPa` |
-| `33` | `barometric` | Absolute barometric pressure | 1 | `a` | `hPa` |
+| `32` | `evap_vapor_pressure` | Evap vapor pressure | 2 | `((int16_t)((a << 8) \| b)) / 4` | `Pa` |
+| `33` | `barometric` | Absolute barometric pressure | 1 | `a` | `kPa` |
 | `3C` | `catalyst_temp_b1s1` | Catalyst temperature B1S1 | 2 | `(256a + b)/10 - 40` | `°C` |
 | `3D` | `catalyst_temp_b2s1` | Catalyst temperature B2S1 | 2 | `(256a + b)/10 - 40` | `°C` |
 | `3E` | `catalyst_temp_b1s2` | Catalyst temperature B1S2 | 2 | `(256a + b)/10 - 40` | `°C` |
@@ -562,18 +588,26 @@ Mode `"01"` — all PIDs below have a built-in `preset:` shortcut (see [Presets]
 | `48` | `absolute_throttle_c` | Absolute throttle position C | 1 | `a / 2.55` | `%` |
 | `49` | `accel_pedal_d` | Accelerator pedal position D | 1 | `a / 2.55` | `%` |
 | `4A` | `accel_pedal_e` | Accelerator pedal position E | 1 | `a / 2.55` | `%` |
+| `4B` | `absolute_throttle_f` | Absolute throttle position F | 1 | `a / 2.55` | `%` |
 | `4C` | `throttle_actuator_ctrl` | Throttle actuator control | 1 | `a / 2.55` | `%` |
 | `4D` | `time_with_mil` | Time run with MIL on | 2 | `256a + b` | `min` |
 | `4E` | `time_since_cleared` | Time since codes cleared | 2 | `256a + b` | `min` |
+| `50` | `max_maf_rate` | Maximum MAF rate | 1 | `a × 10` | `g/s` |
+| `51` | `fuel_type` | Fuel type (ref table) | 1 | `a` | — |
 | `52` | `ethanol_percent` | Ethanol fuel percentage | 1 | `a / 2.55` | `%` |
 | `53` | `absolute_evap_vapor_pressure` | Absolute evap vapor pressure | 2 | `(256a + b) / 200` | `kPa` |
-| `54` | `evap_vapor_pressure_wide` | Evap vapor pressure wide | 2 | `((int16_t)((a << 8) \| b)) / 1000` | `kPa` |
+| `54` | `evap_vapor_pressure_wide` | Evap vapor pressure wide | 2 | `(int16_t)((a << 8) \| b)` | `Pa` |
+| `55` | `short_term_o2_trim_b1s3` | Short-term O2 trim B1S3 | 1 | `(a×100/128) − 100` | `%` |
+| `56` | `long_term_o2_trim_b1s3` | Long-term O2 trim B1S3 | 1 | `(a×100/128) − 100` | `%` |
+| `57` | `short_term_o2_trim_b2s4` | Short-term O2 trim B2S4 | 1 | `(a×100/128) − 100` | `%` |
+| `58` | `long_term_o2_trim_b2s4` | Long-term O2 trim B2S4 | 1 | `(a×100/128) − 100` | `%` |
 | `59` | `fuel_rail_pressure_abs` | Fuel rail pressure (absolute) | 2 | `(256a + b) * 10` | `kPa` |
 | `5A` | `relative_accel_pedal` | Relative accelerator pedal | 1 | `a / 2.55` | `%` |
 | `5B` | `hybrid_battery` | Hybrid battery remaining life | 1 | `a / 2.55` | `%` |
 | `5C` | `oil_temp` | Engine oil temperature | 1 | `a - 40` | `°C` |
 | `5D` | `fuel_injection_timing` | Fuel injection timing | 2 | `(256a + b)/128 - 210` | `°` |
 | `5E` | `fuel_rate` | Engine fuel rate | 2 | `(256a + b) / 20` | `L/h` |
+| `5F` | `emission_requirements` | Emission requirements | 1 | `a` | — |
 | `61` | `demand_torque` | Driver's demand torque | 1 | `a - 125` | `%` |
 | `62` | `actual_torque` | Actual engine torque | 1 | `a - 125` | `%` |
 | `63` | `ref_torque` | Engine reference torque | 2 | `256a + b` | `N·m` |
