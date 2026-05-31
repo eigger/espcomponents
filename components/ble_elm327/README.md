@@ -438,6 +438,22 @@ sensor:
 | `gm_tpms_rf` | `2814` | `psi` | `return a * 0.145f;` | Tire Pressure Right Front |
 | `gm_tpms_lr` | `2815` | `psi` | `return a * 0.145f;` | Tire Pressure Left Rear |
 | `gm_tpms_rr` | `2816` | `psi` | `return a * 0.145f;` | Tire Pressure Right Rear |
+| `gm_dpf_distance_since_regen` | `3039` | `km` | `return a * 256.0f + b;` | Distance Since Last DPF Regeneration |
+| `gm_dpf_soot_level` | `336A` | `%` | `return a;` | DPF Soot Load |
+| `gm_dpf_regen_status` | `20F2` | — | `return a;` | DPF Regeneration Active (`0` = OFF, `1` = ON) |
+| `gm_fuel_level_liters` | `132A` | `L` | `return (a * 256.0f + b) / 64.0f;` | Fuel Tank Volume in Liters |
+
+#### PSA EV Specific (Mode 22)
+
+> [!WARNING]
+> **Unverified / Platform-Dependent**: Verified on **2021 Citroën E-Berlingo** (e-CMP platform shared with Peugeot e-208, Opel Corsa-e, etc.). Presets include `pre_commands` for the required ECU headers (`6B4` for battery PIDs, `6A6` for odometer).
+
+| Preset | PID | Pre-commands | Unit | Formula | Description |
+|--------|-----|--------------|------|---------|-------------|
+| `psa_soh` | `D860` | `ATSH 6B4` | `%` | `return ((b * 256.0f) + c) / 16.0f;` | HV Battery State of Health |
+| `psa_soc` | `D410` | `ATSH 6B4` | `%` | `return ((a * 256.0f) + b) / 512.0f;` | HV Battery State of Charge |
+| `psa_hv_voltage` | `D815` | `ATSH 6B4` | `V` | `return ((a * 256.0f) + b) / 16.0f;` | HV Battery Voltage |
+| `psa_odometer` | `D49C` | `ATSH 6A6` | `km` | `return ((b * 65536.0f) + (c * 256.0f) + d);` | Odometer |
 
 ---
 
@@ -687,6 +703,10 @@ Combines Mode `01` extended PIDs and Mode `22` UDS PIDs.
 | `22` | `2814` | Tire Pressure Right Front | `return a * 0.145f;` | `psi` |
 | `22` | `2815` | Tire Pressure Left Rear | `return a * 0.145f;` | `psi` |
 | `22` | `2816` | Tire Pressure Right Rear | `return a * 0.145f;` | `psi` |
+| `22` | `3039` | Distance Since Last DPF Regeneration | `return a * 256.0f + b;` | `km` |
+| `22` | `336A` | DPF Soot Load | `return a;` | `%` |
+| `22` | `20F2` | DPF Regeneration Active | `return a;` | `0`/`1` |
+| `22` | `132A` | Fuel Tank Volume | `return (a * 256.0f + b) / 64.0f;` | `L` |
 
 ### Full example
 
@@ -775,12 +795,12 @@ These PIDs and formulas are verified working on a **2021 Citroen E-Berlingo** (w
 
 ### PID Reference
 
-| Mode | PID | Pre-commands | Name | Formula | Unit |
-|------|-----|--------------|------|---------|------|
-| `22` | `D860` | `ATSH 6B4` | State of Health (SOH) | `return ((b * 256.0f) + c) / 16.0f;` | `%` |
-| `22` | `D410` | `ATSH 6B4` | State of Charge (SOC) | `return ((a * 256.0f) + b) / 512.0f;` | `%` |
-| `22` | `D815` | `ATSH 6B4` | HV Battery Voltage | `return ((a * 256.0f) + b) / 16.0f;` | `V` |
-| `22` | `D49C` | `ATSH 6A6` | Odometer | `return ((b * 65536.0f) + (c * 256.0f) + d);` | `km` |
+| Mode | PID | Preset | Pre-commands | Name | Formula | Unit |
+|------|-----|--------|--------------|------|---------|------|
+| `22` | `D860` | `psa_soh` | `ATSH 6B4` | State of Health (SOH) | `return ((b * 256.0f) + c) / 16.0f;` | `%` |
+| `22` | `D410` | `psa_soc` | `ATSH 6B4` | State of Charge (SOC) | `return ((a * 256.0f) + b) / 512.0f;` | `%` |
+| `22` | `D815` | `psa_hv_voltage` | `ATSH 6B4` | HV Battery Voltage | `return ((a * 256.0f) + b) / 16.0f;` | `V` |
+| `22` | `D49C` | `psa_odometer` | `ATSH 6A6` | Odometer | `return ((b * 65536.0f) + (c * 256.0f) + d);` | `km` |
 
 ### Full Example
 
@@ -789,59 +809,26 @@ sensor:
   - platform: ble_elm327
     ble_elm327_id: obd_elm
     name: "SOH"
-    mode: "22"
-    pid: "D860"
-    pre_commands:
-      - "ATSH 6B4"
+    preset: psa_soh
     update_interval: 30s
-    formula: |-
-      return ((b * 256.0f) + c) / 16.0f;
-    unit_of_measurement: "%"
-    accuracy_decimals: 1
-    state_class: measurement
 
   - platform: ble_elm327
     ble_elm327_id: obd_elm
     name: "SOC"
-    mode: "22"
-    pid: "D410"
-    pre_commands:
-      - "ATSH 6B4"
+    preset: psa_soc
     update_interval: 30s
-    formula: |-
-      return ((a * 256.0f) + b) / 512.0f;
-    unit_of_measurement: "%"
-    accuracy_decimals: 1
-    state_class: measurement
 
   - platform: ble_elm327
     ble_elm327_id: obd_elm
     name: "HV Voltage"
-    mode: "22"
-    pid: "D815"
-    pre_commands:
-      - "ATSH 6B4"
+    preset: psa_hv_voltage
     update_interval: 30s
-    formula: |-
-      return ((a * 256.0f) + b) / 16.0f;
-    unit_of_measurement: "V"
-    accuracy_decimals: 1
-    state_class: measurement
-    device_class: voltage
 
   - platform: ble_elm327
     ble_elm327_id: obd_elm
     name: "Odometer"
-    mode: "22"
-    pid: "D49C"
-    pre_commands:
-      - "ATSH 6A6"
+    preset: psa_odometer
     update_interval: 35s
-    formula: |-
-      return ((b * 65536.0f) + (c * 256.0f) + d);
-    unit_of_measurement: "km"
-    accuracy_decimals: 0
-    state_class: total_increasing
 ```
 
 ---
