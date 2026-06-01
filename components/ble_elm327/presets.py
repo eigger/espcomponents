@@ -1332,7 +1332,6 @@ OBD_PRESETS = {
         CONF_PID: "132A",
         CONF_FORMULA: "return (a * 256.0f + b) / 64.0f;",
         CONF_UNIT_OF_MEASUREMENT: "L",
-        CONF_DEVICE_CLASS: "volume",
         CONF_STATE_CLASS: "measurement",
         CONF_ACCURACY_DECIMALS: 1,
         CONF_ICON: "mdi:gas-station",
