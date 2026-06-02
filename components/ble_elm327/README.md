@@ -15,6 +15,7 @@ The component registers as a node under ESPHome's standard `ble_client:` compone
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Real-world Example (Colorado Tab5 + vLinker)](#real-world-example-colorado-tab5--vlinker)
 - [Configuration Reference](#configuration-reference)
   - [Core Component](#core-component)
   - [Device Schema](#device-schema)
@@ -76,6 +77,27 @@ sensor:
 
 ---
 
+## Real-world Example (Colorado Tab5 + vLinker)
+
+A production setup for **M5Stack Tab5** + **vLinker MC+** on a Chevrolet Colorado is maintained in this repo:
+
+- Package: [`packages/display/colorado/colorado-ble-elm327.yaml`](../../packages/display/colorado/colorado-ble-elm327.yaml)
+- Full dashboard: [`packages/display/colorado/colorado-tab5.yaml`](../../packages/display/colorado/colorado-tab5.yaml)
+- Docs: [`packages/display/colorado/README.md`](../../packages/display/colorado/README.md#ble_elm327-setup-vlinker-obd2)
+
+Production configuration used in Colorado setup:
+
+```yaml
+ble_elm327:
+  service_uuid: "18F0"
+  rx_char_uuid: "2AF0"
+  tx_char_uuid: "2AF1"
+  init_commands:
+    - "ATSP6"
+```
+
+---
+
 ## Configuration Reference
 
 ### Core Component
@@ -88,14 +110,11 @@ ble_client:
 ble_elm327:
   id: elm
   ble_client_id: obd_client
-  service_uuid: "FFF0"
-  rx_char_uuid: "FFF1"
-  tx_char_uuid: "FFF2"
+  service_uuid: "18F0"
+  rx_char_uuid: "2AF0"
+  tx_char_uuid: "2AF1"
   init_commands:
-    - "ATZ"
-    - "ATE0"
-    - "ATL0"
-    - "ATSP0"
+    - "ATSP6"
   tx_delay: 50
 ```
 
@@ -104,10 +123,10 @@ ble_elm327:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `ble_client_id` | ID | **Required** | The ID of the parent `ble_client` component |
-| `service_uuid` | UUID | `FFF0` | BLE service UUID of the ELM327 adapter |
-| `rx_char_uuid` | UUID | `FFF1` | BLE notify characteristic UUID (adapter → ESP32) |
-| `tx_char_uuid` | UUID | `FFF2` | BLE write characteristic UUID (ESP32 → adapter) |
-| `init_commands` | list | `[ATZ, ATE0, ATL0, ATSP0]` | AT commands sent on connection. Use `[]` to skip. |
+| `service_uuid` | UUID | `18F0` | BLE service UUID of the ELM327 adapter |
+| `rx_char_uuid` | UUID | `2AF0` | BLE notify characteristic UUID (adapter → ESP32) |
+| `tx_char_uuid` | UUID | `2AF1` | BLE write characteristic UUID (ESP32 → adapter) |
+| `init_commands` | list | *(none)* | Extra AT commands queued **after** the mandatory base sequence (see below). |
 | `tx_delay` | int (ms) | `50` | Minimum delay between consecutive BLE writes |
 
 #### UUID Formats
@@ -115,49 +134,42 @@ ble_elm327:
 All UUID fields accept 16-bit, 32-bit, or 128-bit formats:
 
 ```yaml
-service_uuid: "FFF0"                                    # 16-bit
-service_uuid: "0000FFF0"                                # 32-bit
-service_uuid: "0000fff0-0000-1000-8000-00805f9b34fb"   # 128-bit
+service_uuid: "18F0"                                    # 16-bit
+service_uuid: "000018F0"                                # 32-bit
+service_uuid: "000018f0-0000-1000-8000-00805f9b34fb"   # 128-bit
 ```
 
 #### Init Commands
 
-The default sequence resets the adapter and configures it for silent operation:
+On every BLE connect, the firmware **always** sends this base sequence first (hardcoded in C++, not configurable):
 
-| Command | Effect |
-|---------|--------|
-| `ATZ` | Reset ELM327 |
-| `ATE0` | Echo off |
-| `ATL0` | Linefeeds off |
-| `ATS0` | Spaces off — compact hex responses (`"41051A"` instead of `"41 05 1A"`) |
-| `ATSP0` | Auto-detect OBD protocol |
+| Order | Command | Effect |
+|-------|---------|--------|
+| 1 | `ATZ` | Reset ELM327 |
+| 2 | `ATE0` | Echo off |
+| 3 | `ATL0` | Linefeeds off |
+| 4 | `ATS0` | Spaces off — compact hex responses |
+| 5 | `ATH0` | Headers off |
+| 6 | `ATSP0` | Auto-detect OBD protocol |
 
-To skip initialisation entirely (e.g. adapter is already configured):
+`init_commands` in YAML adds **extra** commands after the base sequence. Omit the key or use `init_commands: []` if you only need the base sequence.
 
-```yaml
-ble_elm327:
-  ble_client_id: obd_client
-  init_commands: []
-```
-
-Custom init sequence example (CAN 500 kbps, headers on):
+Example — CAN 500 kbps and headers off (Colorado / vLinker):
 
 ```yaml
 ble_elm327:
   ble_client_id: obd_client
   init_commands:
-    - "ATZ"
-    - "ATE0"
-    - "ATL0"
-    - "ATSP6"    # ISO 15765-4 CAN (11-bit, 500 kbps)
-    - "ATH0"     # Headers off
+    - "ATSP6"    # ISO 15765-4 CAN (11-bit, 500 kbps) — overrides base ATSP0
 ```
+
+Do not repeat `ATZ`, `ATE0`, `ATL0`, `ATS0`, or `ATH0` in YAML unless you intentionally want them sent twice.
 
 #### Internal State Machine
 
 ```
 IDLE → (BLE connect + service discovery + notify registered)
-     → CONNECTED: init_commands queued into tx_queue
+     → CONNECTED: base init + extra init_commands queued into tx_queue
      → loop() drains tx_queue at tx_delay intervals
      → READY
 ```
@@ -490,11 +502,6 @@ ble_client:
 ble_elm327:
   ble_client_id: obd_client
   init_commands:
-    - "ATZ"
-    - "ATE0"
-    - "ATL0"
-    - "ATS0"
-    - "ATH0"
     - "ATSP6"
 
 sensor:
@@ -824,7 +831,7 @@ sensor:
 | Connects but no data | Wrong service / characteristic UUID | Scan the adapter's BLE services and update `service_uuid`, `rx_char_uuid`, `tx_char_uuid` |
 | `RX characteristic not found` | UUID mismatch | Some adapters use 128-bit UUIDs — use the full form in config |
 | Sensor never updates | PID/mode mismatch or ECU doesn't support it | Enable DEBUG logs and confirm the response byte matches `0x40 + mode`; check `ATDP` to verify protocol |
-| Sensors never update after connect | Adapter slow to respond to init commands | Increase `tx_delay` or set `init_commands: []` |
+| Sensors never update after connect | Adapter slow to respond to init commands | Increase `tx_delay` |
 | Data wrong / garbled | Wrong `formula` | Check raw response in DEBUG logs and adjust formula |
 | Sensors update too fast / slow | Per-sensor `update_interval` | Tune each sensor's `update_interval` independently |
 

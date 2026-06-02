@@ -38,11 +38,10 @@ CONFIG_SCHEMA = cv.Schema(
     {
         cv.GenerateID(): cv.declare_id(BleElm327Component),
         cv.Required(CONF_BLE_CLIENT_ID): cv.use_id(ble_client.BLEClient),
-        cv.Optional(CONF_SERVICE_UUID, default="FFF0"): esp32_ble_tracker.bt_uuid,
-        cv.Optional(CONF_RX_CHAR_UUID, default="FFF1"): esp32_ble_tracker.bt_uuid,
-        cv.Optional(CONF_TX_CHAR_UUID, default="FFF2"): esp32_ble_tracker.bt_uuid,
-        cv.Optional(CONF_INIT_COMMANDS, default=["ATZ", "ATE0", "ATL0", "ATS0", "ATSP0"]):
-            cv.ensure_list(cv.string_strict),
+        cv.Optional(CONF_SERVICE_UUID, default="18F0"): esp32_ble_tracker.bt_uuid,
+        cv.Optional(CONF_RX_CHAR_UUID, default="2AF0"): esp32_ble_tracker.bt_uuid,
+        cv.Optional(CONF_TX_CHAR_UUID, default="2AF1"): esp32_ble_tracker.bt_uuid,
+        cv.Optional(CONF_INIT_COMMANDS): cv.ensure_list(cv.string_strict),
         cv.Optional(CONF_TX_DELAY, default=50): cv.positive_int,           # ms
     }
 )
@@ -62,7 +61,7 @@ async def to_code(config):
     _add_uuid(var, config[CONF_TX_CHAR_UUID],
               "set_tx_char_uuid16", "set_tx_char_uuid32", "set_tx_char_uuid128")
 
-    for cmd in config[CONF_INIT_COMMANDS]:
+    for cmd in config.get(CONF_INIT_COMMANDS, []):
         cg.add(var.add_init_command(cmd))
 
     cg.add(var.set_tx_delay(config[CONF_TX_DELAY]))
