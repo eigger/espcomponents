@@ -91,7 +91,9 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
   void set_tx_char_uuid128(uint8_t *uuid) { tx_char_uuid_ = espbt::ESPBTUUID::from_raw(uuid); }
 
   void add_device(BleElm327Device *d) { devices_.push_back(d); }
-  void add_init_command(const std::string &cmd) { init_commands_.push_back(cmd + "\r"); }
+  // Appends user-defined init commands after the mandatory base sequence (see ble_elm327.cpp).
+  // Duplicate commands (case-insensitive, trimmed) are ignored.
+  void add_init_command(const std::string &cmd);
   void set_tx_delay(uint32_t ms) { tx_delay_ms_ = ms; }
 
  protected:
@@ -118,7 +120,7 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
 
   // State machine
   ElmState elm_state_{ElmState::IDLE};
-  std::vector<std::string> init_commands_;
+  std::vector<std::string> extra_init_commands_;
   // Tracks pre_commands currently applied on the ELM327 (e.g., last ATSH).
   // When a device's pre_commands differs, they are re-queued before its PID request.
   std::vector<std::string> current_pre_commands_;

@@ -1,0 +1,130 @@
+# ble_elm327 — Colorado Tab5 production OBD setup (vLinker MC+)
+#
+# Prerequisites (define in the parent config, see colorado-tab5.yaml):
+#   - esp32 + esp32_hosted (Tab5 BLE on ESP32-C6)
+#   - esp32_ble_tracker:
+#   - substitution: mac_vlinker (BLE MAC of your vLinker adapter)
+#
+# Include alone (OBD sensors only):
+#   packages:
+#     remote:
+#       url: https://github.com/eigger/espcomponents/
+#       files:
+#         - packages/display/colorado/colorado-ble-elm327.yaml
+#
+# Full dashboard: packages/display/colorado/colorado-tab5.yaml
+
+external_components:
+  - source: github://eigger/espcomponents@latest
+    components: [ ble_elm327 ]
+    refresh: always
+
+ble_client:
+  - mac_address: ${mac_vlinker}
+    id: obd_client
+
+ble_elm327:
+  id: obd_elm
+  ble_client_id: obd_client
+  # vLinker MC+ BLE UART service (not the default FFF0/FFF1/FFF2)
+  service_uuid: "18F0"
+  rx_char_uuid: "2AF0"
+  tx_char_uuid: "2AF1"
+  init_commands:
+    - "ATSP6"   # ISO 15765-4 CAN 11-bit 500 kbps (Chevrolet Colorado Z71)
+  tx_delay: 50
+
+sensor:
+  # ── Standard OBD-II (Mode 01) ──────────────────────────────────────────────
+  - platform: ble_elm327
+    name: "Engine Run Time"
+    preset: run_time
+    update_interval: 5s
+
+  - platform: ble_elm327
+    name: "Engine Coolant Temperature"
+    preset: coolant_temp
+    update_interval: 10s
+
+  - platform: ble_elm327
+    name: "Fuel Level"
+    preset: fuel_level
+    update_interval: 30s
+    filters:
+      - median:
+          window_size: 5
+          send_every: 1
+          send_first_at: 1
+      - delta: 0.5
+      - throttle: 60s
+
+  - platform: ble_elm327
+    name: "Fuel Level Liters"
+    preset: gm_fuel_level_liters
+    update_interval: 30s
+
+  - platform: ble_elm327
+    name: "Throttle Position"
+    preset: throttle
+    update_interval: 1s
+
+  - platform: ble_elm327
+    name: "Intake Air Temperature"
+    preset: intake_air_temp
+    update_interval: 10s
+
+  - platform: ble_elm327
+    name: "Ambient Air Temperature"
+    preset: ambient_temp
+    update_interval: 30s
+
+  - platform: ble_elm327
+    name: "Car Battery"
+    preset: battery_voltage
+    update_interval: 10s
+
+  - platform: ble_elm327
+    name: "Engine RPM"
+    preset: rpm
+    update_interval: 1s
+
+  - platform: ble_elm327
+    name: "Engine Load"
+    preset: engine_load
+    update_interval: 1s
+
+  - platform: ble_elm327
+    name: "Car Speed"
+    preset: speed
+    update_interval: 1s
+
+  - platform: ble_elm327
+    name: "Odometer"
+    preset: odometer
+    update_interval: 30s
+
+  # ── GM extended PIDs (Mode 22, Chevrolet Colorado) ─────────────────────────
+  - platform: ble_elm327
+    name: "Gear Position"
+    preset: gm_current_gear
+    update_interval: 1s
+
+  - platform: ble_elm327
+    name: "PRND Status"
+    preset: gm_prnd_status_alt
+    update_interval: 1s
+
+  - platform: ble_elm327
+    name: "Actual Torque"
+    preset: actual_torque
+    update_interval: 1s
+
+  - platform: ble_elm327
+    name: "Engine Oil Pressure"
+    preset: gm_oil_pressure
+    update_interval: 2s
+
+  - platform: ble_elm327
+    name: "Transmission Fluid Temperature"
+    preset: gm_trans_temp
+    update_interval: 10s

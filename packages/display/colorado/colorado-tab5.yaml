@@ -192,11 +192,6 @@ ble_elm327:
   rx_char_uuid: "2AF0"
   tx_char_uuid: "2AF1"
   init_commands:
-    - "ATZ"
-    - "ATE0"
-    - "ATL0"
-    - "ATS0"
-    - "ATH0"
     - "ATSP6"
   tx_delay: 50
 
@@ -587,6 +582,11 @@ sensor:
         - lvgl.widget.update:
             id: widget_img_fuel
             image_recolor: !lambda return id(fn_state_color)(x, 6);
+  - platform: ble_elm327
+    id: "gm_fuel_level_liters"
+    name: "Fuel Level Liters"
+    preset: gm_fuel_level_liters
+    update_interval: 30s
   - platform: ble_elm327
     id: "throttle"
     name: "Throttle Position"
@@ -2227,11 +2227,11 @@ lvgl:
                   pad_all: 0
                   widgets:
                     - image: { src: img_thermometer_sm, align: left_mid, x: 20, y: -16, image_recolor: 0xF1C36C, image_recolor_opa: 100% }
-                    - label: { text: "실외온도", align: left_mid, x: 65, y: -16, text_color: 0x7F8EA3, text_font: notosans25 }
+                    - label: { text: "적재함온도", align: left_mid, x: 65, y: -16, text_color: 0x7F8EA3, text_font: notosans25 }
                     - label: { id: lbl_bed_temperature, text: "--", align: right_mid, x: -250, y: 15, text_color: 0xFFFFFF, text_font: notosans30 }
                     - label: { text: "°C", align: left_mid, x: 165, y: 18, text_color: 0x7F8EA3, text_font: notosans16 }
                     - image: { src: img_water_sm, align: left_mid, x: 220, y: -16, image_recolor: 0xF1C36C, image_recolor_opa: 100% }
-                    - label: { text: "실외습도", align: left_mid, x: 265, y: -16, text_color: 0x7F8EA3, text_font: notosans25 }
+                    - label: { text: "적재함습도", align: left_mid, x: 265, y: -16, text_color: 0x7F8EA3, text_font: notosans25 }
                     - label: { id: lbl_bed_humidity, text: "--", align: right_mid, x: -50, y: 15, text_color: 0xFFFFFF, text_font: notosans30 }
                     - label: { text: "%", align: left_mid, x: 365, y: 18, text_color: 0x7F8EA3, text_font: notosans16 }
               # 3. 공기질 (CO2, TVOC 병합)
@@ -2397,11 +2397,11 @@ font:
     id: notosans16
     size: 16
   - file: "gfonts://Noto+Sans+KR"
-    glyphs: '#()_-+@*/:;?!,.=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%실내외온습도기압가속냉각수부하배터리연료운행머버전번호판뚝엔진미션오일명주거[]력팬스템을재시작겠니까예아소모율류로틀개량흡토크화면밝울보정초그록지우'
+    glyphs: '#()_-+@*/:;?!,.=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%실내외온습도기압가속냉각수부하배터리연료운행머버전번호판뚝엔진미션오일명주거[]력팬스템을재시작겠니까예아소모율류로틀개량흡토크화면밝울보정초그록지우과의졸음경고환필요급감장치열유'
     id: notosans20
     size: 20
   - file: "gfonts://Noto+Sans+KR"
-    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%실내외온습도기압가속냉각수부하배터리연료운행머버전번호판뚝엔진미션오일명주거력팬화면밝울보정초로그록지우시스템재작'
+    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%실내외온습도기압가속냉각수부하배터리연료운행머버전번호판뚝엔진미션오일명주거력팬화면밝울보정초로그록지우시스템재작적'
     id: notosans25
     size: 25
   - file: "gfonts://Noto+Sans+KR"

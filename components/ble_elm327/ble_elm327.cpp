@@ -1,5 +1,6 @@
 #include "ble_elm327.h"
 #include "esphome/core/log.h"
+#include <cctype>
 
 #ifdef USE_ESP32
 
@@ -7,6 +8,18 @@ namespace esphome {
 namespace ble_elm327 {
 
 static const char *const TAG = "ble_elm327";
+// Always sent first on connect, in this order, before any YAML init_commands.
+static const char *const BASE_INIT_COMMANDS[] = {"ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATSP0"};
+
+static std::string normalize_command(const std::string &cmd) {
+  std::string compact;
+  compact.reserve(cmd.size());
+  for (char c : cmd) {
+    if (std::isspace(static_cast<unsigned char>(c))) continue;  // remove internal spaces too
+    compact.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+  }
+  return compact;
+}
 
 // ── BleElm327Device ─────────────────────────────────────────────────────────
 
@@ -42,6 +55,27 @@ float BleElm327Device::parse_float(const std::vector<uint8_t> &data) {
   float val = 0;
   for (size_t i = 0; i < data.size(); i++) val = val * 256.0f + data[i];
   return val;
+}
+
+void BleElm327Component::add_init_command(const std::string &cmd) {
+  const std::string normalized = normalize_command(cmd);
+  if (normalized.empty()) return;
+
+  for (const char *base_cmd : BASE_INIT_COMMANDS) {
+    if (normalized == normalize_command(base_cmd)) {
+      ESP_LOGD(TAG, "Skip duplicate init command (already in base): %s", normalized.c_str());
+      return;
+    }
+  }
+
+  for (const auto &extra_cmd : extra_init_commands_) {
+    if (normalized == normalize_command(extra_cmd)) {
+      ESP_LOGD(TAG, "Skip duplicate init command (already queued): %s", normalized.c_str());
+      return;
+    }
+  }
+
+  extra_init_commands_.push_back(normalized + "\r");
 }
 
 // ── BleElm327Component ──────────────────────────────────────────────────────
@@ -95,7 +129,8 @@ void BleElm327Component::dump_config() {
   ESP_LOGCONFIG(TAG, "  RX Char UUID       : %s", rx_char_uuid_.to_str(rx_char_uuid_str));
   ESP_LOGCONFIG(TAG, "  TX Char UUID       : %s", tx_char_uuid_.to_str(tx_char_uuid_str));
   ESP_LOGCONFIG(TAG, "  TX delay           : %ums", tx_delay_ms_);
-  ESP_LOGCONFIG(TAG, "  Init commands      : %u", (unsigned)init_commands_.size());
+  ESP_LOGCONFIG(TAG, "  Base init commands : ATZ, ATE0, ATL0, ATS0, ATH0, ATSP0");
+  ESP_LOGCONFIG(TAG, "  Extra init commands: %u", (unsigned)extra_init_commands_.size());
   ESP_LOGCONFIG(TAG, "  Devices            : %u", (unsigned)devices_.size());
   for (auto *d : devices_) d->dump_config();
 }
@@ -147,13 +182,14 @@ void BleElm327Component::gattc_event_handler(esp_gattc_cb_event_t event, esp_gat
       }
       last_tx_time_ = millis();
       elm_state_ = ElmState::CONNECTED;
-      for (const auto &cmd : init_commands_) tx_queue_.push({cmd, nullptr});
-      if (init_commands_.empty()) {
-        elm_state_ = ElmState::READY;
-        ESP_LOGI(TAG, "No init commands — ELM327 ready");
-      } else {
-        ESP_LOGI(TAG, "Queued %u init commands", (unsigned) init_commands_.size());
+      for (const char *cmd : BASE_INIT_COMMANDS) {
+        std::string framed = std::string(cmd) + "\r";
+        tx_queue_.push({framed, nullptr});
       }
+      for (const auto &cmd : extra_init_commands_) tx_queue_.push({cmd, nullptr});
+      ESP_LOGI(TAG, "Queued %u init commands (%u base + %u extra)", (unsigned) tx_queue_.size(),
+               (unsigned)(sizeof(BASE_INIT_COMMANDS) / sizeof(BASE_INIT_COMMANDS[0])),
+               (unsigned) extra_init_commands_.size());
       break;
 
     case ESP_GATTC_NOTIFY_EVT:
