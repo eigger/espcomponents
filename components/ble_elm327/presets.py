@@ -1512,6 +1512,17 @@ OBD_PRESETS = {
         CONF_STATE_CLASS: "measurement",
         CONF_ACCURACY_DECIMALS: 1,
     },
+    "psa_hv_battery_temp": {
+        CONF_MODE: "22",
+        CONF_PID: "D8EF",
+        CONF_PRE_COMMANDS: ["ATSH 6A2"],
+        CONF_FORMULA: "return a;",
+        CONF_UNIT_OF_MEASUREMENT: "°C",
+        CONF_DEVICE_CLASS: "temperature",
+        CONF_STATE_CLASS: "measurement",
+        CONF_ACCURACY_DECIMALS: 1,
+        CONF_ICON: "mdi:thermometer",
+    },
     "psa_odometer": {
         CONF_MODE: "22",
         CONF_PID: "D49C",

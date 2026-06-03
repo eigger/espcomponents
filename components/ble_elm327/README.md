@@ -542,13 +542,14 @@ sensor:
 #### PSA EV Specific (Mode 22)
 
 > [!WARNING]
-> **Unverified / Platform-Dependent**: Verified on **2021 Citroën E-Berlingo** (e-CMP platform shared with Peugeot e-208, Opel Corsa-e, etc.). Presets include `pre_commands` for the required ECU headers (`6B4` for battery PIDs, `6A6` for odometer).
+> **Unverified / Platform-Dependent**: Verified on **2021 Citroën E-Berlingo** (e-CMP platform shared with Peugeot e-208, Opel Corsa-e, etc.). Presets include `pre_commands` for the required ECU headers (`6B4` for battery PIDs, `6A2` for HV battery temperature, `6A6` for odometer).
 
 | Preset | PID | Pre-commands | Unit | Formula | Description |
 |--------|-----|--------------|------|---------|-------------|
 | `psa_soh` | `D860` | `ATSH 6B4` | `%` | `return ((b * 256.0f) + c) / 16.0f;` | HV Battery State of Health |
 | `psa_soc` | `D410` | `ATSH 6B4` | `%` | `return ((a * 256.0f) + b) / 512.0f;` | HV Battery State of Charge |
 | `psa_hv_voltage` | `D815` | `ATSH 6B4` | `V` | `return ((a * 256.0f) + b) / 16.0f;` | HV Battery Voltage |
+| `psa_hv_battery_temp` | `D8EF` | `ATSH 6A2` | `°C` | `return a;` | HV Battery Temperature |
 | `psa_odometer` | `D49C` | `ATSH 6A6` | `km` | `return ((b * 65536.0f) + (c * 256.0f) + d);` | Odometer |
 
 ---
@@ -790,6 +791,7 @@ These PIDs and formulas are verified working on a **2021 Citroen E-Berlingo** (w
 | `22` | `D860` | `psa_soh` | `ATSH 6B4` | State of Health (SOH) | `return ((b * 256.0f) + c) / 16.0f;` | `%` |
 | `22` | `D410` | `psa_soc` | `ATSH 6B4` | State of Charge (SOC) | `return ((a * 256.0f) + b) / 512.0f;` | `%` |
 | `22` | `D815` | `psa_hv_voltage` | `ATSH 6B4` | HV Battery Voltage | `return ((a * 256.0f) + b) / 16.0f;` | `V` |
+| `22` | `D8EF` | `psa_hv_battery_temp` | `ATSH 6A2` | HV Battery Temperature | `return a;` | `°C` |
 | `22` | `D49C` | `psa_odometer` | `ATSH 6A6` | Odometer | `return ((b * 65536.0f) + (c * 256.0f) + d);` | `km` |
 
 ### Full Example
@@ -812,6 +814,12 @@ sensor:
     ble_elm327_id: obd_elm
     name: "HV Voltage"
     preset: psa_hv_voltage
+    update_interval: 30s
+
+  - platform: ble_elm327
+    ble_elm327_id: obd_elm
+    name: "HV Battery Temp"
+    preset: psa_hv_battery_temp
     update_interval: 30s
 
   - platform: ble_elm327
