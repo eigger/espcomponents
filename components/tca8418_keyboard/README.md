@@ -36,4 +36,4 @@ tca8418_keyboard:
 - `on_key_press` / `on_key_release` are the convenient way to react to keys in automations; `press_key` / `release_key` text sensors are optional and mainly for Home Assistant display. Modifier-only keys (`Fn`, `Shift`, `Ctrl`, `Opt`, `Alt`) do not fire events on their own — they shape the emitted key string (e.g. `Ctrl+c`, `F1`, `Up`).
 - `Fn` + key produces `Esc`, `F1`~`F12`, `Del` and arrow keys. `Ctrl` / `Opt` / `Alt` are added as prefixes (e.g. `Ctrl+c`).
 
-<img src="https://static-cdn.m5stack.com/resource/docs/products/core/Cardputer-Adv/img-bcc8b8e9-fee9-4239-a2d8-66708cf868de.webp" width="400">
+<img src="https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/1178/Cardputer-Adv_02.webp" width="400">
