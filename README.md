@@ -61,4 +61,12 @@
   
 ---
 
+## [tca8418_keyboard](/components/tca8418_keyboard)
+**TCA8418 Keyboard Component**  
+- Supports TCA8418 I2C keypad scan IC (M5Cardputer ADV keyboard).
+- Product image:  
+  <img src="https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/1178/Cardputer-Adv_02.webp" width="200">
+
+---
+
 
