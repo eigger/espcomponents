@@ -253,16 +253,10 @@ void UARTExComponent::enqueue_tx_data(const tx_data_t data, bool low_priority)
 
 void UARTExComponent::write_command(cmd_t cmd)
 {
-    std::string name = "command_queue_" + std::to_string(tx_command_cnt_);
-    write_command(name, cmd);
-    if (++tx_command_cnt_ >= conf_tx_command_queue_size_) tx_command_cnt_ = 0;
-}
-
-void UARTExComponent::write_command(std::string name, cmd_t cmd)
-{
-    this->command_map_[name] = cmd;
-    const cmd_t* ptr = &this->command_map_[name];
-    enqueue_tx_data({nullptr, ptr}, false);
+    // Own the command so its address stays valid (and unique) from enqueue
+    // until it is actually sent, regardless of how many commands are queued.
+    auto owned = std::make_shared<cmd_t>(std::move(cmd));
+    enqueue_tx_data(tx_data_t{nullptr, owned.get(), owned}, false);
 }
 
 void UARTExComponent::write_flush()
@@ -331,6 +325,7 @@ void UARTExComponent::clear_tx_data()
 {
     this->current_tx_data_.device = nullptr;
     this->current_tx_data_.cmd = nullptr;
+    this->current_tx_data_.owned.reset();
     this->tx_retry_cnt_ = 0;
 }
 
@@ -595,11 +590,11 @@ uint16_t UARTExComponent::get_checksum(CHECKSUM checksum, const std::vector<uint
             temp ^= byte;
         }
         for (uint8_t byte : data)
-        { 
+        {
             crc += byte;
             temp ^= byte;
         }
-        crc += temp;
+        // High byte = XOR of all bytes, low byte = ADD (sum) of all bytes.
         crc = ((uint16_t)temp << 8) | (crc & 0xFF);
         break;
     case CHECKSUM_NONE:

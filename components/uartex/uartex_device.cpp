@@ -26,9 +26,9 @@ void UARTExDevice::uartex_dump_config(const char* TAG)
 
 const cmd_t *UARTExDevice::dequeue_tx_cmd()
 {
+    if (this->tx_cmd_queue_.empty()) return nullptr;
     if (get_state_response() && !this->rx_response_) return nullptr;
     this->rx_response_ = false;
-    if (this->tx_cmd_queue_.empty()) return nullptr;
     const cmd_t *cmd = this->tx_cmd_queue_.front();
     this->tx_cmd_queue_.pop();
     return cmd;
@@ -36,9 +36,9 @@ const cmd_t *UARTExDevice::dequeue_tx_cmd()
 
 const cmd_t *UARTExDevice::dequeue_tx_cmd_low_priority()
 {
+    if (this->tx_cmd_queue_low_priority_.empty()) return nullptr;
     if (get_state_response() && !this->rx_response_) return nullptr;
     this->rx_response_ = false;
-    if (this->tx_cmd_queue_low_priority_.empty()) return nullptr;
     const cmd_t *cmd = this->tx_cmd_queue_low_priority_.front();
     this->tx_cmd_queue_low_priority_.pop();
     return cmd;
@@ -159,7 +159,9 @@ const char* find_mode(const std::vector<const char*>& modes, const std::string& 
 
 bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2, const uint16_t offset)
 {
-    if (data1.size() - offset < data2.size()) return false;
+    // Guard against unsigned underflow when offset exceeds data1.size(): that
+    // would make the size check pass and read out of bounds.
+    if (offset > data1.size() || data1.size() - offset < data2.size()) return false;
     return std::equal(data1.begin() + offset, data1.begin() + offset + data2.size(), data2.begin());
 }
 

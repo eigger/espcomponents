@@ -99,7 +99,7 @@ uartex:
 | `tx_delay` | time | `50ms` | Delay between transmissions (max: 2000ms) |
 | `tx_timeout` | time | `50ms` | ACK response timeout (max: 2000ms) |
 | `tx_retry_cnt` | int | `3` | Retry count on ACK failure (1-10) |
-| `tx_command_queue_size` | int | `10` | Command queue size (1-50) |
+| `tx_command_queue_size` | int | `10` | Deprecated, no effect (accepted for compatibility) |
 | `tx_ctrl_pin` | pin | - | RS485 direction control pin |
 | `rx_header` | bytes | - | Receive packet header |
 | `rx_footer` | bytes | - | Receive packet footer |
@@ -109,11 +109,37 @@ uartex:
 | `tx_checksum` | enum | - | Transmit checksum (1 byte) |
 | `rx_checksum2` | enum | - | Receive checksum (multi-byte) |
 | `tx_checksum2` | enum | - | Transmit checksum (multi-byte) |
-| `rx_priority` | enum | `data` | Processing priority: `data`, `loop` |
+| `rx_priority` | enum | `data` | RX processing mode: `data`, `loop` (see below) |
 
 > **Note**: 
 > - Use either `rx_length` or `rx_data_length`, not both.
 > - Use either `rx_checksum` or `rx_checksum2`, not both. Same applies to `tx_checksum` and `tx_checksum2`.
+
+#### `rx_priority`: `data` vs `loop`
+
+This controls how received bytes are processed within ESPHome's cooperative main loop.
+
+- **`data`** (default): when bytes start arriving, the component stays in its
+  `loop()` until a full frame is parsed or `rx_timeout` elapses, sleeping with
+  `delay()` between reads. This gives the tightest RX timing, but it **blocks the
+  whole ESPHome main loop** (other components, networking, sensors) for up to
+  `rx_timeout` each cycle.
+- **`loop`** (**recommended**): non-blocking. Each `loop()` consumes only the
+  bytes already available and returns immediately, assembling a frame across
+  several iterations. Other components keep running smoothly, so this is the
+  better default for most setups — especially with Wi-Fi/API/many entities.
+
+```yaml
+uartex:
+  rx_priority: loop
+```
+
+> **When using `loop`:** incoming bytes wait in the UART hardware buffer between
+> iterations, so make sure the `uart:` `rx_buffer_size` is large enough for your
+> longest frame plus typical bus traffic to avoid dropped bytes if `loop()` is
+> momentarily busy. Both modes require a frame delimiter (`rx_footer`,
+> `rx_length`, `rx_data_length`, or a checksum) — pure idle-gap framing is not
+> supported.
 
 #### Dynamic Length Parsing (`rx_data_length`)
 

@@ -1,4 +1,5 @@
 #pragma once
+#include <memory>
 #include "esphome/core/automation.h"
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/text_sensor/text_sensor.h"
@@ -35,8 +36,12 @@ enum PRIORITY {
 
 struct tx_data_t
 {
-    UARTExDevice* device;
-    const cmd_t* cmd;
+    UARTExDevice* device{nullptr};
+    const cmd_t* cmd{nullptr};
+    // Optional owner for ad-hoc commands built at runtime (write_command, the
+    // templated write action). Keeps the cmd_t alive from enqueue until the
+    // command is sent so `cmd` never dangles or gets overwritten in place.
+    std::shared_ptr<cmd_t> owned{};
 };
 
 struct header_t
@@ -96,7 +101,6 @@ public:
     void set_rx_timeout(uint16_t timeout);
     void set_tx_ctrl_pin(InternalGPIOPin *pin);
     void enqueue_tx_data(const tx_data_t data, bool low_priority = false);
-    void write_command(std::string name, cmd_t cmd);
     void write_command(cmd_t cmd);
 protected:
     bool is_tx_cmd_pending();
@@ -154,7 +158,6 @@ protected:
     unsigned long rx_time_{0};
     unsigned long tx_time_{0};
     uint16_t tx_retry_cnt_{0};
-    uint16_t tx_command_cnt_{0};
 
     InternalGPIOPin *tx_ctrl_pin_{nullptr};
     Parser rx_parser_{};
@@ -164,7 +167,6 @@ protected:
     bool log_ascii_{false};
     std::string last_log_{""};
     uint32_t log_count_{0};
-    std::unordered_map<std::string, cmd_t> command_map_{};
 };
 
 } // namespace uartex
