@@ -59,15 +59,10 @@ public:
 
     void play(const Ts&... x) override
     {
-        if (this->static_)
-        {
-            this->parent_->enqueue_tx_data({nullptr, &this->data_static_});
-        }
-        else
-        {
-            data_static_ = this->data_func_(x...);
-            this->parent_->enqueue_tx_data({nullptr, &this->data_static_});
-        }
+        // Own a copy per invocation so repeated/queued sends never point at a
+        // shared member that a later call could overwrite before it is sent.
+        auto owned = std::make_shared<cmd_t>(this->static_ ? this->data_static_ : this->data_func_(x...));
+        this->parent_->enqueue_tx_data(tx_data_t{nullptr, owned.get(), owned});
     }
 
 protected:
