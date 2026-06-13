@@ -548,7 +548,13 @@ void SipClient::start_media_() {
   this->rtp_.set_remote(this->remote_rtp_ip_, this->remote_rtp_port_);
   this->rtp_.set_on_audio([this](const int16_t *pcm, size_t n) {
     if (this->speaker_ == nullptr) return;
-    this->speaker_->play(reinterpret_cast<const uint8_t *>(pcm), n * sizeof(int16_t));
+    // Duplicate mono samples to stereo (L/R) for compatibility with stereo mixers/speakers
+    std::vector<int16_t> stereo(n * 2);
+    for (size_t i = 0; i < n; i++) {
+      stereo[i * 2] = pcm[i];
+      stereo[i * 2 + 1] = pcm[i];
+    }
+    this->speaker_->play(reinterpret_cast<const uint8_t *>(stereo.data()), stereo.size() * sizeof(int16_t));
   });
   this->rtp_.set_on_dtmf([this](char c) {
     std::string s(1, c);
@@ -557,7 +563,7 @@ void SipClient::start_media_() {
   if (!this->rtp_.start(this->local_rtp_port_)) return;
 
   if (this->speaker_ != nullptr) {
-    this->speaker_->set_audio_stream_info(audio::AudioStreamInfo(16, 1, 8000));
+    this->speaker_->set_audio_stream_info(audio::AudioStreamInfo(16, 2, 8000));
     this->speaker_->start();
   }
   if (this->mic_ != nullptr) {
