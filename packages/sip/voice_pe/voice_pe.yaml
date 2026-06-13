@@ -1300,6 +1300,8 @@ speaker:
         timeout: never
       - id: media_mixing_input
         timeout: never
+      - id: sip_mixing_input
+        timeout: never
 
   # Virtual speakers to resample each pipelines' audio, if necessary, as the mixer speaker requires the same sample rate
   - platform: resampler
@@ -1310,6 +1312,13 @@ speaker:
   - platform: resampler
     id: media_resampling_speaker
     output_speaker: media_mixing_input
+    sample_rate: 48000
+    bits_per_sample: 16
+  # Dedicated resampler for SIP call audio so it never shares the announcement
+  # pipeline speaker (which would corrupt TTS announcements and call playback)
+  - platform: resampler
+    id: sip_resampling_speaker
+    output_speaker: sip_mixing_input
     sample_rate: 48000
     bits_per_sample: 16
 
@@ -1443,7 +1452,7 @@ audio_dac:
 sip_client:
   id: my_sip
   microphone: i2s_mics
-  speaker: announcement_resampling_speaker
+  speaker: sip_resampling_speaker
   server: ${sip_server}
   port: ${sip_port}
   username: ${sip_username}
