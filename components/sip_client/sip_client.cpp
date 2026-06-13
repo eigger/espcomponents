@@ -570,12 +570,13 @@ void SipClient::start_media_() {
     auto info = this->mic_->get_audio_stream_info();
     this->mic_rate_ = info.get_sample_rate();
     this->mic_channels_ = info.get_channels();
+    this->mic_bits_ = info.get_bits_per_sample();
     this->mic_->start();
   }
   this->media_active_ = true;
-  ESP_LOGI(TAG, "Media started: remote %s:%u pt=%u dtmf_pt=%d (mic %u Hz/%uch)",
+  ESP_LOGI(TAG, "Media started: remote %s:%u pt=%u dtmf_pt=%d (mic %u Hz/%uch/%ubits)",
            this->remote_rtp_ip_.c_str(), this->remote_rtp_port_, this->chosen_pt_,
-           this->remote_dtmf_pt_, this->mic_rate_, this->mic_channels_);
+           this->remote_dtmf_pt_, this->mic_rate_, this->mic_channels_, this->mic_bits_);
 }
 
 void SipClient::stop_media_() {
@@ -588,8 +589,23 @@ void SipClient::stop_media_() {
 
 void SipClient::on_mic_data_(const std::vector<uint8_t> &data) {
   if (!this->media_active_ || this->state_ != SIP_IN_CALL) return;
-  const int16_t *samples = reinterpret_cast<const int16_t *>(data.data());
-  size_t n = data.size() / sizeof(int16_t);
+
+  std::vector<int16_t> pcm16;
+  if (this->mic_bits_ == 32) {
+    const int32_t *samples32 = reinterpret_cast<const int32_t *>(data.data());
+    size_t n32 = data.size() / sizeof(int32_t);
+    pcm16.reserve(n32);
+    for (size_t i = 0; i < n32; i++) {
+      pcm16.push_back((int16_t)(samples32[i] >> 16));
+    }
+  } else {
+    const int16_t *samples16 = reinterpret_cast<const int16_t *>(data.data());
+    size_t n16 = data.size() / sizeof(int16_t);
+    pcm16.assign(samples16, samples16 + n16);
+  }
+
+  const int16_t *samples = pcm16.data();
+  size_t n = pcm16.size();
 
   // Reduce to mono if needed.
   std::vector<int16_t> mono;

@@ -140,6 +140,7 @@ class SipClient : public Component {
   RtpSession rtp_;
   uint32_t mic_rate_{16000};
   uint8_t mic_channels_{1};
+  uint8_t mic_bits_{16};
   bool media_active_{false};
 
   CallbackManager<void()> registered_cb_{};
