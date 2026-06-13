@@ -630,6 +630,7 @@ void SipClient::loop() {
   if (!network::is_connected()) return;
 
   if (!this->socket_) {
+    if (millis() < this->next_register_ms_) return;
     if (!this->open_socket_()) {
       this->next_register_ms_ = millis() + 5000;
       return;
