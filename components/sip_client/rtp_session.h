@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <mutex>
 #include "esphome/components/socket/socket.h"
 
 namespace esphome {
@@ -54,6 +55,7 @@ class RtpSession {
   bool first_packet_{true};
 
   std::vector<int16_t> tx_buffer_;
+  std::mutex tx_mutex_;
   uint32_t last_tx_ms_{0};
 
   // DTMF state

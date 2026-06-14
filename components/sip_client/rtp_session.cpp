@@ -53,7 +53,10 @@ bool RtpSession::start(uint16_t local_port) {
   this->timestamp_ = (uint32_t) std::rand();
   this->ssrc_ = (uint32_t) std::rand();
   this->first_packet_ = true;
-  this->tx_buffer_.clear();
+  {
+    std::lock_guard<std::mutex> lock(this->tx_mutex_);
+    this->tx_buffer_.clear();
+  }
   this->dtmf_queue_.clear();
   this->dtmf_active_ = false;
   this->last_tx_ms_ = millis();
@@ -68,13 +71,17 @@ void RtpSession::stop() {
     this->socket_->close();
     this->socket_.reset();
   }
-  this->tx_buffer_.clear();
+  {
+    std::lock_guard<std::mutex> lock(this->tx_mutex_);
+    this->tx_buffer_.clear();
+  }
   this->dtmf_queue_.clear();
   this->dtmf_active_ = false;
 }
 
 void RtpSession::push_tx_audio(const int16_t *pcm, size_t samples) {
   if (!this->socket_) return;
+  std::lock_guard<std::mutex> lock(this->tx_mutex_);
   if (this->tx_buffer_.size() + samples > TX_BUFFER_MAX) {
     // Drop oldest to bound latency.
     size_t overflow = this->tx_buffer_.size() + samples - TX_BUFFER_MAX;
@@ -110,18 +117,20 @@ void RtpSession::build_rtp_header_(uint8_t *buf, bool marker, uint8_t pt, uint32
 }
 
 void RtpSession::send_audio_packet_() {
-  if (this->tx_buffer_.size() < SAMPLES_PER_FRAME) return;
-
   uint8_t packet[12 + SAMPLES_PER_FRAME];
-  this->build_rtp_header_(packet, this->first_packet_, this->payload_type_, this->timestamp_);
-  for (size_t i = 0; i < SAMPLES_PER_FRAME; i++) {
-    int16_t s = this->tx_buffer_[i];
-    packet[12 + i] = (this->payload_type_ == 8) ? g711::linear_to_alaw(s) : g711::linear_to_ulaw(s);
+  {
+    std::lock_guard<std::mutex> lock(this->tx_mutex_);
+    if (this->tx_buffer_.size() < SAMPLES_PER_FRAME) return;
+    this->build_rtp_header_(packet, this->first_packet_, this->payload_type_, this->timestamp_);
+    for (size_t i = 0; i < SAMPLES_PER_FRAME; i++) {
+      int16_t s = this->tx_buffer_[i];
+      packet[12 + i] = (this->payload_type_ == 8) ? g711::linear_to_alaw(s) : g711::linear_to_ulaw(s);
+    }
+    this->tx_buffer_.erase(this->tx_buffer_.begin(), this->tx_buffer_.begin() + SAMPLES_PER_FRAME);
   }
   this->socket_->sendto(packet, sizeof(packet), 0,
                         reinterpret_cast<struct sockaddr *>(&this->remote_addr_),
                         this->remote_addr_len_);
-  this->tx_buffer_.erase(this->tx_buffer_.begin(), this->tx_buffer_.begin() + SAMPLES_PER_FRAME);
   this->seq_++;
   this->timestamp_ += SAMPLES_PER_FRAME;
   this->first_packet_ = false;
@@ -204,12 +213,34 @@ void RtpSession::loop() {
   this->receive_();
 
   uint32_t now = millis();
-  if (now - this->last_tx_ms_ >= FRAME_MS) {
+  if (now - this->last_tx_ms_ > 500) {
+    ESP_LOGD(TAG, "RTP sender lagging behind by %u ms; resetting pacing", now - this->last_tx_ms_);
     this->last_tx_ms_ = now;
+    std::lock_guard<std::mutex> lock(this->tx_mutex_);
+    this->tx_buffer_.clear();
+  }
+
+  int packets_sent = 0;
+  while (now - this->last_tx_ms_ >= FRAME_MS && packets_sent < 5) {
     if (this->dtmf_active_ || !this->dtmf_queue_.empty()) {
       this->send_dtmf_packet_();
+      this->last_tx_ms_ += FRAME_MS;
+      packets_sent++;
     } else {
-      this->send_audio_packet_();
+      bool has_enough_samples = false;
+      {
+        std::lock_guard<std::mutex> lock(this->tx_mutex_);
+        if (this->tx_buffer_.size() >= SAMPLES_PER_FRAME) {
+          has_enough_samples = true;
+        }
+      }
+      if (has_enough_samples) {
+        this->send_audio_packet_();
+        this->last_tx_ms_ += FRAME_MS;
+        packets_sent++;
+      } else {
+        break;
+      }
     }
   }
 }
