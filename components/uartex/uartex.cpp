@@ -594,7 +594,8 @@ uint16_t UARTExComponent::get_checksum(CHECKSUM checksum, const std::vector<uint
             crc += byte;
             temp ^= byte;
         }
-        // High byte = XOR of all bytes, low byte = ADD (sum) of all bytes.
+        // High byte = XOR of all bytes, low byte = (ADD + XOR) & 0xFF.
+        crc += temp;
         crc = ((uint16_t)temp << 8) | (crc & 0xFF);
         break;
     case CHECKSUM_NONE:
