@@ -1,0 +1,28 @@
+# Only boards produced after November 1, 2025 are supported
+esp32:
+  variant: esp32s3
+  framework:
+    type: esp-idf
+
+ethernet:
+  type: W5500
+  clk_pin: GPIO7
+  mosi_pin: GPIO9
+  miso_pin: GPIO8
+  cs_pin: GPIO2
+  interrupt_pin: GPIO10
+
+esp32_ble:
+  max_connections: 4
+
+esp32_ble_tracker:
+  scan_parameters:
+    active: true
+
+bluetooth_proxy:
+  active: true
+  connection_slots: 4
+
+button:
+  - platform: factory_reset
+    name: "Factory reset"

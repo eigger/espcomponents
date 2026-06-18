@@ -1,0 +1,49 @@
+# Wired LAN device base (no WiFi). Add `ethernet:` PHY config in the device package.
+esphome:
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+
+# Enable logging
+logger:
+  level: ERROR
+
+# Enable Home Assistant API
+api:
+  batch_delay: 0ms
+
+ota:
+  platform: esphome
+  password: !secret ota_password
+
+text_sensor:
+  - platform: ethernet_info
+    ip_address:
+      name: "IP"
+      icon: mdi:ip-outline
+
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: Asia/Seoul
+    servers:
+      - 0.pool.ntp.org
+      - 1.pool.ntp.org
+      - 2.pool.ntp.org
+
+sensor:
+  - platform: uptime
+    name: "Uptime"
+    type: timestamp
+    device_class: timestamp
+
+binary_sensor:
+  - platform: status
+    name: "Status"
+    id: sensor_status
+
+switch:
+  - platform: restart
+    name: "Restart"
+
+  - platform: safe_mode
+    name: "Restart Safemode"

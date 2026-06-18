@@ -1,7 +1,3 @@
-esphome:
-  name: "${name}"
-  friendly_name: "${friendly_name}"
-
 esp32:
   board: esp32doit-devkit-v1
   framework:
@@ -15,42 +11,9 @@ ethernet:
   clk_mode: GPIO0_IN
   phy_addr: 1
   power_pin: GPIO5
-  
-# Enable logging
-logger:
-  level: NONE
-
-api:
-
-ota:
-  platform: esphome
-  password: !secret ota_password
-
-text_sensor:
-  - platform: ethernet_info
-    ip_address:
-      name: "IP"
-      icon: mdi:ip-outline
-      
-sensor:
-  - platform: uptime
-    name: "Uptime"
-    type: timestamp
-    device_class: timestamp
-    
-time:
-  - platform: sntp
-    id: sntp_time
-    timezone: Asia/Seoul
-    servers: 
-      - 0.pool.ntp.org
-      - 1.pool.ntp.org
-      - 2.pool.ntp.org
       
 binary_sensor:
-  - platform: status
-    name: "Status"
-    id: sensor_status
+  - id: !extend sensor_status
     on_press: 
       then:
         - if:
@@ -69,12 +32,6 @@ binary_sensor:
     id: binary_sensor_reset_button
     
 switch:
-  - platform: restart
-    name: "Restart"
-    
-  - platform: safe_mode
-    name: "Restart Safemode"
-  
   - platform: template
     name: "LED"
     id: led_switch
