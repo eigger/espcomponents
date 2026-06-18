@@ -31,7 +31,9 @@ text_sensor:
     ip_address:
       name: "IP"
       icon: mdi:ip-outline
-
+  - platform: uptime
+    name: "Uptime"
+      
 time:
   - platform: sntp
     id: sntp_time
@@ -40,11 +42,6 @@ time:
       - 0.pool.ntp.org
       - 1.pool.ntp.org
       - 2.pool.ntp.org
-
-sensor:
-  - platform: uptime
-    name: "Uptime"
-    type: timestamp
       
 binary_sensor:
   - platform: status
