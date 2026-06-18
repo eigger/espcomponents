@@ -46,6 +46,7 @@ void SipClient::dump_config() {
   ESP_LOGCONFIG(TAG, "  Username: %s", this->username_.c_str());
   ESP_LOGCONFIG(TAG, "  Domain: %s", this->domain_.c_str());
   ESP_LOGCONFIG(TAG, "  Local RTP port: %u", this->local_rtp_port_);
+  ESP_LOGCONFIG(TAG, "  Channel: %s", this->channel_ == SIP_CH_MONO ? "mono" : "stereo");
   ESP_LOGCONFIG(TAG, "  Microphone: %s", this->mic_ ? "yes" : "no");
   ESP_LOGCONFIG(TAG, "  Speaker: %s", this->speaker_ ? "yes" : "no");
 }
@@ -548,13 +549,18 @@ void SipClient::start_media_() {
   this->rtp_.set_remote(this->remote_rtp_ip_, this->remote_rtp_port_);
   this->rtp_.set_on_audio([this](const int16_t *pcm, size_t n) {
     if (this->speaker_ == nullptr) return;
-    // Duplicate mono samples to stereo (L/R) for compatibility with stereo mixers/speakers
-    std::vector<int16_t> stereo(n * 2);
-    for (size_t i = 0; i < n; i++) {
-      stereo[i * 2] = pcm[i];
-      stereo[i * 2 + 1] = pcm[i];
+    if (this->channel_ == SIP_CH_STEREO) {
+      // Duplicate mono samples to stereo (L/R) for stereo mixers/speakers (e.g. Voice PE).
+      std::vector<int16_t> stereo(n * 2);
+      for (size_t i = 0; i < n; i++) {
+        stereo[i * 2] = pcm[i];
+        stereo[i * 2 + 1] = pcm[i];
+      }
+      this->speaker_->play(reinterpret_cast<const uint8_t *>(stereo.data()), stereo.size() * sizeof(int16_t));
+    } else {
+      // Mono output (e.g. es8311): push samples as-is.
+      this->speaker_->play(reinterpret_cast<const uint8_t *>(pcm), n * sizeof(int16_t));
     }
-    this->speaker_->play(reinterpret_cast<const uint8_t *>(stereo.data()), stereo.size() * sizeof(int16_t));
   });
   this->rtp_.set_on_dtmf([this](char c) {
     std::string s(1, c);
@@ -563,7 +569,7 @@ void SipClient::start_media_() {
   if (!this->rtp_.start(this->local_rtp_port_)) return;
 
   if (this->speaker_ != nullptr) {
-    this->speaker_->set_audio_stream_info(audio::AudioStreamInfo(16, 2, 8000));
+    this->speaker_->set_audio_stream_info(audio::AudioStreamInfo(16, this->output_channels_(), 8000));
     this->speaker_->start();
   }
   if (this->mic_ != nullptr) {
