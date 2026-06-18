@@ -87,6 +87,7 @@ sip_client:
 | `register_expiration` | | 300s | Registration refresh interval |
 | `local_rtp_port` | | 7078 | Local UDP port the device binds for RTP audio and advertises in SDP. Usually left at the default; change it only to avoid a port clash or to pin a firewall/NAT forward. |
 | `channel` | | `stereo` | How call audio is pushed to the `speaker`. `stereo` (default) duplicates the mono call audio to L/R for stereo chains (e.g. a `mixer`/`resampler` feeding a stereo DAC like the Voice PE's AIC3204). Use `mono` for a single-channel codec such as the **es8311** (whose i2s speaker is set `channel: mono` and expects 1-channel input). Must match the channel count the assigned speaker expects. To route mono audio to one physical side, leave this `mono` and use the **speaker's** own `channel: left`/`right`. |
+| `half_duplex` | | `false` | Push-to-talk mode for boards that cannot capture and play at the same time (mic and speaker on a single shared I2S bus, e.g. M5Stack Atom Echo). When `true`, the mic and speaker are never active together: the call starts in **listen** (speaker) mode and you switch to **talk** (mic) with the `start_talking` / `stop_talking` actions. Leave `false` for full-duplex boards with separate input/output I2S buses (e.g. Voice PE). |
 
 ## Actions (Automation)
 
@@ -106,7 +107,40 @@ sip_client:
 - sip_client.send_dtmf:
     id: my_sip
     digits: "1234#"
+
+# Push-to-talk (only when half_duplex: true) — switch the shared bus to the mic
+- sip_client.start_talking: my_sip   # stop speaker, start mic (transmit)
+- sip_client.stop_talking: my_sip    # stop mic, start speaker (receive)
 ```
+
+### Push-to-talk (half-duplex) example
+
+For a single-I2S-bus board (mic + speaker share one peripheral, e.g. Atom Echo),
+hold a button to talk and release to listen:
+
+```yaml
+sip_client:
+  id: my_sip
+  half_duplex: true
+  # channel: keep this matching your i2s speaker's `channel:` setting.
+  # The stock ESPHome Atom Echo speaker uses `channel: stereo`, so leave the
+  # default (stereo); use `mono` only if your speaker is set `channel: mono`.
+  # ...
+
+binary_sensor:
+  - platform: gpio
+    pin: GPIO39          # Atom Echo center button
+    on_press:
+      - sip_client.start_talking: my_sip
+    on_release:
+      - sip_client.stop_talking: my_sip
+```
+
+> The stock ESPHome [Atom Echo voice-assistant config](https://github.com/esphome/wake-word-voice-assistants/blob/main/m5stack-atom-echo/m5stack-atom-echo.yaml)
+> puts the mic (`pdm`, din `GPIO23`) and speaker (dout `GPIO22`) on one shared
+> I2S bus (LRCLK `GPIO33` / BCLK `GPIO19`) and itself stops the mic before
+> playing audio — i.e. it is half-duplex. `half_duplex: true` mirrors exactly
+> that behavior for calls.
 
 ## Triggers
 
@@ -149,9 +183,11 @@ sip_client:
     # ...
   ```
 
-  Note: SIP is full-duplex (mic + speaker run together). On single-I2S-bus es8311
-  boards that share one peripheral for ADC and DAC, simultaneous capture and
-  playback may not be possible — separate input/output I2S buses are recommended.
+  Note: a normal call is full-duplex (mic + speaker run together), which needs
+  separate input/output I2S buses. On boards that share one I2S peripheral for
+  capture and playback (e.g. M5Stack Atom Echo) simultaneous record + play may
+  not work — set `half_duplex: true` and drive `start_talking` / `stop_talking`
+  from a button (see the Push-to-talk example above).
 - **Stereo DACs (e.g. Home Assistant Voice PE / aic3204):** keep `channel: stereo`
   (the default). Route the call audio through a `resampler` into the same `mixer`
   that feeds the stereo DAC, so SIP shares the output with media/announcements:

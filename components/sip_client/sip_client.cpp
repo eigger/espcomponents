@@ -47,6 +47,7 @@ void SipClient::dump_config() {
   ESP_LOGCONFIG(TAG, "  Domain: %s", this->domain_.c_str());
   ESP_LOGCONFIG(TAG, "  Local RTP port: %u", this->local_rtp_port_);
   ESP_LOGCONFIG(TAG, "  Channel: %s", this->channel_ == SIP_CH_MONO ? "mono" : "stereo");
+  ESP_LOGCONFIG(TAG, "  Half-duplex (PTT): %s", this->half_duplex_ ? "yes" : "no");
   ESP_LOGCONFIG(TAG, "  Microphone: %s", this->mic_ ? "yes" : "no");
   ESP_LOGCONFIG(TAG, "  Speaker: %s", this->speaker_ ? "yes" : "no");
 }
@@ -549,6 +550,7 @@ void SipClient::start_media_() {
   this->rtp_.set_remote(this->remote_rtp_ip_, this->remote_rtp_port_);
   this->rtp_.set_on_audio([this](const int16_t *pcm, size_t n) {
     if (this->speaker_ == nullptr) return;
+    if (this->half_duplex_ && this->talking_) return;  // speaker is off while transmitting
     if (this->channel_ == SIP_CH_STEREO) {
       // Duplicate mono samples to stereo (L/R) for stereo mixers/speakers (e.g. Voice PE).
       std::vector<int16_t> stereo(n * 2);
@@ -568,33 +570,75 @@ void SipClient::start_media_() {
   });
   if (!this->rtp_.start(this->local_rtp_port_)) return;
 
-  if (this->speaker_ != nullptr) {
-    this->speaker_->set_audio_stream_info(audio::AudioStreamInfo(16, this->output_channels_(), 8000));
-    this->speaker_->start();
-  }
-  if (this->mic_ != nullptr) {
-    auto info = this->mic_->get_audio_stream_info();
-    this->mic_rate_ = info.get_sample_rate();
-    this->mic_channels_ = info.get_channels();
-    this->mic_bits_ = info.get_bits_per_sample();
-    this->mic_->start();
-  }
   this->media_active_ = true;
-  ESP_LOGI(TAG, "Media started: remote %s:%u pt=%u dtmf_pt=%d (mic %u Hz/%uch/%ubits)",
+  this->talking_ = false;
+  if (this->half_duplex_) {
+    // Start in receive mode; the single I2S bus is switched to the mic only
+    // while push-to-talk is held (start_talking / stop_talking).
+    this->start_speaker_();
+  } else {
+    this->start_speaker_();
+    this->start_mic_();
+  }
+  ESP_LOGI(TAG, "Media started: remote %s:%u pt=%u dtmf_pt=%d (mic %u Hz/%uch/%ubits)%s",
            this->remote_rtp_ip_.c_str(), this->remote_rtp_port_, this->chosen_pt_,
-           this->remote_dtmf_pt_, this->mic_rate_, this->mic_channels_, this->mic_bits_);
+           this->remote_dtmf_pt_, this->mic_rate_, this->mic_channels_, this->mic_bits_,
+           this->half_duplex_ ? " [half-duplex: listening]" : "");
 }
 
 void SipClient::stop_media_() {
   if (!this->media_active_) return;
-  if (this->mic_ != nullptr) this->mic_->stop();
-  if (this->speaker_ != nullptr) this->speaker_->stop();
+  this->stop_mic_();
+  this->stop_speaker_();
   this->rtp_.stop();
   this->media_active_ = false;
+  this->talking_ = false;
+}
+
+void SipClient::start_speaker_() {
+  if (this->speaker_ == nullptr) return;
+  this->speaker_->set_audio_stream_info(audio::AudioStreamInfo(16, this->output_channels_(), 8000));
+  this->speaker_->start();
+}
+
+void SipClient::stop_speaker_() {
+  if (this->speaker_ != nullptr) this->speaker_->stop();
+}
+
+void SipClient::start_mic_() {
+  if (this->mic_ == nullptr) return;
+  auto info = this->mic_->get_audio_stream_info();
+  this->mic_rate_ = info.get_sample_rate();
+  this->mic_channels_ = info.get_channels();
+  this->mic_bits_ = info.get_bits_per_sample();
+  this->mic_->start();
+}
+
+void SipClient::stop_mic_() {
+  if (this->mic_ != nullptr) this->mic_->stop();
+}
+
+void SipClient::start_talking() {
+  if (!this->half_duplex_ || !this->media_active_ || this->talking_) return;
+  // Hand the shared bus from speaker to mic.
+  this->stop_speaker_();
+  this->start_mic_();
+  this->talking_ = true;
+  ESP_LOGD(TAG, "PTT: talking");
+}
+
+void SipClient::stop_talking() {
+  if (!this->half_duplex_ || !this->media_active_ || !this->talking_) return;
+  // Hand the shared bus back from mic to speaker.
+  this->stop_mic_();
+  this->start_speaker_();
+  this->talking_ = false;
+  ESP_LOGD(TAG, "PTT: listening");
 }
 
 void SipClient::on_mic_data_(const std::vector<uint8_t> &data) {
   if (!this->media_active_ || this->state_ != SIP_IN_CALL) return;
+  if (this->half_duplex_ && !this->talking_) return;  // only transmit while PTT is held
 
   std::vector<int16_t> pcm16;
   if (this->mic_bits_ == 32) {

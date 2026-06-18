@@ -18,6 +18,7 @@ from .const import (
     CONF_REGISTER_EXPIRATION,
     CONF_LOCAL_RTP_PORT,
     CONF_CHANNEL,
+    CONF_HALF_DUPLEX,
     CONF_ON_REGISTERED,
     CONF_ON_INCOMING_CALL,
     CONF_ON_CALL_CONNECTED,
@@ -52,6 +53,8 @@ CallAction = sip_client_ns.class_("CallAction", automation.Action)
 AnswerAction = sip_client_ns.class_("AnswerAction", automation.Action)
 HangupAction = sip_client_ns.class_("HangupAction", automation.Action)
 SendDtmfAction = sip_client_ns.class_("SendDtmfAction", automation.Action)
+StartTalkingAction = sip_client_ns.class_("StartTalkingAction", automation.Action)
+StopTalkingAction = sip_client_ns.class_("StopTalkingAction", automation.Action)
 
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
@@ -70,6 +73,7 @@ CONFIG_SCHEMA = cv.All(
             ): cv.positive_time_period_seconds,
             cv.Optional(CONF_LOCAL_RTP_PORT, default=7078): cv.port,
             cv.Optional(CONF_CHANNEL, default="stereo"): cv.enum(CHANNEL_MODES, lower=True),
+            cv.Optional(CONF_HALF_DUPLEX, default=False): cv.boolean,
             cv.Optional(CONF_ON_REGISTERED): automation.validate_automation(
                 {cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(RegisteredTrigger)}
             ),
@@ -110,6 +114,7 @@ async def to_code(config):
     cg.add(var.set_register_expiration(config[CONF_REGISTER_EXPIRATION]))
     cg.add(var.set_local_rtp_port(config[CONF_LOCAL_RTP_PORT]))
     cg.add(var.set_channel(config[CONF_CHANNEL]))
+    cg.add(var.set_half_duplex(config[CONF_HALF_DUPLEX]))
 
     for conf in config.get(CONF_ON_REGISTERED, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
@@ -171,3 +176,13 @@ async def send_dtmf_action_to_code(config, action_id, template_arg, args):
     templ = await cg.templatable(config[CONF_DIGITS], args, cg.std_string)
     cg.add(var.set_digits(templ))
     return var
+
+
+@automation.register_action("sip_client.start_talking", StartTalkingAction, SIMPLE_ACTION_SCHEMA)
+async def start_talking_action_to_code(config, action_id, template_arg, args):
+    return cg.new_Pvariable(action_id, template_arg, await cg.get_variable(config[CONF_ID]))
+
+
+@automation.register_action("sip_client.stop_talking", StopTalkingAction, SIMPLE_ACTION_SCHEMA)
+async def stop_talking_action_to_code(config, action_id, template_arg, args):
+    return cg.new_Pvariable(action_id, template_arg, await cg.get_variable(config[CONF_ID]))

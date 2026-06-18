@@ -80,5 +80,23 @@ template<typename... Ts> class SendDtmfAction : public Action<Ts...> {
   SipClient *parent_;
 };
 
+template<typename... Ts> class StartTalkingAction : public Action<Ts...> {
+ public:
+  explicit StartTalkingAction(SipClient *parent) : parent_(parent) {}
+  void play(const Ts &...) override { this->parent_->start_talking(); }
+
+ protected:
+  SipClient *parent_;
+};
+
+template<typename... Ts> class StopTalkingAction : public Action<Ts...> {
+ public:
+  explicit StopTalkingAction(SipClient *parent) : parent_(parent) {}
+  void play(const Ts &...) override { this->parent_->stop_talking(); }
+
+ protected:
+  SipClient *parent_;
+};
+
 }  // namespace sip_client
 }  // namespace esphome

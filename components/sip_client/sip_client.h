@@ -56,11 +56,21 @@ class SipClient : public Component {
   void dump_config() override;
   float get_setup_priority() const override { return setup_priority::AFTER_CONNECTION; }
 
+  void set_half_duplex(bool v) { this->half_duplex_ = v; }
+
   // Call-control API (used by automation actions).
   void call(const std::string &number);
   void answer();
   void hangup();
   void send_dtmf(const std::string &digits);
+
+  // Push-to-talk (half-duplex). On boards that cannot capture and play at the
+  // same time (single shared I2S bus, e.g. Atom Echo), the mic and speaker are
+  // never active together: the call starts in receive (speaker) mode and these
+  // switch the single bus between transmit and receive. No-ops in full duplex.
+  void start_talking();
+  void stop_talking();
+  bool is_talking() const { return this->talking_; }
 
   bool in_call() const { return this->state_ == SIP_IN_CALL; }
 
@@ -89,6 +99,10 @@ class SipClient : public Component {
   // media
   void start_media_();
   void stop_media_();
+  void start_speaker_();
+  void stop_speaker_();
+  void start_mic_();
+  void stop_mic_();
   void on_mic_data_(const std::vector<uint8_t> &data);
 
   void set_state_(SipState s);
@@ -107,6 +121,8 @@ class SipClient : public Component {
   uint16_t local_rtp_port_{7078};
   SipAudioChannel channel_{SIP_CH_STEREO};
   uint8_t output_channels_() const { return this->channel_ == SIP_CH_MONO ? 1 : 2; }
+  bool half_duplex_{false};
+  bool talking_{false};  // half-duplex: true = transmitting (mic), false = receiving (speaker)
 
   // runtime networking
   std::unique_ptr<socket::Socket> socket_{nullptr};
