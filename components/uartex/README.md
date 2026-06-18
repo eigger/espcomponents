@@ -193,7 +193,7 @@ Total calculated: header(2) + offset(0) + length_field(1) + data(3) + adjust(0) 
 
 | Type | Description |
 |------|-------------|
-| `xor_add` | XOR + ADD combined (2 bytes) |
+| `xor_add` | High byte: XOR of all bytes; low byte: (sum + XOR) & 0xFF |
 | Lambda | Custom: `std::vector<uint8_t> lambda(uint8_t* data, uint16_t len)` |
 
 **Checksum Position**:
