@@ -33,8 +33,6 @@ text_sensor:
     ip_address:
       name: "IP"
       icon: mdi:ip-outline
-  - platform: uptime
-    name: "Uptime"
 #    mac_address:
 #      name: "${name} MAC"
 #      icon: mdi:ethernet
@@ -55,6 +53,10 @@ time:
       - 2.pool.ntp.org
 
 sensor:
+  - platform: uptime
+    name: "Uptime"
+    type: timestamp
+    
   - platform: wifi_signal
     name: "WiFi signal"
     icon: mdi:wifi-arrow-up-down
