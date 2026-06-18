@@ -36,6 +36,7 @@ sensor:
   - platform: uptime
     name: "Uptime"
     type: timestamp
+    device_class: timestamp
     
 time:
   - platform: sntp
