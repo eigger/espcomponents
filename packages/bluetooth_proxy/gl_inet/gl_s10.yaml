@@ -31,9 +31,12 @@ text_sensor:
     ip_address:
       name: "IP"
       icon: mdi:ip-outline
+      
+sensor:
   - platform: uptime
     name: "Uptime"
-      
+    type: timestamp
+    
 time:
   - platform: sntp
     id: sntp_time
