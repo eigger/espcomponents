@@ -86,6 +86,7 @@ sip_client:
 | `caller_id` | | username | Outgoing display name |
 | `register_expiration` | | 300s | Registration refresh interval |
 | `local_rtp_port` | | 7078 | Local UDP port the device binds for RTP audio and advertises in SDP. Usually left at the default; change it only to avoid a port clash or to pin a firewall/NAT forward. |
+| `channel` | | `stereo` | How call audio is pushed to the `speaker`. `stereo` (default) duplicates the mono call audio to L/R for stereo chains (e.g. a `mixer`/`resampler` feeding a stereo DAC like the Voice PE's AIC3204). Use `mono` for a single-channel codec such as the **es8311** (whose i2s speaker is set `channel: mono` and expects 1-channel input). Must match the channel count the assigned speaker expects. To route mono audio to one physical side, leave this `mono` and use the **speaker's** own `channel: left`/`right`. |
 
 ## Actions (Automation)
 
@@ -121,6 +122,68 @@ sip_client:
   SDP and the codec chosen by the PBX is used.
 - If the microphone runs at 16 kHz it is automatically downsampled to 8 kHz; the
   speaker is configured to play at 8 kHz.
+- **Mono codecs (e.g. es8311):** set `channel: mono` and configure the i2s
+  speaker with `channel: mono`. To avoid forcing the codec's I2S clock to 8 kHz
+  (which can fight a DAC initialised at a fixed rate / MCLK), feed the call audio
+  through a `resampler` speaker that outputs the codec's native rate:
+
+  ```yaml
+  speaker:
+    - platform: i2s_audio
+      id: es8311_speaker
+      channel: mono
+      sample_rate: 16000        # matches es8311 audio_dac default
+      bits_per_sample: 16bit
+      dac_type: external
+      i2s_dout_pin: GPIOxx
+      audio_dac: es8311_dac
+    - platform: resampler
+      id: sip_resampling_speaker
+      output_speaker: es8311_speaker
+      sample_rate: 16000
+      bits_per_sample: 16
+
+  sip_client:
+    speaker: sip_resampling_speaker
+    channel: mono
+    # ...
+  ```
+
+  Note: SIP is full-duplex (mic + speaker run together). On single-I2S-bus es8311
+  boards that share one peripheral for ADC and DAC, simultaneous capture and
+  playback may not be possible — separate input/output I2S buses are recommended.
+- **Stereo DACs (e.g. Home Assistant Voice PE / aic3204):** keep `channel: stereo`
+  (the default). Route the call audio through a `resampler` into the same `mixer`
+  that feeds the stereo DAC, so SIP shares the output with media/announcements:
+
+  ```yaml
+  speaker:
+    - platform: i2s_audio
+      id: i2s_audio_speaker
+      channel: stereo
+      sample_rate: 48000
+      bits_per_sample: 32bit
+      dac_type: external
+      i2s_dout_pin: GPIO10
+      audio_dac: aic3204_dac
+    - platform: mixer
+      id: mixing_speaker
+      output_speaker: i2s_audio_speaker
+      num_channels: 2
+      source_speakers:
+        - id: media_mixing_input
+        - id: sip_mixing_input      # dedicated input so calls never corrupt TTS
+    - platform: resampler
+      id: sip_resampling_speaker
+      output_speaker: sip_mixing_input
+      sample_rate: 48000
+      bits_per_sample: 16
+
+  sip_client:
+    speaker: sip_resampling_speaker
+    channel: stereo                 # default; matches the 2-channel mixer
+    # ...
+  ```
 - Registration uses **REGISTER with MD5 Digest authentication** (RFC 2617,
   qop=auth supported).
 - The server address should be an **IP** (hostname DNS resolution is not

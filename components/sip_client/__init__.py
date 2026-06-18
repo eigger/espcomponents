@@ -17,6 +17,7 @@ from .const import (
     CONF_CALLER_ID,
     CONF_REGISTER_EXPIRATION,
     CONF_LOCAL_RTP_PORT,
+    CONF_CHANNEL,
     CONF_ON_REGISTERED,
     CONF_ON_INCOMING_CALL,
     CONF_ON_CALL_CONNECTED,
@@ -32,6 +33,12 @@ AUTO_LOAD = ["socket", "md5", "audio"]
 
 sip_client_ns = cg.esphome_ns.namespace("sip_client")
 SipClient = sip_client_ns.class_("SipClient", cg.Component)
+
+SipAudioChannel = sip_client_ns.enum("SipAudioChannel")
+CHANNEL_MODES = {
+    "mono": SipAudioChannel.SIP_CH_MONO,
+    "stereo": SipAudioChannel.SIP_CH_STEREO,
+}
 
 RegisteredTrigger = sip_client_ns.class_("RegisteredTrigger", automation.Trigger.template())
 IncomingCallTrigger = sip_client_ns.class_(
@@ -62,6 +69,7 @@ CONFIG_SCHEMA = cv.All(
                 CONF_REGISTER_EXPIRATION, default="300s"
             ): cv.positive_time_period_seconds,
             cv.Optional(CONF_LOCAL_RTP_PORT, default=7078): cv.port,
+            cv.Optional(CONF_CHANNEL, default="stereo"): cv.enum(CHANNEL_MODES, lower=True),
             cv.Optional(CONF_ON_REGISTERED): automation.validate_automation(
                 {cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(RegisteredTrigger)}
             ),
@@ -101,6 +109,7 @@ async def to_code(config):
         cg.add(var.set_caller_id(config[CONF_CALLER_ID]))
     cg.add(var.set_register_expiration(config[CONF_REGISTER_EXPIRATION]))
     cg.add(var.set_local_rtp_port(config[CONF_LOCAL_RTP_PORT]))
+    cg.add(var.set_channel(config[CONF_CHANNEL]))
 
     for conf in config.get(CONF_ON_REGISTERED, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)

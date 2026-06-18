@@ -13,6 +13,11 @@
 namespace esphome {
 namespace sip_client {
 
+enum SipAudioChannel : uint8_t {
+  SIP_CH_MONO = 0,    // single-channel output (e.g. es8311 mono codec)
+  SIP_CH_STEREO = 1,  // duplicate call audio to L/R (mixer / stereo DAC chains)
+};
+
 enum SipState {
   SIP_IDLE = 0,
   SIP_REGISTERING,
@@ -36,6 +41,7 @@ class SipClient : public Component {
   void set_caller_id(const std::string &v) { this->caller_id_ = v; }
   void set_register_expiration(uint32_t s) { this->expiration_ = s; }
   void set_local_rtp_port(uint16_t p) { this->local_rtp_port_ = p; }
+  void set_channel(SipAudioChannel c) { this->channel_ = c; }
 
   void add_on_registered_callback(std::function<void()> &&cb) { this->registered_cb_.add(std::move(cb)); }
   void add_on_incoming_call_callback(std::function<void(std::string)> &&cb) {
@@ -99,6 +105,8 @@ class SipClient : public Component {
   std::string caller_id_;
   uint32_t expiration_{300};
   uint16_t local_rtp_port_{7078};
+  SipAudioChannel channel_{SIP_CH_STEREO};
+  uint8_t output_channels_() const { return this->channel_ == SIP_CH_MONO ? 1 : 2; }
 
   // runtime networking
   std::unique_ptr<socket::Socket> socket_{nullptr};
