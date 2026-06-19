@@ -608,12 +608,8 @@ void SipClient::stop_media_() {
 
 void SipClient::start_speaker_() {
   if (this->speaker_ == nullptr) return;
-  auto info = this->speaker_->get_audio_stream_info();
-  this->speaker_rate_ = info.get_sample_rate();
-  if (this->speaker_rate_ == 0) {
-    this->speaker_rate_ = 8000;
-  }
-  this->speaker_->set_audio_stream_info(audio::AudioStreamInfo(16, this->output_channels_(), this->speaker_rate_));
+  this->speaker_rate_ = 8000;
+  this->speaker_->set_audio_stream_info(audio::AudioStreamInfo(16, this->output_channels_(), 8000));
   this->speaker_->start();
 }
 
