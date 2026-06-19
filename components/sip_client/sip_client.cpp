@@ -551,17 +551,28 @@ void SipClient::start_media_() {
   this->rtp_.set_on_audio([this](const int16_t *pcm, size_t n) {
     if (this->speaker_ == nullptr) return;
     if (this->half_duplex_ && this->talking_) return;  // speaker is off while transmitting
+
+    const int16_t *play_pcm = pcm;
+    size_t play_n = n;
+    std::vector<int16_t> upsampled;
+
+    if (this->speaker_rate_ >= 16000) {
+      resampler::upsample_1to2(pcm, n, upsampled);
+      play_pcm = upsampled.data();
+      play_n = upsampled.size();
+    }
+
     if (this->channel_ == SIP_CH_STEREO) {
       // Duplicate mono samples to stereo (L/R) for stereo mixers/speakers (e.g. Voice PE).
-      std::vector<int16_t> stereo(n * 2);
-      for (size_t i = 0; i < n; i++) {
-        stereo[i * 2] = pcm[i];
-        stereo[i * 2 + 1] = pcm[i];
+      std::vector<int16_t> stereo(play_n * 2);
+      for (size_t i = 0; i < play_n; i++) {
+        stereo[i * 2] = play_pcm[i];
+        stereo[i * 2 + 1] = play_pcm[i];
       }
       this->speaker_->play(reinterpret_cast<const uint8_t *>(stereo.data()), stereo.size() * sizeof(int16_t));
     } else {
       // Mono output (e.g. es8311): push samples as-is.
-      this->speaker_->play(reinterpret_cast<const uint8_t *>(pcm), n * sizeof(int16_t));
+      this->speaker_->play(reinterpret_cast<const uint8_t *>(play_pcm), play_n * sizeof(int16_t));
     }
   });
   this->rtp_.set_on_dtmf([this](char c) {
@@ -597,7 +608,12 @@ void SipClient::stop_media_() {
 
 void SipClient::start_speaker_() {
   if (this->speaker_ == nullptr) return;
-  this->speaker_->set_audio_stream_info(audio::AudioStreamInfo(16, this->output_channels_(), 8000));
+  auto info = this->speaker_->get_audio_stream_info();
+  this->speaker_rate_ = info.get_sample_rate();
+  if (this->speaker_rate_ == 0) {
+    this->speaker_rate_ = 8000;
+  }
+  this->speaker_->set_audio_stream_info(audio::AudioStreamInfo(16, this->output_channels_(), this->speaker_rate_));
   this->speaker_->start();
 }
 
