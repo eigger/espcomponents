@@ -214,10 +214,17 @@ void RtpSession::loop() {
 
   uint32_t now = millis();
   if (now - this->last_tx_ms_ > 500) {
-    ESP_LOGD(TAG, "RTP sender lagging behind by %u ms; resetting pacing", now - this->last_tx_ms_);
+    bool tx_empty = true;
+    {
+      std::lock_guard<std::mutex> lock(this->tx_mutex_);
+      tx_empty = this->tx_buffer_.empty();
+    }
+    if (!tx_empty) {
+      ESP_LOGD(TAG, "RTP sender lagging behind by %u ms; resetting pacing", now - this->last_tx_ms_);
+      std::lock_guard<std::mutex> lock(this->tx_mutex_);
+      this->tx_buffer_.clear();
+    }
     this->last_tx_ms_ = now;
-    std::lock_guard<std::mutex> lock(this->tx_mutex_);
-    this->tx_buffer_.clear();
   }
 
   int packets_sent = 0;

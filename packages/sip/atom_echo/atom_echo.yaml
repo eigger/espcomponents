@@ -1,0 +1,385 @@
+substitutions:
+  # SIP Configuration (override in your device YAML; put the password in secrets.yaml as `sip_password`)
+  sip_server: "192.168.1.10"
+  sip_port: "5060"
+  sip_username: "1000"
+  sip_domain: "192.168.1.10"
+  sip_caller_id: "ESP Atom Echo"
+  sip_destination: "1001"
+
+  hidden_ssid: "false"
+  ringtone_sound_file: https://github.com/esphome/wake-word-voice-assistants/raw/main/sounds/timer_finished.wav
+
+esphome:
+  min_version: 2025.8.0
+  on_boot:
+    priority: 375
+    then:
+      - script.execute: control_leds
+      - delay: 10min
+      - if:
+          condition:
+            lambda: return id(init_in_progress);
+          then:
+            - lambda: id(init_in_progress) = false;
+            - script.execute: control_leds
+
+esp32:
+  board: m5stack-atom
+  cpu_frequency: 240MHz
+  framework:
+    type: esp-idf
+
+wifi:
+  id: wifi_id
+  fast_connect: ${hidden_ssid}
+  power_save_mode: NONE
+  on_connect:
+    - script.execute: control_leds
+  on_disconnect:
+    - script.execute: control_leds
+
+logger:
+  level: DEBUG
+
+api:
+  id: api_id
+  on_client_connected:
+    - lambda: id(init_in_progress) = false;
+    - script.execute: control_leds
+  on_client_disconnected:
+    - script.execute: control_leds
+
+globals:
+  - id: sip_call_state
+    type: int
+    restore_value: no
+    initial_value: '0'  # 0: idle, 1: incoming, 2: in call / dialing
+  - id: init_in_progress
+    type: bool
+    restore_value: no
+    initial_value: 'true'
+  - id: ptt_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: ptt_used
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+binary_sensor:
+  - platform: gpio
+    id: echo_button
+    pin:
+      number: GPIO39
+      inverted: true
+    name: Button
+    disabled_by_default: true
+    entity_category: diagnostic
+    on_press:
+      - script.execute: control_leds
+      - if:
+          condition:
+            lambda: return id(sip_call_state) == 2;
+          then:
+            - script.execute: ptt_press
+    on_release:
+      - script.stop: ptt_press
+      - script.execute: ptt_release
+      - script.execute: control_leds
+    on_multi_click:
+      # Short click: answer / hang up / dial
+      - timing:
+          - ON for at least 50ms
+          - OFF for at least 50ms
+        then:
+          - if:
+              condition:
+                lambda: return !id(init_in_progress);
+              then:
+                - if:
+                    condition:
+                      lambda: return id(sip_call_state) == 1;
+                    then:
+                      - script.execute: stop_ringing
+                      - sip_client.answer: my_sip
+                      - lambda: id(sip_call_state) = 2;
+                    else:
+                      - if:
+                          condition:
+                            lambda: return id(sip_call_state) == 2;
+                          then:
+                            - if:
+                                condition:
+                                  lambda: return id(ptt_used);
+                                then:
+                                  - lambda: id(ptt_used) = false;
+                                else:
+                                  - sip_client.hangup: my_sip
+                                  - lambda: id(sip_call_state) = 0;
+                          else:
+                            - sip_client.call:
+                                id: my_sip
+                                number: ${sip_destination}
+                            - lambda: id(sip_call_state) = 2;
+                - script.execute: control_leds
+      # Long press: factory reset
+      - timing:
+          - ON for at least 10s
+        then:
+          - button.press: factory_reset_btn
+
+light:
+  - platform: esp32_rmt_led_strip
+    id: led
+    name: None
+    disabled_by_default: true
+    entity_category: config
+    pin: GPIO27
+    default_transition_length: 0s
+    chipset: SK6812
+    num_leds: 1
+    rgb_order: grb
+    effects:
+      - pulse:
+          name: "Slow Pulse"
+          transition_length: 250ms
+          update_interval: 250ms
+          min_brightness: 50%
+          max_brightness: 100%
+      - pulse:
+          name: "Fast Pulse"
+          transition_length: 100ms
+          update_interval: 100ms
+          min_brightness: 50%
+          max_brightness: 100%
+
+script:
+  - id: control_leds
+    then:
+      - if:
+          condition:
+            lambda: return id(init_in_progress);
+          then:
+            - if:
+                condition:
+                  wifi.connected:
+                then:
+                  - light.turn_on:
+                      id: led
+                      blue: 100%
+                      red: 0%
+                      green: 0%
+                      brightness: 60%
+                      effect: "Slow Pulse"
+                else:
+                  - light.turn_on:
+                      id: led
+                      red: 100%
+                      green: 89%
+                      blue: 71%
+                      brightness: 60%
+                      effect: none
+          else:
+            - if:
+                condition:
+                  not:
+                    wifi.connected:
+                then:
+                  - light.turn_on:
+                      id: led
+                      red: 100%
+                      green: 0%
+                      blue: 0%
+                      brightness: 100%
+                      effect: none
+                else:
+                  - if:
+                      condition:
+                        lambda: return id(sip_call_state) == 1;
+                      then:
+                        - light.turn_on:
+                            id: led
+                            green: 100%
+                            red: 0%
+                            blue: 0%
+                            brightness: 100%
+                            effect: "Fast Pulse"
+                      else:
+                        - if:
+                            condition:
+                              lambda: return id(sip_call_state) == 2;
+                            then:
+                              - if:
+                                  condition:
+                                    lambda: return id(ptt_active);
+                                  then:
+                                    - light.turn_on:
+                                        id: led
+                                        red: 100%
+                                        green: 50%
+                                        blue: 0%
+                                        brightness: 100%
+                                        effect: none
+                                  else:
+                                    - light.turn_on:
+                                        id: led
+                                        blue: 100%
+                                        red: 0%
+                                        green: 75%
+                                        brightness: 100%
+                                        effect: none
+                            else:
+                              - light.turn_off: led
+
+  - id: ptt_press
+    mode: restart
+    then:
+      - delay: 150ms
+      - if:
+          condition:
+            and:
+              - lambda: return id(sip_call_state) == 2;
+              - binary_sensor.is_on: echo_button
+          then:
+            - lambda: |-
+                id(ptt_active) = true;
+                id(ptt_used) = true;
+            - sip_client.start_talking: my_sip
+            - script.execute: control_leds
+
+  - id: ptt_release
+    then:
+      - if:
+          condition:
+            lambda: return id(ptt_active);
+          then:
+            - lambda: id(ptt_active) = false;
+            - sip_client.stop_talking: my_sip
+            - script.execute: control_leds
+
+  - id: ring_incoming_call
+    then:
+      - script.execute: enable_repeat_one
+      - media_player.speaker.play_on_device_media_file:
+          id: echo_media_player
+          media_file: ringtone_wave_file
+          announcement: true
+
+  - id: stop_ringing
+    then:
+      - script.execute: disable_repeat
+      # Stop unconditionally: gating on is_announcing misses the gap between
+      # REPEAT_ONE loops, letting the ringtone resume and fight the shared I2S bus.
+      - media_player.stop:
+          announcement: true
+          id: echo_media_player
+
+  - id: enable_repeat_one
+    then:
+      - lambda: |-
+          id(echo_media_player)
+            ->make_call()
+            .set_command(media_player::MediaPlayerCommand::MEDIA_PLAYER_COMMAND_REPEAT_ONE)
+            .set_announcement(true)
+            .perform();
+          id(echo_media_player)->set_playlist_delay_ms(speaker::AudioPipelineType::ANNOUNCEMENT, 500);
+
+  - id: disable_repeat
+    then:
+      - lambda: |-
+          id(echo_media_player)
+            ->make_call()
+            .set_command(media_player::MediaPlayerCommand::MEDIA_PLAYER_COMMAND_REPEAT_OFF)
+            .set_announcement(true)
+            .perform();
+          id(echo_media_player)->set_playlist_delay_ms(speaker::AudioPipelineType::ANNOUNCEMENT, 0);
+
+i2s_audio:
+  - id: i2s_audio_bus
+    i2s_lrclk_pin: GPIO33
+    i2s_bclk_pin: GPIO19
+
+microphone:
+  - platform: i2s_audio
+    id: echo_microphone
+    i2s_audio_id: i2s_audio_bus
+    i2s_din_pin: GPIO23
+    adc_type: external
+    pdm: true
+    sample_rate: 16000
+    correct_dc_offset: true
+
+speaker:
+  - platform: i2s_audio
+    id: echo_speaker
+    i2s_audio_id: i2s_audio_bus
+    i2s_dout_pin: GPIO22
+    dac_type: external
+    bits_per_sample: 16bit
+    sample_rate: 16000
+    channel: stereo
+    buffer_duration: 200ms
+
+media_player:
+  - platform: speaker
+    name: None
+    id: echo_media_player
+    announcement_pipeline:
+      speaker: echo_speaker
+      format: WAV
+    buffer_size: 6000
+    volume_min: 0.4
+    files:
+      - id: ringtone_wave_file
+        file: ${ringtone_sound_file}
+
+external_components:
+  - source: github://eigger/espcomponents
+    components: [ sip_client ]
+    refresh: always
+
+sip_client:
+  id: my_sip
+  microphone: echo_microphone
+  speaker: echo_speaker
+  half_duplex: true
+  server: ${sip_server}
+  port: ${sip_port}
+  username: ${sip_username}
+  password: !secret sip_password
+  domain: ${sip_domain}
+  caller_id: ${sip_caller_id}
+
+  on_registered:
+    - logger.log: "SIP registered"
+    - lambda: |-
+        id(sip_call_state) = 0;
+        id(init_in_progress) = false;
+    - script.execute: control_leds
+  on_incoming_call:
+    - logger.log:
+        format: "Incoming call from %s"
+        args: [caller.c_str()]
+    - lambda: id(sip_call_state) = 1;
+    - script.execute: control_leds
+    - script.execute: ring_incoming_call
+  on_call_connected:
+    - logger.log: "Call connected"
+    - lambda: id(sip_call_state) = 2;
+    - script.execute: control_leds
+    - script.execute: stop_ringing
+  on_call_ended:
+    - logger.log: "Call ended"
+    - lambda: |-
+        id(sip_call_state) = 0;
+        id(ptt_active) = false;
+        id(ptt_used) = false;
+    - script.execute: control_leds
+    - script.execute: stop_ringing
+
+button:
+  - platform: factory_reset
+    id: factory_reset_btn
+    name: Factory reset
