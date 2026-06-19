@@ -638,6 +638,7 @@ void SipClient::start_talking() {
   if (!this->half_duplex_ || !this->media_active_ || this->talking_) return;
   // Hand the shared bus from speaker to mic.
   this->stop_speaker_();
+  delay(150);
   this->start_mic_();
   this->talking_ = true;
   ESP_LOGD(TAG, "PTT: talking");
@@ -647,6 +648,7 @@ void SipClient::stop_talking() {
   if (!this->half_duplex_ || !this->media_active_ || !this->talking_) return;
   // Hand the shared bus back from mic to speaker.
   this->stop_mic_();
+  delay(150);
   this->start_speaker_();
   this->talking_ = false;
   ESP_LOGD(TAG, "PTT: listening");
