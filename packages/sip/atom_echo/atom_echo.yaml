@@ -308,7 +308,7 @@ microphone:
     i2s_din_pin: GPIO23
     adc_type: external
     pdm: true
-    sample_rate: 16000
+    sample_rate: 8000
     correct_dc_offset: true
 
 speaker:
