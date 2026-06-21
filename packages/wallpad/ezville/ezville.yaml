@@ -209,26 +209,13 @@ sensor:
       decode: bcd
 
   - platform: uartex
-    name: "Total Power Usage" # 누적 전력 사용량 (kWh)
-    id: total_power
-    state: [0x30, 0x03, 0x81] # 패킷 매칭
-    accuracy_decimals: 1 # 소수점 1자리로 설정
-    unit_of_measurement: "kWh" # 단위 추가
-    state_number: 
-      offset: 9
-      length: 3
-      precision: 1
-      signed: False
-      decode: bcd
-
-  - platform: uartex
-    name: "Total Water Usage" # 누적 수도 사용량
+    name: "Total Water Usage" # 누적 수도 사용량 (SUB ID: 0x01)
     id: total_water
-    state: [0x30, 0x01, 0x81] # 패킷 매칭
-    accuracy_decimals: 2 # 소수점 2자리로 설정
-    unit_of_measurement: "m³" # 단위 수정
+    state: [0x30, 0x01, 0x81]
+    accuracy_decimals: 2
+    unit_of_measurement: "m³"
     command_update: [0x30, 0x01, 0x01, 0x00]
-    state_number: 
+    state_number:
       offset: 9
       length: 3
       precision: 2
@@ -236,13 +223,55 @@ sensor:
       decode: bcd
 
   - platform: uartex
-    name: "Total Gas Usage" # 누적 가스 사용량
+    name: "Total Gas Usage" # 누적 가스 사용량 (SUB ID: 0x02)
     id: total_gas
-    state: [0x30, 0x02, 0x81] # 패킷 매칭
-    accuracy_decimals: 2 # 소수점 2자리로 설정
-    unit_of_measurement: "m³" # 단위 수정
+    state: [0x30, 0x02, 0x81]
+    accuracy_decimals: 2
+    unit_of_measurement: "m³"
     command_update: [0x30, 0x02, 0x01, 0x00]
-    state_number: 
+    state_number:
+      offset: 9
+      length: 3
+      precision: 2
+      signed: False
+      decode: bcd
+
+  - platform: uartex
+    name: "Total Power Usage" # 누적 전력 사용량 (SUB ID: 0x03)
+    id: total_power
+    state: [0x30, 0x03, 0x81]
+    accuracy_decimals: 1
+    unit_of_measurement: "kWh"
+    command_update: [0x30, 0x03, 0x01, 0x00]
+    state_number:
+      offset: 9
+      length: 3
+      precision: 1
+      signed: False
+      decode: bcd
+
+  - platform: uartex
+    name: "Total Hot Water Usage" # 누적 온수 사용량 (SUB ID: 0x04)
+    id: total_hot_water
+    state: [0x30, 0x04, 0x81]
+    accuracy_decimals: 2
+    unit_of_measurement: "m³"
+    command_update: [0x30, 0x04, 0x01, 0x00]
+    state_number:
+      offset: 9
+      length: 3
+      precision: 2
+      signed: False
+      decode: bcd
+
+  - platform: uartex
+    name: "Total Heating Usage" # 누적 열량(난방) 사용량 (SUB ID: 0x05)
+    id: total_heating
+    state: [0x30, 0x05, 0x81]
+    accuracy_decimals: 2
+    unit_of_measurement: "MWh"
+    command_update: [0x30, 0x05, 0x01, 0x00]
+    state_number:
       offset: 9
       length: 3
       precision: 2
