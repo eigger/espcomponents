@@ -309,6 +309,16 @@ std::string SipClient::build_ack_(const SipMessage &resp) {
 void SipClient::handle_invite_response_(const SipMessage &m, const std::string &raw) {
   if (!this->outbound_) return;
 
+  uint32_t cseq_num = (uint32_t) std::atoi(m.header("CSeq").c_str());
+  if (cseq_num != this->d_cseq_) {
+    // Ignore responses for old transactions, but re-ACK final failures (>=300)
+    // to stop server retransmissions.
+    if (m.status_code >= 300 && m.status_code < 700) {
+      this->send_raw_(this->build_ack_(m));
+    }
+    return;
+  }
+
   if ((m.status_code == 401 || m.status_code == 407) && !this->invite_auth_tried_) {
     // ACK the failure response first.
     this->send_raw_(this->build_ack_(m));
