@@ -18,13 +18,32 @@ static std::string trim(const std::string &s) {
   return s.substr(b, e - b + 1);
 }
 
+static std::string resolve_header_name(const std::string &name) {
+  if (name == "a") return "accept-contact";
+  if (name == "b") return "referred-by";
+  if (name == "c") return "content-type";
+  if (name == "e") return "content-encoding";
+  if (name == "f") return "from";
+  if (name == "i") return "call-id";
+  if (name == "k") return "supported";
+  if (name == "l") return "content-length";
+  if (name == "m") return "contact";
+  if (name == "o") return "event";
+  if (name == "r") return "refer-to";
+  if (name == "s") return "subject";
+  if (name == "t") return "to";
+  if (name == "u") return "allow-events";
+  if (name == "v") return "via";
+  return name;
+}
+
 std::string SipMessage::header(const std::string &name) const {
-  auto it = headers.find(to_lower(name));
+  auto it = headers.find(resolve_header_name(to_lower(name)));
   return it == headers.end() ? std::string() : it->second;
 }
 
 bool SipMessage::has_header(const std::string &name) const {
-  return headers.find(to_lower(name)) != headers.end();
+  return headers.find(resolve_header_name(to_lower(name))) != headers.end();
 }
 
 SipMessage parse_sip_message(const std::string &raw) {
@@ -62,7 +81,7 @@ SipMessage parse_sip_message(const std::string &raw) {
 
     size_t colon = line.find(':');
     if (colon == std::string::npos) continue;
-    std::string name = to_lower(trim(line.substr(0, colon)));
+    std::string name = resolve_header_name(to_lower(trim(line.substr(0, colon))));
     std::string value = trim(line.substr(colon + 1));
     // Keep the first occurrence (topmost Via, etc.).
     if (msg.headers.find(name) == msg.headers.end()) msg.headers[name] = value;
