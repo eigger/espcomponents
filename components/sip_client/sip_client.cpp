@@ -15,6 +15,26 @@ namespace sip_client {
 static const char *const TAG = "sip_client";
 static const char *const USER_AGENT = "ESPHome-sip_client";
 
+static std::string trim(const std::string &s) {
+  size_t b = s.find_first_not_of(" \t\r\n");
+  if (b == std::string::npos) return "";
+  size_t e = s.find_last_not_of(" \t\r\n");
+  return s.substr(b, e - b + 1);
+}
+
+static std::string extract_angle_uri(const std::string &value) {
+  size_t lt = value.find('<');
+  size_t gt = value.find('>');
+  if (lt != std::string::npos && gt != std::string::npos && gt > lt) {
+    return value.substr(lt + 1, gt - lt - 1);
+  }
+  std::string stripped = trim(value);
+  if (stripped.rfind("sip", 0) == 0) {
+    return stripped;
+  }
+  return "";
+}
+
 // Render an IPv4 sockaddr to dotted-quad without depending on inet_ntop.
 static std::string sockaddr_ip(const struct sockaddr_storage &ss, uint16_t *port) {
   if (ss.ss_family != AF_INET) return "";
@@ -147,6 +167,13 @@ std::string SipClient::build_register_() {
 }
 
 void SipClient::handle_register_response_(const SipMessage &m) {
+  std::string cseq_str = m.header("CSeq");
+  uint32_t cseq_num = (uint32_t) std::atoi(cseq_str.c_str());
+  if (cseq_num != this->reg_cseq_) {
+    ESP_LOGD(TAG, "Ignoring REGISTER response for old CSeq %u", cseq_num);
+    return;
+  }
+
   if ((m.status_code == 401 || m.status_code == 407) && !this->register_auth_tried_) {
     this->register_auth_tried_ = true;
     bool proxy = m.status_code == 407;
@@ -255,13 +282,16 @@ std::string SipClient::build_invite_() {
 
 std::string SipClient::build_ack_(const SipMessage &resp) {
   std::string to = resp.header("To");
-  std::string target = this->d_remote_target_;
   std::string contact = resp.header("Contact");
-  // Use Contact URI from the 2xx as the request target if present.
-  size_t lt = contact.find('<');
-  size_t gt = contact.find('>');
-  if (lt != std::string::npos && gt != std::string::npos && gt > lt)
-    target = contact.substr(lt + 1, gt - lt - 1);
+  std::string target = extract_angle_uri(contact);
+  if (target.empty()) {
+    target = this->d_remote_target_;
+  }
+
+  uint32_t cseq = (uint32_t) std::atoi(resp.header("CSeq").c_str());
+  if (cseq == 0) {
+    cseq = this->d_cseq_;
+  }
 
   std::string msg;
   msg += "ACK " + target + " SIP/2.0\r\n";
@@ -271,7 +301,7 @@ std::string SipClient::build_ack_(const SipMessage &resp) {
   msg += "From: " + this->d_local_ + "\r\n";
   msg += "To: " + (to.empty() ? this->d_remote_ : to) + "\r\n";
   msg += "Call-ID: " + this->d_call_id_ + "\r\n";
-  msg += "CSeq: " + std::to_string(this->d_cseq_) + " ACK\r\n";
+  msg += "CSeq: " + std::to_string(cseq) + " ACK\r\n";
   msg += "Content-Length: 0\r\n\r\n";
   return msg;
 }
@@ -320,9 +350,9 @@ void SipClient::handle_invite_response_(const SipMessage &m, const std::string &
     std::string to = m.header("To");
     if (!to.empty()) this->d_remote_ = to;
     std::string contact = m.header("Contact");
-    size_t lt = contact.find('<'), gt = contact.find('>');
-    if (lt != std::string::npos && gt != std::string::npos)
-      this->d_remote_target_ = contact.substr(lt + 1, gt - lt - 1);
+    std::string target = extract_angle_uri(contact);
+    if (!target.empty())
+      this->d_remote_target_ = target;
 
     SdpInfo sdp = parse_sdp(m.body);
     this->remote_rtp_ip_ = sdp.connection_ip.empty() ? this->remote_rtp_ip_ : sdp.connection_ip;
@@ -403,10 +433,7 @@ void SipClient::handle_request_(const SipMessage &m, const std::string &raw) {
       this->d_local_ += ";tag=" + this->d_local_tag_;
     this->d_remote_ = m.header("From");
     std::string contact = m.header("Contact");
-    size_t lt = contact.find('<'), gt = contact.find('>');
-    this->d_remote_target_ = (lt != std::string::npos && gt != std::string::npos)
-                                 ? contact.substr(lt + 1, gt - lt - 1)
-                                 : "";
+    this->d_remote_target_ = extract_angle_uri(contact);
     this->d_cseq_ = std::atoi(m.header("CSeq").c_str());
 
     SdpInfo sdp = parse_sdp(m.body);
