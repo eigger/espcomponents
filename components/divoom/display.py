@@ -65,7 +65,7 @@ CONFIG_SCHEMA = cv.All(
         }
     )
     .extend(cv.polling_component_schema("1s"))
-    .extend(ble_client.ble_client_schema()),
+    .extend(ble_client.BLE_CLIENT_SCHEMA),
     cv.has_at_most_one_key(CONF_PAGES, CONF_LAMBDA),
 )
 
