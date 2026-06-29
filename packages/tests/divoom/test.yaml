@@ -18,8 +18,7 @@ ble_client:
     id: my_ble_client
 
 font:
-  - gcloud:
-      family: Roboto
+  - file: "gfonts://Roboto"
     id: id_font
     size: 8
 
