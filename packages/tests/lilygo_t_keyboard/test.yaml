@@ -1,0 +1,16 @@
+esphome:
+  name: test-lilygo-t-keyboard
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+external_components:
+  - source: github://eigger/espcomponents
+    components: [ lilygo_t_keyboard ]
+    refresh: always
+
+lilygo_t_keyboard:
+  press_key:
+    name: press key
+  release_key:
+    name: release key

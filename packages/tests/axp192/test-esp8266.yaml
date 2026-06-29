@@ -1,0 +1,31 @@
+esphome:
+  name: test-esp8266-axp192
+
+esp8266:
+  board: nodemcuv2
+
+external_components:
+  - source: github://eigger/espcomponents
+    components: [ axp192 ]
+    refresh: always
+
+i2c:
+  - id: bus_a
+    sda: GPIO4
+    scl: GPIO5
+    scan: true
+
+axp192:
+  address: 0x34
+  i2c_id: bus_a
+  update_interval: 30s
+  battery_level:
+    name: "Battery Level"
+  battery_state:
+    name: "Battery State"
+  battery_charging:
+    name: "Battery Charging"
+  brightness:
+    name: "Screen Brightness"
+  poweroff:
+    name: "Power Off Button"

@@ -1,0 +1,69 @@
+esphome:
+  name: test-sip-client
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+external_components:
+  - source: github://eigger/espcomponents
+    components: [ sip_client ]
+    refresh: always
+
+wifi:
+  ssid: "test_ssid"
+  password: "test_password"
+
+# Microphone/speaker can be any ESPHome platform (e.g. i2s_audio)
+i2s_audio:
+  - id: i2s_in
+    i2s_lrclk_pin: GPIO25
+    i2s_bclk_pin: GPIO26
+  - id: i2s_out
+    i2s_lrclk_pin: GPIO27
+    i2s_bclk_pin: GPIO14
+
+microphone:
+  - platform: i2s_audio
+    id: mic_id
+    i2s_audio_id: i2s_in
+    adc_type: external
+    i2s_din_pin: GPIO33
+    pdm: false
+
+speaker:
+  - platform: i2s_audio
+    id: spk_id
+    i2s_audio_id: i2s_out
+    dac_type: external
+    i2s_dout_pin: GPIO22
+
+sip_client:
+  id: my_sip
+  microphone: mic_id
+  speaker: spk_id
+  server: 192.168.0.10      # PBX address (IP recommended)
+  port: 5060                # (default 5060)
+  username: "1001"
+  password: "secret"
+  domain: "192.168.0.10"    # (default: server)
+  caller_id: "ESP Doorbell" # (optional)
+  register_expiration: 300s # (default 300s)
+  local_rtp_port: 7078      # (default 7078)
+
+  on_registered:
+    - logger.log: "SIP registered"
+  on_incoming_call:
+    - logger.log:
+        format: "Incoming call from %s"
+        args: [caller.c_str()]
+    - sip_client.answer: my_sip
+  on_call_connected:
+    - logger.log: "Call connected"
+  on_call_ended:
+    - logger.log: "Call ended"
+  on_dtmf:
+    - logger.log:
+        format: "Received DTMF %s"
+        args: [digit.c_str()]

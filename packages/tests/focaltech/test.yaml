@@ -1,0 +1,22 @@
+esphome:
+  name: test-focaltech
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+external_components:
+  - source: github://eigger/espcomponents
+    components: [ focaltech ]
+    refresh: always
+
+i2c:
+  sda: GPIO21
+  scl: GPIO22
+  scan: true
+
+touchscreen:
+  - platform: focaltech
+    interrupt_pin: GPIO21
+    reset_pin: GPIO22
