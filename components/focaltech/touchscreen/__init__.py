@@ -32,7 +32,6 @@ CONFIG_SCHEMA = touchscreen.TOUCHSCREEN_SCHEMA.extend(
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
-    await cg.register_component(var, config)
     await i2c.register_i2c_device(var, config)
     await touchscreen.register_touchscreen(var, config)
 

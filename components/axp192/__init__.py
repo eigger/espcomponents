@@ -5,7 +5,7 @@ from esphome.const import CONF_ID,\
     CONF_BATTERY_LEVEL, CONF_NAME, CONF_BRIGHTNESS, UNIT_PERCENT, DEVICE_CLASS_BATTERY, STATE_CLASS_MEASUREMENT, ENTITY_CATEGORY_DIAGNOSTIC
 
 DEPENDENCIES = ['i2c']
-AUTO_LOAD = ["binary_sensor", "number", "button"]
+AUTO_LOAD = ["binary_sensor", "number", "button", "sensor"]
 CONF_BATTERY_STATE = 'battery_state'
 CONF_BATTERY_CHARGING = 'battery_charging'
 CONF_POWEROFF = 'poweroff'

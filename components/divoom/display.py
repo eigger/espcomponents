@@ -78,7 +78,6 @@ async def to_code(config):
     rhs = lcd_type.new()
     var = cg.Pvariable(config[CONF_ID], rhs)
 
-    await cg.register_component(var, config)
     await display.register_display(var, config)
     await ble_client.register_ble_node(var, config)
     if len(config[CONF_SERVICE_UUID]) == len(esp32_ble_tracker.bt_uuid16_format):
