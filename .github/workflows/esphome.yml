@@ -39,7 +39,10 @@ jobs:
           echo "Changed files:"
           echo "$CHANGED_FILES"
           
-          CHANGED_COMPONENTS=$(echo "$CHANGED_FILES" | grep -E '^(components|packages/tests)/' | cut -d'/' -f2 | sort -u)
+          CHANGED_COMPONENTS=$(echo "$CHANGED_FILES" | awk -F'/' '
+            $1 == "components" { print $2 }
+            $1 == "packages" && $2 == "tests" { print $3 }
+          ' | sort -u)
           
           # Build a JSON array of configuration files to test
           # Each item has: {"component": "comp_name", "file": "filename.yaml"}
