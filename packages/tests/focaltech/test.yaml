@@ -20,3 +20,10 @@ touchscreen:
   - platform: focaltech
     interrupt_pin: GPIO21
     reset_pin: GPIO22
+
+display:
+  - platform: template
+    id: dummy_display
+    dimensions: 240x240
+    lambda: |-
+      // Do nothing
