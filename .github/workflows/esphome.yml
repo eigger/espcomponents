@@ -50,6 +50,12 @@ jobs:
           MISSING_TESTS=""
           
           for comp in $CHANGED_COMPONENTS; do
+            # Skip if the component directory does not exist (e.g. was deleted)
+            if [ ! -d "components/$comp" ]; then
+              echo "Component '$comp' was deleted. Skipping tests."
+              continue
+            fi
+
             # Find all yaml/yml files in packages/tests/<comp>/
             # Note: We filter for files to ensure we don't pick up subdirectories
             YAML_FILES=$(find "packages/tests/$comp" -maxdepth 1 -type f \( -name "*.yaml" -o -name "*.yml" \) 2>/dev/null | sed "s|packages/tests/$comp/||")
