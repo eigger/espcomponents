@@ -103,6 +103,12 @@ jobs:
         run: |
           pip install esphome
 
+      - name: Patch test yaml for local compilation
+        run: |
+          FILE_PATH="packages/tests/${{ matrix.component }}/${{ matrix.file }}"
+          sed -i 's|- source: github://eigger/espcomponents|- source:\n      type: local\n      path: ../../../components|g' "$FILE_PATH"
+          sed -i '/refresh: always/d' "$FILE_PATH"
+
       - name: ESPHome Config Validation
         run: |
           esphome config "packages/tests/${{ matrix.component }}/${{ matrix.file }}"
@@ -127,6 +133,12 @@ jobs:
       - name: Install ESPHome
         run: |
           pip install esphome
+
+      - name: Patch test yaml for local compilation
+        run: |
+          FILE_PATH="packages/tests/${{ matrix.component }}/${{ matrix.file }}"
+          sed -i 's|- source: github://eigger/espcomponents|- source:\n      type: local\n      path: ../../../components|g' "$FILE_PATH"
+          sed -i '/refresh: always/d' "$FILE_PATH"
 
       - name: Cache PlatformIO
         uses: actions/cache@v4
