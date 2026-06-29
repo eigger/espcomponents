@@ -11,6 +11,10 @@ external_components:
     components: [ divoom ]
     refresh: always
 
+wifi:
+  ssid: "test_ssid"
+  password: "test_password"
+
 esp32_ble_tracker:
 
 ble_client:
