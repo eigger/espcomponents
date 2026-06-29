@@ -22,8 +22,6 @@ touchscreen:
     reset_pin: GPIO22
 
 display:
-  - platform: template
-    id: dummy_display
-    dimensions: 240x240
-    lambda: |-
-      // Do nothing
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    address: 0x3C
