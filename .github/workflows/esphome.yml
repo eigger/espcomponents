@@ -59,7 +59,7 @@ jobs:
               MISSING_TESTS="$MISSING_TESTS $comp"
             else
               for yaml_file in $YAML_FILES; do
-                MATRIX_JSON=$(echo "$MATRIX_JSON" | jq --arg comp "$comp" --arg file "$yaml_file" '. + [{"component": $comp, "file": $file}]')
+                MATRIX_JSON=$(echo "$MATRIX_JSON" | jq -c --arg comp "$comp" --arg file "$yaml_file" '. + [{"component": $comp, "file": $file}]')
               done
             fi
           done
@@ -75,7 +75,9 @@ jobs:
             echo "run_compile=false" >> $GITHUB_OUTPUT
             echo "No components modified."
           else
-            echo "matrix_json=$MATRIX_JSON" >> $GITHUB_OUTPUT
+            echo "matrix_json<<EOF" >> $GITHUB_OUTPUT
+            echo "$MATRIX_JSON" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
             echo "run_compile=true" >> $GITHUB_OUTPUT
             echo "Modified configs matrix: $MATRIX_JSON"
           fi
