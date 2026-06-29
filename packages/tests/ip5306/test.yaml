@@ -11,6 +11,11 @@ external_components:
     components: [ ip5306 ]
     refresh: always
 
+i2c:
+  sda: GPIO21
+  scl: GPIO22
+  scan: true
+
 ip5306:
   battery_level:   # sensor
     name: Battery Level
