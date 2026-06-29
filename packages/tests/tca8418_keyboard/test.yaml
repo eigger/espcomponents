@@ -10,14 +10,14 @@ external_components:
     refresh: always
 
 i2c:
-  sda: 8
-  scl: 9
+  sda: GPIO21
+  scl: GPIO22
 
 tca8418_keyboard:
   address: 0x34
   model: cardputer_adv   # key layout / scan remap (default)
   irq_pin:
-    number: 11
+    number: GPIO12
     mode: INPUT
   # Automation triggers (the pressed key string is passed as `x`)
   on_key_press:
