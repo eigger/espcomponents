@@ -22,7 +22,7 @@ DEPENDENCIES = ["ble_client"]
 CODEOWNERS = ["@eigger"]
 divoom_ns = cg.esphome_ns.namespace("divoom")
 divoom = divoom_ns.class_(
-    "DivoomDisplay", cg.PollingComponent, display.DisplayBuffer, ble_client.BLEClientNode
+    "DivoomDisplay", display.DisplayBuffer, ble_client.BLEClientNode
 )
 
 DivoomDitoo = divoom_ns.class_("DivoomDitoo", divoom)
