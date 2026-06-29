@@ -105,9 +105,7 @@ jobs:
 
       - name: Patch test yaml for local compilation
         run: |
-          FILE_PATH="packages/tests/${{ matrix.component }}/${{ matrix.file }}"
-          sed -i 's|- source: github://eigger/espcomponents|- source:\n      type: local\n      path: ../../../components|g' "$FILE_PATH"
-          sed -i '/refresh: always/d' "$FILE_PATH"
+          python -c "filepath='packages/tests/${{ matrix.component }}/${{ matrix.file }}'; content=open(filepath).read().replace('- source: github://eigger/espcomponents', '- source:\n      type: local\n      path: ../../../components'); content='\n'.join([l for l in content.splitlines() if 'refresh: always' not in l]); open(filepath, 'w').write(content)"
 
       - name: ESPHome Config Validation
         run: |
@@ -136,9 +134,7 @@ jobs:
 
       - name: Patch test yaml for local compilation
         run: |
-          FILE_PATH="packages/tests/${{ matrix.component }}/${{ matrix.file }}"
-          sed -i 's|- source: github://eigger/espcomponents|- source:\n      type: local\n      path: ../../../components|g' "$FILE_PATH"
-          sed -i '/refresh: always/d' "$FILE_PATH"
+          python -c "filepath='packages/tests/${{ matrix.component }}/${{ matrix.file }}'; content=open(filepath).read().replace('- source: github://eigger/espcomponents', '- source:\n      type: local\n      path: ../../../components'); content='\n'.join([l for l in content.splitlines() if 'refresh: always' not in l]); open(filepath, 'w').write(content)"
 
       - name: Cache PlatformIO
         uses: actions/cache@v4
