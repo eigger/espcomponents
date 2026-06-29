@@ -3,7 +3,7 @@ esphome:
 esp32:
   board: esp32dev
   framework:
-    type: esp-idf
+    type: arduino
 external_components:
   - source: github://eigger/espcomponents
     components: [ lilygo_t_keyboard ]
