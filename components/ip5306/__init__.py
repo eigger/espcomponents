@@ -24,10 +24,9 @@ CONFIG_SCHEMA = cv.COMPONENT_SCHEMA.extend(
         ),
         cv.Optional(CONF_CHARGER_CONNECTED): binary_sensor.binary_sensor_schema(),
         cv.Optional(CONF_CHARGE_FULL): binary_sensor.binary_sensor_schema(),
-        cv.Optional(CONF_POWEROFF): button.BUTTON_SCHEMA.extend(
-        {
-            cv.GenerateID(): cv.declare_id(Poweroff),
-        }),
+        cv.Optional(CONF_POWEROFF): button.button_schema(
+            Poweroff,
+        ),
     }
 ).extend(i2c.i2c_device_schema(0x75))
 

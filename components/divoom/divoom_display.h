@@ -37,7 +37,7 @@ struct ColorPoint
     }
 };
 
-class DivoomDisplay : public PollingComponent, public display::DisplayBuffer, public ble_client::BLEClientNode
+class DivoomDisplay : public display::DisplayBuffer, public ble_client::BLEClientNode
 {
 public:
     void set_model(DivoomModel model) { this->model_ = model; }
@@ -64,7 +64,7 @@ public:
     void set_version(text_sensor::TextSensor *version) { version_ = version; }
     void set_bt_connected(binary_sensor::BinarySensor *bt_connected) { bt_connected_ = bt_connected; } 
     void set_select_time(select::Select *select_time) { select_time_ = select_time; }
-    void select_time_callback(std::string value, size_t index);
+    void select_time_callback(size_t index);
     void set_brightness(number::Number *brightness) { brightness_ = brightness; }
     void set_divoom_brightness(uint8_t value);
     bool set_divoom_time(uint8_t hours, uint8_t minutes, uint8_t seconds);
@@ -137,7 +137,6 @@ class SelectTime : public select::Select
 public:
     void control(const std::string &value)
     {
-        this->state = value;
         this->publish_state(value);
     }
 };

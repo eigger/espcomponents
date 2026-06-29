@@ -1,0 +1,35 @@
+esphome:
+  name: test-esp8266-bmi270
+
+esp8266:
+  board: nodemcuv2
+
+external_components:
+  - source: github://eigger/espcomponents
+    components: [ bmi270 ]
+    refresh: always
+
+i2c:
+  sda: GPIO4
+  scl: GPIO5
+  scan: true
+  id: bus_a
+
+sensor:
+  - platform: bmi270
+    address: 0x68
+    update_interval: 1s
+    accel_x:
+      name: "BMI270 Accel X"
+    accel_y:
+      name: "BMI270 Accel Y"
+    accel_z:
+      name: "BMI270 Accel Z"
+    gyro_x:
+      name: "BMI270 Gyro X"
+    gyro_y:
+      name: "BMI270 Gyro Y"
+    gyro_z:
+      name: "BMI270 Gyro Z"
+    temperature:
+      name: "BMI270 Temperature"

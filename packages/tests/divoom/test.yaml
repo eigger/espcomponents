@@ -1,0 +1,38 @@
+esphome:
+  name: test-divoom
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+external_components:
+  - source: github://eigger/espcomponents
+    components: [ divoom ]
+    refresh: always
+
+wifi:
+  ssid: "test_ssid"
+  password: "test_password"
+
+esp32_ble_tracker:
+
+ble_client:
+  - mac_address: B1:21:81:35:C6:CE
+    id: my_ble_client
+
+font:
+  - file: "gfonts://Roboto"
+    id: id_font
+    size: 8
+
+display:
+  - platform: divoom
+    update_interval: 1s
+    time_id: sntp_time
+    lambda: |-
+      it.print(0, 0, id(id_font), "Hello");
+
+time:
+  - platform: sntp
+    id: sntp_time

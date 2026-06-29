@@ -1,6 +1,8 @@
 #include "axp192.h"
 #include "esphome/core/log.h"
+#ifdef USE_ESP32
 #include "esp_sleep.h"
+#endif
 
 namespace esphome {
 namespace axp192 {
@@ -376,6 +378,7 @@ void AXP192Component::SetSleep(void)
 void AXP192Component::DeepSleep(uint64_t time_in_us)
 { 
     SetSleep();
+#ifdef USE_ESP32
     esp_sleep_enable_ext0_wakeup((gpio_num_t)37, 0 /* LOW */);
     if (time_in_us > 0)
     {
@@ -386,10 +389,12 @@ void AXP192Component::DeepSleep(uint64_t time_in_us)
         esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TIMER);
     }
     (time_in_us == 0) ? esp_deep_sleep_start() : esp_deep_sleep(time_in_us);
+#endif
 }
 
 void AXP192Component::LightSleep(uint64_t time_in_us)
 {
+#ifdef USE_ESP32
     if (time_in_us > 0)
     {
         esp_sleep_enable_timer_wakeup(time_in_us);
@@ -399,6 +404,7 @@ void AXP192Component::LightSleep(uint64_t time_in_us)
         esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TIMER);
     }
     esp_light_sleep_start();
+#endif
 }
 
 // 0 not press, 0x01 long press, 0x02 press

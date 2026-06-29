@@ -1,0 +1,37 @@
+esphome:
+  name: test-bmi270
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+external_components:
+  - source: github://eigger/espcomponents
+    components: [ bmi270 ]
+    refresh: always
+
+i2c:
+  sda: 21
+  scl: 22
+  scan: true
+  id: bus_a
+
+sensor:
+  - platform: bmi270
+    address: 0x68
+    update_interval: 1s
+    accel_x:
+      name: "BMI270 Accel X"
+    accel_y:
+      name: "BMI270 Accel Y"
+    accel_z:
+      name: "BMI270 Accel Z"
+    gyro_x:
+      name: "BMI270 Gyro X"
+    gyro_y:
+      name: "BMI270 Gyro Y"
+    gyro_z:
+      name: "BMI270 Gyro Z"
+    temperature:
+      name: "BMI270 Temperature"

@@ -1,0 +1,155 @@
+name: ESPHome CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix_json: ${{ steps.set-matrix.outputs.matrix_json }}
+      run_compile: ${{ steps.set-matrix.outputs.run_compile }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get modified components
+        id: set-matrix
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_COMMIT="origin/${{ github.base_ref }}"
+          else
+            if git rev-parse HEAD~1 >/dev/null 2>&1; then
+              BASE_COMMIT="HEAD~1"
+            else
+              BASE_COMMIT=$(git log --format="%H" | tail -n 1)
+            fi
+          fi
+          
+          echo "Comparing against base: $BASE_COMMIT"
+          
+          # Find all unique component subfolder names that have modifications under components/ or packages/tests/
+          CHANGED_FILES=$(git diff --name-only $BASE_COMMIT HEAD)
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          
+          CHANGED_COMPONENTS=$(echo "$CHANGED_FILES" | awk -F'/' '
+            $1 == "components" { print $2 }
+            $1 == "packages" && $2 == "tests" { print $3 }
+          ' | sort -u)
+          
+          # Build a JSON array of configuration files to test
+          # Each item has: {"component": "comp_name", "file": "filename.yaml"}
+          MATRIX_JSON="[]"
+          MISSING_TESTS=""
+          
+          for comp in $CHANGED_COMPONENTS; do
+            # Skip if the component directory does not exist (e.g. was deleted)
+            if [ ! -d "components/$comp" ]; then
+              echo "Component '$comp' was deleted. Skipping tests."
+              continue
+            fi
+
+            # Find all yaml/yml files in packages/tests/<comp>/
+            # Note: We filter for files to ensure we don't pick up subdirectories
+            YAML_FILES=$(find "packages/tests/$comp" -maxdepth 1 -type f \( -name "*.yaml" -o -name "*.yml" \) 2>/dev/null | sed "s|packages/tests/$comp/||")
+            
+            if [ -z "$YAML_FILES" ]; then
+              echo "::error file=components/$comp::Component '$comp' was modified, but no test yaml files were found under packages/tests/$comp/"
+              MISSING_TESTS="$MISSING_TESTS $comp"
+            else
+              for yaml_file in $YAML_FILES; do
+                MATRIX_JSON=$(echo "$MATRIX_JSON" | jq -c --arg comp "$comp" --arg file "$yaml_file" '. + [{"component": $comp, "file": $file}]')
+              done
+            fi
+          done
+
+          if [ -n "$MISSING_TESTS" ]; then
+            echo "Error: The following components are missing test configurations under packages/tests/:"
+            echo "$MISSING_TESTS"
+            exit 1
+          fi
+
+          if [ "$MATRIX_JSON" = "[]" ]; then
+            echo "matrix_json=[]" >> $GITHUB_OUTPUT
+            echo "run_compile=false" >> $GITHUB_OUTPUT
+            echo "No components modified."
+          else
+            echo "matrix_json<<EOF" >> $GITHUB_OUTPUT
+            echo "$MATRIX_JSON" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            echo "run_compile=true" >> $GITHUB_OUTPUT
+            echo "Modified configs matrix: $MATRIX_JSON"
+          fi
+
+  esphome-validate:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.run_compile == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include: ${{ fromJSON(needs.detect-changes.outputs.matrix_json) }}
+      fail-fast: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install ESPHome
+        run: |
+          pip install esphome
+
+      - name: Patch test yaml for local compilation
+        run: |
+          python -c "filepath='packages/tests/${{ matrix.component }}/${{ matrix.file }}'; content=open(filepath).read().replace('- source: github://eigger/espcomponents', '- source:\n      type: local\n      path: ../../../components'); content='\n'.join([l for l in content.splitlines() if 'refresh: always' not in l]); open(filepath, 'w').write(content)"
+
+      - name: ESPHome Config Validation
+        run: |
+          esphome config "packages/tests/${{ matrix.component }}/${{ matrix.file }}"
+
+  esphome-compile:
+    needs: [detect-changes, esphome-validate]
+    if: ${{ needs.detect-changes.outputs.run_compile == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include: ${{ fromJSON(needs.detect-changes.outputs.matrix_json) }}
+      fail-fast: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install ESPHome
+        run: |
+          pip install esphome
+
+      - name: Patch test yaml for local compilation
+        run: |
+          python -c "filepath='packages/tests/${{ matrix.component }}/${{ matrix.file }}'; content=open(filepath).read().replace('- source: github://eigger/espcomponents', '- source:\n      type: local\n      path: ../../../components'); content='\n'.join([l for l in content.splitlines() if 'refresh: always' not in l]); open(filepath, 'w').write(content)"
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: ${{ runner.os }}-platformio-${{ hashFiles(format('packages/tests/{0}/{1}', matrix.component, matrix.file)) }}
+          restore-keys: |
+            ${{ runner.os }}-platformio-
+
+      - name: Compile ESPHome Config
+        run: |
+          esphome compile "packages/tests/${{ matrix.component }}/${{ matrix.file }}"

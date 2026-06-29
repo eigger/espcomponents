@@ -19,7 +19,7 @@ void DivoomDisplay::dump_config()
     ESP_LOGCONFIG(TAG, "  MAC address        : %s", this->parent_->address_str().c_str());
     ESP_LOGCONFIG(TAG, "  Service UUID       : %s", this->service_uuid_.to_string().c_str());
     ESP_LOGCONFIG(TAG, "  Characteristic UUID: %s", this->char_uuid_.to_string().c_str());
-    LOG_UPDATE_INTERVAL(this);
+    ESP_LOGCONFIG(TAG, "  Update Interval: %u ms", this->get_update_interval());
 }
 
 void DivoomDisplay::update()
@@ -38,7 +38,7 @@ void DivoomDisplay::setup()
     if (this->bt_connected_) this->bt_connected_->publish_state(false);
     if (this->select_time_) 
     {
-        this->select_time_->add_on_state_callback([this](std::string value, size_t index) { this->select_time_callback(value, index); });
+        this->select_time_->add_on_state_callback([this](size_t index) { this->select_time_callback(index); });
         this->select_time_->publish_state(this->select_time_->at(0).value());
     }
     if (this->brightness_)
@@ -395,7 +395,7 @@ void DivoomDisplay::turn_divoom_into_clock(uint8_t type)
     write_protocol(protocol);
 }
 
-void DivoomDisplay::select_time_callback(std::string value, size_t index)
+void DivoomDisplay::select_time_callback(size_t index)
 {
     turn_divoom_into_clock(index);
 }

@@ -22,7 +22,7 @@ DEPENDENCIES = ["ble_client"]
 CODEOWNERS = ["@eigger"]
 divoom_ns = cg.esphome_ns.namespace("divoom")
 divoom = divoom_ns.class_(
-    "DivoomDisplay", cg.PollingComponent, display.DisplayBuffer, ble_client.BLEClientNode
+    "DivoomDisplay", display.DisplayBuffer, ble_client.BLEClientNode
 )
 
 DivoomDitoo = divoom_ns.class_("DivoomDitoo", divoom)
@@ -48,27 +48,20 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_REQUIRE_RESPONSE, default=False): cv.boolean,
             cv.Optional(CONF_MODEL, default="ditoo"): Divoom_MODEL,
             cv.Optional(CONF_TIME_ID): cv.use_id(time.RealTimeClock),
-            cv.Optional(CONF_VERSION, default={CONF_NAME: "Version"}): text_sensor.TEXT_SENSOR_SCHEMA.extend(
-            {
-                cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
-                cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
-                cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
-            }),
-            cv.Optional(CONF_STATUS, default={CONF_NAME: "BT Status"}):  binary_sensor.BINARY_SENSOR_SCHEMA.extend(
-            {
-                cv.GenerateID(): cv.declare_id(binary_sensor.BinarySensor),
-                #cv.Optional(CONF_ICON, default=ICON_NEW_BOX): cv.icon,
-                cv.Optional(CONF_ENTITY_CATEGORY, default="diagnostic"): cv.entity_category,
-                cv.Optional(CONF_DEVICE_CLASS, default="connectivity"): binary_sensor.validate_device_class,
-            }),
-            cv.Optional(CONF_TYPE, default={CONF_NAME: "Type"}):  select.SELECT_SCHEMA.extend(
-            {
-                cv.GenerateID(): cv.declare_id(SelectTime),
-            }),
-            cv.Optional(CONF_BRIGHTNESS, default={CONF_NAME: "Brightness"}):  number.NUMBER_SCHEMA.extend(
-            {
-                cv.GenerateID(): cv.declare_id(Brightness),
-            }),
+            cv.Optional(CONF_VERSION, default={CONF_NAME: "Version"}): text_sensor.text_sensor_schema(
+                icon=ICON_NEW_BOX,
+                entity_category="diagnostic",
+            ),
+            cv.Optional(CONF_STATUS, default={CONF_NAME: "BT Status"}): binary_sensor.binary_sensor_schema(
+                entity_category="diagnostic",
+                device_class="connectivity",
+            ),
+            cv.Optional(CONF_TYPE, default={CONF_NAME: "Type"}): select.select_schema(
+                SelectTime,
+            ),
+            cv.Optional(CONF_BRIGHTNESS, default={CONF_NAME: "Brightness"}): number.number_schema(
+                Brightness,
+            ),
         }
     )
     .extend(cv.polling_component_schema("1s"))
@@ -85,7 +78,6 @@ async def to_code(config):
     rhs = lcd_type.new()
     var = cg.Pvariable(config[CONF_ID], rhs)
 
-    await cg.register_component(var, config)
     await display.register_display(var, config)
     await ble_client.register_ble_node(var, config)
     if len(config[CONF_SERVICE_UUID]) == len(esp32_ble_tracker.bt_uuid16_format):
