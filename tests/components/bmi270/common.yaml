@@ -1,0 +1,33 @@
+external_components:
+  - source:
+      type: local
+      path: ../../../components
+    components: [ bmi270 ]
+
+esphome:
+  name: test-bmi270
+
+i2c:
+  sda: ${sda}
+  scl: ${scl}
+  scan: true
+  id: bus_a
+
+sensor:
+  - platform: bmi270
+    address: 0x68
+    update_interval: 1s
+    accel_x:
+      name: "BMI270 Accel X"
+    accel_y:
+      name: "BMI270 Accel Y"
+    accel_z:
+      name: "BMI270 Accel Z"
+    gyro_x:
+      name: "BMI270 Gyro X"
+    gyro_y:
+      name: "BMI270 Gyro Y"
+    gyro_z:
+      name: "BMI270 Gyro Z"
+    temperature:
+      name: "BMI270 Temperature"

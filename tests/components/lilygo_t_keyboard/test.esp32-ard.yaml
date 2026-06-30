@@ -1,0 +1,17 @@
+esphome:
+  name: test-lilygo-t-keyboard
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+external_components:
+  - source:
+      type: local
+      path: ../../../components
+    components: [ lilygo_t_keyboard ]
+
+lilygo_t_keyboard:
+  press_key:
+    name: press key
+  release_key:
+    name: release key
