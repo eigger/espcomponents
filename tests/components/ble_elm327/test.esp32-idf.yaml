@@ -1,0 +1,39 @@
+esphome:
+  name: test-ble-elm327
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: local
+      path: ../../../components
+    components: [ ble_elm327 ]
+
+esp32_ble_tracker:
+
+ble_client:
+  - mac_address: "AA:BB:CC:DD:EE:FF"
+    id: obd_client
+
+ble_elm327:
+  ble_client_id: obd_client
+
+sensor:
+  - platform: ble_elm327
+    name: "Engine RPM"
+    pid: "0C"
+    mode: "01"
+    update_interval: 1s
+    formula: "return (a * 256.0f + b) / 4.0f;"
+    unit_of_measurement: "rpm"
+
+  - platform: ble_elm327
+    name: "Vehicle Speed"
+    pid: "0D"
+    mode: "01"
+    update_interval: 1s
+    formula: "return a;"
+    unit_of_measurement: "km/h"

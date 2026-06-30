@@ -31,24 +31,24 @@ jobs:
               BASE_COMMIT=$(git log --format="%H" | tail -n 1)
             fi
           fi
-          
+
           echo "Comparing against base: $BASE_COMMIT"
-          
-          # Find all unique component subfolder names that have modifications under components/ or packages/tests/
+
+          # Find all unique component names modified under components/ or tests/components/
           CHANGED_FILES=$(git diff --name-only $BASE_COMMIT HEAD)
           echo "Changed files:"
           echo "$CHANGED_FILES"
-          
+
           CHANGED_COMPONENTS=$(echo "$CHANGED_FILES" | awk -F'/' '
             $1 == "components" { print $2 }
-            $1 == "packages" && $2 == "tests" { print $3 }
+            $1 == "tests" && $2 == "components" { print $3 }
           ' | sort -u)
-          
+
           # Build a JSON array of configuration files to test
-          # Each item has: {"component": "comp_name", "file": "filename.yaml"}
+          # Each item has: {"component": "comp_name", "file": "test.<target>.yaml"}
           MATRIX_JSON="[]"
           MISSING_TESTS=""
-          
+
           for comp in $CHANGED_COMPONENTS; do
             # Skip if the component directory does not exist (e.g. was deleted)
             if [ ! -d "components/$comp" ]; then
@@ -56,12 +56,12 @@ jobs:
               continue
             fi
 
-            # Find all yaml/yml files in packages/tests/<comp>/
-            # Note: We filter for files to ensure we don't pick up subdirectories
-            YAML_FILES=$(find "packages/tests/$comp" -maxdepth 1 -type f \( -name "*.yaml" -o -name "*.yml" \) 2>/dev/null | sed "s|packages/tests/$comp/||")
-            
+            # Entry test files are tests/components/<comp>/test.*.yaml.
+            # common.yaml (shared, included via `<<: !include`) is intentionally excluded.
+            YAML_FILES=$(find "tests/components/$comp" -maxdepth 1 -type f -name "test.*.yaml" 2>/dev/null | sed "s|tests/components/$comp/||")
+
             if [ -z "$YAML_FILES" ]; then
-              echo "::error file=components/$comp::Component '$comp' was modified, but no test yaml files were found under packages/tests/$comp/"
+              echo "::error file=components/$comp::Component '$comp' was modified, but no test yaml files were found under tests/components/$comp/"
               MISSING_TESTS="$MISSING_TESTS $comp"
             else
               for yaml_file in $YAML_FILES; do
@@ -71,7 +71,7 @@ jobs:
           done
 
           if [ -n "$MISSING_TESTS" ]; then
-            echo "Error: The following components are missing test configurations under packages/tests/:"
+            echo "Error: The following components are missing test configurations under tests/components/:"
             echo "$MISSING_TESTS"
             exit 1
           fi
@@ -109,13 +109,9 @@ jobs:
         run: |
           pip install esphome
 
-      - name: Patch test yaml for local compilation
-        run: |
-          python -c "filepath='packages/tests/${{ matrix.component }}/${{ matrix.file }}'; content=open(filepath).read().replace('- source: github://eigger/espcomponents', '- source:\n      type: local\n      path: ../../../components'); content='\n'.join([l for l in content.splitlines() if 'refresh: always' not in l]); open(filepath, 'w').write(content)"
-
       - name: ESPHome Config Validation
         run: |
-          esphome config "packages/tests/${{ matrix.component }}/${{ matrix.file }}"
+          esphome config "tests/components/${{ matrix.component }}/${{ matrix.file }}"
 
   esphome-compile:
     needs: [detect-changes, esphome-validate]
@@ -138,18 +134,14 @@ jobs:
         run: |
           pip install esphome
 
-      - name: Patch test yaml for local compilation
-        run: |
-          python -c "filepath='packages/tests/${{ matrix.component }}/${{ matrix.file }}'; content=open(filepath).read().replace('- source: github://eigger/espcomponents', '- source:\n      type: local\n      path: ../../../components'); content='\n'.join([l for l in content.splitlines() if 'refresh: always' not in l]); open(filepath, 'w').write(content)"
-
       - name: Cache PlatformIO
         uses: actions/cache@v4
         with:
           path: ~/.platformio
-          key: ${{ runner.os }}-platformio-${{ hashFiles(format('packages/tests/{0}/{1}', matrix.component, matrix.file)) }}
+          key: ${{ runner.os }}-platformio-${{ hashFiles(format('tests/components/{0}/{1}', matrix.component, matrix.file)) }}
           restore-keys: |
             ${{ runner.os }}-platformio-
 
       - name: Compile ESPHome Config
         run: |
-          esphome compile "packages/tests/${{ matrix.component }}/${{ matrix.file }}"
+          esphome compile "tests/components/${{ matrix.component }}/${{ matrix.file }}"

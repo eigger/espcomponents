@@ -1,0 +1,8 @@
+substitutions:
+  sda: GPIO4
+  scl: GPIO5
+
+esp8266:
+  board: nodemcuv2
+
+<<: !include common.yaml

@@ -1,0 +1,19 @@
+external_components:
+  - source:
+      type: local
+      path: ../../../components
+    components: [ bbq10_keyboard ]
+
+esphome:
+  name: test-bbq10-keyboard
+
+i2c:
+  sda: ${sda}
+  scl: ${scl}
+  scan: true
+
+bbq10_keyboard:
+  key:
+    name: Key
+  last_key:
+    name: Last Key
