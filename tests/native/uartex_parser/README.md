@@ -48,4 +48,4 @@ g++ -std=c++17 -Wall -Wextra -Werror `
 | `XOR_ADD` | 2바이트 checksum |
 | Parser 연동 | `compute_checksum`으로 만든 패킷이 `verify_checksum` 통과 |
 
-CI: `.github/workflows/esphome.yml` 의 `parser-native-test` job.
+CI: `.github/workflows/esphome.yml` 의 `parser-native-test` job (`components/uartex`, `tests/components/uartex`, `tests/native/uartex_parser` 변경 시).
