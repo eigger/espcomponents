@@ -113,7 +113,8 @@ void test_parser_integration_xor_no_header_fixed_length()
     uint8_t crc = static_cast<uint8_t>(compute_checksum(CHECKSUM_XOR_NO_HEADER, {}, payload) & 0xFF);
     require_eq_u16(crc, 0x51, "integration XOR_NO_HEADER: expected crc");
 
-    require(feed(parser, {0xA0, 0x51, 0x00, crc}), "integration XOR_NO_HEADER: frame buffered");
+    require(!feed(parser, {0xA0, 0x51, 0x00, crc}), "integration XOR_NO_HEADER: completion deferred when checksum set");
+    require(parser.buffer().size() == 4, "integration XOR_NO_HEADER: frame buffered");
     require(parser.verify_checksum({crc}), "integration XOR_NO_HEADER: checksum verifies");
 }
 
