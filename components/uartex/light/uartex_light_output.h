@@ -32,6 +32,8 @@ class UARTExLightState : public light::LightState
 public:
     UARTExLightState(UARTExLightOutput *output) : LightState(output), Output(*output) {}
     UARTExLightOutput& Output;
+    bool has_last_state() { return this->Output.has_last_state(); }
+    uint8_t last_state(const uint16_t index) { return this->Output.last_state(index); }
 };
 
 }  // namespace uartex

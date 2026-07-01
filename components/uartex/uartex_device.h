@@ -110,6 +110,7 @@ public:
     const cmd_t* dequeue_tx_cmd();
     const cmd_t* dequeue_tx_cmd_low_priority();
     bool parse_data(const std::vector<uint8_t>& data);
+    bool has_last_state() const { return !this->last_state_.empty(); }
     std::vector<uint8_t> last_state();
     uint8_t last_state(const uint16_t index);
 protected:
