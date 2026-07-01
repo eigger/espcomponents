@@ -176,6 +176,8 @@ CONF_DECODE = 'decode'
 CONF_SPEED_CNT = 'speed_cnt'
 CONF_ON_WRITE = 'on_write'
 CONF_ON_READ = 'on_read'
+CONF_RX_REPLY = 'rx_reply'
+CONF_COMMAND = 'command'
 
 # Water Heater Commands
 CONF_COMMAND_ECO = 'command_eco'

@@ -9,7 +9,7 @@ from esphome.util import SimpleRegistry
 from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTER, \
     CONF_RX_CHECKSUM, CONF_TX_CHECKSUM, CONF_RX_CHECKSUM_2, CONF_TX_CHECKSUM_2, \
     CONF_UARTEX_ID, CONF_ERROR, CONF_LOG, CONF_ON_TX_TIMEOUT, CONF_RX_PRIORITY, \
-    CONF_ACK, CONF_ON_WRITE, CONF_ON_READ, \
+    CONF_ACK, CONF_ON_WRITE, CONF_ON_READ, CONF_RX_REPLY, CONF_COMMAND, \
     CONF_STATE, CONF_MASK, CONF_MATCH, \
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
     CONF_COMMAND_UPDATE, CONF_RX_TIMEOUT, CONF_TX_TIMEOUT, CONF_TX_RETRY_CNT, CONF_TX_COMMAND_QUEUE_SIZE, \
@@ -139,6 +139,17 @@ def header_schema(value):
         return HEADER_SCHEMA(value)
     return shorthand_header(value)
 
+def validate_rx_header(value):
+    if isinstance(value, dict):
+        return [header_schema(value)]
+    if isinstance(value, list):
+        if not value:
+            raise cv.Invalid("rx_header cannot be empty")
+        if isinstance(value[0], (list, dict)):
+            return [header_schema(h) for h in value]
+        return [header_schema(value)]
+    return [header_schema(value)]
+
 COMMAND_SCHEMA = cv.Schema({
     cv.Required(CONF_DATA): validate_hex_data,
     cv.Optional(CONF_ACK, default=[]): validate_hex_data,
@@ -163,6 +174,11 @@ RX_DATA_LENGTH_SCHEMA = cv.Schema({
 
 def rx_data_length_schema(value):
     return RX_DATA_LENGTH_SCHEMA(value)
+
+RX_REPLY_SCHEMA = cv.Schema({
+    cv.Required(CONF_STATE): state_schema,
+    cv.Required(CONF_COMMAND): cv.templatable(command_hex_schema),
+})
 
 # UARTEx Schema
 CONFIG_SCHEMA = cv.All(cv.Schema({
@@ -199,8 +215,9 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.Optional(CONF_RX_LENGTH): cv.int_range(min=1, max=256),
     cv.Optional(CONF_RX_DATA_LENGTH): rx_data_length_schema,
     cv.Optional(CONF_TX_CTRL_PIN): pins.gpio_output_pin_schema,
-    cv.Optional(CONF_RX_HEADER): header_schema,
+    cv.Optional(CONF_RX_HEADER): validate_rx_header,
     cv.Optional(CONF_RX_FOOTER): validate_hex_data,
+    cv.Optional(CONF_RX_REPLY): cv.ensure_list(RX_REPLY_SCHEMA),
     cv.Optional(CONF_TX_HEADER): validate_hex_data,
     cv.Optional(CONF_TX_FOOTER): validate_hex_data,
     cv.Optional(CONF_RX_CHECKSUM): validate_checksum,
@@ -296,8 +313,19 @@ async def to_code(config):
         cg.add(var.set_tx_ctrl_pin(tx_ctrl_pin))
 
     if CONF_RX_HEADER in config:
-        header = header_hex_expression(config[CONF_RX_HEADER])
-        cg.add(var.set_rx_header(header))
+        for h in config[CONF_RX_HEADER]:
+            header = header_hex_expression(h)
+            cg.add(var.add_rx_header(header))
+
+    for reply in config.get(CONF_RX_REPLY, []):
+        state = state_hex_expression(reply[CONF_STATE])
+        command_conf = reply[CONF_COMMAND]
+        if cg.is_template(command_conf):
+            template_ = await cg.templatable(command_conf, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cmd_t)
+            cg.add(var.add_rx_reply(state, template_))
+        else:
+            command = command_hex_expression(command_conf)
+            cg.add(var.add_rx_reply(state, command))
 
     if CONF_RX_FOOTER in config:
         cg.add(var.set_rx_footer(config[CONF_RX_FOOTER]))
@@ -311,7 +339,10 @@ async def to_code(config):
     if CONF_RX_CHECKSUM in config:
         data = config[CONF_RX_CHECKSUM]
         if cg.is_template(data):
-            template_ = await cg.templatable(data, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.uint8)
+            template_ = await cg.templatable(data, [
+                (uint8_ptr_const, 'data'), (uint16_const, 'len'),
+                (uint8_ptr_const, 'header'), (uint16_const, 'header_len'),
+            ], cg.uint8)
             cg.add(var.set_rx_checksum(template_))
         else:
             cg.add(var.set_rx_checksum(data))

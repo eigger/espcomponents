@@ -16,9 +16,10 @@ uartex:
   tx_delay: 50ms
   tx_timeout: 500ms
   tx_retry_cnt: 3
+  rx_length: 4
   rx_header: [0xB0]
   rx_checksum: !lambda |-
-    uint8_t crc = 0xB0;
+    uint8_t crc = header[0];
     for (size_t i = 0; i < len; i++)
       crc ^= data[i];
     if (data[0] < 0x7C) crc ^= 0x80;
