@@ -145,3 +145,14 @@ jobs:
       - name: Compile ESPHome Config
         run: |
           esphome compile "tests/components/${{ matrix.component }}/${{ matrix.file }}"
+
+  parser-native-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Build and run parser native tests
+        run: |
+          chmod +x tests/native/uartex_parser/run.sh
+          tests/native/uartex_parser/run.sh
