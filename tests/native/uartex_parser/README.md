@@ -1,6 +1,6 @@
-# UARTEx Parser native tests
+# UARTEx native tests
 
-`Parser` C++ 클래스를 호스트에서 바이트 단위로 검증합니다. ESPHome 빌드 없이 빠르게 실행됩니다.
+`Parser` 및 내장 `compute_checksum` (ADD/XOR/…) 을 호스트에서 검증합니다.
 
 ## 실행
 
@@ -22,6 +22,8 @@ g++ -std=c++17 -Wall -Wextra -Werror `
 
 ## 커버 시나리오
 
+### Parser (`test_parser.cpp`)
+
 | 테스트 | 조건 |
 |--------|------|
 | `no_header_fixed_length` | 헤더 없음, `total_len`만 |
@@ -35,5 +37,15 @@ g++ -std=c++17 -Wall -Wextra -Werror `
 | `dynamic_data_length_*` | 가변 길이 필드 (BE / LE) |
 | `no_footer_no_length_incomplete` | 푸터·길이 없으면 미완료 |
 | `apply_mask` / `clear` / `buffer_len` | 유틸·상태 리셋 |
+
+### Checksum (`test_checksum.cpp`)
+
+| 테스트 | 조건 |
+|--------|------|
+| `NONE` / `CUSTOM` | 0 반환 |
+| `ADD` / `XOR` | 헤더 포함 |
+| `ADD_NO_HEADER` / `XOR_NO_HEADER` | payload만 |
+| `XOR_ADD` | 2바이트 checksum |
+| Parser 연동 | `compute_checksum`으로 만든 패킷이 `verify_checksum` 통과 |
 
 CI: `.github/workflows/esphome.yml` 의 `parser-native-test` job.

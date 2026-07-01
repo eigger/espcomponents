@@ -581,12 +581,12 @@ std::vector<uint8_t> UARTExComponent::get_rx_checksum(const std::vector<uint8_t>
     {
         if (this->rx_checksum_ != CHECKSUM_NONE)
         {
-            uint8_t crc = get_checksum(this->rx_checksum_, header, data) & 0xFF;
+            uint8_t crc = compute_checksum(this->rx_checksum_, header, data) & 0xFF;
             return { crc };
         }
         else if (this->rx_checksum_2_ != CHECKSUM_NONE)
         {
-            uint16_t crc = get_checksum(this->rx_checksum_2_, header, data);
+            uint16_t crc = compute_checksum(this->rx_checksum_2_, header, data);
             return { (uint8_t)(crc >> 8), (uint8_t)(crc & 0xFF) };
         }
     }
@@ -609,58 +609,16 @@ std::vector<uint8_t> UARTExComponent::get_tx_checksum(const std::vector<uint8_t>
         std::vector<uint8_t> header = this->tx_header_.value_or(std::vector<uint8_t>{});
         if (this->tx_checksum_ != CHECKSUM_NONE)
         {
-            uint8_t crc = get_checksum(this->tx_checksum_, header, data) & 0xFF;
+            uint8_t crc = compute_checksum(this->tx_checksum_, header, data) & 0xFF;
             return { crc };
         }
         else if (this->tx_checksum_2_ != CHECKSUM_NONE)
         {
-            uint16_t crc = get_checksum(this->tx_checksum_2_, header, data);
+            uint16_t crc = compute_checksum(this->tx_checksum_2_, header, data);
             return { (uint8_t)(crc >> 8), (uint8_t)(crc & 0xFF) };
         }
     }
     return {};
-}
-
-uint16_t UARTExComponent::get_checksum(CHECKSUM checksum, const std::vector<uint8_t> &header, const std::vector<uint8_t> &data)
-{
-    uint16_t crc = 0;
-    uint8_t temp = 0;
-    switch(checksum)
-    {
-    case CHECKSUM_XOR:
-        for (uint8_t byte : header) { crc ^= byte; }
-        for (uint8_t byte : data) { crc ^= byte; }
-        break;
-    case CHECKSUM_ADD:
-        for (uint8_t byte : header) { crc += byte; }
-        for (uint8_t byte : data) { crc += byte; }
-        break;
-    case CHECKSUM_XOR_NO_HEADER:
-        for (uint8_t byte : data) { crc ^= byte; }
-        break;
-    case CHECKSUM_ADD_NO_HEADER:
-        for (uint8_t byte : data) { crc += byte; }
-        break;
-    case CHECKSUM_XOR_ADD:
-        for (uint8_t byte : header)
-        {
-            crc += byte;
-            temp ^= byte;
-        }
-        for (uint8_t byte : data)
-        {
-            crc += byte;
-            temp ^= byte;
-        }
-        // High byte = XOR of all bytes, low byte = (ADD + XOR) & 0xFF.
-        crc += temp;
-        crc = ((uint16_t)temp << 8) | (crc & 0xFF);
-        break;
-    case CHECKSUM_NONE:
-    case CHECKSUM_CUSTOM:
-        break;
-    }
-    return crc;
 }
 
 }  // namespace uartex

@@ -5,6 +5,7 @@
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "uartex_device.h"
 #include "parser.h"
+#include "checksum.h"
 #include "version.h"
 namespace esphome {
 namespace uartex {
@@ -17,16 +18,6 @@ enum ERROR {
     ERROR_CHECKSUM,
     ERROR_RX_TIMEOUT,
     ERROR_TX_TIMEOUT
-};
-
-enum CHECKSUM {
-    CHECKSUM_NONE,
-    CHECKSUM_CUSTOM,
-    CHECKSUM_XOR,
-    CHECKSUM_ADD,
-    CHECKSUM_XOR_NO_HEADER,
-    CHECKSUM_ADD_NO_HEADER,
-    CHECKSUM_XOR_ADD
 };
 
 enum PRIORITY {
@@ -134,7 +125,6 @@ protected:
     bool retry_tx_data();
     void write_tx_data();
     void dequeue_tx_data_from_devices();
-    uint16_t get_checksum(CHECKSUM checksum, const std::vector<uint8_t> &header, const std::vector<uint8_t> &data);
 protected:
     std::vector<UARTExDevice *> devices_{};
     uint16_t conf_rx_timeout_{10};
