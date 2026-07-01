@@ -1,0 +1,84 @@
+# Kocom aircon (climate) — vars: room_num, aircon_name, device_id
+# id: room_{room_num}_aircon, device 0x39
+# TODO: 패킷·command lambda 확정 후 disabled 제거
+#
+# Payload (예정, kocom README):
+#   offset 8  power  on 0x10 / off 0x00
+#   offset 9  mode   cool 0x00, fan_only 0x01, dry 0x02, auto 0x03
+#   offset 10 fan    off 0x00, low 0x01, medium 0x02, high 0x03
+#   offset 11 current temp
+#   offset 12 target temp
+platform: uartex
+name: ${aircon_name}
+id: room_${room_num}_aircon
+disabled_by_default: true
+visual:
+  min_temperature: 16 °C
+  max_temperature: 30 °C
+  temperature_step: 1 °C
+state:
+  data:
+    - 0x30
+    - 0xd0
+    - 0x00
+    - 0x39
+    - $room_num
+  mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+state_temperature_current:
+  offset: 11
+state_temperature_target:
+  offset: 12
+state_off:
+  offset: 8
+  data: [0x00]
+  mask: [0xf0]
+state_cool:
+  offset: 9
+  data: [0x00]
+state_fan_only:
+  offset: 9
+  data: [0x01]
+state_dry:
+  offset: 9
+  data: [0x02]
+state_auto:
+  offset: 9
+  data: [0x03]
+state_fan_off:
+  offset: 10
+  data: [0x00]
+state_fan_low:
+  offset: 10
+  data: [0x01]
+state_fan_medium:
+  offset: 10
+  data: [0x02]
+state_fan_high:
+  offset: 10
+  data: [0x03]
+# TODO: command_* — 패킷 확정 후 lambda 작성
+command_off: !lambda |-
+  return {};
+command_cool: !lambda |-
+  return {};
+command_fan_only: !lambda |-
+  return {};
+command_dry: !lambda |-
+  return {};
+command_auto: !lambda |-
+  return {};
+command_temperature: !lambda |-
+  return {};
+command_fan_off: !lambda |-
+  return {};
+command_fan_low: !lambda |-
+  return {};
+command_fan_medium: !lambda |-
+  return {};
+command_fan_high: !lambda |-
+  return {};
+# command_update:
+#   data: [0x30, 0xbc, 0x00, 0x39, $room_num, ...]
+#   ack: [0x30, 0xdc, 0x00, 0x39, $room_num]
+# update_interval: 2h
+device_id: ${device_id}

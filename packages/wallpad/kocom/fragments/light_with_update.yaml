@@ -1,0 +1,55 @@
+# Kocom light + command_update — vars: room_num, light_num, light_name, device_id
+# id: room_{room_num}_light_{light_num}, offset: 7 + light_num
+platform: uartex
+name: ${light_name}
+id: room_${room_num}_light_${light_num}
+state:
+  data:
+    - 0x30
+    - 0xd0
+    - 0x00
+    - 0x0e
+    - $room_num
+  mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+state_on:
+  offset: ${ 7 + light_num | int }
+  data: [0xff]
+state_off:
+  offset: ${ 7 + light_num | int }
+  data: [0x00]
+command_on: !lambda |-
+  ${ "uint8_t b8 = 0xff;" if (light_num | int) == 1 else "uint8_t b8 = id(room_${room_num}_light_${light_num}).last_state(8);" }
+  ${ "uint8_t b9 = 0xff;" if (light_num | int) == 2 else "uint8_t b9 = id(room_${room_num}_light_${light_num}).last_state(9);" }
+  ${ "uint8_t b10 = 0xff;" if (light_num | int) == 3 else "uint8_t b10 = id(room_${room_num}_light_${light_num}).last_state(10);" }
+  return {{0x30, 0xbc, 0x00, 0x0e, $room_num, 0x01, 0x00, 0x00, b8, b9, b10, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc, 0x00, 0x0e, $room_num}};
+command_off: !lambda |-
+  ${ "uint8_t b8 = 0x00;" if (light_num | int) == 1 else "uint8_t b8 = id(room_${room_num}_light_${light_num}).last_state(8);" }
+  ${ "uint8_t b9 = 0x00;" if (light_num | int) == 2 else "uint8_t b9 = id(room_${room_num}_light_${light_num}).last_state(9);" }
+  ${ "uint8_t b10 = 0x00;" if (light_num | int) == 3 else "uint8_t b10 = id(room_${room_num}_light_${light_num}).last_state(10);" }
+  return {{0x30, 0xbc, 0x00, 0x0e, $room_num, 0x01, 0x00, 0x00, b8, b9, b10, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc, 0x00, 0x0e, $room_num}};
+command_update:
+  data:
+    - 0x30
+    - 0xbc
+    - 0x00
+    - 0x0e
+    - $room_num
+    - 0x01
+    - 0x00
+    - 0x3a
+    - 0x00
+    - 0x00
+    - 0x00
+    - 0x00
+    - 0x00
+    - 0x00
+    - 0x00
+    - 0x00
+  ack:
+    - 0x30
+    - 0xdc
+    - 0x00
+    - 0x0e
+    - $room_num
+update_interval: 2h
+device_id: ${device_id}

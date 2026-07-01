@@ -1,0 +1,6 @@
+# 가스 통합 — vars: device_id
+lock:
+  - !include
+      file: gas.yaml
+      vars:
+        device_id: $device_id

@@ -1,0 +1,42 @@
+substitutions:
+  friendly_name: "Kocom Fan"
+
+esphome:
+  name: kocom-fan-validate
+  devices:
+    - id: device_kitchen
+      name: "Kitchen"
+
+esp32:
+  board: m5stack-atom
+  framework:
+    type: arduino
+
+external_components:
+  - source: github://eigger/espcomponents@latest
+    components: [ uartex ]
+
+uart:
+  baud_rate: 9600
+  rx_pin: GPIO22
+  tx_pin: GPIO19
+
+uartex:
+  rx_timeout: 10ms
+  rx_length: 21
+  tx_delay: 100ms
+  tx_timeout: 500ms
+  tx_retry_cnt: 3
+  rx_header: [0xAA, 0x55]
+  rx_footer: [0x0D, 0x0D]
+  tx_header: [0xAA, 0x55]
+  tx_footer: [0x0D, 0x0D]
+  rx_checksum: add_no_header
+  tx_checksum: add_no_header
+
+packages:
+  fan: !include
+    file: fragments/fan_package.yaml
+    vars:
+      fan_name: "Navien Ventilator"
+      device_id: device_kitchen

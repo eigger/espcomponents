@@ -1,0 +1,15 @@
+# 히터 + 온도센서 통합 — vars: room_num, name_prefix, device_id
+climate:
+  - !include
+      file: heater.yaml
+      vars:
+        room_num: $room_num
+        heater_name: ${name_prefix} Heater
+        device_id: $device_id
+sensor:
+  - !include
+      file: heater_temperature.yaml
+      vars:
+        room_num: $room_num
+        temp_name: ${name_prefix} Temperature
+        device_id: $device_id

@@ -1,0 +1,16 @@
+# 에어컨 통합 — vars: room_num, name_prefix, device_id
+# climate(에어컨) + sensor(현재온도) 한 번에 병합
+climate:
+  - !include
+      file: aircon.yaml
+      vars:
+        room_num: $room_num
+        aircon_name: ${name_prefix} Aircon
+        device_id: $device_id
+sensor:
+  - !include
+      file: aircon_temperature.yaml
+      vars:
+        room_num: $room_num
+        temp_name: ${name_prefix} Aircon Temperature
+        device_id: $device_id

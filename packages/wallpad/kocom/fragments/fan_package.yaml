@@ -1,0 +1,7 @@
+# 환기팬 통합 — vars: fan_name, device_id
+fan:
+  - !include
+      file: fan.yaml
+      vars:
+        fan_name: $fan_name
+        device_id: $device_id

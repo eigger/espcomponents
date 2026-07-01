@@ -1,0 +1,20 @@
+# Kocom heater temperature — vars: room_num, temp_name, device_id
+# 히터(0x36) 패킷 offset 12 현재온도만 읽음; id: room_{room_num}_temperature
+platform: uartex
+name: ${temp_name}
+id: room_${room_num}_temperature
+state:
+  data:
+    - 0x30
+    - 0xd0
+    - 0x00
+    - 0x36
+    - $room_num
+  mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+unit_of_measurement: "°C"
+icon: mdi:thermometer
+device_class: temperature
+state_class: measurement
+state_number:
+  offset: 12
+device_id: ${device_id}

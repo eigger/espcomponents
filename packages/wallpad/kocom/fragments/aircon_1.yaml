@@ -1,0 +1,8 @@
+# 에어컨 있음 — vars: room_num, name_prefix, device_id
+packages:
+  _aircon: !include
+    file: aircon_unit.yaml
+    vars:
+      room_num: $room_num
+      name_prefix: $name_prefix
+      device_id: $device_id

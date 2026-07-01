@@ -1,0 +1,38 @@
+substitutions:
+  friendly_name: "Aircon Stub"
+
+esphome:
+  name: kocom-aircon-stub
+  devices:
+    - id: device_livingroom
+      name: "Livingroom"
+
+esp32:
+  board: m5stack-atom
+  framework:
+    type: arduino
+
+external_components:
+  - source: github://eigger/espcomponents@latest
+    components: [ uartex ]
+
+uart:
+  baud_rate: 9600
+  rx_pin: GPIO22
+  tx_pin: GPIO19
+
+uartex:
+  rx_header: [0xAA, 0x55]
+  rx_footer: [0x0D, 0x0D]
+  tx_header: [0xAA, 0x55]
+  tx_footer: [0x0D, 0x0D]
+
+packages:
+  room: !include
+    file: fragments/room.yaml
+    vars:
+      room_num: 0
+      name_prefix: "Livingroom"
+      device_id: device_livingroom
+      light_count: 0
+      aircon: 1

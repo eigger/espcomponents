@@ -1,0 +1,11 @@
+# 엘리베이터 통합 — vars: device_id
+text_sensor:
+  - !include
+      file: elevator_state.yaml
+      vars:
+        device_id: $device_id
+switch:
+  - !include
+      file: elevator_call.yaml
+      vars:
+        device_id: $device_id

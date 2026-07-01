@@ -1,0 +1,14 @@
+# Kocom elevator state — vars: device_id
+# id: id_elevator_state (elevator_call fragment 참조)
+platform: uartex
+name: "Elevator"
+icon: mdi:elevator
+id: id_elevator_state
+state:
+  data: [0x30, 0x00, 0x00, 0x01, 0x00, 0x44, 0x00]
+  mask: [0xff, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff]
+lambda: |-
+  if (check_value(8, 0x00, data, len)) return "호출";
+  if (check_value(8, 0x03, data, len)) return "도착";
+  return "Unknown";
+device_id: ${device_id}

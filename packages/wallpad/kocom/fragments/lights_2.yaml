@@ -1,0 +1,16 @@
+# vars: room_num, name_prefix, device_id
+light:
+  - !include
+      file: light_with_update.yaml
+      vars:
+        room_num: $room_num
+        light_num: 1
+        light_name: ${name_prefix} Light 1
+        device_id: $device_id
+  - !include
+      file: light.yaml
+      vars:
+        room_num: $room_num
+        light_num: 2
+        light_name: ${name_prefix} Light 2
+        device_id: $device_id

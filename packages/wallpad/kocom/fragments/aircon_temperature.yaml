@@ -1,0 +1,23 @@
+# Kocom aircon temperature — vars: room_num, temp_name, device_id
+# 히터 센서와 동일 패턴(별도 sensor 엔티티); climate에도 온도 있음
+# id: room_{room_num}_aircon_temperature, device 0x39, offset 11
+# TODO: 패킷 확정 후 disabled 제거
+platform: uartex
+name: ${temp_name}
+id: room_${room_num}_aircon_temperature
+disabled_by_default: true
+state:
+  data:
+    - 0x30
+    - 0xd0
+    - 0x00
+    - 0x39
+    - $room_num
+  mask: [0xff, 0xf0, 0xff, 0xff, 0xff]
+unit_of_measurement: "°C"
+icon: mdi:thermometer
+device_class: temperature
+state_class: measurement
+state_number:
+  offset: 11
+device_id: ${device_id}

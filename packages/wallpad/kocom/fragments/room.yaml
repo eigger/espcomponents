@@ -1,0 +1,29 @@
+# 방 단위 통합 — vars: room_num, name_prefix, device_id, light_count, aircon
+# aircon: 0 (없음) | 1 (에어컨+온도센서)
+packages:
+  _lights: !include
+    file: lights_${light_count}.yaml
+    vars:
+      room_num: $room_num
+      name_prefix: $name_prefix
+      device_id: $device_id
+  _aircon: !include
+    file: aircon_${aircon}.yaml
+    vars:
+      room_num: $room_num
+      name_prefix: $name_prefix
+      device_id: $device_id
+climate:
+  - !include
+      file: heater.yaml
+      vars:
+        room_num: $room_num
+        heater_name: ${name_prefix} Heater
+        device_id: $device_id
+sensor:
+  - !include
+      file: heater_temperature.yaml
+      vars:
+        room_num: $room_num
+        temp_name: ${name_prefix} Temperature
+        device_id: $device_id

@@ -1,0 +1,14 @@
+substitutions:
+  friendly_name: "Kocom Theart"
+
+esphome:
+  name: kocom-theart-validate
+
+esp32:
+  board: m5stack-atom
+  framework:
+    type: arduino
+
+packages:
+  theart: !include
+    file: kocom_theart.yaml
