@@ -520,7 +520,7 @@ void UARTExComponent::set_rx_checksum(CHECKSUM checksum)
     this->rx_checksum_ = checksum;
 }
 
-void UARTExComponent::set_rx_checksum(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f)
+void UARTExComponent::set_rx_checksum(std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t *header, const uint16_t header_len)> &&f)
 {
     this->rx_checksum_f_ = f;
     this->rx_checksum_ = CHECKSUM_CUSTOM;
