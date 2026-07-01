@@ -16,54 +16,33 @@ uart:
   tx_pin: ${tx_pin}
 
 # Multi-candidate rx_header, header-aware rx_checksum, and rx_reply (static + lambda).
-# Two uartex instances in one list: headers must not merge across instances.
 uartex:
-  - id: uartex_rx_features
-    rx_timeout: 10ms
-    tx_delay: 0ms
-    tx_timeout: 500ms
-    tx_retry_cnt: 3
-    rx_length: 4
-    rx_header:
-      - [0xA0]
-      - [0xA1]
-    rx_checksum: !lambda |-
-      uint8_t crc = header[0];
-      for (size_t i = 0; i < len; i++)
-        crc ^= data[i];
-      return crc;
-    tx_checksum: xor_no_header
-    rx_reply:
-      - state: [0x51]
-        command: [0xA0, 0x51, 0x00]
-      - state: [0x52]
-        command: !lambda 'return {{0xA0, 0x52, data[1]}};'
-    version:
-      disabled: true
-    error:
-      disabled: true
-    log:
-      disabled: true
-
-  - id: uartex_single_header
-    rx_timeout: 10ms
-    tx_delay: 50ms
-    tx_timeout: 500ms
-    tx_retry_cnt: 3
-    rx_length: 4
-    rx_header: [0xB0]
-    rx_checksum: !lambda |-
-      uint8_t crc = header[0];
-      for (size_t i = 0; i < len; i++)
-        crc ^= data[i];
-      return crc;
-    tx_checksum: xor_no_header
-    version:
-      disabled: true
-    error:
-      disabled: true
-    log:
-      disabled: true
+  id: uartex_rx_features
+  rx_timeout: 10ms
+  tx_delay: 0ms
+  tx_timeout: 500ms
+  tx_retry_cnt: 3
+  rx_length: 4
+  rx_header:
+    - [0xA0]
+    - [0xA1]
+  rx_checksum: !lambda |-
+    uint8_t crc = header[0];
+    for (size_t i = 0; i < len; i++)
+      crc ^= data[i];
+    return crc;
+  tx_checksum: xor_no_header
+  rx_reply:
+    - state: [0x51]
+      command: [0xA0, 0x51, 0x00]
+    - state: [0x52]
+      command: !lambda 'return {{0xA0, 0x52, data[1]}};'
+  version:
+    disabled: true
+  error:
+    disabled: true
+  log:
+    disabled: true
 
 binary_sensor:
   - platform: uartex
@@ -74,17 +53,3 @@ binary_sensor:
       data: [0x01]
     state_off:
       data: [0x00]
-
-switch:
-  - platform: uartex
-    name: Single Header Switch
-    uartex_id: uartex_single_header
-    state: [0x10]
-    state_on:
-      data: [0x01]
-    state_off:
-      data: [0x00]
-    command_on:
-      data: [0x10, 0x01]
-    command_off:
-      data: [0x10, 0x00]
