@@ -58,11 +58,11 @@ light:
       offset: 3
       length: 1
       precision: 0
-    command_on:
-      data: [0x02, 0x03, 0x01]
-      ack: [0x02, 0x13, 0x01]
+    command_on: !lambda |-
+      uint8_t ch = id(room_0_light_1).has_last_state() ? id(room_0_light_1).last_state(2) : 0x01;
+      return {{0x02, 0x03, ch}, {0x02, 0x13, 0x01}};
     command_off: !lambda |-
-      return {{0x02, 0x03, 0x00}, {0x02, 0x13, 0x00}};
+      return {{0x02, 0x03, id(room_0_light_1).last_state(2)}, {0x02, 0x13, 0x00}};
     command_brightness:
       data: [0x02, 0x03, 0x01]
       ack: [0x02, 0x13, 0x01]
