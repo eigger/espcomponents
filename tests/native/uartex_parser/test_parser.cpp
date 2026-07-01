@@ -152,7 +152,7 @@ void test_dynamic_data_length_little_endian()
     parser.set_data_length(0, 2, false, 0);
     // header(1) + len LE 0x0300 -> 0x0003 = 3 payload bytes + footer(1) = 9
     require(feed(parser, {0xAB, 0x03, 0x00, 0x11, 0x22, 0x33, 0xEE}), "dynamic length LE: completes");
-    require_eq(parser.buffer().size(), static_cast<size_t>(7), "dynamic length LE: total size");
+    require(parser.buffer().size() == 7, "dynamic length LE: total size");
 }
 
 void test_no_footer_no_length_incomplete()
