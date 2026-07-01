@@ -13,6 +13,7 @@ jobs:
     outputs:
       matrix_json: ${{ steps.set-matrix.outputs.matrix_json }}
       run_compile: ${{ steps.set-matrix.outputs.run_compile }}
+      run_parser_native_test: ${{ steps.set-matrix.outputs.run_parser_native_test }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -43,6 +44,12 @@ jobs:
             $1 == "components" { print $2 }
             $1 == "tests" && $2 == "components" { print $3 }
           ' | sort -u)
+
+          RUN_PARSER_NATIVE_TEST=false
+          if echo "$CHANGED_FILES" | grep -qE '^(components/uartex/|tests/components/uartex/|tests/native/uartex_parser/)'; then
+            RUN_PARSER_NATIVE_TEST=true
+          fi
+          echo "run_parser_native_test=$RUN_PARSER_NATIVE_TEST" >> $GITHUB_OUTPUT
 
           # Build a JSON array of configuration files to test
           # Each item has: {"component": "comp_name", "file": "test.<target>.yaml"}
@@ -145,3 +152,16 @@ jobs:
       - name: Compile ESPHome Config
         run: |
           esphome compile "tests/components/${{ matrix.component }}/${{ matrix.file }}"
+
+  parser-native-test:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.run_parser_native_test == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Build and run parser native tests
+        run: |
+          chmod +x tests/native/uartex_parser/run.sh
+          tests/native/uartex_parser/run.sh

@@ -17,9 +17,10 @@ uartex:
   tx_delay: 0ms
   tx_timeout: 500ms
   tx_retry_cnt: 3
+  rx_length: 4
   rx_header: [0xA4]
   rx_checksum: !lambda |-
-    uint8_t crc = 0xA4;
+    uint8_t crc = header[0];
     for (size_t i = 0; i < len; i++)
       crc ^= data[i];
     if (data[0] < 0x7C) crc ^= 0x80;
@@ -30,6 +31,39 @@ uartex:
       crc ^= data[i];
     crc ^= 0x80;
     return crc;
+  rx_reply:
+    - state: [0x5A]
+      command: [0xB0, 0x5A, 0x00]
+    - state: [0x41]
+      command: !lambda |-
+        if (id(door_state) == "D_IDLE") return {{0xB0, 0x41, 0x00}};
+        if (id(door_state) == "D_CALL" || id(door_state) == "D_CALL_P") {
+          uint8_t value = id(door_state) == "D_CALL" ? 0x01 : 0x02;
+          id(door_state) = "D_CALLED";
+          return {{0xB0, 0x36, value}};
+        }
+        if (id(door_state) == "D_OPEN" || id(door_state) == "D_OPEN_P") {
+          uint8_t value = id(door_state) == "D_OPEN" ? 0x00 : 0x06;
+          id(door_state) = "D_OPENED";
+          return {{0xB0, 0x3B, value}};
+        }
+        return {{0xB0, 0x42, 0x00}};
+    - state: [0x42]
+      command: [0xB0, 0x41, 0x00]
+    - state: [0x32]
+      command: [0xB0, 0x32, 0x00]
+    - state: [0x31]
+      command: [0xB0, 0x31, 0x00]
+    - state: [0x36]
+      command: [0xB0, 0x42, 0x00]
+    - state: [0x38]
+      command: [0xB0, 0x42, 0x00]
+    - state: [0x35]
+      command: [0xB0, 0x35, 0x00]
+    - state: [0x3B]
+      command: [0xB0, 0x42, 0x00]
+    - state: [0x3E]
+      command: !lambda 'return {{0xB0, 0x3E, data[1]}};'
 
   version:
     disabled: False
@@ -91,42 +125,6 @@ globals:
   - id: door_state
     type: std::string
     initial_value: '"D_IDLE"'
-
-text_sensor:
- - platform: uartex
-   name: "Response"
-   internal: True
-   lambda: |-
-     if (data[0] == 0x5A) 
-     {
-      id(uartex_id).write_command("init", {0xB0, 0x5A, 0x00}); 
-     }
-     else if (data[0] == 0x41)
-     {
-      if (id(door_state) == "D_IDLE") id(uartex_id).write_command("query", {0xB0, 0x41, 0x00}); 
-      else if (id(door_state) == "D_CALL" || id(door_state) == "D_CALL_P") 
-      {
-        uint8_t value = id(door_state) == "D_CALL" ? 0x01 : 0x02;
-        id(uartex_id).write_command("query", {0xB0, 0x36, value}); //01현관, 02공동
-        id(door_state) = "D_CALLED";
-      }
-      else if (id(door_state) == "D_OPEN" || id(door_state) == "D_OPEN_P")
-      {
-        uint8_t value = id(door_state) == "D_OPEN" ? 0x00 : 0x06;
-        id(uartex_id).write_command("query", {0xB0, 0x3B, value}); //00현관, 06공동
-        id(door_state) = "D_OPENED";
-      }
-      else id(uartex_id).write_command("query", {0xB0, 0x42, 0x00}); 
-     }
-     else if (data[0] == 0x42) id(uartex_id).write_command("block", {0xB0, 0x41, 0x00}); 
-     else if (data[0] == 0x32) id(uartex_id).write_command("public", {0xB0, 0x32, 0x00}); 
-     else if (data[0] == 0x31) id(uartex_id).write_command("private", {0xB0, 0x31, 0x00}); 
-     else if (data[0] == 0x36) id(uartex_id).write_command("opena", {0xB0, 0x42, 0x00});
-     else if (data[0] == 0x38) id(uartex_id).write_command("vopena", {0xB0, 0x42, 0x00}); 
-     else if (data[0] == 0x35) id(uartex_id).write_command("vconna", {0xB0, 0x35, 0x00}); 
-     else if (data[0] == 0x3B) id(uartex_id).write_command("open2a", {0xB0, 0x42, 0x00}); 
-     else if (data[0] == 0x3E) id(uartex_id).write_command("end", {0xB0, 0x3E, data[1]}); //01현관, 02공동
-     return to_hex_string(data, len);
 
 button:
   - platform: template

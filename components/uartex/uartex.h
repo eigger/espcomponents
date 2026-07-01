@@ -5,6 +5,7 @@
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "uartex_device.h"
 #include "parser.h"
+#include "checksum.h"
 #include "version.h"
 namespace esphome {
 namespace uartex {
@@ -17,16 +18,6 @@ enum ERROR {
     ERROR_CHECKSUM,
     ERROR_RX_TIMEOUT,
     ERROR_TX_TIMEOUT
-};
-
-enum CHECKSUM {
-    CHECKSUM_NONE,
-    CHECKSUM_CUSTOM,
-    CHECKSUM_XOR,
-    CHECKSUM_ADD,
-    CHECKSUM_XOR_NO_HEADER,
-    CHECKSUM_ADD_NO_HEADER,
-    CHECKSUM_XOR_ADD
 };
 
 enum PRIORITY {
@@ -58,16 +49,25 @@ struct rx_data_length_t
     int8_t adjust{0};
 };
 
+struct rx_reply_t
+{
+    state_t state;
+    cmd_t command;
+    optional<std::function<cmd_t(const uint8_t *data, const uint16_t len)>> command_f{};
+};
+
 class UARTExComponent : public uart::UARTDevice, public Component
 {
 public:
     UARTExComponent() = default;
-    void set_rx_header(header_t header);
+    void add_rx_header(header_t header);
+    void add_rx_reply(state_t state, cmd_t command);
+    void add_rx_reply(state_t state, std::function<cmd_t(const uint8_t *data, const uint16_t len)> &&command_f);
     void set_rx_footer(std::vector<uint8_t> footer);
     void set_tx_header(std::vector<uint8_t> header);
     void set_tx_footer(std::vector<uint8_t> footer);
     void set_rx_checksum(CHECKSUM checksum);
-    void set_rx_checksum(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f);
+    void set_rx_checksum(std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t *header, const uint16_t header_len)> &&f);
     void set_tx_checksum(CHECKSUM checksum);
     void set_tx_checksum(std::function<uint8_t(const uint8_t *data, const uint16_t len)> &&f);
     void set_rx_checksum_2(CHECKSUM checksum);
@@ -101,6 +101,7 @@ public:
     void set_rx_timeout(uint16_t timeout);
     void set_tx_ctrl_pin(InternalGPIOPin *pin);
     void enqueue_tx_data(const tx_data_t data, bool low_priority = false);
+    void enqueue_tx_reply(const tx_data_t data);
     void write_command(cmd_t cmd);
 protected:
     bool is_tx_cmd_pending();
@@ -118,12 +119,12 @@ protected:
     bool parse_bytes();
     void publish_to_devices();
     bool verify_ack();
+    void process_rx_reply();
     void publish_data();
     void write_to_uart();
     bool retry_tx_data();
     void write_tx_data();
     void dequeue_tx_data_from_devices();
-    uint16_t get_checksum(CHECKSUM checksum, const std::vector<uint8_t> &header, const std::vector<uint8_t> &data);
 protected:
     std::vector<UARTExDevice *> devices_{};
     uint16_t conf_rx_timeout_{10};
@@ -133,14 +134,15 @@ protected:
     uint16_t conf_tx_command_queue_size_{10};
     uint16_t conf_rx_length_{0};
     optional<rx_data_length_t> conf_rx_data_length_{};
-    optional<header_t> rx_header_{};
+    std::vector<header_t> rx_headers_{};
+    std::vector<rx_reply_t> rx_reply_{};
     optional<std::vector<uint8_t>> rx_footer_{};
     optional<std::vector<uint8_t>> tx_header_{};
     optional<std::vector<uint8_t>> tx_footer_{};
     PRIORITY rx_priority_{PRIORITY_DATA};
     CHECKSUM rx_checksum_{CHECKSUM_NONE};
     CHECKSUM tx_checksum_{CHECKSUM_NONE};
-    optional<std::function<uint8_t(const uint8_t *data, const uint16_t len)>> rx_checksum_f_{};
+    optional<std::function<uint8_t(const uint8_t *data, const uint16_t len, const uint8_t *header, const uint16_t header_len)>> rx_checksum_f_{};
     optional<std::function<uint8_t(const uint8_t *data, const uint16_t len)>> tx_checksum_f_{};
     CHECKSUM rx_checksum_2_{CHECKSUM_NONE};
     CHECKSUM tx_checksum_2_{CHECKSUM_NONE};
@@ -151,6 +153,7 @@ protected:
     ERROR error_code_{ERROR_NONE};
     CallbackManager<void(const ERROR)> error_callback_{};
     std::queue<tx_data_t> tx_queue_{};
+    std::queue<tx_data_t> tx_queue_reply_{};
     std::queue<tx_data_t> tx_queue_low_priority_{};
     tx_data_t current_tx_data_{nullptr, nullptr};
     bool rx_processing_{false};
