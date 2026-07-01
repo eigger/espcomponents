@@ -37,12 +37,6 @@ uartex:
       command: [0xA0, 0x51, 0x00]
     - state: [0x52]
       command: !lambda 'return {{0xA0, 0x52, data[1]}};'
-  version:
-    disabled: true
-  error:
-    disabled: true
-  log:
-    disabled: true
 
 binary_sensor:
   - platform: uartex
