@@ -67,3 +67,5 @@ The onboard GC0308 camera on the AtomS3R-M12 uses the following pin map:
 | <img src="../../documents/scale/3.jpg" width="400"> | **3. With Food Bowl**: The assembled Lego scale structure with the pet food bowl placed on it. |
 | <img src="../../documents/scale/4.jpg" width="400"> | **4. Placement (No Bowl)**: The setup positioned at the actual feeding spot (without the bowl). |
 | <img src="../../documents/scale/5.jpg" width="400"> | **5. Final Setup**: The final setup positioned at the actual feeding spot with the food bowl ready. |
+| <img src="../../documents/scale/6.png" width="400"> | **6. Home Assistant Dashboard**: Real-time entities, controls, and sensor values displayed in the Home Assistant UI. |
+
