@@ -32,6 +32,7 @@ class M5UnitScalesComponent : public PollingComponent, public i2c::I2CDevice {
   // Setters for platform items
   void set_weight_sensor(sensor::Sensor *weight_sensor) { weight_sensor_ = weight_sensor; }
   void set_raw_adc_sensor(sensor::Sensor *raw_adc_sensor) { raw_adc_sensor_ = raw_adc_sensor; }
+  void set_absolute_weight_sensor(sensor::Sensor *absolute_weight_sensor) { absolute_weight_sensor_ = absolute_weight_sensor; }
   void set_button_sensor(binary_sensor::BinarySensor *button_sensor) { button_sensor_ = button_sensor; }
   
   // Custom platform wrappers
@@ -55,6 +56,10 @@ class M5UnitScalesComponent : public PollingComponent, public i2c::I2CDevice {
 
   sensor::Sensor *weight_sensor_{nullptr};
   sensor::Sensor *raw_adc_sensor_{nullptr};
+  sensor::Sensor *absolute_weight_sensor_{nullptr};
+
+  float tare_offset_{0.0f};
+  float last_read_weight_{0.0f};
   binary_sensor::BinarySensor *button_sensor_{nullptr};
   button::Button *tare_button_{nullptr};
   switch_::Switch *lp_filter_switch_{nullptr};
