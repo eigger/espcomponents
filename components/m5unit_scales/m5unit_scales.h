@@ -1,14 +1,28 @@
 #pragma once
 
 #include "esphome/core/component.h"
+#include "esphome/core/defines.h"
+#include "esphome/components/i2c/i2c.h"
+
+#ifdef USE_SENSOR
 #include "esphome/components/sensor/sensor.h"
+#endif
+#ifdef USE_BINARY_SENSOR
 #include "esphome/components/binary_sensor/binary_sensor.h"
+#endif
+#ifdef USE_BUTTON
 #include "esphome/components/button/button.h"
+#endif
+#ifdef USE_LIGHT
 #include "esphome/components/light/light_output.h"
 #include "esphome/components/light/light_state.h"
+#endif
+#ifdef USE_SWITCH
 #include "esphome/components/switch/switch.h"
+#endif
+#ifdef USE_NUMBER
 #include "esphome/components/number/number.h"
-#include "esphome/components/i2c/i2c.h"
+#endif
 
 namespace esphome {
 namespace m5unit_scales {
@@ -30,18 +44,30 @@ class M5UnitScalesComponent : public PollingComponent, public i2c::I2CDevice {
   void set_model(M5UnitScalesModel model) { model_ = model; }
 
   // Setters for platform items
+#ifdef USE_SENSOR
   void set_weight_sensor(sensor::Sensor *weight_sensor) { weight_sensor_ = weight_sensor; }
   void set_raw_adc_sensor(sensor::Sensor *raw_adc_sensor) { raw_adc_sensor_ = raw_adc_sensor; }
   void set_absolute_weight_sensor(sensor::Sensor *absolute_weight_sensor) { absolute_weight_sensor_ = absolute_weight_sensor; }
+#endif
+#ifdef USE_BINARY_SENSOR
   void set_button_sensor(binary_sensor::BinarySensor *button_sensor) { button_sensor_ = button_sensor; }
+#endif
   
   // Custom platform wrappers
+#ifdef USE_BUTTON
   void set_tare_button(button::Button *tare_button) { tare_button_ = tare_button; }
+#endif
+#ifdef USE_SWITCH
   void set_lp_filter_switch(switch_::Switch *lp_filter_switch) { lp_filter_switch_ = lp_filter_switch; }
+#endif
+#ifdef USE_NUMBER
   void set_avg_filter_number(number::Number *avg_filter_number) { avg_filter_number_ = avg_filter_number; }
   void set_ema_filter_number(number::Number *ema_filter_number) { ema_filter_number_ = ema_filter_number; }
   void set_gap_number(number::Number *gap_number) { gap_number_ = gap_number; }
+#endif
+#ifdef USE_LIGHT
   void set_led_light(light::LightOutput *led_light) { led_light_ = led_light; }
+#endif
 
   // API methods called by wrapper entities
   void tare();
@@ -54,19 +80,32 @@ class M5UnitScalesComponent : public PollingComponent, public i2c::I2CDevice {
  protected:
   M5UnitScalesModel model_{M5UNIT_SCALES_MODEL_MINI};
 
+#ifdef USE_SENSOR
   sensor::Sensor *weight_sensor_{nullptr};
   sensor::Sensor *raw_adc_sensor_{nullptr};
   sensor::Sensor *absolute_weight_sensor_{nullptr};
+#endif
 
   float tare_offset_{0.0f};
   float last_read_weight_{0.0f};
+
+#ifdef USE_BINARY_SENSOR
   binary_sensor::BinarySensor *button_sensor_{nullptr};
+#endif
+#ifdef USE_BUTTON
   button::Button *tare_button_{nullptr};
+#endif
+#ifdef USE_SWITCH
   switch_::Switch *lp_filter_switch_{nullptr};
+#endif
+#ifdef USE_NUMBER
   number::Number *avg_filter_number_{nullptr};
   number::Number *ema_filter_number_{nullptr};
   number::Number *gap_number_{nullptr};
+#endif
+#ifdef USE_LIGHT
   light::LightOutput *led_light_{nullptr};
+#endif
 
   uint32_t last_button_poll_{0};
   bool initial_sync_done_{false};
@@ -74,6 +113,7 @@ class M5UnitScalesComponent : public PollingComponent, public i2c::I2CDevice {
 
 // C++ Platform Wrappers
 
+#ifdef USE_BUTTON
 class M5UnitScalesTareButton : public button::Button {
  public:
   void set_parent(M5UnitScalesComponent *parent) { parent_ = parent; }
@@ -81,7 +121,9 @@ class M5UnitScalesTareButton : public button::Button {
  protected:
   M5UnitScalesComponent *parent_;
 };
+#endif
 
+#ifdef USE_SWITCH
 class M5UnitScalesLPFilterSwitch : public switch_::Switch {
  public:
   void set_parent(M5UnitScalesComponent *parent) { parent_ = parent; }
@@ -92,7 +134,9 @@ class M5UnitScalesLPFilterSwitch : public switch_::Switch {
  protected:
   M5UnitScalesComponent *parent_;
 };
+#endif
 
+#ifdef USE_NUMBER
 class M5UnitScalesAvgFilterNumber : public number::Number {
  public:
   void set_parent(M5UnitScalesComponent *parent) { parent_ = parent; }
@@ -125,7 +169,9 @@ class M5UnitScalesGapNumber : public number::Number {
  protected:
   M5UnitScalesComponent *parent_;
 };
+#endif
 
+#ifdef USE_LIGHT
 class M5UnitScalesLED : public light::LightOutput {
  public:
   void set_parent(M5UnitScalesComponent *parent) { parent_ = parent; }
@@ -145,6 +191,7 @@ class M5UnitScalesLED : public light::LightOutput {
  protected:
   M5UnitScalesComponent *parent_;
 };
+#endif
 
 }  // namespace m5unit_scales
 }  // namespace esphome

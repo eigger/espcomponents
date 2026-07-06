@@ -48,10 +48,14 @@ void M5UnitScalesComponent::dump_config() {
   if (this->is_failed()) {
     ESP_LOGCONFIG(TAG, "  Connection failed!");
   }
+#ifdef USE_SENSOR
   LOG_SENSOR("  ", "Weight", this->weight_sensor_);
   LOG_SENSOR("  ", "Absolute Weight", this->absolute_weight_sensor_);
   LOG_SENSOR("  ", "Raw ADC", this->raw_adc_sensor_);
+#endif
+#ifdef USE_BINARY_SENSOR
   LOG_BINARY_SENSOR("  ", "Button", this->button_sensor_);
+#endif
 }
 
 float M5UnitScalesComponent::get_setup_priority() const {
@@ -67,6 +71,7 @@ void M5UnitScalesComponent::update() {
   if (this->model_ == M5UNIT_SCALES_MODEL_MINI && !this->initial_sync_done_) {
     this->initial_sync_done_ = true;
 
+#ifdef USE_SWITCH
     // LP Filter State
     uint8_t lp_val = 0;
     if (this->read_byte(REG_MINI_FILTER_BASE, &lp_val)) {
@@ -74,7 +79,9 @@ void M5UnitScalesComponent::update() {
         this->lp_filter_switch_->publish_state(lp_val != 0);
       }
     }
+#endif
 
+#ifdef USE_NUMBER
     // Avg Filter Value
     uint8_t avg_val = 0;
     if (this->read_byte(REG_MINI_FILTER_BASE + 1, &avg_val)) {
@@ -100,19 +107,25 @@ void M5UnitScalesComponent::update() {
         this->gap_number_->publish_state(gap);
       }
     }
+#endif
   } else if (this->model_ == M5UNIT_SCALES_MODEL_STANDARD && !this->initial_sync_done_) {
     this->initial_sync_done_ = true;
+#ifdef USE_SWITCH
     if (this->lp_filter_switch_ != nullptr) {
       ESP_LOGW(TAG, "Low Pass Filter switch is only supported on MINI model.");
     }
+#endif
+#ifdef USE_NUMBER
     if (this->avg_filter_number_ != nullptr || this->ema_filter_number_ != nullptr) {
       ESP_LOGW(TAG, "Average and EMA filter numbers are only supported on MINI model.");
     }
     if (this->gap_number_ != nullptr) {
       ESP_LOGW(TAG, "Gap calibration number is only supported on MINI model. Use manual tare/zero calibration for STANDARD.");
     }
+#endif
   }
 
+#ifdef USE_SENSOR
   // Read Weight
   if (this->weight_sensor_ != nullptr || this->absolute_weight_sensor_ != nullptr) {
     uint8_t data[4];
@@ -174,9 +187,11 @@ void M5UnitScalesComponent::update() {
       }
     }
   }
+#endif
 }
 
 void M5UnitScalesComponent::loop() {
+#ifdef USE_BINARY_SENSOR
   if (this->is_failed() || this->button_sensor_ == nullptr) {
     return;
   }
@@ -235,6 +250,7 @@ void M5UnitScalesComponent::loop() {
       this->button_sensor_->publish_state(pressed);
     }
   }
+#endif
 }
 
 void M5UnitScalesComponent::tare() {
