@@ -77,4 +77,9 @@
 
 ---
 
-
+## [m5unit_scales](/components/m5unit_scales)
+**M5Unit-Scales Component**  
+- Supports M5Stack Unit-Mini Scales (SKU: U177) and Unit Scales.
+- Allows weight measurements, LED control, button monitoring, calibration, and filter settings over I2C.
+- Product images:  
+  <img src="https://static-cdn.m5stack.com/resource/docs/products/unit/Unit-Mini%20Scales/img-e124306a-177f-4385-996d-18f10f928040.webp" width="200" alt="Unit-Mini Scales"> <img src="https://static-cdn.m5stack.com/resource/docs/products/unit/UNIT%20Scales/img-22f5b336-4142-40f9-90ad-a99eaefeea09.webp" width="200" alt="Unit Scales">
