@@ -1,0 +1,121 @@
+ 
+esphome:
+  on_boot:
+    priority: 800
+    then:
+      - switch.turn_on: init_camera
+      - delay: 1500ms
+        
+esp32:
+  variant: esp32s3
+  framework:
+    type: esp-idf
+
+psram:
+  mode: octal
+  speed: 80MHz 
+
+i2c:
+  - id: scale
+    sda: GPIO2
+    scl: GPIO1
+    frequency: 100kHz
+
+  - id: camera_i2c
+    sda: GPIO12 # CAM_SDA
+    scl: GPIO9 # CAM_SCL
+    frequency: 100kHz  
+    #timeout: 10ms        
+    #scan: true    
+
+esp32_camera:
+  setup_priority: -200 # delay after GPIO18 was set to low
+  i2c_id: camera_i2c
+  vsync_pin: GPIO10 # VSYNC
+  href_pin: GPIO14 # HREF
+  external_clock: # XCLK
+    pin: GPIO21
+    frequency: 20MHz
+  pixel_clock_pin: GPIO40 # PCLK
+  data_pins: [GPIO3, GPIO42, GPIO46, GPIO48, GPIO4, GPIO17, GPIO11, GPIO13] # Y2-9
+
+  # Image settings
+  name: Camera
+  max_framerate: 2.0 fps
+  resolution: 320x240
+  frame_buffer_count: 1
+  #frame_buffer_location: DRAM
+  frame_buffer_location: PSRAM
+  pixel_format: YUV422
+  jpeg_quality: 6
+  agc_mode: manual
+  vertical_flip: true
+  horizontal_mirror: false
+
+external_components:
+  - source: github://eigger/espcomponents@latest
+    components: [ m5unit_scales ]
+    refresh: always
+
+m5unit_scales:
+  i2c_id: scale
+  model: MINI  # MINI (Unit-Mini Scales) or STANDARD (Unit Scales)
+  address: 0x26
+  update_interval: 2s
+
+# Exposed Sensors
+sensor:
+  - platform: m5unit_scales
+    absolute_weight:
+      name: "Absolute Weight"
+      filters:
+        - or:
+          - delta: 1.0
+          - heartbeat: 30s
+    weight:
+      name: "Weight"
+      filters:
+        - or:
+          - delta: 1.0
+          - heartbeat: 30s
+#    raw_adc:
+#      name: "Raw ADC"
+
+# Binary Sensor for physical button
+binary_sensor:
+  - platform: m5unit_scales
+    button:
+      name: "Button"
+
+# Tare Trigger
+button:
+  - platform: m5unit_scales
+    tare:
+      name: "Tare"
+
+# RGB LED Output
+light:
+  - platform: m5unit_scales
+    name: "LED"
+
+# Filter Controls (Only supported/used on MINI model)
+switch:
+  - platform: gpio
+    id: init_camera
+    pin:
+      number: GPIO18
+      inverted: true
+    restore_mode: ALWAYS_ON
+    internal: true
+  - platform: m5unit_scales
+    lp_filter:
+      name: "LP Filter"
+
+number:
+  - platform: m5unit_scales
+    avg_filter:
+      name: "Avg Filter"
+    ema_filter:
+      name: "EMA Filter"
+    gap:
+      name: "Gap Value"
