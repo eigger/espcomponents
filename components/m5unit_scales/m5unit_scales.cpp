@@ -1,6 +1,7 @@
 #include "m5unit_scales.h"
 #include "esphome/core/log.h"
 #include "esphome/core/hal.h"
+#include <cmath>
 
 namespace esphome {
 namespace m5unit_scales {
@@ -47,9 +48,14 @@ void M5UnitScalesComponent::dump_config() {
   if (this->is_failed()) {
     ESP_LOGCONFIG(TAG, "  Connection failed!");
   }
+#ifdef USE_SENSOR
   LOG_SENSOR("  ", "Weight", this->weight_sensor_);
+  LOG_SENSOR("  ", "Absolute Weight", this->absolute_weight_sensor_);
   LOG_SENSOR("  ", "Raw ADC", this->raw_adc_sensor_);
+#endif
+#ifdef USE_BINARY_SENSOR
   LOG_BINARY_SENSOR("  ", "Button", this->button_sensor_);
+#endif
 }
 
 float M5UnitScalesComponent::get_setup_priority() const {
@@ -65,6 +71,7 @@ void M5UnitScalesComponent::update() {
   if (this->model_ == M5UNIT_SCALES_MODEL_MINI && !this->initial_sync_done_) {
     this->initial_sync_done_ = true;
 
+#ifdef USE_SWITCH
     // LP Filter State
     uint8_t lp_val = 0;
     if (this->read_byte(REG_MINI_FILTER_BASE, &lp_val)) {
@@ -72,7 +79,9 @@ void M5UnitScalesComponent::update() {
         this->lp_filter_switch_->publish_state(lp_val != 0);
       }
     }
+#endif
 
+#ifdef USE_NUMBER
     // Avg Filter Value
     uint8_t avg_val = 0;
     if (this->read_byte(REG_MINI_FILTER_BASE + 1, &avg_val)) {
@@ -98,27 +107,39 @@ void M5UnitScalesComponent::update() {
         this->gap_number_->publish_state(gap);
       }
     }
+#endif
   } else if (this->model_ == M5UNIT_SCALES_MODEL_STANDARD && !this->initial_sync_done_) {
     this->initial_sync_done_ = true;
+#ifdef USE_SWITCH
     if (this->lp_filter_switch_ != nullptr) {
       ESP_LOGW(TAG, "Low Pass Filter switch is only supported on MINI model.");
     }
+#endif
+#ifdef USE_NUMBER
     if (this->avg_filter_number_ != nullptr || this->ema_filter_number_ != nullptr) {
       ESP_LOGW(TAG, "Average and EMA filter numbers are only supported on MINI model.");
     }
     if (this->gap_number_ != nullptr) {
       ESP_LOGW(TAG, "Gap calibration number is only supported on MINI model. Use manual tare/zero calibration for STANDARD.");
     }
+#endif
   }
 
+#ifdef USE_SENSOR
   // Read Weight
-  if (this->weight_sensor_ != nullptr) {
+  if (this->weight_sensor_ != nullptr || this->absolute_weight_sensor_ != nullptr) {
     uint8_t data[4];
     if (this->model_ == M5UNIT_SCALES_MODEL_MINI) {
       if (this->read_bytes(REG_MINI_CAL_DATA, data, 4)) {
         float weight = 0.0f;
         memcpy(&weight, data, 4);
-        this->weight_sensor_->publish_state(weight);
+        this->last_read_weight_ = weight;
+        if (this->weight_sensor_ != nullptr) {
+          this->weight_sensor_->publish_state(weight);
+        }
+        if (this->absolute_weight_sensor_ != nullptr) {
+          this->absolute_weight_sensor_->publish_state(weight + this->tare_offset_);
+        }
       } else {
         ESP_LOGW(TAG, "Failed to read weight data.");
       }
@@ -130,7 +151,13 @@ void M5UnitScalesComponent::update() {
                              ((int32_t)data[2] << 8) | 
                              data[3];
         float weight = (float)weight_raw / 100.0f;
-        this->weight_sensor_->publish_state(weight);
+        this->last_read_weight_ = weight;
+        if (this->weight_sensor_ != nullptr) {
+          this->weight_sensor_->publish_state(weight);
+        }
+        if (this->absolute_weight_sensor_ != nullptr) {
+          this->absolute_weight_sensor_->publish_state(weight + this->tare_offset_);
+        }
       } else {
         ESP_LOGW(TAG, "Failed to read weight data.");
       }
@@ -160,9 +187,11 @@ void M5UnitScalesComponent::update() {
       }
     }
   }
+#endif
 }
 
 void M5UnitScalesComponent::loop() {
+#ifdef USE_BINARY_SENSOR
   if (this->is_failed() || this->button_sensor_ == nullptr) {
     return;
   }
@@ -176,13 +205,86 @@ void M5UnitScalesComponent::loop() {
     if (this->read_byte(reg, &btn_val)) {
       // 0 = pressed, 1 = no press
       bool pressed = (btn_val == 0);
+      
+      // Detect rising edge of physical button press
+      if (pressed && !this->button_sensor_->state) {
+        // Physical button transition to pressed.
+        // The hardware will trigger a tare internally. Update tare_offset_ in software.
+        float current_weight = 0.0f;
+        bool read_success = false;
+        uint8_t data[4];
+        if (this->model_ == M5UNIT_SCALES_MODEL_MINI) {
+          if (this->read_bytes(REG_MINI_CAL_DATA, data, 4)) {
+            memcpy(&current_weight, data, 4);
+            read_success = true;
+          }
+        } else {
+          if (this->read_bytes(REG_STD_CAL_DATA, data, 4)) {
+            int32_t weight_raw = ((int32_t)data[0] << 24) | 
+                                 ((int32_t)data[1] << 16) | 
+                                 ((int32_t)data[2] << 8) | 
+                                 data[3];
+            current_weight = (float)weight_raw / 100.0f;
+            read_success = true;
+          }
+        }
+        
+        float weight_to_add = 0.0f;
+        if (read_success) {
+          // If the hardware hasn't zeroed the value yet, we use the on-demand read value.
+          // However, if the hardware already tared and returns ~0, but our last_read_weight_ was significant,
+          // we fall back to last_read_weight_.
+          if (std::abs(current_weight) < 0.01f && std::abs(this->last_read_weight_) > 0.1f) {
+            weight_to_add = this->last_read_weight_;
+          } else {
+            weight_to_add = current_weight;
+          }
+        } else {
+          weight_to_add = this->last_read_weight_;
+        }
+        
+        this->tare_offset_ += weight_to_add;
+        ESP_LOGD(TAG, "Physical button pressed, updated tare offset to %.2f (added %.2f)", this->tare_offset_, weight_to_add);
+      }
+      
       this->button_sensor_->publish_state(pressed);
     }
   }
+#endif
 }
 
 void M5UnitScalesComponent::tare() {
   ESP_LOGI(TAG, "Executing tare / zero calibration...");
+
+  // Read current weight before tare command to update tare_offset_ in software
+  float current_weight = 0.0f;
+  bool read_success = false;
+  uint8_t data[4];
+  if (this->model_ == M5UNIT_SCALES_MODEL_MINI) {
+    if (this->read_bytes(REG_MINI_CAL_DATA, data, 4)) {
+      memcpy(&current_weight, data, 4);
+      read_success = true;
+    }
+  } else {
+    if (this->read_bytes(REG_STD_CAL_DATA, data, 4)) {
+      int32_t weight_raw = ((int32_t)data[0] << 24) | 
+                           ((int32_t)data[1] << 16) | 
+                           ((int32_t)data[2] << 8) | 
+                           data[3];
+      current_weight = (float)weight_raw / 100.0f;
+      read_success = true;
+    }
+  }
+
+  if (read_success) {
+    this->tare_offset_ += current_weight;
+    ESP_LOGD(TAG, "Software tare triggered, updated tare offset to %.2f (added %.2f)", this->tare_offset_, current_weight);
+  } else {
+    // If on-demand read failed, fall back to last_read_weight_
+    this->tare_offset_ += this->last_read_weight_;
+    ESP_LOGW(TAG, "Failed to read current weight synchronously, fell back to last read weight: %.2f", this->last_read_weight_);
+  }
+
   uint8_t cmd = 1;
   uint8_t reg = (this->model_ == M5UNIT_SCALES_MODEL_MINI) ? REG_MINI_SET_OFFSET : REG_STD_SET_OFFSET;
   if (!this->write_byte(reg, cmd)) {

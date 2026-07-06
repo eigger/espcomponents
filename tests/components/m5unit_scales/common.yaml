@@ -24,6 +24,8 @@ sensor:
   - platform: m5unit_scales
     weight:
       name: "Scale Weight"
+    absolute_weight:
+      name: "Scale Absolute Weight"
     raw_adc:
       name: "Scale Raw ADC"
 
