@@ -133,7 +133,7 @@ async def register_ble_elm327_device(var, config):
                 (cg.uint8, "d"),
                 (cg.uint8, "e"),
                 (cg.uint8, "f"),
-                (vector_uint8.operator("const").operator("&"), "x"),
+                (vector_uint8.operator("const").operator("ref"), "x"),
             ],
             return_type=cg.float_,
         )
