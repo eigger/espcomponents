@@ -590,23 +590,44 @@ The component strips the first **3 bytes** (response code + 2-byte PID echo) and
 
 ## Formula Lambda
 
-The `formula` lambda receives up to four `uint8_t` arguments — `a`, `b`, `c`, `d` — corresponding to the first four payload bytes after header stripping. Parameters beyond the actual response length default to `0`. The lambda must return a `float`.
+The `formula` lambda receives the following arguments:
+- `a`, `b`, `c`, `d`, `e`, `f`: The first six payload bytes (`uint8_t`) after header/echo stripping (defaulting to `0` if the response is shorter than the index).
+- `x`: A `const std::vector<uint8_t> &` containing the full vector of all parsed payload bytes. This is particularly useful for accessing bytes beyond the 6th byte (index 5) in long responses.
 
+The lambda must return a `float`.
+
+### Examples
+
+#### Single byte
 ```yaml
-formula: "return a;"                                  # single byte
+formula: "return a;"
 ```
 
+#### 2-byte big-endian ÷ 4
 ```yaml
-formula: "return (a * 256.0f + b) / 4.0f;"           # 2-byte big-endian ÷ 4
+formula: "return (a * 256.0f + b) / 4.0f;"
 ```
 
+#### 4-byte big-endian ÷ 10
 ```yaml
 formula: |-
   uint32_t raw = ((uint32_t)a << 24)
                | ((uint32_t)b << 16)
                | ((uint32_t)c <<  8)
                |  (uint32_t)d;
-  return raw / 10.0f;                                 # 4-byte big-endian ÷ 10
+  return raw / 10.0f;
+```
+
+#### Accessing 5th and 6th bytes (using e and f)
+If you are querying a multiline PID and need to access the 5th and 6th payload bytes (index 4 and 5, corresponding to bits 32-47 of the parsed payload):
+```yaml
+formula: "return (e * 256.0f + f);"
+```
+
+#### Accessing arbitrary bytes beyond the 6th byte
+If you need to access bytes beyond the 6th byte (e.g. index 6):
+```yaml
+formula: "return x[6];"
 ```
 
 When no `formula` is provided the component concatenates all received payload bytes as a big-endian integer.

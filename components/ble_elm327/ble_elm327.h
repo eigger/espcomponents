@@ -39,7 +39,7 @@ class BleElm327Device : public PollingComponent {
 
   void set_pid(const std::string &pid) { pid_ = pid; }
   void set_mode(const std::string &mode) { mode_ = mode; }
-  void set_formula(std::function<float(uint8_t, uint8_t, uint8_t, uint8_t)> f) { formula_ = f; }
+  void set_formula(std::function<float(uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, const std::vector<uint8_t> &)> f) { formula_ = f; }
   void add_pre_command(const std::string &cmd) { pre_commands_.push_back(cmd + "\r"); }
   const std::vector<std::string> &get_pre_commands() const { return pre_commands_; }
 
@@ -62,7 +62,7 @@ class BleElm327Device : public PollingComponent {
   std::string pid_;
   std::string mode_{"01"};
   std::vector<std::string> pre_commands_;
-  optional<std::function<float(uint8_t, uint8_t, uint8_t, uint8_t)>> formula_;
+  optional<std::function<float(uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, const std::vector<uint8_t> &)>> formula_;
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -134,6 +134,8 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
   uint32_t tx_delay_ms_{50};
   uint32_t last_tx_time_{0};
 
+  std::string rx_buffer_;
+  std::string last_sent_command_;
 };
 
 }  // namespace ble_elm327

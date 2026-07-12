@@ -37,3 +37,11 @@ sensor:
     update_interval: 1s
     formula: "return a;"
     unit_of_measurement: "km/h"
+
+  - platform: ble_elm327
+    name: "Multiline Test Sensor"
+    pid: "E002"
+    mode: "22"
+    update_interval: 5s
+    formula: "return (e * 256.0f + f + x[6]);"
+    unit_of_measurement: "V"
