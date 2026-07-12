@@ -17,6 +17,7 @@ MULTI_CONF = True
 
 
 ble_elm327_ns = cg.esphome_ns.namespace("ble_elm327")
+vector_uint8 = cg.std_vector.template(cg.uint8)
 # Component is NOT a PollingComponent — per-device polling only
 BleElm327Component = ble_elm327_ns.class_(
     "BleElm327Component", cg.Component, ble_client.BLEClientNode
@@ -125,7 +126,15 @@ async def register_ble_elm327_device(var, config):
     if CONF_FORMULA in config:
         formula_ = await cg.process_lambda(
             config[CONF_FORMULA],
-            [(cg.uint8, "a"), (cg.uint8, "b"), (cg.uint8, "c"), (cg.uint8, "d")],
+            [
+                (cg.uint8, "a"),
+                (cg.uint8, "b"),
+                (cg.uint8, "c"),
+                (cg.uint8, "d"),
+                (cg.uint8, "e"),
+                (cg.uint8, "f"),
+                (vector_uint8.operator("const").operator("ref"), "x"),
+            ],
             return_type=cg.float_,
         )
         cg.add(var.set_formula(formula_))

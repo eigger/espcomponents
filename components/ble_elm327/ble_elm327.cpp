@@ -50,7 +50,9 @@ float BleElm327Device::parse_float(const std::vector<uint8_t> &data) {
     uint8_t b = data.size() > 1 ? data[1] : 0;
     uint8_t c = data.size() > 2 ? data[2] : 0;
     uint8_t d = data.size() > 3 ? data[3] : 0;
-    return (*formula_)(a, b, c, d);
+    uint8_t e = data.size() > 4 ? data[4] : 0;
+    uint8_t f = data.size() > 5 ? data[5] : 0;
+    return (*formula_)(a, b, c, d, e, f, data);
   }
   float val = 0;
   for (size_t i = 0; i < data.size(); i++) val = val * 256.0f + data[i];
@@ -157,6 +159,8 @@ void BleElm327Component::gattc_event_handler(esp_gattc_cb_event_t event, esp_gat
       while (!tx_queue_.empty()) tx_queue_.pop();
       for (auto *d : devices_) d->on_dequeue();
       current_pre_commands_.clear();
+      rx_buffer_.clear();
+      last_sent_command_.clear();
       ESP_LOGW(TAG, "Disconnected from ELM327");
       break;
 
@@ -214,12 +218,18 @@ bool BleElm327Component::send_command(const std::string &cmd) {
   chr->write_value(reinterpret_cast<uint8_t *>(const_cast<char *>(cmd.data())), cmd.size(),
                    ESP_GATT_WRITE_TYPE_NO_RSP);
   ESP_LOGD(TAG, ">> %s", cmd.c_str());
+  last_sent_command_ = normalize_command(cmd);
   return true;
 }
 
 void BleElm327Component::on_notify(const uint8_t *data, uint16_t length) {
-  std::string resp(reinterpret_cast<const char *>(data), length);
-  process_response(resp);
+  rx_buffer_.append(reinterpret_cast<const char *>(data), length);
+  size_t pos;
+  while ((pos = rx_buffer_.find('>')) != std::string::npos) {
+    std::string response = rx_buffer_.substr(0, pos);
+    rx_buffer_.erase(0, pos + 1);
+    process_response(response);
+  }
 }
 
 void BleElm327Component::process_response(const std::string &response) {
@@ -227,12 +237,78 @@ void BleElm327Component::process_response(const std::string &response) {
 
   if (elm_state_ != ElmState::READY) return;
 
-  const std::string &resp = response;
+  // Split response by carriage return / newline
+  std::vector<std::string> lines;
+  size_t start = 0;
+  while (start < response.size()) {
+    size_t end = response.find_first_of("\r\n", start);
+    if (end == std::string::npos) {
+      lines.push_back(response.substr(start));
+      break;
+    }
+    if (end > start) {
+      lines.push_back(response.substr(start, end - start));
+    }
+    start = end + 1;
+  }
 
-  // Strip whitespace, CR, LF, '>' — works with both ATS0 (compact) and default (spaced) format
-  std::string hex;
-  for (char c : resp)
-    if (isxdigit(static_cast<unsigned char>(c))) hex += c;
+  std::string multiline_hex;
+  std::string singleline_hex;
+
+  for (const auto &raw_line : lines) {
+    // Trim leading/trailing whitespace
+    std::string line = raw_line;
+    line.erase(line.begin(), std::find_if(line.begin(), line.end(), [](unsigned char ch) {
+      return !std::isspace(ch);
+    }));
+    line.erase(std::find_if(line.rbegin(), line.rend(), [](unsigned char ch) {
+      return !std::isspace(ch);
+    }).base(), line.end());
+
+    if (line.empty()) continue;
+
+    // Check if it's the command echo
+    if (normalize_command(line) == last_sent_command_) {
+      continue;
+    }
+
+    // Check if it's a multiline frame line (e.g. "0: 62 E0 02...")
+    bool is_multiline_frame = false;
+    size_t colon_pos = line.find(':');
+    if (colon_pos != std::string::npos && colon_pos > 0) {
+      bool all_digits = true;
+      for (size_t i = 0; i < colon_pos; i++) {
+        if (!std::isdigit(static_cast<unsigned char>(line[i]))) {
+          all_digits = false;
+          break;
+        }
+      }
+      if (all_digits) {
+        is_multiline_frame = true;
+      }
+    }
+
+    if (is_multiline_frame) {
+      std::string hex_part = line.substr(colon_pos + 1);
+      for (char c : hex_part) {
+        if (std::isxdigit(static_cast<unsigned char>(c))) {
+          multiline_hex += c;
+        }
+      }
+    } else {
+      std::string hex_part;
+      for (char c : line) {
+        if (std::isxdigit(static_cast<unsigned char>(c))) {
+          hex_part += c;
+        }
+      }
+      if (hex_part.size() > 3) {
+        singleline_hex += hex_part;
+      }
+    }
+  }
+
+  std::string hex = multiline_hex.empty() ? singleline_hex : multiline_hex;
 
   // Must have at least 4 hex chars (1-byte response code + 1-byte PID/data)
   if (hex.size() < 4) return;
