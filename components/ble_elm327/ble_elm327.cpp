@@ -85,6 +85,15 @@ void BleElm327Component::add_init_command(const std::string &cmd) {
 void BleElm327Component::loop() {
   if (elm_state_ == ElmState::IDLE) return;
 
+  if (waiting_for_response_) {
+    if (millis() - last_tx_time_ > 5000) {
+      ESP_LOGW(TAG, "Timeout waiting for response to command: %s", last_sent_command_.c_str());
+      waiting_for_response_ = false;
+    } else {
+      return;
+    }
+  }
+
   // Drain queued command (init or sensor) with tx_delay
   if (!tx_queue_.empty()) {
     if (millis() - last_tx_time_ < tx_delay_ms_) return;
@@ -124,12 +133,9 @@ void BleElm327Component::loop() {
 void BleElm327Component::dump_config() {
   ESP_LOGCONFIG(TAG, "BLE ELM327:");
   ESP_LOGCONFIG(TAG, "  MAC address        : %s", this->parent_->address_str());
-  char service_uuid_str[esphome::esp32_ble::UUID_STR_LEN] = {0};
-  char rx_char_uuid_str[esphome::esp32_ble::UUID_STR_LEN] = {0};
-  char tx_char_uuid_str[esphome::esp32_ble::UUID_STR_LEN] = {0};
-  ESP_LOGCONFIG(TAG, "  Service UUID       : %s", service_uuid_.to_str(service_uuid_str));
-  ESP_LOGCONFIG(TAG, "  RX Char UUID       : %s", rx_char_uuid_.to_str(rx_char_uuid_str));
-  ESP_LOGCONFIG(TAG, "  TX Char UUID       : %s", tx_char_uuid_.to_str(tx_char_uuid_str));
+  ESP_LOGCONFIG(TAG, "  Service UUID       : %s", service_uuid_.to_string().c_str());
+  ESP_LOGCONFIG(TAG, "  RX Char UUID       : %s", rx_char_uuid_.to_string().c_str());
+  ESP_LOGCONFIG(TAG, "  TX Char UUID       : %s", tx_char_uuid_.to_string().c_str());
   ESP_LOGCONFIG(TAG, "  TX delay           : %ums", tx_delay_ms_);
   ESP_LOGCONFIG(TAG, "  Base init commands : ATZ, ATE0, ATL0, ATS0, ATH0, ATSP0");
   ESP_LOGCONFIG(TAG, "  Extra init commands: %u", (unsigned)extra_init_commands_.size());
@@ -161,6 +167,7 @@ void BleElm327Component::gattc_event_handler(esp_gattc_cb_event_t event, esp_gat
       current_pre_commands_.clear();
       rx_buffer_.clear();
       last_sent_command_.clear();
+      waiting_for_response_ = false;
       ESP_LOGW(TAG, "Disconnected from ELM327");
       break;
 
@@ -186,6 +193,7 @@ void BleElm327Component::gattc_event_handler(esp_gattc_cb_event_t event, esp_gat
       }
       last_tx_time_ = millis();
       elm_state_ = ElmState::CONNECTED;
+      waiting_for_response_ = false;
       for (const char *cmd : BASE_INIT_COMMANDS) {
         std::string framed = std::string(cmd) + "\r";
         tx_queue_.push({framed, nullptr});
@@ -219,6 +227,7 @@ bool BleElm327Component::send_command(const std::string &cmd) {
                    ESP_GATT_WRITE_TYPE_NO_RSP);
   ESP_LOGD(TAG, ">> %s", cmd.c_str());
   last_sent_command_ = normalize_command(cmd);
+  waiting_for_response_ = true;
   return true;
 }
 
@@ -228,6 +237,7 @@ void BleElm327Component::on_notify(const uint8_t *data, uint16_t length) {
   while ((pos = rx_buffer_.find('>')) != std::string::npos) {
     std::string response = rx_buffer_.substr(0, pos);
     rx_buffer_.erase(0, pos + 1);
+    waiting_for_response_ = false;
     process_response(response);
   }
 }
