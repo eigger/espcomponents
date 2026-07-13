@@ -136,6 +136,7 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
 
   std::string rx_buffer_;
   std::string last_sent_command_;
+  bool waiting_for_response_{false};
 };
 
 }  // namespace ble_elm327
