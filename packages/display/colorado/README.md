@@ -160,68 +160,85 @@ Configure your device MAC addresses via `substitutions` variables as shown in th
 - **SGP30 (I2C 0x58)**: eCO2 and TVOC air quality monitoring.
 - **SCD4x**: High accuracy CO2 concentration, temp, and humidity polling.
 
-## LubeLogger Odometer Auto-Sync
+## Garage Telemetry Auto-Sync
 
-Automatically push the odometer reading from this dashboard to [LubeLogger](https://github.com/hargata/lubelog) via Home Assistant's REST integration.
+Automatically push vehicle telemetry data from Home Assistant to your [Garage](https://github.com/eigger/garage) service.
 
 ### 1. Define the `rest_command` in `configuration.yaml`
 
 ```yaml
 rest_command:
-  lubelogger_add_odometer:
-    url: "http://YOUR_LUBELOGGER_IP:5000/api/vehicle/odometerrecords/add"
-    method: post
-    content_type: 'application/json'
-    username: !secret lubelogger_username
-    password: !secret lubelogger_password
+  garage_send_telemetry:
+    url: "http://192.168.0.247/api/ingest/telemetry"
+    method: POST
     headers:
-      culture-invariant: "true"
-    payload: >
-      {
-        "vehicleId": {{ vehicle_id | default(1) }},
-        "date": "{{ date | default(now().strftime('%Y-%m-%d'), true) }}",
-        "odometer": {{ odometer | default(16500) }},
-        "notes": "{{ notes | default('Home Assistant auto sync') }}"
-        {% if initial_odometer is defined and initial_odometer != '' %}
-        , "initialOdometer": {{ initial_odometer }}
+      Authorization: !secret garage_colorado_api
+      Content-Type: "application/json"
+    payload: >-
+      {% set raw_data = {
+        "lat": lat | float(none) if lat is defined else none,
+        "lon": lon | float(none) if lon is defined else none,
+        "speed": speed | float(none) if speed is defined else none,
+        "rpm": rpm | float(none) if rpm is defined else none,
+        "fuelLevel": fuelLevel | float(none) if fuelLevel is defined else none,
+        "odometer": odometer | int(none) if odometer is defined else none,
+        "dtcCodes": dtcCodes if dtcCodes is defined else none,
+        "inVehicle": inVehicle if inVehicle is defined else none
+      } %}
+      
+      {% set ns = namespace(result={}) %}
+      {% for key, value in raw_data.items() %}
+        {% if value is not none and value not in ['unknown', 'unavailable', ''] %}
+          {% set ns.result = dict(ns.result, **{key: value}) %}
         {% endif %}
-      }
+      {% endfor %}
+      
+      {{ ns.result | to_json }}
 ```
 
-Add the LubeLogger credentials to `secrets.yaml`:
+Add the Garage API key to `secrets.yaml`:
 
 ```yaml
-lubelogger_username: "your_user"
-lubelogger_password: "your_password"
+garage_colorado_api: "your_api_key"
 ```
 
-### 2. Automation — Submit on Engine Stop
-
-Triggers when the engine load drops to zero (engine stopped) and the current trip distance is above 0.1 km. The initial odometer is derived from `odometer - trip_distance` so LubeLogger records the full trip range.
+### 2. Automation — Submit Telemetry During Driving
 
 ```yaml
-alias: Register Odometer
-description: Sends the trip record to LubeLogger when the engine stops.
+alias: Garage Send Colorado (Driving)
+description: Send telemetry to Garage
 triggers:
-  - entity_id: sensor.esp_colorado_tab5_engine_load
-    below: 1
-    trigger: numeric_state
+  - entity_id: device_tracker.sm_f966n
+    trigger: state
 conditions:
-  - condition: numeric_state
-    entity_id: sensor.esp_colorado_tab5_trip_distance
-    above: 0.1
+  - condition: template
+    value_template: "{{ state_attr('device_tracker.sm_f966n', 'latitude') != None }}"
+  - condition: template
+    value_template: "{{ states('sensor.esp_colorado_tab5_engine_load') | float(0) > 0 }}"
 actions:
-  - variables:
-      current_odo: "{{ states('sensor.esp_colorado_tab5_odometer') | float(0) | int(0) }}"
-      current_trip: "{{ states('sensor.esp_colorado_tab5_trip_distance') | float(0) }}"
-      current_fuel: "{{ states('sensor.esp_colorado_tab5_fuel_level') | float(0) }}"
-      init_odo: "{{ (current_odo - current_trip) | int(0) }}"
-  - data:
-      vehicle_id: 1
-      odometer: "{{ current_odo }}"
-      initial_odometer: "{{ init_odo }}"
-      notes: "Auto record (fuel: {{ current_fuel | round(1) }}%)"
-    response_variable: api_response
-    action: rest_command.lubelogger_add_odometer
-mode: single
+  - action: rest_command.garage_send_telemetry
+    data:
+      lat: >-
+        {{ state_attr('device_tracker.sm_f966n', 'latitude') | default('', true)
+        }}
+      lon: >-
+        {{ state_attr('device_tracker.sm_f966n', 'longitude') | default('',
+        true) }}
+      speed: >-
+        {% set car_speed = states('sensor.esp_colorado_tab5_car_speed') %}  {%
+        set gps_speed = state_attr('device_tracker.sm_f966n', 'speed') %}  {% if
+        car_speed not in ['unknown', 'unavailable', 'None', ''] %}
+          {{ (car_speed | float(0)) | round(1) }}
+        {% else %}
+          {{ (gps_speed | float(0)) | round(1) if gps_speed not in [None, 'None', ''] else 0.0 }}
+        {% endif %}
+      rpm: "{{ states('sensor.esp_colorado_tab5_engine_rpm') | default('', true) }}"
+      fuelLevel: "{{ states('sensor.esp_colorado_tab5_fuel_level') | default('', true) }}"
+      odometer: >-
+        {% set odo = states('sensor.esp_colorado_tab5_odometer') %}  {% if odo |
+        is_number %}
+          {{ odo | int }}
+        {% endif %}
+      inVehicle: true
+mode: queued
 ```
