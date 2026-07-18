@@ -32,6 +32,13 @@
 
 ---
 
+## [ws_bridge](/components/ws_bridge)
+**WebSocket Bridge to Home Assistant (no MQTT needed)**  
+- Connects directly to Home Assistant's `/api/websocket` and speaks the [`hass-ws-bridge`](https://github.com/eigger/hass-ws-bridge) protocol to declare `sensor`/`binary_sensor`/`switch`/`number`/`select`/`button` entities, push state, and receive commands — no MQTT broker required.
+- ESP32 (ESP-IDF) only; uses ESP-IDF's `esp_websocket_client` for a secure `wss://` connection.
+
+---
+
 ## [jaalee_jht](/components/jaalee_jht)
 **Jaalee JHT Bluetooth Temperature and Humidity Sensor Component**  
 - Supports Jaalee JHT Bluetooth Temperature and Humidity Sensor.
