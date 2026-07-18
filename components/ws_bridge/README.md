@@ -116,6 +116,64 @@ Plus each platform's normal ESPHome options (`name`, `device_class`, `icon`,
 `entity_category`, `unit_of_measurement`/`state_class` for `sensor`,
 `min_value`/`max_value`/`step` for `number`, `options` for `select`).
 
+## Remote OTA updates (no VPN, no MQTT)
+
+`ws_bridge` itself never carries the firmware binary — it's a small-JSON
+protocol, not built for streaming a multi-hundred-KB file. Firmware updates
+work over the same outbound-only connection anyway, through ESPHome's
+`http_request` OTA/update platforms: the device *pulls* the firmware over a
+plain outbound HTTPS request, so no inbound port, VPN, or MQTT broker is
+needed.
+
+```yaml
+http_request:
+
+ota:
+  - platform: http_request
+    id: my_ota
+
+update:
+  - platform: http_request
+    id: my_update
+    source: https://your-firmware-host/manifest.json
+    update_interval: 6h   # periodically checks for a new version (default 6h)
+
+# Auto-rolls back to the previous firmware if the new one fails to come up
+# cleanly. Strongly recommended for any device you can't walk up to.
+safe_mode:
+```
+
+- `update: platform: http_request` polls `source` (a `manifest.json` in the
+  [ESP Web Tools](https://esphome.io/) format below), compares the reported
+  `version` against the running firmware, and only flashes when they differ
+  — it won't re-flash the same version on every check.
+- It shows up in Home Assistant as an `update` entity (current vs. available
+  version); install manually from the card, or automate it (e.g. from a
+  `ws_bridge` button's `on_press`, or on a schedule) with the
+  `update.perform` action.
+- **`safe_mode:` matters more than the happy path here** — without it, a
+  bad flash on a device you can't physically reach is unrecoverable. It's
+  wired to ESP-IDF's app rollback, so a firmware that fails to come up
+  cleanly reverts automatically.
+
+`manifest.json` format (ESP Web Tools spec, the same one ESPHome's own
+build/dashboard tooling produces):
+```json
+{
+  "name": "My Device",
+  "version": "1.0.1",
+  "builds": [
+    {
+      "chipFamily": "ESP32",
+      "ota": {
+        "path": "firmware.ota.bin",
+        "md5": "..."
+      }
+    }
+  ]
+}
+```
+
 ## Triggers
 
 - `on_connected` — the WebSocket connected and Home Assistant accepted the connection

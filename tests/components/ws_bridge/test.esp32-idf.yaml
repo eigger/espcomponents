@@ -70,3 +70,19 @@ button:
   - platform: ws_bridge
     unique_id: restart1
     name: "Restart"
+
+# Remote OTA over the outbound-only ws_bridge connection: http_request pulls
+# the firmware (no inbound port needed), update: checks the manifest
+# periodically, safe_mode: auto-rolls-back a bad flash.
+http_request:
+
+ota:
+  - platform: http_request
+    id: my_ota
+
+update:
+  - platform: http_request
+    id: my_update
+    source: https://example.com/manifest.json
+
+safe_mode:
