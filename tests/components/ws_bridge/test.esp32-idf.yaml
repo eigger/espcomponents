@@ -1,0 +1,72 @@
+esphome:
+  name: test-ws-bridge
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: local
+      path: ../../../components
+    components: [ ws_bridge ]
+
+wifi:
+  ssid: "test_ssid"
+  password: "test_password"
+
+logger:
+
+ws_bridge:
+  host: 192.168.0.10
+  token: "test_token"
+  gateway_id: my_esp
+  name: "My ESP"
+  keep_last_state_on_disconnect: true
+  on_connected:
+    - logger.log: "ws_bridge connected"
+  on_disconnected:
+    - logger.log: "ws_bridge disconnected"
+
+sensor:
+  - platform: ws_bridge
+    unique_id: temp1
+    name: "Temperature"
+    device_class: temperature
+    unit_of_measurement: "°C"
+    state_class: measurement
+    ws_device_id: sensor_hub_1
+    ws_device_name: "Sensor Hub"
+
+binary_sensor:
+  - platform: ws_bridge
+    unique_id: motion1
+    name: "Motion"
+    device_class: motion
+
+switch:
+  - platform: ws_bridge
+    unique_id: relay1
+    name: "Relay"
+
+number:
+  - platform: ws_bridge
+    unique_id: setpoint1
+    name: "Setpoint"
+    min_value: 0
+    max_value: 100
+    step: 0.5
+
+select:
+  - platform: ws_bridge
+    unique_id: mode1
+    name: "Mode"
+    options:
+      - "Auto"
+      - "Manual"
+
+button:
+  - platform: ws_bridge
+    unique_id: restart1
+    name: "Restart"
