@@ -1,0 +1,137 @@
+# ws_bridge
+
+An ESPHome external component for ESP32 (ESP-IDF only). It connects over a
+secure WebSocket directly to Home Assistant's standard `/api/websocket`
+endpoint and speaks the protocol of the
+[`hass-ws-bridge`](https://github.com/eigger/hass-ws-bridge) custom
+integration — declaring entities, pushing state, and receiving commands —
+**without needing an MQTT broker**. Combined with a way to reach Home
+Assistant securely from outside your LAN (e.g. Nabu Casa remote UI, or your
+own reverse proxy with a valid certificate), it can also remove the need for
+a VPN just to get a remote device's data into Home Assistant.
+
+> Requires the `ws_bridge` custom component installed on the Home Assistant
+> side: https://github.com/eigger/hass-ws-bridge (see its
+> [PROTOCOL.md](https://github.com/eigger/hass-ws-bridge/blob/main/docs/PROTOCOL.md)
+> for the full wire protocol).
+
+## Installation
+
+```yaml
+external_components:
+  - source: github://eigger/espcomponents@latest
+    components: [ ws_bridge ]
+    refresh: always
+```
+
+`ws_bridge` requires the **ESP-IDF** framework (it pulls in ESP-IDF's
+`esp_websocket_client` managed component):
+
+```yaml
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+```
+
+## Configuration
+
+```yaml
+ws_bridge:
+  host: 192.168.0.10        # or your Nabu Casa / reverse-proxy hostname
+  port: 8123
+  ssl: true                 # wss:// (default). Set false only for LAN testing.
+  token: !secret ha_token    # Home Assistant long-lived access token
+  gateway_id: my_esp         # (default: this device's name)
+  name: "My ESP"             # (default: this device's friendly_name)
+  keep_last_state_on_disconnect: false
+
+  on_connected:
+    - logger.log: "ws_bridge connected"
+  on_disconnected:
+    - logger.log: "ws_bridge disconnected"
+
+sensor:
+  - platform: ws_bridge
+    unique_id: temp1
+    name: "Temperature"
+    device_class: temperature
+    unit_of_measurement: "°C"
+    state_class: measurement
+
+binary_sensor:
+  - platform: ws_bridge
+    unique_id: motion1
+    name: "Motion"
+    device_class: motion
+
+switch:
+  - platform: ws_bridge
+    unique_id: relay1
+    name: "Relay"
+
+number:
+  - platform: ws_bridge
+    unique_id: setpoint1
+    name: "Setpoint"
+    min_value: 0
+    max_value: 100
+    step: 0.5
+
+select:
+  - platform: ws_bridge
+    unique_id: mode1
+    name: "Mode"
+    options:
+      - "Auto"
+      - "Manual"
+
+button:
+  - platform: ws_bridge
+    unique_id: restart1
+    name: "Restart"
+```
+
+### `ws_bridge` (hub) options
+
+| Option | Required | Default | Description |
+|--------|:--------:|---------|-------------|
+| `host` | ✓ | - | Home Assistant address (IP, `.local` hostname, or a remote hostname such as Nabu Casa's) |
+| `port` | | 8123 | Port |
+| `ssl` | | `true` | Use `wss://`. Only disable for LAN-only testing — the access token is sent in plain text over `ws://` |
+| `token` | ✓ | - | Home Assistant long-lived access token |
+| `gateway_id` | | device name | Unique client identifier (becomes the HA gateway device) |
+| `name` | | device friendly name | Display name for the gateway device |
+| `keep_last_state_on_disconnect` | | `false` | If `true`, this gateway's entities keep their last state in HA instead of going `unavailable` when the connection drops (including an ungraceful disconnect) |
+
+### Platform options (all of `sensor`/`binary_sensor`/`switch`/`number`/`select`/`button`)
+
+| Option | Required | Description |
+|--------|:--------:|-------------|
+| `unique_id` | ✓ | Identifier for this entity, unique within the gateway |
+| `ws_device_id` | | Groups this entity under a sub-device in HA (e.g. multiple sensors on one physical board) |
+| `ws_device_name` | | Display name for that sub-device |
+
+Plus each platform's normal ESPHome options (`name`, `device_class`, `icon`,
+`entity_category`, `unit_of_measurement`/`state_class` for `sensor`,
+`min_value`/`max_value`/`step` for `number`, `options` for `select`).
+
+## Triggers
+
+- `on_connected` — the WebSocket connected and Home Assistant accepted the connection
+- `on_disconnected` — the connection was lost
+
+## Behavior / Limitations
+
+- **Read-only platforms** (`sensor`, `binary_sensor`) push their state to Home
+  Assistant automatically whenever it changes.
+- **Controllable platforms** (`switch`, `number`, `select`, `button`) receive
+  commands from Home Assistant and update their own state optimistically
+  (`publish_state`/`this->state`) — hook `on_turn_on`/`lambda:`/etc. in your
+  own YAML if you need to drive real hardware from the state.
+- On every (re)connect, all declared entities and their current state are
+  re-sent, per the protocol's reconnection guidance.
+- TLS uses ESP-IDF's built-in public CA bundle — this works out of the box
+  with Nabu Casa or any certificate from a public CA. A custom CA
+  certificate (for self-signed setups) is not supported yet.
+- Only one gateway connection per device is supported.
