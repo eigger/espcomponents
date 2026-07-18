@@ -75,6 +75,15 @@ void WsBridgeComponent::ws_event_handler_(void *handler_args, esp_event_base_t b
   auto *data = static_cast<esp_websocket_event_data_t *>(event_data);
   auto ws_event_id = static_cast<esp_websocket_event_id_t>(event_id);
 
+  // A (re)connect or drop always starts a fresh message stream: discard any
+  // partial fragment left over from a message that never completed (e.g. the
+  // socket dropped mid-fragment), so it can't get concatenated with data from
+  // a later connection.
+  if (ws_event_id == WEBSOCKET_EVENT_CONNECTED || ws_event_id == WEBSOCKET_EVENT_DISCONNECTED ||
+      ws_event_id == WEBSOCKET_EVENT_ERROR || ws_event_id == WEBSOCKET_EVENT_CLOSED) {
+    self->rx_accum_.clear();
+  }
+
   if (ws_event_id == WEBSOCKET_EVENT_DATA) {
     if (data->op_code != WS_TRANSPORT_OPCODES_TEXT && data->op_code != WS_TRANSPORT_OPCODES_CONT) {
       return;  // ignore ping/pong/close/binary frames
