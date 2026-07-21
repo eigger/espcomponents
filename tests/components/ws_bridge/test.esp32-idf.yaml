@@ -45,6 +45,11 @@ binary_sensor:
     name: "Motion"
     device_class: motion
 
+text_sensor:
+  - platform: ws_bridge
+    unique_id: status1
+    name: "Status"
+
 switch:
   - platform: ws_bridge
     unique_id: relay1
