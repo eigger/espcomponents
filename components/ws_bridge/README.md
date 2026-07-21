@@ -65,6 +65,11 @@ binary_sensor:
     name: "Motion"
     device_class: motion
 
+text_sensor:
+  - platform: ws_bridge
+    unique_id: status1
+    name: "Status"
+
 switch:
   - platform: ws_bridge
     unique_id: relay1
@@ -104,7 +109,7 @@ button:
 | `name` | | device friendly name | Display name for the gateway device |
 | `keep_last_state_on_disconnect` | | `false` | If `true`, this gateway's entities keep their last state in HA instead of going `unavailable` when the connection drops (including an ungraceful disconnect) |
 
-### Platform options (all of `sensor`/`binary_sensor`/`switch`/`number`/`select`/`button`)
+### Platform options (all of `sensor`/`binary_sensor`/`text_sensor`/`switch`/`number`/`select`/`button`)
 
 | Option | Required | Description |
 |--------|:--------:|-------------|
@@ -181,8 +186,8 @@ build/dashboard tooling produces):
 
 ## Behavior / Limitations
 
-- **Read-only platforms** (`sensor`, `binary_sensor`) push their state to Home
-  Assistant automatically whenever it changes.
+- **Read-only platforms** (`sensor`, `binary_sensor`, `text_sensor`) push
+  their state to Home Assistant automatically whenever it changes.
 - **Controllable platforms** (`switch`, `number`, `select`, `button`) receive
   commands from Home Assistant and update their own state optimistically
   (`publish_state`/`this->state`) — hook `on_turn_on`/`lambda:`/etc. in your
