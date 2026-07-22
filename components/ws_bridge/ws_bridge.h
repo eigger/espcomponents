@@ -121,7 +121,7 @@ class WsBridgeComponent : public Component {
   // react to. If we've been down longer than this, force a fresh connection
   // attempt ourselves rather than waiting on the library indefinitely.
   uint32_t last_reconnect_attempt_ms_{0};
-  static constexpr uint32_t RECONNECT_RETRY_MS = 20000;
+  static constexpr uint32_t RECONNECT_RETRY_MS = 120000;
 
   // Producer-side (WS client task) fragment reassembly buffer. Only ever
   // touched from ws_event_handler_(), never from loop() — no locking needed.
