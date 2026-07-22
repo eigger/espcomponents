@@ -22,6 +22,7 @@ void WsBridgeSensor::ws_bridge_declare() {
         if (!uom.empty()) root["unit_of_measurement"] = uom.str();
         sensor::StateClass sc = this->get_state_class();
         if (sc != sensor::STATE_CLASS_NONE) root["state_class"] = LOG_STR_ARG(sensor::state_class_to_string(sc));
+        root["suggested_display_precision"] = this->get_accuracy_decimals();
       });
   if (this->has_state()) this->parent_->send_state_float(this->unique_id_, this->state);
 }

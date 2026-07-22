@@ -36,6 +36,7 @@ sensor:
     device_class: temperature
     unit_of_measurement: "°C"
     state_class: measurement
+    accuracy_decimals: 1
     ws_device_id: sensor_hub_1
     ws_device_name: "Sensor Hub"
 
