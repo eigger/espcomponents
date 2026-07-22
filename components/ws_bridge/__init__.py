@@ -20,6 +20,7 @@ from .const import (
     CONF_PING_INTERVAL,
     CONF_PONG_TIMEOUT,
     CONF_RECONNECT_TIMEOUT,
+    CONF_REANNOUNCE_INTERVAL,
 )
 
 CODEOWNERS = ["@eigger"]
@@ -62,6 +63,18 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_PING_INTERVAL, default="60s"): cv.positive_time_period_milliseconds,
             cv.Optional(CONF_PONG_TIMEOUT, default="15s"): cv.positive_time_period_milliseconds,
             cv.Optional(CONF_RECONNECT_TIMEOUT, default="2min"): cv.positive_time_period_milliseconds,
+            # Periodically resends ws_bridge/connect + entity declarations even
+            # while nominally connected. Needed because the transport (and
+            # HA's generic websocket_api ping/pong) can stay alive while the
+            # ws_bridge integration on the HA side loses track of this specific
+            # gateway (e.g. its config entry reloaded independently of the raw
+            # connection) — that's invisible to ping/pong since HA core answers
+            # pings regardless of our integration's state, so state pushes
+            # would otherwise be silently dropped forever with no disconnect
+            # ever observed. 60s matches the companion hass-ble-android
+            # client's HaWsClient.resubscribeJob, which hit and fixed the same
+            # gap independently.
+            cv.Optional(CONF_REANNOUNCE_INTERVAL, default="60s"): cv.positive_time_period_milliseconds,
             cv.Optional(CONF_ON_CONNECTED): automation.validate_automation(
                 {cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(ConnectedTrigger)}
             ),
@@ -112,6 +125,7 @@ async def to_code(config):
     cg.add(var.set_ping_interval(config[CONF_PING_INTERVAL].total_milliseconds))
     cg.add(var.set_pong_timeout(config[CONF_PONG_TIMEOUT].total_milliseconds))
     cg.add(var.set_reconnect_timeout(config[CONF_RECONNECT_TIMEOUT].total_milliseconds))
+    cg.add(var.set_reannounce_interval(config[CONF_REANNOUNCE_INTERVAL].total_milliseconds))
 
     for conf in config.get(CONF_ON_CONNECTED, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
