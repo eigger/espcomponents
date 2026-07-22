@@ -80,14 +80,15 @@ void WsBridgeComponent::check_liveness_() {
   if (!this->is_connected()) {
     if (now - this->last_reconnect_attempt_ms_ > this->reconnect_retry_ms_) {
       ESP_LOGW(TAG, "Still disconnected after %u ms — forcing a fresh connection attempt",
-               this->reconnect_retry_ms_);
+               static_cast<unsigned>(this->reconnect_retry_ms_));
       this->force_reconnect_();
     }
     return;
   }
   if (this->ping_outstanding_) {
     if (now - this->last_ping_sent_ms_ > this->pong_timeout_ms_) {
-      ESP_LOGW(TAG, "No pong received within %u ms — forcing reconnect", this->pong_timeout_ms_);
+      ESP_LOGW(TAG, "No pong received within %u ms — forcing reconnect",
+               static_cast<unsigned>(this->pong_timeout_ms_));
       this->ping_outstanding_ = false;
       this->force_reconnect_();
     }
@@ -106,9 +107,9 @@ void WsBridgeComponent::dump_config() {
                 this->port_);
   ESP_LOGCONFIG(TAG, "  Gateway ID: %s", this->gateway_id_.c_str());
   ESP_LOGCONFIG(TAG, "  Keep last state on disconnect: %s", YESNO(this->keep_last_state_on_disconnect_));
-  ESP_LOGCONFIG(TAG, "  Ping interval: %u ms", this->ping_interval_ms_);
-  ESP_LOGCONFIG(TAG, "  Pong timeout: %u ms", this->pong_timeout_ms_);
-  ESP_LOGCONFIG(TAG, "  Reconnect timeout: %u ms", this->reconnect_retry_ms_);
+  ESP_LOGCONFIG(TAG, "  Ping interval: %u ms", static_cast<unsigned>(this->ping_interval_ms_));
+  ESP_LOGCONFIG(TAG, "  Pong timeout: %u ms", static_cast<unsigned>(this->pong_timeout_ms_));
+  ESP_LOGCONFIG(TAG, "  Reconnect timeout: %u ms", static_cast<unsigned>(this->reconnect_retry_ms_));
 }
 
 // May be called from either the main loop task or the esp_websocket_client
