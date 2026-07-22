@@ -45,6 +45,9 @@ ws_bridge:
   gateway_id: my_esp         # (default: this device's name)
   name: "My ESP"             # (default: this device's friendly_name)
   keep_last_state_on_disconnect: false
+  ping_interval: 60s
+  pong_timeout: 15s
+  reconnect_timeout: 2min
 
   on_connected:
     - logger.log: "ws_bridge connected"
@@ -108,6 +111,9 @@ button:
 | `gateway_id` | | device name | Unique client identifier (becomes the HA gateway device) |
 | `name` | | device friendly name | Display name for the gateway device |
 | `keep_last_state_on_disconnect` | | `false` | If `true`, this gateway's entities keep their last state in HA instead of going `unavailable` when the connection drops (including an ungraceful disconnect) |
+| `ping_interval` | | `60s` | How often to send an app-level `ping` once connected, to detect a peer that dropped without a clean WebSocket close |
+| `pong_timeout` | | `15s` | How long to wait for a `pong` reply before assuming the connection is dead and forcing a reconnect |
+| `reconnect_timeout` | | `2min` | How long to stay disconnected before forcing a fresh connection attempt ourselves, in case `esp_websocket_client`'s own auto-reconnect (e.g. across a prolonged Home Assistant restart) stops making progress on its own |
 
 ### Platform options (all of `sensor`/`binary_sensor`/`text_sensor`/`switch`/`number`/`select`/`button`)
 

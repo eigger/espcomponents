@@ -51,6 +51,10 @@ class WsBridgeComponent : public Component {
   void set_gateway_id(const std::string &id) { this->gateway_id_ = id; }
   void set_gateway_name(const std::string &name) { this->gateway_name_ = name; }
   void set_keep_last_state_on_disconnect(bool v) { this->keep_last_state_on_disconnect_ = v; }
+  // See check_liveness_() for what these govern.
+  void set_ping_interval(uint32_t ms) { this->ping_interval_ms_ = ms; }
+  void set_pong_timeout(uint32_t ms) { this->pong_timeout_ms_ = ms; }
+  void set_reconnect_timeout(uint32_t ms) { this->reconnect_retry_ms_ = ms; }
 
   void add_on_connected_callback(std::function<void()> &&cb) { this->connected_cb_.add(std::move(cb)); }
   void add_on_disconnected_callback(std::function<void()> &&cb) { this->disconnected_cb_.add(std::move(cb)); }
@@ -87,6 +91,7 @@ class WsBridgeComponent : public Component {
   uint32_t next_id_() { return ++this->msg_id_; }
   void set_state_(WsBridgeState s);
   void check_liveness_();
+  void force_reconnect_();
 
   esp_websocket_client_handle_t client_{nullptr};
   bool started_{false};
@@ -111,8 +116,16 @@ class WsBridgeComponent : public Component {
   // reverse proxy) where a multi-second round trip is normal, not a fault.
   uint32_t last_ping_sent_ms_{0};
   bool ping_outstanding_{false};
-  static constexpr uint32_t PING_INTERVAL_MS = 60000;
-  static constexpr uint32_t PONG_TIMEOUT_MS = 15000;
+  uint32_t ping_interval_ms_{60000};
+  uint32_t pong_timeout_ms_{15000};
+
+  // Backstop for check_liveness_(): while disconnected, esp_websocket_client's
+  // own auto-reconnect can stop making progress after a prolonged outage
+  // (e.g. HA itself restarting) without ever raising another event we could
+  // react to. If we've been down longer than this, force a fresh connection
+  // attempt ourselves rather than waiting on the library indefinitely.
+  uint32_t last_reconnect_attempt_ms_{0};
+  uint32_t reconnect_retry_ms_{120000};
 
   // Producer-side (WS client task) fragment reassembly buffer. Only ever
   // touched from ws_event_handler_(), never from loop() — no locking needed.

@@ -41,6 +41,7 @@ void WsBridgeComponent::loop() {
       return;
     }
     this->started_ = true;
+    this->last_reconnect_attempt_ms_ = millis();
   }
 
   WsEvent *event;
@@ -52,6 +53,22 @@ void WsBridgeComponent::loop() {
   this->check_liveness_();
 }
 
+// Forces a fresh connection attempt, bypassing whatever esp_websocket_client
+// thinks it's doing internally. Used both when we've actively determined the
+// current connection is dead (ping/pong) and when we've simply been
+// disconnected too long (see check_liveness_) — the latter matters because
+// the client's own auto-reconnect (disable_auto_reconnect = false) has been
+// observed to stop making progress after a prolonged outage (e.g. Home
+// Assistant itself restarting, which can take well over a minute), with no
+// further event ever firing for us to react to. Without this backstop that
+// required power-cycling the ESP to recover.
+void WsBridgeComponent::force_reconnect_() {
+  this->last_reconnect_attempt_ms_ = millis();
+  this->set_state_(WS_BRIDGE_DISCONNECTED);
+  esp_websocket_client_stop(this->client_);
+  esp_websocket_client_start(this->client_);
+}
+
 // Actively probes the connection with HA's standard "ping"/"pong" websocket_api
 // commands. Needed because a dead peer (e.g. HA killed without a clean WS
 // close — no FIN/RST ever reaches the socket) can otherwise leave the
@@ -59,23 +76,24 @@ void WsBridgeComponent::loop() {
 // so is_connected() alone never reports the failure and auto-reconnect never
 // kicks in.
 void WsBridgeComponent::check_liveness_() {
-  if (!this->is_connected()) return;
   uint32_t now = millis();
-  if (this->ping_outstanding_) {
-    if (now - this->last_ping_sent_ms_ > PONG_TIMEOUT_MS) {
-      ESP_LOGW(TAG, "No pong received within %u ms — forcing reconnect", PONG_TIMEOUT_MS);
-      this->ping_outstanding_ = false;
-      // Drop out of WS_BRIDGE_CONNECTED before stop()/start() rather than
-      // waiting for the resulting WEBSOCKET_EVENT_DISCONNECTED to be queued
-      // and processed on a later loop() iteration — closes the same
-      // stale-is_connected() window described in ws_event_handler_.
-      this->set_state_(WS_BRIDGE_DISCONNECTED);
-      esp_websocket_client_stop(this->client_);
-      esp_websocket_client_start(this->client_);
+  if (!this->is_connected()) {
+    if (now - this->last_reconnect_attempt_ms_ > this->reconnect_retry_ms_) {
+      ESP_LOGW(TAG, "Still disconnected after %u ms — forcing a fresh connection attempt",
+               this->reconnect_retry_ms_);
+      this->force_reconnect_();
     }
     return;
   }
-  if (now - this->last_ping_sent_ms_ > PING_INTERVAL_MS) {
+  if (this->ping_outstanding_) {
+    if (now - this->last_ping_sent_ms_ > this->pong_timeout_ms_) {
+      ESP_LOGW(TAG, "No pong received within %u ms — forcing reconnect", this->pong_timeout_ms_);
+      this->ping_outstanding_ = false;
+      this->force_reconnect_();
+    }
+    return;
+  }
+  if (now - this->last_ping_sent_ms_ > this->ping_interval_ms_) {
     this->send_raw_(build_ping(this->next_id_()));
     this->ping_outstanding_ = true;
     this->last_ping_sent_ms_ = now;
@@ -88,6 +106,9 @@ void WsBridgeComponent::dump_config() {
                 this->port_);
   ESP_LOGCONFIG(TAG, "  Gateway ID: %s", this->gateway_id_.c_str());
   ESP_LOGCONFIG(TAG, "  Keep last state on disconnect: %s", YESNO(this->keep_last_state_on_disconnect_));
+  ESP_LOGCONFIG(TAG, "  Ping interval: %u ms", this->ping_interval_ms_);
+  ESP_LOGCONFIG(TAG, "  Pong timeout: %u ms", this->pong_timeout_ms_);
+  ESP_LOGCONFIG(TAG, "  Reconnect timeout: %u ms", this->reconnect_retry_ms_);
 }
 
 // May be called from either the main loop task or the esp_websocket_client
