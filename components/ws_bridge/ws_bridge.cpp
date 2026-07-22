@@ -65,6 +65,11 @@ void WsBridgeComponent::check_liveness_() {
     if (now - this->last_ping_sent_ms_ > PONG_TIMEOUT_MS) {
       ESP_LOGW(TAG, "No pong received within %u ms — forcing reconnect", PONG_TIMEOUT_MS);
       this->ping_outstanding_ = false;
+      // Drop out of WS_BRIDGE_CONNECTED before stop()/start() rather than
+      // waiting for the resulting WEBSOCKET_EVENT_DISCONNECTED to be queued
+      // and processed on a later loop() iteration — closes the same
+      // stale-is_connected() window described in ws_event_handler_.
+      this->set_state_(WS_BRIDGE_DISCONNECTED);
       esp_websocket_client_stop(this->client_);
       esp_websocket_client_start(this->client_);
     }
@@ -85,10 +90,13 @@ void WsBridgeComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "  Keep last state on disconnect: %s", YESNO(this->keep_last_state_on_disconnect_));
 }
 
+// May be called from either the main loop task or the esp_websocket_client
+// task (see ws_event_handler_), so this must be a single atomic RMW rather
+// than a load-compare-store.
 void WsBridgeComponent::set_state_(WsBridgeState s) {
-  if (this->state_ != s) {
-    ESP_LOGD(TAG, "state %d -> %d", this->state_, s);
-    this->state_ = s;
+  WsBridgeState old = this->state_.exchange(s, std::memory_order_acq_rel);
+  if (old != s) {
+    ESP_LOGD(TAG, "state %d -> %d", old, s);
   }
 }
 
@@ -102,13 +110,30 @@ void WsBridgeComponent::ws_event_handler_(void *handler_args, esp_event_base_t b
   auto *data = static_cast<esp_websocket_event_data_t *>(event_data);
   auto ws_event_id = static_cast<esp_websocket_event_id_t>(event_id);
 
+  bool was_connected = false;
+
   // A (re)connect or drop always starts a fresh message stream: discard any
   // partial fragment left over from a message that never completed (e.g. the
   // socket dropped mid-fragment), so it can't get concatenated with data from
   // a later connection.
-  if (ws_event_id == WEBSOCKET_EVENT_CONNECTED || ws_event_id == WEBSOCKET_EVENT_DISCONNECTED ||
-      ws_event_id == WEBSOCKET_EVENT_ERROR || ws_event_id == WEBSOCKET_EVENT_CLOSED) {
+  //
+  // The state_ transition itself also happens right here, unconditionally,
+  // rather than being deferred to loop()'s consumption of the queued event.
+  // event_queue_ is bounded (EVENT_QUEUE_SIZE) and silently drops events when
+  // full (see below) — if a dropped event were the only place a disconnect
+  // got recorded, state_ could stay stuck at WS_BRIDGE_CONNECTED across a
+  // reconnect. is_connected() would then still report true on the fresh,
+  // not-yet-authenticated socket, so a state push could go out before HA even
+  // sends auth_required, which HA's auth handler correctly rejects. Doing the
+  // transition here means it can never be lost to a full queue; only the
+  // (non-critical) log line / callback in handle_event_ can be.
+  if (ws_event_id == WEBSOCKET_EVENT_CONNECTED) {
     self->rx_accum_.clear();
+    self->set_state_(WS_BRIDGE_WAIT_AUTH_REQUIRED);
+  } else if (ws_event_id == WEBSOCKET_EVENT_DISCONNECTED || ws_event_id == WEBSOCKET_EVENT_ERROR ||
+             ws_event_id == WEBSOCKET_EVENT_CLOSED) {
+    self->rx_accum_.clear();
+    was_connected = (self->state_.exchange(WS_BRIDGE_DISCONNECTED, std::memory_order_acq_rel) == WS_BRIDGE_CONNECTED);
   }
 
   if (ws_event_id == WEBSOCKET_EVENT_DATA) {
@@ -121,8 +146,9 @@ void WsBridgeComponent::ws_event_handler_(void *handler_args, esp_event_base_t b
   }
 
   WsEvent *event = self->event_pool_.allocate();
-  if (event == nullptr) return;  // queue full, drop this event
+  if (event == nullptr) return;  // queue full, drop this event (state_ is already correct regardless)
   event->event_id = ws_event_id;
+  event->was_connected = was_connected;
   if (ws_event_id == WEBSOCKET_EVENT_DATA) {
     event->data = std::move(self->rx_accum_);
     self->rx_accum_.clear();
@@ -133,20 +159,22 @@ void WsBridgeComponent::ws_event_handler_(void *handler_args, esp_event_base_t b
 void WsBridgeComponent::handle_event_(const WsEvent &event) {
   switch (event.event_id) {
     case WEBSOCKET_EVENT_CONNECTED:
+      // state_ is already WS_BRIDGE_WAIT_AUTH_REQUIRED — set by
+      // ws_event_handler_ itself, see the comment there.
       ESP_LOGI(TAG, "WebSocket transport connected");
-      this->set_state_(WS_BRIDGE_WAIT_AUTH_REQUIRED);
       break;
     case WEBSOCKET_EVENT_DISCONNECTED:
     case WEBSOCKET_EVENT_ERROR:
-    case WEBSOCKET_EVENT_CLOSED: {
-      bool was_connected = this->is_connected();
-      this->set_state_(WS_BRIDGE_DISCONNECTED);
-      if (was_connected) {
+    case WEBSOCKET_EVENT_CLOSED:
+      // state_ is already WS_BRIDGE_DISCONNECTED — set by ws_event_handler_
+      // itself. event.was_connected is a snapshot taken at that time; by now
+      // is_connected() would always read false, so it can't be used here to
+      // tell whether this is a real transition.
+      if (event.was_connected) {
         ESP_LOGW(TAG, "WebSocket disconnected");
         this->disconnected_cb_.call();
       }
       break;
-    }
     case WEBSOCKET_EVENT_DATA:
       this->handle_message_(event.data);
       break;
