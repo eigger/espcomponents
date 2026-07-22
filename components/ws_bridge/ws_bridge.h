@@ -70,6 +70,7 @@ class WsBridgeComponent : public Component {
   void send_raw_(const std::string &msg);
   uint32_t next_id_() { return ++this->msg_id_; }
   void set_state_(WsBridgeState s);
+  void check_liveness_();
 
   esp_websocket_client_handle_t client_{nullptr};
   bool started_{false};
@@ -85,6 +86,17 @@ class WsBridgeComponent : public Component {
   WsBridgeState state_{WS_BRIDGE_DISCONNECTED};
   uint32_t msg_id_{0};
   std::vector<WsBridgeDevice *> devices_{};
+
+  // App-level ping/pong keepalive (see check_liveness_()). Detects a dead
+  // connection that the transport layer doesn't notice on its own. Interval
+  // is kept low-frequency (one tiny JSON round-trip a minute) since this is
+  // just a dead-connection backstop, not a latency-sensitive heartbeat; the
+  // timeout leaves generous headroom for WAN paths (Nabu Casa remote UI,
+  // reverse proxy) where a multi-second round trip is normal, not a fault.
+  uint32_t last_ping_sent_ms_{0};
+  bool ping_outstanding_{false};
+  static constexpr uint32_t PING_INTERVAL_MS = 60000;
+  static constexpr uint32_t PONG_TIMEOUT_MS = 15000;
 
   // Producer-side (WS client task) fragment reassembly buffer. Only ever
   // touched from ws_event_handler_(), never from loop() — no locking needed.
