@@ -11,6 +11,7 @@ ParsedMessage parse_message(const std::string &raw) {
 
     if (msg.type == "result") {
       msg.success = root["success"].is<bool>() && root["success"].as<bool>();
+      if (!root["id"].isNull()) msg.id = root["id"].as<uint32_t>();
       return true;
     }
 

@@ -139,8 +139,22 @@ class WsBridgeComponent : public Component {
   // ws_bridge/connect + full entity/state declarations re-registers with
   // whatever WsBridge instance is currently live, healing this without
   // needing to detect it precisely.
+  //
+  // 60s (not a longer, lower-overhead interval) matches the companion
+  // hass-ble-android client's HaWsClient.resubscribeJob, which independently
+  // arrived at the same self-heal against the same HA-side failure mode.
   uint32_t last_reannounce_ms_{0};
-  uint32_t reannounce_interval_ms_{300000};
+  uint32_t reannounce_interval_ms_{60000};
+
+  // Set when a ws_bridge/connect sent by the periodic re-announce above is
+  // awaiting its "result" reply. If HA never answers it (e.g. because the
+  // whole HA side, not just its ws_bridge integration, is unresponsive),
+  // blindly re-sending on the next interval would just repeat the same
+  // no-op forever — so a timeout here forces a full transport reconnect
+  // instead. Mirrors HaWsClient's startBridgeTimeout()/onConnectResult().
+  bool awaiting_connect_result_{false};
+  uint32_t connect_sent_ms_{0};
+  uint32_t last_connect_msg_id_{0};
 
   // Producer-side (WS client task) fragment reassembly buffer. Only ever
   // touched from ws_event_handler_(), never from loop() — no locking needed.

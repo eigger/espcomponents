@@ -94,14 +94,31 @@ void WsBridgeComponent::check_liveness_() {
     }
     return;
   }
+  // A periodic re-announce's ws_bridge/connect went unanswered — if HA (not
+  // just its ws_bridge integration) is unresponsive, re-sending again on the
+  // next interval would just repeat the same no-op forever, so treat this
+  // like any other dead-connection signal.
+  if (this->awaiting_connect_result_) {
+    if (now - this->connect_sent_ms_ > this->pong_timeout_ms_) {
+      ESP_LOGW(TAG, "No result for ws_bridge/connect within %u ms — forcing reconnect",
+               static_cast<unsigned>(this->pong_timeout_ms_));
+      this->awaiting_connect_result_ = false;
+      this->force_reconnect_();
+    }
+    return;
+  }
   // See the comment on reannounce_interval_ms_: this doesn't wait for any
   // detected failure, it just periodically re-establishes our registration
   // in case the HA-side integration silently lost track of us while the
   // transport itself (and ping/pong) stayed healthy.
   if (now - this->last_reannounce_ms_ > this->reannounce_interval_ms_) {
     ESP_LOGD(TAG, "Periodic re-announce: resending connect + entity declarations");
-    this->send_raw_(build_connect(this->next_id_(), this->gateway_id_, this->gateway_name_,
+    uint32_t connect_id = this->next_id_();
+    this->send_raw_(build_connect(connect_id, this->gateway_id_, this->gateway_name_,
                                   this->keep_last_state_on_disconnect_));
+    this->last_connect_msg_id_ = connect_id;
+    this->awaiting_connect_result_ = true;
+    this->connect_sent_ms_ = now;
     this->declare_all_entities_();
     this->last_reannounce_ms_ = now;
   }
@@ -238,8 +255,13 @@ void WsBridgeComponent::handle_message_(const std::string &raw) {
     this->ping_outstanding_ = false;
   } else if (msg.type == "event") {
     if (!msg.command.unique_id.empty()) this->route_command_(msg.command);
+  } else if (msg.type == "result") {
+    // Only the periodic re-announce's ws_bridge/connect is tracked (see
+    // check_liveness_); every other ws_bridge/* result is fire-and-forget.
+    if (this->awaiting_connect_result_ && msg.id == this->last_connect_msg_id_) {
+      this->awaiting_connect_result_ = false;
+    }
   }
-  // "result": nothing to do, we don't block on ws_bridge/* results.
 }
 
 void WsBridgeComponent::route_command_(const WsCommand &command) {
