@@ -135,15 +135,14 @@ class WsBridgeComponent : public Component {
   // elapsed before the drop, rather than retrying promptly.
   //
   // reconnect_backoff_ms_ is the actual delay used each time: starts at
-  // RECONNECT_BACKOFF_BASE_MS and doubles on every failed attempt, capped at
-  // reconnect_retry_ms_, then resets back to base as soon as we're connected
-  // again (or on any freshly-detected disconnect). This mirrors the companion
-  // hass-ble-android client's HaWsClient (reconnectDelayMs: 2s doubling to a
-  // 30s cap) — a flat multi-minute wait, tried earlier here, left the device
-  // idle for up to that long after a disconnect for no good reason.
+  // RECONNECT_BACKOFF_BASE_MS (= reconnect_retry_ms_'s default, so this is a
+  // flat 30s retry out of the box) and doubles on every failed attempt if
+  // reconnect_retry_ms_ is configured higher than the base, then resets back
+  // to base as soon as we're connected again (or on any freshly-detected
+  // disconnect).
   uint32_t last_reconnect_attempt_ms_{0};
   uint32_t reconnect_retry_ms_{30000};
-  static constexpr uint32_t RECONNECT_BACKOFF_BASE_MS = 2000;
+  static constexpr uint32_t RECONNECT_BACKOFF_BASE_MS = 30000;
   uint32_t reconnect_backoff_ms_{RECONNECT_BACKOFF_BASE_MS};
 
   // Backstop for a different failure mode: the transport (and HA's generic
