@@ -1,4 +1,5 @@
 #include "ws_bridge.h"
+#include <algorithm>
 #include "esp_crt_bundle.h"
 #include "esp_transport_ws.h"
 #include "esphome/components/network/util.h"
@@ -78,10 +79,11 @@ void WsBridgeComponent::force_reconnect_() {
 void WsBridgeComponent::check_liveness_() {
   uint32_t now = millis();
   if (!this->is_connected()) {
-    if (now - this->last_reconnect_attempt_ms_ > this->reconnect_retry_ms_) {
+    if (now - this->last_reconnect_attempt_ms_ > this->reconnect_backoff_ms_) {
       ESP_LOGW(TAG, "Still disconnected after %u ms — forcing a fresh connection attempt",
-               static_cast<unsigned>(this->reconnect_retry_ms_));
+               static_cast<unsigned>(this->reconnect_backoff_ms_));
       this->force_reconnect_();
+      this->reconnect_backoff_ms_ = std::min(this->reconnect_backoff_ms_ * 2, this->reconnect_retry_ms_);
     }
     return;
   }
@@ -90,6 +92,7 @@ void WsBridgeComponent::check_liveness_() {
       ESP_LOGW(TAG, "No pong received within %u ms — forcing reconnect",
                static_cast<unsigned>(this->pong_timeout_ms_));
       this->ping_outstanding_ = false;
+      this->reconnect_backoff_ms_ = RECONNECT_BACKOFF_BASE_MS;
       this->force_reconnect_();
     }
     return;
@@ -103,6 +106,7 @@ void WsBridgeComponent::check_liveness_() {
       ESP_LOGW(TAG, "No result for ws_bridge/connect within %u ms — forcing reconnect",
                static_cast<unsigned>(this->pong_timeout_ms_));
       this->awaiting_connect_result_ = false;
+      this->reconnect_backoff_ms_ = RECONNECT_BACKOFF_BASE_MS;
       this->force_reconnect_();
     }
     return;
@@ -137,7 +141,7 @@ void WsBridgeComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "  Keep last state on disconnect: %s", YESNO(this->keep_last_state_on_disconnect_));
   ESP_LOGCONFIG(TAG, "  Ping interval: %u ms", static_cast<unsigned>(this->ping_interval_ms_));
   ESP_LOGCONFIG(TAG, "  Pong timeout: %u ms", static_cast<unsigned>(this->pong_timeout_ms_));
-  ESP_LOGCONFIG(TAG, "  Reconnect timeout: %u ms", static_cast<unsigned>(this->reconnect_retry_ms_));
+  ESP_LOGCONFIG(TAG, "  Reconnect backoff cap: %u ms", static_cast<unsigned>(this->reconnect_retry_ms_));
   ESP_LOGCONFIG(TAG, "  Re-announce interval: %u ms", static_cast<unsigned>(this->reannounce_interval_ms_));
 }
 
@@ -223,6 +227,14 @@ void WsBridgeComponent::handle_event_(const WsEvent &event) {
       // tell whether this is a real transition.
       if (event.was_connected) {
         ESP_LOGW(TAG, "WebSocket disconnected");
+        // Anchor the reconnect backoff to this disconnect, not to whatever
+        // earlier attempt last_reconnect_attempt_ms_ still held — otherwise
+        // a connection that drops shortly after connecting could sit idle
+        // for however much of reconnect_retry_ms_ was already "used up"
+        // since that earlier attempt, instead of retrying promptly. See the
+        // comment on reconnect_backoff_ms_ in ws_bridge.h.
+        this->last_reconnect_attempt_ms_ = millis();
+        this->reconnect_backoff_ms_ = RECONNECT_BACKOFF_BASE_MS;
         this->disconnected_cb_.call();
       }
       break;
@@ -245,6 +257,7 @@ void WsBridgeComponent::handle_message_(const std::string &raw) {
         build_connect(this->next_id_(), this->gateway_id_, this->gateway_name_, this->keep_last_state_on_disconnect_));
     this->set_state_(WS_BRIDGE_CONNECTED);
     this->ping_outstanding_ = false;
+    this->reconnect_backoff_ms_ = RECONNECT_BACKOFF_BASE_MS;
     this->last_ping_sent_ms_ = millis();
     this->last_reannounce_ms_ = this->last_ping_sent_ms_;
     this->declare_all_entities_();

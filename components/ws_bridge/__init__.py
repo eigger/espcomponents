@@ -56,13 +56,14 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_KEEP_LAST_STATE_ON_DISCONNECT, default=False): cv.boolean,
             # See ws_bridge.cpp's check_liveness_() for what these govern: an
             # app-level ping/pong that detects a peer that dropped without a
-            # clean WS close, and a backstop that forces a fresh connection
-            # attempt if we've simply been disconnected too long (e.g. HA
-            # itself restarting) for esp_websocket_client's own auto-reconnect
-            # to have recovered on its own.
+            # clean WS close, and a backstop that keeps retrying (2s doubling
+            # to this cap, matching the companion hass-ble-android client's
+            # HaWsClient) if we've simply been disconnected, for whenever
+            # esp_websocket_client's own auto-reconnect doesn't recover on its
+            # own (observed after e.g. HA itself restarting).
             cv.Optional(CONF_PING_INTERVAL, default="60s"): cv.positive_time_period_milliseconds,
             cv.Optional(CONF_PONG_TIMEOUT, default="15s"): cv.positive_time_period_milliseconds,
-            cv.Optional(CONF_RECONNECT_TIMEOUT, default="2min"): cv.positive_time_period_milliseconds,
+            cv.Optional(CONF_RECONNECT_TIMEOUT, default="30s"): cv.positive_time_period_milliseconds,
             # Periodically resends ws_bridge/connect + entity declarations even
             # while nominally connected. Needed because the transport (and
             # HA's generic websocket_api ping/pong) can stay alive while the
