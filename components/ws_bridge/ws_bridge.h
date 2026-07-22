@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include <functional>
 #include <string>
 #include <vector>
@@ -27,7 +28,18 @@ enum WsBridgeState : uint8_t {
 struct WsEvent {
   esp_websocket_event_id_t event_id{WEBSOCKET_EVENT_ERROR};
   std::string data;
-  void release() { data.clear(); }
+  // Snapshot (taken by the producer at the moment of a disconnect-family
+  // event) of whether the connection was actually up before this event.
+  // The consumer uses this instead of re-reading state_, because state_ has
+  // already been updated by the producer by the time the consumer gets to
+  // it — and the queued event itself may never be dequeued at all if the
+  // queue was full, so it must not be the thing state_ correctness depends
+  // on.
+  bool was_connected{false};
+  void release() {
+    data.clear();
+    was_connected = false;
+  }
 };
 
 class WsBridgeComponent : public Component {
@@ -49,7 +61,11 @@ class WsBridgeComponent : public Component {
   float get_setup_priority() const override { return setup_priority::AFTER_WIFI; }
 
   void register_device(WsBridgeDevice *device) { this->devices_.push_back(device); }
-  bool is_connected() const { return this->state_ == WS_BRIDGE_CONNECTED; }
+  // state_ is written from two tasks (the esp_websocket_client task on
+  // disconnect/connect, the main loop task on auth progress), so it must be
+  // atomic. See ws_event_handler_ for why the disconnect-family transitions
+  // in particular can't wait for the main loop to process a queued event.
+  bool is_connected() const { return this->state_.load(std::memory_order_acquire) == WS_BRIDGE_CONNECTED; }
 
   // Called by platform entities (via WsBridgeDevice helpers) to push state
   // and declarations. No-ops while not connected; the next (re)connect will
@@ -83,7 +99,7 @@ class WsBridgeComponent : public Component {
   std::string gateway_name_;
   bool keep_last_state_on_disconnect_{false};
 
-  WsBridgeState state_{WS_BRIDGE_DISCONNECTED};
+  std::atomic<WsBridgeState> state_{WS_BRIDGE_DISCONNECTED};
   uint32_t msg_id_{0};
   std::vector<WsBridgeDevice *> devices_{};
 
