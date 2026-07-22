@@ -74,6 +74,13 @@ std::string build_entity_declare(uint32_t id, const std::string &unique_id, cons
   });
 }
 
+std::string build_ping(uint32_t id) {
+  return json::build_json([&](JsonObject root) {
+    root["id"] = id;
+    root["type"] = "ping";
+  });
+}
+
 std::string build_state_float(uint32_t id, const std::string &unique_id, float value) {
   return json::build_json([&](JsonObject root) {
     root["id"] = id;

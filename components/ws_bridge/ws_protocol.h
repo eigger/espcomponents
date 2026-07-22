@@ -35,6 +35,12 @@ std::string build_auth(const std::string &access_token);
 std::string build_connect(uint32_t id, const std::string &gateway_id, const std::string &name,
                           bool keep_last_state_on_disconnect);
 
+// Application-level keepalive (HA's standard websocket_api "ping"/"pong"
+// commands) — used to actively detect a dead connection that the transport
+// layer itself doesn't notice (e.g. HA process killed without a clean WS
+// close, so the socket never sees a FIN/RST).
+std::string build_ping(uint32_t id);
+
 // `extra` (may be empty) is called with the message's root JsonObject to add
 // platform-specific declare fields (device_class, options, min/max/step, ...).
 std::string build_entity_declare(uint32_t id, const std::string &unique_id, const std::string &platform,

@@ -194,6 +194,15 @@ build/dashboard tooling produces):
   own YAML if you need to drive real hardware from the state.
 - On every (re)connect, all declared entities and their current state are
   re-sent, per the protocol's reconnection guidance.
+- While connected, an application-level `ping`/`pong` (HA's standard
+  websocket_api commands) is sent every 60s. If no `pong` arrives within 15s,
+  the connection is forced closed and reopened. This catches a dead
+  connection that the transport layer alone wouldn't notice — e.g. Home
+  Assistant restarting without a clean WebSocket close, which can otherwise
+  leave the device believing it's still connected indefinitely. The interval
+  is deliberately low-frequency (worst-case detection is up to ~75s) and the
+  timeout generous, so it won't misfire on a slow-but-alive WAN connection
+  (e.g. Nabu Casa remote UI, reverse proxy).
 - TLS uses ESP-IDF's built-in public CA bundle — this works out of the box
   with Nabu Casa or any certificate from a public CA. A custom CA
   certificate (for self-signed setups) is not supported yet.

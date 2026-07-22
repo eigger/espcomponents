@@ -48,6 +48,33 @@ void WsBridgeComponent::loop() {
     this->handle_event_(*event);
     this->event_pool_.release(event);
   }
+
+  this->check_liveness_();
+}
+
+// Actively probes the connection with HA's standard "ping"/"pong" websocket_api
+// commands. Needed because a dead peer (e.g. HA killed without a clean WS
+// close — no FIN/RST ever reaches the socket) can otherwise leave the
+// underlying esp_websocket_client believing it's still connected indefinitely,
+// so is_connected() alone never reports the failure and auto-reconnect never
+// kicks in.
+void WsBridgeComponent::check_liveness_() {
+  if (!this->is_connected()) return;
+  uint32_t now = millis();
+  if (this->ping_outstanding_) {
+    if (now - this->last_ping_sent_ms_ > PONG_TIMEOUT_MS) {
+      ESP_LOGW(TAG, "No pong received within %u ms — forcing reconnect", PONG_TIMEOUT_MS);
+      this->ping_outstanding_ = false;
+      esp_websocket_client_stop(this->client_);
+      esp_websocket_client_start(this->client_);
+    }
+    return;
+  }
+  if (now - this->last_ping_sent_ms_ > PING_INTERVAL_MS) {
+    this->send_raw_(build_ping(this->next_id_()));
+    this->ping_outstanding_ = true;
+    this->last_ping_sent_ms_ = now;
+  }
 }
 
 void WsBridgeComponent::dump_config() {
@@ -138,10 +165,14 @@ void WsBridgeComponent::handle_message_(const std::string &raw) {
     this->send_raw_(
         build_connect(this->next_id_(), this->gateway_id_, this->gateway_name_, this->keep_last_state_on_disconnect_));
     this->set_state_(WS_BRIDGE_CONNECTED);
+    this->ping_outstanding_ = false;
+    this->last_ping_sent_ms_ = millis();
     this->declare_all_entities_();
     this->connected_cb_.call();
   } else if (msg.type == "auth_invalid") {
     ESP_LOGE(TAG, "Home Assistant rejected the access token");
+  } else if (msg.type == "pong") {
+    this->ping_outstanding_ = false;
   } else if (msg.type == "event") {
     if (!msg.command.unique_id.empty()) this->route_command_(msg.command);
   }
