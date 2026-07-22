@@ -55,6 +55,7 @@ class WsBridgeComponent : public Component {
   void set_ping_interval(uint32_t ms) { this->ping_interval_ms_ = ms; }
   void set_pong_timeout(uint32_t ms) { this->pong_timeout_ms_ = ms; }
   void set_reconnect_timeout(uint32_t ms) { this->reconnect_retry_ms_ = ms; }
+  void set_reannounce_interval(uint32_t ms) { this->reannounce_interval_ms_ = ms; }
 
   void add_on_connected_callback(std::function<void()> &&cb) { this->connected_cb_.add(std::move(cb)); }
   void add_on_disconnected_callback(std::function<void()> &&cb) { this->disconnected_cb_.add(std::move(cb)); }
@@ -126,6 +127,20 @@ class WsBridgeComponent : public Component {
   // attempt ourselves rather than waiting on the library indefinitely.
   uint32_t last_reconnect_attempt_ms_{0};
   uint32_t reconnect_retry_ms_{120000};
+
+  // Backstop for a different failure mode: the transport (and HA's generic
+  // websocket_api ping/pong) can stay perfectly alive while the ws_bridge
+  // *integration* on the HA side loses track of this specific gateway (e.g.
+  // its config entry got reloaded independently of the raw connection, during
+  // a long/messy HA restart). Ping/pong alone can't detect this — HA core
+  // answers pings regardless of whether our integration still recognizes the
+  // connection — so ws_bridge/state pushes would then be silently dropped
+  // forever with no disconnect ever observed. Periodically resending
+  // ws_bridge/connect + full entity/state declarations re-registers with
+  // whatever WsBridge instance is currently live, healing this without
+  // needing to detect it precisely.
+  uint32_t last_reannounce_ms_{0};
+  uint32_t reannounce_interval_ms_{300000};
 
   // Producer-side (WS client task) fragment reassembly buffer. Only ever
   // touched from ws_event_handler_(), never from loop() — no locking needed.
