@@ -147,4 +147,5 @@ cython_debug/
 .claude/
 .esphome/
 .platformio/
+secrets.yaml
 
