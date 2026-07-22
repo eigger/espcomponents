@@ -17,6 +17,9 @@ from .const import (
     CONF_WS_DEVICE_NAME,
     CONF_ON_CONNECTED,
     CONF_ON_DISCONNECTED,
+    CONF_PING_INTERVAL,
+    CONF_PONG_TIMEOUT,
+    CONF_RECONNECT_TIMEOUT,
 )
 
 CODEOWNERS = ["@eigger"]
@@ -50,6 +53,15 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_GATEWAY_ID, default=lambda: CORE.name): cv.string_strict,
             cv.Optional(CONF_NAME, default=lambda: CORE.friendly_name or CORE.name): cv.string_strict,
             cv.Optional(CONF_KEEP_LAST_STATE_ON_DISCONNECT, default=False): cv.boolean,
+            # See ws_bridge.cpp's check_liveness_() for what these govern: an
+            # app-level ping/pong that detects a peer that dropped without a
+            # clean WS close, and a backstop that forces a fresh connection
+            # attempt if we've simply been disconnected too long (e.g. HA
+            # itself restarting) for esp_websocket_client's own auto-reconnect
+            # to have recovered on its own.
+            cv.Optional(CONF_PING_INTERVAL, default="60s"): cv.positive_time_period_milliseconds,
+            cv.Optional(CONF_PONG_TIMEOUT, default="15s"): cv.positive_time_period_milliseconds,
+            cv.Optional(CONF_RECONNECT_TIMEOUT, default="2min"): cv.positive_time_period_milliseconds,
             cv.Optional(CONF_ON_CONNECTED): automation.validate_automation(
                 {cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(ConnectedTrigger)}
             ),
@@ -97,6 +109,9 @@ async def to_code(config):
     cg.add(var.set_gateway_id(config[CONF_GATEWAY_ID]))
     cg.add(var.set_gateway_name(config[CONF_NAME]))
     cg.add(var.set_keep_last_state_on_disconnect(config[CONF_KEEP_LAST_STATE_ON_DISCONNECT]))
+    cg.add(var.set_ping_interval(config[CONF_PING_INTERVAL].total_milliseconds))
+    cg.add(var.set_pong_timeout(config[CONF_PONG_TIMEOUT].total_milliseconds))
+    cg.add(var.set_reconnect_timeout(config[CONF_RECONNECT_TIMEOUT].total_milliseconds))
 
     for conf in config.get(CONF_ON_CONNECTED, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
