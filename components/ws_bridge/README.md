@@ -47,7 +47,7 @@ ws_bridge:
   keep_last_state_on_disconnect: false
   ping_interval: 60s
   pong_timeout: 15s
-  reconnect_timeout: 2min
+  reconnect_timeout: 30s
   reannounce_interval: 60s
 
   on_connected:
@@ -114,7 +114,7 @@ button:
 | `keep_last_state_on_disconnect` | | `false` | If `true`, this gateway's entities keep their last state in HA instead of going `unavailable` when the connection drops (including an ungraceful disconnect) |
 | `ping_interval` | | `60s` | How often to send an app-level `ping` once connected, to detect a peer that dropped without a clean WebSocket close |
 | `pong_timeout` | | `15s` | How long to wait for a `pong` reply before assuming the connection is dead and forcing a reconnect |
-| `reconnect_timeout` | | `2min` | How long to stay disconnected before forcing a fresh connection attempt ourselves, in case `esp_websocket_client`'s own auto-reconnect (e.g. across a prolonged Home Assistant restart) stops making progress on its own |
+| `reconnect_timeout` | | `30s` | Cap for the reconnect backoff: while disconnected, we retry starting at 2s and doubling on each failure up to this value (matches the companion hass-ble-android client), rather than waiting on `esp_websocket_client`'s own auto-reconnect indefinitely |
 | `reannounce_interval` | | `60s` | How often to resend `ws_bridge/connect` + all entity/state declarations while nominally connected. Guards against the HA-side integration losing track of this gateway (e.g. its config entry reloaded) while the raw connection and ping/pong stay healthy — that scenario is otherwise invisible, since HA answers pings regardless of our integration's state. If a re-announce goes unanswered, forces a full reconnect rather than repeating the same no-op |
 
 ### Platform options (all of `sensor`/`binary_sensor`/`text_sensor`/`switch`/`number`/`select`/`button`)

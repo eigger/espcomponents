@@ -123,10 +123,28 @@ class WsBridgeComponent : public Component {
   // Backstop for check_liveness_(): while disconnected, esp_websocket_client's
   // own auto-reconnect can stop making progress after a prolonged outage
   // (e.g. HA itself restarting) without ever raising another event we could
-  // react to. If we've been down longer than this, force a fresh connection
-  // attempt ourselves rather than waiting on the library indefinitely.
+  // react to. If we've been down longer than the current backoff, force a
+  // fresh connection attempt ourselves rather than waiting on the library
+  // indefinitely.
+  //
+  // last_reconnect_attempt_ms_ is reset at every disconnect (not just at each
+  // attempt) — see handle_event_()/force_reconnect_() — precisely so this
+  // isn't measured from some earlier, unrelated attempt. Without that, a
+  // connection that drops shortly after connecting could sit idle for up to
+  // reconnect_retry_ms_ minus however much of that window had already
+  // elapsed before the drop, rather than retrying promptly.
+  //
+  // reconnect_backoff_ms_ is the actual delay used each time: starts at
+  // RECONNECT_BACKOFF_BASE_MS and doubles on every failed attempt, capped at
+  // reconnect_retry_ms_, then resets back to base as soon as we're connected
+  // again (or on any freshly-detected disconnect). This mirrors the companion
+  // hass-ble-android client's HaWsClient (reconnectDelayMs: 2s doubling to a
+  // 30s cap) — a flat multi-minute wait, tried earlier here, left the device
+  // idle for up to that long after a disconnect for no good reason.
   uint32_t last_reconnect_attempt_ms_{0};
-  uint32_t reconnect_retry_ms_{120000};
+  uint32_t reconnect_retry_ms_{30000};
+  static constexpr uint32_t RECONNECT_BACKOFF_BASE_MS = 2000;
+  uint32_t reconnect_backoff_ms_{RECONNECT_BACKOFF_BASE_MS};
 
   // Backstop for a different failure mode: the transport (and HA's generic
   // websocket_api ping/pong) can stay perfectly alive while the ws_bridge
