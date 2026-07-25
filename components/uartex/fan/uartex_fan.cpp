@@ -22,6 +22,7 @@ fan::FanTraits UARTExFan::get_traits()
         traits.set_speed(true);
         traits.set_supported_speed_count(this->speed_count_);
     }
+    this->wire_preset_modes_(traits);
     return traits;
 }
 
