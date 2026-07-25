@@ -1,9 +1,46 @@
 # ==============================================================================
-# ESPHome 삼성 시스템 에어컨 (NASA 프로토콜) 모듈 패키지
+# ESPHome 삼성 시스템 에어컨 (NASA 프로토콜) 패키지
 # Repository: https://github.com/eigger/espcomponents
 # Package: packages/hvac/samsung/samsung_ac.yaml
 # Hardware: M5Stack AtomS3 Lite (ESP32-S3) + Tail485 (Atom Tail RS485)
 # ==============================================================================
+
+# ESP32-S3 타겟 및 ESP-IDF 프레임워크 설정
+esp32:
+  variant: esp32s3
+  framework:
+    type: esp-idf
+
+# Home Assistant 구역(Area) 및 기기 그룹화 정의
+esphome:
+  areas:
+    - id: area_livingroom
+      name: ""
+    - id: area_bedroom
+      name: ""
+    - id: area_room_1
+      name: ""
+    - id: area_room_2
+      name: ""
+    - id: area_mechanical
+      name: ""
+      
+  devices:
+    - id: device_livingroom
+      area_id: area_livingroom
+      name: "${friendly_name} Livingroom"
+    - id: device_bedroom
+      area_id: area_bedroom
+      name: "${friendly_name} Bedroom"
+    - id: device_room_1
+      area_id: area_room_1
+      name: "${friendly_name} Room 1"
+    - id: device_room_2
+      area_id: area_room_2
+      name: "${friendly_name} Room 2"
+    - id: device_mechanical
+      area_id: area_mechanical
+      name: "${friendly_name} Mechanical"
 
 # ------------------------------------------------------------------------------
 # M5Stack AtomS3 Lite + Tail485 통신 핀 및 UART 프로토콜 설정
