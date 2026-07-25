@@ -1,0 +1,1058 @@
+# ==============================================================================
+# ESPHome 삼성 시스템 에어컨 (NASA 프로토콜) 모듈 패키지
+# Repository: https://github.com/eigger/espcomponents
+# Package: packages/hvac/samsung/samsung_ac.yaml
+# Hardware: M5Stack AtomS3 Lite (ESP32-S3) + Tail485 (Atom Tail RS485)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# M5Stack AtomS3 Lite + Tail485 통신 핀 및 UART 프로토콜 설정
+# - RX Pin: GPIO01 (Groove/Bottom RX)
+# - TX Pin: GPIO02 (Groove/Bottom TX)
+# - Baud: 9600 bps / Parity: EVEN (삼성 NASA 프로토콜 RS-485 8E1 규격)
+# ------------------------------------------------------------------------------
+uart:
+  rx_pin: GPIO01
+  tx_pin: GPIO02
+  baud_rate: 9600
+  parity: EVEN
+
+# ------------------------------------------------------------------------------
+# 1. 텍스트 상태 표기를 위한 템플릿 텍스트 센서 (읽기 전용 상태 변환용)
+# - raw 수치 메시지를 가독성 있는 문자열(Auto, Cool, Windfree 등)로 표기
+# ------------------------------------------------------------------------------
+text_sensor:
+  # 1) 거실 (Living AC)
+  - platform: template
+    name: "Living AC Real Mode"
+    id: living_ac_real_mode_text
+    icon: "mdi:state-machine"
+    device_id: device_livingroom
+  - platform: template
+    name: "Living AC Real Fan Speed"
+    id: living_ac_real_fan_speed_text
+    icon: "mdi:fan-clock"
+    device_id: device_livingroom
+  - platform: template
+    name: "Living AC Alt Mode"
+    id: living_ac_alt_mode_text
+    icon: "mdi:cog"
+    device_id: device_livingroom
+
+  # 2) 안방 (Master AC)
+  - platform: template
+    name: "Master AC Real Mode"
+    id: master_ac_real_mode_text
+    icon: "mdi:state-machine"
+    device_id: device_bedroom
+  - platform: template
+    name: "Master AC Real Fan Speed"
+    id: master_ac_real_fan_speed_text
+    icon: "mdi:fan-clock"
+    device_id: device_bedroom
+  - platform: template
+    name: "Master AC Alt Mode"
+    id: master_ac_alt_mode_text
+    icon: "mdi:cog"
+    device_id: device_bedroom
+
+  # 3) 방1 (Room 1 AC)
+  - platform: template
+    name: "Room 1 AC Real Mode"
+    id: room_1_ac_real_mode_text
+    icon: "mdi:state-machine"
+    device_id: device_room_1
+  - platform: template
+    name: "Room 1 AC Real Fan Speed"
+    id: room_1_ac_real_fan_speed_text
+    icon: "mdi:fan-clock"
+    device_id: device_room_1
+  - platform: template
+    name: "Room 1 AC Alt Mode"
+    id: room_1_ac_alt_mode_text
+    icon: "mdi:cog"
+    device_id: device_room_1
+
+  # 4) 방2 (Room 2 AC)
+  - platform: template
+    name: "Room 2 AC Real Mode"
+    id: room_2_ac_real_mode_text
+    icon: "mdi:state-machine"
+    device_id: device_room_2
+  - platform: template
+    name: "Room 2 AC Real Fan Speed"
+    id: room_2_ac_real_fan_speed_text
+    icon: "mdi:fan-clock"
+    device_id: device_room_2
+  - platform: template
+    name: "Room 2 AC Alt Mode"
+    id: room_2_ac_alt_mode_text
+    icon: "mdi:cog"
+    device_id: device_room_2
+
+  # 5) 거실2 (Living 2 AC)
+  - platform: template
+    name: "Living 2 AC Real Mode"
+    id: living_2_ac_real_mode_text
+    icon: "mdi:state-machine"
+    device_id: device_livingroom
+  - platform: template
+    name: "Living 2 AC Real Fan Speed"
+    id: living_2_ac_real_fan_speed_text
+    icon: "mdi:fan-clock"
+    device_id: device_livingroom
+  - platform: template
+    name: "Living 2 AC Alt Mode"
+    id: living_2_ac_alt_mode_text
+    icon: "mdi:cog"
+    device_id: device_livingroom
+
+  # 6) 실외기 (Outdoor Unit)
+  - platform: template
+    name: "Outdoor Unit 4-Way Valve Status"
+    id: outdoor_4way_valve_text
+    icon: "mdi:valve"
+    device_id: device_mechanical
+
+# ------------------------------------------------------------------------------
+# 2. 삼성 HVAC 메인 통신 컴포넌트 불러오기
+# ------------------------------------------------------------------------------
+external_components:
+  - source: github://omerfaruk-aran/esphome_samsung_hvac_bus@main
+    components: [samsung_ac]
+
+samsung_ac:
+  non_nasa_keepalive: true
+  debug_log_undefined_messages: false
+  debug_log_messages: false
+
+  devices:
+    # ==========================================================================
+    # 1. 거실 에어컨 (Living AC) - NASA 주소: "20.00.03"
+    # ==========================================================================
+    - address: "20.00.03"
+      map_auto_to_heat_cool: false   # false: Home Assistant에서 Auto 선택 시 삼성 AI Auto(0x4001=0) 패킷 전송
+      capabilities:
+        horizontal_swing: true
+        vertical_swing: true
+        presets:
+          windfree:
+            name: "Windfree"
+            enabled: true            # 무풍 프리셋 활성화
+          longreach:
+            name: "Longreach"
+            enabled: true            # 롱파워/롱리치 프리셋 활성화
+          sleep:
+            name: "Sleep"
+            enabled: false
+          quiet:
+            name: "Quiet"
+            enabled: false
+          fast:
+            name: "Fast"
+            enabled: false
+          eco:
+            name: "Eco"
+            enabled: false
+      climate:
+        name: "Living AC"
+        visual:
+          temperature_step:
+            target_temperature: 0.5
+            current_temperature: 0.1
+        device_id: device_livingroom
+      room_temperature:
+        name: "Living AC Temperature"
+        device_id: device_livingroom
+      room_humidity:
+        name: "Living AC Humidity"
+        device_id: device_livingroom
+      target_temperature:
+        name: "Living AC Target Temperature"
+        device_id: device_livingroom
+      power:
+        name: "Living AC Power"
+        device_id: device_livingroom
+      mode:
+        name: "Living AC Mode"
+        device_id: device_livingroom
+      automatic_cleaning:
+        name: "Living AC Auto Clean"
+        device_id: device_livingroom
+      indoor_eva_in_temperature:
+        name: "Living AC Eva In Temp"
+        device_id: device_livingroom
+      indoor_eva_out_temperature:
+        name: "Living AC Eva Out Temp"
+        device_id: device_livingroom
+      room_temperature_offset: 0
+
+      custom_sensor:
+        # 실제 가동 모드 피드백 수신 (0x4002) - Auto/Cool/Dry/Fan/Heat/Off
+        - id: living_ac_real_mode_raw
+          internal: true
+          message: 0x4002
+          filters:
+            - filter_out: 254
+            - filter_out: 255
+            - filter_out: 65535
+          on_value:
+            then:
+              - lambda: |-
+                  int val = (int) x;
+                  std::string text = "Unknown";
+                  switch(val) {
+                    case 0: text = "Auto"; break;
+                    case 1: text = "Cool"; break;
+                    case 2: text = "Dry"; break;
+                    case 3: text = "Fan"; break;
+                    case 4: text = "Heat"; break;
+                    case 254: case 255: text = "Off"; break;
+                    default: text = "Mode " + to_string(val); break;
+                  }
+                  id(living_ac_real_mode_text).publish_state(text);
+
+        # 실제 바람 세기 단계 수신 (0x4007) - Auto/Low/Mid/High/Turbo/Windfree/Off
+        - id: living_ac_real_fan_speed_raw
+          internal: true
+          message: 0x4007
+          filters:
+            - filter_out: 254
+            - filter_out: 255
+            - filter_out: 65535
+          on_value:
+            then:
+              - lambda: |-
+                  int val = (int) x;
+                  std::string text = "Unknown";
+                  switch(val) {
+                    case 0: text = "Auto"; break;
+                    case 1: text = "Low"; break;
+                    case 2: text = "Mid"; break;
+                    case 3: text = "High"; break;
+                    case 4: text = "Turbo"; break;
+                    case 9: text = "Windfree"; break;
+                    case 254: case 255: text = "Off"; break;
+                    default: text = "Speed " + to_string(val); break;
+                  }
+                  id(living_ac_real_fan_speed_text).publish_state(text);
+
+        # 서브 특수 운전 모드 수신 (0x4060) - Normal/Sleep/Quiet/Fast/Longreach/Windfree/Off
+        - id: living_ac_alt_mode_raw
+          internal: true
+          message: 0x4060
+          filters:
+            - filter_out: 254
+            - filter_out: 255
+            - filter_out: 65535
+          on_value:
+            then:
+              - lambda: |-
+                  int val = (int) x;
+                  std::string text = "Normal";
+                  switch(val) {
+                    case 0: text = "Normal"; break;
+                    case 1: text = "Sleep"; break;
+                    case 2: text = "Quiet"; break;
+                    case 3: text = "Fast"; break;
+                    case 6: text = "Longreach"; break;
+                    case 9: text = "Windfree"; break;
+                    case 254: case 255: text = "Off"; break;
+                    default: text = "AltMode " + to_string(val); break;
+                  }
+                  id(living_ac_alt_mode_text).publish_state(text);
+
+        # 미세먼지 수치 센서 (PM10: 0x42D1, PM2.5: 0x42D2, PM1.0: 0x42D3) - 미설치 시 65535 예외 필터링
+        - name: "Living AC PM10 Dust"
+          message: 0x42D1
+          unit_of_measurement: "µg/m³"
+          device_class: pm10
+          state_class: measurement
+          icon: "mdi:blur"
+          filters:
+            - filter_out: 65535
+          device_id: device_livingroom
+        - name: "Living AC PM2.5 Dust"
+          message: 0x42D2
+          unit_of_measurement: "µg/m³"
+          device_class: pm25
+          state_class: measurement
+          icon: "mdi:blur"
+          filters:
+            - filter_out: 65535
+          device_id: device_livingroom
+        - name: "Living AC PM1.0 Dust"
+          message: 0x42D3
+          unit_of_measurement: "µg/m³"
+          state_class: measurement
+          icon: "mdi:blur"
+          filters:
+            - filter_out: 65535
+          device_id: device_livingroom
+
+        # 실내기 요구 용량 부하 비율 (0x4211) - 퍼센트(%) 단위
+        - name: "Living AC Capacity Request"
+          message: 0x4211
+          unit_of_measurement: "%"
+          state_class: measurement
+          icon: "mdi:gauge"
+          filters:
+            - filter_out: 65535
+          device_id: device_livingroom
+
+    # ==========================================================================
+    # 2. 안방 에어컨 (Master AC) - NASA 주소: "20.00.00"
+    # ==========================================================================
+    - address: "20.00.00"
+      map_auto_to_heat_cool: false
+      capabilities:
+        horizontal_swing: true
+        vertical_swing: true
+        presets:
+          windfree:
+            name: "Windfree"
+            enabled: true
+          longreach:
+            name: "Longreach"
+            enabled: true
+          sleep:
+            name: "Sleep"
+            enabled: false
+          quiet:
+            name: "Quiet"
+            enabled: false
+          fast:
+            name: "Fast"
+            enabled: false
+          eco:
+            name: "Eco"
+            enabled: false
+      climate:
+        name: "Master AC"
+        visual:
+          temperature_step:
+            target_temperature: 0.5
+            current_temperature: 0.1
+        device_id: device_bedroom
+      room_temperature:
+        name: "Master AC Temperature"
+        device_id: device_bedroom
+      room_humidity:
+        name: "Master AC Humidity"
+        device_id: device_bedroom
+      target_temperature:
+        name: "Master AC Target Temperature"
+        device_id: device_bedroom
+      power:
+        name: "Master AC Power"
+        device_id: device_bedroom
+      mode:
+        name: "Master AC Mode"
+        device_id: device_bedroom
+      automatic_cleaning:
+        name: "Master AC Auto Clean"
+        device_id: device_bedroom
+      indoor_eva_in_temperature:
+        name: "Master AC Eva In Temp"
+        device_id: device_bedroom
+      indoor_eva_out_temperature:
+        name: "Master AC Eva Out Temp"
+        device_id: device_bedroom
+      room_temperature_offset: 0
+
+      custom_sensor:
+        - id: master_ac_real_mode_raw
+          internal: true
+          message: 0x4002
+          filters:
+            - filter_out: 254
+            - filter_out: 255
+            - filter_out: 65535
+          on_value:
+            then:
+              - lambda: |-
+                  int val = (int) x;
+                  std::string text = "Unknown";
+                  switch(val) {
+                    case 0: text = "Auto"; break;
+                    case 1: text = "Cool"; break;
+                    case 2: text = "Dry"; break;
+                    case 3: text = "Fan"; break;
+                    case 4: text = "Heat"; break;
+                    case 254: case 255: text = "Off"; break;
+                    default: text = "Mode " + to_string(val); break;
+                  }
+                  id(master_ac_real_mode_text).publish_state(text);
+        - id: master_ac_real_fan_speed_raw
+          internal: true
+          message: 0x4007
+          filters:
+            - filter_out: 254
+            - filter_out: 255
+            - filter_out: 65535
+          on_value:
+            then:
+              - lambda: |-
+                  int val = (int) x;
+                  std::string text = "Unknown";
+                  switch(val) {
+                    case 0: text = "Auto"; break;
+                    case 1: text = "Low"; break;
+                    case 2: text = "Mid"; break;
+                    case 3: text = "High"; break;
+                    case 4: text = "Turbo"; break;
+                    case 9: text = "Windfree"; break;
+                    case 254: case 255: text = "Off"; break;
+                    default: text = "Speed " + to_string(val); break;
+                  }
+                  id(master_ac_real_fan_speed_text).publish_state(text);
+        - id: master_ac_alt_mode_raw
+          internal: true
+          message: 0x4060
+          filters:
+            - filter_out: 254
+            - filter_out: 255
+            - filter_out: 65535
+          on_value:
+            then:
+              - lambda: |-
+                  int val = (int) x;
+                  std::string text = "Normal";
+                  switch(val) {
+                    case 0: text = "Normal"; break;
+                    case 1: text = "Sleep"; break;
+                    case 2: text = "Quiet"; break;
+                    case 3: text = "Fast"; break;
+                    case 6: text = "Longreach"; break;
+                    case 9: text = "Windfree"; break;
+                    case 254: case 255: text = "Off"; break;
+                    default: text = "AltMode " + to_string(val); break;
+                  }
+                  id(master_ac_alt_mode_text).publish_state(text);
+        - name: "Master AC PM10 Dust"
+          message: 0x42D1
+          unit_of_measurement: "µg/m³"
+          device_class: pm10
+          state_class: measurement
+          icon: "mdi:blur"
+          filters:
+            - filter_out: 65535
+          device_id: device_bedroom
+        - name: "Master AC PM2.5 Dust"
+          message: 0x42D2
+          unit_of_measurement: "µg/m³"
+          device_class: pm25
+          state_class: measurement
+          icon: "mdi:blur"
+          filters:
+            - filter_out: 65535
+          device_id: device_bedroom
+        - name: "Master AC PM1.0 Dust"
+          message: 0x42D3
+          unit_of_measurement: "µg/m³"
+          state_class: measurement
+          icon: "mdi:blur"
+          filters:
+            - filter_out: 65535
+          device_id: device_bedroom
+        - name: "Master AC Capacity Request"
+          message: 0x4211
+          unit_of_measurement: "%"
+          state_class: measurement
+          icon: "mdi:gauge"
+          filters:
+            - filter_out: 65535
+          device_id: device_bedroom
+
+    # ==========================================================================
+    # 3. 방1 에어컨 (Room 1 AC) - NASA 주소: "20.00.04"
+    # ==========================================================================
+    - address: "20.00.04"
+      map_auto_to_heat_cool: false
+      capabilities:
+        horizontal_swing: true
+        vertical_swing: true
+        presets:
+          windfree:
+            name: "Windfree"
+            enabled: true
+          longreach:
+            name: "Longreach"
+            enabled: true
+          sleep:
+            name: "Sleep"
+            enabled: false
+          quiet:
+            name: "Quiet"
+            enabled: false
+          fast:
+            name: "Fast"
+            enabled: false
+          eco:
+            name: "Eco"
+            enabled: false
+      climate:
+        name: "Room 1 AC"
+        visual:
+          temperature_step:
+            target_temperature: 0.5
+            current_temperature: 0.1
+        device_id: device_room_1
+      room_temperature:
+        name: "Room 1 AC Temperature"
+        device_id: device_room_1
+      room_humidity:
+        name: "Room 1 AC Humidity"
+        device_id: device_room_1
+      target_temperature:
+        name: "Room 1 AC Target Temperature"
+        device_id: device_room_1
+      power:
+        name: "Room 1 AC Power"
+        device_id: device_room_1
+      mode:
+        name: "Room 1 AC Mode"
+        device_id: device_room_1
+      automatic_cleaning:
+        name: "Room 1 AC Auto Clean"
+        device_id: device_room_1
+      indoor_eva_in_temperature:
+        name: "Room 1 AC Eva In Temp"
+        device_id: device_room_1
+      indoor_eva_out_temperature:
+        name: "Room 1 AC Eva Out Temp"
+        device_id: device_room_1
+      room_temperature_offset: 0
+
+      custom_sensor:
+        - id: room_1_ac_real_mode_raw
+          internal: true
+          message: 0x4002
+          filters:
+            - filter_out: 254
+            - filter_out: 255
+            - filter_out: 65535
+          on_value:
+            then:
+              - lambda: |-
+                  int val = (int) x;
+                  std::string text = "Unknown";
+                  switch(val) {
+                    case 0: text = "Auto"; break;
+                    case 1: text = "Cool"; break;
+                    case 2: text = "Dry"; break;
+                    case 3: text = "Fan"; break;
+                    case 4: text = "Heat"; break;
+                    case 254: case 255: text = "Off"; break;
+                    default: text = "Mode " + to_string(val); break;
+                  }
+                  id(room_1_ac_real_mode_text).publish_state(text);
+        - id: room_1_ac_real_fan_speed_raw
+          internal: true
+          message: 0x4007
+          filters:
+            - filter_out: 254
+            - filter_out: 255
+            - filter_out: 65535
+          on_value:
+            then:
+              - lambda: |-
+                  int val = (int) x;
+                  std::string text = "Unknown";
+                  switch(val) {
+                    case 0: text = "Auto"; break;
+                    case 1: text = "Low"; break;
+                    case 2: text = "Mid"; break;
+                    case 3: text = "High"; break;
+                    case 4: text = "Turbo"; break;
+                    case 9: text = "Windfree"; break;
+                    case 254: case 255: text = "Off"; break;
+                    default: text = "Speed " + to_string(val); break;
+                  }
+                  id(room_1_ac_real_fan_speed_text).publish_state(text);
+        - id: room_1_ac_alt_mode_raw
+          internal: true
+          message: 0x4060
+          filters:
+            - filter_out: 254
+            - filter_out: 255
+            - filter_out: 65535
+          on_value:
+            then:
+              - lambda: |-
+                  int val = (int) x;
+                  std::string text = "Normal";
+                  switch(val) {
+                    case 0: text = "Normal"; break;
+                    case 1: text = "Sleep"; break;
+                    case 2: text = "Quiet"; break;
+                    case 3: text = "Fast"; break;
+                    case 6: text = "Longreach"; break;
+                    case 9: text = "Windfree"; break;
+                    case 254: case 255: text = "Off"; break;
+                    default: text = "AltMode " + to_string(val); break;
+                  }
+                  id(room_1_ac_alt_mode_text).publish_state(text);
+        - name: "Room 1 AC PM10 Dust"
+          message: 0x42D1
+          unit_of_measurement: "µg/m³"
+          device_class: pm10
+          state_class: measurement
+          icon: "mdi:blur"
+          filters:
+            - filter_out: 65535
+          device_id: device_room_1
+        - name: "Room 1 AC PM2.5 Dust"
+          message: 0x42D2
+          unit_of_measurement: "µg/m³"
+          device_class: pm25
+          state_class: measurement
+          icon: "mdi:blur"
+          filters:
+            - filter_out: 65535
+          device_id: device_room_1
+        - name: "Room 1 AC PM1.0 Dust"
+          message: 0x42D3
+          unit_of_measurement: "µg/m³"
+          state_class: measurement
+          icon: "mdi:blur"
+          filters:
+            - filter_out: 65535
+          device_id: device_room_1
+        - name: "Room 1 AC Capacity Request"
+          message: 0x4211
+          unit_of_measurement: "%"
+          state_class: measurement
+          icon: "mdi:gauge"
+          filters:
+            - filter_out: 65535
+          device_id: device_room_1
+
+    # ==========================================================================
+    # 4. 방2 에어컨 (Room 2 AC) - NASA 주소: "20.00.02"
+    # ==========================================================================
+    - address: "20.00.02"
+      map_auto_to_heat_cool: false
+      capabilities:
+        horizontal_swing: true
+        vertical_swing: true
+        presets:
+          windfree:
+            name: "Windfree"
+            enabled: true
+          longreach:
+            name: "Longreach"
+            enabled: true
+          sleep:
+            name: "Sleep"
+            enabled: false
+          quiet:
+            name: "Quiet"
+            enabled: false
+          fast:
+            name: "Fast"
+            enabled: false
+          eco:
+            name: "Eco"
+            enabled: false
+      climate:
+        name: "Room 2 AC"
+        visual:
+          temperature_step:
+            target_temperature: 0.5
+            current_temperature: 0.1
+        device_id: device_room_2
+      room_temperature:
+        name: "Room 2 AC Temperature"
+        device_id: device_room_2
+      room_humidity:
+        name: "Room 2 AC Humidity"
+        device_id: device_room_2
+      target_temperature:
+        name: "Room 2 AC Target Temperature"
+        device_id: device_room_2
+      power:
+        name: "Room 2 AC Power"
+        device_id: device_room_2
+      mode:
+        name: "Room 2 AC Mode"
+        device_id: device_room_2
+      automatic_cleaning:
+        name: "Room 2 AC Auto Clean"
+        device_id: device_room_2
+      indoor_eva_in_temperature:
+        name: "Room 2 AC Eva In Temp"
+        device_id: device_room_2
+      indoor_eva_out_temperature:
+        name: "Room 2 AC Eva Out Temp"
+        device_id: device_room_2
+      room_temperature_offset: 0
+
+      custom_sensor:
+        - id: room_2_ac_real_mode_raw
+          internal: true
+          message: 0x4002
+          filters:
+            - filter_out: 254
+            - filter_out: 255
+            - filter_out: 65535
+          on_value:
+            then:
+              - lambda: |-
+                  int val = (int) x;
+                  std::string text = "Unknown";
+                  switch(val) {
+                    case 0: text = "Auto"; break;
+                    case 1: text = "Cool"; break;
+                    case 2: text = "Dry"; break;
+                    case 3: text = "Fan"; break;
+                    case 4: text = "Heat"; break;
+                    case 254: case 255: text = "Off"; break;
+                    default: text = "Mode " + to_string(val); break;
+                  }
+                  id(room_2_ac_real_mode_text).publish_state(text);
+        - id: room_2_ac_real_fan_speed_raw
+          internal: true
+          message: 0x4007
+          filters:
+            - filter_out: 254
+            - filter_out: 255
+            - filter_out: 65535
+          on_value:
+            then:
+              - lambda: |-
+                  int val = (int) x;
+                  std::string text = "Unknown";
+                  switch(val) {
+                    case 0: text = "Auto"; break;
+                    case 1: text = "Low"; break;
+                    case 2: text = "Mid"; break;
+                    case 3: text = "High"; break;
+                    case 4: text = "Turbo"; break;
+                    case 9: text = "Windfree"; break;
+                    case 254: case 255: text = "Off"; break;
+                    default: text = "Speed " + to_string(val); break;
+                  }
+                  id(room_2_ac_real_fan_speed_text).publish_state(text);
+        - id: room_2_ac_alt_mode_raw
+          internal: true
+          message: 0x4060
+          filters:
+            - filter_out: 254
+            - filter_out: 255
+            - filter_out: 65535
+          on_value:
+            then:
+              - lambda: |-
+                  int val = (int) x;
+                  std::string text = "Normal";
+                  switch(val) {
+                    case 0: text = "Normal"; break;
+                    case 1: text = "Sleep"; break;
+                    case 2: text = "Quiet"; break;
+                    case 3: text = "Fast"; break;
+                    case 6: text = "Longreach"; break;
+                    case 9: text = "Windfree"; break;
+                    case 254: case 255: text = "Off"; break;
+                    default: text = "AltMode " + to_string(val); break;
+                  }
+                  id(room_2_ac_alt_mode_text).publish_state(text);
+        - name: "Room 2 AC PM10 Dust"
+          message: 0x42D1
+          unit_of_measurement: "µg/m³"
+          device_class: pm10
+          state_class: measurement
+          icon: "mdi:blur"
+          filters:
+            - filter_out: 65535
+          device_id: device_room_2
+        - name: "Room 2 AC PM2.5 Dust"
+          message: 0x42D2
+          unit_of_measurement: "µg/m³"
+          device_class: pm25
+          state_class: measurement
+          icon: "mdi:blur"
+          filters:
+            - filter_out: 65535
+          device_id: device_room_2
+        - name: "Room 2 AC PM1.0 Dust"
+          message: 0x42D3
+          unit_of_measurement: "µg/m³"
+          state_class: measurement
+          icon: "mdi:blur"
+          filters:
+            - filter_out: 65535
+          device_id: device_room_2
+        - name: "Room 2 AC Capacity Request"
+          message: 0x4211
+          unit_of_measurement: "%"
+          state_class: measurement
+          icon: "mdi:gauge"
+          filters:
+            - filter_out: 65535
+          device_id: device_room_2
+
+    # ==========================================================================
+    # 5. 거실2 에어컨 (Living 2 AC) - NASA 주소: "20.00.01"
+    # ==========================================================================
+    - address: "20.00.01"
+      map_auto_to_heat_cool: false
+      capabilities:
+        horizontal_swing: true
+        vertical_swing: true
+        presets:
+          windfree:
+            name: "Windfree"
+            enabled: true
+          longreach:
+            name: "Longreach"
+            enabled: true
+          sleep:
+            name: "Sleep"
+            enabled: false
+          quiet:
+            name: "Quiet"
+            enabled: false
+          fast:
+            name: "Fast"
+            enabled: false
+          eco:
+            name: "Eco"
+            enabled: false
+      climate:
+        name: "Living 2 AC"
+        visual:
+          temperature_step:
+            target_temperature: 0.5
+            current_temperature: 0.1
+        device_id: device_livingroom
+      room_temperature:
+        name: "Living 2 AC Temperature"
+        device_id: device_livingroom
+      room_humidity:
+        name: "Living 2 AC Humidity"
+        device_id: device_livingroom
+      target_temperature:
+        name: "Living 2 AC Target Temperature"
+        device_id: device_livingroom
+      power:
+        name: "Living 2 AC Power"
+        device_id: device_livingroom
+      mode:
+        name: "Living 2 AC Mode"
+        device_id: device_livingroom
+      automatic_cleaning:
+        name: "Living 2 AC Auto Clean"
+        device_id: device_livingroom
+      indoor_eva_in_temperature:
+        name: "Living 2 AC Eva In Temp"
+        device_id: device_livingroom
+      indoor_eva_out_temperature:
+        name: "Living 2 AC Eva Out Temp"
+        device_id: device_livingroom
+      room_temperature_offset: 0
+
+      custom_sensor:
+        - id: living_2_ac_real_mode_raw
+          internal: true
+          message: 0x4002
+          filters:
+            - filter_out: 254
+            - filter_out: 255
+            - filter_out: 65535
+          on_value:
+            then:
+              - lambda: |-
+                  int val = (int) x;
+                  std::string text = "Unknown";
+                  switch(val) {
+                    case 0: text = "Auto"; break;
+                    case 1: text = "Cool"; break;
+                    case 2: text = "Dry"; break;
+                    case 3: text = "Fan"; break;
+                    case 4: text = "Heat"; break;
+                    case 254: case 255: text = "Off"; break;
+                    default: text = "Mode " + to_string(val); break;
+                  }
+                  id(living_2_ac_real_mode_text).publish_state(text);
+        - id: living_2_ac_real_fan_speed_raw
+          internal: true
+          message: 0x4007
+          filters:
+            - filter_out: 254
+            - filter_out: 255
+            - filter_out: 65535
+          on_value:
+            then:
+              - lambda: |-
+                  int val = (int) x;
+                  std::string text = "Unknown";
+                  switch(val) {
+                    case 0: text = "Auto"; break;
+                    case 1: text = "Low"; break;
+                    case 2: text = "Mid"; break;
+                    case 3: text = "High"; break;
+                    case 4: text = "Turbo"; break;
+                    case 9: text = "Windfree"; break;
+                    case 254: case 255: text = "Off"; break;
+                    default: text = "Speed " + to_string(val); break;
+                  }
+                  id(living_2_ac_real_fan_speed_text).publish_state(text);
+        - id: living_2_ac_alt_mode_raw
+          internal: true
+          message: 0x4060
+          filters:
+            - filter_out: 254
+            - filter_out: 255
+            - filter_out: 65535
+          on_value:
+            then:
+              - lambda: |-
+                  int val = (int) x;
+                  std::string text = "Normal";
+                  switch(val) {
+                    case 0: text = "Normal"; break;
+                    case 1: text = "Sleep"; break;
+                    case 2: text = "Quiet"; break;
+                    case 3: text = "Fast"; break;
+                    case 6: text = "Longreach"; break;
+                    case 9: text = "Windfree"; break;
+                    case 254: case 255: text = "Off"; break;
+                    default: text = "AltMode " + to_string(val); break;
+                  }
+                  id(living_2_ac_alt_mode_text).publish_state(text);
+        - name: "Living 2 AC PM10 Dust"
+          message: 0x42D1
+          unit_of_measurement: "µg/m³"
+          device_class: pm10
+          state_class: measurement
+          icon: "mdi:blur"
+          filters:
+            - filter_out: 65535
+          device_id: device_livingroom
+        - name: "Living 2 AC PM2.5 Dust"
+          message: 0x42D2
+          unit_of_measurement: "µg/m³"
+          device_class: pm25
+          state_class: measurement
+          icon: "mdi:blur"
+          filters:
+            - filter_out: 65535
+          device_id: device_livingroom
+        - name: "Living 2 AC PM1.0 Dust"
+          message: 0x42D3
+          unit_of_measurement: "µg/m³"
+          state_class: measurement
+          icon: "mdi:blur"
+          filters:
+            - filter_out: 65535
+          device_id: device_livingroom
+        - name: "Living 2 AC Capacity Request"
+          message: 0x4211
+          unit_of_measurement: "%"
+          state_class: measurement
+          icon: "mdi:gauge"
+          filters:
+            - filter_out: 65535
+          device_id: device_livingroom
+
+    # ==========================================================================
+    # 6. 실외기 (Outdoor Unit) - NASA 주소: "10.00.00"
+    # ==========================================================================
+    - address: "10.00.00"
+      error_code:
+        name: "Outdoor Unit Error Code"
+        device_id: device_mechanical
+      outdoor_instantaneous_power:
+        name: "Outdoor Unit Power"
+        device_id: device_mechanical
+      outdoor_cumulative_energy:
+        name: "Outdoor Unit Energy"
+        device_id: device_mechanical
+      outdoor_current:
+        name: "Outdoor Unit Current"
+        device_id: device_mechanical
+      outdoor_voltage:
+        name: "Outdoor Unit Voltage"
+        device_id: device_mechanical
+      outdoor_temperature: 
+        name: "Outdoor Unit Temperature"
+        device_id: device_mechanical
+      outdoor_operation_odu_mode:
+        name: "Outdoor Unit Operation Mode"
+        device_id: device_mechanical
+      outdoor_operation_heatcool:
+        name: "Outdoor Unit Heat-Cool Mode"
+        device_id: device_mechanical
+
+      custom_sensor:
+        # 실외기 사방밸브 인가 상태 수신 (0x801A) - 1: Heating (On) / 0: Cooling (Off)
+        - id: outdoor_4way_valve_raw
+          internal: true
+          message: 0x801A
+          filters:
+            - filter_out: 254
+            - filter_out: 255
+            - filter_out: 65535
+          on_value:
+            then:
+              - lambda: |-
+                  int val = (int) x;
+                  std::string text = (val == 1) ? "Heating (On)" : "Cooling (Off)";
+                  id(outdoor_4way_valve_text).publish_state(text);
+
+        # 토출 압축기 상부 온도 (0x8280) - Raw Integer x10 데이터를 0.1 배율 스케일링하여 소수점 1자리로 변환
+        - name: "Outdoor Unit Compressor Top Temp"
+          message: 0x8280
+          unit_of_measurement: "°C"
+          accuracy_decimals: 1
+          device_class: temperature
+          state_class: measurement
+          icon: "mdi:thermometer-lines"
+          filters:
+            - filter_out: 32767
+            - filter_out: 65535
+            - multiply: 0.1
+          device_id: device_mechanical
+
+        # 실외기 동관 배관 출구 온도 1 (0x8264) - 0.1 배율 스케일링
+        - name: "Outdoor Unit Pipe Out 1 Temp"
+          message: 0x8264
+          unit_of_measurement: "°C"
+          accuracy_decimals: 1
+          device_class: temperature
+          state_class: measurement
+          icon: "mdi:thermometer"
+          filters:
+            - filter_out: 32767
+            - filter_out: 65535
+            - multiply: 0.1
+          device_id: device_mechanical
+
+        # 실외기 동관 배관 출구 온도 2 (0x8265) - 0.1 배율 스케일링
+        - name: "Outdoor Unit Pipe Out 2 Temp"
+          message: 0x8265
+          unit_of_measurement: "°C"
+          accuracy_decimals: 1
+          device_class: temperature
+          state_class: measurement
+          icon: "mdi:thermometer"
+          filters:
+            - filter_out: 32767
+            - filter_out: 65535
+            - multiply: 0.1
+          device_id: device_mechanical
+
+        # 실외기 동관 배관 입구 온도 3 (0x8261) - 0.1 배율 스케일링
+        - name: "Outdoor Unit Pipe In 3 Temp"
+          message: 0x8261
+          unit_of_measurement: "°C"
+          accuracy_decimals: 1
+          device_class: temperature
+          state_class: measurement
+          icon: "mdi:thermometer"
+          filters:
+            - filter_out: 32767
+            - filter_out: 65535
+            - multiply: 0.1
+          device_id: device_mechanical
