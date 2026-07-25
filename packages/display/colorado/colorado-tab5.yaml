@@ -50,7 +50,8 @@ esphome:
         brightness: 40%
 
 logger:
-  level: NONE
+  level: DEBUG
+  baud_rate: 921600
 
 ota:
   platform: esphome
@@ -80,6 +81,10 @@ esp32:
     type: esp-idf
     advanced:
       enable_idf_experimental_features: true
+    sdkconfig_options:
+      CONFIG_LWIP_TCPIP_TASK_STACK_SIZE: "6144"
+      CONFIG_LWIP_CHECK_THREAD_SAFETY: y
+      CONFIG_LWIP_TCPIP_CORE_LOCKING: n
 
 
 # update:
@@ -90,18 +95,29 @@ esp32:
 #     sha256: ee7c546eb726ba92aa583448969c05f378a0deae5b3556699122761b7a595f51
 
 
-mqtt:
-  broker: !secret mqtt_broker_local
-  username: !secret mqtt_user
-  password: !secret mqtt_password
-  reboot_timeout: 0s
-
-  birth_message:
-  will_message:
+ws_bridge:
+  host: !secret ha_address
+  port: 443
+  ssl: true
+  token: !secret ha_token
+  gateway_id: "${name}"
+  name: "${friendly_name}"
+  keep_last_state_on_disconnect: true
+  on_connected:
+    then:
+      - lambda: |-
+          id(script_logs).execute("ws_bridge Connected");
+  on_disconnected:
+    then:
+      - lambda: id(script_logs).execute("ws_bridge Disconnected");
 
 # api:
 #   batch_delay: 1s
 #   reboot_timeout: 0s
+
+tailscale:
+  auth_key: !secret tailscale_auth_key
+  hostname: "${name}"
 
 esp32_hosted:
   variant: esp32c6
@@ -125,7 +141,7 @@ wifi:
       priority: 5
 
   reboot_timeout: 0s
-  use_address: !secret colorado_wg_address
+  use_address: !secret colorado_ts_address
   fast_connect: true
   on_connect:
     then:
@@ -138,19 +154,16 @@ wifi:
       - lvgl.widget.hide:
           id: lbl_wifi
 
-wireguard:
-  address: !secret colorado_wg_address
-  private_key: !secret colorado_wg_private_key
-  peer_endpoint: !secret wg_peer_endpoint
-  peer_public_key: !secret colorado_wg_peer_public_key
-  peer_allowed_ips:
-    - 192.168.0.0/16
-  netmask: 255.255.0.0
-
 external_components:
   - source: github://eigger/espcomponents@latest
-    components: [ jaalee_jht, ble_elm327, bmi270 ]
+    components: [ jaalee_jht, ble_elm327, bmi270, ws_bridge ]
     refresh: always
+  - source:
+      type: git
+      url: https://github.com/Csontikka/esphome-tailscale.git
+      ref: main
+    components: [ tailscale ]
+    refresh: 0s
 
 esp32_ble_tracker:
   on_ble_manufacturer_data_advertise:
@@ -166,7 +179,7 @@ esp32_ble_tracker:
             id(script_logs).execute(hex_string);
             id(manufacturer_data).publish_state(hex_string);
             if (x.size() != 14) return;
-            char buf[20];
+            char buf[24];
             sprintf(buf, "%02d-%02d %02d:%02d B%d %c%c", x[7], x[8], x[9], x[10], 0xFF - x[11] + 1, x[12], x[13]);
             std::string info = std::string(buf);
             id(parking_info).publish_state(info);
@@ -328,14 +341,14 @@ switch:
       pi4ioe5v6408: pi4ioe2
       number: 0
     restore_mode: ALWAYS_ON
-    internal: True
+    internal: true
   - platform: gpio
     id: usb_5v_power
     name: "USB Power"
     pin:
       pi4ioe5v6408: pi4ioe2
       number: 3
-    internal: True
+    internal: true
   - platform: gpio
     id: quick_charge
     name: "Quick Charge"
@@ -343,7 +356,7 @@ switch:
       pi4ioe5v6408: pi4ioe2
       number: 5
       inverted: true
-    internal: True
+    internal: true
   - platform: gpio
     id: charge_enable
     name: "Charge Enable"
@@ -351,13 +364,13 @@ switch:
       pi4ioe5v6408: pi4ioe2
       number: 7
     restore_mode: ALWAYS_OFF
-    internal: True
+    internal: true
   - platform: gpio
     id: wifi_antenna_int_ext
     pin:
       pi4ioe5v6408: pi4ioe1
       number: 0
-    internal: True
+    internal: true
   - platform: gpio
     id: speaker_enable
     name: "Speaker Enable"
@@ -365,7 +378,7 @@ switch:
       pi4ioe5v6408: pi4ioe1
       number: 1
     restore_mode: ALWAYS_OFF
-    internal: True
+    internal: true
   - platform: gpio
     id: external_5v_power
     name: "External 5V Power"
@@ -373,15 +386,17 @@ switch:
       pi4ioe5v6408: pi4ioe1
       number: 2
     restore_mode: ALWAYS_ON
-    internal: True
+    internal: true
 
 binary_sensor:
   # - platform: status
   #   name: "Status"
-  - platform: wireguard
-    status:
-      internal: True
-      name: 'WireGuard Status'
+
+  - platform: tailscale
+    connected:
+      name: "VPN Connected"
+      icon: mdi:shield-check
+      id: tailscale_connected
       on_press:
         then:
           - lambda: id(script_logs).execute("VPN Connected");
@@ -400,14 +415,14 @@ binary_sensor:
       pi4ioe5v6408: pi4ioe2
       number: 6
       mode: INPUT_PULLDOWN
-    internal: True
+    internal: true
   - platform: gpio
     id: headphone_detect
     name: "Headphone Detect"
     pin:
       pi4ioe5v6408: pi4ioe1
       number: 7
-    internal: True
+    internal: true
 
 select:
   - platform: template
@@ -425,9 +440,256 @@ select:
             - switch.turn_off: wifi_antenna_int_ext
           else:
             - switch.turn_on: wifi_antenna_int_ext
-    internal: True
+    internal: true
 
 sensor:
+  # ── ws_bridge 센서 목록 (외부 HA로 퍼블리시) ──
+  - platform: ws_bridge
+    id: ws_wifi_signal
+    unique_id: wifi_signal
+    name: "WiFi signal"
+    icon: mdi:wifi-arrow-up-down
+    unit_of_measurement: "dBm"
+
+  - platform: ws_bridge
+    id: ws_fuel_level
+    unique_id: fuel_level
+    name: "Fuel Level"
+    icon: mdi:gas-station
+    unit_of_measurement: "%"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_throttle
+    unique_id: throttle_position
+    name: "Throttle Position"
+    icon: mdi:gauge
+    unit_of_measurement: "%"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_engine_rpm
+    unique_id: engine_rpm
+    name: "Engine RPM"
+    icon: mdi:gauge
+    unit_of_measurement: "rpm"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_engine_load
+    unique_id: engine_load
+    name: "Engine Load"
+    icon: mdi:engine
+    unit_of_measurement: "%"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_car_speed
+    unique_id: car_speed
+    name: "Car Speed"
+    device_class: speed
+    icon: mdi:speedometer
+    unit_of_measurement: "km/h"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_car_acceleration
+    unique_id: car_acceleration
+    name: "Car Acceleration"
+    icon: mdi:speedometer
+    unit_of_measurement: "km/h/s"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_gear_position
+    unique_id: gear_position
+    name: "Gear Position"
+    icon: mdi:car-shift-pattern
+
+  - platform: ws_bridge
+    id: ws_prnd_status_alt
+    unique_id: prnd_status
+    name: "PRND Status"
+    icon: mdi:car-shift-pattern
+
+  - platform: ws_bridge
+    id: ws_actual_torque
+    unique_id: actual_torque
+    name: "Actual Torque"
+    icon: mdi:gauge
+    unit_of_measurement: "%"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_engine_oil_pressure
+    unique_id: engine_oil_pressure
+    name: "Engine Oil Pressure"
+    device_class: pressure
+    unit_of_measurement: "psi"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_transmission_temperature
+    unique_id: transmission_temperature
+    name: "Transmission Fluid Temperature"
+    device_class: temperature
+    icon: mdi:oil-temperature
+    unit_of_measurement: "°C"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_ambient_air_temperature
+    unique_id: ambient_air_temperature
+    name: "Ambient Air Temperature"
+    device_class: temperature
+    icon: mdi:oil-temperature
+    unit_of_measurement: "°C"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_engine_coolant_temperature
+    unique_id: engine_coolant_temperature
+    name: "Engine Coolant Temperature"
+    device_class: temperature
+    unit_of_measurement: "°C"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_car_battery
+    unique_id: car_battery
+    name: "Car Battery"
+    device_class: voltage
+    unit_of_measurement: "V"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_odometer
+    unique_id: odometer
+    name: "Odometer"
+    device_class: distance
+    unit_of_measurement: "km"
+    accuracy_decimals: 0
+    state_class: total_increasing
+
+  - platform: ws_bridge
+    id: ws_trip_distance
+    unique_id: trip_distance
+    name: "Trip Distance"
+    device_class: distance
+    icon: mdi:map-marker-distance
+    unit_of_measurement: "km"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_sgp30_eco2
+    unique_id: eco2
+    name: "eCO2"
+    unit_of_measurement: "ppm"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_sgp30_tvoc
+    unique_id: tvoc
+    name: "TVOC"
+    unit_of_measurement: "ppb"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_scd40_co2
+    unique_id: co2
+    name: "CO2"
+    unit_of_measurement: "ppm"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_scd40_temperature
+    unique_id: scd_temperature
+    name: "SCD Temperature"
+    device_class: temperature
+    unit_of_measurement: "°C"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_scd40_humidity
+    unique_id: scd_humidity
+    name: "SCD Humidity"
+    device_class: humidity
+    unit_of_measurement: "%"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_tab5_internal_temperature
+    unique_id: tab5_internal_temp
+    name: "TAB5 Internal Temp"
+    device_class: temperature
+    unit_of_measurement: "°C"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_cabin_temperature
+    unique_id: cabin_temperature
+    name: "Cabin Temperature"
+    device_class: temperature
+    unit_of_measurement: "°C"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_cabin_humidity
+    unique_id: cabin_humidity
+    name: "Cabin Humidity"
+    device_class: humidity
+    unit_of_measurement: "%"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_cabin_battery
+    unique_id: cabin_battery
+    name: "Cabin Battery"
+    device_class: battery
+    unit_of_measurement: "%"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_bed_temperature
+    unique_id: bed_temperature
+    name: "Bed Temperature"
+    device_class: temperature
+    unit_of_measurement: "°C"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_bed_humidity
+    unique_id: bed_humidity
+    name: "Bed Humidity"
+    device_class: humidity
+    unit_of_measurement: "%"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_bed_battery
+    unique_id: bed_battery
+    name: "Bed Battery"
+    device_class: battery
+    unit_of_measurement: "%"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_engine_run_time
+    unique_id: engine_run_time
+    name: "Engine Run Time"
+    device_class: duration
+    icon: mdi:timer-outline
+    unit_of_measurement: "s"
+    state_class: measurement
+
+  - platform: ws_bridge
+    id: ws_fuel_level_liters
+    unique_id: fuel_level_liters
+    name: "Fuel Level Liters"
+    icon: mdi:gas-station
+    unit_of_measurement: "L"
+    state_class: measurement
+
   - platform: wifi_signal
     name: "WiFi signal"
     icon: mdi:wifi-arrow-up-down
@@ -438,8 +700,13 @@ sensor:
       - sliding_window_moving_average:
           window_size: 15
           send_every: 15
+    on_value:
+      then:
+        - lambda: id(ws_wifi_signal).publish_state(x);
   - platform: template
     name: "WiFi Quality"
+    id: wifi_quality
+    internal: true
     icon: "mdi:wifi"
     update_interval: 60s
     unit_of_measurement: '%'
@@ -460,13 +727,14 @@ sensor:
     shunt_resistance: 0.005ohm
     bus_voltage:
       name: Battery Voltage
-      internal: True
+      internal: true
     current:
       name: Battery Current
-      internal: True
+      internal: true
   - platform: internal_temperature
     name: "Internal Temperature"
     id: "id_tab5_internal_temperature"
+    internal: true
     update_interval: 5min
     filters:
       - filter_out: nan
@@ -475,11 +743,15 @@ sensor:
           window_size: 30
           send_every: 1
           send_first_at: 1
+    on_value:
+      then:
+        - lambda: id(ws_tab5_internal_temperature).publish_state(x);
   - platform: jaalee_jht
     mac_address: ${mac_cabin_jht}
     temperature:
       id: "id_cabin_temperature"
       name: "Cabin Temperature"
+      internal: true
       on_value:
         then:
           - lvgl.label.update:
@@ -488,9 +760,11 @@ sensor:
                 if (isnan(x)) return std::string("--");
                 char buf[10]; snprintf(buf, sizeof(buf), "%.1f", x); return std::string(buf);
               text_color: !lambda return id(fn_state_color)(x, 2);
+          - lambda: id(ws_cabin_temperature).publish_state(x);
     humidity:
       id: "id_cabin_humidity"
       name: "Cabin Humidity"
+      internal: true
       on_value:
         then:
           - lvgl.label.update:
@@ -499,15 +773,20 @@ sensor:
                 if (isnan(x)) return std::string("--");
                 char buf[10]; snprintf(buf, sizeof(buf), "%.1f", x); return std::string(buf);
               text_color: !lambda return id(fn_state_color)(x, 3);
+          - lambda: id(ws_cabin_humidity).publish_state(x);
     battery_level:
       id: "id_cabin_battery_level"
       name: "Cabin Battery Level"
       internal: true
+      on_value:
+        then:
+          - lambda: id(ws_cabin_battery).publish_state(x);
   - platform: jaalee_jht
     mac_address: ${mac_bed_jht}
     temperature:
       id: "id_bed_temperature"
       name: "Bed Temperature"
+      internal: true
       on_value:
         then:
           - lvgl.label.update:
@@ -516,9 +795,11 @@ sensor:
                 if (isnan(x)) return std::string("--");
                 char buf[10]; snprintf(buf, sizeof(buf), "%.1f", x); return std::string(buf);
               text_color: !lambda return id(fn_state_color)(x, 2);
+          - lambda: id(ws_bed_temperature).publish_state(x);
     humidity:
       id: "id_bed_humidity"
       name: "Bed Humidity"
+      internal: true
       on_value:
         then:
           - lvgl.label.update:
@@ -527,20 +808,29 @@ sensor:
                 if (isnan(x)) return std::string("--");
                 char buf[10]; snprintf(buf, sizeof(buf), "%.1f", x); return std::string(buf);
               text_color: !lambda return id(fn_state_color)(x, 3);
+          - lambda: id(ws_bed_humidity).publish_state(x);
     battery_level:
       id: "id_bed_battery_level"
       name: "Bed Battery Level"
       internal: true
+      on_value:
+        then:
+          - lambda: id(ws_bed_battery).publish_state(x);
   - platform: ble_elm327
     id: "engine_run_time"
     name: "Engine Run Time"
     preset: run_time
     update_interval: 5s
+    internal: true
+    on_value:
+      then:
+        - lambda: id(ws_engine_run_time).publish_state(x);
   - platform: ble_elm327
     id: "engine_coolant_temperature"
     name: "Engine Coolant Temperature"
     preset: coolant_temp
     update_interval: 10s
+    internal: true
     on_value:
       then:
         - lvgl.label.update:
@@ -552,18 +842,19 @@ sensor:
         - lvgl.widget.update:
             id: widget_img_coolant
             image_recolor: !lambda return id(fn_state_color)(x, 5);
+        - lambda: id(ws_engine_coolant_temperature).publish_state(x);
   - platform: ble_elm327
     id: "fuel_level"
     name: "Fuel Level"
     preset: fuel_level
     update_interval: 30s
+    internal: true
     filters:
       - median:
           window_size: 5
           send_every: 1
           send_first_at: 1
       - delta: 0.5
-      - throttle: 60s
     on_value:
       then:
         - lvgl.label.update:
@@ -582,16 +873,22 @@ sensor:
         - lvgl.widget.update:
             id: widget_img_fuel
             image_recolor: !lambda return id(fn_state_color)(x, 6);
+        - lambda: id(ws_fuel_level).publish_state(x);
   - platform: ble_elm327
     id: "gm_fuel_level_liters"
     name: "Fuel Level Liters"
     preset: gm_fuel_level_liters
     update_interval: 30s
+    internal: true
+    on_value:
+      then:
+        - lambda: id(ws_fuel_level_liters).publish_state(x);
   - platform: ble_elm327
     id: "throttle"
     name: "Throttle Position"
     preset: throttle
     update_interval: 1s
+    internal: true
     on_value:
       then:
         - lvgl.label.update:
@@ -610,11 +907,13 @@ sensor:
         - lvgl.widget.update:
             id: widget_img_throttle
             image_recolor: !lambda return id(fn_state_color)(x, 9);
+        - lambda: id(ws_throttle).publish_state(x);
   - platform: ble_elm327
     id: "intake_air_temperature"
     name: "Intake Air Temperature"
     preset: intake_air_temp
     update_interval: 10s
+    internal: true
     on_value:
       then:
         - lvgl.label.update:
@@ -628,11 +927,16 @@ sensor:
     name: "Ambient Air Temperature"
     preset: ambient_temp
     update_interval: 30s
+    internal: true
+    on_value:
+      then:
+        - lambda: id(ws_ambient_air_temperature).publish_state(x);
   - platform: ble_elm327
     id: "car_battery"
     name: "Car Battery"
     preset: battery_voltage
     update_interval: 10s
+    internal: true
     on_value:
       then:
         - lvgl.label.update:
@@ -644,11 +948,13 @@ sensor:
         - lvgl.widget.update:
             id: widget_img_battery
             image_recolor: !lambda return id(fn_state_color)(x, 7);
+        - lambda: id(ws_car_battery).publish_state(x);
   - platform: ble_elm327
     id: "engine_rpm"
     name: "Engine RPM"
     preset: rpm
     update_interval: 1s
+    internal: true
     on_value:
       then:
         - lvgl.label.update:
@@ -665,11 +971,13 @@ sensor:
             indicator:
               arc_color: !lambda return id(fn_state_color)(x, 8);
               arc_width: 10
+        - lambda: id(ws_engine_rpm).publish_state(x);
   - platform: ble_elm327
     id: "engine_load"
     name: "Engine Load"
     preset: engine_load
     update_interval: 1s
+    internal: true
     on_value:
       then:
         - lvgl.label.update:
@@ -688,11 +996,13 @@ sensor:
         - lvgl.widget.update:
             id: widget_img_load
             image_recolor: !lambda return id(fn_state_color)(x, 9);
+        - lambda: id(ws_engine_load).publish_state(x);
   - platform: ble_elm327
     id: "car_speed"
     name: "Car Speed"
     preset: speed
     update_interval: 1s
+    internal: true
     on_value:
       then:
         - lvgl.label.update:
@@ -706,11 +1016,14 @@ sensor:
               static float old_speed = 0.0f;
               static unsigned long timer = millis();
               if (millis() - timer > 1000) {
-                id(car_acceleration).publish_state(x - old_speed);
+                float acc = x - old_speed;
+                id(car_acceleration).publish_state(acc);
+                id(ws_car_acceleration).publish_state(acc);
                 old_speed = x;
                 timer = millis();
               }
             }
+        - lambda: id(ws_car_speed).publish_state(x);
 
   - platform: template
     id: "car_acceleration"
@@ -719,12 +1032,14 @@ sensor:
     state_class: "measurement"
     unit_of_measurement: km/h/s
     update_interval: never
+    internal: true
 
   - platform: ble_elm327
     id: "odometer"
     name: "Odometer"
     preset: odometer
     update_interval: 30s
+    internal: true
     on_value:
       then:
         - lambda: |-
@@ -734,7 +1049,9 @@ sensor:
               }
               float trip = x - id(g_initial_odometer);
               id(trip_distance).publish_state(trip);
+              id(ws_trip_distance).publish_state(trip);
             }
+            id(ws_odometer).publish_state(x);
   - platform: template
     id: "trip_distance"
     name: "Trip Distance"
@@ -743,6 +1060,7 @@ sensor:
     unit_of_measurement: "km"
     device_class: "distance"
     accuracy_decimals: 0
+    internal: true
     update_interval: never
     on_value:
       then:
@@ -757,20 +1075,23 @@ sensor:
     name: "Gear Position"
     preset: gm_current_gear
     update_interval: 1s
+    internal: true
     on_value:
       then:
         - lvgl.label.update:
             id: lbl_gear
             text: !lambda |-
               if (isnan(x) || (int)x <= 0) return std::string("-");
-              char buf[4]; snprintf(buf, sizeof(buf), "%d", (int)x);
+              char buf[8]; snprintf(buf, sizeof(buf), "%d", (int)x);
               return std::string(buf);
+        - lambda: id(ws_gear_position).publish_state(x);
 
   - platform: ble_elm327
     id: "prnd_status_alt"
     name: "PRND Status"
     preset: gm_prnd_status_alt
     update_interval: 1s
+    internal: true
     on_value:
       then:
         - lvgl.label.update:
@@ -783,12 +1104,14 @@ sensor:
               if (val == 6) return std::string("N");
               if (val == 18) return std::string("D");
               return std::string("L");
+        - lambda: id(ws_prnd_status_alt).publish_state(x);
 
   - platform: ble_elm327
     id: "actual_torque"
     name: "Actual Torque"
     preset: actual_torque
     update_interval: 1s
+    internal: true
     on_value:
       then:
         - lvgl.label.update:
@@ -807,20 +1130,14 @@ sensor:
         - lvgl.widget.update:
             id: widget_img_actual_torque
             image_recolor: !lambda return id(fn_state_color)(x, 9);
-
-  # - platform: ble_elm327
-  #   name: "AFM"
-  #   pid: "1975"
-  #   mode: "22"
-  #   update_interval: 1s
-  #   formula: "return a;"
-  #   unit_of_measurement: ""
+        - lambda: id(ws_actual_torque).publish_state(x);
 
   - platform: ble_elm327
     id: "engine_oil_pressure"
     name: "Engine Oil Pressure"
     preset: gm_oil_pressure
     update_interval: 2s
+    internal: true
     on_value:
       then:
         - lvgl.label.update:
@@ -848,13 +1165,14 @@ sensor:
               if (isnan(x)) return lv_color_hex(0x7F8EA3);
               if (x < 15 || x > 80) return lv_color_hex(0xC85850);
               return lv_color_hex(0xF1C36C);
-
+        - lambda: id(ws_engine_oil_pressure).publish_state(x);
 
   - platform: ble_elm327
     id: "transmission_temperature"
     name: "Transmission Fluid Temperature"
     preset: gm_trans_temp
     update_interval: 10s
+    internal: true
     on_value:
       then:
         - lvgl.label.update:
@@ -866,8 +1184,7 @@ sensor:
         - lvgl.widget.update:
             id: widget_img_trans_temp
             image_recolor: !lambda return id(fn_state_color)(x, 5);
-
-
+        - lambda: id(ws_transmission_temperature).publish_state(x);
 
   - platform: sgp30
     i2c_id: ext_bus
@@ -876,10 +1193,15 @@ sensor:
       name: "eCO2"
       id: id_sgp30_eco2
       accuracy_decimals: 1
+      internal: true
+      on_value:
+        then:
+          - lambda: id(ws_sgp30_eco2).publish_state(x);
     tvoc:
       name: "TVOC"
       id: id_sgp30_tvoc
       accuracy_decimals: 1
+      internal: true
       on_value:
         then:
           - lvgl.label.update:
@@ -888,8 +1210,10 @@ sensor:
                 if (isnan(x)) return std::string("--");
                 char buf[10]; snprintf(buf, sizeof(buf), "%.0f", x); return std::string(buf);
               text_color: !lambda return id(fn_state_color)(x, 12);
+          - lambda: id(ws_sgp30_tvoc).publish_state(x);
     store_baseline: yes
     address: 0x58
+
   - platform: scd4x
     i2c_id: ext_bus
     update_interval: 1s
@@ -897,6 +1221,7 @@ sensor:
       name: "CO2"
       id: id_scd40_co2
       accuracy_decimals: 1
+      internal: true
       on_value:
         then:
           - lvgl.label.update:
@@ -905,13 +1230,22 @@ sensor:
                 if (isnan(x)) return std::string("--");
                 char buf[10]; snprintf(buf, sizeof(buf), "%.0f", x); return std::string(buf);
               text_color: !lambda return id(fn_state_color)(x, 13);
+          - lambda: id(ws_scd40_co2).publish_state(x);
 
     temperature:
       name: "SCD Temperature"
       id: id_scd40_temperature
+      internal: true
+      on_value:
+        then:
+          - lambda: id(ws_scd40_temperature).publish_state(x);
     humidity:
       name: "SCD Humidity"
       id: id_scd40_humidity
+      internal: true
+      on_value:
+        then:
+          - lambda: id(ws_scd40_humidity).publish_state(x);
 
   - platform: bmi270
     i2c_id: bsp_bus
@@ -920,27 +1254,27 @@ sensor:
     accel_x:
       name: "BMI270 Accel X"
       id: id_bmi270_accel_x
-      internal: True
+      internal: true
     accel_y:
       name: "BMI270 Accel Y"
       id: id_bmi270_accel_y
-      internal: True
+      internal: true
     accel_z:
       name: "BMI270 Accel Z"
       id: id_bmi270_accel_z
-      internal: True
+      internal: true
     gyro_x:
       name: "BMI270 Gyro X"
-      internal: True
+      internal: true
     gyro_y:
       name: "BMI270 Gyro Y"
-      internal: True
+      internal: true
     gyro_z:
       name: "BMI270 Gyro Z"
-      internal: True
+      internal: true
     temperature:
       name: "BMI270 Temperature"
-      internal: True
+      internal: true
 
   - platform: template
     name: "Roll"
@@ -950,7 +1284,7 @@ sensor:
     accuracy_decimals: 1
     state_class: measurement
     update_interval: 200ms
-    internal: True
+    internal: true
     filters:
       - sliding_window_moving_average:
           window_size: 5
@@ -971,7 +1305,7 @@ sensor:
               char buf[12]; snprintf(buf, sizeof(buf), "%+.1f°", x); return std::string(buf);
         - lvgl.image.update:
             id: img_roll_icon
-            angle: !lambda |-
+            rotation: !lambda |-
               if (isnan(x)) return 0;
               int a = (int)(x * 10.0f);
               a = ((a % 3600) + 3600) % 3600;
@@ -989,7 +1323,7 @@ sensor:
     accuracy_decimals: 1
     state_class: measurement
     update_interval: 200ms
-    internal: True
+    internal: true
     filters:
       - sliding_window_moving_average:
           window_size: 5
@@ -1010,7 +1344,7 @@ sensor:
               char buf[12]; snprintf(buf, sizeof(buf), "%+.1f°", x); return std::string(buf);
         - lvgl.image.update:
             id: img_pitch_icon
-            angle: !lambda |-
+            rotation: !lambda |-
               if (isnan(x)) return 0;
               int a = (int)(x * 10.0f);
               a = ((a % 3600) + 3600) % 3600;
@@ -1087,7 +1421,7 @@ text_sensor:
       icon: mdi:ip-outline
   - platform: template
     name: "Time"
-    internal: True
+    internal: true
     update_interval: 1s
     lambda: |-
       char buf[20];
@@ -1101,7 +1435,7 @@ text_sensor:
             text: !lambda return x;
   - platform: template
     name: "Date"
-    internal: True
+    internal: true
     update_interval: 1s
     lambda: |-
       char buf[20];
@@ -1119,20 +1453,27 @@ text_sensor:
     name: "Manufacturer Data"
     id: manufacturer_data
     icon: "mdi:package-variant-closed"
-    internal: True
+    internal: true
   - platform: template
     name: "Parking Info"
     id: parking_info
     icon: "mdi:car"
+    internal: true
     on_value:
       then:
         - lambda: |-
             if (x.length() > 0 && x != "unknown" && x != "off") {
               id(alert_dismissed) = false;
             }
+            id(ws_parking_info).publish_state(x);
+  - platform: ws_bridge
+    id: ws_parking_info
+    unique_id: parking_info
+    name: "Parking Info"
+    icon: "mdi:car"
   - platform: template
     name: "Template Engine Run Time"
-    internal: True
+    internal: true
     update_interval: 1s
     lambda: |-
       if (isnan(id(engine_run_time).state)) return std::string("--:--");

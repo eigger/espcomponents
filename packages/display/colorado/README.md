@@ -52,13 +52,10 @@ Make sure you have the following defined in your `secrets.yaml`:
 - `colorado_wifi_password`
 - `wifi_ssid`
 - `wifi_password`
-- `colorado_wg_address`
-- `colorado_wg_private_key`
-- `wg_peer_endpoint`
-- `colorado_wg_peer_public_key`
-- `mqtt_broker_local`
-- `mqtt_user`
-- `mqtt_password`
+- `colorado_ts_address`
+- `tailscale_auth_key`
+- `ha_address`
+- `ha_token`
 
 
 ## ble_elm327 Setup (vLinker OBD2)
