@@ -170,13 +170,9 @@ samsung_ac:
       silence_mode:
         name: "Living AC Silence"
         device_id: device_livingroom
-
-      # 미검증 테스트용 (필터 관련 추정 코드, 0x4222/0x42e5)
-      custom_sensor:
-        - name: "Living AC Filter Hours (Test)"
-          message: 0x4222
-        - name: "Living AC Filter Interval (Test)"
-          message: 0x42e5
+      cumulative_operation_time:
+        name: "Living AC Cumulative Operation Time"
+        device_id: device_livingroom
 
     # 2. 안방 (Master)
     - address: "20.00.00"
@@ -276,13 +272,9 @@ samsung_ac:
       silence_mode:
         name: "Master AC Silence"
         device_id: device_bedroom
-
-      # 미검증 테스트용 (필터 관련 추정 코드, 0x4222/0x42e5)
-      custom_sensor:
-        - name: "Master AC Filter Hours (Test)"
-          message: 0x4222
-        - name: "Master AC Filter Interval (Test)"
-          message: 0x42e5
+      cumulative_operation_time:
+        name: "Master AC Cumulative Operation Time"
+        device_id: device_bedroom
 
     # 3. 방1 (Room 1)
     - address: "20.00.04"
@@ -382,13 +374,9 @@ samsung_ac:
       silence_mode:
         name: "Room 1 AC Silence"
         device_id: device_room_1
-
-      # 미검증 테스트용 (필터 관련 추정 코드, 0x4222/0x42e5)
-      custom_sensor:
-        - name: "Room 1 AC Filter Hours (Test)"
-          message: 0x4222
-        - name: "Room 1 AC Filter Interval (Test)"
-          message: 0x42e5
+      cumulative_operation_time:
+        name: "Room 1 AC Cumulative Operation Time"
+        device_id: device_room_1
 
     # 4. 방2 (Room 2)
     - address: "20.00.02"
@@ -488,13 +476,9 @@ samsung_ac:
       silence_mode:
         name: "Room 2 AC Silence"
         device_id: device_room_2
-
-      # 미검증 테스트용 (필터 관련 추정 코드, 0x4222/0x42e5)
-      custom_sensor:
-        - name: "Room 2 AC Filter Hours (Test)"
-          message: 0x4222
-        - name: "Room 2 AC Filter Interval (Test)"
-          message: 0x42e5
+      cumulative_operation_time:
+        name: "Room 2 AC Cumulative Operation Time"
+        device_id: device_room_2
 
     # 5. 거실2 (Living 2)
     - address: "20.00.01"
@@ -594,13 +578,9 @@ samsung_ac:
       silence_mode:
         name: "Living 2 AC Silence"
         device_id: device_livingroom_2
-
-      # 미검증 테스트용 (필터 관련 추정 코드, 0x4222/0x42e5)
-      custom_sensor:
-        - name: "Living 2 AC Filter Hours (Test)"
-          message: 0x4222
-        - name: "Living 2 AC Filter Interval (Test)"
-          message: 0x42e5
+      cumulative_operation_time:
+        name: "Living 2 AC Cumulative Operation Time"
+        device_id: device_livingroom_2
 
     # 6. 실외기 (Outdoor Unit)
     - address: "10.00.00"
