@@ -157,6 +157,20 @@ samsung_ac:
         name: "Living AC Capacity Request"
         device_id: device_livingroom
 
+      # 진단 센서 (모델정보, 써모/제상/사일런트 상태)
+      model_information:
+        name: "Living AC Model Info"
+        device_id: device_livingroom
+      thermo_state:
+        name: "Living AC Thermo"
+        device_id: device_livingroom
+      defrost_mode:
+        name: "Living AC Defrost"
+        device_id: device_livingroom
+      silence_mode:
+        name: "Living AC Silence"
+        device_id: device_livingroom
+
     # 2. 안방 (Master)
     - address: "20.00.00"
       map_auto_to_heat_cool: false
@@ -240,6 +254,20 @@ samsung_ac:
         device_id: device_bedroom
       indoor_capacity_request:
         name: "Master AC Capacity Request"
+        device_id: device_bedroom
+
+      # 진단 센서 (모델정보, 써모/제상/사일런트 상태)
+      model_information:
+        name: "Master AC Model Info"
+        device_id: device_bedroom
+      thermo_state:
+        name: "Master AC Thermo"
+        device_id: device_bedroom
+      defrost_mode:
+        name: "Master AC Defrost"
+        device_id: device_bedroom
+      silence_mode:
+        name: "Master AC Silence"
         device_id: device_bedroom
 
     # 3. 방1 (Room 1)
@@ -327,6 +355,20 @@ samsung_ac:
         name: "Room 1 AC Capacity Request"
         device_id: device_room_1
 
+      # 진단 센서 (모델정보, 써모/제상/사일런트 상태)
+      model_information:
+        name: "Room 1 AC Model Info"
+        device_id: device_room_1
+      thermo_state:
+        name: "Room 1 AC Thermo"
+        device_id: device_room_1
+      defrost_mode:
+        name: "Room 1 AC Defrost"
+        device_id: device_room_1
+      silence_mode:
+        name: "Room 1 AC Silence"
+        device_id: device_room_1
+
     # 4. 방2 (Room 2)
     - address: "20.00.02"
       map_auto_to_heat_cool: false
@@ -410,6 +452,20 @@ samsung_ac:
         device_id: device_room_2
       indoor_capacity_request:
         name: "Room 2 AC Capacity Request"
+        device_id: device_room_2
+
+      # 진단 센서 (모델정보, 써모/제상/사일런트 상태)
+      model_information:
+        name: "Room 2 AC Model Info"
+        device_id: device_room_2
+      thermo_state:
+        name: "Room 2 AC Thermo"
+        device_id: device_room_2
+      defrost_mode:
+        name: "Room 2 AC Defrost"
+        device_id: device_room_2
+      silence_mode:
+        name: "Room 2 AC Silence"
         device_id: device_room_2
 
     # 5. 거실2 (Living 2)
@@ -497,6 +553,20 @@ samsung_ac:
         name: "Living 2 AC Capacity Request"
         device_id: device_livingroom_2
 
+      # 진단 센서 (모델정보, 써모/제상/사일런트 상태)
+      model_information:
+        name: "Living 2 AC Model Info"
+        device_id: device_livingroom_2
+      thermo_state:
+        name: "Living 2 AC Thermo"
+        device_id: device_livingroom_2
+      defrost_mode:
+        name: "Living 2 AC Defrost"
+        device_id: device_livingroom_2
+      silence_mode:
+        name: "Living 2 AC Silence"
+        device_id: device_livingroom_2
+
     # 6. 실외기 (Outdoor Unit)
     - address: "10.00.00"
       error_code:
@@ -530,4 +600,27 @@ samsung_ac:
         device_id: device_mechanical
       outdoor_compressor_top_temperature:
         name: "Outdoor Unit Compressor Top Temp"
+        device_id: device_mechanical
+
+      # 냉매 사이클 진단 센서
+      outdoor_high_pressure:
+        name: "Outdoor Unit High Pressure"
+        device_id: device_mechanical
+      outdoor_low_pressure:
+        name: "Outdoor Unit Low Pressure"
+        device_id: device_mechanical
+      outdoor_discharge_temperature1:
+        name: "Outdoor Unit Discharge Temp"
+        device_id: device_mechanical
+      outdoor_condenser_out_temperature:
+        name: "Outdoor Unit Condenser Out Temp"
+        device_id: device_mechanical
+      outdoor_compressor1_current_frequency:
+        name: "Outdoor Unit Compressor Current Frequency"
+        device_id: device_mechanical
+      outdoor_fan1_rpm:
+        name: "Outdoor Unit Fan1 RPM"
+        device_id: device_mechanical
+      outdoor_ipm1_temperature:
+        name: "Outdoor Unit IPM1 Temperature"
         device_id: device_mechanical
