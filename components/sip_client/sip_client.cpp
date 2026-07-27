@@ -42,8 +42,9 @@ static std::string sockaddr_ip(const struct sockaddr_storage &ss, uint16_t *port
   uint32_t a = ntohl(s->sin_addr.s_addr);
   if (port != nullptr) *port = ntohs(s->sin_port);
   char buf[16];
-  snprintf(buf, sizeof(buf), "%u.%u.%u.%u", (a >> 24) & 0xFF, (a >> 16) & 0xFF, (a >> 8) & 0xFF,
-           a & 0xFF);
+  snprintf(buf, sizeof(buf), "%u.%u.%u.%u", static_cast<unsigned>((a >> 24) & 0xFF),
+           static_cast<unsigned>((a >> 16) & 0xFF), static_cast<unsigned>((a >> 8) & 0xFF),
+           static_cast<unsigned>(a & 0xFF));
   return std::string(buf);
 }
 
@@ -100,7 +101,8 @@ bool SipClient::open_socket_() {
   this->socket_->getsockname(reinterpret_cast<struct sockaddr *>(&local), &ll);
   this->local_ip_ = sockaddr_ip(local, &this->local_port_);
   if (this->local_ip_.empty() || this->local_ip_ == "0.0.0.0") {
-    this->local_ip_ = network::get_use_address();
+    char use_address_buf[network::USE_ADDRESS_BUFFER_SIZE];
+    this->local_ip_ = network::get_use_address_to(use_address_buf);
   }
   ESP_LOGI(TAG, "SIP socket bound, local %s:%u", this->local_ip_.c_str(), this->local_port_);
   return true;
@@ -170,7 +172,7 @@ void SipClient::handle_register_response_(const SipMessage &m) {
   std::string cseq_str = m.header("CSeq");
   uint32_t cseq_num = (uint32_t) std::atoi(cseq_str.c_str());
   if (cseq_num != this->reg_cseq_) {
-    ESP_LOGD(TAG, "Ignoring REGISTER response for old CSeq %u", cseq_num);
+    ESP_LOGD(TAG, "Ignoring REGISTER response for old CSeq %u", static_cast<unsigned>(cseq_num));
     return;
   }
 
@@ -630,8 +632,8 @@ void SipClient::start_media_() {
   }
   ESP_LOGI(TAG, "Media started: remote %s:%u pt=%u dtmf_pt=%d (mic %u Hz/%uch/%ubits)%s",
            this->remote_rtp_ip_.c_str(), this->remote_rtp_port_, this->chosen_pt_,
-           this->remote_dtmf_pt_, this->mic_rate_, this->mic_channels_, this->mic_bits_,
-           this->half_duplex_ ? " [half-duplex: listening]" : "");
+           this->remote_dtmf_pt_, static_cast<unsigned>(this->mic_rate_), this->mic_channels_,
+           this->mic_bits_, this->half_duplex_ ? " [half-duplex: listening]" : "");
 }
 
 void SipClient::stop_media_() {
