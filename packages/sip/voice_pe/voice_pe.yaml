@@ -1,11 +1,27 @@
 substitutions:
+  # Phases of the Voice Assistant
+  # The voice assistant is ready to be triggered by a wake word
+  voice_assist_idle_phase_id: '1'
+  # The voice assistant is waiting for a voice command (after being triggered by the wake word)
+  voice_assist_waiting_for_command_phase_id: '2'
+  # The voice assistant is listening for a voice command
+  voice_assist_listening_for_command_phase_id: '3'
+  # The voice assistant is currently processing the command
+  voice_assist_thinking_phase_id: '4'
+  # The voice assistant is replying to the command
+  voice_assist_replying_phase_id: '5'
+  # The voice assistant is not ready
+  voice_assist_not_ready_phase_id: '10'
+  # The voice assistant encountered an error
+  voice_assist_error_phase_id: '11'
+
   # SIP Configuration (override these in your device YAML; put the password in secrets.yaml as `sip_password`)
   sip_server: "192.168.1.10"      # PBX address (IP recommended)
   sip_port: "5060"
   sip_username: "1000"            # SIP account / extension
   sip_domain: "192.168.1.10"      # usually same as sip_server
   sip_caller_id: "ESP Voice PE"
-  sip_destination: "1001"         # number dialed by the center button
+  sip_destination: "1001"         # number dialed by the center button (long press)
 
   # Change this to true in case you ahve a hidden SSID at home.
   hidden_ssid: "false"
@@ -28,7 +44,7 @@ substitutions:
   error_cloud_expired_sound_file: https://github.com/esphome/home-assistant-voice-pe/raw/dev/sounds/error_cloud_expired.mp3
 
 esphome:
-  min_version: 2026.5.0
+  min_version: 2026.6.0
   on_boot:
     priority: 375
     then:
@@ -88,8 +104,9 @@ wifi:
   on_disconnect:
     - script.execute: control_leds
 
-# network:
-#   enable_ipv6: true
+# Keep IPv6 disabled: sip_client currently has a known IPv6 connect bug.
+network:
+  enable_ipv6: false
 
 logger:
   level: DEBUG
@@ -99,10 +116,13 @@ logger:
 api:
   id: api_id
   on_client_connected:
-    - lambda: id(init_in_progress) = false;
     - script.execute: control_leds
   on_client_disconnected:
     - script.execute: control_leds
+  encryption:   # Uses key set by Home Assistant
+
+# ota: intentionally omitted — device_base.yaml already provides it (with the
+# OTA password). Defining it again here would collide with that block.
 
 i2c:
   - id: internal_i2c
@@ -131,6 +151,11 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  # Global variable tracking the phase of the voice assistant (defined above). Initialized to not_ready
+  - id: voice_assistant_phase
+    type: int
+    restore_value: no
+    initial_value: ${voice_assist_not_ready_phase_id}
   # Global variable tracking the state of the SIP call (0: Idle, 1: Incoming, 2: Call/Calling)
   - id: sip_call_state
     type: int
@@ -161,6 +186,14 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  # Global variable storing the first active timer
+  - id: first_active_timer
+    type: voice_assistant::Timer
+    restore_value: false
+  # Global variable storing if a timer is active
+  - id: is_timer_active
+    type: bool
+    restore_value: false
   # Global variable storing if a factory reset was requested. If it is set to true, the device will factory reset once the center button is released
   - id: factory_reset_requested
     type: bool
@@ -198,7 +231,64 @@ switch:
       - script.execute: control_leds
     on_turn_off:
       - script.execute: control_leds
-
+  # Wake Word Sound Switch.
+  - platform: template
+    id: wake_sound
+    name: Wake sound
+    icon: "mdi:bullhorn"
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+  # Disable physical controls switch
+  - platform: template
+    id: disable_buttons
+    name: Disable physical controls
+    icon: "mdi:button-pointer"
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    disabled_by_default: true
+  # Internal switch to track when a timer is ringing on the device.
+  - platform: template
+    id: timer_ringing
+    optimistic: true
+    internal: true
+    restore_mode: ALWAYS_OFF
+    on_turn_off:
+      # Disable stop wake word
+      - micro_wake_word.disable_model: stop
+      - script.execute: disable_repeat
+      # Stop any current announcement (ie: stop the timer ring mid playback)
+      - if:
+          condition:
+            media_player.is_announcing:
+              id: external_media_player
+          then:
+            media_player.stop:
+              announcement: true
+              id: external_media_player
+      # Set back ducking ratio to zero
+      - mixer_speaker.apply_ducking:
+          id: media_mixing_input
+          decibel_reduction: 0
+          duration: 1.0s
+      # Refresh the LED ring
+      - script.execute: control_leds
+    on_turn_on:
+      # Duck audio
+      - mixer_speaker.apply_ducking:
+          id: media_mixing_input
+          decibel_reduction: 20
+          duration: 0.0s
+      # Enable stop wake word
+      - micro_wake_word.enable_model: stop
+      # Ring timer
+      - script.execute: ring_timer
+      # Refresh LED
+      - script.execute: control_leds
+      # If 15 minutes have passed and the timer is still ringing, stop it.
+      - delay: 15min
+      - switch.turn_off: timer_ringing
   - platform: gpio
     pin: GPIO47
     id: internal_speaker_amp
@@ -215,9 +305,17 @@ binary_sensor:
       number: GPIO0
       inverted: true
     on_press:
-      - script.execute: control_leds
+      - if:
+          condition:
+            switch.is_off: disable_buttons
+          then:
+            - script.execute: control_leds
     on_release:
-      - script.execute: control_leds
+      - if:
+          condition:
+            switch.is_off: disable_buttons
+          then:
+            - script.execute: control_leds
       # If a factory reset is requested, factory reset on release
       - if:
           condition:
@@ -226,16 +324,21 @@ binary_sensor:
             - button.press: factory_reset_button
     on_multi_click:
       # Simple Click:
-      #   - Answer incoming call if ringing (sip_call_state == 1)
-      #   - Hang up active/calling call (sip_call_state == 2)
-      #   - Place outgoing call if idle (sip_call_state == 0)
+      #   - Answer an incoming call if ringing (sip_call_state == 1)
+      #   - Hang up an active/calling call (sip_call_state == 2)
+      #   - Otherwise (sip_call_state == 0), abort "things" in order:
+      #     - Timer
+      #     - Announcements
+      #     - Voice Assistant Pipeline run
+      #     - Music
+      #     - Starts the voice assistant if it is not yet running and if the device is not muted.
       - timing:
           - ON for at most 1s
           - OFF for at least 0.25s
         then:
           - if:
               condition:
-                lambda: return !id(init_in_progress) && !id(color_changed) && !id(group_volume_changed);
+                lambda: return !id(init_in_progress) && !id(color_changed) && !id(group_volume_changed) && !id(disable_buttons).state;
               then:
                 - if:
                     condition:
@@ -253,18 +356,45 @@ binary_sensor:
                           else:
                             - if:
                                 condition:
-                                  and:
-                                    - switch.is_off: master_mute_switch
+                                  switch.is_on: timer_ringing
                                 then:
-                                  - script.execute:
-                                      id: play_sound
-                                      priority: true
-                                      sound_file: "center_button_press_sound"
-                                  - delay: 300ms
-                                  - sip_client.call:
-                                      id: my_sip
-                                      number: ${sip_destination}
-                                  - lambda: id(sip_call_state) = 2;
+                                  - switch.turn_off: timer_ringing
+                                else:
+                                  - if:
+                                      condition:
+                                        voice_assistant.is_running:
+                                      then:
+                                        - voice_assistant.stop:
+                                      else:
+                                        - if:
+                                            condition:
+                                              media_player.is_announcing:
+                                                id: external_media_player
+                                            then:
+                                              media_player.stop:
+                                                announcement: true
+                                                id: external_media_player
+                                            else:
+                                              - if:
+                                                  condition:
+                                                    media_player.is_playing:
+                                                      id: external_media_player
+                                                  then:
+                                                    - media_player.pause:
+                                                        id: external_media_player
+                                                  else:
+                                                    - if:
+                                                        condition:
+                                                          and:
+                                                            - switch.is_off: master_mute_switch
+                                                            - not: voice_assistant.is_running
+                                                        then:
+                                                          - script.execute:
+                                                              id: play_sound
+                                                              priority: true
+                                                              sound_file: "center_button_press_sound"
+                                                          - delay: 300ms
+                                                          - voice_assistant.start:
       # Double Click
       #  . Exposed as an event entity. To be used in automations inside Home Assistant
       - timing:
@@ -275,7 +405,7 @@ binary_sensor:
         then:
           - if:
               condition:
-                lambda: return !id(init_in_progress) && !id(color_changed) && !id(group_volume_changed);
+                lambda: return !id(init_in_progress) && !id(color_changed) && !id(group_volume_changed) && !id(disable_buttons).state;
               then:
                 - script.execute:
                     id: play_sound
@@ -296,7 +426,7 @@ binary_sensor:
         then:
           - if:
               condition:
-                lambda: return !id(init_in_progress) && !id(color_changed) && !id(group_volume_changed);
+                lambda: return !id(init_in_progress) && !id(color_changed) && !id(group_volume_changed) && !id(disable_buttons).state;
               then:
                 - script.execute:
                     id: play_sound
@@ -306,22 +436,42 @@ binary_sensor:
                     id: button_press_event
                     event_type: "triple_press"
       # Long Press
-      #  . Exposed as an event entity. To be used in automations inside Home Assistant
+      #  . Places an outgoing SIP call if idle (sip_call_state == 0)
+      #  . Otherwise, exposed as an event entity. To be used in automations inside Home Assistant
       - timing:
           - ON for at least 1s
         then:
           - if:
               condition:
-                lambda: return !id(init_in_progress) && !id(color_changed) && !id(group_volume_changed);
+                lambda: return !id(init_in_progress) && !id(color_changed) && !id(group_volume_changed) && !id(disable_buttons).state;
               then:
-                - script.execute:
-                    id: play_sound
-                    priority: false
-                    sound_file: "center_button_long_press_sound"
-                - light.turn_off: voice_assistant_leds
-                - event.trigger:
-                    id: button_press_event
-                    event_type: "long_press"
+                - if:
+                    condition:
+                      lambda: return id(sip_call_state) == 0;
+                    then:
+                      - if:
+                          condition:
+                            voice_assistant.is_running:
+                          then:
+                            - voice_assistant.stop:
+                      - script.execute:
+                          id: play_sound
+                          priority: true
+                          sound_file: "center_button_long_press_sound"
+                      - delay: 300ms
+                      - sip_client.call:
+                          id: my_sip
+                          number: ${sip_destination}
+                      - lambda: id(sip_call_state) = 2;
+                    else:
+                      - script.execute:
+                          id: play_sound
+                          priority: false
+                          sound_file: "center_button_long_press_sound"
+                      - light.turn_off: voice_assistant_leds
+                      - event.trigger:
+                          id: button_press_event
+                          event_type: "long_press"
       # Very important do not remove. Trust me :D
       - timing:
           # H ....
@@ -504,6 +654,31 @@ light:
         from: 0
         to: 6
     effects:
+      - addressable_lambda:
+          name: "Waiting for Command"
+          update_interval: 100ms
+          lambda: |-
+            auto light_color = id(led_ring).current_values;
+            Color color(light_color.get_red() * 255, light_color.get_green() * 255,
+                  light_color.get_blue() * 255);
+            for (uint8_t i = 0; i < 12; i++) {
+              if (i == id(global_led_animation_index) % 12) {
+                it[i] = color;
+              } else if (i == (id(global_led_animation_index) + 11) % 12) {
+                it[i] = color * 192;
+              } else if (i == (id(global_led_animation_index) + 10) % 12) {
+                it[i] = color * 128;
+              } else if (i == (id(global_led_animation_index) + 6) % 12) {
+                it[i] = color;
+              } else if (i == (id(global_led_animation_index) + 5) % 12) {
+                it[i] = color * 192;
+              } else if (i == (id(global_led_animation_index) + 4) % 12) {
+                it[i] = color * 128;
+              } else {
+                it[i] = Color::BLACK;
+              }
+            }
+            id(global_led_animation_index) = (id(global_led_animation_index) + 1) % 12;
       - addressable_lambda:
           name: "Incoming Call"
           update_interval: 100ms
@@ -722,7 +897,63 @@ light:
             if (brightness_step == 0 || brightness_step == brightness_step_number) {
               brightness_decreasing = !brightness_decreasing;
             }
-
+      - addressable_lambda:
+          name: "Timer Ring"
+          update_interval: 10ms
+          lambda: |-
+            static uint8_t brightness_step = 0;
+            static bool brightness_decreasing = true;
+            static uint8_t brightness_step_number = 10;
+            if (initial_run) {
+              brightness_step = 0;
+              brightness_decreasing = true;
+            }
+            auto light_color = id(led_ring).current_values;
+            Color color(light_color.get_red() * 255, light_color.get_green() * 255,
+                  light_color.get_blue() * 255);
+            Color muted_color(255, 0, 0);
+            for (uint8_t i = 0; i < 12; i++) {
+              it[i] = color * uint8_t(255/brightness_step_number*(brightness_step_number-brightness_step));
+            }
+            if ( id(master_mute_switch).state ) {
+              it[3] = muted_color;
+              it[9] = muted_color;
+            }
+            if (brightness_decreasing) {
+              brightness_step++;
+            } else {
+              brightness_step--;
+            }
+            if (brightness_step == 0 || brightness_step == brightness_step_number) {
+              brightness_decreasing = !brightness_decreasing;
+            }
+      - addressable_lambda:
+          name: "Timer Tick"
+          update_interval: 100ms
+          lambda: |-
+            auto light_color = id(led_ring).current_values;
+            Color color(light_color.get_red() * 255, light_color.get_green() * 255,
+                  light_color.get_blue() * 255);
+            Color muted_color(255, 0, 0);
+            auto timer_ratio = 12.0f * id(first_active_timer).seconds_left / max(id(first_active_timer).total_seconds , static_cast<uint32_t>(1));
+            uint8_t last_led_on = static_cast<uint8_t>(ceil(timer_ratio)) - 1;
+            for (uint8_t i = 0; i < 12; i++) {
+              float brightness_dip = ( i == id(global_led_animation_index) % 12 && i != last_led_on ) ? 0.9f : 1.0f ;
+              if (i <= timer_ratio) {
+                it[i] = color * min(255.0f * brightness_dip * (timer_ratio - i) , 255.0f * brightness_dip) ;
+              } else {
+                it[i] = Color::BLACK;
+              }
+            }
+            if (id(master_mute_switch).state) {
+              it[2] = Color::BLACK;
+              it[3] = muted_color;
+              it[4] = Color::BLACK;
+              it[8] = Color::BLACK;
+              it[9] = muted_color;
+              it[10] = Color::BLACK;
+            }
+            id(global_led_animation_index) = (12 + id(global_led_animation_index) - 1) % 12;
       - addressable_rainbow:
           name: "Rainbow"
           width: 12
@@ -845,7 +1076,9 @@ sensor:
       - lambda: id(dial_touched) = true;
       - if:
           condition:
-            binary_sensor.is_off: center_button
+            and:
+              - binary_sensor.is_off: center_button
+              - switch.is_off: disable_buttons
           then:
             - script.execute:
                 id: control_volume
@@ -867,7 +1100,9 @@ sensor:
       - lambda: id(dial_touched) = true;
       - if:
           condition:
-            binary_sensor.is_off: center_button
+            and:
+              - binary_sensor.is_off: center_button
+              - switch.is_off: disable_buttons
           then:
             - script.execute:
                 id: control_volume
@@ -911,11 +1146,15 @@ script:
             id(control_leds_voice_kit_startup_failed).execute();
             return;
           }
+          id(check_if_timers_active).execute();
+          if (id(is_timer_active)){
+            id(fetch_first_active_timer).execute();
+          }
           if (id(improv_ble_in_progress)) {
             id(control_leds_improv_ble_state).execute();
           } else if (id(init_in_progress)) {
             id(control_leds_init_state).execute();
-          } else if (!id(wifi_id).is_connected()){
+          } else if (!id(wifi_id).is_connected() || !id(api_id).is_connected()){
             id(control_leds_no_ha_connection_state).execute();
           } else if (id(center_button).state) {
             id(control_leds_center_button_touched).execute();
@@ -929,12 +1168,28 @@ script:
             id(control_leds_sip_incoming).execute();
           } else if (id(sip_call_state) == 2) {
             id(control_leds_sip_in_call).execute();
+          } else if (id(timer_ringing).state) {
+            id(control_leds_timer_ringing).execute();
+          } else if (id(voice_assistant_phase) == ${voice_assist_waiting_for_command_phase_id}) {
+            id(control_leds_voice_assistant_waiting_for_command_phase).execute();
+          } else if (id(voice_assistant_phase) == ${voice_assist_listening_for_command_phase_id}) {
+            id(control_leds_voice_assistant_listening_for_command_phase).execute();
+          } else if (id(voice_assistant_phase) == ${voice_assist_thinking_phase_id}) {
+            id(control_leds_voice_assistant_thinking_phase).execute();
+          } else if (id(voice_assistant_phase) == ${voice_assist_replying_phase_id}) {
+            id(control_leds_voice_assistant_replying_phase).execute();
+          } else if (id(voice_assistant_phase) == ${voice_assist_error_phase_id}) {
+            id(control_leds_voice_assistant_error_phase).execute();
+          } else if (id(voice_assistant_phase) == ${voice_assist_not_ready_phase_id}) {
+            id(control_leds_voice_assistant_not_ready_phase).execute();
+          } else if (id(is_timer_active)) {
+            id(control_leds_timer_ticking).execute();
           } else if (id(master_mute_switch).state) {
             id(control_leds_muted_or_silent).execute();
           } else if (id(external_media_player).volume == 0.0f || id(external_media_player).is_muted()) {
             id(control_leds_muted_or_silent).execute();
-          } else if (id(sip_call_state) == 0) {
-            id(control_leds_sip_idle).execute();
+          } else if (id(voice_assistant_phase) == ${voice_assist_idle_phase_id}) {
+            id(control_leds_voice_assistant_idle_phase).execute();
           }
 
   # Script executed if voice_kit startup failed
@@ -997,9 +1252,9 @@ script:
           id: voice_assistant_leds
           effect: "Twinkle"
 
-  # Script executed when the SIP client is idle
+  # Script executed when the voice assistant is idle (waiting for a wake word)
   # Nothing (Either LED ring off or LED ring on if the user decided to turn the user facing LED ring on)
-  - id: control_leds_sip_idle
+  - id: control_leds_voice_assistant_idle_phase
     then:
       - light.turn_off: voice_assistant_leds
       - if:
@@ -1008,21 +1263,53 @@ script:
           then:
             light.turn_on: led_ring
 
-  # Script executed when there is an incoming call (ringing)
-  - id: control_leds_sip_incoming
+  # Script executed when the voice assistant is waiting for a command (After the wake word)
+  # Slow clockwise spin of the LED ring.
+  - id: control_leds_voice_assistant_waiting_for_command_phase
     then:
       - light.turn_on:
           brightness: !lambda return max( id(led_ring).current_values.get_brightness() , 0.2f );
           id: voice_assistant_leds
-          effect: "Incoming Call"
+          effect: "Waiting for Command"
 
-  # Script executed when in call
-  - id: control_leds_sip_in_call
+  # Script executed when the voice assistant is listening to a command
+  # Fast clockwise spin of the LED ring.
+  - id: control_leds_voice_assistant_listening_for_command_phase
     then:
       - light.turn_on:
           brightness: !lambda return max( id(led_ring).current_values.get_brightness() , 0.2f );
           id: voice_assistant_leds
-          effect: "In Call"
+          effect: "Listening For Command"
+
+  # Script executed when the voice assistant is thinking to a command
+  # The spin stops and the 2 LEDs that are currently on and blinking indicating the commend is being processed.
+  - id: control_leds_voice_assistant_thinking_phase
+    then:
+      - light.turn_on:
+          brightness: !lambda return max( id(led_ring).current_values.get_brightness() , 0.2f );
+          id: voice_assistant_leds
+          effect: "Thinking"
+
+  # Script executed when the voice assistant is thinking to a command
+  # Fast anticlockwise spin of the LED ring.
+  - id: control_leds_voice_assistant_replying_phase
+    then:
+      - light.turn_on:
+          brightness: !lambda return max( id(led_ring).current_values.get_brightness() , 0.2f );
+          id: voice_assistant_leds
+          effect: "Replying"
+
+  # Script executed when the voice assistant is in error
+  # Fast Red Pulse
+  - id: control_leds_voice_assistant_error_phase
+    then:
+      - light.turn_on:
+          brightness: !lambda return min ( max( id(led_ring).current_values.get_brightness() , 0.2f ) + 0.1f , 1.0f );
+          red: 1
+          green: 0
+          blue: 0
+          id: voice_assistant_leds
+          effect: "Error"
 
   # Script executed when the voice assistant is muted or silent
   # The LED next to the 2 microphones turn red / one red LED next to the speaker grill
@@ -1032,6 +1319,17 @@ script:
           brightness: !lambda return max( id(led_ring).current_values.get_brightness() , 0.2f );
           id: voice_assistant_leds
           effect: "Muted or Silent"
+
+  # Script executed when the voice assistant is not ready
+  - id: control_leds_voice_assistant_not_ready_phase
+    then:
+      - light.turn_on:
+          brightness: 66%
+          red: 1
+          green: 0
+          blue: 0
+          id: voice_assistant_leds
+          effect: "Twinkle"
 
   # Script executed when the dial is touched
   # A number of LEDs turn on indicating a visual representation of the volume of the media player entity.
@@ -1068,6 +1366,40 @@ script:
           brightness: !lambda return min ( max( id(led_ring).current_values.get_brightness() , 0.2f ) + 0.1f , 1.0f );
           id: voice_assistant_leds
           effect: "Center Button Touched"
+
+  # Script executed when there is an incoming call (ringing)
+  - id: control_leds_sip_incoming
+    then:
+      - light.turn_on:
+          brightness: !lambda return max( id(led_ring).current_values.get_brightness() , 0.2f );
+          id: voice_assistant_leds
+          effect: "Incoming Call"
+
+  # Script executed when in call
+  - id: control_leds_sip_in_call
+    then:
+      - light.turn_on:
+          brightness: !lambda return max( id(led_ring).current_values.get_brightness() , 0.2f );
+          id: voice_assistant_leds
+          effect: "In Call"
+
+  # Script executed when the timer is ringing, to control the LEDs
+  # The LED ring blinks.
+  - id: control_leds_timer_ringing
+    then:
+      - light.turn_on:
+          brightness: !lambda return min ( max( id(led_ring).current_values.get_brightness() , 0.2f ) + 0.1f , 1.0f );
+          id: voice_assistant_leds
+          effect: "Timer Ring"
+
+  # Script executed when the timer is ticking, to control the LEDs
+  # The LEDs shows the remaining time as a fraction of the full ring.
+  - id: control_leds_timer_ticking
+    then:
+      - light.turn_on:
+          brightness: !lambda return max( id(led_ring).current_values.get_brightness() , 0.2f );
+          id: voice_assistant_leds
+          effect: "Timer tick"
 
   # Script executed when the volume is increased/decreased from the dial
   - id: control_volume
@@ -1179,6 +1511,15 @@ script:
       - delay: 500ms
       - lambda: id(color_changed) = false;
 
+  # Script executed when the timer is ringing, to playback sounds.
+  - id: ring_timer
+    then:
+      - script.execute: enable_repeat_one
+      - script.execute:
+          id: play_sound
+          priority: true
+          sound_file: "timer_finished_sound"
+
   # Script executed when there is an incoming SIP call, to playback ringtone.
   - id: ring_incoming_call
     then:
@@ -1246,6 +1587,60 @@ script:
               .set_announcement(true)
               .perform();
           }
+
+  # Script used to fetch the first active timer (Stored in global first_active_timer)
+  - id: fetch_first_active_timer
+    then:
+      - lambda: |
+          const auto &timers = id(va).get_timers();
+          auto output_timer = *timers.begin();
+          for (const auto &timer : timers) {
+            if (timer.is_active && timer.seconds_left <= output_timer.seconds_left) {
+              output_timer = timer;
+            }
+          }
+          id(first_active_timer) = output_timer;
+
+  # Script used to check if a timer is active (Stored in global is_timer_active)
+  - id: check_if_timers_active
+    then:
+      - lambda: |
+          const auto &timers = id(va).get_timers();
+          bool output = false;
+          for (const auto &timer : timers) {
+            if (timer.is_active) {
+              output = true;
+            }
+          }
+          id(is_timer_active) = output;
+
+  # Script used activate the stop word if the TTS step is long.
+  # Why is this wrapped on a script?
+  #   Becasue we want to stop the sequence if the TTS step is faster than that.
+  #   This allows us to prevent having the deactivation of the stop word before its own activation.
+  - id: activate_stop_word_once
+    then:
+      - wait_until:
+          condition:
+            media_player.is_announcing:
+              id: external_media_player
+          timeout: 5s
+      - delay: 1s
+      # Enable stop wake word
+      - if:
+          condition:
+            switch.is_off: timer_ringing
+          then:
+            - micro_wake_word.enable_model: stop
+            - wait_until:
+                not:
+                  media_player.is_announcing:
+                    id: external_media_player
+            - if:
+                condition:
+                  switch.is_off: timer_ringing
+                then:
+                  - micro_wake_word.disable_model: stop
 
 i2s_audio:
   - id: i2s_output
@@ -1413,9 +1808,12 @@ media_player:
       if:
         condition:
           and:
-            - lambda: return id(sip_call_state) == 0;
+            - switch.is_off: timer_ringing
+            - not:
+                voice_assistant.is_running:
             - not:
                 media_player.is_announcing: external_media_player
+            - lambda: return id(sip_call_state) == 0;
         then:
           - mixer_speaker.apply_ducking:
               id: media_mixing_input
@@ -1449,6 +1847,210 @@ audio_dac:
     id: aic3204_dac
     i2c_id: internal_i2c
 
+micro_wake_word:
+  id: mww
+  microphone:
+    microphone: i2s_mics
+    channels: 1
+    gain_factor: 4
+  stop_after_detection: false
+  models:
+    - model: https://github.com/kahrendt/microWakeWord/releases/download/okay_nabu_20241226.3/okay_nabu.json
+      id: okay_nabu
+    - model: hey_jarvis
+      id: hey_jarvis
+    - model: hey_mycroft
+      id: hey_mycroft
+    - model: https://github.com/kahrendt/microWakeWord/releases/download/stop/stop.json
+      id: stop
+      internal: true
+  vad:
+  on_wake_word_detected:
+    # If the wake word is detected when the device is muted (Possible with the software mute switch),
+    # or while a SIP call is ringing/active: Do nothing.
+    - if:
+        condition:
+          and:
+            - switch.is_off: master_mute_switch
+            - lambda: return id(sip_call_state) == 0;
+        then:
+          # If a timer is ringing: Stop it, do not start the voice assistant (We can stop timer from voice!)
+          - if:
+              condition:
+                switch.is_on: timer_ringing
+              then:
+                - switch.turn_off: timer_ringing
+              # Stop voice assistant if running
+              else:
+                - if:
+                    condition:
+                      voice_assistant.is_running:
+                    then:
+                      voice_assistant.stop:
+                    # Stop any other media player announcement
+                    else:
+                      - if:
+                          condition:
+                            media_player.is_announcing:
+                              id: external_media_player
+                          then:
+                            - media_player.stop:
+                                announcement: true
+                                id: external_media_player
+                          # Start the voice assistant and play the wake sound, if enabled
+                          else:
+                            - if:
+                                condition:
+                                  switch.is_on: wake_sound
+                                then:
+                                  - script.execute:
+                                      id: play_sound
+                                      priority: true
+                                      sound_file: "wake_word_triggered_sound"
+                                  - delay: 300ms
+                            - voice_assistant.start:
+                                wake_word: !lambda return wake_word;
+
+select:
+  - platform: template
+    name: "Wake word sensitivity"
+    id: wake_word_sensitivity
+    optimistic: true
+    initial_option: Slightly sensitive
+    restore_value: true
+    entity_category: config
+    options:
+      - Slightly sensitive
+      - Moderately sensitive
+      - Very sensitive
+    on_value:
+      # Sets specific wake word probabilities computed for each particular model
+      # Note probability cutoffs are set as a quantized uint8 value, each comment has the corresponding floating point cutoff
+      # False Accepts per Hour values are tested against all units and channels from the Dinner Party Corpus.
+      # These cutoffs apply only to the specific models included in the firmware: okay_nabu@20241226.3, hey_jarvis@v2, hey_mycroft@v2
+      lambda: |-
+        if (x == "Slightly sensitive") {
+          id(okay_nabu).set_probability_cutoff(217);    // 0.85 -> 0.000 FAPH on DipCo (Manifest's default)
+          id(hey_jarvis).set_probability_cutoff(247);   // 0.97 -> 0.563 FAPH on DipCo (Manifest's default)
+          id(hey_mycroft).set_probability_cutoff(253);  // 0.99 -> 0.567 FAPH on DipCo
+        } else if (x == "Moderately sensitive") {
+          id(okay_nabu).set_probability_cutoff(176);    // 0.69 -> 0.376 FAPH on DipCo
+          id(hey_jarvis).set_probability_cutoff(235);   // 0.92 -> 0.939 FAPH on DipCo
+          id(hey_mycroft).set_probability_cutoff(242);  // 0.95 -> 1.502 FAPH on DipCo (Manifest's default)
+        } else if (x == "Very sensitive") {
+          id(okay_nabu).set_probability_cutoff(143);    // 0.56 -> 0.751 FAPH on DipCo
+          id(hey_jarvis).set_probability_cutoff(212);   // 0.83 -> 1.502 FAPH on DipCo
+          id(hey_mycroft).set_probability_cutoff(237);  // 0.93 -> 1.878 FAPH on DipCo
+        }
+
+voice_assistant:
+  id: va
+  microphone:
+    - microphone: i2s_mics
+      channels: 0
+    - microphone: i2s_mics
+      channels: 1
+  media_player: external_media_player
+  micro_wake_word: mww
+  use_wake_word: false
+  noise_suppression_level: 0
+  auto_gain: 0 dbfs
+  volume_multiplier: 1
+  on_client_connected:
+    - lambda: id(init_in_progress) = false;
+    - micro_wake_word.start:
+    - lambda: id(voice_assistant_phase) = ${voice_assist_idle_phase_id};
+    - script.execute: control_leds
+  on_client_disconnected:
+    - voice_assistant.stop:
+    - lambda: id(voice_assistant_phase) = ${voice_assist_not_ready_phase_id};
+    - script.execute: control_leds
+  on_error:
+    # Only set the error phase if the error code is different than duplicate_wake_up_detected or stt-no-text-recognized
+    # These two are ignored for a better user experience
+    - if:
+        condition:
+          and:
+            - lambda: return !id(init_in_progress);
+            - lambda: return code != "duplicate_wake_up_detected";
+            - lambda: return code != "stt-no-text-recognized";
+        then:
+          - lambda: id(voice_assistant_phase) = ${voice_assist_error_phase_id};
+          - script.execute: control_leds
+    # If the error code is cloud-auth-failed, serve a local audio file guiding the user.
+    - if:
+        condition:
+          - lambda: return code == "cloud-auth-failed";
+        then:
+          - script.execute:
+              id: play_sound
+              priority: true
+              sound_file: "error_cloud_expired"
+  # When the voice assistant starts: Play a wake up sound, duck audio.
+  on_start:
+    - mixer_speaker.apply_ducking:
+        id: media_mixing_input
+        decibel_reduction: 20  # Number of dB quieter; higher implies more quiet, 0 implies full volume
+        duration: 0.0s         # The duration of the transition (default is no transition)
+  on_listening:
+    - lambda: id(voice_assistant_phase) = ${voice_assist_waiting_for_command_phase_id};
+    - script.execute: control_leds
+  on_stt_vad_start:
+    - lambda: id(voice_assistant_phase) = ${voice_assist_listening_for_command_phase_id};
+    - script.execute: control_leds
+  on_stt_vad_end:
+    - lambda: id(voice_assistant_phase) = ${voice_assist_thinking_phase_id};
+    - script.execute: control_leds
+  on_intent_progress:
+    - if:
+        condition:
+          # A nonempty x variable means a streaming TTS url was sent to the media player
+          lambda: 'return !x.empty();'
+        then:
+          - lambda: id(voice_assistant_phase) = ${voice_assist_replying_phase_id};
+          - script.execute: control_leds
+          # Start a script that would potentially enable the stop word if the response is longer than a second
+          - script.execute: activate_stop_word_once
+  on_tts_start:
+    - if:
+        condition:
+          # The intent_progress trigger didn't start the TTS Reponse
+          lambda: 'return id(voice_assistant_phase) != ${voice_assist_replying_phase_id};'
+        then:
+          - lambda: id(voice_assistant_phase) = ${voice_assist_replying_phase_id};
+          - script.execute: control_leds
+          # Start a script that would potentially enable the stop word if the response is longer than a second
+          - script.execute: activate_stop_word_once
+  # When the voice assistant ends ...
+  on_end:
+    - wait_until:
+        not:
+          voice_assistant.is_running:
+    # Stop ducking audio.
+    - mixer_speaker.apply_ducking:
+        id: media_mixing_input
+        decibel_reduction: 0
+        duration: 1.0s
+    # If the end happened because of an error, let the error phase on for a second
+    - if:
+        condition:
+          lambda: return id(voice_assistant_phase) == ${voice_assist_error_phase_id};
+        then:
+          - delay: 1s
+    # Reset the voice assistant phase id and reset the LED animations.
+    - lambda: id(voice_assistant_phase) = ${voice_assist_idle_phase_id};
+    - script.execute: control_leds
+  on_timer_finished:
+    - switch.turn_on: timer_ringing
+  on_timer_started:
+    - script.execute: control_leds
+  on_timer_cancelled:
+    - script.execute: control_leds
+  on_timer_updated:
+    - script.execute: control_leds
+  on_timer_tick:
+    - script.execute: control_leds
+
 sip_client:
   id: my_sip
   microphone: i2s_mics
@@ -1471,11 +2073,21 @@ sip_client:
         format: "Incoming call from %s"
         args: [caller.c_str()]
     - lambda: id(sip_call_state) = 1;
+    - if:
+        condition:
+          voice_assistant.is_running:
+        then:
+          - voice_assistant.stop:
     - script.execute: control_leds
     - script.execute: ring_incoming_call
   on_call_connected:
     - logger.log: "Call connected"
     - lambda: id(sip_call_state) = 2;
+    - if:
+        condition:
+          voice_assistant.is_running:
+        then:
+          - voice_assistant.stop:
     - script.execute: control_leds
     - script.execute: stop_ringing
   on_call_ended:
@@ -1486,8 +2098,12 @@ sip_client:
 
 button:
   - platform: factory_reset
-    name: "Factory Reset"
     id: factory_reset_button
+    name: "Factory Reset"
+    entity_category: diagnostic
+    internal: true
+  # Restart button intentionally omitted — device_base.yaml already exposes
+  # restart via `switch: platform: restart`.
 
 debug:
   update_interval: 5s

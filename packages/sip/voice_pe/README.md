@@ -1,12 +1,33 @@
-# Home Assistant Voice PE — SIP Intercom
+# Home Assistant Voice PE — Voice Assistant + SIP Intercom
 
-Turns a [Home Assistant Voice PE](https://www.home-assistant.io/voice-pe/) (ESP32-S3) into a **SIP intercom / phone**. It uses the [`sip_client`](../../../components/sip_client) component to register with a PBX (Asterisk/FreePBX/3CX, etc.) and carries two-way voice through the device's built-in microphone and speaker. The stock Voice PE features (LED ring, dial, media player, voice_kit) keep working.
+Adds SIP intercom / phone functionality on top of the **full stock
+[Home Assistant Voice PE](https://www.home-assistant.io/voice-pe/)** firmware
+(wake word, Assist voice pipeline, timers, media player, LED ring, dial,
+`voice_kit`, etc. all still work exactly as upstream). It uses the
+[`sip_client`](../../../components/sip_client) component to register with a
+PBX (Asterisk/FreePBX/3CX, etc.) and carries two-way voice through the
+device's built-in microphone and speaker, sharing the device without
+disabling anything else.
+
+This package is kept in sync with upstream
+[`esphome/home-assistant-voice-pe`](https://github.com/esphome/home-assistant-voice-pe/blob/dev/home-assistant-voice.yaml)
+— SIP is layered in additively rather than replacing any stock behavior.
 
 ## Features
 
-- Registers with a PBX (REGISTER + MD5 Digest auth), then **receives and places calls**
-- **Two-way voice** through the built-in mic/speaker (G.711 PCMU/PCMA, 8 kHz)
-- **Center button** to dial / answer / hang up
+- Everything from the stock Voice PE firmware: wake word (`micro_wake_word`),
+  the Assist voice pipeline, timers, media player, LED ring animations, dial,
+  mute switch, jack detection, `voice_kit`, etc.
+- Registers with a PBX (REGISTER + MD5 Digest auth), then **receives and
+  places calls**
+- **Two-way voice** through the built-in mic/speaker (G.711 PCMU/PCMA, 8 kHz),
+  on its own dedicated audio pipeline (mixer input + resampler) so calls never
+  interfere with announcements or media playback
+- **Center button**: short press answers/hangs up a call (falls through to
+  the normal voice-assistant toggle when idle); long press places an outgoing
+  call when idle (falls through to the normal long-press event otherwise)
+- An incoming/active call **stops the voice assistant** and **suppresses wake
+  word detection**, so the two features never fight over the microphone
 - **LED ring** indication per call state, with a **ringtone** on incoming calls
 - DTMF (RFC 2833) sending via the `sip_client.send_dtmf` action
 
@@ -21,7 +42,7 @@ substitutions:
   sip_server: "192.168.0.245"     # PBX address (IP recommended)
   sip_username: "103"             # SIP account / extension
   sip_domain: "192.168.0.245"     # usually the same as sip_server
-  sip_destination: "101"          # number the center button dials
+  sip_destination: "101"          # number the center button (long press) dials
 
 packages:
   remote:
@@ -52,42 +73,64 @@ sip_password: "..."   # SIP password
 | `sip_username` | `1000` | SIP account (extension) |
 | `sip_domain` | `192.168.1.10` | SIP domain / realm (usually same as server) |
 | `sip_caller_id` | `ESP Voice PE` | Outgoing display name |
-| `sip_destination` | `1001` | Number dialed by the center button |
+| `sip_destination` | `1001` | Number dialed by the center button (long press) |
 | `hidden_ssid` | `false` | Set `true` for a hidden SSID |
 | `sip_password` | — | **Not a substitution → `sip_password` in `secrets.yaml`** |
 
 ## Behavior
 
-### Center button (short press)
-The action depends on the current call state.
+### Center button
 
-| State | Action |
-|-------|--------|
-| Idle (not muted) | **Dial** `sip_destination` |
-| Ringing (incoming) | **Answer** the call |
-| In call / dialing | **Hang up** |
+| Press | State | Action |
+|-------|-------|--------|
+| Short | Ringing (incoming) | **Answer** the call |
+| Short | In call / dialing | **Hang up** |
+| Short | Idle | Original stock behavior (abort timer/announcement/music, or start the voice assistant) |
+| Long | Idle | **Dial** `sip_destination` |
+| Long | Ringing / in call | Original stock behavior (`Button press` event, `long_press`) |
 
-> Double / triple / long presses are independent of calls and are exposed as the `Button press` event entity for Home Assistant automations.
+> Double / triple presses are unchanged from stock and are exposed as the
+> `Button press` event entity for Home Assistant automations.
+
+### Voice assistant / wake word interaction
+
+An incoming or active call takes priority over the voice assistant: if the
+assistant is running when a call comes in or is answered, it's stopped, and
+wake-word detection is ignored for the duration of the call. Once the call
+ends, wake word and the voice assistant resume working normally.
 
 ### LED ring
-The `control_leds` script reflects the call state.
+
+The `control_leds` script reflects the call state, layered into the same
+priority chain as the stock LED states (wake word phases, timers, mute, etc.):
 
 | State | LED |
 |-------|-----|
 | Ringing | Green rotating effect (`Incoming Call`) |
 | In call | Solid cyan (`In Call`) |
-| Idle | Default (user's LED ring setting) |
+| Idle | Falls through to the normal stock LED state |
 
 ### Ringtone
-On an incoming call a ringtone is played (looped) through the media player as an announcement, and stopped when the call connects or ends.
+
+On an incoming call a ringtone is played (looped) through the media player as
+an announcement, and stopped when the call connects or ends.
 
 ### Triggers (for automations)
-The package wires up the `sip_client` triggers: `on_registered`, `on_incoming_call` (variable `caller`), `on_call_connected`, and `on_call_ended`. Extend them in your device YAML if needed.
+
+The package wires up the `sip_client` triggers: `on_registered`,
+`on_incoming_call` (variable `caller`), `on_call_connected`, and
+`on_call_ended`. Extend them in your device YAML if needed.
 
 ## Requirements / Notes
 
 - A reachable **SIP PBX** and a registered account are required.
 - Codec is **G.711 (PCMU/PCMA, 8 kHz)** — make sure the PBX allows it.
-- **Keep IPv6 disabled.** The `network: enable_ipv6` line in the package is commented out (registration fails with IPv6 enabled; a component-side fix is planned).
-- Use an **IP address** for the server (hostname DNS resolution is not supported).
+- **IPv6 is disabled** (`network: enable_ipv6: false`) — `sip_client` has a
+  known IPv6 connect bug; a component-side fix is planned.
+- Use an **IP address** for the server (hostname DNS resolution is not
+  supported).
 - Only one call at a time is supported.
+- `ota:` and the `restart` button are intentionally **not** defined here —
+  `packages/device_base.yaml` already provides OTA (with the password) and a
+  restart switch; redefining them here would either collide with or duplicate
+  those.
