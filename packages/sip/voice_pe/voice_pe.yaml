@@ -248,6 +248,17 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
     disabled_by_default: true
+  # When on, an incoming SIP call is auto-declined (603) instead of ringing
+  # while the voice assistant is actively running an Assist turn. Off by
+  # default: calls ring normally and interrupt the voice assistant, same as
+  # without this switch.
+  - platform: template
+    id: decline_calls_during_voice_assistant
+    name: "Decline calls during voice assistant"
+    icon: "mdi:phone-cancel-outline"
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
   # Internal switch to track when a timer is ringing on the device.
   - platform: template
     id: timer_ringing
@@ -2077,19 +2088,28 @@ sip_client:
     - logger.log:
         format: "Incoming call from %s"
         args: [caller.c_str()]
-    - lambda: id(sip_call_state) = 1;
     - if:
         condition:
-          voice_assistant.is_running:
+          and:
+            - switch.is_on: decline_calls_during_voice_assistant
+            - voice_assistant.is_running:
         then:
-          - voice_assistant.stop:
-    - if:
-        condition:
-          micro_wake_word.is_running:
-        then:
-          - micro_wake_word.stop:
-    - script.execute: control_leds
-    - script.execute: ring_incoming_call
+          - logger.log: "Declining incoming call: voice assistant is active"
+          - sip_client.hangup: my_sip
+        else:
+          - lambda: id(sip_call_state) = 1;
+          - if:
+              condition:
+                voice_assistant.is_running:
+              then:
+                - voice_assistant.stop:
+          - if:
+              condition:
+                micro_wake_word.is_running:
+              then:
+                - micro_wake_word.stop:
+          - script.execute: control_leds
+          - script.execute: ring_incoming_call
   on_call_connected:
     - logger.log: "Call connected"
     - lambda: id(sip_call_state) = 2;

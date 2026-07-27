@@ -94,10 +94,20 @@ sip_password: "..."   # SIP password
 
 ### Voice assistant / wake word interaction
 
-An incoming or active call takes priority over the voice assistant: if the
-assistant is running when a call comes in or is answered, it's stopped, and
-wake-word detection is ignored for the duration of the call. Once the call
-ends, wake word and the voice assistant resume working normally.
+By default, an incoming or active call takes priority over the voice
+assistant: if the assistant is running when a call comes in, is answered, or
+is dialed out, it's stopped (along with `micro_wake_word`, so the two never
+compete for the microphone), and wake-word detection stays off for the
+duration of the call. Once the call ends, wake word and the voice assistant
+resume working normally.
+
+Flip it around with the **"Decline calls during voice assistant"** switch
+(off by default, `entity_category: config`): while it's on, an incoming call
+that arrives while the voice assistant is actively running an Assist turn is
+auto-declined (SIP `603 Decline`) instead of ringing and interrupting it. A
+call that arrives while the assistant is idle (just listening for the wake
+word) still rings normally either way — this only affects calls that land
+mid-conversation.
 
 ### LED ring
 
@@ -125,8 +135,11 @@ The package wires up the `sip_client` triggers: `on_registered`,
 
 - A reachable **SIP PBX** and a registered account are required.
 - Codec is **G.711 (PCMU/PCMA, 8 kHz)** — make sure the PBX allows it.
-- **IPv6 is disabled** (`network: enable_ipv6: false`) — `sip_client` has a
-  known IPv6 connect bug; a component-side fix is planned.
+- **IPv6 is disabled** (`network: enable_ipv6: false`). `sip_client` now picks
+  its UDP socket family from the actual server/peer address rather than this
+  global setting, so it should work either way — this is left off mainly
+  because IPv6 SIP servers (bracketed literals in Via/Contact/SDP) aren't
+  supported yet.
 - Use an **IP address** for the server (hostname DNS resolution is not
   supported).
 - Only one call at a time is supported.
