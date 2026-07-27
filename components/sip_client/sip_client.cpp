@@ -101,8 +101,13 @@ bool SipClient::open_socket_() {
   this->socket_->getsockname(reinterpret_cast<struct sockaddr *>(&local), &ll);
   this->local_ip_ = sockaddr_ip(local, &this->local_port_);
   if (this->local_ip_.empty() || this->local_ip_ == "0.0.0.0") {
-    char use_address_buf[network::USE_ADDRESS_BUFFER_SIZE];
-    this->local_ip_ = network::get_use_address_to(use_address_buf);
+    for (auto &addr : network::get_ip_addresses()) {
+      if (addr.is_set() && addr.is_ip4()) {
+        char ip_buf[network::IP_ADDRESS_BUFFER_SIZE];
+        this->local_ip_ = addr.str_to(ip_buf);
+        break;
+      }
+    }
   }
   ESP_LOGI(TAG, "SIP socket bound, local %s:%u", this->local_ip_.c_str(), this->local_port_);
   return true;
