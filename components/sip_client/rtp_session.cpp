@@ -220,7 +220,8 @@ void RtpSession::loop() {
       tx_empty = this->tx_buffer_.empty();
     }
     if (!tx_empty) {
-      ESP_LOGD(TAG, "RTP sender lagging behind by %u ms; resetting pacing", now - this->last_tx_ms_);
+      ESP_LOGD(TAG, "RTP sender lagging behind by %u ms; resetting pacing",
+               static_cast<unsigned>(now - this->last_tx_ms_));
       std::lock_guard<std::mutex> lock(this->tx_mutex_);
       this->tx_buffer_.clear();
     }
