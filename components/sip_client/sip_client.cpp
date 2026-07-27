@@ -74,18 +74,21 @@ void SipClient::dump_config() {
 }
 
 bool SipClient::open_socket_() {
-  this->socket_ = socket::socket_ip(SOCK_DGRAM, IPPROTO_UDP);
-  if (!this->socket_) {
-    ESP_LOGW(TAG, "Could not create SIP socket");
-    return false;
-  }
   struct sockaddr_storage server_addr;
   socklen_t sl = socket::set_sockaddr(reinterpret_cast<struct sockaddr *>(&server_addr),
                                       sizeof(server_addr), this->server_.c_str(),
                                       this->server_port_);
   if (sl == 0) {
     ESP_LOGW(TAG, "Invalid server address '%s' (use an IP)", this->server_.c_str());
-    this->socket_.reset();
+    return false;
+  }
+  // Create the socket to match the server address's actual family rather than
+  // socket::socket_ip(), which is fixed to AF_INET6 whenever ESPHome's global
+  // network::enable_ipv6 is on — that mismatched an IPv4 server (the common
+  // case) against an IPv6-only socket and made connect() fail outright.
+  this->socket_ = socket::socket(server_addr.ss_family, SOCK_DGRAM, IPPROTO_UDP);
+  if (!this->socket_) {
+    ESP_LOGW(TAG, "Could not create SIP socket");
     return false;
   }
   if (this->socket_->connect(reinterpret_cast<struct sockaddr *>(&server_addr), sl) != 0) {
