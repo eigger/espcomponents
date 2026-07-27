@@ -454,6 +454,11 @@ binary_sensor:
                             voice_assistant.is_running:
                           then:
                             - voice_assistant.stop:
+                      - if:
+                          condition:
+                            micro_wake_word.is_running:
+                          then:
+                            - micro_wake_word.stop:
                       - script.execute:
                           id: play_sound
                           priority: true
@@ -2078,6 +2083,11 @@ sip_client:
           voice_assistant.is_running:
         then:
           - voice_assistant.stop:
+    - if:
+        condition:
+          micro_wake_word.is_running:
+        then:
+          - micro_wake_word.stop:
     - script.execute: control_leds
     - script.execute: ring_incoming_call
   on_call_connected:
@@ -2088,11 +2098,22 @@ sip_client:
           voice_assistant.is_running:
         then:
           - voice_assistant.stop:
+    - if:
+        condition:
+          micro_wake_word.is_running:
+        then:
+          - micro_wake_word.stop:
     - script.execute: control_leds
     - script.execute: stop_ringing
   on_call_ended:
     - logger.log: "Call ended"
     - lambda: id(sip_call_state) = 0;
+    - if:
+        condition:
+          not:
+            micro_wake_word.is_running:
+        then:
+          - micro_wake_word.start:
     - script.execute: control_leds
     - script.execute: stop_ringing
 
