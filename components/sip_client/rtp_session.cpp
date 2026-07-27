@@ -1,6 +1,7 @@
 #include "rtp_session.h"
 #include <cstdlib>
 #include <cstring>
+#include "esphome/core/defines.h"
 #include "esphome/core/hal.h"
 #include "esphome/core/log.h"
 #include "g711.h"
@@ -15,6 +16,31 @@ static const uint32_t FRAME_MS = 20;
 static const uint32_t DTMF_TONE_SAMPLES = 8 * SAMPLES_PER_FRAME;  // ~160 ms tone
 static const int DTMF_END_PACKETS = 3;
 static const size_t TX_BUFFER_MAX = 8000;  // 1 s of audio, drop excess
+
+// Bind-any sockaddr for the given family. Unlike socket::set_sockaddr_any(),
+// this doesn't depend on ESPHome's global network::enable_ipv6 setting — the
+// caller picks the family to match the (already-known) remote peer address.
+static socklen_t set_sockaddr_any_family(struct sockaddr *addr, socklen_t addrlen, sa_family_t family,
+                                         uint16_t port) {
+#if USE_NETWORK_IPV6
+  if (family == AF_INET6) {
+    if (addrlen < sizeof(struct sockaddr_in6)) return 0;
+    auto *a6 = reinterpret_cast<struct sockaddr_in6 *>(addr);
+    memset(a6, 0, sizeof(struct sockaddr_in6));
+    a6->sin6_family = AF_INET6;
+    a6->sin6_port = htons(port);
+    return sizeof(struct sockaddr_in6);
+  }
+#else
+  (void) family;
+#endif
+  if (addrlen < sizeof(struct sockaddr_in)) return 0;
+  auto *a4 = reinterpret_cast<struct sockaddr_in *>(addr);
+  memset(a4, 0, sizeof(struct sockaddr_in));
+  a4->sin_family = AF_INET;
+  a4->sin_port = htons(port);
+  return sizeof(struct sockaddr_in);
+}
 
 static int dtmf_char_to_event(char c) {
   if (c >= '0' && c <= '9') return c - '0';
@@ -34,14 +60,19 @@ void RtpSession::set_remote(const std::string &ip, uint16_t port) {
 
 bool RtpSession::start(uint16_t local_port) {
   this->stop();
-  this->socket_ = socket::socket_ip(SOCK_DGRAM, IPPROTO_UDP);
+  // Match the remote peer's address family (set via set_remote() before this
+  // call) instead of socket::socket_ip(), which is fixed to AF_INET6 whenever
+  // ESPHome's global network::enable_ipv6 is on — see open_socket_() in
+  // sip_client.cpp for the same fix and why it's needed.
+  sa_family_t family = this->remote_set_ ? this->remote_addr_.ss_family : AF_INET;
+  this->socket_ = socket::socket(family, SOCK_DGRAM, IPPROTO_UDP);
   if (!this->socket_) {
     ESP_LOGW(TAG, "Could not create RTP socket");
     return false;
   }
   struct sockaddr_storage local_addr;
-  socklen_t sl = socket::set_sockaddr_any(reinterpret_cast<struct sockaddr *>(&local_addr),
-                                          sizeof(local_addr), local_port);
+  socklen_t sl = set_sockaddr_any_family(reinterpret_cast<struct sockaddr *>(&local_addr),
+                                        sizeof(local_addr), family, local_port);
   if (this->socket_->bind(reinterpret_cast<struct sockaddr *>(&local_addr), sl) != 0) {
     ESP_LOGW(TAG, "RTP bind failed on port %u", local_port);
     this->socket_.reset();
