@@ -26,6 +26,9 @@ This package is kept in sync with upstream
 - **Center button**: short press answers/hangs up a call (falls through to
   the normal voice-assistant toggle when idle); long press places an outgoing
   call when idle (falls through to the normal long-press event otherwise)
+- **Home Assistant control**: a `SIP number to dial` text entity plus
+  `SIP call` / `SIP hang up` buttons, so calls can be placed and ended from
+  HA (dashboards, automations) as well as from the device
 - An incoming/active call **stops the voice assistant** and **suppresses wake
   word detection**, so the two features never fight over the microphone
 - **LED ring** indication per call state, with a **ringtone** on incoming calls
@@ -73,7 +76,7 @@ sip_password: "..."   # SIP password
 | `sip_username` | `1000` | SIP account (extension) |
 | `sip_domain` | `192.168.1.10` | SIP domain / realm (usually same as server) |
 | `sip_caller_id` | `ESP Voice PE` | Outgoing display name |
-| `sip_destination` | `1001` | Number dialed by the center button (long press) |
+| `sip_destination` | `1001` | Initial value of the `SIP number to dial` entity (used by the long press and the `SIP call` button) |
 | `hidden_ssid` | `false` | Set `true` for a hidden SSID |
 | `sip_password` | — | **Not a substitution → `sip_password` in `secrets.yaml`** |
 
@@ -86,11 +89,20 @@ sip_password: "..."   # SIP password
 | Short | Ringing (incoming) | **Answer** the call |
 | Short | In call / dialing | **Hang up** |
 | Short | Idle | Original stock behavior (abort timer/announcement/music, or start the voice assistant) |
-| Long | Idle | **Dial** `sip_destination` |
+| Long | Idle | **Dial** the `SIP number to dial` entity |
 | Long | Ringing / in call | Original stock behavior (`Button press` event, `long_press`) |
 
 > Double / triple presses are unchanged from stock and are exposed as the
 > `Button press` event entity for Home Assistant automations.
+
+### Home Assistant entities
+
+| Entity | Type | Purpose |
+|--------|------|---------|
+| `SIP number to dial` | text (config) | Number to call. Defaults to `sip_destination`; also what the center button's long press dials |
+| `SIP call` | button | Place a call to the number above |
+| `SIP hang up` | button | Decline a ringing call, cancel a pending outgoing one, or end an active call (no-op when idle) |
+| `Decline calls during voice assistant` | switch (config) | See below — off by default |
 
 ### Voice assistant / wake word interaction
 
@@ -147,3 +159,60 @@ The package wires up the `sip_client` triggers: `on_registered`,
   `packages/device_base.yaml` already provides OTA (with the password) and a
   restart switch; redefining them here would either collide with or duplicate
   those.
+
+## Troubleshooting
+
+### Adding your own wake word models *adds to* the built-in ones
+
+A `micro_wake_word:` block in your device YAML does **not** replace the
+package's models — ESPHome merges the `models:` lists, so your entries are
+appended to the four this package already ships (`okay_nabu`, `hey_jarvis`,
+`hey_mycroft`, and the internal `stop`).
+
+This mostly costs **flash**, not CPU: every model is embedded in the firmware,
+but only *enabled* models are loaded and run inference. ESPHome enables just
+the first model by default and persists each model's enabled state to flash,
+so the rest stay unloaded until you turn them on — you pick which ones from
+the wake-word controls Home Assistant exposes for the device.
+
+So if the device feels overloaded, check **how many wake words you enabled in
+HA**, not how many are listed in the YAML. Each enabled model allocates its
+own tensor arena and runs per-frame inference, on a device that is also doing
+Assist, media playback and (with this package) SIP audio.
+
+### `stt-stream-failed` / silent replies
+
+`Error: stt-stream-failed - speech-to-text failed` comes from the Home
+Assistant Assist pipeline, not from `sip_client` — the device could not
+stream microphone audio to HA for speech-to-text. It's almost always network
+or CPU, not the SIP component:
+
+- **Check `output_power`.** ESPHome allows `8.5dB` – `20.5dB`; `8.5dB` is the
+  *minimum*, which cripples the device's uplink even when the signal it
+  *receives* (`WiFi Signal`, e.g. `-49 dBm`) looks great. STT streaming is
+  uplink-heavy, so leave `output_power` at the default unless you have a
+  specific reason.
+- **Don't use `power_save_mode: HIGH`.** This package sets `NONE` on purpose;
+  WiFi power saving adds latency and packet loss that real-time audio can't
+  absorb.
+- **Watch how many wake words are enabled** (above) and `Heap Frei` /
+  `Heap Max Block` in the `debug:` sensors. Internal heap dropping toward
+  ~45 KB with a max block around ~37 KB means memory pressure, and task
+  allocations start failing.
+
+### Reading a crash backtrace
+
+ESPHome already decodes the backtrace in the log output (the
+`WARNING Decoded 0x...` lines) as long as the build directory for that exact
+firmware is still present — no manual `addr2line` needed. If you do want to
+run it yourself, the ELF is at:
+
+```
+<config dir>/.esphome/build/<device name>/.pioenvs/<device name>/firmware.elf
+```
+
+Note that a backtrace ending in `esp_cpu_wait_for_intr` / `prvIdleTask` is the
+**idle task**, i.e. it tells you nothing about the real fault — that pattern
+usually means a task watchdog fired on the other core. In that case, look at
+`Reset:` in the device-info text sensor (`task watchdog` vs. a real panic)
+rather than at the backtrace.

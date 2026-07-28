@@ -460,25 +460,14 @@ binary_sensor:
                     condition:
                       lambda: return id(sip_call_state) == 0;
                     then:
-                      - if:
-                          condition:
-                            voice_assistant.is_running:
-                          then:
-                            - voice_assistant.stop:
-                      - if:
-                          condition:
-                            micro_wake_word.is_running:
-                          then:
-                            - micro_wake_word.stop:
                       - script.execute:
                           id: play_sound
                           priority: true
                           sound_file: "center_button_long_press_sound"
                       - delay: 300ms
-                      - sip_client.call:
-                          id: my_sip
-                          number: ${sip_destination}
-                      - lambda: id(sip_call_state) = 2;
+                      - script.execute:
+                          id: place_sip_call
+                          number: !lambda return id(sip_dial_number).state;
                     else:
                       - script.execute:
                           id: play_sound
@@ -1545,6 +1534,34 @@ script:
           priority: true
           sound_file: "timer_finished_sound"
 
+  # Places an outgoing SIP call to `number`, first freeing the microphone from
+  # the voice assistant and wake word. Shared by the center button (long press)
+  # and the "Call" button exposed to Home Assistant, so both behave identically.
+  - id: place_sip_call
+    parameters:
+      number: string
+    then:
+      - if:
+          condition:
+            lambda: return id(sip_call_state) != 0;
+          then:
+            - logger.log: "Dial request ignored: a call is already in progress"
+          else:
+            - if:
+                condition:
+                  voice_assistant.is_running:
+                then:
+                  - voice_assistant.stop:
+            - if:
+                condition:
+                  micro_wake_word.is_running:
+                then:
+                  - micro_wake_word.stop:
+            - sip_client.call:
+                id: my_sip
+                number: !lambda return number;
+            - lambda: id(sip_call_state) = 2;
+
   # Script executed when the SIP call connects or ends, to stop ringing.
   - id: stop_ringing
     then:
@@ -2137,12 +2154,44 @@ sip_client:
     - script.execute: control_leds
     - script.execute: stop_ringing
 
+# Number the device dials, editable from Home Assistant. Defaults to the
+# `sip_destination` substitution and is also what the center button's long
+# press dials, so changing it here changes both.
+text:
+  - platform: template
+    id: sip_dial_number
+    name: "SIP number to dial"
+    icon: "mdi:dialpad"
+    entity_category: config
+    mode: text
+    optimistic: true
+    restore_value: true
+    initial_value: "${sip_destination}"
+    max_length: 32
+
 button:
   - platform: factory_reset
     id: factory_reset_button
     name: "Factory Reset"
     entity_category: diagnostic
     internal: true
+  # Place / end a call from Home Assistant, mirroring the center button.
+  - platform: template
+    id: sip_call_button
+    name: "SIP call"
+    icon: "mdi:phone-outgoing"
+    on_press:
+      - script.execute:
+          id: place_sip_call
+          number: !lambda return id(sip_dial_number).state;
+  - platform: template
+    id: sip_hangup_button
+    name: "SIP hang up"
+    icon: "mdi:phone-hangup"
+    on_press:
+      # Declines a ringing call, cancels a pending outgoing one, or ends an
+      # active call; a no-op when idle.
+      - sip_client.hangup: my_sip
   # Restart button intentionally omitted — device_base.yaml already exposes
   # restart via `switch: platform: restart`.
 
