@@ -19,6 +19,7 @@ wifi:
 logger:
 
 ws_bridge:
+  id: my_ws_bridge
   host: 192.168.0.10
   token: "test_token"
   gateway_id: my_esp
@@ -28,6 +29,15 @@ ws_bridge:
     - logger.log: "ws_bridge connected"
   on_disconnected:
     - logger.log: "ws_bridge disconnected"
+  # Hand-built declaration for an entity type ESPHome has no domain for.
+  on_declare:
+    - lambda: |-
+        id(my_ws_bridge)->send_entity_declare("car_location", "device_tracker", "Car Location", "", "", nullptr);
+        id(my_ws_bridge)->send_state_object("car_location", [](JsonObject v) {
+          v["latitude"] = 37.5665;
+          v["longitude"] = 126.9780;
+          v["gps_accuracy"] = 8;
+        });
 
 sensor:
   - platform: ws_bridge

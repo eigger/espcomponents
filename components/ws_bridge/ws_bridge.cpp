@@ -289,6 +289,10 @@ void WsBridgeComponent::route_command_(const WsCommand &command) {
 
 void WsBridgeComponent::declare_all_entities_() {
   for (auto *device : this->devices_) device->ws_bridge_declare();
+  // Manual (lambda-built) declarations piggyback here rather than on
+  // on_connected, so they're re-sent by the periodic re-announce too — see
+  // add_on_declare_callback().
+  this->declare_cb_.call();
 }
 
 void WsBridgeComponent::send_raw_(const std::string &msg) {
@@ -317,6 +321,12 @@ void WsBridgeComponent::send_state_bool(const std::string &unique_id, bool value
 void WsBridgeComponent::send_state_string(const std::string &unique_id, const std::string &value) {
   if (!this->is_connected()) return;
   this->send_raw_(build_state_string(this->next_id_(), unique_id, value));
+}
+
+void WsBridgeComponent::send_state_object(const std::string &unique_id,
+                                          const std::function<void(JsonObject)> &value_fn) {
+  if (!this->is_connected()) return;
+  this->send_raw_(build_state_object(this->next_id_(), unique_id, value_fn));
 }
 
 }  // namespace ws_bridge

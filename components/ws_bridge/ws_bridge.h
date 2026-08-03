@@ -59,6 +59,11 @@ class WsBridgeComponent : public Component {
 
   void add_on_connected_callback(std::function<void()> &&cb) { this->connected_cb_.add(std::move(cb)); }
   void add_on_disconnected_callback(std::function<void()> &&cb) { this->disconnected_cb_.add(std::move(cb)); }
+  // Fires wherever the registered platform entities re-declare themselves —
+  // i.e. on connect AND on every periodic re-announce. Manual (lambda-built)
+  // declarations must hook this rather than on_connected, so that a
+  // re-announce which heals a lost HA-side registration re-declares them too.
+  void add_on_declare_callback(std::function<void()> &&cb) { this->declare_cb_.add(std::move(cb)); }
 
   void setup() override;
   void loop() override;
@@ -75,9 +80,15 @@ class WsBridgeComponent : public Component {
   // Called by platform entities (via WsBridgeDevice helpers) to push state
   // and declarations. No-ops while not connected; the next (re)connect will
   // re-declare and re-push through ws_bridge_declare().
+  //
+  // These are also the escape hatch for declaring entity types ESPHome itself
+  // has no domain for (e.g. device_tracker): call them straight from a YAML
+  // lambda. Manually declared entities are NOT re-declared automatically on
+  // reconnect — drive them from the hub's on_connected: trigger. See README.
   void send_state_float(const std::string &unique_id, float value);
   void send_state_bool(const std::string &unique_id, bool value);
   void send_state_string(const std::string &unique_id, const std::string &value);
+  void send_state_object(const std::string &unique_id, const std::function<void(JsonObject)> &value_fn);
   void send_entity_declare(const std::string &unique_id, const std::string &platform, const std::string &name,
                            const std::string &device_id, const std::string &device_name,
                            const std::function<void(JsonObject)> &extra);
@@ -183,6 +194,7 @@ class WsBridgeComponent : public Component {
 
   CallbackManager<void()> connected_cb_{};
   CallbackManager<void()> disconnected_cb_{};
+  CallbackManager<void()> declare_cb_{};
 };
 
 }  // namespace ws_bridge

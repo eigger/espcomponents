@@ -191,6 +191,55 @@ build/dashboard tooling produces):
 
 - `on_connected` — the WebSocket connected and Home Assistant accepted the connection
 - `on_disconnected` — the connection was lost
+- `on_declare` — entity declarations are being (re)sent: on connect **and** on
+  every periodic re-announce. Use this for hand-built declarations (see below),
+  not `on_connected`.
+
+## Declaring entity types ESPHome has no domain for
+
+Home Assistant supports entity types ESPHome itself has no platform for — the
+main one being `device_tracker` (GPS location). Since there's no ESPHome
+`device_tracker:` domain to hang a `platform: ws_bridge` off, declare these by
+calling the protocol directly from a lambda:
+
+```yaml
+ws_bridge:
+  id: my_ws_bridge
+  host: !secret ha_address
+  token: !secret ha_token
+
+  on_declare:
+    - lambda: |-
+        id(my_ws_bridge)->send_entity_declare(
+            "car_location", "device_tracker", "Car Location", "", "", nullptr);
+
+interval:
+  - interval: 30s
+    then:
+      - lambda: |-
+          id(my_ws_bridge)->send_state_object("car_location", [](JsonObject v) {
+            v["latitude"] = id(my_gps).latitude;
+            v["longitude"] = id(my_gps).longitude;
+            v["gps_accuracy"] = 8;
+          });
+```
+
+- **Declare from `on_declare:`, not `on_connected:`.** Declarations are re-sent
+  both on connect and on each periodic re-announce (see below); `on_connected`
+  only covers the former, so a re-announce that heals a lost Home Assistant-side
+  registration would silently leave your hand-built entity behind.
+- `send_state_object()` is for states that aren't a single scalar —
+  `device_tracker` needs latitude and longitude together. For ordinary values
+  use `send_state_float()` / `send_state_bool()` / `send_state_string()`.
+- `send_entity_declare()`'s last argument adds platform-specific declare fields;
+  pass `nullptr` when there are none, or a lambda taking a `JsonObject` (that's
+  how `select` sends its `options`, `number` its `min`/`max`/`step`, and so on).
+- Everything is a plain no-op while disconnected, so these are safe to call from
+  any interval or trigger.
+
+See the integration's
+[PROTOCOL.md](https://github.com/eigger/hass-ws-bridge/blob/main/docs/PROTOCOL.md)
+for the full set of declarable platforms and their fields.
 
 ## Behavior / Limitations
 
