@@ -16,6 +16,9 @@ CONF_ON_CONNECTED = "on_connected"
 CONF_ON_DISCONNECTED = "on_disconnected"
 CONF_ON_DECLARE = "on_declare"
 
+CONF_TRACKERS = "trackers"
+CONF_GPS_ACCURACY = "gps_accuracy"
+
 CONF_PING_INTERVAL = "ping_interval"
 CONF_PONG_TIMEOUT = "pong_timeout"
 CONF_RECONNECT_TIMEOUT = "reconnect_timeout"

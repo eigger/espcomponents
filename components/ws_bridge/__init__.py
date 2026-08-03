@@ -2,7 +2,15 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome import automation
 from esphome.components import esp32
-from esphome.const import CONF_ID, CONF_PORT, CONF_NAME, CONF_TRIGGER_ID
+from esphome.const import (
+    CONF_ID,
+    CONF_PORT,
+    CONF_NAME,
+    CONF_TRIGGER_ID,
+    CONF_ICON,
+    CONF_LATITUDE,
+    CONF_LONGITUDE,
+)
 from esphome.core import CORE
 
 from .const import (
@@ -18,6 +26,8 @@ from .const import (
     CONF_ON_CONNECTED,
     CONF_ON_DISCONNECTED,
     CONF_ON_DECLARE,
+    CONF_TRACKERS,
+    CONF_GPS_ACCURACY,
     CONF_PING_INTERVAL,
     CONF_PONG_TIMEOUT,
     CONF_RECONNECT_TIMEOUT,
@@ -37,6 +47,25 @@ WsBridgeDevice = ws_bridge_ns.class_("WsBridgeDevice")
 ConnectedTrigger = ws_bridge_ns.class_("ConnectedTrigger", automation.Trigger.template())
 DisconnectedTrigger = ws_bridge_ns.class_("DisconnectedTrigger", automation.Trigger.template())
 DeclareTrigger = ws_bridge_ns.class_("DeclareTrigger", automation.Trigger.template())
+
+# device_tracker (GPS) entities. ESPHome has no device_tracker: domain to hang
+# a `platform: ws_bridge` off, so these are configured inline under the hub —
+# see README.md's "GPS device trackers" section.
+WsBridgeTracker = ws_bridge_ns.class_("WsBridgeTracker", cg.PollingComponent, WsBridgeDevice)
+
+TRACKER_SCHEMA = cv.Schema(
+    {
+        cv.GenerateID(): cv.declare_id(WsBridgeTracker),
+        cv.Required(CONF_UNIQUE_ID): cv.string_strict,
+        cv.Optional(CONF_WS_DEVICE_ID): cv.string_strict,
+        cv.Optional(CONF_WS_DEVICE_NAME): cv.string_strict,
+        cv.Required(CONF_NAME): cv.string_strict,
+        cv.Optional(CONF_ICON): cv.icon,
+        cv.Required(CONF_LATITUDE): cv.templatable(cv.float_),
+        cv.Required(CONF_LONGITUDE): cv.templatable(cv.float_),
+        cv.Optional(CONF_GPS_ACCURACY): cv.templatable(cv.float_),
+    }
+).extend(cv.polling_component_schema("60s"))
 
 
 def _validate_esp_idf(config):
@@ -93,6 +122,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_ON_DECLARE): automation.validate_automation(
                 {cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(DeclareTrigger)}
             ),
+            cv.Optional(CONF_TRACKERS, default=[]): cv.ensure_list(TRACKER_SCHEMA),
         }
     ).extend(cv.COMPONENT_SCHEMA),
     _validate_esp_idf,
@@ -148,3 +178,24 @@ async def to_code(config):
     for conf in config.get(CONF_ON_DECLARE, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [], conf)
+
+    for conf in config.get(CONF_TRACKERS, []):
+        tracker = cg.new_Pvariable(conf[CONF_ID])
+        await cg.register_component(tracker, conf)
+        cg.add(tracker.set_ws_bridge_parent(var))
+        cg.add(tracker.set_unique_id(conf[CONF_UNIQUE_ID]))
+        if CONF_WS_DEVICE_ID in conf:
+            cg.add(tracker.set_device_id(conf[CONF_WS_DEVICE_ID]))
+        if CONF_WS_DEVICE_NAME in conf:
+            cg.add(tracker.set_device_name(conf[CONF_WS_DEVICE_NAME]))
+        cg.add(var.register_device(tracker))
+        cg.add(tracker.set_name(conf[CONF_NAME]))
+        if CONF_ICON in conf:
+            cg.add(tracker.set_icon(conf[CONF_ICON]))
+        lat_template = await cg.templatable(conf[CONF_LATITUDE], [], cg.float_)
+        cg.add(tracker.set_latitude(lat_template))
+        lon_template = await cg.templatable(conf[CONF_LONGITUDE], [], cg.float_)
+        cg.add(tracker.set_longitude(lon_template))
+        if CONF_GPS_ACCURACY in conf:
+            acc_template = await cg.templatable(conf[CONF_GPS_ACCURACY], [], cg.float_)
+            cg.add(tracker.set_gps_accuracy(acc_template))

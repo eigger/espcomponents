@@ -29,15 +29,18 @@ ws_bridge:
     - logger.log: "ws_bridge connected"
   on_disconnected:
     - logger.log: "ws_bridge disconnected"
-  # Hand-built declaration for an entity type ESPHome has no domain for.
   on_declare:
-    - lambda: |-
-        id(my_ws_bridge)->send_entity_declare("car_location", "device_tracker", "Car Location", "", "", nullptr);
-        id(my_ws_bridge)->send_state_object("car_location", [](JsonObject v) {
-          v["latitude"] = 37.5665;
-          v["longitude"] = 126.9780;
-          v["gps_accuracy"] = 8;
-        });
+    - logger.log: "ws_bridge (re)declaring entities"
+  # GPS device_tracker — ESPHome has no device_tracker: domain, so these are
+  # configured inline under the hub instead of as `platform: ws_bridge`.
+  trackers:
+    - unique_id: car_location
+      name: "Car Location"
+      icon: mdi:car
+      latitude: !lambda return 37.5665;
+      longitude: !lambda return 126.9780;
+      gps_accuracy: 8
+      update_interval: 30s
 
 sensor:
   - platform: ws_bridge

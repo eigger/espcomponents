@@ -116,6 +116,7 @@ button:
 | `pong_timeout` | | `15s` | How long to wait for a `pong` reply before assuming the connection is dead and forcing a reconnect |
 | `reconnect_timeout` | | `30s` | Cap for the reconnect backoff: while disconnected, we retry starting at 2s and doubling on each failure up to this value (matches the companion hass-ble-android client), rather than waiting on `esp_websocket_client`'s own auto-reconnect indefinitely |
 | `reannounce_interval` | | `60s` | How often to resend `ws_bridge/connect` + all entity/state declarations while nominally connected. Guards against the HA-side integration losing track of this gateway (e.g. its config entry reloaded) while the raw connection and ping/pong stay healthy — that scenario is otherwise invisible, since HA answers pings regardless of our integration's state. If a re-announce goes unanswered, forces a full reconnect rather than repeating the same no-op |
+| `trackers` | | - | List of GPS `device_tracker` entities — see [GPS device trackers](#gps-device-trackers) below |
 
 ### Platform options (all of `sensor`/`binary_sensor`/`text_sensor`/`switch`/`number`/`select`/`button`)
 
@@ -195,12 +196,45 @@ build/dashboard tooling produces):
   every periodic re-announce. Use this for hand-built declarations (see below),
   not `on_connected`.
 
-## Declaring entity types ESPHome has no domain for
+## GPS device trackers
 
-Home Assistant supports entity types ESPHome itself has no platform for — the
-main one being `device_tracker` (GPS location). Since there's no ESPHome
-`device_tracker:` domain to hang a `platform: ws_bridge` off, declare these by
-calling the protocol directly from a lambda:
+Home Assistant has a `device_tracker` entity type for GPS location, but
+ESPHome has no `device_tracker:` domain to hang a `platform: ws_bridge` off —
+so these are configured inline under the hub instead:
+
+```yaml
+ws_bridge:
+  host: !secret ha_address
+  token: !secret ha_token
+
+  trackers:
+    - unique_id: car_location
+      name: "Car Location"
+      icon: mdi:car
+      latitude: !lambda return id(my_gps).latitude;
+      longitude: !lambda return id(my_gps).longitude;
+      gps_accuracy: 8          # meters; optional
+      update_interval: 30s     # default 60s
+```
+
+| Option | Required | Description |
+|--------|:--------:|-------------|
+| `unique_id` / `name` | ✓ | Same as every other platform |
+| `latitude` / `longitude` | ✓ | Float or `!lambda`. Return `NAN` when there's no fix yet — Home Assistant then shows the tracker as unavailable rather than pinning it at 0,0 |
+| `gps_accuracy` | | Float or `!lambda`, meters. Home Assistant uses it when deciding zone membership |
+| `icon` | | Same as every other platform |
+| `update_interval` | | Default `60s` |
+| `ws_device_id` / `ws_device_name` | | Same as every other platform |
+
+There's no `battery_level` option — Home Assistant has deprecated it on
+`device_tracker` in favor of a separate entity; declare a normal `sensor` with
+`device_class: battery` instead.
+
+## Declaring other entity types ESPHome has no domain for
+
+`trackers:` above is really just a thin wrapper around two building blocks
+available to any lambda, for whatever other Home Assistant entity type
+ESPHome itself doesn't have a domain for:
 
 ```yaml
 ws_bridge:
@@ -211,26 +245,22 @@ ws_bridge:
   on_declare:
     - lambda: |-
         id(my_ws_bridge)->send_entity_declare(
-            "car_location", "device_tracker", "Car Location", "", "", nullptr);
+            "some_id", "some_platform", "Some Name", "", "", nullptr);
 
 interval:
   - interval: 30s
     then:
       - lambda: |-
-          id(my_ws_bridge)->send_state_object("car_location", [](JsonObject v) {
-            v["latitude"] = id(my_gps).latitude;
-            v["longitude"] = id(my_gps).longitude;
-            v["gps_accuracy"] = 8;
-          });
+          id(my_ws_bridge)->send_state_float("some_id", 42.0f);
 ```
 
 - **Declare from `on_declare:`, not `on_connected:`.** Declarations are re-sent
-  both on connect and on each periodic re-announce (see below); `on_connected`
-  only covers the former, so a re-announce that heals a lost Home Assistant-side
+  both on connect and on each periodic re-announce; `on_connected` only covers
+  the former, so a re-announce that heals a lost Home Assistant-side
   registration would silently leave your hand-built entity behind.
-- `send_state_object()` is for states that aren't a single scalar —
-  `device_tracker` needs latitude and longitude together. For ordinary values
-  use `send_state_float()` / `send_state_bool()` / `send_state_string()`.
+- `send_state_object()` is for states that aren't a single scalar (this is
+  what `trackers:` uses internally for latitude+longitude). For ordinary
+  values use `send_state_float()` / `send_state_bool()` / `send_state_string()`.
 - `send_entity_declare()`'s last argument adds platform-specific declare fields;
   pass `nullptr` when there are none, or a lambda taking a `JsonObject` (that's
   how `select` sends its `options`, `number` its `min`/`max`/`step`, and so on).
