@@ -115,5 +115,18 @@ std::string build_state_string(uint32_t id, const std::string &unique_id, const 
   });
 }
 
+std::string build_state_object(uint32_t id, const std::string &unique_id,
+                               const std::function<void(JsonObject)> &value_fn) {
+  return json::build_json([&](JsonObject root) {
+    root["id"] = id;
+    root["type"] = "ws_bridge/state";
+    JsonArray states = root["states"].to<JsonArray>();
+    JsonObject item = states.add<JsonObject>();
+    item["unique_id"] = unique_id;
+    JsonObject value = item["value"].to<JsonObject>();
+    if (value_fn) value_fn(value);
+  });
+}
+
 }  // namespace ws_bridge
 }  // namespace esphome

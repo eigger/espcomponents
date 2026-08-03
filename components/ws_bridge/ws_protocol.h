@@ -53,5 +53,11 @@ std::string build_state_float(uint32_t id, const std::string &unique_id, float v
 std::string build_state_bool(uint32_t id, const std::string &unique_id, bool value);
 std::string build_state_string(uint32_t id, const std::string &unique_id, const std::string &value);
 
+// State whose `value` is a JSON object rather than a scalar — for platforms
+// that need several fields at once (device_tracker's latitude+longitude).
+// `value_fn` is called with the (empty) value object to fill in.
+std::string build_state_object(uint32_t id, const std::string &unique_id,
+                               const std::function<void(JsonObject)> &value_fn);
+
 }  // namespace ws_bridge
 }  // namespace esphome

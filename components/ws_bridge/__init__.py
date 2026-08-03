@@ -17,6 +17,7 @@ from .const import (
     CONF_WS_DEVICE_NAME,
     CONF_ON_CONNECTED,
     CONF_ON_DISCONNECTED,
+    CONF_ON_DECLARE,
     CONF_PING_INTERVAL,
     CONF_PONG_TIMEOUT,
     CONF_RECONNECT_TIMEOUT,
@@ -35,6 +36,7 @@ WsBridgeDevice = ws_bridge_ns.class_("WsBridgeDevice")
 
 ConnectedTrigger = ws_bridge_ns.class_("ConnectedTrigger", automation.Trigger.template())
 DisconnectedTrigger = ws_bridge_ns.class_("DisconnectedTrigger", automation.Trigger.template())
+DeclareTrigger = ws_bridge_ns.class_("DeclareTrigger", automation.Trigger.template())
 
 
 def _validate_esp_idf(config):
@@ -81,6 +83,15 @@ CONFIG_SCHEMA = cv.All(
             ),
             cv.Optional(CONF_ON_DISCONNECTED): automation.validate_automation(
                 {cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(DisconnectedTrigger)}
+            ),
+            # Fires alongside the registered platform entities' own
+            # re-declaration — on connect and on every re-announce. This is
+            # where hand-built send_entity_declare() calls belong (e.g. for
+            # entity types ESPHome has no domain for, like device_tracker);
+            # on_connected would skip the re-announce and leave them missing
+            # after HA-side registration is healed.
+            cv.Optional(CONF_ON_DECLARE): automation.validate_automation(
+                {cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(DeclareTrigger)}
             ),
         }
     ).extend(cv.COMPONENT_SCHEMA),
@@ -132,5 +143,8 @@ async def to_code(config):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [], conf)
     for conf in config.get(CONF_ON_DISCONNECTED, []):
+        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
+        await automation.build_automation(trigger, [], conf)
+    for conf in config.get(CONF_ON_DECLARE, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [], conf)
