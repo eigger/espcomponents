@@ -140,6 +140,8 @@ static int choose_payload_(const SdpInfo &sdp) {
   return -1;
 }
 
+// Answer rtpmap label from static PT only. Dynamic PT ↔ codec name (e.g. 97=PCMA)
+// needs a chosen-codec field — deferred to the Codec abstraction (PR2 / #286).
 static const char *rtpmap_for_static_pt_(int pt) {
   if (pt == 8) return "PCMA/8000";
   return "PCMU/8000";  // PT 0 and unknown static fallback
@@ -413,7 +415,12 @@ void SipClient::handle_invite_response_(const SipMessage &m, const std::string &
     this->chosen_pt_ = choose_payload_(sdp);
     this->remote_dtmf_pt_ = sdp.telephone_event_pt;
     if (this->chosen_pt_ < 0) {
+      // Intentional: empty / non-G.711 answer SDP used to fall back to PT 0 and
+      // leave a silent "connected" call. Reject instead. Dialog is confirmed by
+      // ACK, so send BYE so the PBX does not wait for rtp_timeout.
       this->send_raw_(this->build_ack_(m));
+      this->d_cseq_++;
+      this->send_raw_(this->build_request_in_dialog_("BYE"));
       ESP_LOGW(TAG, "Call failed: no common audio codec in answer SDP");
       this->stop_media_();
       this->set_state_(SIP_REGISTERED);
@@ -484,6 +491,18 @@ void SipClient::handle_request_(const SipMessage &m, const std::string &raw) {
       this->send_raw_(this->build_response_(m, 486, "Busy Here", false));
       return;
     }
+    // Negotiate codec before touching dialog state so a 488 does not leave
+    // stale Call-ID / RTP endpoint fields for the next call.
+    SdpInfo sdp = parse_sdp(m.body);
+    int chosen = choose_payload_(sdp);
+    if (chosen < 0) {
+      this->d_local_tag_ = gen_tag();  // To-tag for the 488 only
+      this->send_raw_(this->build_response_(m, 488, "Not Acceptable Here", false));
+      this->d_local_tag_.clear();
+      ESP_LOGW(TAG, "Incoming INVITE rejected: no common audio codec");
+      return;
+    }
+
     // New inbound dialog.
     this->outbound_ = false;
     this->incoming_invite_ = m;
@@ -497,17 +516,10 @@ void SipClient::handle_request_(const SipMessage &m, const std::string &raw) {
     std::string contact = m.header("Contact");
     this->d_remote_target_ = extract_angle_uri(contact);
     this->d_cseq_ = std::atoi(m.header("CSeq").c_str());
-
-    SdpInfo sdp = parse_sdp(m.body);
     this->remote_rtp_ip_ = sdp.connection_ip;
     this->remote_rtp_port_ = sdp.audio_port;
-    this->chosen_pt_ = choose_payload_(sdp);
+    this->chosen_pt_ = chosen;
     this->remote_dtmf_pt_ = sdp.telephone_event_pt;
-    if (this->chosen_pt_ < 0) {
-      this->send_raw_(this->build_response_(m, 488, "Not Acceptable Here", false));
-      ESP_LOGW(TAG, "Incoming INVITE rejected: no common audio codec");
-      return;
-    }
 
     this->send_raw_(this->build_response_(m, 100, "Trying", false));
     this->send_raw_(this->build_response_(m, 180, "Ringing", false));

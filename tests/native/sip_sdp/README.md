@@ -18,5 +18,8 @@ tests/native/sip_sdp/run.sh
 | `no_telephone_event` | DTMF absent → `telephone_event_pt == -1` |
 | `no_common_g711` | Opus-only offer → no pcmu/pcma convenience PT |
 | `pt96_through_99_not_confused_with_9` | Substring regression for `" 9"` |
+| `audio_plus_video_ignores_video_section` | video `c=` / `rtpmap` must not pollute audio |
+| `non_numeric_fmt_token_skipped` | `*` etc. must not become PT 0 via `atoi` |
+| `rejected_audio_stream_port_zero` | `m=audio 0` still parses |
 
 CI: `.github/workflows/sip-sdp-tests.yml`

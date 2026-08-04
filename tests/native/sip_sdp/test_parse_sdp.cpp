@@ -124,6 +124,53 @@ void test_pt96_through_99_not_confused_with_9() {
   require_eq(sdp.pcmu_pt, 0, "pcmu still found");
 }
 
+void test_audio_plus_video_ignores_video_section() {
+  const char *body =
+      "c=IN IP4 192.168.1.1\r\n"
+      "m=audio 7078 RTP/AVP 0 8 101\r\n"
+      "a=rtpmap:0 PCMU/8000\r\n"
+      "a=rtpmap:8 PCMA/8000\r\n"
+      "a=rtpmap:101 telephone-event/8000\r\n"
+      "m=video 9078 RTP/AVP 96 97\r\n"
+      "c=IN IP4 10.0.0.99\r\n"
+      "a=rtpmap:96 H264/90000\r\n"
+      "a=rtpmap:97 telephone-event/8000\r\n";
+
+  SdpInfo sdp = parse_sdp(body);
+  require(sdp.valid, "av: audio valid");
+  require_eq(sdp.audio_port, 7078, "av: audio port");
+  require_eq_str(sdp.connection_ip, "192.168.1.1", "av: video c= must not override");
+  require_eq((int) sdp.payload_types.size(), 3, "av: only audio fmts");
+  require(!sdp.has_payload_type(96), "av: video PT 96 excluded");
+  require_eq(sdp.telephone_event_pt, 101, "av: audio dtmf, not video 97");
+  require(sdp.rtpmap.count(96) == 0, "av: video rtpmap excluded");
+}
+
+void test_non_numeric_fmt_token_skipped() {
+  const char *body =
+      "m=audio 7078 RTP/AVP 0 * 8\r\n"
+      "a=rtpmap:0 PCMU/8000\r\n"
+      "a=rtpmap:8 PCMA/8000\r\n";
+
+  SdpInfo sdp = parse_sdp(body);
+  require_eq((int) sdp.payload_types.size(), 2, "non-numeric: only 0 and 8");
+  require(sdp.has_payload_type(0), "non-numeric: has 0");
+  require(sdp.has_payload_type(8), "non-numeric: has 8");
+  require(!sdp.has_payload_type(42), "non-numeric: no invented PT");
+}
+
+void test_rejected_audio_stream_port_zero() {
+  const char *body =
+      "c=IN IP4 192.168.0.5\r\n"
+      "m=audio 0 RTP/AVP 0\r\n"
+      "a=rtpmap:0 PCMU/8000\r\n";
+
+  SdpInfo sdp = parse_sdp(body);
+  require(sdp.valid, "port0: still a valid audio description");
+  require_eq(sdp.audio_port, 0, "port0: port is zero");
+  require_eq(sdp.pcmu_pt, 0, "port0: pcmu still derived");
+}
+
 }  // namespace
 
 int main() {
@@ -132,6 +179,9 @@ int main() {
   test_no_telephone_event();
   test_no_common_g711();
   test_pt96_through_99_not_confused_with_9();
+  test_audio_plus_video_ignores_video_section();
+  test_non_numeric_fmt_token_skipped();
+  test_rejected_audio_stream_port_zero();
 
   if (g_failures != 0) {
     std::cerr << g_failures << " failure(s)\n";

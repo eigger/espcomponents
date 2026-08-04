@@ -138,8 +138,20 @@ static void derive_codec_pts_(SdpInfo &info) {
   }
 }
 
+static bool is_all_digits_(const std::string &s) {
+  if (s.empty()) return false;
+  for (char c : s) {
+    if (!std::isdigit(static_cast<unsigned char>(c))) return false;
+  }
+  return true;
+}
+
 SdpInfo parse_sdp(const std::string &body) {
   SdpInfo info;
+  // Track the current m= section so video (or a second audio) cannot pollute
+  // audio fmt / rtpmap / media-level c= fields.
+  bool seen_m_line = false;
+  bool in_audio_section = false;
   size_t pos = 0;
   while (pos < body.size()) {
     size_t eol = body.find('\n', pos);
@@ -148,20 +160,32 @@ SdpInfo parse_sdp(const std::string &body) {
     line = trim(line);
     if (line.empty()) continue;
 
-    if (line.compare(0, 7, "c=IN IP") == 0) {
-      // c=IN IP4 192.168.0.5
-      size_t sp = line.rfind(' ');
-      if (sp != std::string::npos) info.connection_ip = trim(line.substr(sp + 1));
-    } else if (line.compare(0, 8, "m=audio ") == 0) {
-      info.valid = true;
-      // m=audio <port> <proto> <fmt>...
-      auto tokens = split_ws(line.substr(8));
-      if (!tokens.empty()) info.audio_port = (uint16_t) std::atoi(tokens[0].c_str());
-      for (size_t t = 2; t < tokens.size(); t++) {
-        // Tokenize — never substring-search (" 9" must not match PT 96..99).
-        info.payload_types.push_back(std::atoi(tokens[t].c_str()));
+    if (line.compare(0, 2, "m=") == 0) {
+      seen_m_line = true;
+      if (line.compare(0, 8, "m=audio ") == 0 && !info.valid) {
+        // First audio m-line only.
+        in_audio_section = true;
+        info.valid = true;
+        auto tokens = split_ws(line.substr(8));
+        if (!tokens.empty() && is_all_digits_(tokens[0]))
+          info.audio_port = (uint16_t) std::atoi(tokens[0].c_str());
+        for (size_t t = 2; t < tokens.size(); t++) {
+          // Tokenize — never substring-search (" 9" must not match PT 96..99).
+          // Skip non-numeric fmt tokens (atoi would silently invent PT 0).
+          if (!is_all_digits_(tokens[t])) continue;
+          info.payload_types.push_back(std::atoi(tokens[t].c_str()));
+        }
+      } else {
+        in_audio_section = false;  // m=video, second m=audio, etc.
+      }
+    } else if (line.compare(0, 7, "c=IN IP") == 0) {
+      // Session-level c= (before any m=) or audio media-level c= only.
+      if (!seen_m_line || in_audio_section) {
+        size_t sp = line.rfind(' ');
+        if (sp != std::string::npos) info.connection_ip = trim(line.substr(sp + 1));
       }
     } else if (line.compare(0, 9, "a=rtpmap:") == 0) {
+      if (!in_audio_section) continue;
       // a=rtpmap:101 telephone-event/8000
       int pt = std::atoi(line.substr(9).c_str());
       size_t sp = line.find(' ');
