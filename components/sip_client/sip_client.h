@@ -104,6 +104,14 @@ class SipClient : public Component {
   void start_mic_();
   void stop_mic_();
   void on_mic_data_(const std::vector<uint8_t> &data);
+  // SDP / logs: based on which audio endpoints are wired.
+  const char *media_direction_() const {
+    if (this->mic_ == nullptr)
+      return "recvonly";
+    if (this->speaker_ == nullptr)
+      return "sendonly";
+    return "sendrecv";
+  }
 
   void set_state_(SipState s);
   std::string extract_caller_(const SipMessage &m);

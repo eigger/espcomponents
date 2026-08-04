@@ -1,0 +1,43 @@
+esphome:
+  name: test-sip-client-speaker-only
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: local
+      path: ../../../components
+    components: [ sip_client ]
+
+wifi:
+  ssid: "test_ssid"
+  password: "test_password"
+
+logger:
+
+i2s_audio:
+  - id: i2s_out
+    i2s_lrclk_pin: GPIO27
+    i2s_bclk_pin: GPIO14
+
+speaker:
+  - platform: i2s_audio
+    id: spk_id
+    i2s_audio_id: i2s_out
+    dac_type: external
+    i2s_dout_pin: GPIO22
+
+# Receive-only: no microphone → SDP a=recvonly
+sip_client:
+  id: my_sip
+  speaker: spk_id
+  server: 192.168.0.10
+  username: "1001"
+  password: "secret"
+  domain: "192.168.0.10"
+
+  on_incoming_call:
+    - sip_client.answer: my_sip

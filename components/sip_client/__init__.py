@@ -56,6 +56,7 @@ SendDtmfAction = sip_client_ns.class_("SendDtmfAction", automation.Action)
 StartTalkingAction = sip_client_ns.class_("StartTalkingAction", automation.Action)
 StopTalkingAction = sip_client_ns.class_("StopTalkingAction", automation.Action)
 
+
 def validate_audio(config):
     has_mic = CONF_MICROPHONE in config
     has_spk = CONF_SPEAKER in config

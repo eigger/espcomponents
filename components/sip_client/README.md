@@ -176,6 +176,11 @@ binary_sensor:
   `sendonly`). A device with only a speaker can join calls or paging as a
   listen-only endpoint; a mic-only device can uplink audio without local
   playback.
+- **Receive-only note:** with no microphone the device does not send RTP audio
+  (empty TX). Most PBXs honour `a=recvonly` and keep the call up; setups that
+  require periodic RTP (e.g. aggressive `rtp_timeout`) or that learn the remote
+  address only from the first received packet (symmetric RTP / `comedia`) may
+  need a PBX-side tweak. Comfort-noise / silence TX is not implemented yet.
 - If the microphone runs at 16 kHz it is automatically downsampled to 8 kHz; the
   speaker is configured to play at 8 kHz.
 - **Mono codecs (e.g. es8311):** set `channel: mono` and configure the i2s

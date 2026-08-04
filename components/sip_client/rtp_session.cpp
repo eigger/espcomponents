@@ -228,6 +228,7 @@ void RtpSession::receive_() {
       continue;
     }
     if (pt != 0 && pt != 8) continue;  // unknown codec
+    if (!this->on_audio_) continue;    // send-only / no speaker: skip decode
 
     size_t n = len - header_len;
     this->decode_buf_.resize(n);
@@ -235,7 +236,7 @@ void RtpSession::receive_() {
       uint8_t b = this->recv_buf_[header_len + i];
       this->decode_buf_[i] = (pt == 8) ? g711::alaw_to_linear(b) : g711::ulaw_to_linear(b);
     }
-    if (this->on_audio_) this->on_audio_(this->decode_buf_.data(), n);
+    this->on_audio_(this->decode_buf_.data(), n);
   }
 }
 

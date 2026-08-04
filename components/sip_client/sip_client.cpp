@@ -71,12 +71,7 @@ void SipClient::dump_config() {
   ESP_LOGCONFIG(TAG, "  Half-duplex (PTT): %s", this->half_duplex_ ? "yes" : "no");
   ESP_LOGCONFIG(TAG, "  Microphone: %s", this->mic_ ? "yes" : "no");
   ESP_LOGCONFIG(TAG, "  Speaker: %s", this->speaker_ ? "yes" : "no");
-  const char *dir = "sendrecv";
-  if (this->mic_ == nullptr)
-    dir = "recvonly";
-  else if (this->speaker_ == nullptr)
-    dir = "sendonly";
-  ESP_LOGCONFIG(TAG, "  Media direction: %s", dir);
+  ESP_LOGCONFIG(TAG, "  Media direction: %s", this->media_direction_());
 }
 
 bool SipClient::open_socket_() {
@@ -273,14 +268,7 @@ std::string SipClient::local_sdp_() {
   sdp += "a=rtpmap:101 telephone-event/8000\r\n";
   sdp += "a=fmtp:101 0-15\r\n";
   sdp += "a=ptime:20\r\n";
-  // Advertise media direction from which endpoints are actually wired.
-  if (this->mic_ != nullptr && this->speaker_ != nullptr) {
-    sdp += "a=sendrecv\r\n";
-  } else if (this->mic_ != nullptr) {
-    sdp += "a=sendonly\r\n";
-  } else {
-    sdp += "a=recvonly\r\n";
-  }
+  sdp += std::string("a=") + this->media_direction_() + "\r\n";
   return sdp;
 }
 
@@ -608,33 +596,36 @@ void SipClient::start_media_() {
   this->rtp_.set_payload_type(this->chosen_pt_);
   this->rtp_.set_dtmf_payload_type(this->remote_dtmf_pt_);
   this->rtp_.set_remote(this->remote_rtp_ip_, this->remote_rtp_port_);
-  this->rtp_.set_on_audio([this](const int16_t *pcm, size_t n) {
-    if (this->speaker_ == nullptr) return;
-    if (this->half_duplex_ && this->talking_) return;  // speaker is off while transmitting
+  if (this->speaker_ != nullptr) {
+    this->rtp_.set_on_audio([this](const int16_t *pcm, size_t n) {
+      if (this->half_duplex_ && this->talking_) return;  // speaker is off while transmitting
 
-    const int16_t *play_pcm = pcm;
-    size_t play_n = n;
-    std::vector<int16_t> upsampled;
+      const int16_t *play_pcm = pcm;
+      size_t play_n = n;
+      std::vector<int16_t> upsampled;
 
-    if (this->speaker_rate_ >= 16000) {
-      resampler::upsample_1to2(pcm, n, upsampled);
-      play_pcm = upsampled.data();
-      play_n = upsampled.size();
-    }
-
-    if (this->channel_ == SIP_CH_STEREO) {
-      // Duplicate mono samples to stereo (L/R) for stereo mixers/speakers (e.g. Voice PE).
-      std::vector<int16_t> stereo(play_n * 2);
-      for (size_t i = 0; i < play_n; i++) {
-        stereo[i * 2] = play_pcm[i];
-        stereo[i * 2 + 1] = play_pcm[i];
+      if (this->speaker_rate_ >= 16000) {
+        resampler::upsample_1to2(pcm, n, upsampled);
+        play_pcm = upsampled.data();
+        play_n = upsampled.size();
       }
-      this->speaker_->play(reinterpret_cast<const uint8_t *>(stereo.data()), stereo.size() * sizeof(int16_t));
-    } else {
-      // Mono output (e.g. es8311): push samples as-is.
-      this->speaker_->play(reinterpret_cast<const uint8_t *>(play_pcm), play_n * sizeof(int16_t));
-    }
-  });
+
+      if (this->channel_ == SIP_CH_STEREO) {
+        // Duplicate mono samples to stereo (L/R) for stereo mixers/speakers (e.g. Voice PE).
+        std::vector<int16_t> stereo(play_n * 2);
+        for (size_t i = 0; i < play_n; i++) {
+          stereo[i * 2] = play_pcm[i];
+          stereo[i * 2 + 1] = play_pcm[i];
+        }
+        this->speaker_->play(reinterpret_cast<const uint8_t *>(stereo.data()), stereo.size() * sizeof(int16_t));
+      } else {
+        // Mono output (e.g. es8311): push samples as-is.
+        this->speaker_->play(reinterpret_cast<const uint8_t *>(play_pcm), play_n * sizeof(int16_t));
+      }
+    });
+  } else {
+    this->rtp_.set_on_audio({});  // send-only: skip G.711 decode in receive_()
+  }
   this->rtp_.set_on_dtmf([this](char c) {
     std::string s(1, c);
     this->dtmf_cb_.call(s);
@@ -651,15 +642,17 @@ void SipClient::start_media_() {
     this->start_speaker_();
     this->start_mic_();
   }
-  const char *dir = "sendrecv";
-  if (this->mic_ == nullptr)
-    dir = "recvonly";
-  else if (this->speaker_ == nullptr)
-    dir = "sendonly";
-  ESP_LOGI(TAG, "Media started: remote %s:%u pt=%u dtmf_pt=%d dir=%s (mic %u Hz/%uch/%ubits)%s",
-           this->remote_rtp_ip_.c_str(), this->remote_rtp_port_, this->chosen_pt_,
-           this->remote_dtmf_pt_, dir, static_cast<unsigned>(this->mic_rate_), this->mic_channels_,
-           this->mic_bits_, this->half_duplex_ ? " [half-duplex: listening]" : "");
+  if (this->mic_ != nullptr) {
+    ESP_LOGI(TAG, "Media started: remote %s:%u pt=%u dtmf_pt=%d dir=%s (mic %u Hz/%uch/%ubits)%s",
+             this->remote_rtp_ip_.c_str(), this->remote_rtp_port_, this->chosen_pt_,
+             this->remote_dtmf_pt_, this->media_direction_(),
+             static_cast<unsigned>(this->mic_rate_), this->mic_channels_, this->mic_bits_,
+             this->half_duplex_ ? " [half-duplex: listening]" : "");
+  } else {
+    ESP_LOGI(TAG, "Media started: remote %s:%u pt=%u dtmf_pt=%d dir=%s",
+             this->remote_rtp_ip_.c_str(), this->remote_rtp_port_, this->chosen_pt_,
+             this->remote_dtmf_pt_, this->media_direction_());
+  }
 }
 
 void SipClient::stop_media_() {
