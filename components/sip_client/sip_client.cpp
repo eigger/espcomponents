@@ -71,6 +71,12 @@ void SipClient::dump_config() {
   ESP_LOGCONFIG(TAG, "  Half-duplex (PTT): %s", this->half_duplex_ ? "yes" : "no");
   ESP_LOGCONFIG(TAG, "  Microphone: %s", this->mic_ ? "yes" : "no");
   ESP_LOGCONFIG(TAG, "  Speaker: %s", this->speaker_ ? "yes" : "no");
+  const char *dir = "sendrecv";
+  if (this->mic_ == nullptr)
+    dir = "recvonly";
+  else if (this->speaker_ == nullptr)
+    dir = "sendonly";
+  ESP_LOGCONFIG(TAG, "  Media direction: %s", dir);
 }
 
 bool SipClient::open_socket_() {
@@ -267,7 +273,14 @@ std::string SipClient::local_sdp_() {
   sdp += "a=rtpmap:101 telephone-event/8000\r\n";
   sdp += "a=fmtp:101 0-15\r\n";
   sdp += "a=ptime:20\r\n";
-  sdp += "a=sendrecv\r\n";
+  // Advertise media direction from which endpoints are actually wired.
+  if (this->mic_ != nullptr && this->speaker_ != nullptr) {
+    sdp += "a=sendrecv\r\n";
+  } else if (this->mic_ != nullptr) {
+    sdp += "a=sendonly\r\n";
+  } else {
+    sdp += "a=recvonly\r\n";
+  }
   return sdp;
 }
 
@@ -638,9 +651,14 @@ void SipClient::start_media_() {
     this->start_speaker_();
     this->start_mic_();
   }
-  ESP_LOGI(TAG, "Media started: remote %s:%u pt=%u dtmf_pt=%d (mic %u Hz/%uch/%ubits)%s",
+  const char *dir = "sendrecv";
+  if (this->mic_ == nullptr)
+    dir = "recvonly";
+  else if (this->speaker_ == nullptr)
+    dir = "sendonly";
+  ESP_LOGI(TAG, "Media started: remote %s:%u pt=%u dtmf_pt=%d dir=%s (mic %u Hz/%uch/%ubits)%s",
            this->remote_rtp_ip_.c_str(), this->remote_rtp_port_, this->chosen_pt_,
-           this->remote_dtmf_pt_, static_cast<unsigned>(this->mic_rate_), this->mic_channels_,
+           this->remote_dtmf_pt_, dir, static_cast<unsigned>(this->mic_rate_), this->mic_channels_,
            this->mic_bits_, this->half_duplex_ ? " [half-duplex: listening]" : "");
 }
 

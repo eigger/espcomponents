@@ -2,8 +2,9 @@
 
 An ESPHome external component for ESP32. It registers to a SIP PBX
 (Asterisk/FreePBX/3CX, etc.) and makes/receives voice calls. Audio I/O is
-delegated to ESPHome's standard `microphone` / `speaker` platforms, and the
-codec is G.711 (PCMU/PCMA, 8 kHz). DTMF is sent via RFC 2833 (telephone-event).
+delegated to ESPHome's standard `microphone` / `speaker` platforms (either may
+be omitted for send-only or receive-only endpoints), and the codec is G.711
+(PCMU/PCMA, 8 kHz). DTMF is sent via RFC 2833 (telephone-event).
 
 ## Installation
 
@@ -43,8 +44,8 @@ speaker:
 
 sip_client:
   id: my_sip
-  microphone: mic_id
-  speaker: spk_id
+  microphone: mic_id   # omit for receive-only (speaker / announcements)
+  speaker: spk_id      # omit for send-only (mic / uplink)
   server: 192.168.0.10      # PBX address (IP recommended)
   port: 5060                # (default 5060)
   username: "1001"
@@ -72,12 +73,29 @@ sip_client:
         args: [digit.c_str()]
 ```
 
+At least one of `microphone` / `speaker` is required. SDP advertises the matching
+direction: both → `sendrecv`, speaker only → `recvonly`, microphone only → `sendonly`.
+
+```yaml
+# Receive-only (announcement / paging speaker, no mic)
+sip_client:
+  id: my_sip
+  speaker: spk_id
+  # ...
+
+# Send-only (uplink mic, no speaker)
+sip_client:
+  id: my_sip
+  microphone: mic_id
+  # ...
+```
+
 ### Options
 
 | Option | Required | Default | Description |
 |--------|:--------:|---------|-------------|
-| `microphone` | ✓ | - | ID of the microphone component to use |
-| `speaker` | ✓ | - | ID of the speaker component to use |
+| `microphone` | | - | ID of the microphone component to use. Omit for receive-only devices. |
+| `speaker` | | - | ID of the speaker component to use. Omit for send-only devices. |
 | `server` | ✓ | - | PBX address (IP recommended) |
 | `port` | | 5060 | SIP server port |
 | `username` | ✓ | - | SIP account (extension) |
@@ -87,7 +105,7 @@ sip_client:
 | `register_expiration` | | 300s | Registration refresh interval |
 | `local_rtp_port` | | 7078 | Local UDP port the device binds for RTP audio and advertises in SDP. Usually left at the default; change it only to avoid a port clash or to pin a firewall/NAT forward. |
 | `channel` | | `stereo` | How call audio is pushed to the `speaker`. `stereo` (default) duplicates the mono call audio to L/R for stereo chains (e.g. a `mixer`/`resampler` feeding a stereo DAC like the Voice PE's AIC3204). Use `mono` for a single-channel codec such as the **es8311** (whose i2s speaker is set `channel: mono` and expects 1-channel input). Must match the channel count the assigned speaker expects. To route mono audio to one physical side, leave this `mono` and use the **speaker's** own `channel: left`/`right`. |
-| `half_duplex` | | `false` | Push-to-talk mode for boards that cannot capture and play at the same time (mic and speaker on a single shared I2S bus, e.g. M5Stack Atom Echo). When `true`, the mic and speaker are never active together: the call starts in **listen** (speaker) mode and you switch to **talk** (mic) with the `start_talking` / `stop_talking` actions. Leave `false` for full-duplex boards with separate input/output I2S buses (e.g. Voice PE). |
+| `half_duplex` | | `false` | Push-to-talk mode for boards that cannot capture and play at the same time (mic and speaker on a single shared I2S bus, e.g. M5Stack Atom Echo). When `true`, the mic and speaker are never active together: the call starts in **listen** (speaker) mode and you switch to **talk** (mic) with the `start_talking` / `stop_talking` actions. Requires both `microphone` and `speaker`. Leave `false` for full-duplex boards with separate input/output I2S buses (e.g. Voice PE). |
 
 ## Actions (Automation)
 
@@ -154,6 +172,10 @@ binary_sensor:
 
 - Codec: **G.711 µ-law (PCMU) / A-law (PCMA)**, 8 kHz mono. Both are offered in
   SDP and the codec chosen by the PBX is used.
+- Media direction follows the configured endpoints (`sendrecv` / `recvonly` /
+  `sendonly`). A device with only a speaker can join calls or paging as a
+  listen-only endpoint; a mic-only device can uplink audio without local
+  playback.
 - If the microphone runs at 16 kHz it is automatically downsampled to 8 kHz; the
   speaker is configured to play at 8 kHz.
 - **Mono codecs (e.g. es8311):** set `channel: mono` and configure the i2s
