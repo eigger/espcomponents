@@ -53,10 +53,12 @@ void SipClient::setup() {
   if (this->domain_.empty()) this->domain_ = this->server_;
   this->recv_buf_.resize(2048);
 
+#ifdef USE_MICROPHONE
   if (this->mic_ != nullptr) {
     this->mic_->add_data_callback(
         [this](const std::vector<uint8_t> &data) { this->on_mic_data_(data); });
   }
+#endif
   ESP_LOGCONFIG(TAG, "sip_client initialized (server=%s:%u user=%s)", this->server_.c_str(),
                 this->server_port_, this->username_.c_str());
 }
@@ -69,8 +71,16 @@ void SipClient::dump_config() {
   ESP_LOGCONFIG(TAG, "  Local RTP port: %u", this->local_rtp_port_);
   ESP_LOGCONFIG(TAG, "  Channel: %s", this->channel_ == SIP_CH_MONO ? "mono" : "stereo");
   ESP_LOGCONFIG(TAG, "  Half-duplex (PTT): %s", this->half_duplex_ ? "yes" : "no");
+#ifdef USE_MICROPHONE
   ESP_LOGCONFIG(TAG, "  Microphone: %s", this->mic_ ? "yes" : "no");
+#else
+  ESP_LOGCONFIG(TAG, "  Microphone: no");
+#endif
+#ifdef USE_SPEAKER
   ESP_LOGCONFIG(TAG, "  Speaker: %s", this->speaker_ ? "yes" : "no");
+#else
+  ESP_LOGCONFIG(TAG, "  Speaker: no");
+#endif
   ESP_LOGCONFIG(TAG, "  Media direction: %s", this->media_direction_());
 }
 
@@ -596,6 +606,7 @@ void SipClient::start_media_() {
   this->rtp_.set_payload_type(this->chosen_pt_);
   this->rtp_.set_dtmf_payload_type(this->remote_dtmf_pt_);
   this->rtp_.set_remote(this->remote_rtp_ip_, this->remote_rtp_port_);
+#ifdef USE_SPEAKER
   if (this->speaker_ != nullptr) {
     this->rtp_.set_on_audio([this](const int16_t *pcm, size_t n) {
       if (this->half_duplex_ && this->talking_) return;  // speaker is off while transmitting
@@ -626,6 +637,9 @@ void SipClient::start_media_() {
   } else {
     this->rtp_.set_on_audio({});  // send-only: skip G.711 decode in receive_()
   }
+#else
+  this->rtp_.set_on_audio({});  // no speaker in build: skip G.711 decode in receive_()
+#endif
   this->rtp_.set_on_dtmf([this](char c) {
     std::string s(1, c);
     this->dtmf_cb_.call(s);
@@ -642,6 +656,7 @@ void SipClient::start_media_() {
     this->start_speaker_();
     this->start_mic_();
   }
+#ifdef USE_MICROPHONE
   if (this->mic_ != nullptr) {
     ESP_LOGI(TAG, "Media started: remote %s:%u pt=%u dtmf_pt=%d dir=%s (mic %u Hz/%uch/%ubits)%s",
              this->remote_rtp_ip_.c_str(), this->remote_rtp_port_, this->chosen_pt_,
@@ -653,6 +668,11 @@ void SipClient::start_media_() {
              this->remote_rtp_ip_.c_str(), this->remote_rtp_port_, this->chosen_pt_,
              this->remote_dtmf_pt_, this->media_direction_());
   }
+#else
+  ESP_LOGI(TAG, "Media started: remote %s:%u pt=%u dtmf_pt=%d dir=%s",
+           this->remote_rtp_ip_.c_str(), this->remote_rtp_port_, this->chosen_pt_,
+           this->remote_dtmf_pt_, this->media_direction_());
+#endif
 }
 
 void SipClient::stop_media_() {
@@ -665,30 +685,39 @@ void SipClient::stop_media_() {
 }
 
 void SipClient::start_speaker_() {
+#ifdef USE_SPEAKER
   if (this->speaker_ == nullptr) return;
   this->speaker_rate_ = 8000;
   this->speaker_->set_audio_stream_info(audio::AudioStreamInfo(16, this->output_channels_(), 8000));
   this->speaker_->start();
+#endif
 }
 
 void SipClient::stop_speaker_() {
+#ifdef USE_SPEAKER
   if (this->speaker_ != nullptr) this->speaker_->stop();
+#endif
 }
 
 void SipClient::start_mic_() {
+#ifdef USE_MICROPHONE
   if (this->mic_ == nullptr) return;
   auto info = this->mic_->get_audio_stream_info();
   this->mic_rate_ = info.get_sample_rate();
   this->mic_channels_ = info.get_channels();
   this->mic_bits_ = info.get_bits_per_sample();
   this->mic_->start();
+#endif
 }
 
 void SipClient::stop_mic_() {
+#ifdef USE_MICROPHONE
   if (this->mic_ != nullptr) this->mic_->stop();
+#endif
 }
 
 void SipClient::start_talking() {
+#if defined(USE_MICROPHONE) && defined(USE_SPEAKER)
   if (!this->half_duplex_ || !this->media_active_ || this->talking_) return;
   // Hand the shared bus from speaker to mic.
   this->stop_speaker_();
@@ -696,9 +725,11 @@ void SipClient::start_talking() {
   this->start_mic_();
   this->talking_ = true;
   ESP_LOGD(TAG, "PTT: talking");
+#endif
 }
 
 void SipClient::stop_talking() {
+#if defined(USE_MICROPHONE) && defined(USE_SPEAKER)
   if (!this->half_duplex_ || !this->media_active_ || !this->talking_) return;
   // Hand the shared bus back from mic to speaker.
   this->stop_mic_();
@@ -706,8 +737,10 @@ void SipClient::stop_talking() {
   this->start_speaker_();
   this->talking_ = false;
   ESP_LOGD(TAG, "PTT: listening");
+#endif
 }
 
+#ifdef USE_MICROPHONE
 void SipClient::on_mic_data_(const std::vector<uint8_t> &data) {
   if (!this->media_active_ || this->state_ != SIP_IN_CALL) return;
   if (this->half_duplex_ && !this->talking_) return;  // only transmit while PTT is held
@@ -746,6 +779,7 @@ void SipClient::on_mic_data_(const std::vector<uint8_t> &data) {
     this->rtp_.push_tx_audio(samples, n);
   }
 }
+#endif
 
 // ---------------- main loop ----------------
 
