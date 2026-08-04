@@ -496,9 +496,10 @@ void SipClient::handle_request_(const SipMessage &m, const std::string &raw) {
     SdpInfo sdp = parse_sdp(m.body);
     int chosen = choose_payload_(sdp);
     if (chosen < 0) {
-      this->d_local_tag_ = gen_tag();  // To-tag for the 488 only
+      // To-tag for the 488 only. Leave it set — clearing would make a later
+      // OPTIONS 200 OK emit a malformed empty ";tag=" via build_response_.
+      this->d_local_tag_ = gen_tag();
       this->send_raw_(this->build_response_(m, 488, "Not Acceptable Here", false));
-      this->d_local_tag_.clear();
       ESP_LOGW(TAG, "Incoming INVITE rejected: no common audio codec");
       return;
     }

@@ -21,5 +21,6 @@ tests/native/sip_sdp/run.sh
 | `audio_plus_video_ignores_video_section` | video `c=` / `rtpmap` must not pollute audio |
 | `non_numeric_fmt_token_skipped` | `*` etc. must not become PT 0 via `atoi` |
 | `rejected_audio_stream_port_zero` | `m=audio 0` still parses |
+| `port_with_number_of_ports_suffix` | `m=audio 12345/2` → port 12345 |
 
 CI: `.github/workflows/sip-sdp-tests.yml`

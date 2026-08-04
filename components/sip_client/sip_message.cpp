@@ -167,7 +167,8 @@ SdpInfo parse_sdp(const std::string &body) {
         in_audio_section = true;
         info.valid = true;
         auto tokens = split_ws(line.substr(8));
-        if (!tokens.empty() && is_all_digits_(tokens[0]))
+        // Port may be "<port>/<number of ports>" (RFC 4566); atoi stops at '/'.
+        if (!tokens.empty())
           info.audio_port = (uint16_t) std::atoi(tokens[0].c_str());
         for (size_t t = 2; t < tokens.size(); t++) {
           // Tokenize — never substring-search (" 9" must not match PT 96..99).

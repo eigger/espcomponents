@@ -171,6 +171,18 @@ void test_rejected_audio_stream_port_zero() {
   require_eq(sdp.pcmu_pt, 0, "port0: pcmu still derived");
 }
 
+void test_port_with_number_of_ports_suffix() {
+  // RFC 4566: <port>/<number of ports>
+  const char *body =
+      "c=IN IP4 192.168.0.5\r\n"
+      "m=audio 12345/2 RTP/AVP 0\r\n"
+      "a=rtpmap:0 PCMU/8000\r\n";
+
+  SdpInfo sdp = parse_sdp(body);
+  require_eq(sdp.audio_port, 12345, "port/count: atoi stops at slash");
+  require_eq(sdp.pcmu_pt, 0, "port/count: codec still parsed");
+}
+
 }  // namespace
 
 int main() {
@@ -182,6 +194,7 @@ int main() {
   test_audio_plus_video_ignores_video_section();
   test_non_numeric_fmt_token_skipped();
   test_rejected_audio_stream_port_zero();
+  test_port_with_number_of_ports_suffix();
 
   if (g_failures != 0) {
     std::cerr << g_failures << " failure(s)\n";
