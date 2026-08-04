@@ -11,13 +11,6 @@ namespace {
 
 int g_failures = 0;
 
-void require(bool condition, const char *message) {
-  if (!condition) {
-    std::cerr << "FAIL: " << message << '\n';
-    g_failures++;
-  }
-}
-
 void require_contains(const std::string &hay, const std::string &needle, const char *message) {
   if (hay.find(needle) == std::string::npos) {
     std::cerr << "FAIL: " << message << " (missing \"" << needle << "\")\n";
