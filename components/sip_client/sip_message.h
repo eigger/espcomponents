@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <map>
 #include <string>
+#include <vector>
 
 namespace esphome {
 namespace sip_client {
@@ -27,11 +28,17 @@ struct SipMessage {
 // Parsed SDP media description (audio only).
 struct SdpInfo {
   bool valid{false};
-  std::string connection_ip;   // c=IN IP4 <addr>
-  uint16_t audio_port{0};      // m=audio <port> ...
-  int pcmu_pt{-1};             // payload type negotiated for PCMU (usually 0)
-  int pcma_pt{-1};             // payload type for PCMA (usually 8)
+  std::string connection_ip;      // c=IN IP4 <addr>
+  uint16_t audio_port{0};         // m=audio <port> ...
+  std::vector<int> payload_types; // fmt list from m= line, in order
+  // pt -> lowercase "name/rate" from a=rtpmap (e.g. "pcmu/8000")
+  std::map<int, std::string> rtpmap;
+  // Convenience: first matching audio PT in payload_types (-1 if absent).
+  int pcmu_pt{-1};
+  int pcma_pt{-1};
   int telephone_event_pt{-1};  // dynamic PT for RFC2833, -1 if absent
+
+  bool has_payload_type(int pt) const;
 };
 
 SipMessage parse_sip_message(const std::string &raw);

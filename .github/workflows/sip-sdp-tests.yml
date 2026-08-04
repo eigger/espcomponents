@@ -1,0 +1,26 @@
+name: sip_client SDP Native Tests
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'components/sip_client/**'
+      - 'tests/native/sip_sdp/**'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'components/sip_client/**'
+      - 'tests/native/sip_sdp/**'
+  workflow_dispatch:
+
+jobs:
+  sip-sdp-native-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Build and run SDP native tests
+        run: |
+          chmod +x tests/native/sip_sdp/run.sh
+          tests/native/sip_sdp/run.sh
