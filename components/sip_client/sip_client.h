@@ -2,11 +2,16 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "esphome/core/defines.h"
 #include "esphome/core/component.h"
 #include "esphome/core/automation.h"
 #include "esphome/components/socket/socket.h"
+#ifdef USE_MICROPHONE
 #include "esphome/components/microphone/microphone.h"
+#endif
+#ifdef USE_SPEAKER
 #include "esphome/components/speaker/speaker.h"
+#endif
 #include "rtp_session.h"
 #include "sip_message.h"
 
@@ -31,8 +36,12 @@ enum SipState {
 
 class SipClient : public Component {
  public:
+#ifdef USE_MICROPHONE
   void set_microphone(microphone::Microphone *mic) { this->mic_ = mic; }
+#endif
+#ifdef USE_SPEAKER
   void set_speaker(speaker::Speaker *spk) { this->speaker_ = spk; }
+#endif
   void set_server(const std::string &server) { this->server_ = server; }
   void set_port(uint16_t port) { this->server_port_ = port; }
   void set_username(const std::string &v) { this->username_ = v; }
@@ -103,14 +112,39 @@ class SipClient : public Component {
   void stop_speaker_();
   void start_mic_();
   void stop_mic_();
+#ifdef USE_MICROPHONE
   void on_mic_data_(const std::vector<uint8_t> &data);
+#endif
+  // SDP / logs: based on which audio endpoints are wired.
+  // USE_MICROPHONE / USE_SPEAKER are set by ESPHome when any mic/speaker
+  // platform is in the build; pointers may still be null if this component
+  // did not take a reference (send-only / receive-only).
+  const char *media_direction_() const {
+#if defined(USE_MICROPHONE) && defined(USE_SPEAKER)
+    if (this->mic_ == nullptr)
+      return "recvonly";
+    if (this->speaker_ == nullptr)
+      return "sendonly";
+    return "sendrecv";
+#elif defined(USE_SPEAKER)
+    return "recvonly";
+#elif defined(USE_MICROPHONE)
+    return "sendonly";
+#else
+    return "inactive";
+#endif
+  }
 
   void set_state_(SipState s);
   std::string extract_caller_(const SipMessage &m);
 
   // config
+#ifdef USE_MICROPHONE
   microphone::Microphone *mic_{nullptr};
+#endif
+#ifdef USE_SPEAKER
   speaker::Speaker *speaker_{nullptr};
+#endif
   std::string server_;
   uint16_t server_port_{5060};
   std::string username_;

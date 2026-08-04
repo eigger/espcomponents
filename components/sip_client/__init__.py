@@ -56,12 +56,24 @@ SendDtmfAction = sip_client_ns.class_("SendDtmfAction", automation.Action)
 StartTalkingAction = sip_client_ns.class_("StartTalkingAction", automation.Action)
 StopTalkingAction = sip_client_ns.class_("StopTalkingAction", automation.Action)
 
+
+def validate_audio(config):
+    has_mic = CONF_MICROPHONE in config
+    has_spk = CONF_SPEAKER in config
+    if not has_mic and not has_spk:
+        raise cv.Invalid("At least one of 'microphone' or 'speaker' is required")
+    # Push-to-talk switches a shared I2S bus between mic and speaker.
+    if config.get(CONF_HALF_DUPLEX, False) and not (has_mic and has_spk):
+        raise cv.Invalid("'half_duplex' requires both 'microphone' and 'speaker'")
+    return config
+
+
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(SipClient),
-            cv.Required(CONF_MICROPHONE): cv.use_id(microphone.Microphone),
-            cv.Required(CONF_SPEAKER): cv.use_id(speaker.Speaker),
+            cv.Optional(CONF_MICROPHONE): cv.use_id(microphone.Microphone),
+            cv.Optional(CONF_SPEAKER): cv.use_id(speaker.Speaker),
             cv.Required(CONF_SERVER): cv.string,
             cv.Optional(CONF_PORT, default=5060): cv.port,
             cv.Required(CONF_USERNAME): cv.string,
@@ -90,7 +102,8 @@ CONFIG_SCHEMA = cv.All(
                 {cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(DtmfTrigger)}
             ),
         }
-    ).extend(cv.COMPONENT_SCHEMA)
+    ).extend(cv.COMPONENT_SCHEMA),
+    validate_audio,
 )
 
 
@@ -98,10 +111,12 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
 
-    mic = await cg.get_variable(config[CONF_MICROPHONE])
-    cg.add(var.set_microphone(mic))
-    spk = await cg.get_variable(config[CONF_SPEAKER])
-    cg.add(var.set_speaker(spk))
+    if CONF_MICROPHONE in config:
+        mic = await cg.get_variable(config[CONF_MICROPHONE])
+        cg.add(var.set_microphone(mic))
+    if CONF_SPEAKER in config:
+        spk = await cg.get_variable(config[CONF_SPEAKER])
+        cg.add(var.set_speaker(spk))
 
     cg.add(var.set_server(config[CONF_SERVER]))
     cg.add(var.set_port(config[CONF_PORT]))
