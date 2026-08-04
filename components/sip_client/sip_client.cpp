@@ -6,8 +6,10 @@
 #include "esphome/core/hal.h"
 #include "esphome/components/network/util.h"
 #include "esphome/components/audio/audio.h"
-#include "sip_auth.h"
 #include "audio_resampler.h"
+#include "g711_codec.h"
+#include "sdp_builder.h"
+#include "sip_auth.h"
 
 namespace esphome {
 namespace sip_client {
@@ -133,18 +135,20 @@ void SipClient::send_raw_(const std::string &msg) {
   ESP_LOGV(TAG, "TX >>>\n%s", msg.c_str());
 }
 
-// Prefer PCMU, then PCMA. Returns -1 when the offer has no common audio codec.
-static int choose_payload_(const SdpInfo &sdp) {
-  if (sdp.pcmu_pt >= 0) return sdp.pcmu_pt;
-  if (sdp.pcma_pt >= 0) return sdp.pcma_pt;
-  return -1;
-}
+struct ChosenAudio {
+  int pt{-1};
+  AudioCodecId id{AudioCodecId::PCMU};
+  const char *rtpmap{nullptr};
+};
 
-// Answer rtpmap label from static PT only. Dynamic PT ↔ codec name (e.g. 97=PCMA)
-// needs a chosen-codec field — deferred to the Codec abstraction (PR2 / #286).
-static const char *rtpmap_for_static_pt_(int pt) {
-  if (pt == 8) return "PCMA/8000";
-  return "PCMU/8000";  // PT 0 and unknown static fallback
+// Prefer PCMU, then PCMA. Encoding follows the rtpmap name, not the wire PT
+// number — so a dynamic PT (e.g. 97=PCMA) selects A-law correctly.
+static ChosenAudio choose_payload_(const SdpInfo &sdp) {
+  if (sdp.pcmu_pt >= 0)
+    return {sdp.pcmu_pt, AudioCodecId::PCMU, "PCMU/8000"};
+  if (sdp.pcma_pt >= 0)
+    return {sdp.pcma_pt, AudioCodecId::PCMA, "PCMA/8000"};
+  return {};
 }
 
 void SipClient::set_state_(SipState s) {
@@ -271,39 +275,27 @@ void SipClient::call(const std::string &number) {
   ESP_LOGI(TAG, "Calling %s", number.c_str());
 }
 
+void SipClient::apply_chosen_codec_(int pt, AudioCodecId id) {
+  this->chosen_pt_ = pt;
+  this->active_codec_ = make_g711_codec((uint8_t) pt, id);
+  this->chosen_rtpmap_ = this->active_codec_->desc().rtpmap;
+}
+
 std::string SipClient::local_sdp_(bool answer) {
-  std::string id = std::to_string(millis());
-  std::string sdp;
-  sdp += "v=0\r\n";
-  sdp += "o=- " + id + " " + id + " IN IP4 " + this->local_ip_ + "\r\n";
-  sdp += "s=esphome\r\n";
-  sdp += "c=IN IP4 " + this->local_ip_ + "\r\n";
-  sdp += "t=0 0\r\n";
-
+  SdpMediaParams p;
+  p.session_id = std::to_string(millis());
+  p.local_ip = this->local_ip_;
+  p.rtp_port = this->local_rtp_port_;
+  p.direction = this->media_direction_();
+  p.answer = answer;
   if (answer) {
-    // RFC 3264: answer lists only the selected format(s), not the full offer.
-    int audio_pt = this->chosen_pt_ >= 0 ? this->chosen_pt_ : 0;
-    std::string mline = "m=audio " + std::to_string(this->local_rtp_port_) + " RTP/AVP " +
-                        std::to_string(audio_pt);
-    if (this->remote_dtmf_pt_ >= 0)
-      mline += " " + std::to_string(this->remote_dtmf_pt_);
-    sdp += mline + "\r\n";
-    sdp += "a=rtpmap:" + std::to_string(audio_pt) + " " + rtpmap_for_static_pt_(audio_pt) + "\r\n";
-    if (this->remote_dtmf_pt_ >= 0) {
-      sdp += "a=rtpmap:" + std::to_string(this->remote_dtmf_pt_) + " telephone-event/8000\r\n";
-      sdp += "a=fmtp:" + std::to_string(this->remote_dtmf_pt_) + " 0-15\r\n";
-    }
+    p.answer_pt = this->chosen_pt_ >= 0 ? this->chosen_pt_ : 0;
+    p.answer_rtpmap = this->chosen_rtpmap_ != nullptr ? this->chosen_rtpmap_ : "PCMU/8000";
+    p.dtmf_pt = this->remote_dtmf_pt_;
   } else {
-    sdp += "m=audio " + std::to_string(this->local_rtp_port_) + " RTP/AVP 0 8 101\r\n";
-    sdp += "a=rtpmap:0 PCMU/8000\r\n";
-    sdp += "a=rtpmap:8 PCMA/8000\r\n";
-    sdp += "a=rtpmap:101 telephone-event/8000\r\n";
-    sdp += "a=fmtp:101 0-15\r\n";
+    p.dtmf_pt = 101;
   }
-
-  sdp += "a=ptime:20\r\n";
-  sdp += std::string("a=") + this->media_direction_() + "\r\n";
-  return sdp;
+  return build_sdp_body(p);
 }
 
 std::string SipClient::build_invite_() {
@@ -412,9 +404,9 @@ void SipClient::handle_invite_response_(const SipMessage &m, const std::string &
     SdpInfo sdp = parse_sdp(m.body);
     this->remote_rtp_ip_ = sdp.connection_ip.empty() ? this->remote_rtp_ip_ : sdp.connection_ip;
     this->remote_rtp_port_ = sdp.audio_port;
-    this->chosen_pt_ = choose_payload_(sdp);
+    ChosenAudio chosen = choose_payload_(sdp);
     this->remote_dtmf_pt_ = sdp.telephone_event_pt;
-    if (this->chosen_pt_ < 0) {
+    if (chosen.pt < 0) {
       // Intentional: empty / non-G.711 answer SDP used to fall back to PT 0 and
       // leave a silent "connected" call. Reject instead. Dialog is confirmed by
       // ACK, so send BYE so the PBX does not wait for rtp_timeout.
@@ -427,6 +419,7 @@ void SipClient::handle_invite_response_(const SipMessage &m, const std::string &
       this->ended_cb_.call();
       return;
     }
+    this->apply_chosen_codec_(chosen.pt, chosen.id);
 
     this->send_raw_(this->build_ack_(m));
     this->start_media_();
@@ -494,8 +487,8 @@ void SipClient::handle_request_(const SipMessage &m, const std::string &raw) {
     // Negotiate codec before touching dialog state so a 488 does not leave
     // stale Call-ID / RTP endpoint fields for the next call.
     SdpInfo sdp = parse_sdp(m.body);
-    int chosen = choose_payload_(sdp);
-    if (chosen < 0) {
+    ChosenAudio chosen = choose_payload_(sdp);
+    if (chosen.pt < 0) {
       // To-tag for the 488 only. Leave it set — clearing would make a later
       // OPTIONS 200 OK emit a malformed empty ";tag=" via build_response_.
       this->d_local_tag_ = gen_tag();
@@ -519,7 +512,7 @@ void SipClient::handle_request_(const SipMessage &m, const std::string &raw) {
     this->d_cseq_ = std::atoi(m.header("CSeq").c_str());
     this->remote_rtp_ip_ = sdp.connection_ip;
     this->remote_rtp_port_ = sdp.audio_port;
-    this->chosen_pt_ = chosen;
+    this->apply_chosen_codec_(chosen.pt, chosen.id);
     this->remote_dtmf_pt_ = sdp.telephone_event_pt;
 
     this->send_raw_(this->build_response_(m, 100, "Trying", false));
@@ -652,7 +645,11 @@ void SipClient::start_media_() {
     ESP_LOGW(TAG, "No remote RTP endpoint; media not started");
     return;
   }
-  this->rtp_.set_payload_type((uint8_t) this->chosen_pt_);
+  if (this->active_codec_ == nullptr) {
+    ESP_LOGW(TAG, "No negotiated codec; media not started");
+    return;
+  }
+  this->rtp_.set_codec(this->active_codec_.get());
   this->rtp_.set_dtmf_payload_type(this->remote_dtmf_pt_);
   this->rtp_.set_remote(this->remote_rtp_ip_, this->remote_rtp_port_);
 #ifdef USE_SPEAKER
@@ -707,20 +704,22 @@ void SipClient::start_media_() {
   }
 #ifdef USE_MICROPHONE
   if (this->mic_ != nullptr) {
-    ESP_LOGI(TAG, "Media started: remote %s:%u pt=%d dtmf_pt=%d dir=%s (mic %u Hz/%uch/%ubits)%s",
+    ESP_LOGI(TAG, "Media started: remote %s:%u pt=%d (%s) dtmf_pt=%d dir=%s (mic %u Hz/%uch/%ubits)%s",
              this->remote_rtp_ip_.c_str(), this->remote_rtp_port_, this->chosen_pt_,
-             this->remote_dtmf_pt_, this->media_direction_(),
-             static_cast<unsigned>(this->mic_rate_), this->mic_channels_, this->mic_bits_,
-             this->half_duplex_ ? " [half-duplex: listening]" : "");
+             this->chosen_rtpmap_ != nullptr ? this->chosen_rtpmap_ : "?", this->remote_dtmf_pt_,
+             this->media_direction_(), static_cast<unsigned>(this->mic_rate_), this->mic_channels_,
+             this->mic_bits_, this->half_duplex_ ? " [half-duplex: listening]" : "");
   } else {
-    ESP_LOGI(TAG, "Media started: remote %s:%u pt=%d dtmf_pt=%d dir=%s",
+    ESP_LOGI(TAG, "Media started: remote %s:%u pt=%d (%s) dtmf_pt=%d dir=%s",
              this->remote_rtp_ip_.c_str(), this->remote_rtp_port_, this->chosen_pt_,
-             this->remote_dtmf_pt_, this->media_direction_());
+             this->chosen_rtpmap_ != nullptr ? this->chosen_rtpmap_ : "?", this->remote_dtmf_pt_,
+             this->media_direction_());
   }
 #else
-  ESP_LOGI(TAG, "Media started: remote %s:%u pt=%d dtmf_pt=%d dir=%s",
+  ESP_LOGI(TAG, "Media started: remote %s:%u pt=%d (%s) dtmf_pt=%d dir=%s",
            this->remote_rtp_ip_.c_str(), this->remote_rtp_port_, this->chosen_pt_,
-           this->remote_dtmf_pt_, this->media_direction_());
+           this->chosen_rtpmap_ != nullptr ? this->chosen_rtpmap_ : "?", this->remote_dtmf_pt_,
+           this->media_direction_());
 #endif
 }
 

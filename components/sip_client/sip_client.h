@@ -12,6 +12,7 @@
 #ifdef USE_SPEAKER
 #include "esphome/components/speaker/speaker.h"
 #endif
+#include "codec.h"
 #include "rtp_session.h"
 #include "sip_message.h"
 
@@ -99,9 +100,10 @@ class SipClient : public Component {
   std::string build_request_in_dialog_(const std::string &method);
   std::string build_response_(const SipMessage &req, int code, const std::string &reason,
                               bool with_sdp);
-  // Offer (answer=false): all supported codecs. Answer (true): chosen_pt_ only
-  // + telephone-event when the remote offered it (RFC 3264 §6.1).
+  // Offer (answer=false): all supported codecs. Answer (true): chosen codec
+  // only + telephone-event when the remote offered it (RFC 3264 §6.1).
   std::string local_sdp_(bool answer = false);
+  void apply_chosen_codec_(int pt, AudioCodecId id);
   std::string contact_uri_();
 
   // registration
@@ -194,7 +196,9 @@ class SipClient : public Component {
   // negotiated media
   std::string remote_rtp_ip_;
   uint16_t remote_rtp_port_{0};
-  int chosen_pt_{-1};       // negotiated audio PT, -1 if none
+  int chosen_pt_{-1};                     // negotiated wire PT, -1 if none
+  const char *chosen_rtpmap_{nullptr};    // SDP label, e.g. "PCMA/8000"
+  std::unique_ptr<Codec> active_codec_;   // encode/decode for the call
   int remote_dtmf_pt_{-1};
 
   RtpSession rtp_;

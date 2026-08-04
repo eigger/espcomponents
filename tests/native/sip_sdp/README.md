@@ -1,7 +1,6 @@
-# sip_client SDP native tests
+# sip_client SDP / codec native tests
 
-Host-side tests for `parse_sdp()` in `components/sip_client/sip_message.cpp`
-(no ESPHome runtime dependency).
+Host-side tests with no ESPHome runtime dependency.
 
 ## Run
 
@@ -10,6 +9,8 @@ tests/native/sip_sdp/run.sh
 ```
 
 ## Coverage
+
+### `parse_sdp` (`test_parse_sdp.cpp`)
 
 | Test | Intent |
 |------|--------|
@@ -22,5 +23,21 @@ tests/native/sip_sdp/run.sh
 | `non_numeric_fmt_token_skipped` | `*` etc. must not become PT 0 via `atoi` |
 | `rejected_audio_stream_port_zero` | `m=audio 0` still parses |
 | `port_with_number_of_ports_suffix` | `m=audio 12345/2` → port 12345 |
+
+### `build_sdp_body` (`test_sdp_builder.cpp`)
+
+| Test | Intent |
+|------|--------|
+| `offer_lists_both_g711_and_dtmf` | offer m-line `0 8 101` |
+| `answer_single_codec_dynamic_pcma` | answer PT 97 + `PCMA/8000` (not PCMU) |
+| `answer_without_dtmf` | no telephone-event when dtmf_pt < 0 |
+
+### `G711Codec` (`test_g711_codec.cpp`)
+
+| Test | Intent |
+|------|--------|
+| framing constants | pcm/payload/ts split for µ-law and dynamic A-law |
+| roundtrip SNR | encode→decode tone ≥ 25 dB |
+| dynamic PT A-law | PT 97 uses A-law bytes, not µ-law |
 
 CI: `.github/workflows/sip-sdp-tests.yml`

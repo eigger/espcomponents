@@ -4,18 +4,16 @@
 #include "esphome/core/defines.h"
 #include "esphome/core/hal.h"
 #include "esphome/core/log.h"
-#include "g711.h"
 
 namespace esphome {
 namespace sip_client {
 
 static const char *const TAG = "sip_client.rtp";
 
-static const size_t SAMPLES_PER_FRAME = 160;   // 20 ms @ 8 kHz
 static const uint32_t FRAME_MS = 20;
-static const uint32_t DTMF_TONE_SAMPLES = 8 * SAMPLES_PER_FRAME;  // ~160 ms tone
 static const int DTMF_END_PACKETS = 3;
-static const size_t TX_BUFFER_MAX = 8000;  // 1 s of audio, drop excess
+// Bound TX latency (~1 s at 8 kHz; scales with higher pcm rates in PR3).
+static const size_t TX_BUFFER_MAX = 16000;
 
 // Bind-any sockaddr for the given family. Unlike socket::set_sockaddr_any(),
 // this doesn't depend on ESPHome's global network::enable_ipv6 setting — the
@@ -60,6 +58,11 @@ void RtpSession::set_remote(const std::string &ip, uint16_t port) {
 
 bool RtpSession::start(uint16_t local_port) {
   this->stop();
+  if (this->codec_ == nullptr) {
+    ESP_LOGW(TAG, "RTP start failed: no codec");
+    return false;
+  }
+  this->codec_->reset();
   // Match the remote peer's address family (set via set_remote() before this
   // call) instead of socket::socket_ip(), which is fixed to AF_INET6 whenever
   // ESPHome's global network::enable_ipv6 is on — see open_socket_() in
@@ -92,8 +95,8 @@ bool RtpSession::start(uint16_t local_port) {
   this->dtmf_active_ = false;
   this->last_tx_ms_ = millis();
   this->recv_buf_.resize(1500);
-  ESP_LOGI(TAG, "RTP started on port %u (pt=%u, dtmf_pt=%d)", local_port, this->payload_type_,
-           this->dtmf_pt_);
+  ESP_LOGI(TAG, "RTP started on port %u (pt=%u %s, dtmf_pt=%d)", local_port,
+           this->codec_->desc().pt, this->codec_->desc().rtpmap, this->dtmf_pt_);
   return true;
 }
 
@@ -148,26 +151,34 @@ void RtpSession::build_rtp_header_(uint8_t *buf, bool marker, uint8_t pt, uint32
 }
 
 void RtpSession::send_audio_packet_() {
-  uint8_t packet[12 + SAMPLES_PER_FRAME];
+  if (this->codec_ == nullptr) return;
+  const uint16_t pcm_n = this->pcm_samples_per_frame_();
+  const uint16_t pay_n = this->payload_bytes_();
+  const uint16_t ts_step = this->ts_per_frame_();
+  uint8_t packet[12 + 320];  // room for G.722-sized payloads later
+  if (pay_n > 320) return;
   {
     std::lock_guard<std::mutex> lock(this->tx_mutex_);
-    if (this->tx_buffer_.size() < SAMPLES_PER_FRAME) return;
-    this->build_rtp_header_(packet, this->first_packet_, this->payload_type_, this->timestamp_);
-    for (size_t i = 0; i < SAMPLES_PER_FRAME; i++) {
-      int16_t s = this->tx_buffer_[i];
-      packet[12 + i] = (this->payload_type_ == 8) ? g711::linear_to_alaw(s) : g711::linear_to_ulaw(s);
+    if (this->tx_buffer_.size() < pcm_n) return;
+    this->build_rtp_header_(packet, this->first_packet_, this->codec_->desc().pt, this->timestamp_);
+    size_t written = this->codec_->encode(this->tx_buffer_.data(), pcm_n, packet + 12);
+    if (written != pay_n) {
+      ESP_LOGW(TAG, "encode size mismatch: %u vs %u", static_cast<unsigned>(written), pay_n);
     }
-    this->tx_buffer_.erase(this->tx_buffer_.begin(), this->tx_buffer_.begin() + SAMPLES_PER_FRAME);
+    this->tx_buffer_.erase(this->tx_buffer_.begin(), this->tx_buffer_.begin() + pcm_n);
   }
-  this->socket_->sendto(packet, sizeof(packet), 0,
+  this->socket_->sendto(packet, 12 + pay_n, 0,
                         reinterpret_cast<struct sockaddr *>(&this->remote_addr_),
                         this->remote_addr_len_);
   this->seq_++;
-  this->timestamp_ += SAMPLES_PER_FRAME;
+  this->timestamp_ += ts_step;
   this->first_packet_ = false;
 }
 
 void RtpSession::send_dtmf_packet_() {
+  const uint16_t ts_step = this->ts_per_frame_();
+  const uint32_t dtmf_tone_samples = 8 * ts_step;  // ~160 ms
+
   if (!this->dtmf_active_) {
     if (this->dtmf_queue_.empty()) return;
     int event = dtmf_char_to_event(this->dtmf_queue_.front());
@@ -180,7 +191,7 @@ void RtpSession::send_dtmf_packet_() {
     this->dtmf_timestamp_ = this->timestamp_;
   }
 
-  bool end = this->dtmf_duration_ >= DTMF_TONE_SAMPLES;
+  bool end = this->dtmf_duration_ >= dtmf_tone_samples;
   uint8_t packet[16];
   this->build_rtp_header_(packet, this->dtmf_duration_ == 0, (uint8_t) this->dtmf_pt_,
                           this->dtmf_timestamp_);
@@ -197,16 +208,17 @@ void RtpSession::send_dtmf_packet_() {
     this->dtmf_end_packets_++;
     if (this->dtmf_end_packets_ >= DTMF_END_PACKETS) {
       this->dtmf_active_ = false;
-      this->timestamp_ = this->dtmf_timestamp_ + this->dtmf_duration_ + SAMPLES_PER_FRAME;
+      this->timestamp_ = this->dtmf_timestamp_ + this->dtmf_duration_ + ts_step;
       this->first_packet_ = true;  // re-mark audio after DTMF
     }
   } else {
-    this->dtmf_duration_ += SAMPLES_PER_FRAME;
+    this->dtmf_duration_ += ts_step;
   }
 }
 
 void RtpSession::receive_() {
-  if (!this->socket_) return;
+  if (!this->socket_ || this->codec_ == nullptr) return;
+  const uint8_t expect_pt = this->codec_->desc().pt;
   for (int guard = 0; guard < 8; guard++) {
     ssize_t len = this->socket_->read(this->recv_buf_.data(), this->recv_buf_.size());
     if (len < 12) return;  // EAGAIN or runt packet
@@ -227,16 +239,15 @@ void RtpSession::receive_() {
       }
       continue;
     }
-    if (pt != 0 && pt != 8) continue;  // unknown codec
-    if (!this->on_audio_) continue;    // send-only / no speaker: skip decode
+    if (pt != expect_pt) continue;  // not the negotiated audio PT
+    if (!this->on_audio_) continue;  // send-only / no speaker: skip decode
 
     size_t n = len - header_len;
-    this->decode_buf_.resize(n);
-    for (size_t i = 0; i < n; i++) {
-      uint8_t b = this->recv_buf_[header_len + i];
-      this->decode_buf_[i] = (pt == 8) ? g711::alaw_to_linear(b) : g711::ulaw_to_linear(b);
-    }
-    this->on_audio_(this->decode_buf_.data(), n);
+    this->decode_buf_.resize(n);  // G.711: 1 byte → 1 sample; G.722 differs later
+    size_t samples = this->codec_->decode(this->recv_buf_.data() + header_len, n,
+                                          this->decode_buf_.data());
+    this->decode_buf_.resize(samples);
+    this->on_audio_(this->decode_buf_.data(), samples);
   }
 }
 
@@ -260,6 +271,7 @@ void RtpSession::loop() {
     this->last_tx_ms_ = now;
   }
 
+  const uint16_t pcm_n = this->pcm_samples_per_frame_();
   int packets_sent = 0;
   while (now - this->last_tx_ms_ >= FRAME_MS && packets_sent < 5) {
     if (this->dtmf_active_ || !this->dtmf_queue_.empty()) {
@@ -270,7 +282,7 @@ void RtpSession::loop() {
       bool has_enough_samples = false;
       {
         std::lock_guard<std::mutex> lock(this->tx_mutex_);
-        if (this->tx_buffer_.size() >= SAMPLES_PER_FRAME) {
+        if (this->tx_buffer_.size() >= pcm_n) {
           has_enough_samples = true;
         }
       }
