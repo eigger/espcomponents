@@ -133,11 +133,16 @@ void SipClient::send_raw_(const std::string &msg) {
   ESP_LOGV(TAG, "TX >>>\n%s", msg.c_str());
 }
 
-// Prefer PCMU, then PCMA; default to PCMU.
-static uint8_t choose_payload_(const SdpInfo &sdp) {
-  if (sdp.pcmu_pt >= 0) return (uint8_t) sdp.pcmu_pt;
-  if (sdp.pcma_pt >= 0) return (uint8_t) sdp.pcma_pt;
-  return 0;
+// Prefer PCMU, then PCMA. Returns -1 when the offer has no common audio codec.
+static int choose_payload_(const SdpInfo &sdp) {
+  if (sdp.pcmu_pt >= 0) return sdp.pcmu_pt;
+  if (sdp.pcma_pt >= 0) return sdp.pcma_pt;
+  return -1;
+}
+
+static const char *rtpmap_for_static_pt_(int pt) {
+  if (pt == 8) return "PCMA/8000";
+  return "PCMU/8000";  // PT 0 and unknown static fallback
 }
 
 void SipClient::set_state_(SipState s) {
@@ -264,7 +269,7 @@ void SipClient::call(const std::string &number) {
   ESP_LOGI(TAG, "Calling %s", number.c_str());
 }
 
-std::string SipClient::local_sdp_() {
+std::string SipClient::local_sdp_(bool answer) {
   std::string id = std::to_string(millis());
   std::string sdp;
   sdp += "v=0\r\n";
@@ -272,11 +277,28 @@ std::string SipClient::local_sdp_() {
   sdp += "s=esphome\r\n";
   sdp += "c=IN IP4 " + this->local_ip_ + "\r\n";
   sdp += "t=0 0\r\n";
-  sdp += "m=audio " + std::to_string(this->local_rtp_port_) + " RTP/AVP 0 8 101\r\n";
-  sdp += "a=rtpmap:0 PCMU/8000\r\n";
-  sdp += "a=rtpmap:8 PCMA/8000\r\n";
-  sdp += "a=rtpmap:101 telephone-event/8000\r\n";
-  sdp += "a=fmtp:101 0-15\r\n";
+
+  if (answer) {
+    // RFC 3264: answer lists only the selected format(s), not the full offer.
+    int audio_pt = this->chosen_pt_ >= 0 ? this->chosen_pt_ : 0;
+    std::string mline = "m=audio " + std::to_string(this->local_rtp_port_) + " RTP/AVP " +
+                        std::to_string(audio_pt);
+    if (this->remote_dtmf_pt_ >= 0)
+      mline += " " + std::to_string(this->remote_dtmf_pt_);
+    sdp += mline + "\r\n";
+    sdp += "a=rtpmap:" + std::to_string(audio_pt) + " " + rtpmap_for_static_pt_(audio_pt) + "\r\n";
+    if (this->remote_dtmf_pt_ >= 0) {
+      sdp += "a=rtpmap:" + std::to_string(this->remote_dtmf_pt_) + " telephone-event/8000\r\n";
+      sdp += "a=fmtp:" + std::to_string(this->remote_dtmf_pt_) + " 0-15\r\n";
+    }
+  } else {
+    sdp += "m=audio " + std::to_string(this->local_rtp_port_) + " RTP/AVP 0 8 101\r\n";
+    sdp += "a=rtpmap:0 PCMU/8000\r\n";
+    sdp += "a=rtpmap:8 PCMA/8000\r\n";
+    sdp += "a=rtpmap:101 telephone-event/8000\r\n";
+    sdp += "a=fmtp:101 0-15\r\n";
+  }
+
   sdp += "a=ptime:20\r\n";
   sdp += std::string("a=") + this->media_direction_() + "\r\n";
   return sdp;
@@ -390,6 +412,14 @@ void SipClient::handle_invite_response_(const SipMessage &m, const std::string &
     this->remote_rtp_port_ = sdp.audio_port;
     this->chosen_pt_ = choose_payload_(sdp);
     this->remote_dtmf_pt_ = sdp.telephone_event_pt;
+    if (this->chosen_pt_ < 0) {
+      this->send_raw_(this->build_ack_(m));
+      ESP_LOGW(TAG, "Call failed: no common audio codec in answer SDP");
+      this->stop_media_();
+      this->set_state_(SIP_REGISTERED);
+      this->ended_cb_.call();
+      return;
+    }
 
     this->send_raw_(this->build_ack_(m));
     this->start_media_();
@@ -424,7 +454,8 @@ std::string SipClient::build_response_(const SipMessage &req, int code, const st
                                        bool with_sdp) {
   std::string to = req.header("To");
   if (to.find("tag=") == std::string::npos) to += ";tag=" + this->d_local_tag_;
-  std::string sdp = with_sdp ? this->local_sdp_() : "";
+  // with_sdp is only used for the inbound INVITE 200 OK → answer SDP.
+  std::string sdp = with_sdp ? this->local_sdp_(/*answer=*/true) : "";
   std::string msg;
   msg += "SIP/2.0 " + std::to_string(code) + " " + reason + "\r\n";
   msg += "Via: " + req.header("Via") + "\r\n";
@@ -472,6 +503,11 @@ void SipClient::handle_request_(const SipMessage &m, const std::string &raw) {
     this->remote_rtp_port_ = sdp.audio_port;
     this->chosen_pt_ = choose_payload_(sdp);
     this->remote_dtmf_pt_ = sdp.telephone_event_pt;
+    if (this->chosen_pt_ < 0) {
+      this->send_raw_(this->build_response_(m, 488, "Not Acceptable Here", false));
+      ESP_LOGW(TAG, "Incoming INVITE rejected: no common audio codec");
+      return;
+    }
 
     this->send_raw_(this->build_response_(m, 100, "Trying", false));
     this->send_raw_(this->build_response_(m, 180, "Ringing", false));
@@ -603,7 +639,7 @@ void SipClient::start_media_() {
     ESP_LOGW(TAG, "No remote RTP endpoint; media not started");
     return;
   }
-  this->rtp_.set_payload_type(this->chosen_pt_);
+  this->rtp_.set_payload_type((uint8_t) this->chosen_pt_);
   this->rtp_.set_dtmf_payload_type(this->remote_dtmf_pt_);
   this->rtp_.set_remote(this->remote_rtp_ip_, this->remote_rtp_port_);
 #ifdef USE_SPEAKER
@@ -658,18 +694,18 @@ void SipClient::start_media_() {
   }
 #ifdef USE_MICROPHONE
   if (this->mic_ != nullptr) {
-    ESP_LOGI(TAG, "Media started: remote %s:%u pt=%u dtmf_pt=%d dir=%s (mic %u Hz/%uch/%ubits)%s",
+    ESP_LOGI(TAG, "Media started: remote %s:%u pt=%d dtmf_pt=%d dir=%s (mic %u Hz/%uch/%ubits)%s",
              this->remote_rtp_ip_.c_str(), this->remote_rtp_port_, this->chosen_pt_,
              this->remote_dtmf_pt_, this->media_direction_(),
              static_cast<unsigned>(this->mic_rate_), this->mic_channels_, this->mic_bits_,
              this->half_duplex_ ? " [half-duplex: listening]" : "");
   } else {
-    ESP_LOGI(TAG, "Media started: remote %s:%u pt=%u dtmf_pt=%d dir=%s",
+    ESP_LOGI(TAG, "Media started: remote %s:%u pt=%d dtmf_pt=%d dir=%s",
              this->remote_rtp_ip_.c_str(), this->remote_rtp_port_, this->chosen_pt_,
              this->remote_dtmf_pt_, this->media_direction_());
   }
 #else
-  ESP_LOGI(TAG, "Media started: remote %s:%u pt=%u dtmf_pt=%d dir=%s",
+  ESP_LOGI(TAG, "Media started: remote %s:%u pt=%d dtmf_pt=%d dir=%s",
            this->remote_rtp_ip_.c_str(), this->remote_rtp_port_, this->chosen_pt_,
            this->remote_dtmf_pt_, this->media_direction_());
 #endif

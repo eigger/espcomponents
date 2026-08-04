@@ -37,6 +37,33 @@ static std::string resolve_header_name(const std::string &name) {
   return name;
 }
 
+static std::vector<std::string> split_ws(const std::string &s) {
+  std::vector<std::string> out;
+  size_t i = 0;
+  while (i < s.size()) {
+    while (i < s.size() && (s[i] == ' ' || s[i] == '\t')) i++;
+    if (i >= s.size()) break;
+    size_t j = i;
+    while (j < s.size() && s[j] != ' ' && s[j] != '\t') j++;
+    out.push_back(s.substr(i, j - i));
+    i = j;
+  }
+  return out;
+}
+
+// Encoding name from "name/rate[/channels]", lowercased.
+static std::string rtpmap_name(const std::string &enc) {
+  size_t slash = enc.find('/');
+  return slash == std::string::npos ? enc : enc.substr(0, slash);
+}
+
+bool SdpInfo::has_payload_type(int pt) const {
+  for (int p : this->payload_types) {
+    if (p == pt) return true;
+  }
+  return false;
+}
+
 std::string SipMessage::header(const std::string &name) const {
   auto it = headers.find(resolve_header_name(to_lower(name)));
   return it == headers.end() ? std::string() : it->second;
@@ -89,6 +116,28 @@ SipMessage parse_sip_message(const std::string &raw) {
   return msg;
 }
 
+static void derive_codec_pts_(SdpInfo &info) {
+  for (int pt : info.payload_types) {
+    std::string name;
+    auto it = info.rtpmap.find(pt);
+    if (it != info.rtpmap.end()) {
+      name = rtpmap_name(it->second);
+    } else if (pt == 0) {
+      name = "pcmu";  // RFC 3551 static
+    } else if (pt == 8) {
+      name = "pcma";
+    }
+
+    if (name == "telephone-event") {
+      if (info.telephone_event_pt < 0) info.telephone_event_pt = pt;
+    } else if (name == "pcmu") {
+      if (info.pcmu_pt < 0) info.pcmu_pt = pt;
+    } else if (name == "pcma") {
+      if (info.pcma_pt < 0) info.pcma_pt = pt;
+    }
+  }
+}
+
 SdpInfo parse_sdp(const std::string &body) {
   SdpInfo info;
   size_t pos = 0;
@@ -105,25 +154,22 @@ SdpInfo parse_sdp(const std::string &body) {
       if (sp != std::string::npos) info.connection_ip = trim(line.substr(sp + 1));
     } else if (line.compare(0, 8, "m=audio ") == 0) {
       info.valid = true;
-      info.audio_port = (uint16_t) std::atoi(line.substr(8).c_str());
-      // Default well-known payload types if present in the m= list.
-      std::string rest = line.substr(8);
-      if (rest.find(" 0") != std::string::npos || rest.find(" 0 ") != std::string::npos)
-        info.pcmu_pt = 0;
-      if (rest.find(" 8") != std::string::npos) info.pcma_pt = 8;
+      // m=audio <port> <proto> <fmt>...
+      auto tokens = split_ws(line.substr(8));
+      if (!tokens.empty()) info.audio_port = (uint16_t) std::atoi(tokens[0].c_str());
+      for (size_t t = 2; t < tokens.size(); t++) {
+        // Tokenize — never substring-search (" 9" must not match PT 96..99).
+        info.payload_types.push_back(std::atoi(tokens[t].c_str()));
+      }
     } else if (line.compare(0, 9, "a=rtpmap:") == 0) {
       // a=rtpmap:101 telephone-event/8000
       int pt = std::atoi(line.substr(9).c_str());
-      std::string lower = to_lower(line);
-      if (lower.find("telephone-event") != std::string::npos) {
-        info.telephone_event_pt = pt;
-      } else if (lower.find("pcmu") != std::string::npos) {
-        info.pcmu_pt = pt;
-      } else if (lower.find("pcma") != std::string::npos) {
-        info.pcma_pt = pt;
-      }
+      size_t sp = line.find(' ');
+      if (sp == std::string::npos) continue;
+      info.rtpmap[pt] = to_lower(trim(line.substr(sp + 1)));
     }
   }
+  derive_codec_pts_(info);
   return info;
 }
 

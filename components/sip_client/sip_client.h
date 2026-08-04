@@ -99,7 +99,9 @@ class SipClient : public Component {
   std::string build_request_in_dialog_(const std::string &method);
   std::string build_response_(const SipMessage &req, int code, const std::string &reason,
                               bool with_sdp);
-  std::string local_sdp_();
+  // Offer (answer=false): all supported codecs. Answer (true): chosen_pt_ only
+  // + telephone-event when the remote offered it (RFC 3264 §6.1).
+  std::string local_sdp_(bool answer = false);
   std::string contact_uri_();
 
   // registration
@@ -192,7 +194,7 @@ class SipClient : public Component {
   // negotiated media
   std::string remote_rtp_ip_;
   uint16_t remote_rtp_port_{0};
-  uint8_t chosen_pt_{0};
+  int chosen_pt_{-1};       // negotiated audio PT, -1 if none
   int remote_dtmf_pt_{-1};
 
   RtpSession rtp_;

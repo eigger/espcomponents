@@ -4,6 +4,9 @@ ESPHome-style test configurations, one directory per component, mirroring the
 layout of the upstream [`esphome/esphome`](https://github.com/esphome/esphome)
 repository (`tests/components/<component>/`).
 
+Host-side (native) unit tests that do not need ESPHome live under
+`tests/native/` (e.g. `uartex_parser`, `sip_sdp`) and have their own workflows.
+
 ```
 tests/components/<component>/
   common.yaml              # shared, board-agnostic config (only when >1 target)
