@@ -19,6 +19,7 @@ from .const import (
     CONF_LOCAL_RTP_PORT,
     CONF_CHANNEL,
     CONF_HALF_DUPLEX,
+    CONF_CODECS,
     CONF_ON_REGISTERED,
     CONF_ON_INCOMING_CALL,
     CONF_ON_CALL_CONNECTED,
@@ -39,6 +40,13 @@ SipAudioChannel = sip_client_ns.enum("SipAudioChannel")
 CHANNEL_MODES = {
     "mono": SipAudioChannel.SIP_CH_MONO,
     "stereo": SipAudioChannel.SIP_CH_STEREO,
+}
+
+AudioCodecId = sip_client_ns.enum("AudioCodecId", is_class=True)
+CODEC_MODES = {
+    "pcmu": AudioCodecId.PCMU,
+    "pcma": AudioCodecId.PCMA,
+    "g722": AudioCodecId.G722,
 }
 
 RegisteredTrigger = sip_client_ns.class_("RegisteredTrigger", automation.Trigger.template())
@@ -86,6 +94,9 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_LOCAL_RTP_PORT, default=7078): cv.port,
             cv.Optional(CONF_CHANNEL, default="stereo"): cv.enum(CHANNEL_MODES, lower=True),
             cv.Optional(CONF_HALF_DUPLEX, default=False): cv.boolean,
+            cv.Optional(CONF_CODECS, default=["pcmu", "pcma"]): cv.ensure_list(
+                cv.enum(CODEC_MODES, lower=True)
+            ),
             cv.Optional(CONF_ON_REGISTERED): automation.validate_automation(
                 {cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(RegisteredTrigger)}
             ),
@@ -130,6 +141,7 @@ async def to_code(config):
     cg.add(var.set_local_rtp_port(config[CONF_LOCAL_RTP_PORT]))
     cg.add(var.set_channel(config[CONF_CHANNEL]))
     cg.add(var.set_half_duplex(config[CONF_HALF_DUPLEX]))
+    cg.add(var.set_codecs([CODEC_MODES[c] for c in config[CONF_CODECS]]))
 
     for conf in config.get(CONF_ON_REGISTERED, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)

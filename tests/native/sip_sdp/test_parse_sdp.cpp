@@ -63,9 +63,19 @@ void test_dynamic_pt_before_g722_no_false_positive() {
   require_eq(sdp.pcmu_pt, 0, "pcmu from rtpmap/static");
   require_eq(sdp.pcma_pt, 8, "pcma from rtpmap/static");
   require_eq(sdp.telephone_event_pt, 101, "telephone-event");
-  // G.722 is present in the list but not yet a convenience field — still in rtpmap.
+  require_eq(sdp.g722_pt, 9, "g722 from rtpmap/static");
   require(sdp.rtpmap.count(9) == 1, "g722 rtpmap retained");
   require_eq_str(sdp.rtpmap[9], "g722/8000", "g722 rtpmap value");
+}
+
+void test_static_g722_without_rtpmap() {
+  const char *body =
+      "c=IN IP4 10.0.0.4\r\n"
+      "m=audio 7078 RTP/AVP 9 0\r\n";
+
+  SdpInfo sdp = parse_sdp(body);
+  require_eq(sdp.g722_pt, 9, "static-only: g722 via PT 9");
+  require_eq(sdp.pcmu_pt, 0, "static-only: pcmu via PT 0");
 }
 
 void test_static_only_without_rtpmap() {
@@ -187,6 +197,7 @@ void test_port_with_number_of_ports_suffix() {
 
 int main() {
   test_dynamic_pt_before_g722_no_false_positive();
+  test_static_g722_without_rtpmap();
   test_static_only_without_rtpmap();
   test_no_telephone_event();
   test_no_common_g711();

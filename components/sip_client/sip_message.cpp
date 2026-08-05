@@ -126,6 +126,8 @@ static void derive_codec_pts_(SdpInfo &info) {
       name = "pcmu";  // RFC 3551 static
     } else if (pt == 8) {
       name = "pcma";
+    } else if (pt == 9) {
+      name = "g722";  // RFC 3551 static
     }
 
     if (name == "telephone-event") {
@@ -134,6 +136,8 @@ static void derive_codec_pts_(SdpInfo &info) {
       if (info.pcmu_pt < 0) info.pcmu_pt = pt;
     } else if (name == "pcma") {
       if (info.pcma_pt < 0) info.pcma_pt = pt;
+    } else if (name == "g722") {
+      if (info.g722_pt < 0) info.g722_pt = pt;
     }
   }
 }

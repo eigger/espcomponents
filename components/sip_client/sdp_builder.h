@@ -1,6 +1,8 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include <vector>
+#include "codec.h"
 
 namespace esphome {
 namespace sip_client {
@@ -15,6 +17,8 @@ struct SdpMediaParams {
   // Answer only: selected audio PT + rtpmap label (e.g. "PCMA/8000").
   int answer_pt{0};
   const char *answer_rtpmap{"PCMU/8000"};
+  // Offer only: codecs in preference order (default PCMU then PCMA when empty).
+  std::vector<AudioCodecId> offer_codecs;
   // telephone-event PT. Offer always includes 101 when dtmf_pt < 0 and !answer.
   // Answer includes DTMF only when dtmf_pt >= 0.
   int dtmf_pt{-1};

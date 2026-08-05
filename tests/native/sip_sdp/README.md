@@ -14,7 +14,8 @@ tests/native/sip_sdp/run.sh
 
 | Test | Intent |
 |------|--------|
-| `dynamic_pt_before_g722_no_false_positive` | `m=audio … 96 9 0 8 101` must not treat 96–99 as PT 9 |
+| `dynamic_pt_before_g722_no_false_positive` | `m=audio … 96 9 0 8 101` must not treat 96–99 as PT 9; `g722_pt == 9` |
+| `static_g722_without_rtpmap` | RFC 3551 static PT 9 without rtpmap |
 | `static_only_without_rtpmap` | RFC 3551 static 0/8 without rtpmap |
 | `no_telephone_event` | DTMF absent → `telephone_event_pt == -1` |
 | `no_common_g711` | Opus-only offer → no pcmu/pcma convenience PT |
@@ -29,6 +30,7 @@ tests/native/sip_sdp/run.sh
 | Test | Intent |
 |------|--------|
 | `offer_lists_both_g711_and_dtmf` | offer m-line `0 8 101` |
+| `offer_g722_preferred` | offer with `[g722, pcmu]` → `9 0 101` |
 | `answer_single_codec_dynamic_pcma` | answer PT 97 + `PCMA/8000` (not PCMU) |
 | `answer_without_dtmf` | no telephone-event when dtmf_pt < 0 |
 
@@ -39,5 +41,12 @@ tests/native/sip_sdp/run.sh
 | framing constants | pcm/payload/ts split for µ-law and dynamic A-law |
 | roundtrip SNR | encode→decode tone ≥ 25 dB |
 | dynamic PT A-law | PT 97 uses A-law bytes, not µ-law |
+
+### `G722Codec` (`test_g722_codec.cpp`)
+
+| Test | Intent |
+|------|--------|
+| framing constants | G722/8000 rtpmap, 16 kHz PCM, 320/160 framing |
+| roundtrip SNR | encode→decode 1 kHz tone ≥ 20 dB (libg722) |
 
 CI: `.github/workflows/sip-sdp-tests.yml`
