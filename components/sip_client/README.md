@@ -183,11 +183,19 @@ binary_sensor:
   `sendonly`). A device with only a speaker can join calls or paging as a
   listen-only endpoint; a mic-only device can uplink audio without local
   playback.
-- **Receive-only note:** with no microphone the device does not send RTP audio
-  (empty TX). Most PBXs honour `a=recvonly` and keep the call up; setups that
-  require periodic RTP (e.g. aggressive `rtp_timeout`) or that learn the remote
-  address only from the first received packet (symmetric RTP / `comedia`) may
-  need a PBX-side tweak. Comfort-noise / silence TX is not implemented yet.
+- **Silence TX:** whenever there is nothing to transmit — no microphone
+  configured, or half-duplex while listening — the device keeps the RTP stream
+  running by sending encoded silence at the normal 20 ms cadence, as a hardware
+  SIP phone does. This is what makes receive-only work in practice: with no
+  outbound packets at all, a NAT/firewall never opens the return path for the
+  RTP port, and PBXs that latch onto the source address (symmetric RTP /
+  `comedia`, e.g. Asterisk's `rtp_symmetric`) never learn where to send audio,
+  so the *inbound* direction stays silent too. Continuous TX also satisfies
+  setups with an aggressive `rtp_timeout`. Live audio is never affected: a brief
+  microphone underrun waits for the real samples instead of being spliced with
+  silence. Silence is produced by encoding zeroed PCM through the negotiated
+  codec, which keeps G.722's stateful ADPCM encoder in step with the far-end
+  decoder. RFC 3389 comfort noise (payload type 13) is not offered in SDP.
 - If the microphone runs at 16 kHz it is automatically downsampled to the codec
   rate (8 kHz for G.711, 16 kHz for G.722); the speaker is configured to play at
   the active codec's PCM rate. Integer 2× rate conversion (8↔16 kHz) is handled
