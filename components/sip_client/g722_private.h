@@ -22,6 +22,12 @@
 
 #pragma once
 
+/* Local (espcomponents): body is empty unless G722_INTERNAL is set by the
+ * codec .c files. ESPHome auto-includes every .h into esphome.h; exposing the
+ * real struct typedefs there conflicts with the opaque void G722_*_CTX in the
+ * public encoder/decoder headers. */
+#ifdef G722_INTERNAL
+
 /*! \page g722_page G.722 encoding and decoding
 \section g722_page_sec_1 What does it do?
 The G.722 module is a bit exact implementation of the ITU G.722 specification for all three
@@ -102,3 +108,5 @@ struct g722_decode_state
     unsigned int out_buffer;
     int out_bits;
 };
+
+#endif /* G722_INTERNAL */

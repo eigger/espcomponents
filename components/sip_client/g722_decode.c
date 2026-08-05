@@ -33,6 +33,10 @@
 /* Local (espcomponents): explicit string.h — not in sippy/libg722@4c2e79c. */
 #include <string.h>
 
+/* Local (espcomponents): open private/common headers only for this TU.
+ * ESPHome's unity esphome.h otherwise pulls them into C++ and conflicts with
+ * the opaque void typedefs in g722_decoder.h. */
+#define G722_INTERNAL
 #include "g722_private.h"
 #include "g722_common.h"
 #include "g722.h"

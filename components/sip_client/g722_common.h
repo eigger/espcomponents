@@ -27,6 +27,9 @@
 
 #pragma once
 
+/* Local (espcomponents): see g722_private.h — only for G722_INTERNAL TUs. */
+#ifdef G722_INTERNAL
+
 #if !defined(FALSE)
 #define FALSE 0
 #endif
@@ -136,3 +139,5 @@ static inline void block4(struct g722_band *band, int d)
     band->s = saturate(band->sp + band->sz);
 }
 /*- End of function --------------------------------------------------------*/
+
+#endif /* G722_INTERNAL */

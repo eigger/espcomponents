@@ -272,9 +272,15 @@ at commit [`4c2e79c5cbcb5ee12a97a16002a073ac83396480`](https://github.com/sippy/
 - **License:** Carnegie Mellon (1993) and Steve Underwood (2005, public domain
   contributions) portions, plus Sippy Software BSD-style terms. See
   `components/sip_client/LIBG722_LICENSE` in this repository for the full text.
-- **Local changes:** `#include <string.h>` was added to `g722_encode.c` and
-  `g722_decode.c` (not present upstream at the vendored commit) so the codec
-  builds in the ESPHome/ESP-IDF toolchain.
+- **Local changes:**
+  - `#include <string.h>` in `g722_encode.c` / `g722_decode.c` (not upstream at
+    the vendored commit) for ESP-IDF/newlib builds.
+  - `G722_INTERNAL` guards around the bodies of `g722_private.h` /
+    `g722_common.h`, defined only in those `.c` files. ESPHome's generated
+    `esphome.h` auto-includes every component `.h`; without the guard the
+    real `G722_*_CTX` struct typedefs conflict with the opaque `void`
+    typedefs in the public encoder/decoder headers, and `block4()` sees an
+    incomplete `struct g722_band`.
 
 ## Testing with Asterisk
 
