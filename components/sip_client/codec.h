@@ -39,7 +39,9 @@ class Codec {
   virtual ~Codec() = default;
   virtual const CodecDesc &desc() const = 0;
   // Encode `samples` PCM frames into `out` (capacity >= desc().payload_bytes).
-  // Returns bytes written.
+  // Must not write more than desc().payload_bytes (callers size the RTP buffer
+  // to MAX_AUDIO_PAYLOAD_BYTES and send only the returned length).
+  // Returns bytes written (0 = drop the packet).
   virtual size_t encode(const int16_t *pcm, size_t samples, uint8_t *out) = 0;
   // Decode `bytes` of payload into `pcm` (capacity >= samples produced).
   // Returns number of PCM samples written.
