@@ -80,7 +80,16 @@ CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(SipClient),
-            cv.Optional(CONF_MICROPHONE): cv.use_id(microphone.Microphone),
+            # No default: the microphone is genuinely optional here (receive-only
+            # devices omit it). A `default={}` would run the source schema even
+            # when the key is absent, and its GenerateID would then fail to find
+            # a microphone to bind to.
+            cv.Optional(CONF_MICROPHONE): microphone.microphone_source_schema(
+                min_bits_per_sample=16,
+                max_bits_per_sample=16,
+                min_channels=1,
+                max_channels=1,
+            ),
             cv.Optional(CONF_SPEAKER): cv.use_id(speaker.Speaker),
             cv.Required(CONF_SERVER): cv.string,
             cv.Optional(CONF_PORT, default=5060): cv.port,
@@ -123,8 +132,8 @@ async def to_code(config):
     await cg.register_component(var, config)
 
     if CONF_MICROPHONE in config:
-        mic = await cg.get_variable(config[CONF_MICROPHONE])
-        cg.add(var.set_microphone(mic))
+        mic_source = await microphone.microphone_source_to_code(config[CONF_MICROPHONE])
+        cg.add(var.set_microphone_source(mic_source))
     if CONF_SPEAKER in config:
         spk = await cg.get_variable(config[CONF_SPEAKER])
         cg.add(var.set_speaker(spk))

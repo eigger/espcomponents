@@ -57,8 +57,8 @@ void SipClient::setup() {
   this->recv_buf_.resize(2048);
 
 #ifdef USE_MICROPHONE
-  if (this->mic_ != nullptr) {
-    this->mic_->add_data_callback(
+  if (this->mic_source_ != nullptr) {
+    this->mic_source_->add_data_callback(
         [this](const std::vector<uint8_t> &data) { this->on_mic_data_(data); });
   }
 #endif
@@ -95,7 +95,7 @@ void SipClient::dump_config() {
     ESP_LOGCONFIG(TAG, "  Codecs: [%s]", codecs.c_str());
   }
 #ifdef USE_MICROPHONE
-  ESP_LOGCONFIG(TAG, "  Microphone: %s", this->mic_ ? "yes" : "no");
+  ESP_LOGCONFIG(TAG, "  Microphone: %s", this->mic_source_ ? "yes" : "no");
 #else
   ESP_LOGCONFIG(TAG, "  Microphone: no");
 #endif
@@ -747,7 +747,7 @@ void SipClient::start_media_() {
     this->start_mic_();
   }
 #ifdef USE_MICROPHONE
-  if (this->mic_ != nullptr) {
+  if (this->mic_source_ != nullptr) {
     ESP_LOGI(TAG, "Media started: remote %s:%u pt=%d (%s) dtmf_pt=%d dir=%s (mic %u Hz/%uch/%ubits)%s",
              this->remote_rtp_ip_.c_str(), this->remote_rtp_port_, this->chosen_pt_,
              this->chosen_rtpmap_ != nullptr ? this->chosen_rtpmap_ : "?", this->remote_dtmf_pt_,
@@ -794,18 +794,18 @@ void SipClient::stop_speaker_() {
 
 void SipClient::start_mic_() {
 #ifdef USE_MICROPHONE
-  if (this->mic_ == nullptr) return;
-  auto info = this->mic_->get_audio_stream_info();
+  if (this->mic_source_ == nullptr) return;
+  auto info = this->mic_source_->get_audio_stream_info();
   this->mic_rate_ = info.get_sample_rate();
   this->mic_channels_ = info.get_channels();
   this->mic_bits_ = info.get_bits_per_sample();
-  this->mic_->start();
+  this->mic_source_->start();
 #endif
 }
 
 void SipClient::stop_mic_() {
 #ifdef USE_MICROPHONE
-  if (this->mic_ != nullptr) this->mic_->stop();
+  if (this->mic_source_ != nullptr) this->mic_source_->stop();
 #endif
 }
 
