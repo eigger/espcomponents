@@ -263,6 +263,13 @@ binary_sensor:
 - Designed for a PBX (registrar/proxy) scenario. Pure peer-to-peer (server-less
   direct calls) is out of scope.
 - Only one call at a time is supported.
+- **No mid-dialog re-INVITE.** An inbound `INVITE` is accepted only in the
+  registered (idle) state; while a call is up the client answers `486 Busy
+  Here`. That means call hold, unhold, and PBX **Direct Media** / re-INVITE
+  session refreshes that renegotiate SDP are not supported. Keep the ESP
+  extension on the PBX with Direct Media **disabled** (FreePBX / Asterisk:
+  `directmedia=no`; Grandstream and similar: Direct Media / media relay off)
+  so RTP stays hairpinned through the PBX for the whole call.
 
 ## Third-party codecs
 
