@@ -37,7 +37,7 @@ void test_desc_framing_constants() {
   require_eq(codec.desc().payload_bytes, 160, "g722 payload");
   require_eq(codec.desc().ts_per_frame, 160, "g722 ts");
   require_eq((int) codec.desc().max_pcm_samples_for_payload(160), 320, "g722 decode cap 2:1");
-  require_eq(codec.id(), AudioCodecId::G722, "g722 id");
+  require_eq((int) codec.id(), (int) AudioCodecId::G722, "g722 id");
 
   auto dynamic = make_g722_codec(97);
   require_eq(dynamic->desc().pt, 97, "dynamic g722 pt stored");
