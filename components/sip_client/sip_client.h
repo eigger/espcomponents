@@ -207,7 +207,6 @@ class SipClient : public Component {
   uint32_t mic_rate_{16000};
   uint8_t mic_channels_{1};
   uint8_t mic_bits_{16};
-  uint32_t speaker_rate_{8000};
   bool media_active_{false};
 
   CallbackManager<void()> registered_cb_{};

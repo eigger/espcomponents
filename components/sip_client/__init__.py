@@ -42,7 +42,7 @@ CHANNEL_MODES = {
     "stereo": SipAudioChannel.SIP_CH_STEREO,
 }
 
-AudioCodecId = sip_client_ns.enum("AudioCodecId")
+AudioCodecId = sip_client_ns.enum("AudioCodecId", is_class=True)
 CODEC_MODES = {
     "pcmu": AudioCodecId.PCMU,
     "pcma": AudioCodecId.PCMA,

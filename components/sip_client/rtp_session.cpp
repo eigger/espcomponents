@@ -171,12 +171,22 @@ void RtpSession::send_audio_packet_() {
     this->tx_buffer_.erase(this->tx_buffer_.begin(), this->tx_buffer_.begin() + pcm_n);
   }
   if (written == 0) {
-    ESP_LOGW(TAG, "encode produced 0 bytes; packet dropped");
+    static uint32_t last_encode_zero_ms = 0;
+    uint32_t now = millis();
+    if (now - last_encode_zero_ms > 2000) {
+      ESP_LOGW(TAG, "encode produced 0 bytes; packet dropped");
+      last_encode_zero_ms = now;
+    }
     return;
   }
   if (written != pay_n) {
-    ESP_LOGW(TAG, "encode size mismatch: %u vs expected %u; sending written size",
-             static_cast<unsigned>(written), pay_n);
+    static uint32_t last_encode_mismatch_ms = 0;
+    uint32_t now = millis();
+    if (now - last_encode_mismatch_ms > 2000) {
+      ESP_LOGW(TAG, "encode size mismatch: %u vs expected %u; sending written size",
+               static_cast<unsigned>(written), pay_n);
+      last_encode_mismatch_ms = now;
+    }
   }
   if (written > MAX_AUDIO_PAYLOAD_BYTES) written = MAX_AUDIO_PAYLOAD_BYTES;
   this->socket_->sendto(packet, 12 + written, 0,

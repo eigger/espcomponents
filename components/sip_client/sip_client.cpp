@@ -74,6 +74,26 @@ void SipClient::dump_config() {
   ESP_LOGCONFIG(TAG, "  Local RTP port: %u", this->local_rtp_port_);
   ESP_LOGCONFIG(TAG, "  Channel: %s", this->channel_ == SIP_CH_MONO ? "mono" : "stereo");
   ESP_LOGCONFIG(TAG, "  Half-duplex (PTT): %s", this->half_duplex_ ? "yes" : "no");
+  {
+    std::string codecs;
+    for (AudioCodecId id : this->configured_codecs_) {
+      const char *name = "?";
+      switch (id) {
+        case AudioCodecId::PCMU:
+          name = "pcmu";
+          break;
+        case AudioCodecId::PCMA:
+          name = "pcma";
+          break;
+        case AudioCodecId::G722:
+          name = "g722";
+          break;
+      }
+      if (!codecs.empty()) codecs += ", ";
+      codecs += name;
+    }
+    ESP_LOGCONFIG(TAG, "  Codecs: [%s]", codecs.c_str());
+  }
 #ifdef USE_MICROPHONE
   ESP_LOGCONFIG(TAG, "  Microphone: %s", this->mic_ ? "yes" : "no");
 #else
@@ -690,28 +710,18 @@ void SipClient::start_media_() {
     this->rtp_.set_on_audio([this](const int16_t *pcm, size_t n) {
       if (this->half_duplex_ && this->talking_) return;  // speaker is off while transmitting
 
-      const int16_t *play_pcm = pcm;
-      size_t play_n = n;
-      std::vector<int16_t> upsampled;
-
-      const uint32_t codec_rate = this->active_codec_->desc().pcm_rate;
-      if (this->speaker_rate_ > codec_rate && this->speaker_rate_ == codec_rate * 2) {
-        resampler::upsample_1to2(pcm, n, upsampled);
-        play_pcm = upsampled.data();
-        play_n = upsampled.size();
-      }
-
+      // start_speaker_() sets the stream to the codec pcm_rate, so no resample here.
       if (this->channel_ == SIP_CH_STEREO) {
         // Duplicate mono samples to stereo (L/R) for stereo mixers/speakers (e.g. Voice PE).
-        std::vector<int16_t> stereo(play_n * 2);
-        for (size_t i = 0; i < play_n; i++) {
-          stereo[i * 2] = play_pcm[i];
-          stereo[i * 2 + 1] = play_pcm[i];
+        std::vector<int16_t> stereo(n * 2);
+        for (size_t i = 0; i < n; i++) {
+          stereo[i * 2] = pcm[i];
+          stereo[i * 2 + 1] = pcm[i];
         }
         this->speaker_->play(reinterpret_cast<const uint8_t *>(stereo.data()), stereo.size() * sizeof(int16_t));
       } else {
         // Mono output (e.g. es8311): push samples as-is.
-        this->speaker_->play(reinterpret_cast<const uint8_t *>(play_pcm), play_n * sizeof(int16_t));
+        this->speaker_->play(reinterpret_cast<const uint8_t *>(pcm), n * sizeof(int16_t));
       }
     });
   } else {
@@ -771,7 +781,6 @@ void SipClient::start_speaker_() {
   if (this->speaker_ == nullptr) return;
   const uint32_t rate =
       this->active_codec_ != nullptr ? this->active_codec_->desc().pcm_rate : 8000;
-  this->speaker_rate_ = rate;
   this->speaker_->set_audio_stream_info(audio::AudioStreamInfo(16, this->output_channels_(), rate));
   this->speaker_->start();
 #endif
@@ -872,8 +881,13 @@ void SipClient::on_mic_data_(const std::vector<uint8_t> &data) {
     this->rtp_.push_tx_audio(resampled.data(), resampled.size());
     return;
   }
-  ESP_LOGW(TAG, "Mic rate %u Hz incompatible with codec %u Hz; dropping frame",
-           static_cast<unsigned>(this->mic_rate_), static_cast<unsigned>(codec_rate));
+  static uint32_t last_mic_rate_warn_ms = 0;
+  uint32_t now = millis();
+  if (now - last_mic_rate_warn_ms > 2000) {
+    ESP_LOGW(TAG, "Mic rate %u Hz incompatible with codec %u Hz; dropping frame",
+             static_cast<unsigned>(this->mic_rate_), static_cast<unsigned>(codec_rate));
+    last_mic_rate_warn_ms = now;
+  }
 }
 #endif
 
