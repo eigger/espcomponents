@@ -13,6 +13,10 @@ enum class AudioCodecId : uint8_t {
   PCMA = 1,
 };
 
+// Upper bound on a single RTP audio payload (bytes). Stack buffers and
+// sendto sizes are capped to this; codecs that need more must raise it.
+static constexpr size_t MAX_AUDIO_PAYLOAD_BYTES = 320;
+
 struct CodecDesc {
   uint8_t pt{0};                      // negotiated wire payload type
   const char *rtpmap{"PCMU/8000"};    // SDP a=rtpmap encoding name/rate
@@ -20,6 +24,12 @@ struct CodecDesc {
   uint16_t pcm_samples_per_frame{160};
   uint16_t payload_bytes{160};
   uint16_t ts_per_frame{160};         // RTP timestamp clock increment
+
+  // Decode output capacity for a payload of `n` bytes (G.711 1:1, G.722 2:1).
+  size_t max_pcm_samples_for_payload(size_t n) const {
+    if (this->payload_bytes == 0) return n;
+    return (n * this->pcm_samples_per_frame + this->payload_bytes - 1) / this->payload_bytes;
+  }
 };
 
 // Pluggable audio codec used by RtpSession. PCM is always signed 16-bit mono

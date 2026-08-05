@@ -12,8 +12,6 @@ static const char *const TAG = "sip_client.rtp";
 
 static const uint32_t FRAME_MS = 20;
 static const int DTMF_END_PACKETS = 3;
-// Bound TX latency (~1 s at 8 kHz; scales with higher pcm rates in PR3).
-static const size_t TX_BUFFER_MAX = 16000;
 
 // Bind-any sockaddr for the given family. Unlike socket::set_sockaddr_any(),
 // this doesn't depend on ESPHome's global network::enable_ipv6 setting — the
@@ -115,10 +113,13 @@ void RtpSession::stop() {
 
 void RtpSession::push_tx_audio(const int16_t *pcm, size_t samples) {
   if (!this->socket_) return;
+  // ~1 s of PCM at the codec sample rate (8000 for G.711).
+  const size_t tx_max =
+      this->codec_ != nullptr ? static_cast<size_t>(this->codec_->desc().pcm_rate) : 8000;
   std::lock_guard<std::mutex> lock(this->tx_mutex_);
-  if (this->tx_buffer_.size() + samples > TX_BUFFER_MAX) {
+  if (this->tx_buffer_.size() + samples > tx_max) {
     // Drop oldest to bound latency.
-    size_t overflow = this->tx_buffer_.size() + samples - TX_BUFFER_MAX;
+    size_t overflow = this->tx_buffer_.size() + samples - tx_max;
     if (overflow >= this->tx_buffer_.size())
       this->tx_buffer_.clear();
     else
@@ -155,19 +156,30 @@ void RtpSession::send_audio_packet_() {
   const uint16_t pcm_n = this->pcm_samples_per_frame_();
   const uint16_t pay_n = this->payload_bytes_();
   const uint16_t ts_step = this->ts_per_frame_();
-  uint8_t packet[12 + 320];  // room for G.722-sized payloads later
-  if (pay_n > 320) return;
+  uint8_t packet[12 + MAX_AUDIO_PAYLOAD_BYTES];
+  if (pay_n > MAX_AUDIO_PAYLOAD_BYTES) {
+    ESP_LOGW(TAG, "codec payload %u exceeds MAX_AUDIO_PAYLOAD_BYTES (%u); drop", pay_n,
+             static_cast<unsigned>(MAX_AUDIO_PAYLOAD_BYTES));
+    return;
+  }
+  size_t written = 0;
   {
     std::lock_guard<std::mutex> lock(this->tx_mutex_);
     if (this->tx_buffer_.size() < pcm_n) return;
     this->build_rtp_header_(packet, this->first_packet_, this->codec_->desc().pt, this->timestamp_);
-    size_t written = this->codec_->encode(this->tx_buffer_.data(), pcm_n, packet + 12);
-    if (written != pay_n) {
-      ESP_LOGW(TAG, "encode size mismatch: %u vs %u", static_cast<unsigned>(written), pay_n);
-    }
+    written = this->codec_->encode(this->tx_buffer_.data(), pcm_n, packet + 12);
     this->tx_buffer_.erase(this->tx_buffer_.begin(), this->tx_buffer_.begin() + pcm_n);
   }
-  this->socket_->sendto(packet, 12 + pay_n, 0,
+  if (written == 0) {
+    ESP_LOGW(TAG, "encode produced 0 bytes; packet dropped");
+    return;
+  }
+  if (written != pay_n) {
+    ESP_LOGW(TAG, "encode size mismatch: %u vs expected %u; sending written size",
+             static_cast<unsigned>(written), pay_n);
+  }
+  if (written > MAX_AUDIO_PAYLOAD_BYTES) written = MAX_AUDIO_PAYLOAD_BYTES;
+  this->socket_->sendto(packet, 12 + written, 0,
                         reinterpret_cast<struct sockaddr *>(&this->remote_addr_),
                         this->remote_addr_len_);
   this->seq_++;
@@ -239,11 +251,22 @@ void RtpSession::receive_() {
       }
       continue;
     }
-    if (pt != expect_pt) continue;  // not the negotiated audio PT
+    if (pt != expect_pt) {
+      // Throttle: unexpected PT (e.g. comfort noise 13) otherwise leaves silence
+      // with no log trail.
+      static uint32_t last_unexpected_ms = 0;
+      uint32_t now = millis();
+      if (now - last_unexpected_ms > 2000) {
+        ESP_LOGW(TAG, "Ignoring RTP pt=%u (negotiated pt=%u)", pt, expect_pt);
+        last_unexpected_ms = now;
+      }
+      continue;
+    }
     if (!this->on_audio_) continue;  // send-only / no speaker: skip decode
 
     size_t n = len - header_len;
-    this->decode_buf_.resize(n);  // G.711: 1 byte → 1 sample; G.722 differs later
+    const size_t pcm_cap = this->codec_->desc().max_pcm_samples_for_payload(n);
+    this->decode_buf_.resize(pcm_cap);
     size_t samples = this->codec_->decode(this->recv_buf_.data() + header_len, n,
                                           this->decode_buf_.data());
     this->decode_buf_.resize(samples);

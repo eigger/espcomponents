@@ -34,6 +34,8 @@ void test_desc_framing_constants() {
   require_eq(ulaw.desc().payload_bytes, 160, "ulaw payload");
   require_eq(ulaw.desc().ts_per_frame, 160, "ulaw ts");
   require_eq((int) ulaw.desc().pcm_rate, 8000, "ulaw rate");
+  require_eq((int) ulaw.desc().max_pcm_samples_for_payload(160), 160, "ulaw decode cap 1:1");
+  require_eq((int) ulaw.desc().max_pcm_samples_for_payload(80), 80, "ulaw decode cap half");
 
   // Dynamic PT must not change framing or encoding family.
   auto alaw = make_g711_codec(97, AudioCodecId::PCMA);
@@ -42,6 +44,12 @@ void test_desc_framing_constants() {
   require_eq(alaw->desc().pcm_samples_per_frame, 160, "alaw pcm samples");
   require_eq(alaw->desc().payload_bytes, 160, "alaw payload");
   require_eq(alaw->desc().ts_per_frame, 160, "alaw ts");
+
+  // G.722-shaped desc (2:1) — capacity helper must reserve 2n samples.
+  esphome::sip_client::CodecDesc g722_like{};
+  g722_like.pcm_samples_per_frame = 320;
+  g722_like.payload_bytes = 160;
+  require_eq((int) g722_like.max_pcm_samples_for_payload(160), 320, "g722-like decode cap");
 }
 
 void test_roundtrip_snr(AudioCodecId id, const char *label) {

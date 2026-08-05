@@ -276,6 +276,11 @@ void SipClient::call(const std::string &number) {
 }
 
 void SipClient::apply_chosen_codec_(int pt, AudioCodecId id) {
+  // Defense in depth: never free the codec object while rtp_ holds a raw ptr.
+  if (this->media_active_) {
+    ESP_LOGW(TAG, "Ignoring codec change while media is active");
+    return;
+  }
   this->chosen_pt_ = pt;
   this->active_codec_ = make_g711_codec((uint8_t) pt, id);
   this->chosen_rtpmap_ = this->active_codec_->desc().rtpmap;
@@ -393,6 +398,13 @@ void SipClient::handle_invite_response_(const SipMessage &m, const std::string &
   }
 
   if (m.status_code >= 200 && m.status_code < 300) {
+    // Retransmitted INVITE 2xx (ACK lost): re-ACK only. Re-running this block
+    // would replace active_codec_ while rtp_ still holds the old raw pointer.
+    if (this->state_ != SIP_INVITING && this->state_ != SIP_RINGING_OUT) {
+      this->send_raw_(this->build_ack_(m));
+      return;
+    }
+
     // Capture remote tag and target, parse SDP, ACK, start media.
     std::string to = m.header("To");
     if (!to.empty()) this->d_remote_ = to;
