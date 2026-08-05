@@ -11,6 +11,7 @@ namespace sip_client {
 enum class AudioCodecId : uint8_t {
   PCMU = 0,
   PCMA = 1,
+  G722 = 2,
 };
 
 // Upper bound on a single RTP audio payload (bytes). Stack buffers and

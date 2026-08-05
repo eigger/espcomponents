@@ -52,6 +52,7 @@ class SipClient : public Component {
   void set_register_expiration(uint32_t s) { this->expiration_ = s; }
   void set_local_rtp_port(uint16_t p) { this->local_rtp_port_ = p; }
   void set_channel(SipAudioChannel c) { this->channel_ = c; }
+  void set_codecs(const std::vector<AudioCodecId> &codecs) { this->configured_codecs_ = codecs; }
 
   void add_on_registered_callback(std::function<void()> &&cb) { this->registered_cb_.add(std::move(cb)); }
   void add_on_incoming_call_callback(std::function<void(std::string)> &&cb) {
@@ -200,6 +201,7 @@ class SipClient : public Component {
   const char *chosen_rtpmap_{nullptr};    // SDP label, e.g. "PCMA/8000"
   std::unique_ptr<Codec> active_codec_;   // encode/decode for the call
   int remote_dtmf_pt_{-1};
+  std::vector<AudioCodecId> configured_codecs_{AudioCodecId::PCMU, AudioCodecId::PCMA};
 
   RtpSession rtp_;
   uint32_t mic_rate_{16000};

@@ -36,6 +36,7 @@ struct SdpInfo {
   // Convenience: first matching audio PT in payload_types (-1 if absent).
   int pcmu_pt{-1};
   int pcma_pt{-1};
+  int g722_pt{-1};
   int telephone_event_pt{-1};  // dynamic PT for RFC2833, -1 if absent
 
   bool has_payload_type(int pt) const;

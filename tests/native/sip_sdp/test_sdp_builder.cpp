@@ -1,9 +1,11 @@
 #include "sdp_builder.h"
+#include "codec.h"
 
 #include <cstdlib>
 #include <iostream>
 #include <string>
 
+using esphome::sip_client::AudioCodecId;
 using esphome::sip_client::SdpMediaParams;
 using esphome::sip_client::build_sdp_body;
 
@@ -38,6 +40,21 @@ void test_offer_lists_both_g711_and_dtmf() {
   require_contains(sdp, "a=rtpmap:8 PCMA/8000\r\n", "offer pcma");
   require_contains(sdp, "a=rtpmap:101 telephone-event/8000\r\n", "offer dtmf");
   require_contains(sdp, "a=sendrecv\r\n", "offer direction");
+}
+
+void test_offer_g722_preferred() {
+  SdpMediaParams p;
+  p.session_id = "4";
+  p.local_ip = "192.168.0.3";
+  p.rtp_port = 7078;
+  p.direction = "sendrecv";
+  p.answer = false;
+  p.offer_codecs = {AudioCodecId::G722, AudioCodecId::PCMU};
+  std::string sdp = build_sdp_body(p);
+  require_contains(sdp, "m=audio 7078 RTP/AVP 9 0 101\r\n", "g722 offer m-line order");
+  require_contains(sdp, "a=rtpmap:9 G722/8000\r\n", "g722 offer rtpmap");
+  require_contains(sdp, "a=rtpmap:0 PCMU/8000\r\n", "g722 offer pcmu");
+  require_not_contains(sdp, "PCMA/8000", "g722 offer excludes pcma when not listed");
 }
 
 void test_answer_single_codec_dynamic_pcma() {
@@ -79,6 +96,7 @@ void test_answer_without_dtmf() {
 
 int main() {
   test_offer_lists_both_g711_and_dtmf();
+  test_offer_g722_preferred();
   test_answer_single_codec_dynamic_pcma();
   test_answer_without_dtmf();
 

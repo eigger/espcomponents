@@ -22,3 +22,10 @@ g++ "${CXXFLAGS[@]}" "${INC[@]}" \
   "$ROOT/tests/native/sip_sdp/test_g711_codec.cpp" \
   -o "$OUT/sip_g711_codec_test"
 "$OUT/sip_g711_codec_test"
+
+g++ "${CXXFLAGS[@]}" "${INC[@]}" \
+  "$ROOT/components/sip_client/g722_encode.c" \
+  "$ROOT/components/sip_client/g722_decode.c" \
+  "$ROOT/tests/native/sip_sdp/test_g722_codec.cpp" \
+  -o "$OUT/sip_g722_codec_test"
+"$OUT/sip_g722_codec_test"

@@ -8,6 +8,7 @@
 #include "esphome/components/audio/audio.h"
 #include "audio_resampler.h"
 #include "g711_codec.h"
+#include "g722_codec.h"
 #include "sdp_builder.h"
 #include "sip_auth.h"
 
@@ -141,13 +142,25 @@ struct ChosenAudio {
   const char *rtpmap{nullptr};
 };
 
-// Prefer PCMU, then PCMA. Encoding follows the rtpmap name, not the wire PT
-// number — so a dynamic PT (e.g. 97=PCMA) selects A-law correctly.
-static ChosenAudio choose_payload_(const SdpInfo &sdp) {
-  if (sdp.pcmu_pt >= 0)
-    return {sdp.pcmu_pt, AudioCodecId::PCMU, "PCMU/8000"};
-  if (sdp.pcma_pt >= 0)
-    return {sdp.pcma_pt, AudioCodecId::PCMA, "PCMA/8000"};
+// Scan configured preference order against the remote SDP's available PTs.
+// Encoding follows the rtpmap name / codec id, not the wire PT number.
+static ChosenAudio choose_payload_(const SdpInfo &sdp, const std::vector<AudioCodecId> &prefs) {
+  for (AudioCodecId id : prefs) {
+    switch (id) {
+      case AudioCodecId::PCMU:
+        if (sdp.pcmu_pt >= 0)
+          return {sdp.pcmu_pt, AudioCodecId::PCMU, "PCMU/8000"};
+        break;
+      case AudioCodecId::PCMA:
+        if (sdp.pcma_pt >= 0)
+          return {sdp.pcma_pt, AudioCodecId::PCMA, "PCMA/8000"};
+        break;
+      case AudioCodecId::G722:
+        if (sdp.g722_pt >= 0)
+          return {sdp.g722_pt, AudioCodecId::G722, "G722/8000"};
+        break;
+    }
+  }
   return {};
 }
 
@@ -282,7 +295,14 @@ void SipClient::apply_chosen_codec_(int pt, AudioCodecId id) {
     return;
   }
   this->chosen_pt_ = pt;
-  this->active_codec_ = make_g711_codec((uint8_t) pt, id);
+  switch (id) {
+    case AudioCodecId::G722:
+      this->active_codec_ = make_g722_codec((uint8_t) pt);
+      break;
+    default:
+      this->active_codec_ = make_g711_codec((uint8_t) pt, id);
+      break;
+  }
   this->chosen_rtpmap_ = this->active_codec_->desc().rtpmap;
 }
 
@@ -299,6 +319,7 @@ std::string SipClient::local_sdp_(bool answer) {
     p.dtmf_pt = this->remote_dtmf_pt_;
   } else {
     p.dtmf_pt = 101;
+    p.offer_codecs = this->configured_codecs_;
   }
   return build_sdp_body(p);
 }
@@ -416,7 +437,7 @@ void SipClient::handle_invite_response_(const SipMessage &m, const std::string &
     SdpInfo sdp = parse_sdp(m.body);
     this->remote_rtp_ip_ = sdp.connection_ip.empty() ? this->remote_rtp_ip_ : sdp.connection_ip;
     this->remote_rtp_port_ = sdp.audio_port;
-    ChosenAudio chosen = choose_payload_(sdp);
+    ChosenAudio chosen = choose_payload_(sdp, this->configured_codecs_);
     this->remote_dtmf_pt_ = sdp.telephone_event_pt;
     if (chosen.pt < 0) {
       // Intentional: empty / non-G.711 answer SDP used to fall back to PT 0 and
@@ -499,7 +520,7 @@ void SipClient::handle_request_(const SipMessage &m, const std::string &raw) {
     // Negotiate codec before touching dialog state so a 488 does not leave
     // stale Call-ID / RTP endpoint fields for the next call.
     SdpInfo sdp = parse_sdp(m.body);
-    ChosenAudio chosen = choose_payload_(sdp);
+    ChosenAudio chosen = choose_payload_(sdp, this->configured_codecs_);
     if (chosen.pt < 0) {
       // To-tag for the 488 only. Leave it set — clearing would make a later
       // OPTIONS 200 OK emit a malformed empty ";tag=" via build_response_.
@@ -673,7 +694,8 @@ void SipClient::start_media_() {
       size_t play_n = n;
       std::vector<int16_t> upsampled;
 
-      if (this->speaker_rate_ >= 16000) {
+      const uint32_t codec_rate = this->active_codec_->desc().pcm_rate;
+      if (this->speaker_rate_ > codec_rate && this->speaker_rate_ == codec_rate * 2) {
         resampler::upsample_1to2(pcm, n, upsampled);
         play_pcm = upsampled.data();
         play_n = upsampled.size();
@@ -747,8 +769,10 @@ void SipClient::stop_media_() {
 void SipClient::start_speaker_() {
 #ifdef USE_SPEAKER
   if (this->speaker_ == nullptr) return;
-  this->speaker_rate_ = 8000;
-  this->speaker_->set_audio_stream_info(audio::AudioStreamInfo(16, this->output_channels_(), 8000));
+  const uint32_t rate =
+      this->active_codec_ != nullptr ? this->active_codec_->desc().pcm_rate : 8000;
+  this->speaker_rate_ = rate;
+  this->speaker_->set_audio_stream_info(audio::AudioStreamInfo(16, this->output_channels_(), rate));
   this->speaker_->start();
 #endif
 }
@@ -831,13 +855,25 @@ void SipClient::on_mic_data_(const std::vector<uint8_t> &data) {
     n = mono.size();
   }
 
-  if (this->mic_rate_ >= 16000) {
-    std::vector<int16_t> down;
-    resampler::downsample_2to1(samples, n, down);
-    this->rtp_.push_tx_audio(down.data(), down.size());
-  } else {
+  const uint32_t codec_rate = this->active_codec_->desc().pcm_rate;
+  std::vector<int16_t> resampled;
+
+  if (this->mic_rate_ == codec_rate) {
     this->rtp_.push_tx_audio(samples, n);
+    return;
   }
+  if (this->mic_rate_ == codec_rate * 2) {
+    resampler::downsample_2to1(samples, n, resampled);
+    this->rtp_.push_tx_audio(resampled.data(), resampled.size());
+    return;
+  }
+  if (this->mic_rate_ * 2 == codec_rate) {
+    resampler::upsample_1to2(samples, n, resampled);
+    this->rtp_.push_tx_audio(resampled.data(), resampled.size());
+    return;
+  }
+  ESP_LOGW(TAG, "Mic rate %u Hz incompatible with codec %u Hz; dropping frame",
+           static_cast<unsigned>(this->mic_rate_), static_cast<unsigned>(codec_rate));
 }
 #endif
 
