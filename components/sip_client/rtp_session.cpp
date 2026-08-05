@@ -12,6 +12,11 @@ static const char *const TAG = "sip_client.rtp";
 
 static const uint32_t FRAME_MS = 20;
 static const int DTMF_END_PACKETS = 3;
+// How long the sender waits for real audio before it starts filling the stream
+// with silence. Long enough to ride out a microphone buffer boundary (so live
+// speech is never chopped up), short enough that a session with nothing to send
+// starts transmitting almost immediately.
+static const uint32_t SILENCE_GRACE_MS = 60;
 
 // Bind-any sockaddr for the given family. Unlike socket::set_sockaddr_any(),
 // this doesn't depend on ESPHome's global network::enable_ipv6 setting — the
@@ -92,6 +97,10 @@ bool RtpSession::start(uint16_t local_port) {
   this->dtmf_queue_.clear();
   this->dtmf_active_ = false;
   this->last_tx_ms_ = millis();
+  // Treat the session start as "just sent audio" so the grace period applies
+  // from here; a session with no microphone starts emitting silence right after.
+  this->last_audio_tx_ms_ = this->last_tx_ms_;
+  this->silence_pcm_.assign(this->pcm_samples_per_frame_(), 0);
   this->recv_buf_.resize(1500);
   ESP_LOGI(TAG, "RTP started on port %u (pt=%u %s, dtmf_pt=%d)", local_port,
            this->codec_->desc().pt, this->codec_->desc().rtpmap, this->dtmf_pt_);
@@ -188,6 +197,32 @@ void RtpSession::send_audio_packet_() {
       last_encode_mismatch_ms = now;
     }
   }
+  if (written > MAX_AUDIO_PAYLOAD_BYTES) written = MAX_AUDIO_PAYLOAD_BYTES;
+  this->socket_->sendto(packet, 12 + written, 0,
+                        reinterpret_cast<struct sockaddr *>(&this->remote_addr_),
+                        this->remote_addr_len_);
+  this->seq_++;
+  this->timestamp_ += ts_step;
+  this->first_packet_ = false;
+  this->last_audio_tx_ms_ = millis();
+}
+
+// Sends one frame of digital silence, keeping the RTP stream running when there
+// is nothing to transmit. The zero PCM is pushed through the codec rather than
+// writing a constant payload byte: G.722 is stateful ADPCM, so its encoder has
+// to see the samples to stay in step with the far end's decoder (for G.711 this
+// simply yields the usual 0xFF / 0xD5 silence).
+void RtpSession::send_silence_packet_() {
+  if (this->codec_ == nullptr) return;
+  const uint16_t pcm_n = this->pcm_samples_per_frame_();
+  const uint16_t pay_n = this->payload_bytes_();
+  const uint16_t ts_step = this->ts_per_frame_();
+  if (pay_n > MAX_AUDIO_PAYLOAD_BYTES || this->silence_pcm_.size() < pcm_n) return;
+
+  uint8_t packet[12 + MAX_AUDIO_PAYLOAD_BYTES];
+  this->build_rtp_header_(packet, this->first_packet_, this->codec_->desc().pt, this->timestamp_);
+  size_t written = this->codec_->encode(this->silence_pcm_.data(), pcm_n, packet + 12);
+  if (written == 0) return;
   if (written > MAX_AUDIO_PAYLOAD_BYTES) written = MAX_AUDIO_PAYLOAD_BYTES;
   this->socket_->sendto(packet, 12 + written, 0,
                         reinterpret_cast<struct sockaddr *>(&this->remote_addr_),
@@ -321,11 +356,24 @@ void RtpSession::loop() {
       }
       if (has_enough_samples) {
         this->send_audio_packet_();
-        this->last_tx_ms_ += FRAME_MS;
-        packets_sent++;
-      } else {
+      } else if (now - this->last_audio_tx_ms_ < SILENCE_GRACE_MS) {
+        // The buffer only just ran dry — most likely a microphone chunk
+        // boundary mid-speech. Wait for the real samples rather than splicing
+        // silence into live audio.
         break;
+      } else {
+        // Nothing to send for a while: no microphone configured, or half-duplex
+        // while listening. Keep the RTP stream running anyway, which is what a
+        // real SIP phone does and what opens the return path. The outbound
+        // packets hold the NAT/firewall mapping for our RTP port open, and
+        // PBXes that latch onto the source address (Asterisk's rtp_symmetric,
+        // on by default for NAT'd endpoints) only learn where to send audio
+        // once they have seen a packet from us. Without this the peer's audio
+        // never arrives at all.
+        this->send_silence_packet_();
       }
+      this->last_tx_ms_ += FRAME_MS;
+      packets_sent++;
     }
   }
 }

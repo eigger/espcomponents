@@ -37,3 +37,10 @@ g++ "${CXXFLAGS[@]}" "${INC[@]}" \
   "$ROOT/tests/native/sip_sdp/test_g722_codec.cpp" \
   -o "$OUT/sip_g722_codec_test"
 "$OUT/sip_g722_codec_test"
+
+# Silence frames across every codec (what RtpSession sends to keep the stream up).
+g++ "${CXXFLAGS[@]}" "${INC[@]}" \
+  "$OUT/g722_encode.o" "$OUT/g722_decode.o" \
+  "$ROOT/tests/native/sip_sdp/test_codec_silence.cpp" \
+  -o "$OUT/sip_codec_silence_test"
+"$OUT/sip_codec_silence_test"

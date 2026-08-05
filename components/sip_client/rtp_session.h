@@ -38,6 +38,7 @@ class RtpSession {
 
  protected:
   void send_audio_packet_();
+  void send_silence_packet_();
   void send_dtmf_packet_();
   void receive_();
   void build_rtp_header_(uint8_t *buf, bool marker, uint8_t pt, uint32_t timestamp);
@@ -67,6 +68,8 @@ class RtpSession {
   std::vector<int16_t> tx_buffer_;
   std::mutex tx_mutex_;
   uint32_t last_tx_ms_{0};
+  uint32_t last_audio_tx_ms_{0};   // last real (non-silence) frame sent
+  std::vector<int16_t> silence_pcm_;  // one frame of zeroed PCM, sized on start()
 
   // DTMF state
   std::string dtmf_queue_;
