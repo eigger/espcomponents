@@ -80,13 +80,15 @@ CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(SipClient),
-            cv.Optional(
-                CONF_MICROPHONE, default={}
-            ): microphone.microphone_source_schema(
+            # No default: the microphone is genuinely optional here (receive-only
+            # devices omit it). A `default={}` would run the source schema even
+            # when the key is absent, and its GenerateID would then fail to find
+            # a microphone to bind to.
+            cv.Optional(CONF_MICROPHONE): microphone.microphone_source_schema(
                 min_bits_per_sample=16,
-                max_bits_per_sample=32,
+                max_bits_per_sample=16,
                 min_channels=1,
-                max_channels=2,
+                max_channels=1,
             ),
             cv.Optional(CONF_SPEAKER): cv.use_id(speaker.Speaker),
             cv.Required(CONF_SERVER): cv.string,

@@ -45,9 +45,7 @@ speaker:
 
 sip_client:
   id: my_sip
-  microphone:               # omit for receive-only (speaker / announcements)
-    microphone: mic_id
-    gain_factor: 4
+  microphone: mic_id        # omit for receive-only (speaker / announcements)
   speaker: spk_id           # omit for send-only (mic / uplink)
   server: 192.168.0.10      # PBX address (IP recommended)
   port: 5060                # (default 5060)
@@ -97,7 +95,7 @@ sip_client:
 
 | Option | Required | Default | Description |
 |--------|:--------:|---------|-------------|
-| `microphone` | | - | The microphone settings to use for input. Omit for receive-only devices. |
+| `microphone` | | - | Microphone to capture from. Either an ID (`microphone: mic_id`) or a [microphone source](#microphone-source) block for per-channel/gain control. Omit for receive-only devices. |
 | `speaker` | | - | ID of the speaker component to use. Omit for send-only devices. |
 | `server` | ✓ | - | PBX address (IP recommended) |
 | `port` | | 5060 | SIP server port |
@@ -110,6 +108,26 @@ sip_client:
 | `channel` | | `stereo` | How call audio is pushed to the `speaker`. `stereo` (default) duplicates the mono call audio to L/R for stereo chains (e.g. a `mixer`/`resampler` feeding a stereo DAC like the Voice PE's AIC3204). Use `mono` for a single-channel codec such as the **es8311** (whose i2s speaker is set `channel: mono` and expects 1-channel input). Must match the channel count the assigned speaker expects. To route mono audio to one physical side, leave this `mono` and use the **speaker's** own `channel: left`/`right`. |
 | `half_duplex` | | `false` | Push-to-talk mode for boards that cannot capture and play at the same time (mic and speaker on a single shared I2S bus, e.g. M5Stack Atom Echo). When `true`, the mic and speaker are never active together: the call starts in **listen** (speaker) mode and you switch to **talk** (mic) with the `start_talking` / `stop_talking` actions. Requires both `microphone` and `speaker`. Leave `false` for full-duplex boards with separate input/output I2S buses (e.g. Voice PE). |
 | `codecs` | | `[pcmu, pcma]` | Ordered list of audio codecs to offer and prefer during negotiation. Allowed values: `pcmu`, `pcma`, `g722`. The first codec in the list that the remote party also supports is chosen. G.722 is **opt-in** — omit it from the list (or leave the default) to stay G.711-only. Example for wideband: `codecs: [g722, pcmu, pcma]`. |
+
+### Microphone source
+
+`microphone:` accepts either a plain ID or ESPHome's
+[microphone source](https://esphome.io/components/microphone/) block, which adds
+channel selection and gain on top of the microphone component:
+
+```yaml
+sip_client:
+  microphone:
+    microphone: mic_id
+    channels: 1       # which channel of the mic to capture (default 0)
+    gain_factor: 4    # digital gain, 1-64 (default 1)
+  # ...
+```
+
+Useful for stereo microphone hardware where only one channel carries the voice
+(the Voice PE's dual mics, for example), or for a quiet mic that needs a boost
+before it reaches the codec. Call audio is mono, so exactly one channel is
+captured; `bits_per_sample` is fixed at 16.
 
 ## Actions (Automation)
 
