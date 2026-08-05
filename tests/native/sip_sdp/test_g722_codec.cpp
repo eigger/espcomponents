@@ -45,26 +45,34 @@ void test_desc_framing_constants() {
 
 void test_roundtrip_snr() {
   G722Codec codec(9);
-  const size_t n = 320;
+  // Several frames: encode+decode QMF has ~22 samples of group delay. An
+  // unaligned 20 ms 1 kHz tone scores ~-5 dB even when the codec is correct.
+  const size_t n = 320 * 4;
   std::vector<int16_t> pcm(n);
   for (size_t i = 0; i < n; i++) {
-    // ~1 kHz tone at moderate amplitude.
     pcm[i] = (int16_t) (8000.0 * std::sin(2.0 * 3.141592653589793 * 1000.0 * i / 16000.0));
   }
-  std::vector<uint8_t> encoded(160);
+  std::vector<uint8_t> encoded(n / 2);
   std::vector<int16_t> decoded(n);
-  require_eq((int) codec.encode(pcm.data(), n, encoded.data()), 160, "g722 encode size");
-  require_eq((int) codec.decode(encoded.data(), 160, decoded.data()), (int) n, "g722 decode size");
+  require_eq((int) codec.encode(pcm.data(), n, encoded.data()), (int) (n / 2), "g722 encode size");
+  require_eq((int) codec.decode(encoded.data(), n / 2, decoded.data()), (int) n, "g722 decode size");
 
-  double err = 0, signal = 0;
-  for (size_t i = 0; i < n; i++) {
-    double e = (double) pcm[i] - (double) decoded[i];
-    err += e * e;
-    signal += (double) pcm[i] * (double) pcm[i];
+  constexpr size_t k_skip = 160;  // ignore QMF startup transient
+  constexpr size_t k_max_delay = 40;
+  double best_snr = -1e9;
+  for (size_t delay = 0; delay <= k_max_delay; delay++) {
+    double err = 0, signal = 0;
+    for (size_t i = k_skip; i + delay < n; i++) {
+      double ref = (double) pcm[i];
+      double e = ref - (double) decoded[i + delay];
+      err += e * e;
+      signal += ref * ref;
+    }
+    double snr = 10.0 * std::log10(signal / (err + 1e-12));
+    if (snr > best_snr) best_snr = snr;
   }
-  double snr = 10.0 * std::log10(signal / (err + 1e-12));
-  if (snr < 20.0) {
-    std::cerr << "FAIL: G722 SNR too low: " << snr << " dB\n";
+  if (best_snr < 20.0) {
+    std::cerr << "FAIL: G722 SNR too low: " << best_snr << " dB\n";
     g_failures++;
   }
 }
