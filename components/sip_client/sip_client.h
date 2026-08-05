@@ -7,7 +7,7 @@
 #include "esphome/core/automation.h"
 #include "esphome/components/socket/socket.h"
 #ifdef USE_MICROPHONE
-#include "esphome/components/microphone/microphone.h"
+#include "esphome/components/microphone/microphone_source.h"
 #endif
 #ifdef USE_SPEAKER
 #include "esphome/components/speaker/speaker.h"
@@ -38,7 +38,7 @@ enum SipState {
 class SipClient : public Component {
  public:
 #ifdef USE_MICROPHONE
-  void set_microphone(microphone::Microphone *mic) { this->mic_ = mic; }
+  void set_microphone_source(microphone::MicrophoneSource *mic_source) { this->mic_source_ = mic_source; }
 #endif
 #ifdef USE_SPEAKER
   void set_speaker(speaker::Speaker *spk) { this->speaker_ = spk; }
@@ -126,7 +126,7 @@ class SipClient : public Component {
   // did not take a reference (send-only / receive-only).
   const char *media_direction_() const {
 #if defined(USE_MICROPHONE) && defined(USE_SPEAKER)
-    if (this->mic_ == nullptr)
+    if (this->mic_source_ == nullptr)
       return "recvonly";
     if (this->speaker_ == nullptr)
       return "sendonly";
@@ -145,7 +145,7 @@ class SipClient : public Component {
 
   // config
 #ifdef USE_MICROPHONE
-  microphone::Microphone *mic_{nullptr};
+  microphone::MicrophoneSource *mic_source_{nullptr};
 #endif
 #ifdef USE_SPEAKER
   speaker::Speaker *speaker_{nullptr};

@@ -80,7 +80,14 @@ CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(SipClient),
-            cv.Optional(CONF_MICROPHONE): cv.use_id(microphone.Microphone),
+            cv.Optional(
+                CONF_MICROPHONE, default={}
+            ): microphone.microphone_source_schema(
+                min_bits_per_sample=16,
+                max_bits_per_sample=32,
+                min_channels=1,
+                max_channels=2,
+            ),
             cv.Optional(CONF_SPEAKER): cv.use_id(speaker.Speaker),
             cv.Required(CONF_SERVER): cv.string,
             cv.Optional(CONF_PORT, default=5060): cv.port,
@@ -123,8 +130,8 @@ async def to_code(config):
     await cg.register_component(var, config)
 
     if CONF_MICROPHONE in config:
-        mic = await cg.get_variable(config[CONF_MICROPHONE])
-        cg.add(var.set_microphone(mic))
+        mic_source = await microphone.microphone_source_to_code(config[CONF_MICROPHONE])
+        cg.add(var.set_microphone_source(mic_source))
     if CONF_SPEAKER in config:
         spk = await cg.get_variable(config[CONF_SPEAKER])
         cg.add(var.set_speaker(spk))

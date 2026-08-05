@@ -45,8 +45,10 @@ speaker:
 
 sip_client:
   id: my_sip
-  microphone: mic_id   # omit for receive-only (speaker / announcements)
-  speaker: spk_id      # omit for send-only (mic / uplink)
+  microphone:               # omit for receive-only (speaker / announcements)
+    microphone: mic_id
+    gain_factor: 4
+  speaker: spk_id           # omit for send-only (mic / uplink)
   server: 192.168.0.10      # PBX address (IP recommended)
   port: 5060                # (default 5060)
   username: "1001"
@@ -95,7 +97,7 @@ sip_client:
 
 | Option | Required | Default | Description |
 |--------|:--------:|---------|-------------|
-| `microphone` | | - | ID of the microphone component to use. Omit for receive-only devices. |
+| `microphone` | | - | The microphone settings to use for input. Omit for receive-only devices. |
 | `speaker` | | - | ID of the speaker component to use. Omit for send-only devices. |
 | `server` | ✓ | - | PBX address (IP recommended) |
 | `port` | | 5060 | SIP server port |
