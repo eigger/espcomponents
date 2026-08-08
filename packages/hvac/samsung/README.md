@@ -84,7 +84,9 @@ packages:
 
 ### 6) 미세먼지 및 요구 용량 센서
 * PM10, PM2.5, PM1.0 미세먼지 수치 (`µg/m³`)
-* 실내기 요구 용량 부하 (`%`)
+* `indoor_capacity_request` (`0x4211`): 요청 냉방용량 **kW** (`raw / 8.6`)
+* `indoor_capacity_absolute` (`0x4212`): 설계 냉방용량 **kW** (`raw / 8.6`)
+* `indoor_capacity_percent`: 설계 대비 요청 비율 (`request / absolute × 100`)
 
 ### 7) 실내기 추정 전력/에너지
 * `estimated_power`: 실외기 순시 전력을 capacity/thermo 비율로 분배 (`Σ 실내기 = 실외기`)

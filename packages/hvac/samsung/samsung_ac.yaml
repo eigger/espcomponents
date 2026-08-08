@@ -156,6 +156,12 @@ samsung_ac:
       indoor_capacity_request:
         name: "Living AC Capacity Request"
         device_id: device_livingroom
+      indoor_capacity_absolute:
+        name: "Living AC Capacity Absolute"
+        device_id: device_livingroom
+      indoor_capacity_percent:
+        name: "Living AC Capacity Percent"
+        device_id: device_livingroom
 
       # 진단 센서 (모델정보, 써모/제상/사일런트 상태)
       model_information:
@@ -265,6 +271,12 @@ samsung_ac:
       indoor_capacity_request:
         name: "Master AC Capacity Request"
         device_id: device_bedroom
+      indoor_capacity_absolute:
+        name: "Master AC Capacity Absolute"
+        device_id: device_bedroom
+      indoor_capacity_percent:
+        name: "Master AC Capacity Percent"
+        device_id: device_bedroom
 
       # 진단 센서 (모델정보, 써모/제상/사일런트 상태)
       model_information:
@@ -372,6 +384,12 @@ samsung_ac:
         device_id: device_room_1
       indoor_capacity_request:
         name: "Room 1 AC Capacity Request"
+        device_id: device_room_1
+      indoor_capacity_absolute:
+        name: "Room 1 AC Capacity Absolute"
+        device_id: device_room_1
+      indoor_capacity_percent:
+        name: "Room 1 AC Capacity Percent"
         device_id: device_room_1
 
       # 진단 센서 (모델정보, 써모/제상/사일런트 상태)
@@ -481,6 +499,12 @@ samsung_ac:
       indoor_capacity_request:
         name: "Room 2 AC Capacity Request"
         device_id: device_room_2
+      indoor_capacity_absolute:
+        name: "Room 2 AC Capacity Absolute"
+        device_id: device_room_2
+      indoor_capacity_percent:
+        name: "Room 2 AC Capacity Percent"
+        device_id: device_room_2
 
       # 진단 센서 (모델정보, 써모/제상/사일런트 상태)
       model_information:
@@ -588,6 +612,12 @@ samsung_ac:
         device_id: device_livingroom_2
       indoor_capacity_request:
         name: "Living 2 AC Capacity Request"
+        device_id: device_livingroom_2
+      indoor_capacity_absolute:
+        name: "Living 2 AC Capacity Absolute"
+        device_id: device_livingroom_2
+      indoor_capacity_percent:
+        name: "Living 2 AC Capacity Percent"
         device_id: device_livingroom_2
 
       # 진단 센서 (모델정보, 써모/제상/사일런트 상태)
