@@ -173,6 +173,13 @@ samsung_ac:
       cumulative_operation_time:
         name: "Living AC Cumulative Operation Time"
         device_id: device_livingroom
+      # 실외기 전력/에너지 분배 추정 (합 = 실외기 값)
+      estimated_power:
+        name: "Living AC Estimated Power"
+        device_id: device_livingroom
+      estimated_energy:
+        name: "Living AC Estimated Energy"
+        device_id: device_livingroom
 
     # 2. 안방 (Master)
     - address: "20.00.00"
@@ -274,6 +281,12 @@ samsung_ac:
         device_id: device_bedroom
       cumulative_operation_time:
         name: "Master AC Cumulative Operation Time"
+        device_id: device_bedroom
+      estimated_power:
+        name: "Master AC Estimated Power"
+        device_id: device_bedroom
+      estimated_energy:
+        name: "Master AC Estimated Energy"
         device_id: device_bedroom
 
     # 3. 방1 (Room 1)
@@ -377,6 +390,12 @@ samsung_ac:
       cumulative_operation_time:
         name: "Room 1 AC Cumulative Operation Time"
         device_id: device_room_1
+      estimated_power:
+        name: "Room 1 AC Estimated Power"
+        device_id: device_room_1
+      estimated_energy:
+        name: "Room 1 AC Estimated Energy"
+        device_id: device_room_1
 
     # 4. 방2 (Room 2)
     - address: "20.00.02"
@@ -479,6 +498,12 @@ samsung_ac:
       cumulative_operation_time:
         name: "Room 2 AC Cumulative Operation Time"
         device_id: device_room_2
+      estimated_power:
+        name: "Room 2 AC Estimated Power"
+        device_id: device_room_2
+      estimated_energy:
+        name: "Room 2 AC Estimated Energy"
+        device_id: device_room_2
 
     # 5. 거실2 (Living 2)
     - address: "20.00.01"
@@ -580,6 +605,12 @@ samsung_ac:
         device_id: device_livingroom_2
       cumulative_operation_time:
         name: "Living 2 AC Cumulative Operation Time"
+        device_id: device_livingroom_2
+      estimated_power:
+        name: "Living 2 AC Estimated Power"
+        device_id: device_livingroom_2
+      estimated_energy:
+        name: "Living 2 AC Estimated Energy"
         device_id: device_livingroom_2
 
     # 6. 실외기 (Outdoor Unit)
