@@ -288,7 +288,7 @@ void BleElm327Component::process_response(const std::string &response) {
     if (colon_pos != std::string::npos && colon_pos > 0) {
       bool all_digits = true;
       for (size_t i = 0; i < colon_pos; i++) {
-        if (!std::isdigit(static_cast<unsigned char>(line[i]))) {
+        if (!std::isxdigit(static_cast<unsigned char>(line[i]))) {
           all_digits = false;
           break;
         }
