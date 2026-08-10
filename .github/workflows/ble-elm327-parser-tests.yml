@@ -1,0 +1,26 @@
+name: BLE ELM327 Parser Native Tests
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'components/ble_elm327/**'
+      - 'tests/native/ble_elm327_parser/**'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'components/ble_elm327/**'
+      - 'tests/native/ble_elm327_parser/**'
+  workflow_dispatch:
+
+jobs:
+  parser-native-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Build and run parser native tests
+        run: |
+          chmod +x tests/native/ble_elm327_parser/run.sh
+          tests/native/ble_elm327_parser/run.sh
