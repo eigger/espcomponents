@@ -134,24 +134,133 @@ update:
 | `reconnect_timeout` | | `30s` | Cap for the reconnect backoff: while disconnected, we retry starting at 2s and doubling on each failure up to this value (matches the companion hass-ble-android client), rather than waiting on `esp_websocket_client`'s own auto-reconnect indefinitely |
 | `reannounce_interval` | | `60s` | How often to resend `ws_bridge/connect` + all entity/state declarations while nominally connected. Guards against the HA-side integration losing track of this gateway (e.g. its config entry reloaded) while the raw connection and ping/pong stay healthy — that scenario is otherwise invisible, since HA answers pings regardless of our integration's state. If a re-announce goes unanswered, forces a full reconnect rather than repeating the same no-op |
 | `trackers` | | - | List of GPS `device_tracker` entities — see [GPS device trackers](#gps-device-trackers) below |
+| `entities` | | - | Existing ESPHome entities to expose without a parallel `platform: ws_bridge` entity — see [Exposing existing entities](#exposing-existing-entities) |
 
 ### Platform options (all of `sensor`/`binary_sensor`/`text_sensor`/`switch`/`number`/`select`/`button`/`update`)
 
 | Option | Required | Description |
 |--------|:--------:|-------------|
-| `unique_id` | ✓ | Identifier for this entity, unique within the gateway |
+| `unique_id` | ✓ | Identifier for this entity, unique within the gateway. **Changing it creates a new HA entity** (the old one is left behind; `sync_entities: true` then deletes it) |
 | `ws_device_id` | | Groups this entity under a sub-device in HA (e.g. multiple sensors on one physical board) |
 | `ws_device_name` | | Display name for that sub-device |
+| `sensor_id` / `binary_sensor_id` / `text_sensor_id` / `switch_id` / `number_id` / `select_id` / `button_id` | | ID of an existing ESPHome entity to wrap — see [Exposing existing entities](#exposing-existing-entities) |
 | `update_id` | ✓ (`update` only) | ID of the ESPHome `update:` entity to wrap — typically `platform: http_request` |
-| `button_id` | (`button`) | ID of an existing ESPHome `button:` to wrap (e.g. `ota_flash_button` from `ota_server/flash_button.yaml`). HA press forwards to that button |
 | `name` | (`update`) | HA-facing name. If omitted, uses the wrapped entity's name when that entity has its own `name:`; otherwise the `unique_id` |
 
 Plus each platform's normal ESPHome options (`name`, `device_class`, `icon`,
 `entity_category`, `unit_of_measurement`/`state_class` for `sensor`,
-`min_value`/`max_value`/`step` for `number`, `options` for `select`). An
-id-only `http_request` update is `internal` and named after its id — set
-`name:` on the `ws_bridge` wrapper so Home Assistant does not show
-`"ota_update"`.
+`min_value`/`max_value`/`step` for `number`, `options` for `select`). When
+wrapping, those inherit from the source unless also set here —
+`min_value`/`max_value` (and `options` on `select`) are required only when
+*not* wrapping. An id-only `http_request` update is `internal` and named
+after its id — set `name:` on the `ws_bridge` wrapper so Home Assistant does
+not show `"ota_update"`.
+
+## Exposing existing entities
+
+Two ways to put an already-declared ESPHome entity onto Home Assistant.
+Pick **one** per source — using both (`sensor_id:` *and* `entities:`)
+exposes it twice. `dump_config()` warns at boot if that happens, or if two
+devices share a `unique_id`.
+
+### `platform: ws_bridge` wrapping (`sensor_id:` / `switch_id:` / …)
+
+Creates a parallel ws_bridge entity that mirrors (and, for writable
+domains, *drives*) the source. Use this when you want a distinct
+`unique_id`, or to override `name:` / `device_class:` / `icon:` / etc.
+
+```yaml
+sensor:
+  - platform: uptime
+    id: uptime_sensor
+  - platform: ws_bridge
+    unique_id: uptime
+    sensor_id: uptime_sensor
+    # device_class / unit_of_measurement / state_class / accuracy_decimals
+    # inherit from uptime_sensor unless also set here
+    name: "Uptime"                 # ESPHome requires id: or name: (unique_id is not enough)
+
+switch:
+  - platform: gpio
+    pin: GPIO12
+    id: relay
+  - platform: ws_bridge
+    unique_id: relay_ha
+    name: "Relay"
+    switch_id: relay               # HA on/off is applied to `relay`, not this entity
+
+number:
+  - platform: template
+    id: setpoint
+    optimistic: true
+    min_value: 0
+    max_value: 10
+    step: 1
+  - platform: ws_bridge
+    unique_id: setpoint_ha
+    name: "Setpoint"
+    number_id: setpoint            # min_value / max_value / step inherited — omit them
+```
+
+- **Metadata** (`device_class`, `icon`, `entity_category`, sensor unit /
+  state class / accuracy, number range, select options) comes from the
+  source. Anything written on the ws_bridge platform still wins.
+- **Commands** on `switch` / `number` / `select` / `button` / `update` are
+  applied to the wrapped entity, not to the wrapper. On-device automations
+  should keep targeting the source (`switch.turn_on: relay`).
+- ESPHome still requires `id:` or `name:` on the wrapper YAML (`unique_id`
+  alone is not enough).
+- `unique_id` is still required. Changing it (or first adding wrapping
+  under a new id) is a **new HA entity** — history stays on the old
+  `entity_id`.
+- `update:` wrapping (`update_id:`) is required, not optional — that
+  platform has no state of its own. See [Remote OTA updates](#remote-ota-updates-no-vpn-no-mqtt).
+
+### Hub `entities:` list
+
+Exposes the source without a parallel `platform: ws_bridge` entity. The
+domain is taken from `source_id:` (no `platform:` key). Prefer this when
+you just want the entity in HA as-is.
+
+```yaml
+ws_bridge:
+  host: !secret ha_address
+  token: !secret ha_token
+  entities:
+    - source_id: uptime_sensor          # unique_id defaults to "uptime_sensor"
+    - source_id: relay
+      unique_id: relay_ha               # optional override
+      name: "Living Room Relay"         # optional; else the source's own name
+      ws_device_id: board_1
+      ws_device_name: "Sensor Hub"
+```
+
+| Option | Required | Description |
+|--------|:--------:|-------------|
+| `source_id` | ✓ | ESPHome `id:` of an existing sensor / binary_sensor / text_sensor / switch / number / select / button / update |
+| `unique_id` | | HA identifier. **Defaults to the source's YAML `id:`** (stable across `name:` edits, unlike an object_id) |
+| `name` | | HA-facing name. Defaults to the source's own `name:`; an id-only source (no `name:`) falls back to `unique_id` rather than leaking the ESPHome id |
+| `ws_device_id` / `ws_device_name` | | Same as every other platform |
+
+There is no per-field metadata override here — `device_class` and friends
+come entirely from the source. Use platform wrapping if you need to change
+them.
+
+**`id:` changes replace the HA entity.** When `unique_id` is omitted it
+tracks the source's YAML `id:`. Rename `id: uptime_sensor` → `id: uptime`
+and HA sees a brand-new entity; the old one is orphaned. Set `unique_id:`
+explicitly if you want to rename the ESPHome id without churning HA.
+The same applies to any platform entity whose `unique_id` you edit.
+
+### `sync_entities` interaction
+
+Both wrapping and `entities:` register as normal ws_bridge devices, so
+they are included in the `ws_bridge/sync` list when
+`sync_entities: true`. Switching a source from wrapping to `entities:`
+(or the other way) under a *different* `unique_id` will therefore delete
+the old HA entity on the next connect — including its `entity_id` and
+history attachment. Keep the `unique_id` stable across that migration, or
+leave `sync_entities` off and remove the leftover by hand.
 
 ## Remote OTA updates (no VPN, no MQTT)
 
@@ -382,11 +491,11 @@ Entities that *are* still declared are left completely alone — their
 component syncs rather than removing everything and redeclaring.
 
 **When not to enable it.** The list is built from everything declared during
-the connect pass: `platform: ws_bridge` entities, `trackers:`, and lambdas in
-`on_declare:` or `on_connected:`. Anything that declares itself *later* — from
-an `interval:`, a button press, a sensor callback — will be missing from the
-list and get deleted from HA. Leave `sync_entities` off in that case and remove
-those entities by hand instead.
+the connect pass: `platform: ws_bridge` entities (including `*_id:` wrapping),
+`entities:`, `trackers:`, and lambdas in `on_declare:` or `on_connected:`.
+Anything that declares itself *later* — from an `interval:`, a button press, a
+sensor callback — will be missing from the list and get deleted from HA. Leave
+`sync_entities` off in that case and remove those entities by hand instead.
 
 The sync is sent once per connection, not on every `reannounce_interval`. If
 nothing has gone stale, HA does nothing and no entity is touched.
@@ -399,10 +508,12 @@ versions reject the unknown command and log an error; nothing else breaks.
 - **Read-only platforms** (`sensor`, `binary_sensor`, `text_sensor`) push
   their state to Home Assistant automatically whenever it changes.
 - **Controllable platforms** (`switch`, `number`, `select`, `button`, `update`)
-  receive commands from Home Assistant and update their own state
-  optimistically (`publish_state`/`this->state`) — hook `on_turn_on`/`lambda:`/etc.
-  in your own YAML if you need to drive real hardware from the state. `update`
-  forwards `install`/`check` to the wrapped `http_request` update entity.
+  receive commands from Home Assistant. A plain (non-wrapping) entity updates
+  its own state optimistically (`publish_state`/`this->state`) — hook
+  `on_turn_on`/`lambda:`/etc. in your own YAML if you need to drive real
+  hardware from that. A wrapping entity (`switch_id:` / `number_id:` /
+  `select_id:` / `button_id:` / `update_id:`, or an `entities:` entry)
+  forwards the command to the source instead.
 - On every (re)connect, all declared entities and their current state are
   re-sent, per the protocol's reconnection guidance.
 - While connected, an application-level `ping`/`pong` (HA's standard
