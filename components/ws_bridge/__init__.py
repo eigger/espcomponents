@@ -255,17 +255,7 @@ async def register_ws_bridge_device(var, config):
 
 
 async def to_code(config):
-    # Newer ESPHome accepts the IDF component registry form (name="espressif/...");
-    # older builds require an explicit git repo=.
-    try:
-        esp32.add_idf_component(name="espressif/esp_websocket_client", ref=ESP_WEBSOCKET_CLIENT_VERSION)
-    except TypeError:
-        esp32.add_idf_component(
-            name="esp_websocket_client",
-            repo="https://github.com/espressif/esp-protocols.git",
-            path="components/esp_websocket_client",
-            ref=f"websocket-v{ESP_WEBSOCKET_CLIENT_VERSION}",
-        )
+    esp32.add_idf_component(name="espressif/esp_websocket_client", ref=ESP_WEBSOCKET_CLIENT_VERSION)
 
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)

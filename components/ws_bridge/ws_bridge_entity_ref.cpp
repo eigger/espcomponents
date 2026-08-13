@@ -125,7 +125,7 @@ void WsBridgeUpdateRef::ws_bridge_handle_command(const WsCommand &command) {
 #endif
 
 #ifdef USE_LIGHT
-void WsBridgeLightRef::setup() { ws_subscribe_light(this, this->source_); }
+void WsBridgeLightRef::setup() { ws_subscribe_light(this->source_, this); }
 void WsBridgeLightRef::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> light '%s'", this->get_ws_bridge_unique_id().c_str(),
                 this->source_->get_name().str().c_str());
@@ -138,6 +138,7 @@ void WsBridgeLightRef::ws_bridge_declare() {
 void WsBridgeLightRef::ws_bridge_handle_command(const WsCommand &command) {
   ws_handle_command_light(this->source_, command);
 }
+void WsBridgeLightRef::on_light_remote_values_update() { ws_send_state_light(this, *this->source_); }
 #endif
 
 #ifdef USE_COVER

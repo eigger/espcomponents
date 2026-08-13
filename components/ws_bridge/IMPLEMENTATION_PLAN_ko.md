@@ -161,19 +161,10 @@ if (!params.isNull()) {
 
 > **메모리 주의**: `params`는 최대 10개 남짓이지만 `std::vector<WsParam>`은 힙을 쓴다. ESP32에서 명령은 저빈도(사용자 조작)라 문제없다. 다만 **상태 전송 경로에는 절대 같은 패턴을 쓰지 말 것** — 그쪽은 고빈도다.
 
-### 3.2 선언에 `features` 첨부 헬퍼
+### 3.2 선언에 `features` 첨부
 
-`ws_bridge_entity_json.h`에 추가:
-
-```cpp
-// features: ["open","close","stop"] 형태로 첨부. 빈 목록이면 아무것도 안 보낸다
-// (서버가 플랫폼별 기본값을 쓴다).
-inline void add_features(JsonObject root, std::initializer_list<const char *> names) {
-  if (names.size() == 0) return;
-  JsonArray arr = root["features"].to<JsonArray>();
-  for (const char *n : names) arr.add(n);
-}
-```
+플랫폼별로 traits를 읽어 `JsonArray`에 직접 넣는다. C0의 `add_features(initializer_list)`는
+조건부 feature 목록에 맞지 않아 **삭제**했다 — cover/fan/light 모두 런타임 traits 기반이다.
 
 ### 3.3 객체 상태 전송 — 기존 것을 쓴다
 
@@ -195,7 +186,7 @@ this->parent_->send_state_object(this->unique_id_, [this](JsonObject v) {
 ### 3.5 Phase C0 완료 조건
 
 - [x] `WsCommand::params` 파싱 + 조회 헬퍼 5종
-- [x] `add_features()` 헬퍼
+- [x] 선언 `features`는 각 플랫폼이 traits에서 직접 첨부 (공통 `add_features` 헬퍼는 제거)
 - [ ] 기존 플랫폼 **동작 변화 0** — `params`는 추가 필드일 뿐 기존 `value` 경로 불변 (리뷰/실기)
 - [ ] 실제 기기 1대로 기존 엔티티 회귀 확인 (§6)
 

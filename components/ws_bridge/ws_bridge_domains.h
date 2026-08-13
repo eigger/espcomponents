@@ -346,7 +346,8 @@ inline void ws_fill_state_cover(cover::Cover &src, JsonObject value) {
       break;
     case cover::COVER_OPERATION_IDLE:
     default:
-      value["state"] = src.position > 0.5f ? "open" : "closed";
+      // ESPHome treats only position==0 as closed (cover.cpp); anything else is open.
+      value["state"] = src.is_fully_closed() ? "closed" : "open";
       break;
   }
   value["position"] = static_cast<int>(roundf(src.position * 100.0f));
@@ -430,8 +431,8 @@ inline void ws_fill_state_fan(fan::Fan &src, JsonObject value) {
     value["oscillating"] = src.oscillating;
   if (traits.supports_direction())
     value["direction"] = src.direction == fan::FanDirection::REVERSE ? "reverse" : "forward";
-  if (traits.supports_preset_modes() && !src.preset_mode.empty())
-    value["preset_mode"] = src.preset_mode;
+  if (traits.supports_preset_modes() && src.has_preset_mode())
+    value["preset_mode"] = src.get_preset_mode();
 }
 
 inline void ws_send_state_fan(WsBridgeDevice *dev, fan::Fan &src) {
@@ -569,6 +570,10 @@ inline void ws_fill_state_light(light::LightState &src, JsonObject value) {
   if (const char *mode = ws_light_color_mode_to_ha_(v.get_color_mode()))
     value["color_mode"] = mode;
 
+  // ESPHome stores RGB normalized with color_brightness separate — HA wants
+  // scaled 0–255 channels (see homeassistant/components/esphome/light.py).
+  const float color_bri = v.get_color_brightness();
+
   using light::ColorMode;
   switch (v.get_color_mode()) {
     case ColorMode::COLOR_TEMPERATURE:
@@ -576,6 +581,12 @@ inline void ws_fill_state_light(light::LightState &src, JsonObject value) {
       float mireds = v.get_color_temperature();
       if (mireds > 0.0f)
         value["color_temp_kelvin"] = static_cast<int>(roundf(1000000.0f / mireds));
+      if (v.get_color_mode() == ColorMode::RGB_COLOR_TEMPERATURE) {
+        JsonArray rgb = value["rgb_color"].to<JsonArray>();
+        rgb.add(light::to_uint8_scale(v.get_red() * color_bri));
+        rgb.add(light::to_uint8_scale(v.get_green() * color_bri));
+        rgb.add(light::to_uint8_scale(v.get_blue() * color_bri));
+      }
       break;
     }
     case ColorMode::COLD_WARM_WHITE:
@@ -592,9 +603,9 @@ inline void ws_fill_state_light(light::LightState &src, JsonObject value) {
       }
       if (v.get_color_mode() == ColorMode::RGB_COLD_WARM_WHITE) {
         JsonArray rgbww = value["rgbww_color"].to<JsonArray>();
-        rgbww.add(light::to_uint8_scale(v.get_red()));
-        rgbww.add(light::to_uint8_scale(v.get_green()));
-        rgbww.add(light::to_uint8_scale(v.get_blue()));
+        rgbww.add(light::to_uint8_scale(v.get_red() * color_bri));
+        rgbww.add(light::to_uint8_scale(v.get_green() * color_bri));
+        rgbww.add(light::to_uint8_scale(v.get_blue() * color_bri));
         rgbww.add(light::to_uint8_scale(v.get_cold_white()));
         rgbww.add(light::to_uint8_scale(v.get_warm_white()));
       }
@@ -602,16 +613,16 @@ inline void ws_fill_state_light(light::LightState &src, JsonObject value) {
     }
     case ColorMode::RGB: {
       JsonArray rgb = value["rgb_color"].to<JsonArray>();
-      rgb.add(light::to_uint8_scale(v.get_red()));
-      rgb.add(light::to_uint8_scale(v.get_green()));
-      rgb.add(light::to_uint8_scale(v.get_blue()));
+      rgb.add(light::to_uint8_scale(v.get_red() * color_bri));
+      rgb.add(light::to_uint8_scale(v.get_green() * color_bri));
+      rgb.add(light::to_uint8_scale(v.get_blue() * color_bri));
       break;
     }
     case ColorMode::RGB_WHITE: {
       JsonArray rgbw = value["rgbw_color"].to<JsonArray>();
-      rgbw.add(light::to_uint8_scale(v.get_red()));
-      rgbw.add(light::to_uint8_scale(v.get_green()));
-      rgbw.add(light::to_uint8_scale(v.get_blue()));
+      rgbw.add(light::to_uint8_scale(v.get_red() * color_bri));
+      rgbw.add(light::to_uint8_scale(v.get_green() * color_bri));
+      rgbw.add(light::to_uint8_scale(v.get_blue() * color_bri));
       rgbw.add(light::to_uint8_scale(v.get_white()));
       break;
     }
@@ -622,9 +633,9 @@ inline void ws_fill_state_light(light::LightState &src, JsonObject value) {
       break;
   }
 
-  std::string effect = src.get_effect_name();
+  StringRef effect = src.get_effect_name();
   if (!effect.empty() && effect != "None")
-    value["effect"] = effect;
+    value["effect"] = effect;  // ArduinoJson has convertToJson(StringRef)
 }
 
 inline void ws_send_state_light(WsBridgeDevice *dev, light::LightState &src) {
@@ -683,8 +694,23 @@ inline void ws_declare_light(WsBridgeDevice *dev, light::LightState &src, const 
 
 inline void ws_push_state_light(WsBridgeDevice *dev, light::LightState &src) { ws_send_state_light(dev, src); }
 
-inline void ws_subscribe_light(WsBridgeDevice *dev, light::LightState *src) {
-  src->add_new_remote_values_callback([dev, src]() { ws_send_state_light(dev, *src); });
+// LightState no longer accepts std::function callbacks — platforms that want
+// state pushes must implement LightRemoteValuesListener and register `this`.
+inline void ws_subscribe_light(light::LightState *src, light::LightRemoteValuesListener *listener) {
+  src->add_remote_values_listener(listener);
+}
+
+inline void ws_apply_rgb_(light::LightCall &call, float r, float g, float b) {
+  // HA sends absolute 0–1 RGB; ESPHome normalizes channels and keeps the max
+  // in color_brightness (otherwise validate_()/normalize_color() discards it).
+  float color_bri = fmaxf(r, fmaxf(g, b));
+  if (color_bri > 0.0f) {
+    call.set_rgb(r / color_bri, g / color_bri, b / color_bri);
+    call.set_color_brightness(color_bri);
+  } else {
+    call.set_rgb(0.0f, 0.0f, 0.0f);
+    call.set_color_brightness(0.0f);
+  }
 }
 
 inline void ws_hs_to_rgb_(float h, float s_pct, float &r, float &g, float &b) {
@@ -742,20 +768,22 @@ inline void ws_handle_command_light(light::LightState *target, const WsCommand &
   if (command.param_array("hs_color", hs, 2)) {
     float r, g, b;
     ws_hs_to_rgb_(hs[0], hs[1], r, g, b);
-    call.set_rgb(r, g, b);
+    ws_apply_rgb_(call, r, g, b);
   }
 
   std::vector<float> rgb;
   if (command.param_array("rgb_color", rgb, 3))
-    call.set_rgb(rgb[0] / 255.0f, rgb[1] / 255.0f, rgb[2] / 255.0f);
+    ws_apply_rgb_(call, rgb[0] / 255.0f, rgb[1] / 255.0f, rgb[2] / 255.0f);
 
   std::vector<float> rgbw;
-  if (command.param_array("rgbw_color", rgbw, 4))
-    call.set_rgbw(rgbw[0] / 255.0f, rgbw[1] / 255.0f, rgbw[2] / 255.0f, rgbw[3] / 255.0f);
+  if (command.param_array("rgbw_color", rgbw, 4)) {
+    ws_apply_rgb_(call, rgbw[0] / 255.0f, rgbw[1] / 255.0f, rgbw[2] / 255.0f);
+    call.set_white(rgbw[3] / 255.0f);
+  }
 
   std::vector<float> rgbww;
   if (command.param_array("rgbww_color", rgbww, 5)) {
-    call.set_rgb(rgbww[0] / 255.0f, rgbww[1] / 255.0f, rgbww[2] / 255.0f);
+    ws_apply_rgb_(call, rgbww[0] / 255.0f, rgbww[1] / 255.0f, rgbww[2] / 255.0f);
     call.set_cold_white(rgbww[3] / 255.0f);
     call.set_warm_white(rgbww[4] / 255.0f);
   }

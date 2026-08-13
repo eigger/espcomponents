@@ -9,7 +9,11 @@ namespace ws_bridge {
 // Bridges an existing ESPHome LightState to Home Assistant. Wrap-only (like
 // update): YAML `id:` on a light is the LightState, and inheriting LightOutput
 // would create a second LightState via new_light().
-class WsBridgeLight : public Component, public WsBridgeDevice {
+// Implements LightRemoteValuesListener — ESPHome 2026+ replaced the old
+// std::function remote-values callback with this interface.
+class WsBridgeLight : public Component,
+                      public WsBridgeDevice,
+                      public light::LightRemoteValuesListener {
  public:
   void set_light(light::LightState *light) { this->light_ = light; }
   const EntityBase *get_ws_bridge_source() const override { return this->light_; }
@@ -18,6 +22,7 @@ class WsBridgeLight : public Component, public WsBridgeDevice {
   void dump_config() override;
   void ws_bridge_declare() override;
   void ws_bridge_handle_command(const WsCommand &command) override;
+  void on_light_remote_values_update() override;
 
  protected:
   std::string ha_name_() const;

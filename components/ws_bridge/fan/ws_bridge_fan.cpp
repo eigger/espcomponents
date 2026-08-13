@@ -30,8 +30,8 @@ void WsBridgeFan::control(const fan::FanCall &call) {
     this->oscillating = *call.get_oscillating();
   if (call.get_direction().has_value())
     this->direction = *call.get_direction();
-  if (!call.get_preset_mode().empty())
-    this->preset_mode = call.get_preset_mode();
+  if (call.has_preset_mode())
+    this->set_preset_mode_(call.get_preset_mode());
   this->publish_state();
 }
 

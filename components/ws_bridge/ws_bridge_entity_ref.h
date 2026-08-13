@@ -180,7 +180,7 @@ class WsBridgeUpdateRef : public WsBridgeEntityRefBase {
 #endif
 
 #ifdef USE_LIGHT
-class WsBridgeLightRef : public WsBridgeEntityRefBase {
+class WsBridgeLightRef : public WsBridgeEntityRefBase, public light::LightRemoteValuesListener {
  public:
   void set_source(light::LightState *source) { this->source_ = source; }
   const EntityBase *get_ws_bridge_source() const override { return this->source_; }
@@ -188,6 +188,7 @@ class WsBridgeLightRef : public WsBridgeEntityRefBase {
   void dump_config() override;
   void ws_bridge_declare() override;
   void ws_bridge_handle_command(const WsCommand &command) override;
+  void on_light_remote_values_update() override;
 
  protected:
   light::LightState *source_{nullptr};
