@@ -10,10 +10,11 @@ Assistant securely from outside your LAN (e.g. Nabu Casa remote UI, or your
 own reverse proxy with a valid certificate), it can also remove the need for
 a VPN just to get a remote device's data into Home Assistant.
 
-> Requires the `ws_bridge` custom component installed on the Home Assistant
+> Requires the `ws_bridge` custom component **1.2.0+** on the Home Assistant
 > side: https://github.com/eigger/hass-ws-bridge (see its
 > [PROTOCOL.md](https://github.com/eigger/hass-ws-bridge/blob/main/docs/PROTOCOL.md)
-> for the full wire protocol).
+> for the full wire protocol). The `update` platform needs **ESPHome 2025.7+**
+> (`UpdateEntity::update_info` / `state` as public refs).
 
 ## Installation
 
@@ -111,6 +112,7 @@ update:
     source: https://your-firmware-host/manifest.json
   - platform: ws_bridge
     unique_id: firmware
+    name: "Firmware"
     update_id: ota_update
 ```
 
@@ -139,12 +141,14 @@ update:
 | `ws_device_id` | | Groups this entity under a sub-device in HA (e.g. multiple sensors on one physical board) |
 | `ws_device_name` | | Display name for that sub-device |
 | `update_id` | ✓ (`update` only) | ID of the ESPHome `update:` entity to wrap — typically `platform: http_request` |
+| `name` | (`update`) | HA-facing name. If omitted, uses the wrapped entity's name when that entity has its own `name:`; otherwise the `unique_id` |
 
 Plus each platform's normal ESPHome options (`name`, `device_class`, `icon`,
 `entity_category`, `unit_of_measurement`/`state_class` for `sensor`,
-`min_value`/`max_value`/`step` for `number`, `options` for `select`). The
-`update` platform takes its name/icon/`entity_category` from the wrapped
-`http_request` update entity.
+`min_value`/`max_value`/`step` for `number`, `options` for `select`). An
+id-only `http_request` update is `internal` and named after its id — set
+`name:` on the `ws_bridge` wrapper so Home Assistant does not show
+`"ota_update"`.
 
 ## Remote OTA updates (no VPN, no MQTT)
 
@@ -156,8 +160,8 @@ plain outbound HTTPS request, so no inbound port, VPN, or MQTT broker is
 needed. `update: platform: ws_bridge` then exposes that on-device updater to
 Home Assistant as a real `update` entity (Install button, current vs.
 available version), which native `http_request` update cannot do on its own
-when the device is not using ESPHome's native API. This requires a
-`hass-ws-bridge` version that includes the `update` platform.
+when the device is not using ESPHome's native API. This requires
+`hass-ws-bridge` **1.2.0+** (the `update` platform) and **ESPHome 2025.7+**.
 
 The [ESPHome OTA Publisher](https://github.com/eigger/hassio-apps/tree/master/esphome_ota)
 add-on is the intended firmware host: it publishes `firmware.ota.bin` + a
@@ -179,6 +183,7 @@ esphome:
 update:
   - platform: ws_bridge
     unique_id: firmware
+    name: "Firmware"
     update_id: ota_update         # id from ota_server/update.yaml
 
 # Auto-rolls back to the previous firmware if the new one fails to come up
@@ -203,6 +208,7 @@ update:
     update_interval: 6h   # periodically checks for a new version (default 6h)
   - platform: ws_bridge
     unique_id: firmware
+    name: "Firmware"
     update_id: ota_update
 
 safe_mode:

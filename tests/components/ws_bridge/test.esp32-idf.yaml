@@ -106,6 +106,7 @@ update:
     source: https://example.com/manifest.json
   - platform: ws_bridge
     unique_id: firmware
+    name: "Firmware"
     update_id: my_update
 
 safe_mode:

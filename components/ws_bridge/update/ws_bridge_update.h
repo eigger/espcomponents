@@ -13,6 +13,7 @@ namespace ws_bridge {
 class WsBridgeUpdate : public Component, public WsBridgeDevice {
  public:
   void set_update(update::UpdateEntity *update) { this->update_ = update; }
+  void set_name(const std::string &name) { this->name_ = name; }
   void setup() override;
   void dump_config() override;
   void ws_bridge_declare() override;
@@ -21,8 +22,10 @@ class WsBridgeUpdate : public Component, public WsBridgeDevice {
  protected:
   void send_state_();
   void fill_state_(JsonObject value);
+  std::string ha_name_() const;
 
   update::UpdateEntity *update_{nullptr};
+  std::string name_;
 };
 
 }  // namespace ws_bridge

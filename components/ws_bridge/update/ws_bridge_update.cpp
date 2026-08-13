@@ -1,5 +1,4 @@
 #include "ws_bridge_update.h"
-#include <array>
 #include "esphome/core/log.h"
 #include "../ws_bridge.h"
 #include "../ws_bridge_entity_json.h"
@@ -13,9 +12,20 @@ void WsBridgeUpdate::setup() {
   this->update_->add_on_state_callback([this]() { this->send_state_(); });
 }
 
+std::string WsBridgeUpdate::ha_name_() const {
+  if (!this->name_.empty())
+    return this->name_;
+  // http_request update with only `id:` gets name=id and internal: true —
+  // that id (e.g. "ota_update") must not become the HA entity name.
+  if (this->update_->has_own_name())
+    return this->update_->get_name().str();
+  return this->unique_id_;
+}
+
 void WsBridgeUpdate::dump_config() {
-  ESP_LOGCONFIG(TAG, "WS Bridge Update");
+  ESP_LOGCONFIG(TAG, "WS Bridge Update '%s'", this->ha_name_().c_str());
   ESP_LOGCONFIG(TAG, "  Unique ID: %s", this->unique_id_.c_str());
+  ESP_LOGCONFIG(TAG, "  Wrapped: '%s'", this->update_->get_name().str().c_str());
 }
 
 void WsBridgeUpdate::ws_bridge_handle_command(const WsCommand &command) {
@@ -49,12 +59,10 @@ void WsBridgeUpdate::send_state_() {
 
 void WsBridgeUpdate::ws_bridge_declare() {
   this->parent_->send_entity_declare(
-      this->unique_id_, "update", this->update_->get_name().str(), this->device_id_, this->device_name_,
+      this->unique_id_, "update", this->ha_name_(), this->device_id_, this->device_name_,
       [this](JsonObject root) {
         add_common_entity_fields(root, *this->update_);
-        std::array<char, MAX_DEVICE_CLASS_LENGTH> dc_buf;
-        const char *dc = this->update_->get_device_class_to(dc_buf);
-        if (dc == nullptr || dc[0] == '\0')
+        if (root["device_class"].isNull())
           root["device_class"] = "firmware";
       });
   if (this->update_->has_state())
