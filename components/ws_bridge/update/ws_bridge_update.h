@@ -1,5 +1,4 @@
 #pragma once
-#include "esphome/components/json/json_util.h"
 #include "esphome/components/update/update_entity.h"
 #include "esphome/core/component.h"
 #include "../ws_bridge_device.h"
@@ -13,6 +12,7 @@ namespace ws_bridge {
 class WsBridgeUpdate : public Component, public WsBridgeDevice {
  public:
   void set_update(update::UpdateEntity *update) { this->update_ = update; }
+  const EntityBase *get_ws_bridge_source() const override { return this->update_; }
   void set_name(const std::string &name) { this->name_ = name; }
   void setup() override;
   void dump_config() override;
@@ -20,8 +20,6 @@ class WsBridgeUpdate : public Component, public WsBridgeDevice {
   void ws_bridge_handle_command(const WsCommand &command) override;
 
  protected:
-  void send_state_();
-  void fill_state_(JsonObject value);
   std::string ha_name_() const;
 
   update::UpdateEntity *update_{nullptr};

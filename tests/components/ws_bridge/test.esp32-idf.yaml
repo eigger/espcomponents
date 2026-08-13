@@ -42,6 +42,28 @@ ws_bridge:
       longitude: !lambda return 126.9780;
       gps_accuracy: 8
       update_interval: 30s
+  # Exposes existing, locally-declared entities (below) without a parallel
+  # `platform: ws_bridge` entity per value — see the README's "Exposing
+  # existing entities" section. unique_id/name default to the source's own
+  # id/name when omitted (uptime_sensor and my_update below have neither set
+  # here, so both fall back at runtime).
+  #
+  # Several of these sources are *also* wrapped via `*_id:` below. That is
+  # intentional dual-path compile coverage (wrapping + entities:); dump_config
+  # warns about the double exposure at runtime. Don't copy this overlap into
+  # a real device.
+  entities:
+    - source_id: uptime_sensor
+    - source_id: local_motion
+      unique_id: motion_ref
+      name: "Local Motion (bridged)"
+    - source_id: local_status
+    - source_id: local_relay
+    - source_id: local_number
+    - source_id: local_select
+    - source_id: local_button2
+    - source_id: my_update
+      unique_id: firmware_ref
 
 sensor:
   - platform: ws_bridge
@@ -53,22 +75,55 @@ sensor:
     accuracy_decimals: 1
     ws_device_id: sensor_hub_1
     ws_device_name: "Sensor Hub"
+  - platform: uptime
+    id: uptime_sensor
+  # sensor_id: wraps an existing sensor via a `platform: ws_bridge` entity
+  # instead of the hub's entities: list. accuracy_decimals: 0 is an explicit
+  # override (0 is also the unset default — codegen must pass a flag).
+  - platform: ws_bridge
+    unique_id: temp_bridged
+    name: "Uptime (bridged)"
+    sensor_id: uptime_sensor
+    accuracy_decimals: 0
 
 binary_sensor:
   - platform: ws_bridge
     unique_id: motion1
     name: "Motion"
     device_class: motion
+  - platform: template
+    id: local_motion
+    name: "Local Motion"
+    device_class: motion
+  - platform: ws_bridge
+    unique_id: motion_bridged
+    name: "Motion (bridged)"
+    binary_sensor_id: local_motion
 
 text_sensor:
   - platform: ws_bridge
     unique_id: status1
     name: "Status"
+  - platform: template
+    id: local_status
+    name: "Local Status"
+  - platform: ws_bridge
+    unique_id: status_bridged
+    name: "Status (bridged)"
+    text_sensor_id: local_status
 
 switch:
   - platform: ws_bridge
     unique_id: relay1
     name: "Relay"
+  - platform: template
+    id: local_relay
+    name: "Local Relay"
+    optimistic: true
+  - platform: ws_bridge
+    unique_id: relay_bridged
+    name: "Relay (bridged)"
+    switch_id: local_relay
 
 number:
   - platform: ws_bridge
@@ -77,6 +132,27 @@ number:
     min_value: 0
     max_value: 100
     step: 0.5
+  - platform: template
+    id: local_number
+    name: "Local Number"
+    optimistic: true
+    min_value: 0
+    max_value: 10
+    step: 1
+  # min_value/max_value omitted on purpose — wrapping inherits the source's
+  # range (schema-relaxation compile path).
+  - platform: ws_bridge
+    unique_id: number_bridged
+    name: "Number (bridged)"
+    number_id: local_number
+  # Overrides one range field only: min/max/step resolve per field, so this
+  # keeps local_number's min/max. local_number is exposed several times here
+  # on purpose, to exercise the dump_config() double-exposure warning.
+  - platform: ws_bridge
+    unique_id: number_step_bridged
+    name: "Number (finer step)"
+    number_id: local_number
+    step: 0.1
 
 select:
   - platform: ws_bridge
@@ -85,6 +161,18 @@ select:
     options:
       - "Auto"
       - "Manual"
+  - platform: template
+    id: local_select
+    name: "Local Select"
+    optimistic: true
+    options:
+      - "One"
+      - "Two"
+  # options omitted on purpose — wrapping inherits the source's list.
+  - platform: ws_bridge
+    unique_id: select_bridged
+    name: "Select (bridged)"
+    select_id: local_select
 
 button:
   - platform: template
@@ -92,6 +180,11 @@ button:
     name: "Local Flash"
     on_press:
       - logger.log: "flash"
+  - platform: template
+    id: local_button2
+    name: "Local Button 2"
+    on_press:
+      - logger.log: "pressed"
   - platform: ws_bridge
     unique_id: restart1
     name: "Restart"

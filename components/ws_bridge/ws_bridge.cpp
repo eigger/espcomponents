@@ -3,6 +3,7 @@
 #include "esp_crt_bundle.h"
 #include "esp_transport_ws.h"
 #include "esphome/components/network/util.h"
+#include "esphome/core/entity_base.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
 
@@ -143,6 +144,27 @@ void WsBridgeComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "  Pong timeout: %u ms", static_cast<unsigned>(this->pong_timeout_ms_));
   ESP_LOGCONFIG(TAG, "  Reconnect backoff cap: %u ms", static_cast<unsigned>(this->reconnect_retry_ms_));
   ESP_LOGCONFIG(TAG, "  Re-announce interval: %u ms", static_cast<unsigned>(this->reannounce_interval_ms_));
+
+  for (size_t i = 0; i < this->devices_.size(); i++) {
+    const std::string &uid = this->devices_[i]->get_ws_bridge_unique_id();
+    for (size_t j = i + 1; j < this->devices_.size(); j++) {
+      if (uid == this->devices_[j]->get_ws_bridge_unique_id()) {
+        ESP_LOGW(TAG, "Duplicate unique_id '%s' — Home Assistant will treat these as one entity", uid.c_str());
+      }
+    }
+    const EntityBase *src = this->devices_[i]->get_ws_bridge_source();
+    if (src == nullptr)
+      continue;
+    for (size_t j = i + 1; j < this->devices_.size(); j++) {
+      if (this->devices_[j]->get_ws_bridge_source() != src)
+        continue;
+      ESP_LOGW(TAG,
+               "Entity '%s' is exposed twice (unique_ids '%s' and '%s') — pick either "
+               "`platform: ws_bridge` wrapping (*_id:) or `entities:`, not both",
+               src->get_name().str().c_str(), uid.c_str(),
+               this->devices_[j]->get_ws_bridge_unique_id().c_str());
+    }
+  }
 }
 
 // May be called from either the main loop task or the esp_websocket_client

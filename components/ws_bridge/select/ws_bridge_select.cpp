@@ -1,37 +1,30 @@
 #include "ws_bridge_select.h"
-#include "../ws_bridge.h"
-#include "../ws_bridge_entity_json.h"
+#include "../ws_bridge_domains.h"
 
 namespace esphome {
 namespace ws_bridge {
 
 static const char *const TAG = "ws_bridge.select";
 
-void WsBridgeSelect::setup() {
-  this->add_on_state_callback([this](size_t index) {
-    this->parent_->send_state_string(this->unique_id_, this->option_at(index));
-  });
+void WsBridgeSelect::setup() { ws_subscribe_select(this, this->source_ != nullptr ? this->source_ : this); }
+
+void WsBridgeSelect::dump_config() {
+  LOG_SELECT("", "WS Bridge Select", this);
+  if (this->source_ != nullptr) ESP_LOGCONFIG(TAG, "  Wrapped: '%s'", this->source_->get_name().str().c_str());
 }
 
-void WsBridgeSelect::dump_config() { LOG_SELECT("", "WS Bridge Select", this); }
-
+// Only reached when NOT wrapping — see WsBridgeSwitch::write_state().
 void WsBridgeSelect::control(const std::string &value) { this->publish_state(value); }
 
 void WsBridgeSelect::ws_bridge_handle_command(const WsCommand &command) {
-  if (command.action == "select_option" && command.has_value) {
-    this->make_call().set_option(command.value_string).perform();
-  }
+  ws_handle_command_select(this->source_ != nullptr ? this->source_ : this, command);
 }
 
 void WsBridgeSelect::ws_bridge_declare() {
-  this->parent_->send_entity_declare(
-      this->unique_id_, "select", this->get_name().str(), this->device_id_, this->device_name_,
-      [this](JsonObject root) {
-        add_common_entity_fields(root, *this);
-        JsonArray options = root["options"].to<JsonArray>();
-        for (const char *option : this->traits.get_options()) options.add(option);
-      });
-  if (this->has_state()) this->parent_->send_state_string(this->unique_id_, this->current_option().str());
+  select::Select &src = this->source_ != nullptr ? *this->source_ : *this;
+  const std::string own_name = this->has_own_name() ? this->get_name().str() : "";
+  ws_declare_select(this, src, this, ws_ha_name(src, own_name, this->unique_id_));
+  ws_push_state_select(this, src);
 }
 
 }  // namespace ws_bridge

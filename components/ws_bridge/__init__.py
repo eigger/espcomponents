@@ -1,7 +1,17 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome import automation
-from esphome.components import esp32
+from esphome.components import (
+    esp32,
+    sensor,
+    binary_sensor,
+    text_sensor,
+    switch,
+    number,
+    select,
+    button,
+    update,
+)
 from esphome.const import (
     CONF_ID,
     CONF_PORT,
@@ -33,6 +43,8 @@ from .const import (
     CONF_PONG_TIMEOUT,
     CONF_RECONNECT_TIMEOUT,
     CONF_REANNOUNCE_INTERVAL,
+    CONF_ENTITIES,
+    CONF_SOURCE_ID,
 )
 
 CODEOWNERS = ["@eigger"]
@@ -67,6 +79,74 @@ TRACKER_SCHEMA = cv.Schema(
         cv.Optional(CONF_GPS_ACCURACY): cv.templatable(cv.float_),
     }
 ).extend(cv.polling_component_schema("60s"))
+
+# Hub-side `entities:` list — exposes an *existing* ESPHome entity (given by
+# `source_id:`) to Home Assistant without a parallel `platform: ws_bridge`
+# entity for it. One concrete *Ref class per domain, all sharing the same
+# WsBridgeEntityRefBase — see ws_bridge_entity_ref.h. The domain is not
+# something YAML declares; it's resolved from source_id's own registered type
+# in to_code_entity_ref() below, since ESPHome doesn't know which platform an
+# `id:` belongs to until that platform's own to_code has run.
+WsBridgeEntityRefBase = ws_bridge_ns.class_("WsBridgeEntityRefBase", cg.Component, WsBridgeDevice)
+_ENTITY_REF_DOMAINS = [
+    (sensor.Sensor, ws_bridge_ns.class_("WsBridgeSensorRef", WsBridgeEntityRefBase)),
+    (binary_sensor.BinarySensor, ws_bridge_ns.class_("WsBridgeBinarySensorRef", WsBridgeEntityRefBase)),
+    (text_sensor.TextSensor, ws_bridge_ns.class_("WsBridgeTextSensorRef", WsBridgeEntityRefBase)),
+    (switch.Switch, ws_bridge_ns.class_("WsBridgeSwitchRef", WsBridgeEntityRefBase)),
+    (number.Number, ws_bridge_ns.class_("WsBridgeNumberRef", WsBridgeEntityRefBase)),
+    (select.Select, ws_bridge_ns.class_("WsBridgeSelectRef", WsBridgeEntityRefBase)),
+    (button.Button, ws_bridge_ns.class_("WsBridgeButtonRef", WsBridgeEntityRefBase)),
+    (update.UpdateEntity, ws_bridge_ns.class_("WsBridgeUpdateRef", WsBridgeEntityRefBase)),
+]
+
+ENTITY_SCHEMA = cv.Schema(
+    {
+        cv.GenerateID(): cv.declare_id(WsBridgeEntityRefBase),
+        # Loosely typed on purpose: the real domain (sensor/switch/...) isn't
+        # known here, only that it must be *some* entity. ESPHome's own
+        # IDPassValidationStep still rejects an id that isn't an entity at all
+        # (e.g. pointing at the ws_bridge: hub itself) — see to_code_entity_ref().
+        cv.Required(CONF_SOURCE_ID): cv.use_id(cg.EntityBase),
+        # Both default to the source: unique_id to its YAML id (stable across
+        # `name:` edits, unlike an object_id would be), name to its own name.
+        cv.Optional(CONF_UNIQUE_ID): cv.string_strict,
+        cv.Optional(CONF_NAME): cv.string_strict,
+        cv.Optional(CONF_WS_DEVICE_ID): cv.string_strict,
+        cv.Optional(CONF_WS_DEVICE_NAME): cv.string_strict,
+    }
+)
+
+
+async def to_code_entity_ref(hub_var, conf):
+    source_id = conf[CONF_SOURCE_ID]
+    full_id, source_var = await cg.get_variable_with_full_id(source_id)
+
+    ref_cls = None
+    for domain_type, cls in _ENTITY_REF_DOMAINS:
+        if isinstance(full_id.type, cg.MockObjClass) and full_id.type.inherits_from(domain_type):
+            ref_cls = cls
+            break
+    if ref_cls is None:
+        raise cv.Invalid(
+            f"'{source_id.id}' (type {full_id.type}) is not an entity domain ws_bridge "
+            "can expose via entities: — supported: sensor, binary_sensor, text_sensor, "
+            "switch, number, select, button, update"
+        )
+
+    id_ = conf[CONF_ID]
+    id_.type = ref_cls
+    var = cg.new_Pvariable(id_)
+    await cg.register_component(var, {})
+    cg.add(var.set_ws_bridge_parent(hub_var))
+    cg.add(var.set_unique_id(conf.get(CONF_UNIQUE_ID, source_id.id)))
+    if CONF_WS_DEVICE_ID in conf:
+        cg.add(var.set_device_id(conf[CONF_WS_DEVICE_ID]))
+    if CONF_WS_DEVICE_NAME in conf:
+        cg.add(var.set_device_name(conf[CONF_WS_DEVICE_NAME]))
+    if CONF_NAME in conf:
+        cg.add(var.set_name_override(conf[CONF_NAME]))
+    cg.add(var.set_source(source_var))
+    cg.add(hub_var.register_device(var))
 
 
 def _validate_esp_idf(config):
@@ -136,6 +216,10 @@ CONFIG_SCHEMA = cv.All(
                 {cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(DeclareTrigger)}
             ),
             cv.Optional(CONF_TRACKERS, default=[]): cv.ensure_list(TRACKER_SCHEMA),
+            # Expose existing ESPHome entities without a parallel
+            # `platform: ws_bridge` entity per value — see ENTITY_SCHEMA above
+            # and the README's "Exposing existing entities" section.
+            cv.Optional(CONF_ENTITIES, default=[]): cv.ensure_list(ENTITY_SCHEMA),
         }
     ).extend(cv.COMPONENT_SCHEMA),
     _validate_esp_idf,
@@ -213,3 +297,6 @@ async def to_code(config):
         if CONF_GPS_ACCURACY in conf:
             acc_template = await cg.templatable(conf[CONF_GPS_ACCURACY], [], cg.float_)
             cg.add(tracker.set_gps_accuracy(acc_template))
+
+    for conf in config.get(CONF_ENTITIES, []):
+        await to_code_entity_ref(var, conf)
