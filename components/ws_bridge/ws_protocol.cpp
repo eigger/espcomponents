@@ -57,11 +57,19 @@ ParsedMessage parse_message(const std::string &raw) {
         if (event["unique_id"].is<const char *>()) msg.command.unique_id = event["unique_id"].as<std::string>();
         if (event["action"].is<const char *>()) msg.command.action = event["action"].as<std::string>();
         if (!event["value"].isNull()) {
-          msg.command.has_value = true;
-          if (event["value"].is<const char *>()) {
-            msg.command.value_string = event["value"].as<std::string>();
-          } else {
-            msg.command.value_float = event["value"].as<float>();
+          JsonVariant v = event["value"];
+          // Mirror WsParam typing: never treat null/object/bool as float 0, and
+          // never leave has_value set without a matching type flag.
+          if (v.is<const char *>()) {
+            msg.command.has_value = true;
+            msg.command.value_is_string = true;
+            msg.command.value_string = v.as<std::string>();
+          } else if (v.is<bool>()) {
+            // No scalar command uses a JSON bool `value` today.
+          } else if (v.is<float>()) {
+            msg.command.has_value = true;
+            msg.command.value_is_number = true;
+            msg.command.value_float = v.as<float>();
           }
         }
         // Copy params out of the JsonDocument — it is destroyed when this

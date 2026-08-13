@@ -251,7 +251,7 @@ inline void ws_subscribe_number(WsBridgeDevice *dev, number::Number *src) {
 }
 
 inline void ws_handle_command_number(number::Number *target, const WsCommand &command) {
-  if (command.action == "set_value" && command.has_value) {
+  if (command.action == "set_value" && command.value_is_number) {
     target->make_call().set_value(command.value_float).perform();
   }
 }
@@ -287,7 +287,7 @@ inline void ws_subscribe_select(WsBridgeDevice *dev, select::Select *src) {
 }
 
 inline void ws_handle_command_select(select::Select *target, const WsCommand &command) {
-  if (command.action == "select_option" && command.has_value) {
+  if (command.action == "select_option" && command.value_is_string) {
     target->make_call().set_option(command.value_string).perform();
   }
 }
@@ -868,7 +868,7 @@ inline void ws_subscribe_text(WsBridgeDevice *dev, text::Text *src) {
 }
 
 inline void ws_handle_command_text(text::Text *target, const WsCommand &command) {
-  if (command.action == "set_value" && command.has_value) {
+  if (command.action == "set_value" && command.value_is_string) {
     target->make_call().set_value(command.value_string).perform();
   }
 }
@@ -1059,29 +1059,93 @@ inline void ws_send_state_datetime_(WsBridgeDevice *dev, datetime::DateTimeBase 
   dev->get_ws_bridge_parent()->send_state_string(dev->get_ws_bridge_unique_id(), buf);
 }
 
-// HA sends full ISO 8601 ("2026-08-13T21:30:00+09:00"); ESPTime::strptime()
-// accepts only "YYYY-MM-DD[ HH:MM[:SS]]" and "HH:MM[:SS]" — no 'T' separator,
-// no fractional seconds, no timezone. Values arriving in the device's own local
-// time is exactly what the tz-naive round trip assumes (HA re-attaches its
-// local zone to the tz-naive strings we send back).
+// HA may send full ISO 8601 ("2026-08-13T21:30:00+09:00", "...Z").
+// ESPTime::strptime() accepts only "YYYY-MM-DD[ HH:MM[:SS]]" and "HH:MM[:SS]".
+// When a numeric offset / Z is present on a full datetime, convert to the
+// device's local wall clock (USE_TIME_TIMEZONE) instead of stripping digits —
+// otherwise a UTC payload like "...T12:30:00+00:00" lands 9h wrong on KST.
+// Offset-less values are already local wall clock (see hass-ws-bridge
+// datetime.async_set_value) and are only normalized (T→space, trim).
+inline bool ws_parse_iso_tz_offset_(const char *s, size_t len, int32_t &offset_sec) {
+  if (len == 0)
+    return false;
+  if (s[0] == 'Z' || s[0] == 'z') {
+    offset_sec = 0;
+    return true;
+  }
+  if ((s[0] != '+' && s[0] != '-') || len < 3)
+    return false;
+  const int sign = (s[0] == '-') ? -1 : 1;
+  auto digit = [](char c) -> int { return (c >= '0' && c <= '9') ? (c - '0') : -1; };
+  int hour = digit(s[1]) * 10 + digit(s[2]);
+  if (hour < 0 || hour > 23)
+    return false;
+  int minute = 0;
+  if (len >= 6 && s[3] == ':') {
+    minute = digit(s[4]) * 10 + digit(s[5]);
+  } else if (len >= 5 && digit(s[3]) >= 0) {
+    minute = digit(s[3]) * 10 + digit(s[4]);
+  } else if (len != 3) {
+    return false;
+  }
+  if (minute < 0 || minute > 59)
+    return false;
+  offset_sec = sign * (hour * 3600 + minute * 60);
+  return true;
+}
+
 inline std::string ws_iso_to_esptime_string_(const std::string &iso) {
   std::string out = iso;
   size_t separator = out.find('T');
   if (separator != std::string::npos)
     out[separator] = ' ';
 
+  int32_t offset_sec = 0;
+  bool has_offset = false;
   // Everything past the seconds field has to go. Scanning from the first ':'
   // keeps the date's own '-' separators from being read as a negative UTC
   // offset; a date-only value has no such suffix to strip in the first place.
   size_t time_start = out.find(':');
   if (time_start != std::string::npos) {
     size_t cut = out.find_first_of(".Z+-", time_start);
-    if (cut != std::string::npos)
+    if (cut != std::string::npos) {
+      if (out[cut] == '.') {
+        size_t tz = out.find_first_of("Z+-", cut + 1);
+        if (tz != std::string::npos)
+          has_offset = ws_parse_iso_tz_offset_(out.c_str() + tz, out.size() - tz, offset_sec);
+      } else {
+        has_offset = ws_parse_iso_tz_offset_(out.c_str() + cut, out.size() - cut, offset_sec);
+      }
       out.erase(cut);
+    }
   }
   while (!out.empty() && out.back() == ' ')
     out.pop_back();
-  return out;
+
+  if (!has_offset)
+    return out;
+
+  // Full datetime only — date-only / time-only keep wall-clock digits (HA date
+  // and time platforms are timezone-naive calendar values).
+  const bool has_date = out.size() >= 10 && out[4] == '-';
+  const bool has_time = out.find(':') != std::string::npos;
+  if (!has_date || !has_time)
+    return out;
+
+  ESPTime wall{};
+  if (!ESPTime::strptime(out, wall))
+    return out;
+  wall.recalc_timestamp_utc(false);
+  if (wall.timestamp < 0)
+    return out;
+
+  // ISO offset is east of UTC: utc = wall_as_utc_fields - offset.
+  const time_t utc_epoch = static_cast<time_t>(wall.timestamp - offset_sec);
+  ESPTime local = ESPTime::from_epoch_local(utc_epoch);
+  char buf[24];
+  if (local.strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S") == 0)
+    return out;
+  return std::string(buf);
 }
 #endif  // any USE_DATETIME_*
 
@@ -1101,7 +1165,7 @@ inline void ws_subscribe_date(WsBridgeDevice *dev, datetime::DateEntity *src) {
 }
 
 inline void ws_handle_command_date(datetime::DateEntity *target, const WsCommand &command) {
-  if (command.action == "set_value" && command.has_value) {
+  if (command.action == "set_value" && command.value_is_string) {
     target->make_call().set_date(ws_iso_to_esptime_string_(command.value_string)).perform();
   }
 }
@@ -1123,7 +1187,7 @@ inline void ws_subscribe_time(WsBridgeDevice *dev, datetime::TimeEntity *src) {
 }
 
 inline void ws_handle_command_time(datetime::TimeEntity *target, const WsCommand &command) {
-  if (command.action == "set_value" && command.has_value) {
+  if (command.action == "set_value" && command.value_is_string) {
     target->make_call().set_time(ws_iso_to_esptime_string_(command.value_string)).perform();
   }
 }
@@ -1145,7 +1209,7 @@ inline void ws_subscribe_datetime(WsBridgeDevice *dev, datetime::DateTimeEntity 
 }
 
 inline void ws_handle_command_datetime(datetime::DateTimeEntity *target, const WsCommand &command) {
-  if (command.action == "set_value" && command.has_value) {
+  if (command.action == "set_value" && command.value_is_string) {
     target->make_call().set_datetime(ws_iso_to_esptime_string_(command.value_string)).perform();
   }
 }

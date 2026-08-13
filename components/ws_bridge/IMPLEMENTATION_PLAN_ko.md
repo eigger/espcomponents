@@ -5,7 +5,7 @@
 > **서버 기준**: `hass-ws-bridge` main (Phase 4 + 공통 계층 정리 완료, 플랫폼 27종)
 > **클라이언트 현재**: 플랫폼 19종(+ tracker) — C0 `params`/`features`·C1 `update`·C2 `light`/`cover`/`fan`·C3 `text`/`lock`/`valve`/`event`/`date`/`time`/`datetime`·C4 `climate` 반영. 남은 Tier A는 C5.
 > **작성일**: 2026-08-13
-> **갱신**: 2026-08-13 — C0~C4 구현
+> **갱신**: 2026-08-13 — C0~C4 구현; 후속: `value` 타입 플래그 + paced declare/TX 큐
 
 ---
 
@@ -189,9 +189,9 @@ this->parent_->send_state_object(this->unique_id_, [this](JsonObject v) {
 
 **새 빌더를 만들지 말 것.**
 
-### 3.4 (선택) 상태 배치 전송
+### 3.4 전송 스케줄링 (후속)
 
-`build_state_*`가 매번 프레임 1개에 항목 1개만 담는다. 복합 플랫폼이 늘면 프레임 수가 늘어난다. 여유가 있으면 `send_state_batch()`를 추가하되, **C0 범위 밖이다.** 먼저 동작을 맞추고 나중에 최적화한다.
+연결/재공지 때 엔티티마다 declare+state를 한 loop에서 블로킹 `send_text`(timeout 1s)로 몰아 보내면 대형 게이트웨이에서 메인 루프가 수십 초 멈출 수 있고, 실패해도 `declared_ids_`에 들어가 sync가 거짓 양성으로 보고된다. **paced declare**(루프당 소수 엔티티) + **비블로킹 TX 큐**(성공 시에만 sync 목록 반영)로 고친다. `send_state_batch()`는 여전히 선택 최적화다.
 
 ### 3.5 Phase C0 완료 조건
 
