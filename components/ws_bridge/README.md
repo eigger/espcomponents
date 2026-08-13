@@ -99,6 +99,19 @@ button:
   - platform: ws_bridge
     unique_id: restart1
     name: "Restart"
+
+# Firmware update entity in HA — wraps ESPHome's http_request update.
+# See "Remote OTA updates" below.
+http_request:
+ota:
+  - platform: http_request
+update:
+  - platform: http_request
+    id: ota_update
+    source: https://your-firmware-host/manifest.json
+  - platform: ws_bridge
+    unique_id: firmware
+    update_id: ota_update
 ```
 
 ### `ws_bridge` (hub) options
@@ -118,17 +131,20 @@ button:
 | `reannounce_interval` | | `60s` | How often to resend `ws_bridge/connect` + all entity/state declarations while nominally connected. Guards against the HA-side integration losing track of this gateway (e.g. its config entry reloaded) while the raw connection and ping/pong stay healthy — that scenario is otherwise invisible, since HA answers pings regardless of our integration's state. If a re-announce goes unanswered, forces a full reconnect rather than repeating the same no-op |
 | `trackers` | | - | List of GPS `device_tracker` entities — see [GPS device trackers](#gps-device-trackers) below |
 
-### Platform options (all of `sensor`/`binary_sensor`/`text_sensor`/`switch`/`number`/`select`/`button`)
+### Platform options (all of `sensor`/`binary_sensor`/`text_sensor`/`switch`/`number`/`select`/`button`/`update`)
 
 | Option | Required | Description |
 |--------|:--------:|-------------|
 | `unique_id` | ✓ | Identifier for this entity, unique within the gateway |
 | `ws_device_id` | | Groups this entity under a sub-device in HA (e.g. multiple sensors on one physical board) |
 | `ws_device_name` | | Display name for that sub-device |
+| `update_id` | ✓ (`update` only) | ID of the ESPHome `update:` entity to wrap — typically `platform: http_request` |
 
 Plus each platform's normal ESPHome options (`name`, `device_class`, `icon`,
 `entity_category`, `unit_of_measurement`/`state_class` for `sensor`,
-`min_value`/`max_value`/`step` for `number`, `options` for `select`).
+`min_value`/`max_value`/`step` for `number`, `options` for `select`). The
+`update` platform takes its name/icon/`entity_category` from the wrapped
+`http_request` update entity.
 
 ## Remote OTA updates (no VPN, no MQTT)
 
@@ -137,7 +153,41 @@ protocol, not built for streaming a multi-hundred-KB file. Firmware updates
 work over the same outbound-only connection anyway, through ESPHome's
 `http_request` OTA/update platforms: the device *pulls* the firmware over a
 plain outbound HTTPS request, so no inbound port, VPN, or MQTT broker is
-needed.
+needed. `update: platform: ws_bridge` then exposes that on-device updater to
+Home Assistant as a real `update` entity (Install button, current vs.
+available version), which native `http_request` update cannot do on its own
+when the device is not using ESPHome's native API. This requires a
+`hass-ws-bridge` version that includes the `update` platform.
+
+The [ESPHome OTA Publisher](https://github.com/eigger/hassio-apps/tree/master/esphome_ota)
+add-on is the intended firmware host: it publishes `firmware.ota.bin` + a
+manifest under HA's `/local/` (reachable over LAN and a remote tunnel). Use
+its generated `ota_server/update.yaml` package, then wrap that update entity:
+
+```yaml
+substitutions:
+  ota_device: livingroom          # must match the published node name
+
+packages:
+  ota: !include ota_server/update.yaml
+
+esphome:
+  project:
+    name: "you.something"
+    version: "1.0.0"              # bump this to offer an update
+
+update:
+  - platform: ws_bridge
+    unique_id: firmware
+    update_id: ota_update         # id from ota_server/update.yaml
+
+# Auto-rolls back to the previous firmware if the new one fails to come up
+# cleanly. Strongly recommended for any device you can't walk up to.
+safe_mode:
+```
+
+Without the add-on, the same pieces work against any host that serves an
+ESP Web Tools `manifest.json`:
 
 ```yaml
 http_request:
@@ -148,30 +198,33 @@ ota:
 
 update:
   - platform: http_request
-    id: my_update
+    id: ota_update
     source: https://your-firmware-host/manifest.json
     update_interval: 6h   # periodically checks for a new version (default 6h)
+  - platform: ws_bridge
+    unique_id: firmware
+    update_id: ota_update
 
-# Auto-rolls back to the previous firmware if the new one fails to come up
-# cleanly. Strongly recommended for any device you can't walk up to.
 safe_mode:
 ```
 
 - `update: platform: http_request` polls `source` (a `manifest.json` in the
   [ESP Web Tools](https://esphome.io/) format below), compares the reported
   `version` against the running firmware, and only flashes when they differ
-  — it won't re-flash the same version on every check.
-- It shows up in Home Assistant as an `update` entity (current vs. available
-  version); install manually from the card, or automate it (e.g. from a
-  `ws_bridge` button's `on_press`, or on a schedule) with the
-  `update.perform` action.
+  — it won't re-flash the same version on every check. **Without an
+  `esphome.project` `version`** the device reports the ESPHome release
+  string, so an update only appears when you upgrade ESPHome itself.
+- `update: platform: ws_bridge` is what Home Assistant actually sees. Install
+  from the update card, or trigger a check with `homeassistant.update_entity`.
+  On-device automations still use the wrapped entity (`update.perform:
+  ota_update`, `on_update_available`).
 - **`safe_mode:` matters more than the happy path here** — without it, a
   bad flash on a device you can't physically reach is unrecoverable. It's
   wired to ESP-IDF's app rollback, so a firmware that fails to come up
   cleanly reverts automatically.
 
 `manifest.json` format (ESP Web Tools spec, the same one ESPHome's own
-build/dashboard tooling produces):
+build/dashboard tooling and the OTA Publisher add-on produce):
 ```json
 {
   "name": "My Device",
@@ -275,10 +328,11 @@ for the full set of declarable platforms and their fields.
 
 - **Read-only platforms** (`sensor`, `binary_sensor`, `text_sensor`) push
   their state to Home Assistant automatically whenever it changes.
-- **Controllable platforms** (`switch`, `number`, `select`, `button`) receive
-  commands from Home Assistant and update their own state optimistically
-  (`publish_state`/`this->state`) — hook `on_turn_on`/`lambda:`/etc. in your
-  own YAML if you need to drive real hardware from the state.
+- **Controllable platforms** (`switch`, `number`, `select`, `button`, `update`)
+  receive commands from Home Assistant and update their own state
+  optimistically (`publish_state`/`this->state`) — hook `on_turn_on`/`lambda:`/etc.
+  in your own YAML if you need to drive real hardware from the state. `update`
+  forwards `install`/`check` to the wrapped `http_request` update entity.
 - On every (re)connect, all declared entities and their current state are
   re-sent, per the protocol's reconnection guidance.
 - While connected, an application-level `ping`/`pong` (HA's standard

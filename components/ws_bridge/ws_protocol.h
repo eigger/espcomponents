@@ -8,10 +8,10 @@ namespace esphome {
 namespace ws_bridge {
 
 // A command pushed by Home Assistant to a controllable entity
-// (switch/number/select/button), per PROTOCOL.md §4.
+// (switch/number/select/button/update), per PROTOCOL.md §4.
 struct WsCommand {
   std::string unique_id;
-  std::string action;  // "turn_on" | "turn_off" | "set_value" | "select_option" | "press"
+  std::string action;  // "turn_on" | "turn_off" | "set_value" | "select_option" | "press" | "install" | "check"
   bool has_value{false};
   float value_float{0};
   std::string value_string;
@@ -54,7 +54,8 @@ std::string build_state_bool(uint32_t id, const std::string &unique_id, bool val
 std::string build_state_string(uint32_t id, const std::string &unique_id, const std::string &value);
 
 // State whose `value` is a JSON object rather than a scalar — for platforms
-// that need several fields at once (device_tracker's latitude+longitude).
+// that need several fields at once (device_tracker's latitude+longitude,
+// update's installed/latest version).
 // `value_fn` is called with the (empty) value object to fill in.
 std::string build_state_object(uint32_t id, const std::string &unique_id,
                                const std::function<void(JsonObject)> &value_fn);

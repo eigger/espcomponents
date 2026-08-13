@@ -1,0 +1,29 @@
+#pragma once
+#include "esphome/components/json/json_util.h"
+#include "esphome/components/update/update_entity.h"
+#include "esphome/core/component.h"
+#include "../ws_bridge_device.h"
+
+namespace esphome {
+namespace ws_bridge {
+
+// Bridges an existing ESPHome UpdateEntity (http_request OTA) to Home Assistant
+// as an `update` entity over the ws_bridge protocol. Does not perform the
+// download/flash itself — that stays with the wrapped http_request update.
+class WsBridgeUpdate : public Component, public WsBridgeDevice {
+ public:
+  void set_update(update::UpdateEntity *update) { this->update_ = update; }
+  void setup() override;
+  void dump_config() override;
+  void ws_bridge_declare() override;
+  void ws_bridge_handle_command(const WsCommand &command) override;
+
+ protected:
+  void send_state_();
+  void fill_state_(JsonObject value);
+
+  update::UpdateEntity *update_{nullptr};
+};
+
+}  // namespace ws_bridge
+}  // namespace esphome
