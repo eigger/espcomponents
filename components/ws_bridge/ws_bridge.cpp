@@ -67,6 +67,11 @@ void WsBridgeComponent::loop() {
     this->reconnect_backoff_ms_ = this->reconnect_backoff_base_();
   }
 
+  // The whole loop (including sends triggered while draining command events)
+  // shares one TX budget. Capturing this after the drain would issue a second
+  // budget and let one loop() block for up to ~4s.
+  this->tx_loop_start_ms_ = millis();
+
   WsEvent *event;
   while ((event = this->event_queue_.pop()) != nullptr) {
     this->handle_event_(*event);
@@ -143,6 +148,10 @@ void WsBridgeComponent::reconnect_task_(void *arg) {
 
 uint32_t WsBridgeComponent::reconnect_backoff_base_() const {
   return std::min(RECONNECT_BACKOFF_BASE_MS, this->reconnect_retry_ms_);
+}
+
+bool WsBridgeComponent::tx_budget_exhausted_() const {
+  return millis() - this->tx_loop_start_ms_ > TX_LOOP_BUDGET_MS;
 }
 
 std::string WsBridgeComponent::effective_sw_version_() {
@@ -230,6 +239,8 @@ void WsBridgeComponent::check_liveness_() {
     this->last_reannounce_ms_ = now;
   }
   if (now - this->last_ping_sent_ms_ > this->ping_interval_ms_) {
+    if (this->tx_budget_exhausted_())
+      return;
     this->send_raw_(build_ping(this->next_id_()));
     this->ping_outstanding_ = true;
     this->last_ping_sent_ms_ = now;
@@ -492,6 +503,8 @@ void WsBridgeComponent::progress_declare_() {
   if (this->declare_in_progress_) {
     size_t n = 0;
     while (this->declare_device_index_ < this->devices_.size() && n < DECLARE_DEVICES_PER_LOOP) {
+      if (this->tx_budget_exhausted_())
+        return;
       this->devices_[this->declare_device_index_++]->ws_bridge_declare();
       n++;
     }
@@ -566,6 +579,8 @@ void WsBridgeComponent::drain_tx_queue_() {
     return;
   size_t sent = 0;
   while (!this->tx_queue_.empty() && sent < TX_PER_LOOP) {
+    if (this->tx_budget_exhausted_())
+      break;
     TxItem &item = this->tx_queue_.front();
     int r = esp_websocket_client_send_text(this->client_, item.msg.c_str(), item.msg.size(),
                                            pdMS_TO_TICKS(TX_SEND_TIMEOUT_MS));
@@ -599,9 +614,9 @@ bool WsBridgeComponent::send_raw_(const std::string &msg, const std::string &syn
     return true;
   };
   // Keep FIFO: a queued v1 must leave before a later v2. Bypass the queue only
-  // when it is empty. Timeout must be long enough that a full TCP window can
-  // drain — a short/0 wait makes esp_websocket_client abort the connection.
-  if (this->tx_queue_.empty()) {
+  // when it is empty. If this loop's send budget is already spent, enqueue
+  // instead of blocking the main loop again.
+  if (this->tx_queue_.empty() && !this->tx_budget_exhausted_()) {
     int r = esp_websocket_client_send_text(this->client_, msg.c_str(), msg.size(),
                                            pdMS_TO_TICKS(TX_SEND_TIMEOUT_MS));
     if (r >= 0) {

@@ -123,6 +123,7 @@ class WsBridgeComponent : public Component {
   std::string effective_sw_version_();
   bool send_connect_(uint32_t id);
   uint32_t reconnect_backoff_base_() const;
+  bool tx_budget_exhausted_() const;
   void mark_sync_declare_dropped_(const std::string &sync_declare_uid);
 
   // One outbound WS text frame. `sync_declare_uid` is set for entity declares
@@ -175,7 +176,8 @@ class WsBridgeComponent : public Component {
   // send_text timeout must NOT be 0 (or tiny): esp_websocket_client 1.7.0
   // treats a 0-byte write (tcp window full past the wait) as fatal and calls
   // abort_connection(). That turns declare bursts into reconnect storms.
-  // Keep one/few sends per loop with a generous wait instead.
+  // Keep one/few sends per loop with a generous wait instead. The task WDT
+  // is guarded by TX_LOOP_BUDGET_MS (cumulative), not by shortening each send.
   bool declare_in_progress_{false};
   size_t declare_device_index_{0};
   bool declare_run_connected_{false};
@@ -185,7 +187,13 @@ class WsBridgeComponent : public Component {
   std::deque<TxItem> tx_queue_{};
   static constexpr size_t TX_QUEUE_MAX = 64;
   static constexpr size_t TX_PER_LOOP = 1;
+  // Timeout must be long enough that a full TCP window can drain — a short
+  // wait makes esp_websocket_client treat the 0-byte write as fatal and
+  // abort the connection (see #305). The WDT is guarded by TX_LOOP_BUDGET_MS
+  // (cumulative), not by shortening individual sends.
   static constexpr uint32_t TX_SEND_TIMEOUT_MS = 1000;
+  static constexpr uint32_t TX_LOOP_BUDGET_MS = 1200;
+  uint32_t tx_loop_start_ms_{0};
 
   std::atomic<WsBridgeState> state_{WS_BRIDGE_DISCONNECTED};
   uint32_t msg_id_{0};
