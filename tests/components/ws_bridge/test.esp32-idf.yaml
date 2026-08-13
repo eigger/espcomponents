@@ -82,6 +82,7 @@ sensor:
   # override (0 is also the unset default — codegen must pass a flag).
   - platform: ws_bridge
     unique_id: temp_bridged
+    name: "Uptime (bridged)"
     sensor_id: uptime_sensor
     accuracy_decimals: 0
 
@@ -96,6 +97,7 @@ binary_sensor:
     device_class: motion
   - platform: ws_bridge
     unique_id: motion_bridged
+    name: "Motion (bridged)"
     binary_sensor_id: local_motion
 
 text_sensor:
@@ -107,6 +109,7 @@ text_sensor:
     name: "Local Status"
   - platform: ws_bridge
     unique_id: status_bridged
+    name: "Status (bridged)"
     text_sensor_id: local_status
 
 switch:
@@ -119,6 +122,7 @@ switch:
     optimistic: true
   - platform: ws_bridge
     unique_id: relay_bridged
+    name: "Relay (bridged)"
     switch_id: local_relay
 
 number:
@@ -139,6 +143,7 @@ number:
   # range (schema-relaxation compile path).
   - platform: ws_bridge
     unique_id: number_bridged
+    name: "Number (bridged)"
     number_id: local_number
 
 select:
@@ -158,6 +163,7 @@ select:
   # options omitted on purpose — wrapping inherits the source's list.
   - platform: ws_bridge
     unique_id: select_bridged
+    name: "Select (bridged)"
     select_id: local_select
 
 button:
