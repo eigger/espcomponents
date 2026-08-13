@@ -126,7 +126,11 @@ void WsBridgeComponent::check_liveness_() {
   // detected failure, it just periodically re-establishes our registration
   // in case the HA-side integration silently lost track of us while the
   // transport itself (and ping/pong) stayed healthy.
-  if (now - this->last_reannounce_ms_ > this->reannounce_interval_ms_) {
+  // Skip while a declare pass or TX backlog is still draining — stacking
+  // another full redeclare on a congested socket aborts the connection
+  // (esp_websocket_client treats timed-out 0-byte writes as fatal).
+  if (!this->declare_in_progress_ && this->tx_queue_.empty() &&
+      now - this->last_reannounce_ms_ > this->reannounce_interval_ms_) {
     ESP_LOGD(TAG, "Periodic re-announce: resending connect + entity declarations");
     uint32_t connect_id = this->next_id_();
     this->send_raw_(build_connect(connect_id, this->gateway_id_, this->gateway_name_,
@@ -399,8 +403,12 @@ void WsBridgeComponent::drain_tx_queue_() {
     TxItem &item = this->tx_queue_.front();
     int r = esp_websocket_client_send_text(this->client_, item.msg.c_str(), item.msg.size(),
                                            pdMS_TO_TICKS(TX_SEND_TIMEOUT_MS));
-    if (r < 0)
+    if (r < 0) {
+      // Library already aborted the socket on a 0-byte/failed write — drop the
+      // backlog rather than retrying into a dead connection.
+      this->clear_tx_queue_();
       break;
+    }
     if (this->collecting_declared_ids_ && !item.sync_declare_uid.empty())
       this->declared_ids_.push_back(item.sync_declare_uid);
     this->tx_queue_.pop_front();
@@ -412,8 +420,8 @@ bool WsBridgeComponent::send_raw_(const std::string &msg, const std::string &syn
   if (this->client_ == nullptr || !esp_websocket_client_is_connected(this->client_))
     return false;
   // Keep FIFO: a queued v1 must leave before a later v2. Bypass the queue only
-  // when it is empty. Timeout is short (not 0) so a full TCP window waits
-  // instead of aborting the connection.
+  // when it is empty. Timeout must be long enough that a full TCP window can
+  // drain — a short/0 wait makes esp_websocket_client abort the connection.
   if (this->tx_queue_.empty()) {
     int r = esp_websocket_client_send_text(this->client_, msg.c_str(), msg.size(),
                                            pdMS_TO_TICKS(TX_SEND_TIMEOUT_MS));
@@ -422,6 +430,8 @@ bool WsBridgeComponent::send_raw_(const std::string &msg, const std::string &syn
         this->declared_ids_.push_back(sync_declare_uid);
       return true;
     }
+    // Send aborted the socket; do not queue onto a dead link.
+    return false;
   }
   if (this->tx_queue_.size() >= TX_QUEUE_MAX) {
     ESP_LOGW(TAG, "TX queue full (%u) — dropping outbound message", (unsigned) TX_QUEUE_MAX);
