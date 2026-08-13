@@ -57,6 +57,7 @@ class WsBridgeEntityRefBase : public Component, public WsBridgeDevice {
 class WsBridgeSensorRef : public WsBridgeEntityRefBase {
  public:
   void set_source(sensor::Sensor *source) { this->source_ = source; }
+  const EntityBase *get_ws_bridge_source() const override { return this->source_; }
   void setup() override;
   void dump_config() override;
   void ws_bridge_declare() override;
@@ -70,6 +71,7 @@ class WsBridgeSensorRef : public WsBridgeEntityRefBase {
 class WsBridgeBinarySensorRef : public WsBridgeEntityRefBase {
  public:
   void set_source(binary_sensor::BinarySensor *source) { this->source_ = source; }
+  const EntityBase *get_ws_bridge_source() const override { return this->source_; }
   void setup() override;
   void dump_config() override;
   void ws_bridge_declare() override;
@@ -83,6 +85,7 @@ class WsBridgeBinarySensorRef : public WsBridgeEntityRefBase {
 class WsBridgeTextSensorRef : public WsBridgeEntityRefBase {
  public:
   void set_source(text_sensor::TextSensor *source) { this->source_ = source; }
+  const EntityBase *get_ws_bridge_source() const override { return this->source_; }
   void setup() override;
   void dump_config() override;
   void ws_bridge_declare() override;
@@ -96,6 +99,7 @@ class WsBridgeTextSensorRef : public WsBridgeEntityRefBase {
 class WsBridgeSwitchRef : public WsBridgeEntityRefBase {
  public:
   void set_source(switch_::Switch *source) { this->source_ = source; }
+  const EntityBase *get_ws_bridge_source() const override { return this->source_; }
   void setup() override;
   void dump_config() override;
   void ws_bridge_declare() override;
@@ -110,6 +114,7 @@ class WsBridgeSwitchRef : public WsBridgeEntityRefBase {
 class WsBridgeNumberRef : public WsBridgeEntityRefBase {
  public:
   void set_source(number::Number *source) { this->source_ = source; }
+  const EntityBase *get_ws_bridge_source() const override { return this->source_; }
   void setup() override;
   void dump_config() override;
   void ws_bridge_declare() override;
@@ -124,6 +129,7 @@ class WsBridgeNumberRef : public WsBridgeEntityRefBase {
 class WsBridgeSelectRef : public WsBridgeEntityRefBase {
  public:
   void set_source(select::Select *source) { this->source_ = source; }
+  const EntityBase *get_ws_bridge_source() const override { return this->source_; }
   void setup() override;
   void dump_config() override;
   void ws_bridge_declare() override;
@@ -138,6 +144,7 @@ class WsBridgeSelectRef : public WsBridgeEntityRefBase {
 class WsBridgeButtonRef : public WsBridgeEntityRefBase {
  public:
   void set_source(button::Button *source) { this->source_ = source; }
+  const EntityBase *get_ws_bridge_source() const override { return this->source_; }
   void setup() override {}
   void dump_config() override;
   void ws_bridge_declare() override;
@@ -152,6 +159,7 @@ class WsBridgeButtonRef : public WsBridgeEntityRefBase {
 class WsBridgeUpdateRef : public WsBridgeEntityRefBase {
  public:
   void set_source(update::UpdateEntity *source) { this->source_ = source; }
+  const EntityBase *get_ws_bridge_source() const override { return this->source_; }
   void setup() override;
   void dump_config() override;
   void ws_bridge_declare() override;

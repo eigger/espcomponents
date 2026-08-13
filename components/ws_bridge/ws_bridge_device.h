@@ -3,6 +3,9 @@
 #include "ws_protocol.h"
 
 namespace esphome {
+
+class EntityBase;
+
 namespace ws_bridge {
 
 class WsBridgeComponent;
@@ -37,6 +40,12 @@ class WsBridgeDevice {
   // Read-only platforms (sensor/binary_sensor) never receive commands and
   // keep the no-op default.
   virtual void ws_bridge_handle_command(const WsCommand &command) {}
+
+  // The ESPHome entity this device wraps, if any (`*_id:` / `entities:`
+  // `source_id:`). Null for a plain `platform: ws_bridge` entity that is its
+  // own source. Used by the hub's dump_config() to warn when the same source
+  // is exposed twice.
+  virtual const EntityBase *get_ws_bridge_source() const { return nullptr; }
 
  protected:
   WsBridgeComponent *parent_{nullptr};

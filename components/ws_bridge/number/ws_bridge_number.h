@@ -8,6 +8,13 @@ namespace ws_bridge {
 
 class WsBridgeNumber : public number::Number, public Component, public WsBridgeDevice {
  public:
+  // Optional: mirror and drive an existing number instead of this platform
+  // being the number itself. Commands from HA are applied to the wrapped
+  // number, and its own state changes are what get reported back. min/max/step
+  // inherit from it too unless this platform's own min_value/max_value are
+  // set (see ws_bridge_domains.h's ws_declare_number).
+  void set_source(number::Number *source) { this->source_ = source; }
+  const EntityBase *get_ws_bridge_source() const override { return this->source_; }
   void setup() override;
   void dump_config() override;
   void ws_bridge_declare() override;
@@ -15,6 +22,7 @@ class WsBridgeNumber : public number::Number, public Component, public WsBridgeD
 
  protected:
   void control(float value) override;
+  number::Number *source_{nullptr};
 };
 
 }  // namespace ws_bridge

@@ -1,4 +1,5 @@
 #pragma once
+#include <cmath>
 #include <string>
 #include "esphome/core/defines.h"
 #include "esphome/core/entity_base.h"
@@ -80,10 +81,10 @@ inline std::string ws_ha_name(const EntityBase &src, const std::string &name_ove
 
 #ifdef USE_SENSOR
 inline void ws_declare_sensor(WsBridgeDevice *dev, sensor::Sensor &src, sensor::Sensor *ovr,
-                              const std::string &name) {
+                              const std::string &name, bool accuracy_overridden = false) {
   dev->get_ws_bridge_parent()->send_entity_declare(
       dev->get_ws_bridge_unique_id(), "sensor", name, dev->get_ws_bridge_device_id(),
-      dev->get_ws_bridge_device_name(), [&src, ovr](JsonObject root) {
+      dev->get_ws_bridge_device_name(), [&src, ovr, accuracy_overridden](JsonObject root) {
         add_common_entity_fields(root, src, ovr);
 
         StringRef uom = src.get_unit_of_measurement_ref();
@@ -95,12 +96,17 @@ inline void ws_declare_sensor(WsBridgeDevice *dev, sensor::Sensor &src, sensor::
         if (ovr != nullptr && ovr->get_state_class() != sensor::STATE_CLASS_NONE) sc = ovr->get_state_class();
         if (sc != sensor::STATE_CLASS_NONE) root["state_class"] = LOG_STR_ARG(sensor::state_class_to_string(sc));
 
-        // No "unset" value to test against — 0 is both the default and a
-        // legitimate precision — so this cannot fall back per-field like the
-        // ones above. Sensor wrapping will have to let codegen say whether the
-        // YAML wrote accuracy_decimals at all.
-        root["suggested_display_precision"] =
-            ovr != nullptr ? ovr->get_accuracy_decimals() : src.get_accuracy_decimals();
+        // Sensor::get_accuracy_decimals() returns 0 both when never set and
+        // when genuinely set to 0 — ESPHome tracks the real "was it
+        // overridden" bit internally but doesn't expose it. Codegen sets
+        // accuracy_overridden when YAML contained `accuracy_decimals:`
+        // (including an explicit 0), so a wrapper can force fewer decimals
+        // than a more precise source. Number min/max/step and select options
+        // don't need this: their "unset" sentinels (NaN / empty list) are
+        // not legitimate values, so presence in YAML is already visible.
+        int8_t accuracy = src.get_accuracy_decimals();
+        if (ovr != nullptr && accuracy_overridden) accuracy = ovr->get_accuracy_decimals();
+        root["suggested_display_precision"] = accuracy;
       });
 }
 
@@ -184,9 +190,12 @@ inline void ws_declare_number(WsBridgeDevice *dev, number::Number &src, number::
       dev->get_ws_bridge_unique_id(), "number", name, dev->get_ws_bridge_device_id(),
       dev->get_ws_bridge_device_name(), [&src, ovr](JsonObject root) {
         add_common_entity_fields(root, src, ovr);
-        // min/max/step have no "unset" value either, so they are taken as a
-        // set from whichever side is authoritative rather than field by field.
-        auto &traits = ovr != nullptr ? ovr->traits : src.traits;
+        // min/max/step are taken as one atomic set rather than field by
+        // field: NumberTraits default-initializes all three to NAN, and
+        // codegen only ever calls set_min_value()/set_max_value()/set_step()
+        // together (see number/__init__.py's schema validation) — so a
+        // non-NaN min on ovr means the whole trio was explicitly given.
+        auto &traits = (ovr != nullptr && !std::isnan(ovr->traits.get_min_value())) ? ovr->traits : src.traits;
         root["min"] = traits.get_min_value();
         root["max"] = traits.get_max_value();
         root["step"] = traits.get_step();
@@ -216,8 +225,12 @@ inline void ws_declare_select(WsBridgeDevice *dev, select::Select &src, select::
       dev->get_ws_bridge_unique_id(), "select", name, dev->get_ws_bridge_device_id(),
       dev->get_ws_bridge_device_name(), [&src, ovr](JsonObject root) {
         add_common_entity_fields(root, src, ovr);
-        // Same as number's min/max: an options list is all-or-nothing.
-        auto &traits = ovr != nullptr ? ovr->traits : src.traits;
+        // An empty options list is SelectTraits' own default (see
+        // FixedVector's default constructor) and select_schema() requires
+        // `options:` whenever select_id: isn't set, so "ovr has options" is
+        // an unambiguous "was this explicitly given" signal — no separate
+        // flag needed, unlike accuracy_decimals.
+        auto &traits = (ovr != nullptr && !ovr->traits.get_options().empty()) ? ovr->traits : src.traits;
         JsonArray options = root["options"].to<JsonArray>();
         for (const char *option : traits.get_options()) options.add(option);
       });

@@ -12,6 +12,7 @@ namespace ws_bridge {
 class WsBridgeUpdate : public Component, public WsBridgeDevice {
  public:
   void set_update(update::UpdateEntity *update) { this->update_ = update; }
+  const EntityBase *get_ws_bridge_source() const override { return this->update_; }
   void set_name(const std::string &name) { this->name_ = name; }
   void setup() override;
   void dump_config() override;

@@ -21,10 +21,11 @@ namespace ws_bridge {
 // ws_bridge platform still win.
 //
 // Every field here has an unambiguous "unset" value (empty string, or
-// ENTITY_CATEGORY_NONE), so the fallback needs no extra flags. Fields where
-// the default is a legitimate value — sensor's accuracy_decimals, whose 0 is
-// indistinguishable from "not written" — cannot be resolved this way and need
-// codegen to say explicitly whether to inherit.
+// ENTITY_CATEGORY_NONE), so the fallback needs no extra flags. Sensor
+// accuracy_decimals is the exception (0 is both the default and a legitimate
+// value) and is resolved by ws_declare_sensor()'s accuracy_overridden flag
+// instead. Number min/max/step (NaN) and select options (empty list) have
+// usable sentinels, so those helpers key off the traits themselves.
 inline void add_common_entity_fields(JsonObject root, const EntityBase &src, const EntityBase *ovr) {
   std::array<char, MAX_DEVICE_CLASS_LENGTH> dc_ovr_buf;
   std::array<char, MAX_DEVICE_CLASS_LENGTH> dc_src_buf;
