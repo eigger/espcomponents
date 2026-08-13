@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <initializer_list>
 #include "esphome/core/entity_base.h"
 #include "ws_protocol.h"
 
@@ -51,6 +52,14 @@ inline void add_common_entity_fields(JsonObject root, const EntityBase &src, con
     default:
       break;
   }
+}
+
+// Attach features: ["open","close","stop", ...] on declare. An empty list
+// sends nothing so HA keeps its platform defaults.
+inline void add_features(JsonObject root, std::initializer_list<const char *> names) {
+  if (names.size() == 0) return;
+  JsonArray arr = root["features"].to<JsonArray>();
+  for (const char *n : names) arr.add(n);
 }
 
 }  // namespace ws_bridge

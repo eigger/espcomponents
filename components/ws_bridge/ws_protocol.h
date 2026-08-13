@@ -8,14 +8,40 @@
 namespace esphome {
 namespace ws_bridge {
 
+// One entry from a command's `params` object. Values are copied out of the
+// JsonDocument (which dies when parse_message() returns) into plain C++ types.
+// Unrecognized JSON (null, object, mixed arrays) leaves all type flags false so
+// every param_* getter returns false — never treat null as float 0.
+struct WsParam {
+  std::string key;
+  bool is_string{false};
+  std::string s;              // is_string == true
+  bool is_number{false};
+  float f{0};                 // is_number == true
+  bool is_bool{false};
+  bool b{false};              // is_bool == true
+  bool is_array{false};
+  std::vector<float> arr;     // is_array == true; numeric elements only
+};
+
 // A command pushed by Home Assistant to a controllable entity
-// (switch/number/select/button/update), per PROTOCOL.md §4.
+// (switch/number/select/button/update/...), per PROTOCOL.md §4.
+// Either `value` (single arg) or `params` (named multi-arg) is set per action —
+// never both for the same action. Parsing accepts either; platforms pick one.
 struct WsCommand {
   std::string unique_id;
   std::string action;  // "turn_on" | "turn_off" | "set_value" | "select_option" | "press" | "install" | "check"
   bool has_value{false};
   float value_float{0};
   std::string value_string;
+  std::vector<WsParam> params;
+
+  const WsParam *param(const char *key) const;
+  bool param_float(const char *key, float &out) const;
+  bool param_bool(const char *key, bool &out) const;
+  bool param_string(const char *key, std::string &out) const;
+  // Requires an exact element count (e.g. 3 for rgb_color, 2 for hs_color).
+  bool param_array(const char *key, std::vector<float> &out, size_t expected_size) const;
 };
 
 // Top-level parse result for one incoming WebSocket text frame. Only the
