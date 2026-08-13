@@ -38,6 +38,7 @@ from .const import (
     CONF_SSL,
     CONF_TOKEN,
     CONF_GATEWAY_ID,
+    CONF_APP_VERSION,
     CONF_KEEP_LAST_STATE_ON_DISCONNECT,
     CONF_SYNC_ENTITIES,
     CONF_UNIQUE_ID,
@@ -189,6 +190,9 @@ CONFIG_SCHEMA = cv.All(
             cv.Required(CONF_TOKEN): cv.string_strict,
             cv.Optional(CONF_GATEWAY_ID, default=lambda: CORE.name): cv.string_strict,
             cv.Optional(CONF_NAME, default=lambda: CORE.friendly_name or CORE.name): cv.string_strict,
+            # Sent as ws_bridge/connect app_version (HA gateway sw_version).
+            # Omitted: ESPHome version + compilation time, e.g. "2025.8.0 (Aug 14 2026, 07:31:00)".
+            cv.Optional(CONF_APP_VERSION): cv.string,
             cv.Optional(CONF_KEEP_LAST_STATE_ON_DISCONNECT, default=False): cv.boolean,
             # After declaring everything on connect, send ws_bridge/sync with the
             # full set of unique_ids so HA drops entities this gateway no longer
@@ -284,6 +288,8 @@ async def to_code(config):
     cg.add(var.set_token(config[CONF_TOKEN]))
     cg.add(var.set_gateway_id(config[CONF_GATEWAY_ID]))
     cg.add(var.set_gateway_name(config[CONF_NAME]))
+    if CONF_APP_VERSION in config:
+        cg.add(var.set_app_version(config[CONF_APP_VERSION]))
     cg.add(var.set_keep_last_state_on_disconnect(config[CONF_KEEP_LAST_STATE_ON_DISCONNECT]))
     cg.add(var.set_sync_entities(config[CONF_SYNC_ENTITIES]))
     cg.add(var.set_ping_interval(config[CONF_PING_INTERVAL].total_milliseconds))

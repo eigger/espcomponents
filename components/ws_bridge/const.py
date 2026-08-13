@@ -4,6 +4,7 @@ CONF_HOST = "host"
 CONF_SSL = "ssl"
 CONF_TOKEN = "token"
 CONF_GATEWAY_ID = "gateway_id"
+CONF_APP_VERSION = "app_version"
 CONF_KEEP_LAST_STATE_ON_DISCONNECT = "keep_last_state_on_disconnect"
 CONF_SYNC_ENTITIES = "sync_entities"
 

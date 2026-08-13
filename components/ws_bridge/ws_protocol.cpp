@@ -127,13 +127,14 @@ std::string build_auth(const std::string &access_token) {
 }
 
 std::string build_connect(uint32_t id, const std::string &gateway_id, const std::string &name,
-                          bool keep_last_state_on_disconnect) {
+                          bool keep_last_state_on_disconnect, const std::string &app_version) {
   return json::build_json([&](JsonObject root) {
     root["id"] = id;
     root["type"] = "ws_bridge/connect";
     root["gateway_id"] = gateway_id;
     if (!name.empty()) root["name"] = name;
     root["keep_last_state_on_disconnect"] = keep_last_state_on_disconnect;
+    if (!app_version.empty()) root["app_version"] = app_version;
   });
 }
 
