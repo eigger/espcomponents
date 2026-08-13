@@ -38,6 +38,9 @@
 #ifdef USE_COVER
 #include "esphome/components/cover/cover.h"
 #endif
+#ifdef USE_CLIMATE
+#include "esphome/components/climate/climate.h"
+#endif
 #ifdef USE_FAN
 #include "esphome/components/fan/fan.h"
 #endif
@@ -1147,6 +1150,297 @@ inline void ws_handle_command_datetime(datetime::DateTimeEntity *target, const W
   }
 }
 #endif  // USE_DATETIME_DATETIME
+
+#ifdef USE_CLIMATE
+inline const char *ws_ha_climate_mode_(climate::ClimateMode mode) {
+  switch (mode) {
+    case climate::CLIMATE_MODE_OFF:
+      return "off";
+    case climate::CLIMATE_MODE_HEAT_COOL:
+      return "heat_cool";
+    case climate::CLIMATE_MODE_COOL:
+      return "cool";
+    case climate::CLIMATE_MODE_HEAT:
+      return "heat";
+    case climate::CLIMATE_MODE_FAN_ONLY:
+      return "fan_only";
+    case climate::CLIMATE_MODE_DRY:
+      return "dry";
+    case climate::CLIMATE_MODE_AUTO:
+      return "auto";
+    default:
+      return nullptr;
+  }
+}
+
+inline const char *ws_ha_climate_action_(climate::ClimateAction action) {
+  switch (action) {
+    case climate::CLIMATE_ACTION_OFF:
+      return "off";
+    case climate::CLIMATE_ACTION_COOLING:
+      return "cooling";
+    case climate::CLIMATE_ACTION_HEATING:
+      return "heating";
+    case climate::CLIMATE_ACTION_IDLE:
+      return "idle";
+    case climate::CLIMATE_ACTION_DRYING:
+      return "drying";
+    case climate::CLIMATE_ACTION_FAN:
+      return "fan";
+    case climate::CLIMATE_ACTION_DEFROSTING:
+      return "defrosting";
+    default:
+      return nullptr;
+  }
+}
+
+inline const char *ws_ha_climate_fan_mode_(climate::ClimateFanMode mode) {
+  switch (mode) {
+    case climate::CLIMATE_FAN_ON:
+      return "on";
+    case climate::CLIMATE_FAN_OFF:
+      return "off";
+    case climate::CLIMATE_FAN_AUTO:
+      return "auto";
+    case climate::CLIMATE_FAN_LOW:
+      return "low";
+    case climate::CLIMATE_FAN_MEDIUM:
+      return "medium";
+    case climate::CLIMATE_FAN_HIGH:
+      return "high";
+    case climate::CLIMATE_FAN_MIDDLE:
+      return "middle";
+    case climate::CLIMATE_FAN_FOCUS:
+      return "focus";
+    case climate::CLIMATE_FAN_DIFFUSE:
+      return "diffuse";
+    case climate::CLIMATE_FAN_QUIET:
+      return "quiet";
+    default:
+      return nullptr;
+  }
+}
+
+inline const char *ws_ha_climate_swing_mode_(climate::ClimateSwingMode mode) {
+  switch (mode) {
+    case climate::CLIMATE_SWING_OFF:
+      return "off";
+    case climate::CLIMATE_SWING_BOTH:
+      return "both";
+    case climate::CLIMATE_SWING_VERTICAL:
+      return "vertical";
+    case climate::CLIMATE_SWING_HORIZONTAL:
+      return "horizontal";
+    default:
+      return nullptr;
+  }
+}
+
+inline const char *ws_ha_climate_preset_(climate::ClimatePreset preset) {
+  switch (preset) {
+    case climate::CLIMATE_PRESET_NONE:
+      return "none";
+    case climate::CLIMATE_PRESET_HOME:
+      return "home";
+    case climate::CLIMATE_PRESET_AWAY:
+      return "away";
+    case climate::CLIMATE_PRESET_BOOST:
+      return "boost";
+    case climate::CLIMATE_PRESET_COMFORT:
+      return "comfort";
+    case climate::CLIMATE_PRESET_ECO:
+      return "eco";
+    case climate::CLIMATE_PRESET_SLEEP:
+      return "sleep";
+    case climate::CLIMATE_PRESET_ACTIVITY:
+      return "activity";
+    default:
+      return nullptr;
+  }
+}
+
+inline void ws_fill_state_climate(climate::Climate &src, JsonObject value) {
+  auto traits = src.get_traits();
+  if (const char *mode = ws_ha_climate_mode_(src.mode))
+    value["hvac_mode"] = mode;
+  if (traits.has_feature_flags(climate::CLIMATE_SUPPORTS_ACTION)) {
+    if (const char *action = ws_ha_climate_action_(src.action))
+      value["hvac_action"] = action;
+  }
+
+  const bool two_point = traits.has_feature_flags(climate::CLIMATE_SUPPORTS_TWO_POINT_TARGET_TEMPERATURE) ||
+                         traits.has_feature_flags(climate::CLIMATE_REQUIRES_TWO_POINT_TARGET_TEMPERATURE);
+  if (two_point) {
+    if (!std::isnan(src.target_temperature_low))
+      value["target_temp_low"] = src.target_temperature_low;
+    if (!std::isnan(src.target_temperature_high))
+      value["target_temp_high"] = src.target_temperature_high;
+  } else if (!std::isnan(src.target_temperature)) {
+    value["target_temperature"] = src.target_temperature;
+  }
+  if (traits.has_feature_flags(climate::CLIMATE_SUPPORTS_CURRENT_TEMPERATURE) && !std::isnan(src.current_temperature))
+    value["current_temperature"] = src.current_temperature;
+
+  if (traits.has_feature_flags(climate::CLIMATE_SUPPORTS_TARGET_HUMIDITY) && !std::isnan(src.target_humidity))
+    value["target_humidity"] = src.target_humidity;
+  if (traits.has_feature_flags(climate::CLIMATE_SUPPORTS_CURRENT_HUMIDITY) && !std::isnan(src.current_humidity))
+    value["current_humidity"] = src.current_humidity;
+
+  if (traits.get_supports_fan_modes()) {
+    if (src.has_custom_fan_mode()) {
+      value["fan_mode"] = src.get_custom_fan_mode().c_str();
+    } else if (src.fan_mode.has_value()) {
+      if (const char *fan = ws_ha_climate_fan_mode_(*src.fan_mode))
+        value["fan_mode"] = fan;
+    }
+  }
+  if (traits.get_supports_swing_modes()) {
+    if (const char *swing = ws_ha_climate_swing_mode_(src.swing_mode))
+      value["swing_mode"] = swing;
+  }
+  if (traits.get_supports_presets() || !traits.get_supported_custom_presets().empty()) {
+    if (src.has_custom_preset()) {
+      value["preset_mode"] = src.get_custom_preset().c_str();
+    } else if (src.preset.has_value()) {
+      if (const char *preset = ws_ha_climate_preset_(*src.preset))
+        value["preset_mode"] = preset;
+    }
+  }
+}
+
+inline void ws_send_state_climate(WsBridgeDevice *dev, climate::Climate &src) {
+  dev->get_ws_bridge_parent()->send_state_object(dev->get_ws_bridge_unique_id(),
+                                                 [&src](JsonObject value) { ws_fill_state_climate(src, value); });
+}
+
+inline void ws_declare_climate(WsBridgeDevice *dev, climate::Climate &src, climate::Climate *ovr,
+                               const std::string &name) {
+  dev->get_ws_bridge_parent()->send_entity_declare(
+      dev->get_ws_bridge_unique_id(), "climate", name, dev->get_ws_bridge_device_id(),
+      dev->get_ws_bridge_device_name(), [&src, ovr](JsonObject root) {
+        add_common_entity_fields(root, src, ovr);
+        auto traits = src.get_traits();
+
+        JsonArray hvac_modes = root["hvac_modes"].to<JsonArray>();
+        bool has_off = false;
+        for (auto mode : traits.get_supported_modes()) {
+          if (const char *s = ws_ha_climate_mode_(mode)) {
+            hvac_modes.add(s);
+            if (mode == climate::CLIMATE_MODE_OFF)
+              has_off = true;
+          }
+        }
+        if (hvac_modes.size() == 0) {
+          hvac_modes.add("off");
+          has_off = true;
+        }
+
+        if (traits.get_supports_fan_modes()) {
+          JsonArray fan_modes = root["fan_modes"].to<JsonArray>();
+          for (auto mode : traits.get_supported_fan_modes()) {
+            if (const char *s = ws_ha_climate_fan_mode_(mode))
+              fan_modes.add(s);
+          }
+          for (const char *mode : traits.get_supported_custom_fan_modes())
+            fan_modes.add(mode);
+        }
+        if (traits.get_supports_swing_modes()) {
+          JsonArray swing_modes = root["swing_modes"].to<JsonArray>();
+          for (auto mode : traits.get_supported_swing_modes()) {
+            if (const char *s = ws_ha_climate_swing_mode_(mode))
+              swing_modes.add(s);
+          }
+        }
+        if (traits.get_supports_presets() || !traits.get_supported_custom_presets().empty()) {
+          JsonArray preset_modes = root["preset_modes"].to<JsonArray>();
+          for (auto preset : traits.get_supported_presets()) {
+            if (const char *s = ws_ha_climate_preset_(preset))
+              preset_modes.add(s);
+          }
+          for (const char *preset : traits.get_supported_custom_presets())
+            preset_modes.add(preset);
+        }
+
+        root["min_temp"] = traits.get_visual_min_temperature();
+        root["max_temp"] = traits.get_visual_max_temperature();
+        root["target_temp_step"] = traits.get_visual_target_temperature_step();
+        if (traits.has_feature_flags(climate::CLIMATE_SUPPORTS_TARGET_HUMIDITY) ||
+            traits.has_feature_flags(climate::CLIMATE_SUPPORTS_CURRENT_HUMIDITY)) {
+          root["min_humidity"] = traits.get_visual_min_humidity();
+          root["max_humidity"] = traits.get_visual_max_humidity();
+        }
+        root["temperature_unit"] = "C";
+
+        JsonArray features = root["features"].to<JsonArray>();
+        const bool requires_range = traits.has_feature_flags(climate::CLIMATE_REQUIRES_TWO_POINT_TARGET_TEMPERATURE);
+        const bool supports_range = traits.has_feature_flags(climate::CLIMATE_SUPPORTS_TWO_POINT_TARGET_TEMPERATURE);
+        if (!requires_range)
+          features.add("target_temperature");
+        if (supports_range || requires_range)
+          features.add("target_temperature_range");
+        if (traits.has_feature_flags(climate::CLIMATE_SUPPORTS_TARGET_HUMIDITY))
+          features.add("target_humidity");
+        if (traits.get_supports_fan_modes())
+          features.add("fan_mode");
+        if (traits.get_supports_presets() || !traits.get_supported_custom_presets().empty())
+          features.add("preset_mode");
+        if (traits.get_supports_swing_modes())
+          features.add("swing_mode");
+        features.add("turn_on");
+        if (has_off)
+          features.add("turn_off");
+      });
+}
+
+inline void ws_push_state_climate(WsBridgeDevice *dev, climate::Climate &src) { ws_send_state_climate(dev, src); }
+
+inline void ws_subscribe_climate(WsBridgeDevice *dev, climate::Climate *src) {
+  src->add_on_state_callback([dev, src](climate::Climate &) { ws_send_state_climate(dev, *src); });
+}
+
+inline void ws_handle_command_climate(climate::Climate *target, const WsCommand &command) {
+  if (command.action == "set_hvac_mode") {
+    std::string mode;
+    if (command.param_string("hvac_mode", mode))
+      target->make_call().set_mode(mode).perform();
+  } else if (command.action == "set_temperature") {
+    auto call = target->make_call();
+    float t;
+    if (command.param_float("temperature", t))
+      call.set_target_temperature(t);
+    if (command.param_float("target_temp_low", t))
+      call.set_target_temperature_low(t);
+    if (command.param_float("target_temp_high", t))
+      call.set_target_temperature_high(t);
+    call.perform();
+  } else if (command.action == "set_fan_mode") {
+    std::string mode;
+    if (command.param_string("fan_mode", mode))
+      target->make_call().set_fan_mode(mode).perform();
+  } else if (command.action == "set_swing_mode") {
+    std::string mode;
+    if (command.param_string("swing_mode", mode))
+      target->make_call().set_swing_mode(mode).perform();
+  } else if (command.action == "set_preset_mode") {
+    std::string mode;
+    if (command.param_string("preset_mode", mode))
+      target->make_call().set_preset(mode).perform();
+  } else if (command.action == "set_humidity") {
+    float humidity;
+    if (command.param_float("humidity", humidity))
+      target->make_call().set_target_humidity(humidity).perform();
+  } else if (command.action == "turn_off") {
+    target->make_call().set_mode(climate::CLIMATE_MODE_OFF).perform();
+  } else if (command.action == "turn_on") {
+    for (auto mode : target->get_traits().get_supported_modes()) {
+      if (mode != climate::CLIMATE_MODE_OFF) {
+        target->make_call().set_mode(mode).perform();
+        break;
+      }
+    }
+  }
+}
+#endif  // USE_CLIMATE
 
 }  // namespace ws_bridge
 }  // namespace esphome

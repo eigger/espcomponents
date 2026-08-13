@@ -3,9 +3,9 @@
 > **대상**: 이 컴포넌트에서 작업할 다른 AI 에이전트 또는 개발자
 > **목적**: HA 통합(`hass-ws-bridge`)이 Phase 0~4에서 확장한 프로토콜에 클라이언트를 맞춘다
 > **서버 기준**: `hass-ws-bridge` main (Phase 4 + 공통 계층 정리 완료, 플랫폼 27종)
-> **클라이언트 현재**: 플랫폼 18종(+ tracker) — C0 `params`/`features`·C1 `update`·C2 `light`/`cover`/`fan`·C3 `text`/`lock`/`valve`/`event`/`date`/`time`/`datetime` 반영. 남은 Tier A는 C4+.
+> **클라이언트 현재**: 플랫폼 19종(+ tracker) — C0 `params`/`features`·C1 `update`·C2 `light`/`cover`/`fan`·C3 `text`/`lock`/`valve`/`event`/`date`/`time`/`datetime`·C4 `climate` 반영. 남은 Tier A는 C5.
 > **작성일**: 2026-08-13
-> **갱신**: 2026-08-13 — C0 머지 + C2 + C3 구현
+> **갱신**: 2026-08-13 — C0~C4 구현
 
 ---
 
@@ -22,7 +22,7 @@
 
 ## 1. 현재 격차
 
-### 1.1 구현 완료 (18종 + tracker)
+### 1.1 구현 완료 (19종 + tracker)
 
 | ESPHome 플랫폼 | 디렉터리 | 방향 |
 |:---|:---|:---:|
@@ -42,16 +42,17 @@
 | `valve` | `valve/` | 제어 (C3) |
 | `event` | `event/` | 읽기 (C3) |
 | `date` / `time` / `datetime` | `datetime/` (`type:` 분기, 3클래스) | 제어 (C3) |
+| `climate` | `climate/` | 제어 (C4) |
 | `device_tracker` | 허브 `trackers:` 인라인 (`ws_bridge_tracker.*`) | 읽기 |
 
 구조는 이미 좋다 — §1.3의 기존 자산을 그대로 활용한다. 엔티티 래핑(`sensor_id` / `entities:`)과 `ws_bridge/sync`도 master에 있다.
 
-### 1.2 서버가 지원하지만 클라이언트에 없는 것 (8종)
+### 1.2 서버가 지원하지만 클라이언트에 없는 것 (7종)
 
-`climate`, `humidifier`, `water_heater`, `siren`,
+`humidifier`, `water_heater`, `siren`,
 `alarm_control_panel`, `media_player`, `image`, `camera`
 
-이 중 Tier A(정식 플랫폼으로 만들 수 있는 것)는 `climate`(C4), `alarm_control_panel`·`media_player`(C5)뿐이다. 나머지 5종은 Tier B — §4.0 참고.
+이 중 Tier A(정식 플랫폼으로 만들 수 있는 것)는 `alarm_control_panel`·`media_player`(C5)뿐이다. 나머지 5종은 Tier B — §4.0 참고.
 
 ### 1.3 이미 갖춰진 자산 (새로 만들지 말 것)
 
@@ -247,7 +248,7 @@ this->parent_->send_state_object(this->unique_id_, [this](JsonObject v) {
 | **C1** | `update` | **완료** (#296). OTA 직결 |
 | **C2** | `light`, `cover`, `fan` | **완료**. 수요 최다. `params` 수신을 처음 실제로 씀 |
 | **C3** | `text`, `lock`, `valve`, `event`, `datetime`(date/time/datetime) | **완료**. §4.2의 도메인별 함정을 먼저 읽을 것 |
-| **C4** | `climate` | 단독. 상태·명령 표면이 가장 넓다 |
+| **C4** | `climate` | **완료**. 상태·명령 표면이 가장 넓다 |
 | **C5** | `alarm_control_panel`, `media_player` | 수요 확인 후 |
 | **C6** (보류) | Tier B 5종 | 요구 확인 전 착수 금지 |
 

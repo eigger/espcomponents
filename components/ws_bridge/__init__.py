@@ -13,6 +13,7 @@ from esphome.components import (
     update,
     light,
     cover,
+    climate,
     fan,
     text,
     lock,
@@ -107,6 +108,7 @@ _ENTITY_REF_DOMAINS = [
     (update.UpdateEntity, ws_bridge_ns.class_("WsBridgeUpdateRef", WsBridgeEntityRefBase)),
     (light.LightState, ws_bridge_ns.class_("WsBridgeLightRef", WsBridgeEntityRefBase)),
     (cover.Cover, ws_bridge_ns.class_("WsBridgeCoverRef", WsBridgeEntityRefBase)),
+    (climate.Climate, ws_bridge_ns.class_("WsBridgeClimateRef", WsBridgeEntityRefBase)),
     (fan.Fan, ws_bridge_ns.class_("WsBridgeFanRef", WsBridgeEntityRefBase)),
     (text.Text, ws_bridge_ns.class_("WsBridgeTextRef", WsBridgeEntityRefBase)),
     (lock.Lock, ws_bridge_ns.class_("WsBridgeLockRef", WsBridgeEntityRefBase)),
@@ -151,7 +153,7 @@ async def to_code_entity_ref(hub_var, conf):
         raise cv.Invalid(
             f"'{source_id.id}' (type {full_id.type}) is not an entity domain ws_bridge "
             "can expose via entities: — supported: sensor, binary_sensor, text_sensor, "
-            "switch, number, select, button, update, light, cover, fan, text, lock, "
+            "switch, number, select, button, update, light, cover, climate, fan, text, lock, "
             "valve, event, date, time, datetime"
         )
 
