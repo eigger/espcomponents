@@ -27,6 +27,9 @@ CONF_TEXT_SENSOR_ID = "text_sensor_id"
 CONF_SWITCH_ID = "switch_id"
 CONF_NUMBER_ID = "number_id"
 CONF_SELECT_ID = "select_id"
+CONF_LIGHT_ID = "light_id"
+CONF_COVER_ID = "cover_id"
+CONF_FAN_ID = "fan_id"
 
 # Hub-side `entities:` list — exposes an already-existing ESPHome entity
 # without a parallel `platform: ws_bridge` entity. See WsBridgeEntityRefBase.

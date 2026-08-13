@@ -102,6 +102,31 @@ button:
     unique_id: restart1
     name: "Restart"
 
+# light is wrap-only (light_id: required) — YAML id on a light is LightState.
+output:
+  - platform: gpio
+    pin: GPIO2
+    id: status_led_out
+light:
+  - platform: binary
+    id: status_led
+    name: "Status LED"
+    output: status_led_out
+  - platform: ws_bridge
+    unique_id: status_led_ha
+    name: "Status LED"
+    light_id: status_led
+
+cover:
+  - platform: ws_bridge
+    unique_id: gate1
+    name: "Gate"
+
+fan:
+  - platform: ws_bridge
+    unique_id: ceiling_fan
+    name: "Ceiling Fan"
+
 # Firmware update entity in HA — wraps ESPHome's http_request update.
 # See "Remote OTA updates" below.
 http_request:
@@ -136,16 +161,16 @@ update:
 | `trackers` | | - | List of GPS `device_tracker` entities — see [GPS device trackers](#gps-device-trackers) below |
 | `entities` | | - | Existing ESPHome entities to expose without a parallel `platform: ws_bridge` entity — see [Exposing existing entities](#exposing-existing-entities) |
 
-### Platform options (all of `sensor`/`binary_sensor`/`text_sensor`/`switch`/`number`/`select`/`button`/`update`)
+### Platform options (all of `sensor`/`binary_sensor`/`text_sensor`/`switch`/`number`/`select`/`button`/`update`/`light`/`cover`/`fan`)
 
 | Option | Required | Description |
 |--------|:--------:|-------------|
 | `unique_id` | ✓ | Identifier for this entity, unique within the gateway. **Changing it creates a new HA entity** (the old one is left behind; `sync_entities: true` then deletes it) |
 | `ws_device_id` | | Groups this entity under a sub-device in HA (e.g. multiple sensors on one physical board) |
 | `ws_device_name` | | Display name for that sub-device |
-| `sensor_id` / `binary_sensor_id` / `text_sensor_id` / `switch_id` / `number_id` / `select_id` / `button_id` | | ID of an existing ESPHome entity to wrap — see [Exposing existing entities](#exposing-existing-entities) |
-| `update_id` | ✓ (`update` only) | ID of the ESPHome `update:` entity to wrap — typically `platform: http_request` |
-| `name` | (`update`) | HA-facing name. If omitted, uses the wrapped entity's name when that entity has its own `name:`; otherwise the `unique_id` |
+| `sensor_id` / `binary_sensor_id` / `text_sensor_id` / `switch_id` / `number_id` / `select_id` / `button_id` / `cover_id` / `fan_id` | | ID of an existing ESPHome entity to wrap — see [Exposing existing entities](#exposing-existing-entities) |
+| `update_id` / `light_id` | ✓ (`update` / `light` only) | ID of the ESPHome entity to wrap (`update:` typically `platform: http_request`; `light:` any `LightState`) |
+| `name` | (`update` / `light`) | HA-facing name. If omitted, uses the wrapped entity's name when that entity has its own `name:`; otherwise the `unique_id` |
 
 Plus each platform's normal ESPHome options (`name`, `device_class`, `icon`,
 `entity_category`, `unit_of_measurement`/`state_class` for `sensor`,
@@ -207,16 +232,18 @@ number:
   source. Anything written on the ws_bridge platform still wins, field by
   field — a number that sets only `min_value`/`max_value` keeps the
   source's `step`, and vice versa.
-- **Commands** on `switch` / `number` / `select` / `button` / `update` are
-  applied to the wrapped entity, not to the wrapper. On-device automations
-  should keep targeting the source (`switch.turn_on: relay`).
+- **Commands** on `switch` / `number` / `select` / `button` / `update` /
+  `light` / `cover` / `fan` are applied to the wrapped entity, not to the
+  wrapper. On-device automations should keep targeting the source
+  (`switch.turn_on: relay`).
 - ESPHome still requires `id:` or `name:` on the wrapper YAML (`unique_id`
   alone is not enough).
 - `unique_id` is still required. Changing it (or first adding wrapping
   under a new id) is a **new HA entity** — history stays on the old
   `entity_id`.
-- `update:` wrapping (`update_id:`) is required, not optional — that
-  platform has no state of its own. See [Remote OTA updates](#remote-ota-updates-no-vpn-no-mqtt).
+- `update:` / `light:` wrapping (`update_id:` / `light_id:`) is required,
+  not optional — those platforms have no useful standalone state of their
+  own. See [Remote OTA updates](#remote-ota-updates-no-vpn-no-mqtt).
 
 ### Hub `entities:` list
 

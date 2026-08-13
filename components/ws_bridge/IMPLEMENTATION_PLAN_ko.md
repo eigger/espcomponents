@@ -3,9 +3,9 @@
 > **대상**: 이 컴포넌트에서 작업할 다른 AI 에이전트 또는 개발자
 > **목적**: HA 통합(`hass-ws-bridge`)이 Phase 0~4에서 확장한 프로토콜에 클라이언트를 맞춘다
 > **서버 기준**: `hass-ws-bridge` main (Phase 4 + 공통 계층 정리 완료, 플랫폼 27종)
-> **클라이언트 현재**: 플랫폼 8종(+ tracker) — `update`·`ws_bridge/sync`·엔티티 래핑은 master에 이미 있음. **남은 프로토콜 공백은 `WsCommand.params` / `features`.**
+> **클라이언트 현재**: 플랫폼 11종(+ tracker) — C0 `params`/`features`·C1 `update`·C2 `light`/`cover`/`fan` 반영. 남은 Tier A는 C3+.
 > **작성일**: 2026-08-13
-> **갱신**: 2026-08-13 — master pull 후 C1/`sync` 반영
+> **갱신**: 2026-08-13 — C0 머지 + C2 구현
 
 ---
 
@@ -38,9 +38,9 @@
 
 구조는 이미 좋다 — §1.3의 기존 자산을 그대로 활용한다. 엔티티 래핑(`sensor_id` / `entities:`)과 `ws_bridge/sync`도 master에 있다.
 
-### 1.2 서버가 지원하지만 클라이언트에 없는 것 (18종)
+### 1.2 서버가 지원하지만 클라이언트에 없는 것 (15종)
 
-`light`, `cover`, `fan`, `text`, `lock`, `date`, `time`, `datetime`,
+`text`, `lock`, `date`, `time`, `datetime`,
 `event`, `valve`, `climate`, `humidifier`, `water_heater`, `siren`,
 `alarm_control_panel`, `media_player`, `image`, `camera`
 
@@ -58,11 +58,9 @@
 
 | 공백 | 위치 | 영향 |
 |:---|:---|:---|
-| `WsCommand`에 `params` 없음 | `ws_protocol.h` | light `turn_on(brightness, rgb_color)` 등 **다중 인자 명령 수신 불가** |
-| 선언에 `features` 미전송 | 각 플랫폼 `ws_bridge_declare()` | cover/climate 등의 기능 플래그 선언 불가 |
 | 상태 배치 전송 없음 | `build_state_*` 각각 1건씩 | 복합 상태 갱신 시 메시지 수 증가 (선택) |
 
-> `ws_bridge/sync`는 #298로 이미 구현됨 — 더 이상 공백이 아니다.
+> `WsCommand.params` / `add_features`는 C0(#300)로 구현. `ws_bridge/sync`는 #298.
 
 ---
 
@@ -163,19 +161,10 @@ if (!params.isNull()) {
 
 > **메모리 주의**: `params`는 최대 10개 남짓이지만 `std::vector<WsParam>`은 힙을 쓴다. ESP32에서 명령은 저빈도(사용자 조작)라 문제없다. 다만 **상태 전송 경로에는 절대 같은 패턴을 쓰지 말 것** — 그쪽은 고빈도다.
 
-### 3.2 선언에 `features` 첨부 헬퍼
+### 3.2 선언에 `features` 첨부
 
-`ws_bridge_entity_json.h`에 추가:
-
-```cpp
-// features: ["open","close","stop"] 형태로 첨부. 빈 목록이면 아무것도 안 보낸다
-// (서버가 플랫폼별 기본값을 쓴다).
-inline void add_features(JsonObject root, std::initializer_list<const char *> names) {
-  if (names.size() == 0) return;
-  JsonArray arr = root["features"].to<JsonArray>();
-  for (const char *n : names) arr.add(n);
-}
-```
+플랫폼별로 traits를 읽어 `JsonArray`에 직접 넣는다. C0의 `add_features(initializer_list)`는
+조건부 feature 목록에 맞지 않아 **삭제**했다 — cover/fan/light 모두 런타임 traits 기반이다.
 
 ### 3.3 객체 상태 전송 — 기존 것을 쓴다
 
@@ -197,7 +186,7 @@ this->parent_->send_state_object(this->unique_id_, [this](JsonObject v) {
 ### 3.5 Phase C0 완료 조건
 
 - [x] `WsCommand::params` 파싱 + 조회 헬퍼 5종
-- [x] `add_features()` 헬퍼
+- [x] 선언 `features`는 각 플랫폼이 traits에서 직접 첨부 (공통 `add_features` 헬퍼는 제거)
 - [ ] 기존 플랫폼 **동작 변화 0** — `params`는 추가 필드일 뿐 기존 `value` 경로 불변 (리뷰/실기)
 - [ ] 실제 기기 1대로 기존 엔티티 회귀 확인 (§6)
 
@@ -247,7 +236,7 @@ this->parent_->send_state_object(this->unique_id_, [this](JsonObject v) {
 |:---|:---|:---|
 | **C0** | 프로토콜 계층 (§3) | 전제 — `params` + `add_features` |
 | **C1** | `update` | **완료** (#296). OTA 직결 |
-| **C2** | `light`, `cover`, `fan` | 수요 최다. `params` 수신을 처음 실제로 쓴다 |
+| **C2** | `light`, `cover`, `fan` | **이번 PR**. 수요 최다. `params` 수신을 처음 실제로 씀 |
 | **C3** | `text`, `lock`, `valve`, `event`, `datetime`(date/time/datetime) | 스칼라 위주, 난도 낮음 |
 | **C4** | `climate` | 단독. 상태·명령 표면이 가장 넓다 |
 | **C5** | `alarm_control_panel`, `media_player` | 수요 확인 후 |
