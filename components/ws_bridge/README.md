@@ -141,6 +141,7 @@ update:
 | `ws_device_id` | | Groups this entity under a sub-device in HA (e.g. multiple sensors on one physical board) |
 | `ws_device_name` | | Display name for that sub-device |
 | `update_id` | ✓ (`update` only) | ID of the ESPHome `update:` entity to wrap — typically `platform: http_request` |
+| `button_id` | (`button`) | ID of an existing ESPHome `button:` to wrap (e.g. `ota_flash_button` from `ota_server/flash_button.yaml`). HA press forwards to that button |
 | `name` | (`update`) | HA-facing name. If omitted, uses the wrapped entity's name when that entity has its own `name:`; otherwise the `unique_id` |
 
 Plus each platform's normal ESPHome options (`name`, `device_class`, `icon`,
@@ -165,12 +166,39 @@ when the device is not using ESPHome's native API. This requires
 
 The [ESPHome OTA Publisher](https://github.com/eigger/hassio-apps/tree/master/esphome_ota)
 add-on is the intended firmware host: it publishes `firmware.ota.bin` + a
-manifest under HA's `/local/` (reachable over LAN and a remote tunnel). Use
-its generated `ota_server/update.yaml` package, then wrap that update entity:
+manifest under HA's `/local/` (reachable over LAN and a remote tunnel). It
+generates two packages — pick one.
+
+**Force-install button** (`flash_button.yaml`, the add-on's default): no
+version tracking, just a button that pulls the `.ota.bin` and checks MD5.
+Wrap `ota_flash_button` so it appears in Home Assistant:
 
 ```yaml
 substitutions:
   ota_device: livingroom          # must match the published node name
+
+packages:
+  ota: !include ota_server/flash_button.yaml
+
+button:
+  - platform: ws_bridge
+    unique_id: ota_update_button
+    name: "Update"
+    icon: mdi:update
+    button_id: ota_flash_button   # id from flash_button.yaml
+
+# Auto-rolls back to the previous firmware if the new one fails to come up
+# cleanly. Strongly recommended for any device you can't walk up to.
+safe_mode:
+```
+
+**Update entity** (`update.yaml`): HA gets a real Install card with current
+vs. available version. Needs `esphome.project.version` bumped to offer an
+update:
+
+```yaml
+substitutions:
+  ota_device: livingroom
 
 packages:
   ota: !include ota_server/update.yaml
@@ -178,7 +206,7 @@ packages:
 esphome:
   project:
     name: "you.something"
-    version: "1.0.0"              # bump this to offer an update
+    version: "1.0.0"
 
 update:
   - platform: ws_bridge
@@ -186,8 +214,6 @@ update:
     name: "Firmware"
     update_id: ota_update         # id from ota_server/update.yaml
 
-# Auto-rolls back to the previous firmware if the new one fails to come up
-# cleanly. Strongly recommended for any device you can't walk up to.
 safe_mode:
 ```
 
