@@ -30,6 +30,17 @@ CONF_SELECT_ID = "select_id"
 CONF_LIGHT_ID = "light_id"
 CONF_COVER_ID = "cover_id"
 CONF_FAN_ID = "fan_id"
+CONF_TEXT_ID = "text_id"
+CONF_LOCK_ID = "lock_id"
+CONF_VALVE_ID = "valve_id"
+CONF_EVENT_ID = "event_id"
+CONF_DATETIME_ID = "datetime_id"
+
+# lock only, declare-only. HA validates the code the user types against this
+# regex before sending the command; ESPHome's lock domain has no code API at
+# all (LockTraits::requires_code exists but nothing carries the code through),
+# so this is written on the ws_bridge side and never reaches the device.
+CONF_CODE_FORMAT = "code_format"
 
 # Hub-side `entities:` list — exposes an already-existing ESPHome entity
 # without a parallel `platform: ws_bridge` entity. See WsBridgeEntityRefBase.

@@ -3,9 +3,9 @@
 > **대상**: 이 컴포넌트에서 작업할 다른 AI 에이전트 또는 개발자
 > **목적**: HA 통합(`hass-ws-bridge`)이 Phase 0~4에서 확장한 프로토콜에 클라이언트를 맞춘다
 > **서버 기준**: `hass-ws-bridge` main (Phase 4 + 공통 계층 정리 완료, 플랫폼 27종)
-> **클라이언트 현재**: 플랫폼 11종(+ tracker) — C0 `params`/`features`·C1 `update`·C2 `light`/`cover`/`fan` 반영. 남은 Tier A는 C3+.
+> **클라이언트 현재**: 플랫폼 18종(+ tracker) — C0 `params`/`features`·C1 `update`·C2 `light`/`cover`/`fan`·C3 `text`/`lock`/`valve`/`event`/`date`/`time`/`datetime` 반영. 남은 Tier A는 C4+.
 > **작성일**: 2026-08-13
-> **갱신**: 2026-08-13 — C0 머지 + C2 구현
+> **갱신**: 2026-08-13 — C0 머지 + C2 + C3 구현
 
 ---
 
@@ -22,7 +22,7 @@
 
 ## 1. 현재 격차
 
-### 1.1 구현 완료 (8종 + tracker)
+### 1.1 구현 완료 (18종 + tracker)
 
 | ESPHome 플랫폼 | 디렉터리 | 방향 |
 |:---|:---|:---:|
@@ -34,15 +34,24 @@
 | `select` | `select/` | 제어 |
 | `button` | `button/` | 제어 |
 | `update` | `update/` | 제어 (OTA, #296) |
+| `light` | `light/` | 제어 (C2) |
+| `cover` | `cover/` | 제어 (C2) |
+| `fan` | `fan/` | 제어 (C2) |
+| `text` | `text/` | 제어 (C3) |
+| `lock` | `lock/` | 제어 (C3) |
+| `valve` | `valve/` | 제어 (C3) |
+| `event` | `event/` | 읽기 (C3) |
+| `date` / `time` / `datetime` | `datetime/` (`type:` 분기, 3클래스) | 제어 (C3) |
 | `device_tracker` | 허브 `trackers:` 인라인 (`ws_bridge_tracker.*`) | 읽기 |
 
 구조는 이미 좋다 — §1.3의 기존 자산을 그대로 활용한다. 엔티티 래핑(`sensor_id` / `entities:`)과 `ws_bridge/sync`도 master에 있다.
 
-### 1.2 서버가 지원하지만 클라이언트에 없는 것 (15종)
+### 1.2 서버가 지원하지만 클라이언트에 없는 것 (8종)
 
-`text`, `lock`, `date`, `time`, `datetime`,
-`event`, `valve`, `climate`, `humidifier`, `water_heater`, `siren`,
+`climate`, `humidifier`, `water_heater`, `siren`,
 `alarm_control_panel`, `media_player`, `image`, `camera`
+
+이 중 Tier A(정식 플랫폼으로 만들 수 있는 것)는 `climate`(C4), `alarm_control_panel`·`media_player`(C5)뿐이다. 나머지 5종은 Tier B — §4.0 참고.
 
 ### 1.3 이미 갖춰진 자산 (새로 만들지 말 것)
 
@@ -236,11 +245,33 @@ this->parent_->send_state_object(this->unique_id_, [this](JsonObject v) {
 |:---|:---|:---|
 | **C0** | 프로토콜 계층 (§3) | 전제 — `params` + `add_features` |
 | **C1** | `update` | **완료** (#296). OTA 직결 |
-| **C2** | `light`, `cover`, `fan` | **이번 PR**. 수요 최다. `params` 수신을 처음 실제로 씀 |
-| **C3** | `text`, `lock`, `valve`, `event`, `datetime`(date/time/datetime) | 스칼라 위주, 난도 낮음 |
+| **C2** | `light`, `cover`, `fan` | **완료**. 수요 최다. `params` 수신을 처음 실제로 씀 |
+| **C3** | `text`, `lock`, `valve`, `event`, `datetime`(date/time/datetime) | **완료**. §4.2의 도메인별 함정을 먼저 읽을 것 |
 | **C4** | `climate` | 단독. 상태·명령 표면이 가장 넓다 |
 | **C5** | `alarm_control_panel`, `media_player` | 수요 확인 후 |
 | **C6** (보류) | Tier B 5종 | 요구 확인 전 착수 금지 |
+
+### 4.2 C3에서 실제로 밟은 것 (ESPHome 2026.7.4 기준)
+
+C4 이후에도 그대로 걸릴 항목들이다. 코드를 쓰기 전에 읽는다.
+
+1. **`text`의 `min`/`max`는 문자열 길이다.** `TextTraits`는 "미설정" 센티널이 없다 — `register_text()`가 항상 0/255를 써 넣으므로, `number`처럼 필드별 폴백(`ovr` → `src`)을 만들 수 없다. `cover`/`fan`/`light`의 traits와 같이 **`src`만 읽는다**. 래핑하면 감싼 엔티티의 길이 제한·pattern·mode가 그대로 선언된다.
+
+2. **`lock`의 `code_format`은 ESPHome에 대응물이 없다.** `LockTraits::requires_code`는 있어도 코드 값을 넘길 API가 없다. 그래서 `code_format:`은 ws_bridge YAML 전용 옵션이고, HA가 커맨드에 실어 보내는 `params.code`는 **버린다.** UI 확인 절차이지 인증이 아니라는 걸 문서에 못박을 것.
+
+3. **`Lock::open()`은 `control()`을 타지 않는다.** `open_latch()`로 빠지고, 기본 구현은 `unlock()`이다. 낙관적 상태를 내려면 `open_latch()`를 오버라이드해 `LOCK_STATE_OPEN`을 `publish_state()`해야 한다. 또 `traits.get_supports_open()`이 false면 `open()`이 경고만 남기고 아무것도 안 하고, `LockCall::validate_()`가 `supported_states_mask_` 밖의 상태를 조용히 버린다 — 비래핑 엔티티는 `setup()`에서 `set_supports_open(true)` + `add_supported_state(LOCK_STATE_OPEN)`이 필요하다.
+
+4. **`event`는 선언 시 상태를 보내지 않는다.** §7-12의 "선언 시 현재 상태를 함께 보낸다"의 **유일한 예외**다. 일회성이고 HA가 last state를 복원하지 않으므로, 재연결마다 마지막 `event_type`을 다시 밀면 이미 끝난 초인종이 다시 울린다.
+
+5. **`event_types`는 `src`에서 읽는다.** `select`의 options처럼 `ovr` 우선으로 하면, 래핑 시 감싼 엔티티가 실제로 발생시키는 타입이 선언 목록에서 빠질 수 있고 HA는 선언되지 않은 `event_type`을 조용히 버린다.
+
+6. **빈 리스트를 `set_event_types()`에 넘길 수 없다.** codegen이 빈 파이썬 리스트를 `{}`로 렌더링하고, `initializer_list` / `FixedVector` / `vector` 오버로드(+ 실수 방지용 `=delete` `std::string` 판) 사이에서 **모호**해진다. `cg.RawExpression("std::vector<const char *>{}")`로 타입을 명시한다. 진짜 목록은 `setup()`에서 소스의 것을 복사한다.
+
+7. **`date`/`time`은 `datetime` 컴포넌트 소속이다** (§7-8). 셋 다 `datetime/` 한 디렉터리에서 `cv.typed_schema({...}, upper=True)`로 분기하고, **클래스는 3개**다 (`DateEntity`/`TimeEntity`/`DateTimeEntity`는 서로 무관한 클래스다). `datetime_id:`는 분기마다 타입을 달리 준다 — 그러면 `type: date`에 `TimeEntity`를 붙이는 게 컴파일 에러가 아니라 설정 에러가 된다. `entities:`용 Ref도 공통 `DateTimeBase` 하나가 아니라 3개가 필요하다 (HA 쪽 플랫폼이 3개다).
+
+8. **`ESPTime::strptime()`은 ISO 8601을 다 못 먹는다.** `"YYYY-MM-DD[ HH:MM[:SS]]"`와 `"HH:MM[:SS]"`뿐 — `T` 구분자, 소수점 초, 타임존 접미사가 모두 실패한다. HA는 `"2026-08-13T21:30:00+09:00"`을 보낸다. 정규화할 때 **날짜의 `-`를 음수 오프셋으로 오인하지 않도록** 첫 `:` 이후부터 스캔한다.
+
+9. **날짜 상태는 tz-naive로 보낸다.** HA가 자기 로컬 타임존을 붙인다(UTC로 해석하지 않는다). `state_as_esptime()`은 자기 엔티티가 안 쓰는 필드를 채우지 않으므로(`DateEntity`는 시/분/초를 건드리지 않는다) `strftime` 포맷에 **자기 필드만** 넣어야 한다.
 
 ---
 
@@ -319,7 +350,9 @@ esphome compile <your-test-device>.yaml
 
 11. **ESP-IDF 전용**: 허브가 `_validate_esp_idf()`로 강제한다. Arduino 프레임워크 예제를 만들지 말 것.
 
-12. **선언 시 현재 상태를 함께 보낸다.** `ws_bridge_declare()` 끝에서 상태 1회 전송을 빼먹으면, 재연결 직후 HA가 엔티티는 만들지만 값이 비어 있다. `select.cpp` 참조.
+12. **선언 시 현재 상태를 함께 보낸다.** `ws_bridge_declare()` 끝에서 상태 1회 전송을 빼먹으면, 재연결 직후 HA가 엔티티는 만들지만 값이 비어 있다. `select.cpp` 참조. **`event`만 예외** — §4.2-4.
+
+13. **`text`와 `text_sensor`, `datetime`과 `time`을 섞지 말 것.** 전자는 §7-9, 후자는 §7-8. 둘 다 이름만 비슷하고 완전히 다른 컴포넌트다.
 
 ---
 

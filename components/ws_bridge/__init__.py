@@ -14,6 +14,11 @@ from esphome.components import (
     light,
     cover,
     fan,
+    text,
+    lock,
+    valve,
+    event,
+    datetime,
 )
 from esphome.const import (
     CONF_ID,
@@ -103,6 +108,16 @@ _ENTITY_REF_DOMAINS = [
     (light.LightState, ws_bridge_ns.class_("WsBridgeLightRef", WsBridgeEntityRefBase)),
     (cover.Cover, ws_bridge_ns.class_("WsBridgeCoverRef", WsBridgeEntityRefBase)),
     (fan.Fan, ws_bridge_ns.class_("WsBridgeFanRef", WsBridgeEntityRefBase)),
+    (text.Text, ws_bridge_ns.class_("WsBridgeTextRef", WsBridgeEntityRefBase)),
+    (lock.Lock, ws_bridge_ns.class_("WsBridgeLockRef", WsBridgeEntityRefBase)),
+    (valve.Valve, ws_bridge_ns.class_("WsBridgeValveRef", WsBridgeEntityRefBase)),
+    (event.Event, ws_bridge_ns.class_("WsBridgeEventRef", WsBridgeEntityRefBase)),
+    # ESPHome's three datetime entity types share one YAML domain but are
+    # unrelated classes, and HA sees them as three platforms — so each needs its
+    # own Ref rather than one on the common DateTimeBase.
+    (datetime.DateEntity, ws_bridge_ns.class_("WsBridgeDateRef", WsBridgeEntityRefBase)),
+    (datetime.TimeEntity, ws_bridge_ns.class_("WsBridgeTimeRef", WsBridgeEntityRefBase)),
+    (datetime.DateTimeEntity, ws_bridge_ns.class_("WsBridgeDateTimeRef", WsBridgeEntityRefBase)),
 ]
 
 ENTITY_SCHEMA = cv.Schema(
@@ -136,7 +151,8 @@ async def to_code_entity_ref(hub_var, conf):
         raise cv.Invalid(
             f"'{source_id.id}' (type {full_id.type}) is not an entity domain ws_bridge "
             "can expose via entities: — supported: sensor, binary_sensor, text_sensor, "
-            "switch, number, select, button, update, light, cover, fan"
+            "switch, number, select, button, update, light, cover, fan, text, lock, "
+            "valve, event, date, time, datetime"
         )
 
     id_ = conf[CONF_ID]
@@ -231,8 +247,8 @@ CONFIG_SCHEMA = cv.All(
     _validate_esp_idf,
 )
 
-# Shared schema every ws_bridge platform (sensor/binary_sensor/switch/number/
-# select/button/update) must extend, mirroring uartex's UARTEX_DEVICE_SCHEMA pattern.
+# Shared schema every ws_bridge platform must extend, mirroring uartex's
+# UARTEX_DEVICE_SCHEMA pattern.
 WS_BRIDGE_DEVICE_SCHEMA = cv.Schema(
     {
         cv.GenerateID(CONF_WS_BRIDGE_ID): cv.use_id(WsBridgeComponent),
