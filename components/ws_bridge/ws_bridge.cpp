@@ -94,6 +94,12 @@ std::string WsBridgeComponent::effective_app_version_() {
 #endif
 }
 
+void WsBridgeComponent::send_connect_(uint32_t id) {
+  this->send_raw_(build_connect(id, this->gateway_id_, this->gateway_name_,
+                                this->keep_last_state_on_disconnect_, this->effective_app_version_(),
+                                this->manufacturer_, this->model_, this->hw_version_));
+}
+
 // Actively probes the connection with HA's standard "ping"/"pong" websocket_api
 // commands. Needed because a dead peer (e.g. HA killed without a clean WS
 // close — no FIN/RST ever reaches the socket) can otherwise leave the
@@ -146,8 +152,7 @@ void WsBridgeComponent::check_liveness_() {
       now - this->last_reannounce_ms_ > this->reannounce_interval_ms_) {
     ESP_LOGD(TAG, "Periodic re-announce: resending connect + entity declarations");
     uint32_t connect_id = this->next_id_();
-    this->send_raw_(build_connect(connect_id, this->gateway_id_, this->gateway_name_,
-                                  this->keep_last_state_on_disconnect_, this->effective_app_version_()));
+    this->send_connect_(connect_id);
     this->last_connect_msg_id_ = connect_id;
     this->awaiting_connect_result_ = true;
     this->connect_sent_ms_ = now;
@@ -169,6 +174,12 @@ void WsBridgeComponent::dump_config() {
                 this->port_);
   ESP_LOGCONFIG(TAG, "  Gateway ID: %s", this->gateway_id_.c_str());
   ESP_LOGCONFIG(TAG, "  App version: %s", this->effective_app_version_().c_str());
+  if (!this->manufacturer_.empty())
+    ESP_LOGCONFIG(TAG, "  Manufacturer: %s", this->manufacturer_.c_str());
+  if (!this->model_.empty())
+    ESP_LOGCONFIG(TAG, "  Model: %s", this->model_.c_str());
+  if (!this->hw_version_.empty())
+    ESP_LOGCONFIG(TAG, "  Hardware version: %s", this->hw_version_.c_str());
   ESP_LOGCONFIG(TAG, "  Keep last state on disconnect: %s", YESNO(this->keep_last_state_on_disconnect_));
   ESP_LOGCONFIG(TAG, "  Ping interval: %u ms", static_cast<unsigned>(this->ping_interval_ms_));
   ESP_LOGCONFIG(TAG, "  Pong timeout: %u ms", static_cast<unsigned>(this->pong_timeout_ms_));
@@ -309,9 +320,7 @@ void WsBridgeComponent::handle_message_(const std::string &raw) {
     this->send_raw_(build_auth(this->token_));
     this->set_state_(WS_BRIDGE_WAIT_AUTH_OK);
   } else if (msg.type == "auth_ok") {
-    this->send_raw_(
-        build_connect(this->next_id_(), this->gateway_id_, this->gateway_name_, this->keep_last_state_on_disconnect_,
-                      this->effective_app_version_()));
+    this->send_connect_(this->next_id_());
     this->set_state_(WS_BRIDGE_CONNECTED);
     this->ping_outstanding_ = false;
     this->reconnect_backoff_ms_ = RECONNECT_BACKOFF_BASE_MS;

@@ -25,6 +25,9 @@ ws_bridge:
   gateway_id: my_esp
   name: "My ESP"
   app_version: "1.0.0-test"
+  manufacturer: Espressif
+  model: ESP32
+  hw_version: "1.0"
   keep_last_state_on_disconnect: true
   sync_entities: true
   on_connected:

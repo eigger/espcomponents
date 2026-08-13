@@ -46,6 +46,9 @@ ws_bridge:
   gateway_id: my_esp         # (default: this device's name)
   name: "My ESP"             # (default: this device's friendly_name)
   # app_version: "1.2.3"     # optional; default is ESPHome version + compile time
+  # manufacturer: Espressif  # optional; HA default is ws_bridge
+  # model: ESP32-S3          # optional; HA default is Gateway
+  # hw_version: "1.0"        # optional
   keep_last_state_on_disconnect: false
   sync_entities: false      # true = remove HA entities this device no longer declares
   ping_interval: 60s
@@ -205,6 +208,9 @@ update:
 | `gateway_id` | | device name | Unique client identifier (becomes the HA gateway device) |
 | `name` | | device friendly name | Display name for the gateway device |
 | `app_version` | | ESPHome version + compile time | Firmware/app version sent on `ws_bridge/connect` (HA gateway device `sw_version`). Default looks like `2025.8.0 (Aug 14 2026, 07:31:00)`. Set this to send a custom version instead |
+| `manufacturer` | | omitted | Gateway device manufacturer. Omitted: HA shows `ws_bridge` |
+| `model` | | omitted | Gateway device model. Omitted: HA shows `Gateway` |
+| `hw_version` | | omitted | Gateway hardware version. Omitted: left unset. Each of these fields is independent |
 | `keep_last_state_on_disconnect` | | `false` | If `true`, this gateway's entities keep their last state in HA instead of going `unavailable` when the connection drops (including an ungraceful disconnect) |
 | `sync_entities` | | `false` | If `true`, sends `ws_bridge/sync` with every declared `unique_id` right after connecting, so HA removes entities this gateway no longer provides. Entities still declared keep their `entity_id`, history and long-term statistics — nothing is wiped and recreated. See [Removing stale entities](#removing-stale-entities) |
 | `ping_interval` | | `60s` | How often to send an app-level `ping` once connected, to detect a peer that dropped without a clean WebSocket close |

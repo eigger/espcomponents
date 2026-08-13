@@ -54,6 +54,9 @@ class WsBridgeComponent : public Component {
   // Empty = default: ESPHome version + compilation time. A non-empty value is
   // sent as-is on ws_bridge/connect (HA gateway device sw_version).
   void set_app_version(const std::string &v) { this->app_version_ = v; }
+  void set_manufacturer(const std::string &v) { this->manufacturer_ = v; }
+  void set_model(const std::string &v) { this->model_ = v; }
+  void set_hw_version(const std::string &v) { this->hw_version_ = v; }
   void set_keep_last_state_on_disconnect(bool v) { this->keep_last_state_on_disconnect_ = v; }
   void set_sync_entities(bool v) { this->sync_entities_ = v; }
   // See check_liveness_() for what these govern.
@@ -117,6 +120,7 @@ class WsBridgeComponent : public Component {
   void check_liveness_();
   void force_reconnect_();
   std::string effective_app_version_();
+  void send_connect_(uint32_t id);
 
   // One outbound WS text frame. `sync_declare_uid` is set for entity declares
   // collected during a sync pass — only appended to declared_ids_ after the
@@ -136,6 +140,9 @@ class WsBridgeComponent : public Component {
   std::string gateway_id_;
   std::string gateway_name_;
   std::string app_version_;
+  std::string manufacturer_;
+  std::string model_;
+  std::string hw_version_;
   bool keep_last_state_on_disconnect_{false};
 
   // Opt-in (sync_entities:). After declaring everything on connect, tell HA the
