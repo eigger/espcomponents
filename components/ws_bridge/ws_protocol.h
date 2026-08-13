@@ -66,7 +66,7 @@ ParsedMessage parse_message(const std::string &raw);
 // ws_bridge/* command does).
 std::string build_auth(const std::string &access_token);
 std::string build_connect(uint32_t id, const std::string &gateway_id, const std::string &name,
-                          bool keep_last_state_on_disconnect, const std::string &app_version,
+                          bool keep_last_state_on_disconnect, const std::string &sw_version,
                           const std::string &manufacturer = "", const std::string &model = "",
                           const std::string &hw_version = "");
 

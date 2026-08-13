@@ -53,7 +53,7 @@ class WsBridgeComponent : public Component {
   void set_gateway_name(const std::string &name) { this->gateway_name_ = name; }
   // Empty = default: ESPHome version + compilation time. A non-empty value is
   // sent as-is on ws_bridge/connect (HA gateway device sw_version).
-  void set_app_version(const std::string &v) { this->app_version_ = v; }
+  void set_sw_version(const std::string &v) { this->sw_version_ = v; }
   void set_manufacturer(const std::string &v) { this->manufacturer_ = v; }
   void set_model(const std::string &v) { this->model_ = v; }
   void set_hw_version(const std::string &v) { this->hw_version_ = v; }
@@ -119,7 +119,7 @@ class WsBridgeComponent : public Component {
   void set_state_(WsBridgeState s);
   void check_liveness_();
   void force_reconnect_();
-  std::string effective_app_version_();
+  std::string effective_sw_version_();
   void send_connect_(uint32_t id);
 
   // One outbound WS text frame. `sync_declare_uid` is set for entity declares
@@ -139,7 +139,7 @@ class WsBridgeComponent : public Component {
   std::string token_;
   std::string gateway_id_;
   std::string gateway_name_;
-  std::string app_version_;
+  std::string sw_version_;
   std::string manufacturer_;
   std::string model_;
   std::string hw_version_;

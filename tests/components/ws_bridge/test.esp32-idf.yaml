@@ -24,7 +24,7 @@ ws_bridge:
   token: "test_token"
   gateway_id: my_esp
   name: "My ESP"
-  app_version: "1.0.0-test"
+  sw_version: "1.0.0-test"
   manufacturer: Espressif
   model: ESP32
   hw_version: "1.0"

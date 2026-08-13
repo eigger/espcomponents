@@ -83,8 +83,8 @@ void WsBridgeComponent::force_reconnect_() {
   esp_websocket_client_start(this->client_);
 }
 
-std::string WsBridgeComponent::effective_app_version_() {
-  if (!this->app_version_.empty()) return this->app_version_;
+std::string WsBridgeComponent::effective_sw_version_() {
+  if (!this->sw_version_.empty()) return this->sw_version_;
 #if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 1, 0)
   char build_time[Application::BUILD_TIME_STR_SIZE];
   App.get_build_time_string(build_time);
@@ -96,7 +96,7 @@ std::string WsBridgeComponent::effective_app_version_() {
 
 void WsBridgeComponent::send_connect_(uint32_t id) {
   this->send_raw_(build_connect(id, this->gateway_id_, this->gateway_name_,
-                                this->keep_last_state_on_disconnect_, this->effective_app_version_(),
+                                this->keep_last_state_on_disconnect_, this->effective_sw_version_(),
                                 this->manufacturer_, this->model_, this->hw_version_));
 }
 
@@ -173,7 +173,7 @@ void WsBridgeComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "  Server: %s://%s:%u/api/websocket", this->ssl_ ? "wss" : "ws", this->host_.c_str(),
                 this->port_);
   ESP_LOGCONFIG(TAG, "  Gateway ID: %s", this->gateway_id_.c_str());
-  ESP_LOGCONFIG(TAG, "  App version: %s", this->effective_app_version_().c_str());
+  ESP_LOGCONFIG(TAG, "  Software version: %s", this->effective_sw_version_().c_str());
   if (!this->manufacturer_.empty())
     ESP_LOGCONFIG(TAG, "  Manufacturer: %s", this->manufacturer_.c_str());
   if (!this->model_.empty())
