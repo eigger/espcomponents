@@ -17,16 +17,10 @@ def validate_number_range(config):
         raise cv.Invalid("min_value and max_value must be set together")
     if not has_min:
         # No range of its own: only valid when wrapping, since the range then
-        # comes from number_id's own min/max/step at declare time (see
+        # comes from number_id's own min/max at declare time (see
         # ws_bridge_domains.h's ws_declare_number).
         if CONF_NUMBER_ID not in config:
             raise cv.Invalid("min_value and max_value are required unless number_id: is set")
-        if CONF_STEP in config:
-            # step alone (without min_value/max_value) would silently be
-            # dropped: ws_declare_number treats the trio as one atomic
-            # inherit-or-not decision keyed on min_value, so a lone step
-            # here would never take effect.
-            raise cv.Invalid("step requires min_value and max_value to also be set")
         return config
     if config[CONF_MAX_VALUE] <= config[CONF_MIN_VALUE]:
         raise cv.Invalid("max_value must be greater than min_value")
@@ -53,15 +47,15 @@ CONFIG_SCHEMA = cv.All(
 
 
 async def to_code(config):
-    has_own_range = CONF_MIN_VALUE in config
+    wrapping = CONF_NUMBER_ID in config
     var = await number.new_number(
         config,
+        # NaN means "inherit this field from number_id" (see ws_declare_number),
+        # so the 1.0 step default only applies when there is nothing to inherit
+        # from — otherwise overriding just the range would also force step 1.0.
         min_value=config.get(CONF_MIN_VALUE, float("nan")),
         max_value=config.get(CONF_MAX_VALUE, float("nan")),
-        # 1.0 matches the old unconditional default — only applied when this
-        # entity actually owns a range; a wrapper inheriting number_id's range
-        # must not clobber its step with this default (see ws_declare_number).
-        step=config.get(CONF_STEP, 1.0 if has_own_range else float("nan")),
+        step=config.get(CONF_STEP, float("nan") if wrapping else 1.0),
     )
     await cg.register_component(var, config)
     await ws_bridge.register_ws_bridge_device(var, config)

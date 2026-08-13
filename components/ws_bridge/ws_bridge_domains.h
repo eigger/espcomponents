@@ -190,15 +190,21 @@ inline void ws_declare_number(WsBridgeDevice *dev, number::Number &src, number::
       dev->get_ws_bridge_unique_id(), "number", name, dev->get_ws_bridge_device_id(),
       dev->get_ws_bridge_device_name(), [&src, ovr](JsonObject root) {
         add_common_entity_fields(root, src, ovr);
-        // min/max/step are taken as one atomic set rather than field by
-        // field: NumberTraits default-initializes all three to NAN, and
-        // codegen only ever calls set_min_value()/set_max_value()/set_step()
-        // together (see number/__init__.py's schema validation) — so a
-        // non-NaN min on ovr means the whole trio was explicitly given.
-        auto &traits = (ovr != nullptr && !std::isnan(ovr->traits.get_min_value())) ? ovr->traits : src.traits;
-        root["min"] = traits.get_min_value();
-        root["max"] = traits.get_max_value();
-        root["step"] = traits.get_step();
+        // Each of min/max/step falls back to src independently, so a wrapper
+        // can override the range without also having to restate the step.
+        // NumberTraits default-initializes all three to NAN and codegen leaves
+        // them NaN when the YAML key was absent, so NaN means "inherit".
+        float min_value = src.traits.get_min_value();
+        float max_value = src.traits.get_max_value();
+        float step = src.traits.get_step();
+        if (ovr != nullptr) {
+          if (!std::isnan(ovr->traits.get_min_value())) min_value = ovr->traits.get_min_value();
+          if (!std::isnan(ovr->traits.get_max_value())) max_value = ovr->traits.get_max_value();
+          if (!std::isnan(ovr->traits.get_step())) step = ovr->traits.get_step();
+        }
+        root["min"] = min_value;
+        root["max"] = max_value;
+        root["step"] = step;
       });
 }
 

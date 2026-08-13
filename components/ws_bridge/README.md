@@ -204,7 +204,9 @@ number:
 
 - **Metadata** (`device_class`, `icon`, `entity_category`, sensor unit /
   state class / accuracy, number range, select options) comes from the
-  source. Anything written on the ws_bridge platform still wins.
+  source. Anything written on the ws_bridge platform still wins, field by
+  field — a number that sets only `min_value`/`max_value` keeps the
+  source's `step`, and vice versa.
 - **Commands** on `switch` / `number` / `select` / `button` / `update` are
   applied to the wrapped entity, not to the wrapper. On-device automations
   should keep targeting the source (`switch.turn_on: relay`).

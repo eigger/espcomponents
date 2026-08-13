@@ -11,8 +11,8 @@ class WsBridgeNumber : public number::Number, public Component, public WsBridgeD
   // Optional: mirror and drive an existing number instead of this platform
   // being the number itself. Commands from HA are applied to the wrapped
   // number, and its own state changes are what get reported back. min/max/step
-  // inherit from it too unless this platform's own min_value/max_value are
-  // set (see ws_bridge_domains.h's ws_declare_number).
+  // inherit from it per field, each one unless overridden here (see
+  // ws_bridge_domains.h's ws_declare_number).
   void set_source(number::Number *source) { this->source_ = source; }
   const EntityBase *get_ws_bridge_source() const override { return this->source_; }
   void setup() override;

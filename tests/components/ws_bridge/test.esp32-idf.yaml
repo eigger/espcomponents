@@ -145,6 +145,14 @@ number:
     unique_id: number_bridged
     name: "Number (bridged)"
     number_id: local_number
+  # Overrides one range field only: min/max/step resolve per field, so this
+  # keeps local_number's min/max. local_number is exposed several times here
+  # on purpose, to exercise the dump_config() double-exposure warning.
+  - platform: ws_bridge
+    unique_id: number_step_bridged
+    name: "Number (finer step)"
+    number_id: local_number
+    step: 0.1
 
 select:
   - platform: ws_bridge
