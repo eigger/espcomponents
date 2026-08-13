@@ -8,7 +8,7 @@ namespace ws_bridge {
 class WsBridgeComponent;
 
 // Shared base for every ws_bridge platform entity (sensor/binary_sensor/switch/
-// number/select/button). Holds the protocol-facing identity fields and gives
+// number/select/button/update). Holds the protocol-facing identity fields and gives
 // the hub a uniform way to ask any registered entity to (re)send its
 // ws_bridge/entity declaration (used on first connect and on every reconnect).
 class WsBridgeDevice {

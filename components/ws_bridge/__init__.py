@@ -129,7 +129,7 @@ CONFIG_SCHEMA = cv.All(
 )
 
 # Shared schema every ws_bridge platform (sensor/binary_sensor/switch/number/
-# select/button) must extend, mirroring uartex's UARTEX_DEVICE_SCHEMA pattern.
+# select/button/update) must extend, mirroring uartex's UARTEX_DEVICE_SCHEMA pattern.
 WS_BRIDGE_DEVICE_SCHEMA = cv.Schema(
     {
         cv.GenerateID(CONF_WS_BRIDGE_ID): cv.use_id(WsBridgeComponent),
