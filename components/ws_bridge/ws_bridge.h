@@ -152,23 +152,24 @@ class WsBridgeComponent : public Component {
 
   // Paced (re)declare: platform entities are declared a few per loop() so a
   // large gateway cannot block the main loop for tens of seconds on a slow
-  // link. send_text waits TX_SEND_TIMEOUT_MS (not 0 — a 0 timeout aborts the
-  // connection when the TCP window is full). on_declare: / on_connected: run
-  // after the device list is finished; ws_bridge/sync waits until the TX queue
-  // has drained so declared_ids_ only contains frames that actually left the
-  // socket.
+  // link. on_declare: / on_connected: run after the device list is finished;
+  // ws_bridge/sync waits until the TX queue has drained so declared_ids_ only
+  // contains frames that actually left the socket.
+  //
+  // send_text timeout must NOT be 0 (or tiny): esp_websocket_client 1.7.0
+  // treats a 0-byte write (tcp window full past the wait) as fatal and calls
+  // abort_connection(). That turns declare bursts into reconnect storms.
+  // Keep one/few sends per loop with a generous wait instead.
   bool declare_in_progress_{false};
   size_t declare_device_index_{0};
   bool declare_run_connected_{false};
   bool sync_flush_pending_{false};
-  static constexpr size_t DECLARE_DEVICES_PER_LOOP = 2;
+  static constexpr size_t DECLARE_DEVICES_PER_LOOP = 1;
 
   std::deque<TxItem> tx_queue_{};
   static constexpr size_t TX_QUEUE_MAX = 64;
-  static constexpr size_t TX_PER_LOOP = 4;
-  // Small enough that 4 sends stay under the loop budget (~200 ms), long
-  // enough for a momentarily full TCP window to drain instead of aborting.
-  static constexpr uint32_t TX_SEND_TIMEOUT_MS = 50;
+  static constexpr size_t TX_PER_LOOP = 1;
+  static constexpr uint32_t TX_SEND_TIMEOUT_MS = 1000;
 
   std::atomic<WsBridgeState> state_{WS_BRIDGE_DISCONNECTED};
   uint32_t msg_id_{0};
