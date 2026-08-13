@@ -342,11 +342,6 @@ void WsBridgeComponent::start_declare_pass_(bool run_connected_and_sync) {
   }
 }
 
-void WsBridgeComponent::declare_all_entities_() {
-  // Kept for call sites that want a full redeclare without connect/sync.
-  this->start_declare_pass_(/*run_connected_and_sync=*/false);
-}
-
 void WsBridgeComponent::progress_declare_() {
   if (this->declare_in_progress_) {
     size_t n = 0;
@@ -402,7 +397,8 @@ void WsBridgeComponent::drain_tx_queue_() {
   size_t sent = 0;
   while (!this->tx_queue_.empty() && sent < TX_PER_LOOP) {
     TxItem &item = this->tx_queue_.front();
-    int r = esp_websocket_client_send_text(this->client_, item.msg.c_str(), item.msg.size(), 0);
+    int r = esp_websocket_client_send_text(this->client_, item.msg.c_str(), item.msg.size(),
+                                           pdMS_TO_TICKS(TX_SEND_TIMEOUT_MS));
     if (r < 0)
       break;
     if (this->collecting_declared_ids_ && !item.sync_declare_uid.empty())
@@ -415,12 +411,17 @@ void WsBridgeComponent::drain_tx_queue_() {
 bool WsBridgeComponent::send_raw_(const std::string &msg, const std::string &sync_declare_uid) {
   if (this->client_ == nullptr || !esp_websocket_client_is_connected(this->client_))
     return false;
-  // Non-blocking attempt first — a stalled peer must not freeze loop().
-  int r = esp_websocket_client_send_text(this->client_, msg.c_str(), msg.size(), 0);
-  if (r >= 0) {
-    if (this->collecting_declared_ids_ && !sync_declare_uid.empty())
-      this->declared_ids_.push_back(sync_declare_uid);
-    return true;
+  // Keep FIFO: a queued v1 must leave before a later v2. Bypass the queue only
+  // when it is empty. Timeout is short (not 0) so a full TCP window waits
+  // instead of aborting the connection.
+  if (this->tx_queue_.empty()) {
+    int r = esp_websocket_client_send_text(this->client_, msg.c_str(), msg.size(),
+                                           pdMS_TO_TICKS(TX_SEND_TIMEOUT_MS));
+    if (r >= 0) {
+      if (this->collecting_declared_ids_ && !sync_declare_uid.empty())
+        this->declared_ids_.push_back(sync_declare_uid);
+      return true;
+    }
   }
   if (this->tx_queue_.size() >= TX_QUEUE_MAX) {
     ESP_LOGW(TAG, "TX queue full (%u) — dropping outbound message", (unsigned) TX_QUEUE_MAX);

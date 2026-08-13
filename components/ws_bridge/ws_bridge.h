@@ -100,7 +100,6 @@ class WsBridgeComponent : public Component {
   void handle_event_(const WsEvent &event);
   void handle_message_(const std::string &raw);
   void route_command_(const WsCommand &command);
-  void declare_all_entities_();
   void start_declare_pass_(bool run_connected_and_sync);
   void progress_declare_();
   void maybe_flush_sync_();
@@ -153,10 +152,11 @@ class WsBridgeComponent : public Component {
 
   // Paced (re)declare: platform entities are declared a few per loop() so a
   // large gateway cannot block the main loop for tens of seconds on a slow
-  // link (each send_text used to wait up to 1000 ms). on_declare: /
-  // on_connected: run after the device list is finished; ws_bridge/sync waits
-  // until the TX queue has drained so declared_ids_ only contains frames that
-  // actually left the socket.
+  // link. send_text waits TX_SEND_TIMEOUT_MS (not 0 — a 0 timeout aborts the
+  // connection when the TCP window is full). on_declare: / on_connected: run
+  // after the device list is finished; ws_bridge/sync waits until the TX queue
+  // has drained so declared_ids_ only contains frames that actually left the
+  // socket.
   bool declare_in_progress_{false};
   size_t declare_device_index_{0};
   bool declare_run_connected_{false};
@@ -166,6 +166,9 @@ class WsBridgeComponent : public Component {
   std::deque<TxItem> tx_queue_{};
   static constexpr size_t TX_QUEUE_MAX = 64;
   static constexpr size_t TX_PER_LOOP = 4;
+  // Small enough that 4 sends stay under the loop budget (~200 ms), long
+  // enough for a momentarily full TCP window to drain instead of aborting.
+  static constexpr uint32_t TX_SEND_TIMEOUT_MS = 50;
 
   std::atomic<WsBridgeState> state_{WS_BRIDGE_DISCONNECTED};
   uint32_t msg_id_{0};
