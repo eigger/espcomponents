@@ -22,6 +22,11 @@ CONF_GPS_ACCURACY = "gps_accuracy"
 CONF_UPDATE_ID = "update_id"
 CONF_BUTTON_ID = "button_id"
 
+# Hub-side `entities:` list — exposes an already-existing ESPHome entity
+# without a parallel `platform: ws_bridge` entity. See WsBridgeEntityRefBase.
+CONF_ENTITIES = "entities"
+CONF_SOURCE_ID = "source_id"
+
 CONF_PING_INTERVAL = "ping_interval"
 CONF_PONG_TIMEOUT = "pong_timeout"
 CONF_RECONNECT_TIMEOUT = "reconnect_timeout"
