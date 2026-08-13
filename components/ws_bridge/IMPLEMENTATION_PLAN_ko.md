@@ -98,15 +98,17 @@
 
 ```cpp
 // 명령 params 의 한 항목. JsonDocument 수명 밖으로 값을 복사해 나온다.
+// null/객체/혼합 배열은 타입 플래그를 모두 false로 남겨 param_*가 실패하게 한다.
 struct WsParam {
   std::string key;
   bool is_string{false};
   std::string s;                 // is_string == true
-  float f{0};                    // 숫자
-  bool b{false};                 // 불리언
+  bool is_number{false};
+  float f{0};                    // is_number == true
   bool is_bool{false};
-  std::vector<float> arr;        // rgb_color / hs_color 등 숫자 배열
+  bool b{false};                 // is_bool == true
   bool is_array{false};
+  std::vector<float> arr;        // is_array == true; 숫자 원소만
 };
 
 struct WsCommand {
@@ -122,7 +124,8 @@ struct WsCommand {
   bool param_float(const char *key, float &out) const;
   bool param_bool(const char *key, bool &out) const;
   bool param_string(const char *key, std::string &out) const;
-  bool param_array(const char *key, std::vector<float> &out) const;
+  // expected_size 필수 (rgb_color=3, hs_color=2). 길이 불일치면 false.
+  bool param_array(const char *key, std::vector<float> &out, size_t expected_size) const;
 };
 ```
 
@@ -136,15 +139,21 @@ if (!params.isNull()) {
     p.key = kv.key().c_str();
     JsonVariant v = kv.value();
     if (v.is<JsonArray>()) {
-      p.is_array = true;
-      for (JsonVariant e : v.as<JsonArray>()) p.arr.push_back(e.as<float>());
+      bool all_numbers = true;
+      std::vector<float> nums;
+      for (JsonVariant e : v.as<JsonArray>()) {
+        if (!e.is<float>()) { all_numbers = false; break; }
+        nums.push_back(e.as<float>());
+      }
+      if (all_numbers) { p.is_array = true; p.arr = std::move(nums); }
     } else if (v.is<const char *>()) {
       p.is_string = true;
       p.s = v.as<std::string>();
     } else if (v.is<bool>()) {
       p.is_bool = true;
       p.b = v.as<bool>();
-    } else {
+    } else if (v.is<float>()) {
+      p.is_number = true;
       p.f = v.as<float>();
     }
     msg.command.params.push_back(std::move(p));
