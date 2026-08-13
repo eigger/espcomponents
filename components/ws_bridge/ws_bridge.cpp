@@ -28,6 +28,10 @@ void WsBridgeComponent::setup() {
   config.disable_auto_reconnect = false;
   config.reconnect_timeout_ms = 10000;
   config.network_timeout_ms = 10000;
+  // Pin the RX/TX buffer so a future library default change cannot silently
+  // alter chunking (see rx_drop_message_ — one TEXT frame is split into
+  // buffer_size DATA events).
+  config.buffer_size = 1024;
   // Default task stack is 4KB. TLS handshake + crt bundle + our handler's
   // std::string work needs more headroom (Nabu Casa / reverse-proxy chains).
   config.task_stack = this->ssl_ ? 8192 : 4096;
@@ -277,10 +281,12 @@ void WsBridgeComponent::set_state_(WsBridgeState s) {
   }
 }
 
-// Runs on the esp_websocket_client task, NOT the ESPHome main loop task.
-// Must stay fast and non-blocking: reassemble fragmented text frames into
-// rx_accum_ (producer-only state) and hand off complete events through the
-// lock-free queue for loop() to process.
+// Typically runs on the esp_websocket_client task, but can also run on the
+// ESPHome loop task (or reconnect_task_) because the library creates its
+// event loop with task_name = NULL and dispatches inline after send failures
+// / stop/start. Stay fast: reassemble fragments into rx_accum_ and hand off
+// complete events through the lock-free queue. Mutual exclusion with send
+// currently depends on esp_websocket_client's client->lock.
 void WsBridgeComponent::ws_event_handler_(void *handler_args, esp_event_base_t base, int32_t event_id,
                                           void *event_data) {
   auto *self = static_cast<WsBridgeComponent *>(handler_args);
@@ -306,24 +312,70 @@ void WsBridgeComponent::ws_event_handler_(void *handler_args, esp_event_base_t b
   // (non-critical) log line / callback in handle_event_ can be.
   if (ws_event_id == WEBSOCKET_EVENT_CONNECTED) {
     self->rx_accum_.clear();
+    self->rx_text_frame_ = false;
+    self->rx_drop_message_ = false;
     self->set_state_(WS_BRIDGE_WAIT_AUTH_REQUIRED);
   } else if (ws_event_id == WEBSOCKET_EVENT_DISCONNECTED || ws_event_id == WEBSOCKET_EVENT_ERROR ||
              ws_event_id == WEBSOCKET_EVENT_CLOSED) {
     self->rx_accum_.clear();
+    self->rx_text_frame_ = false;
+    self->rx_drop_message_ = false;
     was_connected = (self->state_.exchange(WS_BRIDGE_DISCONNECTED, std::memory_order_acq_rel) == WS_BRIDGE_CONNECTED);
   }
 
   if (ws_event_id == WEBSOCKET_EVENT_DATA) {
-    if (data->op_code != WS_TRANSPORT_OPCODES_TEXT && data->op_code != WS_TRANSPORT_OPCODES_CONT) {
-      return;  // ignore ping/pong/close/binary frames
+    uint8_t opcode = static_cast<uint8_t>(data->op_code) & 0x0F;
+    // Control/binary frames are not part of reassembly — they must not
+    // complete (or cancel) an in-progress oversized drop either.
+    if (opcode != WS_TRANSPORT_OPCODES_TEXT && opcode != WS_TRANSPORT_OPCODES_CONT)
+      return;
+    if (self->rx_drop_message_) {
+      // Remaining chunks of an oversized frame (WS CONT *or* buffer_size
+      // splits of a single TEXT opcode) must not be reassembled.
+      bool drop_complete =
+          data->payload_len == 0 || (data->payload_offset + data->data_len >= data->payload_len);
+      if (drop_complete) {
+        self->rx_drop_message_ = false;
+        self->rx_text_frame_ = false;
+      }
+      return;
     }
-    if (data->data_len > 0) self->rx_accum_.append(data->data_ptr, data->data_len);
+    if (opcode == WS_TRANSPORT_OPCODES_TEXT) {
+      self->rx_text_frame_ = true;
+    } else if (!self->rx_text_frame_) {
+      return;  // continuation of a binary (or unknown) message
+    }
+    if (data->data_len > 0) {
+      if (self->rx_accum_.size() + static_cast<size_t>(data->data_len) > RX_ACCUM_MAX) {
+        ESP_LOGW(TAG, "RX message exceeded %u bytes — dropping", (unsigned) RX_ACCUM_MAX);
+        self->rx_accum_.clear();
+        self->rx_accum_.shrink_to_fit();
+        self->rx_text_frame_ = false;
+        bool complete =
+            data->payload_len == 0 || (data->payload_offset + data->data_len >= data->payload_len);
+        // Only hold the drop across further chunks of *this* frame. If this
+        // chunk already finished the payload, the next DATA is a new message.
+        self->rx_drop_message_ = !complete;
+        return;
+      }
+      self->rx_accum_.append(data->data_ptr, data->data_len);
+    }
     bool complete = data->payload_len == 0 || (data->payload_offset + data->data_len >= data->payload_len);
     if (!complete) return;  // wait for more fragments
+    self->rx_text_frame_ = false;
+    if (self->rx_accum_.empty())
+      return;  // empty payload would just consume a pool slot
   }
 
   WsEvent *event = self->event_pool_.allocate();
-  if (event == nullptr) return;  // queue full, drop this event (state_ is already correct regardless)
+  if (event == nullptr) {
+    // Dropping a completed DATA message must also drop rx_accum_. Leaving it
+    // would concatenate the next frame onto the abandoned payload and poison
+    // every subsequent JSON message until the next connect/disconnect.
+    self->rx_accum_.clear();
+    self->rx_text_frame_ = false;
+    return;
+  }
   event->event_id = ws_event_id;
   event->was_connected = was_connected;
   if (ws_event_id == WEBSOCKET_EVENT_DATA) {

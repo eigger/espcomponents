@@ -259,9 +259,16 @@ class WsBridgeComponent : public Component {
   uint32_t connect_sent_ms_{0};
   uint32_t last_connect_msg_id_{0};
 
-  // Producer-side (WS client task) fragment reassembly buffer. Only ever
-  // touched from ws_event_handler_(), never from loop() — no locking needed.
+  // Fragment reassembly for WEBSOCKET_EVENT_DATA. The handler can run on the
+  // WS client task *or* the ESPHome loop task (esp_websocket_client posts
+  // events with task_name = NULL and then runs the loop inline after a failed
+  // send). Mutual exclusion currently depends on the library's client->lock,
+  // not on this component. reconnect_task_ also stop()/start()s the client
+  // and can dispatch events inline on that task.
   std::string rx_accum_;
+  bool rx_text_frame_{false};
+  bool rx_drop_message_{false};  // oversized — ignore remaining chunks until complete
+  static constexpr size_t RX_ACCUM_MAX = 16384;
 
   static constexpr uint8_t EVENT_QUEUE_SIZE = 8;
   EventPool<WsEvent, EVENT_QUEUE_SIZE - 1> event_pool_;
