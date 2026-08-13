@@ -121,8 +121,9 @@ class WsBridgeComponent : public Component {
   void force_reconnect_();
   static void reconnect_task_(void *arg);
   std::string effective_sw_version_();
-  void send_connect_(uint32_t id);
+  bool send_connect_(uint32_t id);
   uint32_t reconnect_backoff_base_() const;
+  void mark_sync_declare_dropped_(const std::string &sync_declare_uid);
 
   // One outbound WS text frame. `sync_declare_uid` is set for entity declares
   // collected during a sync pass — only appended to declared_ids_ after the
@@ -162,6 +163,7 @@ class WsBridgeComponent : public Component {
   // its entity registry every reannounce_interval.
   bool sync_entities_{false};
   bool collecting_declared_ids_{false};
+  bool sync_declares_dropped_{false};
   std::vector<std::string> declared_ids_{};
 
   // Paced (re)declare: platform entities are declared a few per loop() so a
