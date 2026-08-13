@@ -260,8 +260,13 @@ void WsBridgeComponent::handle_message_(const std::string &raw) {
     this->reconnect_backoff_ms_ = RECONNECT_BACKOFF_BASE_MS;
     this->last_ping_sent_ms_ = millis();
     this->last_reannounce_ms_ = this->last_ping_sent_ms_;
+    // Collect across both the declare pass and on_connected:, so a lambda that
+    // declares from either trigger is counted before the list is sent.
+    this->collecting_declared_ids_ = this->sync_entities_;
+    this->declared_ids_.clear();
     this->declare_all_entities_();
     this->connected_cb_.call();
+    this->flush_sync_();
   } else if (msg.type == "auth_invalid") {
     ESP_LOGE(TAG, "Home Assistant rejected the access token");
   } else if (msg.type == "pong") {
@@ -295,6 +300,21 @@ void WsBridgeComponent::declare_all_entities_() {
   this->declare_cb_.call();
 }
 
+void WsBridgeComponent::flush_sync_() {
+  this->collecting_declared_ids_ = false;
+  if (!this->sync_entities_) return;
+  // HA rejects an empty list (it would mean "delete everything"), and a
+  // gateway that declared nothing has nothing to reconcile against anyway.
+  if (this->declared_ids_.empty()) {
+    ESP_LOGW(TAG, "sync_entities is on but nothing was declared — skipping ws_bridge/sync");
+    return;
+  }
+  ESP_LOGD(TAG, "Syncing %u declared entities with HA", (unsigned) this->declared_ids_.size());
+  this->send_raw_(build_sync(this->next_id_(), this->declared_ids_));
+  this->declared_ids_.clear();
+  this->declared_ids_.shrink_to_fit();
+}
+
 void WsBridgeComponent::send_raw_(const std::string &msg) {
   if (this->client_ == nullptr || !esp_websocket_client_is_connected(this->client_)) return;
   esp_websocket_client_send_text(this->client_, msg.c_str(), msg.size(), pdMS_TO_TICKS(1000));
@@ -305,6 +325,10 @@ void WsBridgeComponent::send_entity_declare(const std::string &unique_id, const 
                                             const std::string &device_name,
                                             const std::function<void(JsonObject)> &extra) {
   if (!this->is_connected()) return;
+  // Every declaration funnels through here — registered platform entities and
+  // hand-built lambda ones alike — so this is the one place that sees the full
+  // set for ws_bridge/sync. See sync_entities_.
+  if (this->collecting_declared_ids_) this->declared_ids_.push_back(unique_id);
   this->send_raw_(build_entity_declare(this->next_id_(), unique_id, platform, name, device_id, device_name, extra));
 }
 

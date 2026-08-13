@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <vector>
 #include "esphome/components/json/json_util.h"
 
 namespace esphome {
@@ -41,6 +42,13 @@ std::string build_connect(uint32_t id, const std::string &gateway_id, const std:
 // layer itself doesn't notice (e.g. HA process killed without a clean WS
 // close, so the socket never sees a FIN/RST).
 std::string build_ping(uint32_t id);
+
+// Tells HA the complete set of unique_ids this gateway currently provides, so
+// it can drop entities we no longer declare (PROTOCOL.md §3.5). Entities that
+// ARE in the list are left untouched, so their entity_id, history and
+// long-term statistics survive — unlike removing everything and redeclaring.
+// HA rejects an empty list, so callers must not send one.
+std::string build_sync(uint32_t id, const std::vector<std::string> &unique_ids);
 
 // `extra` (may be empty) is called with the message's root JsonObject to add
 // platform-specific declare fields (device_class, options, min/max/step, ...).

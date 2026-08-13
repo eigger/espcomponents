@@ -20,6 +20,7 @@ from .const import (
     CONF_TOKEN,
     CONF_GATEWAY_ID,
     CONF_KEEP_LAST_STATE_ON_DISCONNECT,
+    CONF_SYNC_ENTITIES,
     CONF_UNIQUE_ID,
     CONF_WS_DEVICE_ID,
     CONF_WS_DEVICE_NAME,
@@ -85,6 +86,18 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_GATEWAY_ID, default=lambda: CORE.name): cv.string_strict,
             cv.Optional(CONF_NAME, default=lambda: CORE.friendly_name or CORE.name): cv.string_strict,
             cv.Optional(CONF_KEEP_LAST_STATE_ON_DISCONNECT, default=False): cv.boolean,
+            # After declaring everything on connect, send ws_bridge/sync with the
+            # full set of unique_ids so HA drops entities this gateway no longer
+            # provides. Entities still in the list keep their entity_id, history
+            # and statistics — nothing is wiped and recreated.
+            #
+            # Off by default because it deletes HA-side entities. Safe to turn on
+            # when every entity is declared by a ws_bridge platform, an
+            # on_declare: lambda, or an on_connected: lambda — all three are
+            # collected. Leave it off if anything declares itself later (from an
+            # interval:, a button press, ...), since those would be absent from
+            # the list and removed.
+            cv.Optional(CONF_SYNC_ENTITIES, default=False): cv.boolean,
             # See ws_bridge.cpp's check_liveness_() for what these govern: an
             # app-level ping/pong that detects a peer that dropped without a
             # clean WS close, and a backstop that keeps retrying (2s doubling
@@ -164,6 +177,7 @@ async def to_code(config):
     cg.add(var.set_gateway_id(config[CONF_GATEWAY_ID]))
     cg.add(var.set_gateway_name(config[CONF_NAME]))
     cg.add(var.set_keep_last_state_on_disconnect(config[CONF_KEEP_LAST_STATE_ON_DISCONNECT]))
+    cg.add(var.set_sync_entities(config[CONF_SYNC_ENTITIES]))
     cg.add(var.set_ping_interval(config[CONF_PING_INTERVAL].total_milliseconds))
     cg.add(var.set_pong_timeout(config[CONF_PONG_TIMEOUT].total_milliseconds))
     cg.add(var.set_reconnect_timeout(config[CONF_RECONNECT_TIMEOUT].total_milliseconds))

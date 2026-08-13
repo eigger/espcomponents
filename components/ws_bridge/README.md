@@ -46,6 +46,7 @@ ws_bridge:
   gateway_id: my_esp         # (default: this device's name)
   name: "My ESP"             # (default: this device's friendly_name)
   keep_last_state_on_disconnect: false
+  sync_entities: false      # true = remove HA entities this device no longer declares
   ping_interval: 60s
   pong_timeout: 15s
   reconnect_timeout: 30s
@@ -127,6 +128,7 @@ update:
 | `gateway_id` | | device name | Unique client identifier (becomes the HA gateway device) |
 | `name` | | device friendly name | Display name for the gateway device |
 | `keep_last_state_on_disconnect` | | `false` | If `true`, this gateway's entities keep their last state in HA instead of going `unavailable` when the connection drops (including an ungraceful disconnect) |
+| `sync_entities` | | `false` | If `true`, sends `ws_bridge/sync` with every declared `unique_id` right after connecting, so HA removes entities this gateway no longer provides. Entities still declared keep their `entity_id`, history and long-term statistics — nothing is wiped and recreated. See [Removing stale entities](#removing-stale-entities) |
 | `ping_interval` | | `60s` | How often to send an app-level `ping` once connected, to detect a peer that dropped without a clean WebSocket close |
 | `pong_timeout` | | `15s` | How long to wait for a `pong` reply before assuming the connection is dead and forcing a reconnect |
 | `reconnect_timeout` | | `30s` | Cap for the reconnect backoff: while disconnected, we retry starting at 2s and doubling on each failure up to this value (matches the companion hass-ble-android client), rather than waiting on `esp_websocket_client`'s own auto-reconnect indefinitely |
@@ -355,6 +357,42 @@ interval:
 See the integration's
 [PROTOCOL.md](https://github.com/eigger/hass-ws-bridge/blob/main/docs/PROTOCOL.md)
 for the full set of declarable platforms and their fields.
+
+## Removing stale entities
+
+Home Assistant keeps every entity this gateway has ever declared. Deleting a
+sensor from your YAML does **not** remove it from HA — it just stops being
+updated, and with `keep_last_state_on_disconnect: true` it even keeps looking
+alive after a restart, because the integration restores it from its stored
+definition.
+
+Set `sync_entities: true` and the component sends `ws_bridge/sync` with every
+`unique_id` it declared, right after connecting. HA removes the ones that are
+no longer in the list:
+
+```yaml
+ws_bridge:
+  host: 192.168.0.10
+  token: !secret ha_token
+  sync_entities: true
+```
+
+Entities that *are* still declared are left completely alone — their
+`entity_id`, history, and long-term statistics survive. That is why the
+component syncs rather than removing everything and redeclaring.
+
+**When not to enable it.** The list is built from everything declared during
+the connect pass: `platform: ws_bridge` entities, `trackers:`, and lambdas in
+`on_declare:` or `on_connected:`. Anything that declares itself *later* — from
+an `interval:`, a button press, a sensor callback — will be missing from the
+list and get deleted from HA. Leave `sync_entities` off in that case and remove
+those entities by hand instead.
+
+The sync is sent once per connection, not on every `reannounce_interval`. If
+nothing has gone stale, HA does nothing and no entity is touched.
+
+Requires the `ws_bridge` integration v1.3.0 or newer on the HA side. Older
+versions reject the unknown command and log an error; nothing else breaks.
 
 ## Behavior / Limitations
 
