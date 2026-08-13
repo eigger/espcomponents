@@ -119,8 +119,10 @@ class WsBridgeComponent : public Component {
   void set_state_(WsBridgeState s);
   void check_liveness_();
   void force_reconnect_();
+  static void reconnect_task_(void *arg);
   std::string effective_sw_version_();
   void send_connect_(uint32_t id);
+  uint32_t reconnect_backoff_base_() const;
 
   // One outbound WS text frame. `sync_declare_uid` is set for entity declares
   // collected during a sync pass — only appended to declared_ids_ after the
@@ -213,15 +215,21 @@ class WsBridgeComponent : public Component {
   // elapsed before the drop, rather than retrying promptly.
   //
   // reconnect_backoff_ms_ is the actual delay used each time: starts at
-  // RECONNECT_BACKOFF_BASE_MS (= reconnect_retry_ms_'s default, so this is a
-  // flat 30s retry out of the box) and doubles on every failed attempt if
-  // reconnect_retry_ms_ is configured higher than the base, then resets back
-  // to base as soon as we're connected again (or on any freshly-detected
-  // disconnect).
+  // min(RECONNECT_BACKOFF_BASE_MS, reconnect_retry_ms_) so a configured
+  // reconnect_timeout below 30s is not first waited as 30s then shrunk, and
+  // doubles on every failed attempt if reconnect_retry_ms_ is higher than
+  // the base, then resets back to base as soon as we're connected again
+  // (or on any freshly-detected disconnect).
   uint32_t last_reconnect_attempt_ms_{0};
   uint32_t reconnect_retry_ms_{30000};
   static constexpr uint32_t RECONNECT_BACKOFF_BASE_MS = 30000;
   uint32_t reconnect_backoff_ms_{RECONNECT_BACKOFF_BASE_MS};
+  // stop()/start() wait with portMAX_DELAY and can block for tens of seconds
+  // (DNS / TLS). Must not run on the ESPHome loop task (task WDT panic).
+  std::atomic<bool> reconnect_task_busy_{false};
+  uint32_t reconnect_task_started_ms_{0};
+  bool reconnect_stuck_warned_{false};
+  static constexpr uint32_t RECONNECT_STUCK_WARN_MS = 30000;
 
   // Backstop for a different failure mode: the transport (and HA's generic
   // websocket_api ping/pong) can stay perfectly alive while the ws_bridge

@@ -8,6 +8,8 @@
 #include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
 #include "esphome/core/version.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 namespace esphome {
 namespace ws_bridge {
@@ -26,6 +28,9 @@ void WsBridgeComponent::setup() {
   config.disable_auto_reconnect = false;
   config.reconnect_timeout_ms = 10000;
   config.network_timeout_ms = 10000;
+  // Default task stack is 4KB. TLS handshake + crt bundle + our handler's
+  // std::string work needs more headroom (Nabu Casa / reverse-proxy chains).
+  config.task_stack = this->ssl_ ? 8192 : 4096;
 
   this->client_ = esp_websocket_client_init(&config);
   if (this->client_ == nullptr) {
@@ -34,24 +39,46 @@ void WsBridgeComponent::setup() {
     return;
   }
   esp_websocket_register_events(this->client_, WEBSOCKET_EVENT_ANY, WsBridgeComponent::ws_event_handler_, this);
+  this->reconnect_backoff_ms_ = this->reconnect_backoff_base_();
 }
 
 void WsBridgeComponent::loop() {
   if (!this->started_) {
     if (!network::is_connected()) return;
+    uint32_t now = millis();
+    if (this->last_reconnect_attempt_ms_ != 0 &&
+        now - this->last_reconnect_attempt_ms_ < this->reconnect_backoff_ms_)
+      return;
     esp_err_t err = esp_websocket_client_start(this->client_);
     if (err != ESP_OK) {
       ESP_LOGW(TAG, "esp_websocket_client_start failed: %d", err);
+      this->last_reconnect_attempt_ms_ = now;
+      this->reconnect_backoff_ms_ =
+          std::min(std::max(this->reconnect_backoff_base_(), this->reconnect_backoff_ms_ * 2),
+                   this->reconnect_retry_ms_);
       return;
     }
     this->started_ = true;
-    this->last_reconnect_attempt_ms_ = millis();
+    this->last_reconnect_attempt_ms_ = now;
+    this->reconnect_backoff_ms_ = this->reconnect_backoff_base_();
   }
 
   WsEvent *event;
   while ((event = this->event_queue_.pop()) != nullptr) {
     this->handle_event_(*event);
     this->event_pool_.release(event);
+  }
+
+  // stop()/start() runs on reconnect_task_; do not send or poke liveness
+  // (including backoff) while that is in flight.
+  if (this->reconnect_task_busy_.load(std::memory_order_acquire)) {
+    if (!this->reconnect_stuck_warned_ &&
+        millis() - this->reconnect_task_started_ms_ > RECONNECT_STUCK_WARN_MS) {
+      ESP_LOGW(TAG, "Reconnect task still running after %u ms (stop() waiting on DNS/TLS?)",
+               static_cast<unsigned>(RECONNECT_STUCK_WARN_MS));
+      this->reconnect_stuck_warned_ = true;
+    }
+    return;
   }
 
   this->drain_tx_queue_();
@@ -79,8 +106,38 @@ void WsBridgeComponent::force_reconnect_() {
   this->declare_in_progress_ = false;
   this->sync_flush_pending_ = false;
   this->collecting_declared_ids_ = false;
-  esp_websocket_client_stop(this->client_);
-  esp_websocket_client_start(this->client_);
+  // esp_websocket_client_stop() waits with portMAX_DELAY for the WS task to
+  // exit. That task may be stuck in DNS (~14s) or TCP/TLS connect
+  // (network_timeout_ms = 10s) — exactly when we force a reconnect. Doing
+  // this on the ESPHome loop task trips the 5s task WDT (PANIC).
+  bool expected = false;
+  if (!this->reconnect_task_busy_.compare_exchange_strong(expected, true, std::memory_order_acq_rel))
+    return;
+  this->reconnect_task_started_ms_ = millis();
+  this->reconnect_stuck_warned_ = false;
+  // Same work as the WS client task (TLS close_notify, inline event dispatch)
+  // can run here; 4KB matches the non-TLS WS stack and is only temporary.
+  BaseType_t ok = xTaskCreate(&WsBridgeComponent::reconnect_task_, "ws_bridge_rc", 4096, this, 5, nullptr);
+  if (ok != pdPASS) {
+    ESP_LOGE(TAG, "Failed to create reconnect task");
+    this->reconnect_task_busy_.store(false, std::memory_order_release);
+  }
+}
+
+void WsBridgeComponent::reconnect_task_(void *arg) {
+  auto *self = static_cast<WsBridgeComponent *>(arg);
+  if (self->client_ != nullptr) {
+    esp_websocket_client_stop(self->client_);
+    esp_err_t err = esp_websocket_client_start(self->client_);
+    if (err != ESP_OK)
+      ESP_LOGW(TAG, "esp_websocket_client_start failed after stop: %d", err);
+  }
+  self->reconnect_task_busy_.store(false, std::memory_order_release);
+  vTaskDelete(nullptr);
+}
+
+uint32_t WsBridgeComponent::reconnect_backoff_base_() const {
+  return std::min(RECONNECT_BACKOFF_BASE_MS, this->reconnect_retry_ms_);
 }
 
 std::string WsBridgeComponent::effective_sw_version_() {
@@ -108,6 +165,8 @@ void WsBridgeComponent::send_connect_(uint32_t id) {
 // kicks in.
 void WsBridgeComponent::check_liveness_() {
   uint32_t now = millis();
+  if (this->reconnect_task_busy_.load(std::memory_order_acquire))
+    return;
   if (!this->is_connected()) {
     if (now - this->last_reconnect_attempt_ms_ > this->reconnect_backoff_ms_) {
       ESP_LOGW(TAG, "Still disconnected after %u ms — forcing a fresh connection attempt",
@@ -122,7 +181,7 @@ void WsBridgeComponent::check_liveness_() {
       ESP_LOGW(TAG, "No pong received within %u ms — forcing reconnect",
                static_cast<unsigned>(this->pong_timeout_ms_));
       this->ping_outstanding_ = false;
-      this->reconnect_backoff_ms_ = RECONNECT_BACKOFF_BASE_MS;
+      this->reconnect_backoff_ms_ = this->reconnect_backoff_base_();
       this->force_reconnect_();
     }
     return;
@@ -136,7 +195,7 @@ void WsBridgeComponent::check_liveness_() {
       ESP_LOGW(TAG, "No result for ws_bridge/connect within %u ms — forcing reconnect",
                static_cast<unsigned>(this->pong_timeout_ms_));
       this->awaiting_connect_result_ = false;
-      this->reconnect_backoff_ms_ = RECONNECT_BACKOFF_BASE_MS;
+      this->reconnect_backoff_ms_ = this->reconnect_backoff_base_();
       this->force_reconnect_();
     }
     return;
@@ -297,7 +356,7 @@ void WsBridgeComponent::handle_event_(const WsEvent &event) {
         // since that earlier attempt, instead of retrying promptly. See the
         // comment on reconnect_backoff_ms_ in ws_bridge.h.
         this->last_reconnect_attempt_ms_ = millis();
-        this->reconnect_backoff_ms_ = RECONNECT_BACKOFF_BASE_MS;
+        this->reconnect_backoff_ms_ = this->reconnect_backoff_base_();
         this->clear_tx_queue_();
         this->declare_in_progress_ = false;
         this->sync_flush_pending_ = false;
@@ -323,7 +382,7 @@ void WsBridgeComponent::handle_message_(const std::string &raw) {
     this->send_connect_(this->next_id_());
     this->set_state_(WS_BRIDGE_CONNECTED);
     this->ping_outstanding_ = false;
-    this->reconnect_backoff_ms_ = RECONNECT_BACKOFF_BASE_MS;
+    this->reconnect_backoff_ms_ = this->reconnect_backoff_base_();
     this->last_ping_sent_ms_ = millis();
     this->last_reannounce_ms_ = this->last_ping_sent_ms_;
     // Platform declares + on_declare:/on_connected: + sync are paced across
