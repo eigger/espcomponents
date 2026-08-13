@@ -25,6 +25,7 @@ ws_bridge:
   gateway_id: my_esp
   name: "My ESP"
   keep_last_state_on_disconnect: true
+  sync_entities: true
   on_connected:
     - logger.log: "ws_bridge connected"
   on_disconnected:

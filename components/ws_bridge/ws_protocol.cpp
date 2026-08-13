@@ -75,6 +75,15 @@ std::string build_entity_declare(uint32_t id, const std::string &unique_id, cons
   });
 }
 
+std::string build_sync(uint32_t id, const std::vector<std::string> &unique_ids) {
+  return json::build_json([&](JsonObject root) {
+    root["id"] = id;
+    root["type"] = "ws_bridge/sync";
+    JsonArray ids = root["unique_ids"].to<JsonArray>();
+    for (const auto &unique_id : unique_ids) ids.add(unique_id);
+  });
+}
+
 std::string build_ping(uint32_t id) {
   return json::build_json([&](JsonObject root) {
     root["id"] = id;

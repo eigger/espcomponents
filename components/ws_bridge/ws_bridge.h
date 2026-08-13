@@ -51,6 +51,7 @@ class WsBridgeComponent : public Component {
   void set_gateway_id(const std::string &id) { this->gateway_id_ = id; }
   void set_gateway_name(const std::string &name) { this->gateway_name_ = name; }
   void set_keep_last_state_on_disconnect(bool v) { this->keep_last_state_on_disconnect_ = v; }
+  void set_sync_entities(bool v) { this->sync_entities_ = v; }
   // See check_liveness_() for what these govern.
   void set_ping_interval(uint32_t ms) { this->ping_interval_ms_ = ms; }
   void set_pong_timeout(uint32_t ms) { this->pong_timeout_ms_ = ms; }
@@ -99,6 +100,7 @@ class WsBridgeComponent : public Component {
   void handle_message_(const std::string &raw);
   void route_command_(const WsCommand &command);
   void declare_all_entities_();
+  void flush_sync_();
   void send_raw_(const std::string &msg);
   uint32_t next_id_() { return ++this->msg_id_; }
   void set_state_(WsBridgeState s);
@@ -115,6 +117,23 @@ class WsBridgeComponent : public Component {
   std::string gateway_id_;
   std::string gateway_name_;
   bool keep_last_state_on_disconnect_{false};
+
+  // Opt-in (sync_entities:). After declaring everything on connect, tell HA the
+  // full set of unique_ids we provide so it can drop entities we no longer
+  // declare — see build_sync(). Off by default because it deletes HA-side
+  // entities: the list has to genuinely be everything this gateway offers, and
+  // only the config author can promise that. Entities declared from anywhere
+  // other than the declare/connect pass (say, an interval or a button press)
+  // would be missing from it and get removed.
+  //
+  // Collection runs for the whole declare window and is closed by flush_sync_(),
+  // so it captures on_declare: AND on_connected: lambdas, not just the
+  // registered platform entities. Sent once per connection, not on every
+  // periodic re-announce — a stale entity is not urgent enough to make HA scan
+  // its entity registry every reannounce_interval.
+  bool sync_entities_{false};
+  bool collecting_declared_ids_{false};
+  std::vector<std::string> declared_ids_{};
 
   std::atomic<WsBridgeState> state_{WS_BRIDGE_DISCONNECTED};
   uint32_t msg_id_{0};
