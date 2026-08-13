@@ -3,6 +3,41 @@
 namespace esphome {
 namespace ws_bridge {
 
+const WsParam *WsCommand::param(const char *key) const {
+  for (const auto &p : this->params) {
+    if (p.key == key) return &p;
+  }
+  return nullptr;
+}
+
+bool WsCommand::param_float(const char *key, float &out) const {
+  const WsParam *p = this->param(key);
+  if (p == nullptr || p->is_string || p->is_bool || p->is_array) return false;
+  out = p->f;
+  return true;
+}
+
+bool WsCommand::param_bool(const char *key, bool &out) const {
+  const WsParam *p = this->param(key);
+  if (p == nullptr || !p->is_bool) return false;
+  out = p->b;
+  return true;
+}
+
+bool WsCommand::param_string(const char *key, std::string &out) const {
+  const WsParam *p = this->param(key);
+  if (p == nullptr || !p->is_string) return false;
+  out = p->s;
+  return true;
+}
+
+bool WsCommand::param_array(const char *key, std::vector<float> &out) const {
+  const WsParam *p = this->param(key);
+  if (p == nullptr || !p->is_array) return false;
+  out = p->arr;
+  return true;
+}
+
 ParsedMessage parse_message(const std::string &raw) {
   ParsedMessage msg;
   json::parse_json(raw, [&](JsonObject root) -> bool {
@@ -27,6 +62,29 @@ ParsedMessage parse_message(const std::string &raw) {
             msg.command.value_string = event["value"].as<std::string>();
           } else {
             msg.command.value_float = event["value"].as<float>();
+          }
+        }
+        // Copy params out of the JsonDocument — it is destroyed when this
+        // callback returns, so JsonObject/JsonVariant must not escape.
+        JsonObject params = event["params"].as<JsonObject>();
+        if (!params.isNull()) {
+          for (JsonPair kv : params) {
+            WsParam p;
+            p.key = kv.key().c_str();
+            JsonVariant v = kv.value();
+            if (v.is<JsonArray>()) {
+              p.is_array = true;
+              for (JsonVariant e : v.as<JsonArray>()) p.arr.push_back(e.as<float>());
+            } else if (v.is<const char *>()) {
+              p.is_string = true;
+              p.s = v.as<std::string>();
+            } else if (v.is<bool>()) {
+              p.is_bool = true;
+              p.b = v.as<bool>();
+            } else {
+              p.f = v.as<float>();
+            }
+            msg.command.params.push_back(std::move(p));
           }
         }
       }
