@@ -251,7 +251,7 @@ inline void ws_subscribe_number(WsBridgeDevice *dev, number::Number *src) {
 }
 
 inline void ws_handle_command_number(number::Number *target, const WsCommand &command) {
-  if (command.action == "set_value" && command.has_value) {
+  if (command.action == "set_value" && command.value_is_number) {
     target->make_call().set_value(command.value_float).perform();
   }
 }
@@ -287,7 +287,7 @@ inline void ws_subscribe_select(WsBridgeDevice *dev, select::Select *src) {
 }
 
 inline void ws_handle_command_select(select::Select *target, const WsCommand &command) {
-  if (command.action == "select_option" && command.has_value) {
+  if (command.action == "select_option" && command.value_is_string) {
     target->make_call().set_option(command.value_string).perform();
   }
 }
@@ -868,7 +868,7 @@ inline void ws_subscribe_text(WsBridgeDevice *dev, text::Text *src) {
 }
 
 inline void ws_handle_command_text(text::Text *target, const WsCommand &command) {
-  if (command.action == "set_value" && command.has_value) {
+  if (command.action == "set_value" && command.value_is_string) {
     target->make_call().set_value(command.value_string).perform();
   }
 }
@@ -1061,9 +1061,10 @@ inline void ws_send_state_datetime_(WsBridgeDevice *dev, datetime::DateTimeBase 
 
 // HA sends full ISO 8601 ("2026-08-13T21:30:00+09:00"); ESPTime::strptime()
 // accepts only "YYYY-MM-DD[ HH:MM[:SS]]" and "HH:MM[:SS]" — no 'T' separator,
-// no fractional seconds, no timezone. Values arriving in the device's own local
-// time is exactly what the tz-naive round trip assumes (HA re-attaches its
-// local zone to the tz-naive strings we send back).
+// no fractional seconds, no timezone. We keep the wall-clock digits and drop
+// any offset/Z — the round trip assumes HA sends **local** wall time (see
+// hass-ws-bridge datetime.async_set_value), matching the tz-naive strings we
+// publish back (HA re-attaches its local zone on receive).
 inline std::string ws_iso_to_esptime_string_(const std::string &iso) {
   std::string out = iso;
   size_t separator = out.find('T');
@@ -1101,7 +1102,7 @@ inline void ws_subscribe_date(WsBridgeDevice *dev, datetime::DateEntity *src) {
 }
 
 inline void ws_handle_command_date(datetime::DateEntity *target, const WsCommand &command) {
-  if (command.action == "set_value" && command.has_value) {
+  if (command.action == "set_value" && command.value_is_string) {
     target->make_call().set_date(ws_iso_to_esptime_string_(command.value_string)).perform();
   }
 }
@@ -1123,7 +1124,7 @@ inline void ws_subscribe_time(WsBridgeDevice *dev, datetime::TimeEntity *src) {
 }
 
 inline void ws_handle_command_time(datetime::TimeEntity *target, const WsCommand &command) {
-  if (command.action == "set_value" && command.has_value) {
+  if (command.action == "set_value" && command.value_is_string) {
     target->make_call().set_time(ws_iso_to_esptime_string_(command.value_string)).perform();
   }
 }
@@ -1145,7 +1146,7 @@ inline void ws_subscribe_datetime(WsBridgeDevice *dev, datetime::DateTimeEntity 
 }
 
 inline void ws_handle_command_datetime(datetime::DateTimeEntity *target, const WsCommand &command) {
-  if (command.action == "set_value" && command.has_value) {
+  if (command.action == "set_value" && command.value_is_string) {
     target->make_call().set_datetime(ws_iso_to_esptime_string_(command.value_string)).perform();
   }
 }

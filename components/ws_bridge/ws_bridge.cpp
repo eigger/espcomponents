@@ -52,6 +52,12 @@ void WsBridgeComponent::loop() {
     this->event_pool_.release(event);
   }
 
+  this->drain_tx_queue_();
+  this->progress_declare_();
+  // Drain again so frames enqueued by this declare slice can leave before
+  // sync is considered, and so a stalled peer is retried every loop.
+  this->drain_tx_queue_();
+  this->maybe_flush_sync_();
   this->check_liveness_();
 }
 
@@ -67,6 +73,10 @@ void WsBridgeComponent::loop() {
 void WsBridgeComponent::force_reconnect_() {
   this->last_reconnect_attempt_ms_ = millis();
   this->set_state_(WS_BRIDGE_DISCONNECTED);
+  this->clear_tx_queue_();
+  this->declare_in_progress_ = false;
+  this->sync_flush_pending_ = false;
+  this->collecting_declared_ids_ = false;
   esp_websocket_client_stop(this->client_);
   esp_websocket_client_start(this->client_);
 }
@@ -124,7 +134,9 @@ void WsBridgeComponent::check_liveness_() {
     this->last_connect_msg_id_ = connect_id;
     this->awaiting_connect_result_ = true;
     this->connect_sent_ms_ = now;
-    this->declare_all_entities_();
+    // Re-announce only re-declares — no on_connected: and no sync (stale
+    // entities are not urgent enough to scan HA's registry every interval).
+    this->start_declare_pass_(/*run_connected_and_sync=*/false);
     this->last_reannounce_ms_ = now;
   }
   if (now - this->last_ping_sent_ms_ > this->ping_interval_ms_) {
@@ -257,6 +269,10 @@ void WsBridgeComponent::handle_event_(const WsEvent &event) {
         // comment on reconnect_backoff_ms_ in ws_bridge.h.
         this->last_reconnect_attempt_ms_ = millis();
         this->reconnect_backoff_ms_ = RECONNECT_BACKOFF_BASE_MS;
+        this->clear_tx_queue_();
+        this->declare_in_progress_ = false;
+        this->sync_flush_pending_ = false;
+        this->collecting_declared_ids_ = false;
         this->disconnected_cb_.call();
       }
       break;
@@ -282,13 +298,9 @@ void WsBridgeComponent::handle_message_(const std::string &raw) {
     this->reconnect_backoff_ms_ = RECONNECT_BACKOFF_BASE_MS;
     this->last_ping_sent_ms_ = millis();
     this->last_reannounce_ms_ = this->last_ping_sent_ms_;
-    // Collect across both the declare pass and on_connected:, so a lambda that
-    // declares from either trigger is counted before the list is sent.
-    this->collecting_declared_ids_ = this->sync_entities_;
-    this->declared_ids_.clear();
-    this->declare_all_entities_();
-    this->connected_cb_.call();
-    this->flush_sync_();
+    // Platform declares + on_declare:/on_connected: + sync are paced across
+    // loop() iterations — see start_declare_pass_().
+    this->start_declare_pass_(/*run_connected_and_sync=*/true);
   } else if (msg.type == "auth_invalid") {
     ESP_LOGE(TAG, "Home Assistant rejected the access token");
   } else if (msg.type == "pong") {
@@ -314,17 +326,62 @@ void WsBridgeComponent::route_command_(const WsCommand &command) {
   ESP_LOGW(TAG, "Command for unknown unique_id '%s'", command.unique_id.c_str());
 }
 
+void WsBridgeComponent::start_declare_pass_(bool run_connected_and_sync) {
+  this->declare_in_progress_ = true;
+  this->declare_device_index_ = 0;
+  this->declare_run_connected_ = run_connected_and_sync;
+  if (run_connected_and_sync) {
+    // Collect across the paced declare pass and on_connected:, so a lambda
+    // that declares from either trigger is counted before sync is sent.
+    this->collecting_declared_ids_ = this->sync_entities_;
+    this->declared_ids_.clear();
+    this->sync_flush_pending_ = this->sync_entities_;
+  } else {
+    this->collecting_declared_ids_ = false;
+    this->sync_flush_pending_ = false;
+  }
+}
+
 void WsBridgeComponent::declare_all_entities_() {
-  for (auto *device : this->devices_) device->ws_bridge_declare();
-  // Manual (lambda-built) declarations piggyback here rather than on
-  // on_connected, so they're re-sent by the periodic re-announce too — see
-  // add_on_declare_callback().
-  this->declare_cb_.call();
+  // Kept for call sites that want a full redeclare without connect/sync.
+  this->start_declare_pass_(/*run_connected_and_sync=*/false);
+}
+
+void WsBridgeComponent::progress_declare_() {
+  if (this->declare_in_progress_) {
+    size_t n = 0;
+    while (this->declare_device_index_ < this->devices_.size() && n < DECLARE_DEVICES_PER_LOOP) {
+      this->devices_[this->declare_device_index_++]->ws_bridge_declare();
+      n++;
+    }
+    if (this->declare_device_index_ < this->devices_.size())
+      return;
+
+    // Manual (lambda-built) declarations piggyback here rather than on
+    // on_connected alone, so they're re-sent by the periodic re-announce too.
+    this->declare_cb_.call();
+    if (this->declare_run_connected_) {
+      this->connected_cb_.call();
+      this->declare_run_connected_ = false;
+    }
+    this->declare_in_progress_ = false;
+  }
+  this->maybe_flush_sync_();
+}
+
+void WsBridgeComponent::maybe_flush_sync_() {
+  if (!this->sync_flush_pending_)
+    return;
+  if (this->declare_in_progress_ || !this->tx_queue_.empty())
+    return;
+  this->flush_sync_();
+  this->sync_flush_pending_ = false;
 }
 
 void WsBridgeComponent::flush_sync_() {
   this->collecting_declared_ids_ = false;
-  if (!this->sync_entities_) return;
+  if (!this->sync_entities_)
+    return;
   // HA rejects an empty list (it would mean "delete everything"), and a
   // gateway that declared nothing has nothing to reconcile against anyway.
   if (this->declared_ids_.empty()) {
@@ -337,41 +394,79 @@ void WsBridgeComponent::flush_sync_() {
   this->declared_ids_.shrink_to_fit();
 }
 
-void WsBridgeComponent::send_raw_(const std::string &msg) {
-  if (this->client_ == nullptr || !esp_websocket_client_is_connected(this->client_)) return;
-  esp_websocket_client_send_text(this->client_, msg.c_str(), msg.size(), pdMS_TO_TICKS(1000));
+void WsBridgeComponent::clear_tx_queue_() { this->tx_queue_.clear(); }
+
+void WsBridgeComponent::drain_tx_queue_() {
+  if (this->client_ == nullptr || !esp_websocket_client_is_connected(this->client_))
+    return;
+  size_t sent = 0;
+  while (!this->tx_queue_.empty() && sent < TX_PER_LOOP) {
+    TxItem &item = this->tx_queue_.front();
+    int r = esp_websocket_client_send_text(this->client_, item.msg.c_str(), item.msg.size(), 0);
+    if (r < 0)
+      break;
+    if (this->collecting_declared_ids_ && !item.sync_declare_uid.empty())
+      this->declared_ids_.push_back(item.sync_declare_uid);
+    this->tx_queue_.pop_front();
+    sent++;
+  }
+}
+
+bool WsBridgeComponent::send_raw_(const std::string &msg, const std::string &sync_declare_uid) {
+  if (this->client_ == nullptr || !esp_websocket_client_is_connected(this->client_))
+    return false;
+  // Non-blocking attempt first — a stalled peer must not freeze loop().
+  int r = esp_websocket_client_send_text(this->client_, msg.c_str(), msg.size(), 0);
+  if (r >= 0) {
+    if (this->collecting_declared_ids_ && !sync_declare_uid.empty())
+      this->declared_ids_.push_back(sync_declare_uid);
+    return true;
+  }
+  if (this->tx_queue_.size() >= TX_QUEUE_MAX) {
+    ESP_LOGW(TAG, "TX queue full (%u) — dropping outbound message", (unsigned) TX_QUEUE_MAX);
+    return false;
+  }
+  this->tx_queue_.push_back(TxItem{msg, sync_declare_uid});
+  return true;
 }
 
 void WsBridgeComponent::send_entity_declare(const std::string &unique_id, const std::string &platform,
                                             const std::string &name, const std::string &device_id,
                                             const std::string &device_name,
                                             const std::function<void(JsonObject)> &extra) {
-  if (!this->is_connected()) return;
+  if (!this->is_connected())
+    return;
   // Every declaration funnels through here — registered platform entities and
   // hand-built lambda ones alike — so this is the one place that sees the full
-  // set for ws_bridge/sync. See sync_entities_.
-  if (this->collecting_declared_ids_) this->declared_ids_.push_back(unique_id);
-  this->send_raw_(build_entity_declare(this->next_id_(), unique_id, platform, name, device_id, device_name, extra));
+  // set for ws_bridge/sync. unique_id is only recorded after the frame is
+  // actually written (or when a queued frame is later drained).
+  const std::string sync_uid = this->collecting_declared_ids_ ? unique_id : "";
+  this->send_raw_(build_entity_declare(this->next_id_(), unique_id, platform, name, device_id, device_name, extra),
+                  sync_uid);
 }
 
 void WsBridgeComponent::send_state_float(const std::string &unique_id, float value) {
-  if (!this->is_connected()) return;
+  if (!this->is_connected())
+    return;
   this->send_raw_(build_state_float(this->next_id_(), unique_id, value));
 }
 
 void WsBridgeComponent::send_state_bool(const std::string &unique_id, bool value) {
-  if (!this->is_connected()) return;
+  if (!this->is_connected())
+    return;
   this->send_raw_(build_state_bool(this->next_id_(), unique_id, value));
 }
 
 void WsBridgeComponent::send_state_string(const std::string &unique_id, const std::string &value) {
-  if (!this->is_connected()) return;
+  if (!this->is_connected())
+    return;
   this->send_raw_(build_state_string(this->next_id_(), unique_id, value));
 }
 
 void WsBridgeComponent::send_state_object(const std::string &unique_id,
                                           const std::function<void(JsonObject)> &value_fn) {
-  if (!this->is_connected()) return;
+  if (!this->is_connected())
+    return;
   this->send_raw_(build_state_object(this->next_id_(), unique_id, value_fn));
 }
 

@@ -1,5 +1,6 @@
 #pragma once
 #include <atomic>
+#include <deque>
 #include <functional>
 #include <string>
 #include <vector>
@@ -100,12 +101,27 @@ class WsBridgeComponent : public Component {
   void handle_message_(const std::string &raw);
   void route_command_(const WsCommand &command);
   void declare_all_entities_();
+  void start_declare_pass_(bool run_connected_and_sync);
+  void progress_declare_();
+  void maybe_flush_sync_();
   void flush_sync_();
-  void send_raw_(const std::string &msg);
+  // Non-blocking send with a drainable queue. Returns false only when the
+  // message could not be accepted (not connected, or queue full).
+  bool send_raw_(const std::string &msg, const std::string &sync_declare_uid = "");
+  void drain_tx_queue_();
+  void clear_tx_queue_();
   uint32_t next_id_() { return ++this->msg_id_; }
   void set_state_(WsBridgeState s);
   void check_liveness_();
   void force_reconnect_();
+
+  // One outbound WS text frame. `sync_declare_uid` is set for entity declares
+  // collected during a sync pass — only appended to declared_ids_ after the
+  // frame is actually written to the socket (not when merely queued).
+  struct TxItem {
+    std::string msg;
+    std::string sync_declare_uid;
+  };
 
   esp_websocket_client_handle_t client_{nullptr};
   bool started_{false};
@@ -134,6 +150,22 @@ class WsBridgeComponent : public Component {
   bool sync_entities_{false};
   bool collecting_declared_ids_{false};
   std::vector<std::string> declared_ids_{};
+
+  // Paced (re)declare: platform entities are declared a few per loop() so a
+  // large gateway cannot block the main loop for tens of seconds on a slow
+  // link (each send_text used to wait up to 1000 ms). on_declare: /
+  // on_connected: run after the device list is finished; ws_bridge/sync waits
+  // until the TX queue has drained so declared_ids_ only contains frames that
+  // actually left the socket.
+  bool declare_in_progress_{false};
+  size_t declare_device_index_{0};
+  bool declare_run_connected_{false};
+  bool sync_flush_pending_{false};
+  static constexpr size_t DECLARE_DEVICES_PER_LOOP = 2;
+
+  std::deque<TxItem> tx_queue_{};
+  static constexpr size_t TX_QUEUE_MAX = 64;
+  static constexpr size_t TX_PER_LOOP = 4;
 
   std::atomic<WsBridgeState> state_{WS_BRIDGE_DISCONNECTED};
   uint32_t msg_id_{0};

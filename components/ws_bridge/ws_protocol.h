@@ -31,9 +31,14 @@ struct WsParam {
 struct WsCommand {
   std::string unique_id;
   std::string action;  // "turn_on" | "turn_off" | "set_value" | "select_option" | "press" | "install" | "check"
+  // Same discipline as WsParam: has_value alone is not enough — a string "23.5"
+  // must not become float 0 for number, and a JSON number must not become "" for
+  // text/select/datetime. Type flags stay false for null / object / bool.
   bool has_value{false};
-  float value_float{0};
-  std::string value_string;
+  bool value_is_number{false};
+  float value_float{0};  // value_is_number == true
+  bool value_is_string{false};
+  std::string value_string;  // value_is_string == true
   std::vector<WsParam> params;
 
   const WsParam *param(const char *key) const;
