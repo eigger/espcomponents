@@ -3,9 +3,9 @@
 > **대상**: 이 컴포넌트에서 작업할 다른 AI 에이전트 또는 개발자
 > **목적**: HA 통합(`hass-ws-bridge`)이 Phase 0~4에서 확장한 프로토콜에 클라이언트를 맞춘다
 > **서버 기준**: `hass-ws-bridge` main (Phase 4 + 공통 계층 정리 완료, 플랫폼 27종)
-> **클라이언트 현재**: 플랫폼 8종(+ tracker) — `update`·`ws_bridge/sync`·엔티티 래핑은 master에 이미 있음. **남은 프로토콜 공백은 `WsCommand.params` / `features`.**
+> **클라이언트 현재**: 플랫폼 11종(+ tracker) — C0 `params`/`features`·C1 `update`·C2 `light`/`cover`/`fan` 반영. 남은 Tier A는 C3+.
 > **작성일**: 2026-08-13
-> **갱신**: 2026-08-13 — master pull 후 C1/`sync` 반영
+> **갱신**: 2026-08-13 — C0 머지 + C2 구현
 
 ---
 
@@ -38,9 +38,9 @@
 
 구조는 이미 좋다 — §1.3의 기존 자산을 그대로 활용한다. 엔티티 래핑(`sensor_id` / `entities:`)과 `ws_bridge/sync`도 master에 있다.
 
-### 1.2 서버가 지원하지만 클라이언트에 없는 것 (18종)
+### 1.2 서버가 지원하지만 클라이언트에 없는 것 (15종)
 
-`light`, `cover`, `fan`, `text`, `lock`, `date`, `time`, `datetime`,
+`text`, `lock`, `date`, `time`, `datetime`,
 `event`, `valve`, `climate`, `humidifier`, `water_heater`, `siren`,
 `alarm_control_panel`, `media_player`, `image`, `camera`
 
@@ -58,11 +58,9 @@
 
 | 공백 | 위치 | 영향 |
 |:---|:---|:---|
-| `WsCommand`에 `params` 없음 | `ws_protocol.h` | light `turn_on(brightness, rgb_color)` 등 **다중 인자 명령 수신 불가** |
-| 선언에 `features` 미전송 | 각 플랫폼 `ws_bridge_declare()` | cover/climate 등의 기능 플래그 선언 불가 |
 | 상태 배치 전송 없음 | `build_state_*` 각각 1건씩 | 복합 상태 갱신 시 메시지 수 증가 (선택) |
 
-> `ws_bridge/sync`는 #298로 이미 구현됨 — 더 이상 공백이 아니다.
+> `WsCommand.params` / `add_features`는 C0(#300)로 구현. `ws_bridge/sync`는 #298.
 
 ---
 
@@ -247,7 +245,7 @@ this->parent_->send_state_object(this->unique_id_, [this](JsonObject v) {
 |:---|:---|:---|
 | **C0** | 프로토콜 계층 (§3) | 전제 — `params` + `add_features` |
 | **C1** | `update` | **완료** (#296). OTA 직결 |
-| **C2** | `light`, `cover`, `fan` | 수요 최다. `params` 수신을 처음 실제로 쓴다 |
+| **C2** | `light`, `cover`, `fan` | **이번 PR**. 수요 최다. `params` 수신을 처음 실제로 씀 |
 | **C3** | `text`, `lock`, `valve`, `event`, `datetime`(date/time/datetime) | 스칼라 위주, 난도 낮음 |
 | **C4** | `climate` | 단독. 상태·명령 표면이 가장 넓다 |
 | **C5** | `alarm_control_panel`, `media_player` | 수요 확인 후 |

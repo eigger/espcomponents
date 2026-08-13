@@ -11,6 +11,9 @@ from esphome.components import (
     select,
     button,
     update,
+    light,
+    cover,
+    fan,
 )
 from esphome.const import (
     CONF_ID,
@@ -97,6 +100,9 @@ _ENTITY_REF_DOMAINS = [
     (select.Select, ws_bridge_ns.class_("WsBridgeSelectRef", WsBridgeEntityRefBase)),
     (button.Button, ws_bridge_ns.class_("WsBridgeButtonRef", WsBridgeEntityRefBase)),
     (update.UpdateEntity, ws_bridge_ns.class_("WsBridgeUpdateRef", WsBridgeEntityRefBase)),
+    (light.LightState, ws_bridge_ns.class_("WsBridgeLightRef", WsBridgeEntityRefBase)),
+    (cover.Cover, ws_bridge_ns.class_("WsBridgeCoverRef", WsBridgeEntityRefBase)),
+    (fan.Fan, ws_bridge_ns.class_("WsBridgeFanRef", WsBridgeEntityRefBase)),
 ]
 
 ENTITY_SCHEMA = cv.Schema(
@@ -130,7 +136,7 @@ async def to_code_entity_ref(hub_var, conf):
         raise cv.Invalid(
             f"'{source_id.id}' (type {full_id.type}) is not an entity domain ws_bridge "
             "can expose via entities: — supported: sensor, binary_sensor, text_sensor, "
-            "switch, number, select, button, update"
+            "switch, number, select, button, update, light, cover, fan"
         )
 
     id_ = conf[CONF_ID]
@@ -249,7 +255,17 @@ async def register_ws_bridge_device(var, config):
 
 
 async def to_code(config):
-    esp32.add_idf_component(name="espressif/esp_websocket_client", ref=ESP_WEBSOCKET_CLIENT_VERSION)
+    # Newer ESPHome accepts the IDF component registry form (name="espressif/...");
+    # older builds require an explicit git repo=.
+    try:
+        esp32.add_idf_component(name="espressif/esp_websocket_client", ref=ESP_WEBSOCKET_CLIENT_VERSION)
+    except TypeError:
+        esp32.add_idf_component(
+            name="esp_websocket_client",
+            repo="https://github.com/espressif/esp-protocols.git",
+            path="components/esp_websocket_client",
+            ref=f"websocket-v{ESP_WEBSOCKET_CLIENT_VERSION}",
+        )
 
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)

@@ -64,6 +64,9 @@ ws_bridge:
     - source_id: local_button2
     - source_id: my_update
       unique_id: firmware_ref
+    - source_id: local_light
+    - source_id: local_cover
+    - source_id: local_fan
 
 sensor:
   - platform: ws_bridge
@@ -214,3 +217,45 @@ update:
     update_id: my_update
 
 safe_mode:
+
+output:
+  - platform: gpio
+    pin: GPIO2
+    id: local_led_out
+
+light:
+  - platform: binary
+    id: local_light
+    name: "Local Light"
+    output: local_led_out
+  - platform: ws_bridge
+    unique_id: light_bridged
+    name: "Light (bridged)"
+    light_id: local_light
+
+cover:
+  - platform: ws_bridge
+    unique_id: cover1
+    name: "Cover"
+  - platform: template
+    id: local_cover
+    name: "Local Cover"
+    optimistic: true
+    assumed_state: true
+  - platform: ws_bridge
+    unique_id: cover_bridged
+    name: "Cover (bridged)"
+    cover_id: local_cover
+
+fan:
+  - platform: ws_bridge
+    unique_id: fan1
+    name: "Fan"
+  - platform: template
+    id: local_fan
+    name: "Local Fan"
+    speed_count: 100
+  - platform: ws_bridge
+    unique_id: fan_bridged
+    name: "Fan (bridged)"
+    fan_id: local_fan

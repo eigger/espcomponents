@@ -124,5 +124,53 @@ void WsBridgeUpdateRef::ws_bridge_handle_command(const WsCommand &command) {
 }
 #endif
 
+#ifdef USE_LIGHT
+void WsBridgeLightRef::setup() { ws_subscribe_light(this, this->source_); }
+void WsBridgeLightRef::dump_config() {
+  ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> light '%s'", this->get_ws_bridge_unique_id().c_str(),
+                this->source_->get_name().str().c_str());
+}
+void WsBridgeLightRef::ws_bridge_declare() {
+  ws_declare_light(this, *this->source_,
+                   ws_ha_name(*this->source_, this->name_override_, this->get_ws_bridge_unique_id()));
+  ws_push_state_light(this, *this->source_);
+}
+void WsBridgeLightRef::ws_bridge_handle_command(const WsCommand &command) {
+  ws_handle_command_light(this->source_, command);
+}
+#endif
+
+#ifdef USE_COVER
+void WsBridgeCoverRef::setup() { ws_subscribe_cover(this, this->source_); }
+void WsBridgeCoverRef::dump_config() {
+  ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> cover '%s'", this->get_ws_bridge_unique_id().c_str(),
+                this->source_->get_name().str().c_str());
+}
+void WsBridgeCoverRef::ws_bridge_declare() {
+  ws_declare_cover(this, *this->source_, nullptr,
+                   ws_ha_name(*this->source_, this->name_override_, this->get_ws_bridge_unique_id()));
+  ws_push_state_cover(this, *this->source_);
+}
+void WsBridgeCoverRef::ws_bridge_handle_command(const WsCommand &command) {
+  ws_handle_command_cover(this->source_, command);
+}
+#endif
+
+#ifdef USE_FAN
+void WsBridgeFanRef::setup() { ws_subscribe_fan(this, this->source_); }
+void WsBridgeFanRef::dump_config() {
+  ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> fan '%s'", this->get_ws_bridge_unique_id().c_str(),
+                this->source_->get_name().str().c_str());
+}
+void WsBridgeFanRef::ws_bridge_declare() {
+  ws_declare_fan(this, *this->source_, nullptr,
+                 ws_ha_name(*this->source_, this->name_override_, this->get_ws_bridge_unique_id()));
+  ws_push_state_fan(this, *this->source_);
+}
+void WsBridgeFanRef::ws_bridge_handle_command(const WsCommand &command) {
+  ws_handle_command_fan(this->source_, command);
+}
+#endif
+
 }  // namespace ws_bridge
 }  // namespace esphome

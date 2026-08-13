@@ -28,6 +28,15 @@
 #ifdef USE_UPDATE
 #include "esphome/components/update/update_entity.h"
 #endif
+#ifdef USE_LIGHT
+#include "esphome/components/light/light_state.h"
+#endif
+#ifdef USE_COVER
+#include "esphome/components/cover/cover.h"
+#endif
+#ifdef USE_FAN
+#include "esphome/components/fan/fan.h"
+#endif
 
 namespace esphome {
 namespace ws_bridge {
@@ -167,6 +176,51 @@ class WsBridgeUpdateRef : public WsBridgeEntityRefBase {
 
  protected:
   update::UpdateEntity *source_{nullptr};
+};
+#endif
+
+#ifdef USE_LIGHT
+class WsBridgeLightRef : public WsBridgeEntityRefBase {
+ public:
+  void set_source(light::LightState *source) { this->source_ = source; }
+  const EntityBase *get_ws_bridge_source() const override { return this->source_; }
+  void setup() override;
+  void dump_config() override;
+  void ws_bridge_declare() override;
+  void ws_bridge_handle_command(const WsCommand &command) override;
+
+ protected:
+  light::LightState *source_{nullptr};
+};
+#endif
+
+#ifdef USE_COVER
+class WsBridgeCoverRef : public WsBridgeEntityRefBase {
+ public:
+  void set_source(cover::Cover *source) { this->source_ = source; }
+  const EntityBase *get_ws_bridge_source() const override { return this->source_; }
+  void setup() override;
+  void dump_config() override;
+  void ws_bridge_declare() override;
+  void ws_bridge_handle_command(const WsCommand &command) override;
+
+ protected:
+  cover::Cover *source_{nullptr};
+};
+#endif
+
+#ifdef USE_FAN
+class WsBridgeFanRef : public WsBridgeEntityRefBase {
+ public:
+  void set_source(fan::Fan *source) { this->source_ = source; }
+  const EntityBase *get_ws_bridge_source() const override { return this->source_; }
+  void setup() override;
+  void dump_config() override;
+  void ws_bridge_declare() override;
+  void ws_bridge_handle_command(const WsCommand &command) override;
+
+ protected:
+  fan::Fan *source_{nullptr};
 };
 #endif
 
