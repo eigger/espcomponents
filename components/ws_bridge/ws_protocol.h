@@ -35,7 +35,7 @@ ParsedMessage parse_message(const std::string &raw);
 // ws_bridge/* command does).
 std::string build_auth(const std::string &access_token);
 std::string build_connect(uint32_t id, const std::string &gateway_id, const std::string &name,
-                          bool keep_last_state_on_disconnect);
+                          bool keep_last_state_on_disconnect, const std::string &app_version);
 
 // Application-level keepalive (HA's standard websocket_api "ping"/"pong"
 // commands) — used to actively detect a dead connection that the transport

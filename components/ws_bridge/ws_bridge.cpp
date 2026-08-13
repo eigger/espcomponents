@@ -3,9 +3,11 @@
 #include "esp_crt_bundle.h"
 #include "esp_transport_ws.h"
 #include "esphome/components/network/util.h"
+#include "esphome/core/application.h"
 #include "esphome/core/entity_base.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
+#include "esphome/core/version.h"
 
 namespace esphome {
 namespace ws_bridge {
@@ -71,6 +73,17 @@ void WsBridgeComponent::force_reconnect_() {
   esp_websocket_client_start(this->client_);
 }
 
+std::string WsBridgeComponent::effective_app_version_() {
+  if (!this->app_version_.empty()) return this->app_version_;
+#if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 1, 0)
+  char build_time[Application::BUILD_TIME_STR_SIZE];
+  App.get_build_time_string(build_time);
+  return std::string(ESPHOME_VERSION) + " (" + build_time + ")";
+#else
+  return std::string(ESPHOME_VERSION) + " (" + App.get_compilation_time() + ")";
+#endif
+}
+
 // Actively probes the connection with HA's standard "ping"/"pong" websocket_api
 // commands. Needed because a dead peer (e.g. HA killed without a clean WS
 // close — no FIN/RST ever reaches the socket) can otherwise leave the
@@ -120,7 +133,7 @@ void WsBridgeComponent::check_liveness_() {
     ESP_LOGD(TAG, "Periodic re-announce: resending connect + entity declarations");
     uint32_t connect_id = this->next_id_();
     this->send_raw_(build_connect(connect_id, this->gateway_id_, this->gateway_name_,
-                                  this->keep_last_state_on_disconnect_));
+                                  this->keep_last_state_on_disconnect_, this->effective_app_version_()));
     this->last_connect_msg_id_ = connect_id;
     this->awaiting_connect_result_ = true;
     this->connect_sent_ms_ = now;
@@ -139,6 +152,7 @@ void WsBridgeComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "  Server: %s://%s:%u/api/websocket", this->ssl_ ? "wss" : "ws", this->host_.c_str(),
                 this->port_);
   ESP_LOGCONFIG(TAG, "  Gateway ID: %s", this->gateway_id_.c_str());
+  ESP_LOGCONFIG(TAG, "  App version: %s", this->effective_app_version_().c_str());
   ESP_LOGCONFIG(TAG, "  Keep last state on disconnect: %s", YESNO(this->keep_last_state_on_disconnect_));
   ESP_LOGCONFIG(TAG, "  Ping interval: %u ms", static_cast<unsigned>(this->ping_interval_ms_));
   ESP_LOGCONFIG(TAG, "  Pong timeout: %u ms", static_cast<unsigned>(this->pong_timeout_ms_));
@@ -276,7 +290,8 @@ void WsBridgeComponent::handle_message_(const std::string &raw) {
     this->set_state_(WS_BRIDGE_WAIT_AUTH_OK);
   } else if (msg.type == "auth_ok") {
     this->send_raw_(
-        build_connect(this->next_id_(), this->gateway_id_, this->gateway_name_, this->keep_last_state_on_disconnect_));
+        build_connect(this->next_id_(), this->gateway_id_, this->gateway_name_, this->keep_last_state_on_disconnect_,
+                      this->effective_app_version_()));
     this->set_state_(WS_BRIDGE_CONNECTED);
     this->ping_outstanding_ = false;
     this->reconnect_backoff_ms_ = RECONNECT_BACKOFF_BASE_MS;
