@@ -287,9 +287,10 @@ void WsBridgeComponent::dump_config() {
   }
 }
 
-// May be called from either the main loop task or the esp_websocket_client
-// task (see ws_event_handler_), so this must be a single atomic RMW rather
-// than a load-compare-store.
+// May be called from the main loop, the esp_websocket_client task, or
+// reconnect_task_ (stop/start dispatches the handler inline — see
+// ws_event_handler_), so this must be a single atomic RMW rather than a
+// load-compare-store.
 void WsBridgeComponent::set_state_(WsBridgeState s) {
   WsBridgeState old = this->state_.exchange(s, std::memory_order_acq_rel);
   if (old != s) {
@@ -445,11 +446,18 @@ void WsBridgeComponent::handle_message_(const std::string &raw) {
   ParsedMessage msg = parse_message(raw);
 
   if (msg.type == "auth_required") {
+    // Producer may already have moved state_ to DISCONNECTED; do not revive.
+    WsBridgeState expected = WS_BRIDGE_WAIT_AUTH_REQUIRED;
+    if (!this->state_.compare_exchange_strong(expected, WS_BRIDGE_WAIT_AUTH_OK, std::memory_order_acq_rel))
+      return;
+    ESP_LOGD(TAG, "state %d -> %d", WS_BRIDGE_WAIT_AUTH_REQUIRED, WS_BRIDGE_WAIT_AUTH_OK);
     this->send_raw_(build_auth(this->token_));
-    this->set_state_(WS_BRIDGE_WAIT_AUTH_OK);
   } else if (msg.type == "auth_ok") {
+    WsBridgeState expected = WS_BRIDGE_WAIT_AUTH_OK;
+    if (!this->state_.compare_exchange_strong(expected, WS_BRIDGE_CONNECTED, std::memory_order_acq_rel))
+      return;
+    ESP_LOGD(TAG, "state %d -> %d", WS_BRIDGE_WAIT_AUTH_OK, WS_BRIDGE_CONNECTED);
     this->send_connect_(this->next_id_());
-    this->set_state_(WS_BRIDGE_CONNECTED);
     this->ping_outstanding_ = false;
     this->reconnect_backoff_ms_ = this->reconnect_backoff_base_();
     this->last_ping_sent_ms_ = millis();
