@@ -127,7 +127,7 @@ std::string build_auth(const std::string &access_token) {
 }
 
 std::string build_connect(uint32_t id, const std::string &gateway_id, const std::string &name,
-                          bool keep_last_state_on_disconnect, const std::string &app_version,
+                          bool keep_last_state_on_disconnect, const std::string &sw_version,
                           const std::string &manufacturer, const std::string &model,
                           const std::string &hw_version) {
   return json::build_json([&](JsonObject root) {
@@ -136,7 +136,7 @@ std::string build_connect(uint32_t id, const std::string &gateway_id, const std:
     root["gateway_id"] = gateway_id;
     if (!name.empty()) root["name"] = name;
     root["keep_last_state_on_disconnect"] = keep_last_state_on_disconnect;
-    if (!app_version.empty()) root["app_version"] = app_version;
+    if (!sw_version.empty()) root["sw_version"] = sw_version;
     if (!manufacturer.empty()) root["manufacturer"] = manufacturer;
     if (!model.empty()) root["model"] = model;
     if (!hw_version.empty()) root["hw_version"] = hw_version;
