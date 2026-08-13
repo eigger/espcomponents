@@ -37,6 +37,27 @@
 #ifdef USE_FAN
 #include "esphome/components/fan/fan.h"
 #endif
+#ifdef USE_TEXT
+#include "esphome/components/text/text.h"
+#endif
+#ifdef USE_LOCK
+#include "esphome/components/lock/lock.h"
+#endif
+#ifdef USE_VALVE
+#include "esphome/components/valve/valve.h"
+#endif
+#ifdef USE_EVENT
+#include "esphome/components/event/event.h"
+#endif
+#ifdef USE_DATETIME_DATE
+#include "esphome/components/datetime/date_entity.h"
+#endif
+#ifdef USE_DATETIME_TIME
+#include "esphome/components/datetime/time_entity.h"
+#endif
+#ifdef USE_DATETIME_DATETIME
+#include "esphome/components/datetime/datetime_entity.h"
+#endif
 
 namespace esphome {
 namespace ws_bridge {
@@ -222,6 +243,111 @@ class WsBridgeFanRef : public WsBridgeEntityRefBase {
 
  protected:
   fan::Fan *source_{nullptr};
+};
+#endif
+
+#ifdef USE_TEXT
+class WsBridgeTextRef : public WsBridgeEntityRefBase {
+ public:
+  void set_source(text::Text *source) { this->source_ = source; }
+  const EntityBase *get_ws_bridge_source() const override { return this->source_; }
+  void setup() override;
+  void dump_config() override;
+  void ws_bridge_declare() override;
+  void ws_bridge_handle_command(const WsCommand &command) override;
+
+ protected:
+  text::Text *source_{nullptr};
+};
+#endif
+
+#ifdef USE_LOCK
+class WsBridgeLockRef : public WsBridgeEntityRefBase {
+ public:
+  void set_source(lock::Lock *source) { this->source_ = source; }
+  const EntityBase *get_ws_bridge_source() const override { return this->source_; }
+  void setup() override;
+  void dump_config() override;
+  void ws_bridge_declare() override;
+  void ws_bridge_handle_command(const WsCommand &command) override;
+
+ protected:
+  lock::Lock *source_{nullptr};
+};
+#endif
+
+#ifdef USE_VALVE
+class WsBridgeValveRef : public WsBridgeEntityRefBase {
+ public:
+  void set_source(valve::Valve *source) { this->source_ = source; }
+  const EntityBase *get_ws_bridge_source() const override { return this->source_; }
+  void setup() override;
+  void dump_config() override;
+  void ws_bridge_declare() override;
+  void ws_bridge_handle_command(const WsCommand &command) override;
+
+ protected:
+  valve::Valve *source_{nullptr};
+};
+#endif
+
+#ifdef USE_EVENT
+// Read-only, like the sensor refs — no ws_bridge_handle_command().
+class WsBridgeEventRef : public WsBridgeEntityRefBase {
+ public:
+  void set_source(event::Event *source) { this->source_ = source; }
+  const EntityBase *get_ws_bridge_source() const override { return this->source_; }
+  void setup() override;
+  void dump_config() override;
+  void ws_bridge_declare() override;
+
+ protected:
+  event::Event *source_{nullptr};
+};
+#endif
+
+#ifdef USE_DATETIME_DATE
+class WsBridgeDateRef : public WsBridgeEntityRefBase {
+ public:
+  void set_source(datetime::DateEntity *source) { this->source_ = source; }
+  const EntityBase *get_ws_bridge_source() const override { return this->source_; }
+  void setup() override;
+  void dump_config() override;
+  void ws_bridge_declare() override;
+  void ws_bridge_handle_command(const WsCommand &command) override;
+
+ protected:
+  datetime::DateEntity *source_{nullptr};
+};
+#endif
+
+#ifdef USE_DATETIME_TIME
+class WsBridgeTimeRef : public WsBridgeEntityRefBase {
+ public:
+  void set_source(datetime::TimeEntity *source) { this->source_ = source; }
+  const EntityBase *get_ws_bridge_source() const override { return this->source_; }
+  void setup() override;
+  void dump_config() override;
+  void ws_bridge_declare() override;
+  void ws_bridge_handle_command(const WsCommand &command) override;
+
+ protected:
+  datetime::TimeEntity *source_{nullptr};
+};
+#endif
+
+#ifdef USE_DATETIME_DATETIME
+class WsBridgeDateTimeRef : public WsBridgeEntityRefBase {
+ public:
+  void set_source(datetime::DateTimeEntity *source) { this->source_ = source; }
+  const EntityBase *get_ws_bridge_source() const override { return this->source_; }
+  void setup() override;
+  void dump_config() override;
+  void ws_bridge_declare() override;
+  void ws_bridge_handle_command(const WsCommand &command) override;
+
+ protected:
+  datetime::DateTimeEntity *source_{nullptr};
 };
 #endif
 

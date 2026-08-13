@@ -41,6 +41,27 @@
 #ifdef USE_FAN
 #include "esphome/components/fan/fan.h"
 #endif
+#ifdef USE_TEXT
+#include "esphome/components/text/text.h"
+#endif
+#ifdef USE_LOCK
+#include "esphome/components/lock/lock.h"
+#endif
+#ifdef USE_VALVE
+#include "esphome/components/valve/valve.h"
+#endif
+#ifdef USE_EVENT
+#include "esphome/components/event/event.h"
+#endif
+#ifdef USE_DATETIME_DATE
+#include "esphome/components/datetime/date_entity.h"
+#endif
+#ifdef USE_DATETIME_TIME
+#include "esphome/components/datetime/time_entity.h"
+#endif
+#ifdef USE_DATETIME_DATETIME
+#include "esphome/components/datetime/datetime_entity.h"
+#endif
 
 namespace esphome {
 namespace ws_bridge {
@@ -809,6 +830,323 @@ inline void ws_handle_command_light(light::LightState *target, const WsCommand &
   call.perform();
 }
 #endif  // USE_LIGHT
+
+#ifdef USE_TEXT
+inline void ws_declare_text(WsBridgeDevice *dev, text::Text &src, text::Text *ovr, const std::string &name) {
+  dev->get_ws_bridge_parent()->send_entity_declare(
+      dev->get_ws_bridge_unique_id(), "text", name, dev->get_ws_bridge_device_id(), dev->get_ws_bridge_device_name(),
+      [&src, ovr](JsonObject root) {
+        add_common_entity_fields(root, src, ovr);
+        // min/max are *string lengths* here, not a value range like number's.
+        // Read from src only (like cover/fan/light traits, unlike number's
+        // per-field fallback): TextTraits has no "unset" sentinel — ESPHome's
+        // register_text() always writes both, defaulting to 0/255 — so a
+        // wrapper could not tell an inherited default from an explicit one.
+        // Wrapping therefore reports the wrapped text's length limits, pattern
+        // and mode as-is.
+        root["min"] = src.traits.get_min_length();
+        root["max"] = src.traits.get_max_length();
+        StringRef pattern = src.traits.get_pattern_ref();
+        if (!pattern.empty())
+          root["pattern"] = pattern;  // ArduinoJson has convertToJson(StringRef)
+        root["mode"] = src.traits.get_mode() == text::TEXT_MODE_PASSWORD ? "password" : "text";
+      });
+}
+
+inline void ws_push_state_text(WsBridgeDevice *dev, text::Text &src) {
+  if (src.has_state())
+    dev->get_ws_bridge_parent()->send_state_string(dev->get_ws_bridge_unique_id(), src.state);
+}
+
+inline void ws_subscribe_text(WsBridgeDevice *dev, text::Text *src) {
+  src->add_on_state_callback([dev](const std::string &state) {
+    dev->get_ws_bridge_parent()->send_state_string(dev->get_ws_bridge_unique_id(), state);
+  });
+}
+
+inline void ws_handle_command_text(text::Text *target, const WsCommand &command) {
+  if (command.action == "set_value" && command.has_value) {
+    target->make_call().set_value(command.value_string).perform();
+  }
+}
+#endif  // USE_TEXT
+
+#ifdef USE_LOCK
+// Null for LOCK_STATE_NONE — a lock that has never published. HA has no
+// equivalent "no state yet", so those are simply not sent.
+inline const char *ws_lock_state_to_ha_(lock::LockState state) {
+  switch (state) {
+    case lock::LOCK_STATE_LOCKED:
+      return "locked";
+    case lock::LOCK_STATE_UNLOCKED:
+      return "unlocked";
+    case lock::LOCK_STATE_JAMMED:
+      return "jammed";
+    case lock::LOCK_STATE_LOCKING:
+      return "locking";
+    case lock::LOCK_STATE_UNLOCKING:
+      return "unlocking";
+    case lock::LOCK_STATE_OPENING:
+      return "opening";
+    case lock::LOCK_STATE_OPEN:
+      return "open";
+    default:
+      return nullptr;
+  }
+}
+
+// `code_format` is a ws_bridge-only YAML option rather than something read off
+// the source: ESPHome's lock domain has LockTraits::requires_code but no way to
+// carry the code itself, so the regex HA validates against can only come from
+// here. Empty means "no code prompt in HA".
+inline void ws_declare_lock(WsBridgeDevice *dev, lock::Lock &src, lock::Lock *ovr, const std::string &name,
+                            const std::string &code_format) {
+  dev->get_ws_bridge_parent()->send_entity_declare(
+      dev->get_ws_bridge_unique_id(), "lock", name, dev->get_ws_bridge_device_id(), dev->get_ws_bridge_device_name(),
+      [&src, ovr, &code_format](JsonObject root) {
+        add_common_entity_fields(root, src, ovr);
+        // lock/unlock are always available, so "open" (unlatch) is the only
+        // feature flag the protocol defines for this domain.
+        if (src.traits.get_supports_open()) {
+          JsonArray features = root["features"].to<JsonArray>();
+          features.add("open");
+        }
+        if (!code_format.empty())
+          root["code_format"] = code_format;
+      });
+}
+
+inline void ws_push_state_lock(WsBridgeDevice *dev, lock::Lock &src) {
+  if (const char *state = ws_lock_state_to_ha_(src.state))
+    dev->get_ws_bridge_parent()->send_state_string(dev->get_ws_bridge_unique_id(), state);
+}
+
+inline void ws_subscribe_lock(WsBridgeDevice *dev, lock::Lock *src) {
+  src->add_on_state_callback([dev](lock::LockState state) {
+    if (const char *ha = ws_lock_state_to_ha_(state))
+      dev->get_ws_bridge_parent()->send_state_string(dev->get_ws_bridge_unique_id(), ha);
+  });
+}
+
+// HA may send params.code alongside lock/unlock/open when code_format is
+// declared. It is deliberately ignored: there is nothing in ESPHome's lock API
+// to hand it to. Treat code_format as a UI-side confirmation prompt only, never
+// as device-enforced authentication.
+inline void ws_handle_command_lock(lock::Lock *target, const WsCommand &command) {
+  if (command.action == "lock") {
+    target->lock();
+  } else if (command.action == "unlock") {
+    target->unlock();
+  } else if (command.action == "open") {
+    target->open();
+  }
+}
+#endif  // USE_LOCK
+
+#ifdef USE_VALVE
+inline void ws_fill_state_valve(valve::Valve &src, JsonObject value) {
+  switch (src.current_operation) {
+    case valve::VALVE_OPERATION_OPENING:
+      value["state"] = "opening";
+      break;
+    case valve::VALVE_OPERATION_CLOSING:
+      value["state"] = "closing";
+      break;
+    case valve::VALVE_OPERATION_IDLE:
+    default:
+      // Same rule as cover: only position==0 counts as closed (valve.cpp).
+      value["state"] = src.is_fully_closed() ? "closed" : "open";
+      break;
+  }
+  // A valve that declared reports_position: false must not report a position
+  // at all — the protocol keeps the two modes separate.
+  if (src.get_traits().get_supports_position())
+    value["position"] = static_cast<int>(roundf(src.position * 100.0f));
+}
+
+inline void ws_send_state_valve(WsBridgeDevice *dev, valve::Valve &src) {
+  dev->get_ws_bridge_parent()->send_state_object(dev->get_ws_bridge_unique_id(),
+                                                 [&src](JsonObject value) { ws_fill_state_valve(src, value); });
+}
+
+inline void ws_declare_valve(WsBridgeDevice *dev, valve::Valve &src, valve::Valve *ovr, const std::string &name) {
+  dev->get_ws_bridge_parent()->send_entity_declare(
+      dev->get_ws_bridge_unique_id(), "valve", name, dev->get_ws_bridge_device_id(), dev->get_ws_bridge_device_name(),
+      [&src, ovr](JsonObject root) {
+        add_common_entity_fields(root, src, ovr);
+        auto traits = src.get_traits();
+        root["reports_position"] = traits.get_supports_position();
+        JsonArray features = root["features"].to<JsonArray>();
+        features.add("open");
+        features.add("close");
+        if (traits.get_supports_stop())
+          features.add("stop");
+        if (traits.get_supports_position())
+          features.add("set_position");
+      });
+}
+
+inline void ws_push_state_valve(WsBridgeDevice *dev, valve::Valve &src) { ws_send_state_valve(dev, src); }
+
+inline void ws_subscribe_valve(WsBridgeDevice *dev, valve::Valve *src) {
+  src->add_on_state_callback([dev, src]() { ws_send_state_valve(dev, *src); });
+}
+
+inline void ws_handle_command_valve(valve::Valve *target, const WsCommand &command) {
+  if (command.action == "open_valve") {
+    target->make_call().set_command_open().perform();
+  } else if (command.action == "close_valve") {
+    target->make_call().set_command_close().perform();
+  } else if (command.action == "stop_valve") {
+    target->make_call().set_command_stop().perform();
+  } else if (command.action == "set_valve_position") {
+    float position;
+    if (command.param_float("position", position))
+      target->make_call().set_position(position / 100.0f).perform();
+  }
+}
+#endif  // USE_VALVE
+
+#ifdef USE_EVENT
+inline void ws_declare_event(WsBridgeDevice *dev, event::Event &src, event::Event *ovr, const std::string &name) {
+  dev->get_ws_bridge_parent()->send_entity_declare(
+      dev->get_ws_bridge_unique_id(), "event", name, dev->get_ws_bridge_device_id(), dev->get_ws_bridge_device_name(),
+      [&src, ovr](JsonObject root) {
+        add_common_entity_fields(root, src, ovr);
+        // Read from src, never from ovr: the state pushes come from src's
+        // trigger(), and HA drops any event_type that wasn't declared. A
+        // wrapper's own list could disagree with the source's and silently
+        // swallow events.
+        JsonArray types = root["event_types"].to<JsonArray>();
+        for (const char *type : src.get_event_types())
+          types.add(type);
+      });
+}
+
+// No ws_push_state_event(): events are fire-and-forget and HA restores no last
+// state for them, so re-pushing the last event_type on every (re)declare would
+// replay a doorbell press that already happened. There is no
+// ws_handle_command_event() either — the domain is read-only.
+inline void ws_subscribe_event(WsBridgeDevice *dev, event::Event *src) {
+  src->add_on_event_callback([dev](StringRef event_type) {
+    dev->get_ws_bridge_parent()->send_state_string(dev->get_ws_bridge_unique_id(), event_type.str());
+  });
+}
+#endif  // USE_EVENT
+
+#if defined(USE_DATETIME_DATE) || defined(USE_DATETIME_TIME) || defined(USE_DATETIME_DATETIME)
+// date/time/datetime share everything but the platform string and the state
+// format — none of the three has any declare-only field of its own.
+inline void ws_declare_datetime_(WsBridgeDevice *dev, datetime::DateTimeBase &src, datetime::DateTimeBase *ovr,
+                                 const std::string &name, const char *platform) {
+  dev->get_ws_bridge_parent()->send_entity_declare(
+      dev->get_ws_bridge_unique_id(), platform, name, dev->get_ws_bridge_device_id(),
+      dev->get_ws_bridge_device_name(), [&src, ovr](JsonObject root) { add_common_entity_fields(root, src, ovr); });
+}
+
+// Formats into a stack buffer (24 bytes covers the longest of these, the 19
+// character datetime). Each caller must pass a format naming only the fields
+// its entity actually owns: DateEntity::state_as_esptime() leaves
+// hour/minute/second untouched and TimeEntity leaves the date fields untouched.
+inline void ws_send_state_datetime_(WsBridgeDevice *dev, datetime::DateTimeBase &src, const char *format) {
+  ESPTime time = src.state_as_esptime();
+  char buf[24];
+  if (time.strftime(buf, sizeof(buf), format) == 0)
+    return;
+  dev->get_ws_bridge_parent()->send_state_string(dev->get_ws_bridge_unique_id(), buf);
+}
+
+// HA sends full ISO 8601 ("2026-08-13T21:30:00+09:00"); ESPTime::strptime()
+// accepts only "YYYY-MM-DD[ HH:MM[:SS]]" and "HH:MM[:SS]" — no 'T' separator,
+// no fractional seconds, no timezone. Values arriving in the device's own local
+// time is exactly what the tz-naive round trip assumes (HA re-attaches its
+// local zone to the tz-naive strings we send back).
+inline std::string ws_iso_to_esptime_string_(const std::string &iso) {
+  std::string out = iso;
+  size_t separator = out.find('T');
+  if (separator != std::string::npos)
+    out[separator] = ' ';
+
+  // Everything past the seconds field has to go. Scanning from the first ':'
+  // keeps the date's own '-' separators from being read as a negative UTC
+  // offset; a date-only value has no such suffix to strip in the first place.
+  size_t time_start = out.find(':');
+  if (time_start != std::string::npos) {
+    size_t cut = out.find_first_of(".Z+-", time_start);
+    if (cut != std::string::npos)
+      out.erase(cut);
+  }
+  while (!out.empty() && out.back() == ' ')
+    out.pop_back();
+  return out;
+}
+#endif  // any USE_DATETIME_*
+
+#ifdef USE_DATETIME_DATE
+inline void ws_declare_date(WsBridgeDevice *dev, datetime::DateEntity &src, datetime::DateEntity *ovr,
+                            const std::string &name) {
+  ws_declare_datetime_(dev, src, ovr, name, "date");
+}
+
+inline void ws_push_state_date(WsBridgeDevice *dev, datetime::DateEntity &src) {
+  if (src.has_state())
+    ws_send_state_datetime_(dev, src, "%Y-%m-%d");
+}
+
+inline void ws_subscribe_date(WsBridgeDevice *dev, datetime::DateEntity *src) {
+  src->add_on_state_callback([dev, src]() { ws_push_state_date(dev, *src); });
+}
+
+inline void ws_handle_command_date(datetime::DateEntity *target, const WsCommand &command) {
+  if (command.action == "set_value" && command.has_value) {
+    target->make_call().set_date(ws_iso_to_esptime_string_(command.value_string)).perform();
+  }
+}
+#endif  // USE_DATETIME_DATE
+
+#ifdef USE_DATETIME_TIME
+inline void ws_declare_time(WsBridgeDevice *dev, datetime::TimeEntity &src, datetime::TimeEntity *ovr,
+                            const std::string &name) {
+  ws_declare_datetime_(dev, src, ovr, name, "time");
+}
+
+inline void ws_push_state_time(WsBridgeDevice *dev, datetime::TimeEntity &src) {
+  if (src.has_state())
+    ws_send_state_datetime_(dev, src, "%H:%M:%S");
+}
+
+inline void ws_subscribe_time(WsBridgeDevice *dev, datetime::TimeEntity *src) {
+  src->add_on_state_callback([dev, src]() { ws_push_state_time(dev, *src); });
+}
+
+inline void ws_handle_command_time(datetime::TimeEntity *target, const WsCommand &command) {
+  if (command.action == "set_value" && command.has_value) {
+    target->make_call().set_time(ws_iso_to_esptime_string_(command.value_string)).perform();
+  }
+}
+#endif  // USE_DATETIME_TIME
+
+#ifdef USE_DATETIME_DATETIME
+inline void ws_declare_datetime(WsBridgeDevice *dev, datetime::DateTimeEntity &src, datetime::DateTimeEntity *ovr,
+                                const std::string &name) {
+  ws_declare_datetime_(dev, src, ovr, name, "datetime");
+}
+
+inline void ws_push_state_datetime(WsBridgeDevice *dev, datetime::DateTimeEntity &src) {
+  if (src.has_state())
+    ws_send_state_datetime_(dev, src, "%Y-%m-%dT%H:%M:%S");
+}
+
+inline void ws_subscribe_datetime(WsBridgeDevice *dev, datetime::DateTimeEntity *src) {
+  src->add_on_state_callback([dev, src]() { ws_push_state_datetime(dev, *src); });
+}
+
+inline void ws_handle_command_datetime(datetime::DateTimeEntity *target, const WsCommand &command) {
+  if (command.action == "set_value" && command.has_value) {
+    target->make_call().set_datetime(ws_iso_to_esptime_string_(command.value_string)).perform();
+  }
+}
+#endif  // USE_DATETIME_DATETIME
 
 }  // namespace ws_bridge
 }  // namespace esphome

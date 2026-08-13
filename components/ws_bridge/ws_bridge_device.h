@@ -10,10 +10,10 @@ namespace ws_bridge {
 
 class WsBridgeComponent;
 
-// Shared base for every ws_bridge platform entity (sensor/binary_sensor/switch/
-// number/select/button/update). Holds the protocol-facing identity fields and gives
-// the hub a uniform way to ask any registered entity to (re)send its
-// ws_bridge/entity declaration (used on first connect and on every reconnect).
+// Shared base for every ws_bridge platform entity. Holds the protocol-facing
+// identity fields and gives the hub a uniform way to ask any registered entity
+// to (re)send its ws_bridge/entity declaration (used on first connect and on
+// every reconnect).
 class WsBridgeDevice {
  public:
   void set_ws_bridge_parent(WsBridgeComponent *parent) { this->parent_ = parent; }
@@ -37,8 +37,8 @@ class WsBridgeDevice {
   virtual void ws_bridge_declare() = 0;
 
   // Called by the hub when a command arrives for this entity's unique_id.
-  // Read-only platforms (sensor/binary_sensor) never receive commands and
-  // keep the no-op default.
+  // Read-only platforms (sensor/binary_sensor/event/...) never receive commands
+  // and keep the no-op default.
   virtual void ws_bridge_handle_command(const WsCommand &command) {}
 
   // The ESPHome entity this device wraps, if any (`*_id:` / `entities:`

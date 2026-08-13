@@ -67,6 +67,13 @@ ws_bridge:
     - source_id: local_light
     - source_id: local_cover
     - source_id: local_fan
+    - source_id: local_text
+    - source_id: local_lock
+    - source_id: local_valve
+    - source_id: local_event
+    - source_id: local_date
+    - source_id: local_time
+    - source_id: local_datetime
 
 sensor:
   - platform: ws_bridge
@@ -259,3 +266,121 @@ fan:
     unique_id: fan_bridged
     name: "Fan (bridged)"
     fan_id: local_fan
+
+# text is HA's writable text domain — unrelated to text_sensor above.
+# min_length/max_length are string lengths, not a value range.
+text:
+  - platform: ws_bridge
+    unique_id: note1
+    name: "Note"
+    min_length: 0
+    max_length: 64
+    pattern: "[A-Za-z0-9 ]*"
+  - platform: ws_bridge
+    unique_id: secret1
+    name: "Secret"
+    mode: password
+  - platform: template
+    id: local_text
+    name: "Local Text"
+    mode: text
+    optimistic: true
+  # min_length/max_length/pattern/mode omitted on purpose — wrapping reports
+  # the wrapped text's own limits.
+  - platform: ws_bridge
+    unique_id: text_bridged
+    name: "Text (bridged)"
+    text_id: local_text
+
+lock:
+  - platform: ws_bridge
+    unique_id: lock1
+    name: "Front Door"
+    code_format: '^\d{4}$'
+  - platform: template
+    id: local_lock
+    name: "Local Lock"
+    optimistic: true
+  - platform: ws_bridge
+    unique_id: lock_bridged
+    name: "Lock (bridged)"
+    lock_id: local_lock
+
+valve:
+  - platform: ws_bridge
+    unique_id: valve1
+    name: "Main Valve"
+  - platform: template
+    id: local_valve
+    name: "Local Valve"
+    optimistic: true
+    has_position: true
+  - platform: ws_bridge
+    unique_id: valve_bridged
+    name: "Valve (bridged)"
+    valve_id: local_valve
+
+event:
+  - platform: ws_bridge
+    unique_id: doorbell1
+    name: "Doorbell"
+    device_class: doorbell
+    event_types:
+      - "single"
+      - "double"
+  - platform: template
+    id: local_event
+    name: "Local Event"
+    event_types:
+      - "ping"
+  # event_types omitted on purpose — wrapping declares the wrapped event's list.
+  - platform: ws_bridge
+    unique_id: event_bridged
+    name: "Event (bridged)"
+    event_id: local_event
+
+# date / time / datetime all live in ESPHome's single datetime: domain, chosen
+# by type:. There is no time: entity domain — that name is the clock source.
+datetime:
+  - platform: ws_bridge
+    type: date
+    unique_id: date1
+    name: "Date"
+  - platform: ws_bridge
+    type: time
+    unique_id: time1
+    name: "Time"
+  - platform: ws_bridge
+    type: datetime
+    unique_id: datetime1
+    name: "DateTime"
+  - platform: template
+    id: local_date
+    type: date
+    name: "Local Date"
+    optimistic: true
+  - platform: template
+    id: local_time
+    type: time
+    name: "Local Time"
+    optimistic: true
+  - platform: template
+    id: local_datetime
+    type: datetime
+    name: "Local DateTime"
+    optimistic: true
+  - platform: ws_bridge
+    type: date
+    unique_id: date_bridged
+    name: "Date (bridged)"
+    datetime_id: local_date
+  - platform: ws_bridge
+    type: time
+    unique_id: time_bridged
+    name: "Time (bridged)"
+    datetime_id: local_time
+  - platform: ws_bridge
+    type: datetime
+    unique_id: datetime_bridged
+    name: "DateTime (bridged)"
+    datetime_id: local_datetime

@@ -127,6 +127,52 @@ fan:
     unique_id: ceiling_fan
     name: "Ceiling Fan"
 
+# HA's writable text domain — not the read-only text_sensor above.
+# min_length / max_length are string lengths, not a value range.
+text:
+  - platform: ws_bridge
+    unique_id: note1
+    name: "Note"
+    max_length: 64
+    mode: text                 # or password
+
+lock:
+  - platform: ws_bridge
+    unique_id: front_door
+    name: "Front Door"
+    code_format: '^\d{4}$'     # optional; HA-side prompt only, see below
+
+valve:
+  - platform: ws_bridge
+    unique_id: main_valve
+    name: "Main Valve"
+
+event:
+  - platform: ws_bridge
+    unique_id: doorbell
+    name: "Doorbell"
+    device_class: doorbell
+    event_types:               # required unless event_id: is set
+      - "single"
+      - "double"
+
+# HA's date, time and datetime are three platforms; ESPHome keeps all three in
+# one `datetime:` domain selected by `type:`. ESPHome's `time:` component is a
+# clock source (SNTP), not an entity domain — don't confuse the two.
+datetime:
+  - platform: ws_bridge
+    type: date
+    unique_id: alarm_date
+    name: "Alarm Date"
+  - platform: ws_bridge
+    type: time
+    unique_id: alarm_time
+    name: "Alarm Time"
+  - platform: ws_bridge
+    type: datetime
+    unique_id: next_run
+    name: "Next Run"
+
 # Firmware update entity in HA — wraps ESPHome's http_request update.
 # See "Remote OTA updates" below.
 http_request:
@@ -161,14 +207,14 @@ update:
 | `trackers` | | - | List of GPS `device_tracker` entities — see [GPS device trackers](#gps-device-trackers) below |
 | `entities` | | - | Existing ESPHome entities to expose without a parallel `platform: ws_bridge` entity — see [Exposing existing entities](#exposing-existing-entities) |
 
-### Platform options (all of `sensor`/`binary_sensor`/`text_sensor`/`switch`/`number`/`select`/`button`/`update`/`light`/`cover`/`fan`)
+### Platform options (all of `sensor`/`binary_sensor`/`text_sensor`/`switch`/`number`/`select`/`button`/`update`/`light`/`cover`/`fan`/`text`/`lock`/`valve`/`event`/`datetime`)
 
 | Option | Required | Description |
 |--------|:--------:|-------------|
 | `unique_id` | ✓ | Identifier for this entity, unique within the gateway. **Changing it creates a new HA entity** (the old one is left behind; `sync_entities: true` then deletes it) |
 | `ws_device_id` | | Groups this entity under a sub-device in HA (e.g. multiple sensors on one physical board) |
 | `ws_device_name` | | Display name for that sub-device |
-| `sensor_id` / `binary_sensor_id` / `text_sensor_id` / `switch_id` / `number_id` / `select_id` / `button_id` / `cover_id` / `fan_id` | | ID of an existing ESPHome entity to wrap — see [Exposing existing entities](#exposing-existing-entities) |
+| `sensor_id` / `binary_sensor_id` / `text_sensor_id` / `switch_id` / `number_id` / `select_id` / `button_id` / `cover_id` / `fan_id` / `text_id` / `lock_id` / `valve_id` / `event_id` / `datetime_id` | | ID of an existing ESPHome entity to wrap — see [Exposing existing entities](#exposing-existing-entities) |
 | `update_id` / `light_id` | ✓ (`update` / `light` only) | ID of the ESPHome entity to wrap (`update:` typically `platform: http_request`; `light:` any `LightState`) |
 | `name` | (`update` / `light`) | HA-facing name. If omitted, uses the wrapped entity's name when that entity has its own `name:`; otherwise the `unique_id` |
 
@@ -180,6 +226,31 @@ wrapping, those inherit from the source unless also set here —
 *not* wrapping. An id-only `http_request` update is `internal` and named
 after its id — set `name:` on the `ws_bridge` wrapper so Home Assistant does
 not show `"ota_update"`.
+
+A few platforms have options of their own:
+
+| Platform | Option | Required | Description |
+|----------|--------|:--------:|-------------|
+| `text` | `min_length` / `max_length` | | Allowed **string length** (0 / 255), not a value range |
+| `text` | `pattern` | | Regex HA validates the typed value against |
+| `text` | `mode` | | `text` (default) or `password` |
+| `lock` | `code_format` | | Regex for HA's code prompt, e.g. `'^\d{4}$'`. **Declare-only**: ESPHome's lock domain has no way to receive the code, so the `code` HA sends with the command is discarded. Treat this as a UI confirmation step, not authentication |
+| `event` | `event_types` | ✓ unless `event_id:` | The event types this entity can fire. HA discards any state whose `event_type` was not declared |
+| `datetime` | `type` | ✓ | `date`, `time` or `datetime` — picks which HA platform this becomes |
+
+Standalone (non-wrapping) `text`, `lock`, `valve` and `datetime` entities are
+optimistic, like `switch`: a command from HA is echoed straight back as the new
+state. A standalone `lock` also advertises the `open` (unlatch) feature, since
+there is no hardware here to constrain it.
+
+`text`, `valve` and `datetime` wrappers report the wrapped entity's own limits
+(`min_length`/`max_length`/`pattern`/`mode`, `reports_position`) and a wrapped
+`event` declares the wrapped entity's `event_types`, so those options can be
+left out. `datetime_id:` must point at an entity of the same `type:`.
+
+`date` / `time` / `datetime` states cross the wire as timezone-naive ISO 8601
+strings (`2026-08-13`, `21:30:00`, `2026-08-13T21:30:00`); Home Assistant
+attaches its own local timezone to them rather than reading them as UTC.
 
 ## Exposing existing entities
 
@@ -233,9 +304,10 @@ number:
   field — a number that sets only `min_value`/`max_value` keeps the
   source's `step`, and vice versa.
 - **Commands** on `switch` / `number` / `select` / `button` / `update` /
-  `light` / `cover` / `fan` are applied to the wrapped entity, not to the
-  wrapper. On-device automations should keep targeting the source
-  (`switch.turn_on: relay`).
+  `light` / `cover` / `fan` / `text` / `lock` / `valve` / `datetime` are
+  applied to the wrapped entity, not to the wrapper. On-device automations
+  should keep targeting the source (`switch.turn_on: relay`). `event` takes
+  no commands at all.
 - ESPHome still requires `id:` or `name:` on the wrapper YAML (`unique_id`
   alone is not enough).
 - `unique_id` is still required. Changing it (or first adding wrapping
@@ -266,7 +338,7 @@ ws_bridge:
 
 | Option | Required | Description |
 |--------|:--------:|-------------|
-| `source_id` | ✓ | ESPHome `id:` of an existing sensor / binary_sensor / text_sensor / switch / number / select / button / update |
+| `source_id` | ✓ | ESPHome `id:` of an existing sensor / binary_sensor / text_sensor / switch / number / select / button / update / light / cover / fan / text / lock / valve / event / date / time / datetime |
 | `unique_id` | | HA identifier. **Defaults to the source's YAML `id:`** (stable across `name:` edits, unlike an object_id) |
 | `name` | | HA-facing name. Defaults to the source's own `name:`; an id-only source (no `name:`) falls back to `unique_id` rather than leaking the ESPHome id |
 | `ws_device_id` / `ws_device_name` | | Same as every other platform |
