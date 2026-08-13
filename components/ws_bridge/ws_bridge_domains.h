@@ -1374,7 +1374,9 @@ inline void ws_declare_climate(WsBridgeDevice *dev, climate::Climate &src, clima
         JsonArray features = root["features"].to<JsonArray>();
         const bool requires_range = traits.has_feature_flags(climate::CLIMATE_REQUIRES_TWO_POINT_TARGET_TEMPERATURE);
         const bool supports_range = traits.has_feature_flags(climate::CLIMATE_SUPPORTS_TWO_POINT_TARGET_TEMPERATURE);
-        if (!requires_range)
+        // thermostats with SUPPORTS (not REQUIRES) two-point reject single
+        // target_temperature calls — don't advertise both features.
+        if (!supports_range && !requires_range)
           features.add("target_temperature");
         if (supports_range || requires_range)
           features.add("target_temperature_range");
@@ -1432,7 +1434,10 @@ inline void ws_handle_command_climate(climate::Climate *target, const WsCommand 
   } else if (command.action == "turn_off") {
     target->make_call().set_mode(climate::CLIMATE_MODE_OFF).perform();
   } else if (command.action == "turn_on") {
-    for (auto mode : target->get_traits().get_supported_modes()) {
+    // Copy traits first: get_traits() returns by value, so ranging over the
+    // temporary's mask would dangle after the range-init expression ends.
+    auto traits = target->get_traits();
+    for (auto mode : traits.get_supported_modes()) {
       if (mode != climate::CLIMATE_MODE_OFF) {
         target->make_call().set_mode(mode).perform();
         break;

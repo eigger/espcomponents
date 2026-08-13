@@ -18,7 +18,9 @@ climate::ClimateTraits WsBridgeClimate::traits() {
   if (this->source_ != nullptr)
     return this->source_->get_traits();
   climate::ClimateTraits traits;
-  traits.add_feature_flags(climate::CLIMATE_SUPPORTS_CURRENT_TEMPERATURE | climate::CLIMATE_SUPPORTS_ACTION);
+  // No CURRENT_TEMPERATURE — standalone never invents a sensor reading.
+  // ACTION is kept and derived from mode in control().
+  traits.add_feature_flags(climate::CLIMATE_SUPPORTS_ACTION);
   traits.set_supported_modes({
       climate::CLIMATE_MODE_OFF,
       climate::CLIMATE_MODE_HEAT,
@@ -31,10 +33,31 @@ climate::ClimateTraits WsBridgeClimate::traits() {
   return traits;
 }
 
+static climate::ClimateAction ws_bridge_action_for_mode_(climate::ClimateMode mode) {
+  switch (mode) {
+    case climate::CLIMATE_MODE_OFF:
+      return climate::CLIMATE_ACTION_OFF;
+    case climate::CLIMATE_MODE_HEAT:
+      return climate::CLIMATE_ACTION_HEATING;
+    case climate::CLIMATE_MODE_COOL:
+      return climate::CLIMATE_ACTION_COOLING;
+    case climate::CLIMATE_MODE_DRY:
+      return climate::CLIMATE_ACTION_DRYING;
+    case climate::CLIMATE_MODE_FAN_ONLY:
+      return climate::CLIMATE_ACTION_FAN;
+    case climate::CLIMATE_MODE_HEAT_COOL:
+    case climate::CLIMATE_MODE_AUTO:
+    default:
+      return climate::CLIMATE_ACTION_IDLE;
+  }
+}
+
 // Only reached when NOT wrapping — optimistic like cover/valve.
 void WsBridgeClimate::control(const climate::ClimateCall &call) {
-  if (call.get_mode().has_value())
+  if (call.get_mode().has_value()) {
     this->mode = *call.get_mode();
+    this->action = ws_bridge_action_for_mode_(this->mode);
+  }
   if (call.get_target_temperature().has_value())
     this->target_temperature = *call.get_target_temperature();
   if (call.get_target_temperature_low().has_value())
