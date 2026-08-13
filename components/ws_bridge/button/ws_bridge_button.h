@@ -8,13 +8,15 @@ namespace ws_bridge {
 
 class WsBridgeButton : public button::Button, public Component, public WsBridgeDevice {
  public:
+  void set_button(button::Button *button) { this->button_ = button; }
   void setup() override {}
   void dump_config() override;
   void ws_bridge_declare() override;
   void ws_bridge_handle_command(const WsCommand &command) override;
 
  protected:
-  void press_action() override {}
+  void press_action() override;
+  button::Button *button_{nullptr};
 };
 
 }  // namespace ws_bridge

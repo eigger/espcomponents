@@ -1,4 +1,5 @@
 #include "ws_bridge_button.h"
+#include "esphome/core/log.h"
 #include "../ws_bridge.h"
 #include "../ws_bridge_entity_json.h"
 
@@ -7,7 +8,16 @@ namespace ws_bridge {
 
 static const char *const TAG = "ws_bridge.button";
 
-void WsBridgeButton::dump_config() { LOG_BUTTON("", "WS Bridge Button", this); }
+void WsBridgeButton::dump_config() {
+  LOG_BUTTON("", "WS Bridge Button", this);
+  if (this->button_ != nullptr)
+    ESP_LOGCONFIG(TAG, "  Wrapped: '%s'", this->button_->get_name().str().c_str());
+}
+
+void WsBridgeButton::press_action() {
+  if (this->button_ != nullptr)
+    this->button_->press();
+}
 
 void WsBridgeButton::ws_bridge_handle_command(const WsCommand &command) {
   if (command.action == "press") this->press();

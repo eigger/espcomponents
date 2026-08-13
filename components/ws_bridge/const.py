@@ -19,6 +19,7 @@ CONF_ON_DECLARE = "on_declare"
 CONF_TRACKERS = "trackers"
 CONF_GPS_ACCURACY = "gps_accuracy"
 CONF_UPDATE_ID = "update_id"
+CONF_BUTTON_ID = "button_id"
 
 CONF_PING_INTERVAL = "ping_interval"
 CONF_PONG_TIMEOUT = "pong_timeout"
