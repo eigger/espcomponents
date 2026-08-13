@@ -31,6 +31,7 @@ substitutions:
   friendly_name: "ESP Colorado TAB5"
   version: "v260602 rev.1"
   number: "12가 1234"
+  ota_device: "colorado_tab5"
   mac_vlinker: "C0:25:E8:53:2C:90"
   mac_cabin_jht: "DA:E8:DD:E2:9A:47"
   mac_bed_jht: "F5:A8:DB:76:1A:F5"
