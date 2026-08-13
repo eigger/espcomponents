@@ -34,6 +34,9 @@
 #ifdef USE_COVER
 #include "esphome/components/cover/cover.h"
 #endif
+#ifdef USE_CLIMATE
+#include "esphome/components/climate/climate.h"
+#endif
 #ifdef USE_FAN
 #include "esphome/components/fan/fan.h"
 #endif
@@ -228,6 +231,21 @@ class WsBridgeCoverRef : public WsBridgeEntityRefBase {
 
  protected:
   cover::Cover *source_{nullptr};
+};
+#endif
+
+#ifdef USE_CLIMATE
+class WsBridgeClimateRef : public WsBridgeEntityRefBase {
+ public:
+  void set_source(climate::Climate *source) { this->source_ = source; }
+  const EntityBase *get_ws_bridge_source() const override { return this->source_; }
+  void setup() override;
+  void dump_config() override;
+  void ws_bridge_declare() override;
+  void ws_bridge_handle_command(const WsCommand &command) override;
+
+ protected:
+  climate::Climate *source_{nullptr};
 };
 #endif
 

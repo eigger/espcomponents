@@ -66,6 +66,7 @@ ws_bridge:
       unique_id: firmware_ref
     - source_id: local_light
     - source_id: local_cover
+    - source_id: local_climate
     - source_id: local_fan
     - source_id: local_text
     - source_id: local_lock
@@ -87,6 +88,12 @@ sensor:
     ws_device_name: "Sensor Hub"
   - platform: uptime
     id: uptime_sensor
+  - platform: template
+    id: climate_temp
+    name: "Climate Temp"
+    unit_of_measurement: "°C"
+    lambda: "return 22.0;"
+    update_interval: 60s
   # sensor_id: wraps an existing sensor via a `platform: ws_bridge` entity
   # instead of the hub's entities: list. accuracy_decimals: 0 is an explicit
   # override (0 is also the unset default — codegen must pass a flag).
@@ -253,6 +260,28 @@ cover:
     unique_id: cover_bridged
     name: "Cover (bridged)"
     cover_id: local_cover
+
+# No template climate in ESPHome — bang_bang covers wrap + entities: paths.
+climate:
+  - platform: ws_bridge
+    unique_id: climate1
+    name: "Climate"
+  - platform: bang_bang
+    id: local_climate
+    name: "Local Climate"
+    sensor: climate_temp
+    default_target_temperature_low: 18
+    default_target_temperature_high: 24
+    heat_action:
+      - logger.log: "climate heat"
+    cool_action:
+      - logger.log: "climate cool"
+    idle_action:
+      - logger.log: "climate idle"
+  - platform: ws_bridge
+    unique_id: climate_bridged
+    name: "Climate (bridged)"
+    climate_id: local_climate
 
 fan:
   - platform: ws_bridge

@@ -157,6 +157,22 @@ void WsBridgeCoverRef::ws_bridge_handle_command(const WsCommand &command) {
 }
 #endif
 
+#ifdef USE_CLIMATE
+void WsBridgeClimateRef::setup() { ws_subscribe_climate(this, this->source_); }
+void WsBridgeClimateRef::dump_config() {
+  ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> climate '%s'", this->get_ws_bridge_unique_id().c_str(),
+                this->source_->get_name().str().c_str());
+}
+void WsBridgeClimateRef::ws_bridge_declare() {
+  ws_declare_climate(this, *this->source_, nullptr,
+                     ws_ha_name(*this->source_, this->name_override_, this->get_ws_bridge_unique_id()));
+  ws_push_state_climate(this, *this->source_);
+}
+void WsBridgeClimateRef::ws_bridge_handle_command(const WsCommand &command) {
+  ws_handle_command_climate(this->source_, command);
+}
+#endif
+
 #ifdef USE_FAN
 void WsBridgeFanRef::setup() { ws_subscribe_fan(this, this->source_); }
 void WsBridgeFanRef::dump_config() {
