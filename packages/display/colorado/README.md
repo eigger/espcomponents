@@ -20,6 +20,7 @@ ESPHome configuration for a vehicle dashboard based on the ESP32-P4 EV Board (`e
 - **Air Quality**: Monitors CO2, eCO2, and TVOC using onboard SCD4x and SGP30 I2C sensors.
 - **Dynamic UI**: LVGL-based UI with dynamic color changes based on sensor values and pop-up alerts for critical conditions (e.g., Overheating, High RPM, Low Fuel, Speeding, Drowsiness Warning via High CO2).
 - **Power Management**: Monitors power consumption using INA226 and controls power peripherals (USB power, Quick Charge, Speakers, etc.) via PI4IOE5V6408 I2C GPIO expanders.
+- **Home Assistant Real-time Sync**: Outbound WebSocket bridge via [ws_bridge](/components/ws_bridge) component, pushing 25+ telemetry and environmental entities directly to Home Assistant without needing an MQTT broker or VPN.
 
 ## Configuration Usage
 
@@ -29,9 +30,7 @@ Add the following to your ESPHome configuration:
 substitutions:
   name: "esp-colorado-tab5"
   friendly_name: "ESP Colorado TAB5"
-  version: "v260602 rev.1"
   number: "12가 1234"
-  ota_device: "colorado_tab5"
   mac_vlinker: "C0:25:E8:53:2C:90"
   mac_cabin_jht: "DA:E8:DD:E2:9A:47"
   mac_bed_jht: "F5:A8:DB:76:1A:F5"
@@ -44,6 +43,29 @@ packages:
       - packages/display/colorado/colorado-tab5.yaml
 ```
 
+## Home Assistant Integration (`ws_bridge`)
+
+The dashboard connects directly to Home Assistant's `/api/websocket` endpoint over an outbound secure WebSocket (`wss://`) using the custom [ws_bridge](/components/ws_bridge) component and the companion [`hass-ws-bridge`](https://github.com/eigger/hass-ws-bridge) Home Assistant integration.
+
+- **No MQTT / No VPN Needed**: Outbound WSS connection works seamlessly across mobile hotspots, home Wi-Fi, or remote tunnels (e.g., Nabu Casa / Cloudflare).
+- **Persistent State**: With `keep_last_state_on_disconnect: true`, vehicle telemetry remains visible in Home Assistant even when the vehicle is parked and offline.
+- **Auto Entity Pruning**: `sync_entities: true` automatically removes old or renamed entities on connection while preserving history and long-term statistics.
+- **Synchronized Entities (25+)**:
+  - **Vehicle Telemetry**: Speed, RPM, Engine Load, Throttle, Acceleration, Gear, PRND, Oil Pressure, Coolant Temp, Transmission Fluid Temp, Intake/Ambient Temp, Fuel Level (% & Liters), Odometer, Trip Distance, Engine Runtime, and Car Battery Voltage.
+  - **Cabin & Cargo Climate**: Jaalee JHT temperature, humidity, and battery levels for both cabin and cargo bed (적재함).
+  - **Air Quality**: SCD40 CO2/temp/humidity, SGP30 eCO2 & TVOC, and internal device temperatures.
+  - **Firmware Update**: Exposes the `ota_update` entity as a native Home Assistant Update card with one-click install.
+
+## OTA Updates (ESPHome OTA Publisher)
+
+To enable remote Over-The-Air (OTA) firmware updates via Home Assistant without exposing local ports or using a VPN, this configuration integrates with the **[ESPHome OTA Publisher](https://github.com/eigger/hassio-apps/tree/master/esphome_ota)** add-on.
+
+1. **Install Add-on**: Install [ESPHome OTA Publisher](https://github.com/eigger/hassio-apps/tree/master/esphome_ota) in Home Assistant.
+2. **Register Device**: Register `esp-colorado-tab5` in the add-on UI and build/publish firmware.
+3. **OTA Package**: The add-on generates `ota_server/devices/esp-colorado-tab5.yaml` (or `ota_server/update.yaml`), which defines `ota_update` and sets `esphome.project.version`.
+4. **Version Management**: The dashboard automatically uses `ESPHOME_PROJECT_VERSION` (`*version`) across boot logs, header version label, splash screen, and `ws_bridge` device info.
+5. **Home Assistant Update Entity**: `ws_bridge` exposes `ota_update` to Home Assistant as a native firmware Update entity with install/check features.
+
 ## Required Secrets
 
 Make sure you have the following defined in your `secrets.yaml`:
@@ -53,8 +75,6 @@ Make sure you have the following defined in your `secrets.yaml`:
 - `colorado_wifi_password`
 - `wifi_ssid`
 - `wifi_password`
-- `colorado_ts_address`
-- `tailscale_auth_key`
 - `ha_address`
 - `ha_token`
 
@@ -158,85 +178,10 @@ Configure your device MAC addresses via `substitutions` variables as shown in th
 - **SGP30 (I2C 0x58)**: eCO2 and TVOC air quality monitoring.
 - **SCD4x**: High accuracy CO2 concentration, temp, and humidity polling.
 
-## Garage Telemetry Auto-Sync
+## Garage Integration (`hass-garage`)
 
-Automatically push vehicle telemetry data from Home Assistant to your [Garage](https://github.com/eigger/garage) service.
+Vehicle telemetry collected by this dashboard can be automatically forwarded to the self-hosted [Garage](https://github.com/eigger/garage) vehicle management server using the **[hass-garage](https://github.com/eigger/hass-garage)** Home Assistant custom integration.
 
-### 1. Define the `rest_command` in `configuration.yaml`
-
-```yaml
-rest_command:
-  garage_send_telemetry:
-    url: "http://192.168.0.247/api/ingest/telemetry"
-    method: POST
-    headers:
-      Authorization: !secret garage_colorado_api
-      Content-Type: "application/json"
-    payload: >-
-      {% set raw_data = {
-        "lat": lat | float(none) if lat is defined else none,
-        "lon": lon | float(none) if lon is defined else none,
-        "speed": speed | float(none) if speed is defined else none,
-        "rpm": rpm | float(none) if rpm is defined else none,
-        "fuelLevel": fuelLevel | float(none) if fuelLevel is defined else none,
-        "odometer": odometer | int(none) if odometer is defined else none,
-        "dtcCodes": dtcCodes if dtcCodes is defined else none,
-        "inVehicle": inVehicle if inVehicle is defined else none
-      } %}
-      
-      {% set ns = namespace(result={}) %}
-      {% for key, value in raw_data.items() %}
-        {% if value is not none and value not in ['unknown', 'unavailable', ''] %}
-          {% set ns.result = dict(ns.result, **{key: value}) %}
-        {% endif %}
-      {% endfor %}
-      
-      {{ ns.result | to_json }}
-```
-
-Add the Garage API key to `secrets.yaml`:
-
-```yaml
-garage_colorado_api: "your_api_key"
-```
-
-### 2. Automation — Submit Telemetry During Driving
-
-```yaml
-alias: Garage Send Colorado (Driving)
-description: Send telemetry to Garage
-triggers:
-  - entity_id: device_tracker.sm_f966n
-    trigger: state
-conditions:
-  - condition: template
-    value_template: "{{ state_attr('device_tracker.sm_f966n', 'latitude') != None }}"
-  - condition: template
-    value_template: "{{ states('sensor.esp_colorado_tab5_engine_load') | float(0) > 0 }}"
-actions:
-  - action: rest_command.garage_send_telemetry
-    data:
-      lat: >-
-        {{ state_attr('device_tracker.sm_f966n', 'latitude') | default('', true)
-        }}
-      lon: >-
-        {{ state_attr('device_tracker.sm_f966n', 'longitude') | default('',
-        true) }}
-      speed: >-
-        {% set car_speed = states('sensor.esp_colorado_tab5_car_speed') %}  {%
-        set gps_speed = state_attr('device_tracker.sm_f966n', 'speed') %}  {% if
-        car_speed not in ['unknown', 'unavailable', 'None', ''] %}
-          {{ (car_speed | float(0)) | round(1) }}
-        {% else %}
-          {{ (gps_speed | float(0)) | round(1) if gps_speed not in [None, 'None', ''] else 0.0 }}
-        {% endif %}
-      rpm: "{{ states('sensor.esp_colorado_tab5_engine_rpm') | default('', true) }}"
-      fuelLevel: "{{ states('sensor.esp_colorado_tab5_fuel_level') | default('', true) }}"
-      odometer: >-
-        {% set odo = states('sensor.esp_colorado_tab5_odometer') %}  {% if odo |
-        is_number %}
-          {{ odo | int }}
-        {% endif %}
-      inVehicle: true
-mode: queued
-```
+- **Zero YAML Configuration**: No need for manual `rest_command` or complex automations. Configure entirely through the Home Assistant UI.
+- **Automatic Telemetry Stream**: Select the entities exposed by `ws_bridge` (Speed, RPM, Fuel Level, Odometer, and your phone's GPS `device_tracker`), and `hass-garage` automatically syncs telemetry to Garage whenever driving metrics change.
+- **Two-way Sync**: Garage service reminders (due/upcoming maintenance) and last known parking location are automatically published back to Home Assistant sensors.

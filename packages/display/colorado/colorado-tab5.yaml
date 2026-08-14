@@ -1,10 +1,13 @@
+.helpers:
+  ver: &version !lambda 'return std::string(ESPHOME_PROJECT_VERSION);'
+
 esphome:
   name: "${name}"
   friendly_name: "${friendly_name}"
   on_boot:
     - script.execute:
         id: script_logs
-        log: ${version}
+        log: *version
     - script.execute:
         id: script_splash_fade_in
     - lvgl.label.update:
@@ -48,18 +51,20 @@ esphome:
     - light.turn_on:
         id: backlight
         brightness: 40%
-  project:
-    name: "colorado.tab5"
-    version: ${version}
+
     
 logger:
-  level: NONE
+  level: DEBUG
   baud_rate: 921600                   
 
+# =================================================================
+# OTA Updates (무선 펌웨어 업데이트):
+# OTA 기능을 사용하려면 ESPHome OTA Publisher 애드온이 필요합니다:
+# https://github.com/eigger/hassio-apps/tree/master/esphome_ota
+# 애드온에서 기기 등록 후 생성되는 패키지(ota_server/devices/esp-colorado-tab5.yaml)를 include합니다.
+# =================================================================
 packages:
-  ota: !include ota_server/update.yaml
-  
-safe_mode:
+  ota: !include ota_server/devices/esp-colorado-tab5.yaml
   
 time:
   - platform: sntp
@@ -105,6 +110,9 @@ ws_bridge:
   token: !secret ha_token
   gateway_id: "${name}"
   name: "${friendly_name}"
+  model: "Tab5"
+  manufacturer: "M5Stack"
+  hw_version: *version
   keep_last_state_on_disconnect: true
   sync_entities: true
   on_connected:
@@ -340,10 +348,20 @@ globals:
            else if (val > 15) return c_orange;
            return c_red;
          } else if (mode == 7) { // 배터리
-           if (val < 12.0) return c_red;
-           else if (val < 12.5) return c_yellow;
-           else if (val < 14.8) return c_white;
-           return c_red;
+           if (val <= 5.0f) return c_gray; // 무효값/연결불가 (회색)
+           bool engine_on = !isnan(id(engine_rpm).state) && id(engine_rpm).state >= 400.0f;
+           if (engine_on) { // 시동 후 (발전기 동작 중)
+             if (val < 12.8f) return c_red;         // 발전기 미충전
+             else if (val < 13.2f) return c_orange; // 충전전압 낮음
+             else if (val <= 14.8f) return c_white;  // 정상 충전 범위 (13.2V~14.8V)
+             else if (val <= 15.0f) return c_orange; // 충전전압 높음
+             return c_red;                          // 발전기 과충전
+           } else { // 시동 전
+             if (val < 11.8f) return c_red;         // 방전 위험
+             else if (val < 12.0f) return c_orange; // 시동전 저전압
+             else if (val <= 13.5f) return c_white;  // 정상 전압 (12.0V~13.5V)
+             return c_red;                          // 시동전 전압 이상 (고전압)
+           }
          } else if (mode == 8) { // RPM
            if (val > 3500) return c_red;
            else if (val > 2500) return c_orange;
@@ -716,7 +734,7 @@ sensor:
         - lvgl.label.update:
             id: lbl_car_battery
             text: !lambda |-
-              if (isnan(x)) return std::string("--");
+              if (isnan(x) || x <= 5.0f) return std::string("--");
               char buf[10]; snprintf(buf, sizeof(buf), "%.1f", x); return std::string(buf);
             text_color: !lambda return id(fn_state_color)(x, 7);
         - lvgl.widget.update:
@@ -776,6 +794,10 @@ sensor:
     preset: speed
     update_interval: 1s
     internal: true
+    filters:
+      - lambda: |-
+          if (x >= 255) return {};
+          return x;
     on_value:
       then:
         - lvgl.label.update:
@@ -1127,6 +1149,11 @@ interval:
           std::string msg = "";
           uint32_t color_hex = 0xD9720A;
 
+          float bat = id(car_battery).state;
+          float rpm = id(engine_rpm).state;
+          bool engine_on = !isnan(rpm) && rpm >= 400.0f;
+          bool bat_valid = !isnan(bat) && bat > 5.0f;
+
           if (!isnan(id(car_speed).state) && id(car_speed).state > 110) { msg = "과속 주의!"; a = true; color_hex = 0xA0190F; }
           else if (!isnan(id(id_scd40_co2).state) && id(id_scd40_co2).state > 2500) { msg = "졸음 경고!"; a = true; color_hex = 0xA0190F; }
           else if (!isnan(id(id_scd40_co2).state) && id(id_scd40_co2).state > 1500) { msg = "졸음 주의!"; a = true; color_hex = 0xD9720A; }
@@ -1136,6 +1163,13 @@ interval:
           else if (!isnan(id(car_acceleration).state) && id(car_acceleration).state < -9.0) { msg = "급감속!"; a = true; color_hex = 0xA0190F; }
           else if (!isnan(id(engine_load).state) && id(engine_load).state > 95) { msg = "엔진 과부하!"; a = true; color_hex = 0xD9720A; }
           else if (!isnan(id(id_tab5_internal_temperature).state) && id(id_tab5_internal_temperature).state > 70) { msg = "장치 과열!"; a = true; color_hex = 0xA0190F; }
+          else if (bat_valid && engine_on && bat < 12.8f) { msg = "발전기 미충전!"; a = true; color_hex = 0xA0190F; }
+          else if (bat_valid && engine_on && bat > 15.0f) { msg = "배터리 과충전!"; a = true; color_hex = 0xA0190F; }
+          else if (bat_valid && !engine_on && bat < 11.8f) { msg = "배터리 방전 위험!"; a = true; color_hex = 0xA0190F; }
+          else if (bat_valid && !engine_on && bat > 13.5f) { msg = "시동전 전압 이상!"; a = true; color_hex = 0xA0190F; }
+          else if (bat_valid && engine_on && bat < 13.2f) { msg = "충전전압 낮음!"; a = true; color_hex = 0xD9720A; }
+          else if (bat_valid && engine_on && bat > 14.8f) { msg = "충전전압 높음!"; a = true; color_hex = 0xD9720A; }
+          else if (bat_valid && !engine_on && bat < 12.0f) { msg = "배터리 전압 낮음!"; a = true; color_hex = 0xD9720A; }
           else if (!isnan(id(fuel_level).state) && id(fuel_level).state < 10) { msg = "주유 필요!"; a = true; color_hex = 0xD9720A; }
           else if (id(parking_info).has_state() && id(parking_info).state.length() > 0 && id(parking_info).state != "unknown" && id(parking_info).state != "off") {
             msg = id(parking_info).state;
@@ -1363,7 +1397,7 @@ lvgl:
                 align: top_mid
                 y: 10
                 text_color: 0xF1C36C
-                text_font: notosans40
+                text_font: notosans35
             - label:
                 text: "시스템을 재시작하시겠습니까?"
                 align: center
@@ -1506,7 +1540,7 @@ lvgl:
                 y: 0
             - label:
                 id: lbl_version
-                text: "${version}"
+                text: *version
                 align: left_mid
                 x: 225
                 y: 0
@@ -1517,10 +1551,10 @@ lvgl:
                 hidden: true
                 text: ""
                 align: right_mid
-                x: -145
+                x: -135
                 y: 0
                 text_color: 0xF1C36C
-                text_font: notosans40
+                text_font: notosans35
             - label:
                 id: lbl_time
                 hidden: true
@@ -1535,7 +1569,7 @@ lvgl:
                 hidden: true
                 align: center
                 width: SIZE_CONTENT
-                min_width: 500
+                min_width: 480
                 height: 72
                 bg_color: 0xA0190F
                 bg_opa: COVER
@@ -1638,7 +1672,7 @@ lvgl:
                       bg_color: 0x1E2A38
                       indicator:
                         arc_color: 0xF1C36C
-                  - label: { text: "${version}", align: bottom_mid, y: -38, text_color: 0x7F8EA3, text_font: notosans30 }
+                  - label: { text: *version, align: bottom_mid, y: -38, text_color: 0x7F8EA3, text_font: notosans30 }
 
   pages:
     # =============================================================
@@ -2319,7 +2353,7 @@ font:
     id: font_alert_title
     size: 28
   - file: "gfonts://Gothic+A1"
-    glyphs: '#()_-+@*/:;?!,.=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%실내외온습도기압가속냉각수부하배터리연료운행머버전번호판뚝엔진미션오일명주거력팬화면밝울보정초로그록지우시스템재작적함과의졸음경고환필요급감장치열유안신결류알림충점검'
+    glyphs: '#()_-+@*/:;?!,.=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%실내외온습도기압가속냉각수부하배터리연료운행머버전번호판뚝엔진미션오일명주거력팬화면밝울보정초로그록지우시스템재작적함과의졸음경고환필요급감장치열유안신결류알림충점검발방위험동이상낮높'
     id: font_alert_msg
     size: 34
   - file: "gfonts://Noto+Sans+KR"
@@ -2335,13 +2369,13 @@ font:
     id: notosans25
     size: 25
   - file: "gfonts://Noto+Sans+KR"
-    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%월화수목금토일머운행배터리냉각부하엔진과속주의졸음경고가스환기필요급감장치열유력팬템재시작겠습니까예아오면밝울보정로그록지우을초틀크압연료거미션온도흡자이'
+    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%월화수목금토일머운행배터리냉각부하엔진과속주의졸음경고가스환기필요급감장치열유력팬템재시작겠습니까예아오면밝울보정로그록지우을초틀크압연료거미션온도흡자이발방위험동상낮높'
     id: notosans30
     size: 30
   - file: "gfonts://Noto+Sans+KR"
     glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz시스템재작월일화수목금토'
-    id: notosans40
-    size: 40
+    id: notosans35
+    size: 35
   - file: "gfonts://Noto+Sans+KR"
     glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz월화수목금토일머운행배터리냉각부하엔진과속주의졸음경고가스환기필요급감장치열유'
     id: notosans45
