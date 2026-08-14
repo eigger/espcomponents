@@ -46,6 +46,7 @@ ws_bridge:
   gateway_id: my_esp         # (default: this device's name)
   name: "My ESP"             # (default: this device's friendly_name)
   # sw_version: "1.2.3"      # optional; default is ESPHome version + compile time
+  # sw_version: !lambda return std::string(FIRMWARE_VERSION); # templatable, e.g. from a define
   # manufacturer: Espressif  # optional; HA default is ws_bridge
   # model: ESP32-S3          # optional; HA default is Gateway
   # hw_version: "1.0"        # optional
@@ -205,12 +206,12 @@ update:
 | `port` | | 8123 | Port |
 | `ssl` | | `true` | Use `wss://`. Only disable for LAN-only testing — the access token is sent in plain text over `ws://` |
 | `token` | ✓ | - | Home Assistant long-lived access token |
-| `gateway_id` | | device name | Unique client identifier (becomes the HA gateway device) |
-| `name` | | device friendly name | Display name for the gateway device |
-| `sw_version` | | ESPHome version + compile time | Firmware version sent on `ws_bridge/connect` (HA gateway device `sw_version`). Default looks like `2025.8.0 (Aug 14 2026, 07:31:00)`. Set this to send a custom version instead |
-| `manufacturer` | | omitted | Gateway device manufacturer. Omitted: HA shows `ws_bridge` |
-| `model` | | omitted | Gateway device model. Omitted: HA shows `Gateway` |
-| `hw_version` | | omitted | Gateway hardware version. Omitted: left unset. Each of these fields is independent |
+| `gateway_id` | | device name | Unique client identifier (becomes the HA gateway device). Templatable |
+| `name` | | device friendly name | Display name for the gateway device. Templatable |
+| `sw_version` | | ESPHome version + compile time | Firmware version sent on `ws_bridge/connect` (HA gateway device `sw_version`). Default looks like `2025.8.0 (Aug 14 2026, 07:31:00)`. Set this to send a custom version instead. Templatable |
+| `manufacturer` | | omitted | Gateway device manufacturer. Omitted: HA shows `ws_bridge`. Templatable |
+| `model` | | omitted | Gateway device model. Omitted: HA shows `Gateway`. Templatable |
+| `hw_version` | | omitted | Gateway hardware version. Omitted: left unset. Each of these fields is independent. Templatable |
 | `keep_last_state_on_disconnect` | | `false` | If `true`, this gateway's entities keep their last state in HA instead of going `unavailable` when the connection drops (including an ungraceful disconnect) |
 | `sync_entities` | | `false` | If `true`, sends `ws_bridge/sync` with every declared `unique_id` right after connecting, so HA removes entities this gateway no longer provides. Entities still declared keep their `entity_id`, history and long-term statistics — nothing is wiped and recreated. See [Removing stale entities](#removing-stale-entities) |
 | `ping_interval` | | `60s` | How often to send an app-level `ping` once connected, to detect a peer that dropped without a clean WebSocket close |
@@ -219,6 +220,8 @@ update:
 | `reannounce_interval` | | `60s` | How often to resend `ws_bridge/connect` + all entity/state declarations while nominally connected. Guards against the HA-side integration losing track of this gateway (e.g. its config entry reloaded) while the raw connection and ping/pong stay healthy — that scenario is otherwise invisible, since HA answers pings regardless of our integration's state. If a re-announce goes unanswered, forces a full reconnect rather than repeating the same no-op |
 | `trackers` | | - | List of GPS `device_tracker` entities — see [GPS device trackers](#gps-device-trackers) below |
 | `entities` | | - | Existing ESPHome entities to expose without a parallel `platform: ws_bridge` entity — see [Exposing existing entities](#exposing-existing-entities) |
+
+"Templatable" fields accept a plain string or a `!lambda return std::string(...);` — the lambda is re-evaluated on every `ws_bridge/connect` (the initial connect and each `reannounce_interval`), not just once at boot.
 
 ### Platform options (all of `sensor`/`binary_sensor`/`text_sensor`/`switch`/`number`/`select`/`button`/`update`/`light`/`cover`/`climate`/`fan`/`text`/`lock`/`valve`/`event`/`datetime`)
 

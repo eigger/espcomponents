@@ -191,14 +191,19 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_PORT, default=8123): cv.port,
             cv.Optional(CONF_SSL, default=True): cv.boolean,
             cv.Required(CONF_TOKEN): cv.string_strict,
-            cv.Optional(CONF_GATEWAY_ID, default=lambda: CORE.name): cv.string_strict,
-            cv.Optional(CONF_NAME, default=lambda: CORE.friendly_name or CORE.name): cv.string_strict,
+            # Each of these six also accepts `!lambda return std::string("...");`
+            # — see WsBridgeComponent's set_gateway_id()/set_sw_version()/etc.
+            # in ws_bridge.h for when a lambda is (re-)evaluated.
+            cv.Optional(CONF_GATEWAY_ID, default=lambda: CORE.name): cv.templatable(cv.string_strict),
+            cv.Optional(
+                CONF_NAME, default=lambda: CORE.friendly_name or CORE.name
+            ): cv.templatable(cv.string_strict),
             # Sent as ws_bridge/connect sw_version (HA gateway sw_version).
             # Omitted: ESPHome version + compilation time, e.g. "2025.8.0 (Aug 14 2026, 07:31:00)".
-            cv.Optional(CONF_SW_VERSION): cv.string,
-            cv.Optional(CONF_MANUFACTURER): cv.string,
-            cv.Optional(CONF_MODEL): cv.string,
-            cv.Optional(CONF_HW_VERSION): cv.string,
+            cv.Optional(CONF_SW_VERSION): cv.templatable(cv.string),
+            cv.Optional(CONF_MANUFACTURER): cv.templatable(cv.string),
+            cv.Optional(CONF_MODEL): cv.templatable(cv.string),
+            cv.Optional(CONF_HW_VERSION): cv.templatable(cv.string),
             cv.Optional(CONF_KEEP_LAST_STATE_ON_DISCONNECT, default=False): cv.boolean,
             # After declaring everything on connect, send ws_bridge/sync with the
             # full set of unique_ids so HA drops entities this gateway no longer
@@ -292,16 +297,22 @@ async def to_code(config):
     cg.add(var.set_port(config[CONF_PORT]))
     cg.add(var.set_ssl(config[CONF_SSL]))
     cg.add(var.set_token(config[CONF_TOKEN]))
-    cg.add(var.set_gateway_id(config[CONF_GATEWAY_ID]))
-    cg.add(var.set_gateway_name(config[CONF_NAME]))
+    gateway_id = await cg.templatable(config[CONF_GATEWAY_ID], [], cg.std_string)
+    cg.add(var.set_gateway_id(gateway_id))
+    gateway_name = await cg.templatable(config[CONF_NAME], [], cg.std_string)
+    cg.add(var.set_gateway_name(gateway_name))
     if CONF_SW_VERSION in config:
-        cg.add(var.set_sw_version(config[CONF_SW_VERSION]))
+        sw_version = await cg.templatable(config[CONF_SW_VERSION], [], cg.std_string)
+        cg.add(var.set_sw_version(sw_version))
     if CONF_MANUFACTURER in config:
-        cg.add(var.set_manufacturer(config[CONF_MANUFACTURER]))
+        manufacturer = await cg.templatable(config[CONF_MANUFACTURER], [], cg.std_string)
+        cg.add(var.set_manufacturer(manufacturer))
     if CONF_MODEL in config:
-        cg.add(var.set_model(config[CONF_MODEL]))
+        model = await cg.templatable(config[CONF_MODEL], [], cg.std_string)
+        cg.add(var.set_model(model))
     if CONF_HW_VERSION in config:
-        cg.add(var.set_hw_version(config[CONF_HW_VERSION]))
+        hw_version = await cg.templatable(config[CONF_HW_VERSION], [], cg.std_string)
+        cg.add(var.set_hw_version(hw_version))
     cg.add(var.set_keep_last_state_on_disconnect(config[CONF_KEEP_LAST_STATE_ON_DISCONNECT]))
     cg.add(var.set_sync_entities(config[CONF_SYNC_ENTITIES]))
     cg.add(var.set_ping_interval(config[CONF_PING_INTERVAL].total_milliseconds))
