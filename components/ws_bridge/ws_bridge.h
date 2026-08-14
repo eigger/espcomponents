@@ -123,7 +123,12 @@ class WsBridgeComponent : public Component {
   std::string effective_sw_version_();
   bool send_connect_(uint32_t id);
   uint32_t reconnect_backoff_base_() const;
-  bool tx_budget_exhausted_() const;
+  // Blocking send_text wrapper that charges the time actually spent against
+  // tx_budget_used_ms_ — see the member declaration for why.
+  int send_text_(const std::string &msg);
+  // Mutates tx_budget_used_ms_ on an idle-gap reset — see the member
+  // declaration for why this can't just be a wall-clock comparison.
+  bool tx_budget_exhausted_();
   void mark_sync_declare_dropped_(const std::string &sync_declare_uid);
 
   // One outbound WS text frame. `sync_declare_uid` is set for entity declares
@@ -192,8 +197,23 @@ class WsBridgeComponent : public Component {
   // abort the connection (see #305). The WDT is guarded by TX_LOOP_BUDGET_MS
   // (cumulative), not by shortening individual sends.
   static constexpr uint32_t TX_SEND_TIMEOUT_MS = 1000;
+  // Charged by time actually spent blocking in send_text_(), not by
+  // wall-clock time elapsed since loop() last ran. Entity state pushes can
+  // happen while loop() itself never runs at all: http_request's OTA
+  // install() defers flash() onto the scheduler, which then blocks the
+  // whole Application::loop() call — not just this component — for as long
+  // as the download takes, publishing update progress roughly once a
+  // second from inside that blocking call (see http_request's
+  // ota_http_request.cpp). A wall-clock budget reads "exhausted" for that
+  // entire window, so every progress push lands in tx_queue_ with nothing
+  // left to drain it — HA's progress bar stops moving. TX_BUDGET_IDLE_RESET_MS
+  // clears the counter after a gap this long since the last real send, so a
+  // later, unrelated burst still starts with a full 1200ms instead of
+  // inheriting a stale total.
   static constexpr uint32_t TX_LOOP_BUDGET_MS = 1200;
-  uint32_t tx_loop_start_ms_{0};
+  static constexpr uint32_t TX_BUDGET_IDLE_RESET_MS = 500;
+  uint32_t tx_budget_used_ms_{0};
+  uint32_t tx_budget_last_send_ms_{0};
 
   std::atomic<WsBridgeState> state_{WS_BRIDGE_DISCONNECTED};
   uint32_t msg_id_{0};
