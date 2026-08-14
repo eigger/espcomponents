@@ -67,11 +67,6 @@ void WsBridgeComponent::loop() {
     this->reconnect_backoff_ms_ = this->reconnect_backoff_base_();
   }
 
-  // The whole loop (including sends triggered while draining command events)
-  // shares one TX budget. Capturing this after the drain would issue a second
-  // budget and let one loop() block for up to ~4s.
-  this->tx_loop_start_ms_ = millis();
-
   WsEvent *event;
   while ((event = this->event_queue_.pop()) != nullptr) {
     this->handle_event_(*event);
@@ -150,8 +145,26 @@ uint32_t WsBridgeComponent::reconnect_backoff_base_() const {
   return std::min(RECONNECT_BACKOFF_BASE_MS, this->reconnect_retry_ms_);
 }
 
-bool WsBridgeComponent::tx_budget_exhausted_() const {
-  return millis() - this->tx_loop_start_ms_ > TX_LOOP_BUDGET_MS;
+bool WsBridgeComponent::tx_budget_exhausted_() {
+  // A gap this long since the last real send means whatever burst charged
+  // tx_budget_used_ms_ is over (or nothing has sent yet) — start the next
+  // one with a clean budget rather than inheriting a stale total.
+  if (millis() - this->tx_budget_last_send_ms_ > TX_BUDGET_IDLE_RESET_MS)
+    this->tx_budget_used_ms_ = 0;
+  return this->tx_budget_used_ms_ > TX_LOOP_BUDGET_MS;
+}
+
+// Wraps esp_websocket_client_send_text and charges the wall-clock time it
+// actually blocked for against tx_budget_used_ms_ — see the member
+// declaration in ws_bridge.h for why the budget must be time-spent rather
+// than time-elapsed.
+int WsBridgeComponent::send_text_(const std::string &msg) {
+  uint32_t start = millis();
+  int r = esp_websocket_client_send_text(this->client_, msg.c_str(), msg.size(), pdMS_TO_TICKS(TX_SEND_TIMEOUT_MS));
+  uint32_t done = millis();
+  this->tx_budget_used_ms_ += done - start;
+  this->tx_budget_last_send_ms_ = done;
+  return r;
 }
 
 std::string WsBridgeComponent::effective_sw_version_() {
@@ -590,8 +603,7 @@ void WsBridgeComponent::drain_tx_queue_() {
     if (this->tx_budget_exhausted_())
       break;
     TxItem &item = this->tx_queue_.front();
-    int r = esp_websocket_client_send_text(this->client_, item.msg.c_str(), item.msg.size(),
-                                           pdMS_TO_TICKS(TX_SEND_TIMEOUT_MS));
+    int r = this->send_text_(item.msg);
     if (r < 0) {
       // Failure is either (a) the library aborted the socket, or (b) a
       // client->lock timeout — the connection is still up in (b). Only drop
@@ -625,8 +637,7 @@ bool WsBridgeComponent::send_raw_(const std::string &msg, const std::string &syn
   // when it is empty. If this loop's send budget is already spent, enqueue
   // instead of blocking the main loop again.
   if (this->tx_queue_.empty() && !this->tx_budget_exhausted_()) {
-    int r = esp_websocket_client_send_text(this->client_, msg.c_str(), msg.size(),
-                                           pdMS_TO_TICKS(TX_SEND_TIMEOUT_MS));
+    int r = this->send_text_(msg);
     if (r >= 0) {
       if (this->collecting_declared_ids_ && !sync_declare_uid.empty())
         this->declared_ids_.push_back(sync_declare_uid);
