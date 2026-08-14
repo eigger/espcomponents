@@ -119,8 +119,12 @@ class WsBridgeComponent : public Component {
   void set_state_(WsBridgeState s);
   void check_liveness_();
   void force_reconnect_();
+  static void reconnect_task_(void *arg);
   std::string effective_sw_version_();
-  void send_connect_(uint32_t id);
+  bool send_connect_(uint32_t id);
+  uint32_t reconnect_backoff_base_() const;
+  bool tx_budget_exhausted_() const;
+  void mark_sync_declare_dropped_(const std::string &sync_declare_uid);
 
   // One outbound WS text frame. `sync_declare_uid` is set for entity declares
   // collected during a sync pass — only appended to declared_ids_ after the
@@ -160,6 +164,7 @@ class WsBridgeComponent : public Component {
   // its entity registry every reannounce_interval.
   bool sync_entities_{false};
   bool collecting_declared_ids_{false};
+  bool sync_declares_dropped_{false};
   std::vector<std::string> declared_ids_{};
 
   // Paced (re)declare: platform entities are declared a few per loop() so a
@@ -171,7 +176,8 @@ class WsBridgeComponent : public Component {
   // send_text timeout must NOT be 0 (or tiny): esp_websocket_client 1.7.0
   // treats a 0-byte write (tcp window full past the wait) as fatal and calls
   // abort_connection(). That turns declare bursts into reconnect storms.
-  // Keep one/few sends per loop with a generous wait instead.
+  // Keep one/few sends per loop with a generous wait instead. The task WDT
+  // is guarded by TX_LOOP_BUDGET_MS (cumulative), not by shortening each send.
   bool declare_in_progress_{false};
   size_t declare_device_index_{0};
   bool declare_run_connected_{false};
@@ -181,7 +187,13 @@ class WsBridgeComponent : public Component {
   std::deque<TxItem> tx_queue_{};
   static constexpr size_t TX_QUEUE_MAX = 64;
   static constexpr size_t TX_PER_LOOP = 1;
+  // Timeout must be long enough that a full TCP window can drain — a short
+  // wait makes esp_websocket_client treat the 0-byte write as fatal and
+  // abort the connection (see #305). The WDT is guarded by TX_LOOP_BUDGET_MS
+  // (cumulative), not by shortening individual sends.
   static constexpr uint32_t TX_SEND_TIMEOUT_MS = 1000;
+  static constexpr uint32_t TX_LOOP_BUDGET_MS = 1200;
+  uint32_t tx_loop_start_ms_{0};
 
   std::atomic<WsBridgeState> state_{WS_BRIDGE_DISCONNECTED};
   uint32_t msg_id_{0};
@@ -213,15 +225,21 @@ class WsBridgeComponent : public Component {
   // elapsed before the drop, rather than retrying promptly.
   //
   // reconnect_backoff_ms_ is the actual delay used each time: starts at
-  // RECONNECT_BACKOFF_BASE_MS (= reconnect_retry_ms_'s default, so this is a
-  // flat 30s retry out of the box) and doubles on every failed attempt if
-  // reconnect_retry_ms_ is configured higher than the base, then resets back
-  // to base as soon as we're connected again (or on any freshly-detected
-  // disconnect).
+  // min(RECONNECT_BACKOFF_BASE_MS, reconnect_retry_ms_) so a configured
+  // reconnect_timeout below 30s is not first waited as 30s then shrunk, and
+  // doubles on every failed attempt if reconnect_retry_ms_ is higher than
+  // the base, then resets back to base as soon as we're connected again
+  // (or on any freshly-detected disconnect).
   uint32_t last_reconnect_attempt_ms_{0};
   uint32_t reconnect_retry_ms_{30000};
   static constexpr uint32_t RECONNECT_BACKOFF_BASE_MS = 30000;
   uint32_t reconnect_backoff_ms_{RECONNECT_BACKOFF_BASE_MS};
+  // stop()/start() wait with portMAX_DELAY and can block for tens of seconds
+  // (DNS / TLS). Must not run on the ESPHome loop task (task WDT panic).
+  std::atomic<bool> reconnect_task_busy_{false};
+  uint32_t reconnect_task_started_ms_{0};
+  bool reconnect_stuck_warned_{false};
+  static constexpr uint32_t RECONNECT_STUCK_WARN_MS = 30000;
 
   // Backstop for a different failure mode: the transport (and HA's generic
   // websocket_api ping/pong) can stay perfectly alive while the ws_bridge
@@ -251,9 +269,16 @@ class WsBridgeComponent : public Component {
   uint32_t connect_sent_ms_{0};
   uint32_t last_connect_msg_id_{0};
 
-  // Producer-side (WS client task) fragment reassembly buffer. Only ever
-  // touched from ws_event_handler_(), never from loop() — no locking needed.
+  // Fragment reassembly for WEBSOCKET_EVENT_DATA. The handler can run on the
+  // WS client task *or* the ESPHome loop task (esp_websocket_client posts
+  // events with task_name = NULL and then runs the loop inline after a failed
+  // send). Mutual exclusion currently depends on the library's client->lock,
+  // not on this component. reconnect_task_ also stop()/start()s the client
+  // and can dispatch events inline on that task.
   std::string rx_accum_;
+  bool rx_text_frame_{false};
+  bool rx_drop_message_{false};  // oversized — ignore remaining chunks until complete
+  static constexpr size_t RX_ACCUM_MAX = 16384;
 
   static constexpr uint8_t EVENT_QUEUE_SIZE = 8;
   EventPool<WsEvent, EVENT_QUEUE_SIZE - 1> event_pool_;

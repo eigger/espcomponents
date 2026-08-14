@@ -8,6 +8,8 @@
 #include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
 #include "esphome/core/version.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 namespace esphome {
 namespace ws_bridge {
@@ -26,6 +28,13 @@ void WsBridgeComponent::setup() {
   config.disable_auto_reconnect = false;
   config.reconnect_timeout_ms = 10000;
   config.network_timeout_ms = 10000;
+  // Pin the RX/TX buffer so a future library default change cannot silently
+  // alter chunking (see rx_drop_message_ — one TEXT frame is split into
+  // buffer_size DATA events).
+  config.buffer_size = 1024;
+  // Default task stack is 4KB. TLS handshake + crt bundle + our handler's
+  // std::string work needs more headroom (Nabu Casa / reverse-proxy chains).
+  config.task_stack = this->ssl_ ? 8192 : 4096;
 
   this->client_ = esp_websocket_client_init(&config);
   if (this->client_ == nullptr) {
@@ -34,24 +43,51 @@ void WsBridgeComponent::setup() {
     return;
   }
   esp_websocket_register_events(this->client_, WEBSOCKET_EVENT_ANY, WsBridgeComponent::ws_event_handler_, this);
+  this->reconnect_backoff_ms_ = this->reconnect_backoff_base_();
 }
 
 void WsBridgeComponent::loop() {
   if (!this->started_) {
     if (!network::is_connected()) return;
+    uint32_t now = millis();
+    if (this->last_reconnect_attempt_ms_ != 0 &&
+        now - this->last_reconnect_attempt_ms_ < this->reconnect_backoff_ms_)
+      return;
     esp_err_t err = esp_websocket_client_start(this->client_);
     if (err != ESP_OK) {
       ESP_LOGW(TAG, "esp_websocket_client_start failed: %d", err);
+      this->last_reconnect_attempt_ms_ = now;
+      this->reconnect_backoff_ms_ =
+          std::min(std::max(this->reconnect_backoff_base_(), this->reconnect_backoff_ms_ * 2),
+                   this->reconnect_retry_ms_);
       return;
     }
     this->started_ = true;
-    this->last_reconnect_attempt_ms_ = millis();
+    this->last_reconnect_attempt_ms_ = now;
+    this->reconnect_backoff_ms_ = this->reconnect_backoff_base_();
   }
+
+  // The whole loop (including sends triggered while draining command events)
+  // shares one TX budget. Capturing this after the drain would issue a second
+  // budget and let one loop() block for up to ~4s.
+  this->tx_loop_start_ms_ = millis();
 
   WsEvent *event;
   while ((event = this->event_queue_.pop()) != nullptr) {
     this->handle_event_(*event);
     this->event_pool_.release(event);
+  }
+
+  // stop()/start() runs on reconnect_task_; do not send or poke liveness
+  // (including backoff) while that is in flight.
+  if (this->reconnect_task_busy_.load(std::memory_order_acquire)) {
+    if (!this->reconnect_stuck_warned_ &&
+        millis() - this->reconnect_task_started_ms_ > RECONNECT_STUCK_WARN_MS) {
+      ESP_LOGW(TAG, "Reconnect task still running after %u ms (stop() waiting on DNS/TLS?)",
+               static_cast<unsigned>(RECONNECT_STUCK_WARN_MS));
+      this->reconnect_stuck_warned_ = true;
+    }
+    return;
   }
 
   this->drain_tx_queue_();
@@ -79,8 +115,43 @@ void WsBridgeComponent::force_reconnect_() {
   this->declare_in_progress_ = false;
   this->sync_flush_pending_ = false;
   this->collecting_declared_ids_ = false;
-  esp_websocket_client_stop(this->client_);
-  esp_websocket_client_start(this->client_);
+  this->sync_declares_dropped_ = false;
+  // esp_websocket_client_stop() waits with portMAX_DELAY for the WS task to
+  // exit. That task may be stuck in DNS (~14s) or TCP/TLS connect
+  // (network_timeout_ms = 10s) — exactly when we force a reconnect. Doing
+  // this on the ESPHome loop task trips the 5s task WDT (PANIC).
+  bool expected = false;
+  if (!this->reconnect_task_busy_.compare_exchange_strong(expected, true, std::memory_order_acq_rel))
+    return;
+  this->reconnect_task_started_ms_ = millis();
+  this->reconnect_stuck_warned_ = false;
+  // Same work as the WS client task (TLS close_notify, inline event dispatch)
+  // can run here; 4KB matches the non-TLS WS stack and is only temporary.
+  BaseType_t ok = xTaskCreate(&WsBridgeComponent::reconnect_task_, "ws_bridge_rc", 4096, this, 5, nullptr);
+  if (ok != pdPASS) {
+    ESP_LOGE(TAG, "Failed to create reconnect task");
+    this->reconnect_task_busy_.store(false, std::memory_order_release);
+  }
+}
+
+void WsBridgeComponent::reconnect_task_(void *arg) {
+  auto *self = static_cast<WsBridgeComponent *>(arg);
+  if (self->client_ != nullptr) {
+    esp_websocket_client_stop(self->client_);
+    esp_err_t err = esp_websocket_client_start(self->client_);
+    if (err != ESP_OK)
+      ESP_LOGW(TAG, "esp_websocket_client_start failed after stop: %d", err);
+  }
+  self->reconnect_task_busy_.store(false, std::memory_order_release);
+  vTaskDelete(nullptr);
+}
+
+uint32_t WsBridgeComponent::reconnect_backoff_base_() const {
+  return std::min(RECONNECT_BACKOFF_BASE_MS, this->reconnect_retry_ms_);
+}
+
+bool WsBridgeComponent::tx_budget_exhausted_() const {
+  return millis() - this->tx_loop_start_ms_ > TX_LOOP_BUDGET_MS;
 }
 
 std::string WsBridgeComponent::effective_sw_version_() {
@@ -94,10 +165,10 @@ std::string WsBridgeComponent::effective_sw_version_() {
 #endif
 }
 
-void WsBridgeComponent::send_connect_(uint32_t id) {
-  this->send_raw_(build_connect(id, this->gateway_id_, this->gateway_name_,
-                                this->keep_last_state_on_disconnect_, this->effective_sw_version_(),
-                                this->manufacturer_, this->model_, this->hw_version_));
+bool WsBridgeComponent::send_connect_(uint32_t id) {
+  return this->send_raw_(build_connect(id, this->gateway_id_, this->gateway_name_,
+                                       this->keep_last_state_on_disconnect_, this->effective_sw_version_(),
+                                       this->manufacturer_, this->model_, this->hw_version_));
 }
 
 // Actively probes the connection with HA's standard "ping"/"pong" websocket_api
@@ -108,6 +179,8 @@ void WsBridgeComponent::send_connect_(uint32_t id) {
 // kicks in.
 void WsBridgeComponent::check_liveness_() {
   uint32_t now = millis();
+  if (this->reconnect_task_busy_.load(std::memory_order_acquire))
+    return;
   if (!this->is_connected()) {
     if (now - this->last_reconnect_attempt_ms_ > this->reconnect_backoff_ms_) {
       ESP_LOGW(TAG, "Still disconnected after %u ms — forcing a fresh connection attempt",
@@ -122,7 +195,7 @@ void WsBridgeComponent::check_liveness_() {
       ESP_LOGW(TAG, "No pong received within %u ms — forcing reconnect",
                static_cast<unsigned>(this->pong_timeout_ms_));
       this->ping_outstanding_ = false;
-      this->reconnect_backoff_ms_ = RECONNECT_BACKOFF_BASE_MS;
+      this->reconnect_backoff_ms_ = this->reconnect_backoff_base_();
       this->force_reconnect_();
     }
     return;
@@ -136,7 +209,7 @@ void WsBridgeComponent::check_liveness_() {
       ESP_LOGW(TAG, "No result for ws_bridge/connect within %u ms — forcing reconnect",
                static_cast<unsigned>(this->pong_timeout_ms_));
       this->awaiting_connect_result_ = false;
-      this->reconnect_backoff_ms_ = RECONNECT_BACKOFF_BASE_MS;
+      this->reconnect_backoff_ms_ = this->reconnect_backoff_base_();
       this->force_reconnect_();
     }
     return;
@@ -152,7 +225,11 @@ void WsBridgeComponent::check_liveness_() {
       now - this->last_reannounce_ms_ > this->reannounce_interval_ms_) {
     ESP_LOGD(TAG, "Periodic re-announce: resending connect + entity declarations");
     uint32_t connect_id = this->next_id_();
-    this->send_connect_(connect_id);
+    if (!this->send_connect_(connect_id)) {
+      ESP_LOGW(TAG, "Failed to send periodic ws_bridge/connect — will retry next interval");
+      this->last_reannounce_ms_ = now;
+      return;
+    }
     this->last_connect_msg_id_ = connect_id;
     this->awaiting_connect_result_ = true;
     this->connect_sent_ms_ = now;
@@ -162,6 +239,8 @@ void WsBridgeComponent::check_liveness_() {
     this->last_reannounce_ms_ = now;
   }
   if (now - this->last_ping_sent_ms_ > this->ping_interval_ms_) {
+    if (this->tx_budget_exhausted_())
+      return;
     this->send_raw_(build_ping(this->next_id_()));
     this->ping_outstanding_ = true;
     this->last_ping_sent_ms_ = now;
@@ -208,9 +287,10 @@ void WsBridgeComponent::dump_config() {
   }
 }
 
-// May be called from either the main loop task or the esp_websocket_client
-// task (see ws_event_handler_), so this must be a single atomic RMW rather
-// than a load-compare-store.
+// May be called from the main loop, the esp_websocket_client task, or
+// reconnect_task_ (stop/start dispatches the handler inline — see
+// ws_event_handler_), so this must be a single atomic RMW rather than a
+// load-compare-store.
 void WsBridgeComponent::set_state_(WsBridgeState s) {
   WsBridgeState old = this->state_.exchange(s, std::memory_order_acq_rel);
   if (old != s) {
@@ -218,10 +298,12 @@ void WsBridgeComponent::set_state_(WsBridgeState s) {
   }
 }
 
-// Runs on the esp_websocket_client task, NOT the ESPHome main loop task.
-// Must stay fast and non-blocking: reassemble fragmented text frames into
-// rx_accum_ (producer-only state) and hand off complete events through the
-// lock-free queue for loop() to process.
+// Typically runs on the esp_websocket_client task, but can also run on the
+// ESPHome loop task (or reconnect_task_) because the library creates its
+// event loop with task_name = NULL and dispatches inline after send failures
+// / stop/start. Stay fast: reassemble fragments into rx_accum_ and hand off
+// complete events through the lock-free queue. Mutual exclusion with send
+// currently depends on esp_websocket_client's client->lock.
 void WsBridgeComponent::ws_event_handler_(void *handler_args, esp_event_base_t base, int32_t event_id,
                                           void *event_data) {
   auto *self = static_cast<WsBridgeComponent *>(handler_args);
@@ -247,24 +329,70 @@ void WsBridgeComponent::ws_event_handler_(void *handler_args, esp_event_base_t b
   // (non-critical) log line / callback in handle_event_ can be.
   if (ws_event_id == WEBSOCKET_EVENT_CONNECTED) {
     self->rx_accum_.clear();
+    self->rx_text_frame_ = false;
+    self->rx_drop_message_ = false;
     self->set_state_(WS_BRIDGE_WAIT_AUTH_REQUIRED);
   } else if (ws_event_id == WEBSOCKET_EVENT_DISCONNECTED || ws_event_id == WEBSOCKET_EVENT_ERROR ||
              ws_event_id == WEBSOCKET_EVENT_CLOSED) {
     self->rx_accum_.clear();
+    self->rx_text_frame_ = false;
+    self->rx_drop_message_ = false;
     was_connected = (self->state_.exchange(WS_BRIDGE_DISCONNECTED, std::memory_order_acq_rel) == WS_BRIDGE_CONNECTED);
   }
 
   if (ws_event_id == WEBSOCKET_EVENT_DATA) {
-    if (data->op_code != WS_TRANSPORT_OPCODES_TEXT && data->op_code != WS_TRANSPORT_OPCODES_CONT) {
-      return;  // ignore ping/pong/close/binary frames
+    uint8_t opcode = static_cast<uint8_t>(data->op_code) & 0x0F;
+    // Control/binary frames are not part of reassembly — they must not
+    // complete (or cancel) an in-progress oversized drop either.
+    if (opcode != WS_TRANSPORT_OPCODES_TEXT && opcode != WS_TRANSPORT_OPCODES_CONT)
+      return;
+    if (self->rx_drop_message_) {
+      // Remaining chunks of an oversized frame (WS CONT *or* buffer_size
+      // splits of a single TEXT opcode) must not be reassembled.
+      bool drop_complete =
+          data->payload_len == 0 || (data->payload_offset + data->data_len >= data->payload_len);
+      if (drop_complete) {
+        self->rx_drop_message_ = false;
+        self->rx_text_frame_ = false;
+      }
+      return;
     }
-    if (data->data_len > 0) self->rx_accum_.append(data->data_ptr, data->data_len);
+    if (opcode == WS_TRANSPORT_OPCODES_TEXT) {
+      self->rx_text_frame_ = true;
+    } else if (!self->rx_text_frame_) {
+      return;  // continuation of a binary (or unknown) message
+    }
+    if (data->data_len > 0) {
+      if (self->rx_accum_.size() + static_cast<size_t>(data->data_len) > RX_ACCUM_MAX) {
+        ESP_LOGW(TAG, "RX message exceeded %u bytes — dropping", (unsigned) RX_ACCUM_MAX);
+        self->rx_accum_.clear();
+        self->rx_accum_.shrink_to_fit();
+        self->rx_text_frame_ = false;
+        bool complete =
+            data->payload_len == 0 || (data->payload_offset + data->data_len >= data->payload_len);
+        // Only hold the drop across further chunks of *this* frame. If this
+        // chunk already finished the payload, the next DATA is a new message.
+        self->rx_drop_message_ = !complete;
+        return;
+      }
+      self->rx_accum_.append(data->data_ptr, data->data_len);
+    }
     bool complete = data->payload_len == 0 || (data->payload_offset + data->data_len >= data->payload_len);
     if (!complete) return;  // wait for more fragments
+    self->rx_text_frame_ = false;
+    if (self->rx_accum_.empty())
+      return;  // empty payload would just consume a pool slot
   }
 
   WsEvent *event = self->event_pool_.allocate();
-  if (event == nullptr) return;  // queue full, drop this event (state_ is already correct regardless)
+  if (event == nullptr) {
+    // Dropping a completed DATA message must also drop rx_accum_. Leaving it
+    // would concatenate the next frame onto the abandoned payload and poison
+    // every subsequent JSON message until the next connect/disconnect.
+    self->rx_accum_.clear();
+    self->rx_text_frame_ = false;
+    return;
+  }
   event->event_id = ws_event_id;
   event->was_connected = was_connected;
   if (ws_event_id == WEBSOCKET_EVENT_DATA) {
@@ -297,11 +425,12 @@ void WsBridgeComponent::handle_event_(const WsEvent &event) {
         // since that earlier attempt, instead of retrying promptly. See the
         // comment on reconnect_backoff_ms_ in ws_bridge.h.
         this->last_reconnect_attempt_ms_ = millis();
-        this->reconnect_backoff_ms_ = RECONNECT_BACKOFF_BASE_MS;
+        this->reconnect_backoff_ms_ = this->reconnect_backoff_base_();
         this->clear_tx_queue_();
         this->declare_in_progress_ = false;
         this->sync_flush_pending_ = false;
         this->collecting_declared_ids_ = false;
+        this->sync_declares_dropped_ = false;
         this->disconnected_cb_.call();
       }
       break;
@@ -317,13 +446,20 @@ void WsBridgeComponent::handle_message_(const std::string &raw) {
   ParsedMessage msg = parse_message(raw);
 
   if (msg.type == "auth_required") {
+    // Producer may already have moved state_ to DISCONNECTED; do not revive.
+    WsBridgeState expected = WS_BRIDGE_WAIT_AUTH_REQUIRED;
+    if (!this->state_.compare_exchange_strong(expected, WS_BRIDGE_WAIT_AUTH_OK, std::memory_order_acq_rel))
+      return;
+    ESP_LOGD(TAG, "state %d -> %d", WS_BRIDGE_WAIT_AUTH_REQUIRED, WS_BRIDGE_WAIT_AUTH_OK);
     this->send_raw_(build_auth(this->token_));
-    this->set_state_(WS_BRIDGE_WAIT_AUTH_OK);
   } else if (msg.type == "auth_ok") {
+    WsBridgeState expected = WS_BRIDGE_WAIT_AUTH_OK;
+    if (!this->state_.compare_exchange_strong(expected, WS_BRIDGE_CONNECTED, std::memory_order_acq_rel))
+      return;
+    ESP_LOGD(TAG, "state %d -> %d", WS_BRIDGE_WAIT_AUTH_OK, WS_BRIDGE_CONNECTED);
     this->send_connect_(this->next_id_());
-    this->set_state_(WS_BRIDGE_CONNECTED);
     this->ping_outstanding_ = false;
-    this->reconnect_backoff_ms_ = RECONNECT_BACKOFF_BASE_MS;
+    this->reconnect_backoff_ms_ = this->reconnect_backoff_base_();
     this->last_ping_sent_ms_ = millis();
     this->last_reannounce_ms_ = this->last_ping_sent_ms_;
     // Platform declares + on_declare:/on_connected: + sync are paced across
@@ -363,6 +499,7 @@ void WsBridgeComponent::start_declare_pass_(bool run_connected_and_sync) {
     // that declares from either trigger is counted before sync is sent.
     this->collecting_declared_ids_ = this->sync_entities_;
     this->declared_ids_.clear();
+    this->sync_declares_dropped_ = false;
     this->sync_flush_pending_ = this->sync_entities_;
   } else {
     this->collecting_declared_ids_ = false;
@@ -374,6 +511,8 @@ void WsBridgeComponent::progress_declare_() {
   if (this->declare_in_progress_) {
     size_t n = 0;
     while (this->declare_device_index_ < this->devices_.size() && n < DECLARE_DEVICES_PER_LOOP) {
+      if (this->tx_budget_exhausted_())
+        return;
       this->devices_[this->declare_device_index_++]->ws_bridge_declare();
       n++;
     }
@@ -405,6 +544,15 @@ void WsBridgeComponent::flush_sync_() {
   this->collecting_declared_ids_ = false;
   if (!this->sync_entities_)
     return;
+  if (this->sync_declares_dropped_) {
+    ESP_LOGW(TAG,
+             "Some declares were not sent — skipping ws_bridge/sync "
+             "(a partial list would make HA delete the missing entities)");
+    this->sync_declares_dropped_ = false;
+    this->declared_ids_.clear();
+    this->declared_ids_.shrink_to_fit();
+    return;
+  }
   // HA rejects an empty list (it would mean "delete everything"), and a
   // gateway that declared nothing has nothing to reconcile against anyway.
   if (this->declared_ids_.empty()) {
@@ -417,20 +565,39 @@ void WsBridgeComponent::flush_sync_() {
   this->declared_ids_.shrink_to_fit();
 }
 
-void WsBridgeComponent::clear_tx_queue_() { this->tx_queue_.clear(); }
+void WsBridgeComponent::mark_sync_declare_dropped_(const std::string &sync_declare_uid) {
+  if (this->collecting_declared_ids_ && !sync_declare_uid.empty())
+    this->sync_declares_dropped_ = true;
+}
+
+void WsBridgeComponent::clear_tx_queue_() {
+  if (this->collecting_declared_ids_) {
+    for (const auto &item : this->tx_queue_) {
+      if (!item.sync_declare_uid.empty()) {
+        this->sync_declares_dropped_ = true;
+        break;
+      }
+    }
+  }
+  this->tx_queue_.clear();
+}
 
 void WsBridgeComponent::drain_tx_queue_() {
   if (this->client_ == nullptr || !esp_websocket_client_is_connected(this->client_))
     return;
   size_t sent = 0;
   while (!this->tx_queue_.empty() && sent < TX_PER_LOOP) {
+    if (this->tx_budget_exhausted_())
+      break;
     TxItem &item = this->tx_queue_.front();
     int r = esp_websocket_client_send_text(this->client_, item.msg.c_str(), item.msg.size(),
                                            pdMS_TO_TICKS(TX_SEND_TIMEOUT_MS));
     if (r < 0) {
-      // Library already aborted the socket on a 0-byte/failed write — drop the
-      // backlog rather than retrying into a dead connection.
-      this->clear_tx_queue_();
+      // Failure is either (a) the library aborted the socket, or (b) a
+      // client->lock timeout — the connection is still up in (b). Only drop
+      // the backlog when the socket is actually gone.
+      if (!esp_websocket_client_is_connected(this->client_))
+        this->clear_tx_queue_();
       break;
     }
     if (this->collecting_declared_ids_ && !item.sync_declare_uid.empty())
@@ -441,12 +608,23 @@ void WsBridgeComponent::drain_tx_queue_() {
 }
 
 bool WsBridgeComponent::send_raw_(const std::string &msg, const std::string &sync_declare_uid) {
-  if (this->client_ == nullptr || !esp_websocket_client_is_connected(this->client_))
+  if (this->client_ == nullptr || !esp_websocket_client_is_connected(this->client_)) {
+    this->mark_sync_declare_dropped_(sync_declare_uid);
     return false;
+  }
+  auto enqueue = [this, &msg, &sync_declare_uid]() -> bool {
+    if (this->tx_queue_.size() >= TX_QUEUE_MAX) {
+      ESP_LOGW(TAG, "TX queue full (%u) — dropping outbound message", (unsigned) TX_QUEUE_MAX);
+      this->mark_sync_declare_dropped_(sync_declare_uid);
+      return false;
+    }
+    this->tx_queue_.push_back(TxItem{msg, sync_declare_uid});
+    return true;
+  };
   // Keep FIFO: a queued v1 must leave before a later v2. Bypass the queue only
-  // when it is empty. Timeout must be long enough that a full TCP window can
-  // drain — a short/0 wait makes esp_websocket_client abort the connection.
-  if (this->tx_queue_.empty()) {
+  // when it is empty. If this loop's send budget is already spent, enqueue
+  // instead of blocking the main loop again.
+  if (this->tx_queue_.empty() && !this->tx_budget_exhausted_()) {
     int r = esp_websocket_client_send_text(this->client_, msg.c_str(), msg.size(),
                                            pdMS_TO_TICKS(TX_SEND_TIMEOUT_MS));
     if (r >= 0) {
@@ -454,23 +632,25 @@ bool WsBridgeComponent::send_raw_(const std::string &msg, const std::string &syn
         this->declared_ids_.push_back(sync_declare_uid);
       return true;
     }
-    // Send aborted the socket; do not queue onto a dead link.
-    return false;
+    if (!esp_websocket_client_is_connected(this->client_)) {
+      this->mark_sync_declare_dropped_(sync_declare_uid);
+      return false;
+    }
+    // Lock timeout (or similar) with the socket still up — queue for retry.
+    return enqueue();
   }
-  if (this->tx_queue_.size() >= TX_QUEUE_MAX) {
-    ESP_LOGW(TAG, "TX queue full (%u) — dropping outbound message", (unsigned) TX_QUEUE_MAX);
-    return false;
-  }
-  this->tx_queue_.push_back(TxItem{msg, sync_declare_uid});
-  return true;
+  return enqueue();
 }
 
 void WsBridgeComponent::send_entity_declare(const std::string &unique_id, const std::string &platform,
                                             const std::string &name, const std::string &device_id,
                                             const std::string &device_name,
                                             const std::function<void(JsonObject)> &extra) {
-  if (!this->is_connected())
+  if (!this->is_connected()) {
+    if (this->collecting_declared_ids_)
+      this->sync_declares_dropped_ = true;
     return;
+  }
   // Every declaration funnels through here — registered platform entities and
   // hand-built lambda ones alike — so this is the one place that sees the full
   // set for ws_bridge/sync. unique_id is only recorded after the frame is
