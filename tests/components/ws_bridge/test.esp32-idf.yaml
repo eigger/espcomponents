@@ -24,10 +24,12 @@ ws_bridge:
   token: "test_token"
   gateway_id: my_esp
   name: "My ESP"
-  sw_version: "1.0.0-test"
+  # sw_version / hw_version exercise the lambda form (compile coverage for
+  # the templatable string setters); manufacturer / model stay plain strings.
+  sw_version: !lambda return std::string("1.0.0-test");
   manufacturer: Espressif
   model: ESP32
-  hw_version: "1.0"
+  hw_version: !lambda return std::string("1.0");
   keep_last_state_on_disconnect: true
   sync_entities: true
   on_connected:

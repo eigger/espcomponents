@@ -168,7 +168,8 @@ int WsBridgeComponent::send_text_(const std::string &msg) {
 }
 
 std::string WsBridgeComponent::effective_sw_version_() {
-  if (!this->sw_version_.empty()) return this->sw_version_;
+  std::string v = this->sw_version_.value();
+  if (!v.empty()) return v;
 #if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 1, 0)
   char build_time[Application::BUILD_TIME_STR_SIZE];
   App.get_build_time_string(build_time);
@@ -179,9 +180,12 @@ std::string WsBridgeComponent::effective_sw_version_() {
 }
 
 bool WsBridgeComponent::send_connect_(uint32_t id) {
-  return this->send_raw_(build_connect(id, this->gateway_id_, this->gateway_name_,
+  // .value() re-evaluates a lambda-backed field every call, so a periodic
+  // re-announce (see check_liveness_) picks up whatever these currently
+  // report, not just what setup() saw.
+  return this->send_raw_(build_connect(id, this->gateway_id_.value(), this->gateway_name_.value(),
                                        this->keep_last_state_on_disconnect_, this->effective_sw_version_(),
-                                       this->manufacturer_, this->model_, this->hw_version_));
+                                       this->manufacturer_.value(), this->model_.value(), this->hw_version_.value()));
 }
 
 // Actively probes the connection with HA's standard "ping"/"pong" websocket_api
@@ -264,14 +268,20 @@ void WsBridgeComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge:");
   ESP_LOGCONFIG(TAG, "  Server: %s://%s:%u/api/websocket", this->ssl_ ? "wss" : "ws", this->host_.c_str(),
                 this->port_);
-  ESP_LOGCONFIG(TAG, "  Gateway ID: %s", this->gateway_id_.c_str());
+  // .value() evaluates a lambda-backed field here too — same as every other
+  // call site, this just reflects whatever it reports right now, at setup
+  // time, not what a later re-announce might see.
+  ESP_LOGCONFIG(TAG, "  Gateway ID: %s", this->gateway_id_.value().c_str());
   ESP_LOGCONFIG(TAG, "  Software version: %s", this->effective_sw_version_().c_str());
-  if (!this->manufacturer_.empty())
-    ESP_LOGCONFIG(TAG, "  Manufacturer: %s", this->manufacturer_.c_str());
-  if (!this->model_.empty())
-    ESP_LOGCONFIG(TAG, "  Model: %s", this->model_.c_str());
-  if (!this->hw_version_.empty())
-    ESP_LOGCONFIG(TAG, "  Hardware version: %s", this->hw_version_.c_str());
+  std::string manufacturer = this->manufacturer_.value();
+  if (!manufacturer.empty())
+    ESP_LOGCONFIG(TAG, "  Manufacturer: %s", manufacturer.c_str());
+  std::string model = this->model_.value();
+  if (!model.empty())
+    ESP_LOGCONFIG(TAG, "  Model: %s", model.c_str());
+  std::string hw_version = this->hw_version_.value();
+  if (!hw_version.empty())
+    ESP_LOGCONFIG(TAG, "  Hardware version: %s", hw_version.c_str());
   ESP_LOGCONFIG(TAG, "  Keep last state on disconnect: %s", YESNO(this->keep_last_state_on_disconnect_));
   ESP_LOGCONFIG(TAG, "  Ping interval: %u ms", static_cast<unsigned>(this->ping_interval_ms_));
   ESP_LOGCONFIG(TAG, "  Pong timeout: %u ms", static_cast<unsigned>(this->pong_timeout_ms_));

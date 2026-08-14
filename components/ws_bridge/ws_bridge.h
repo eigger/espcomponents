@@ -49,14 +49,19 @@ class WsBridgeComponent : public Component {
   void set_port(uint16_t port) { this->port_ = port; }
   void set_ssl(bool ssl) { this->ssl_ = ssl; }
   void set_token(const std::string &token) { this->token_ = token; }
-  void set_gateway_id(const std::string &id) { this->gateway_id_ = id; }
-  void set_gateway_name(const std::string &name) { this->gateway_name_ = name; }
+  // These six accept either a plain string or a `!lambda return
+  // std::string{...};`. The lambda form is re-evaluated on every
+  // ws_bridge/connect — the initial connect and every periodic re-announce
+  // (see reannounce_interval_ms_) — not just once at setup(), so it can
+  // reflect state that changes at runtime.
+  template<typename V> void set_gateway_id(V id) { this->gateway_id_ = id; }
+  template<typename V> void set_gateway_name(V name) { this->gateway_name_ = name; }
   // Empty = default: ESPHome version + compilation time. A non-empty value is
   // sent as-is on ws_bridge/connect (HA gateway device sw_version).
-  void set_sw_version(const std::string &v) { this->sw_version_ = v; }
-  void set_manufacturer(const std::string &v) { this->manufacturer_ = v; }
-  void set_model(const std::string &v) { this->model_ = v; }
-  void set_hw_version(const std::string &v) { this->hw_version_ = v; }
+  template<typename V> void set_sw_version(V v) { this->sw_version_ = v; }
+  template<typename V> void set_manufacturer(V v) { this->manufacturer_ = v; }
+  template<typename V> void set_model(V v) { this->model_ = v; }
+  template<typename V> void set_hw_version(V v) { this->hw_version_ = v; }
   void set_keep_last_state_on_disconnect(bool v) { this->keep_last_state_on_disconnect_ = v; }
   void set_sync_entities(bool v) { this->sync_entities_ = v; }
   // See check_liveness_() for what these govern.
@@ -146,12 +151,14 @@ class WsBridgeComponent : public Component {
   uint16_t port_{8123};
   bool ssl_{true};
   std::string token_;
-  std::string gateway_id_;
-  std::string gateway_name_;
-  std::string sw_version_;
-  std::string manufacturer_;
-  std::string model_;
-  std::string hw_version_;
+  // Templatable so a lambda can be re-evaluated on every ws_bridge/connect —
+  // see the set_*() declarations above.
+  TemplatableValue<std::string> gateway_id_;
+  TemplatableValue<std::string> gateway_name_;
+  TemplatableValue<std::string> sw_version_;
+  TemplatableValue<std::string> manufacturer_;
+  TemplatableValue<std::string> model_;
+  TemplatableValue<std::string> hw_version_;
   bool keep_last_state_on_disconnect_{false};
 
   // Opt-in (sync_entities:). After declaring everything on connect, tell HA the
