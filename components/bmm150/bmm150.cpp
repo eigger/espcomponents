@@ -75,36 +75,45 @@ int8_t BMM150Component::bmm150_initialization() {
   dev_.delay_us = delay_us;
   dev_.intf_ptr = this;
 
+  this->bus_error_ = false;
   rslt = bmm150_init(&dev_);
   // bmm150_init() only sets dev_.chip_id on ID match but still returns BMM150_OK otherwise.
   if (rslt != BMM150_OK)
     return rslt;
   if (dev_.chip_id != BMM150_CHIP_ID)
     return BMM150_E_DEV_NOT_FOUND;
-  // read_trim_registers() commits zeroed trim_data on partial I2C failure but still returns OK.
-  // Check intf_rslt before set_op_mode overwrites it.
-  if (dev_.intf_rslt != BMM150_INTF_RET_SUCCESS)
+  // read_trim_registers() runs three reads; intf_rslt only reflects the last one and partial
+  // failures still commit zeroed trim_data. Latch any callback failure instead.
+  if (this->bus_error_)
     return BMM150_E_COM_FAIL;
 
   struct bmm150_settings settings;
   settings.pwr_mode = BMM150_POWERMODE_NORMAL;
   rslt = bmm150_set_op_mode(&settings, &dev_);
-  if (rslt != BMM150_OK)
-    return rslt;
+  if (rslt != BMM150_OK || this->bus_error_)
+    return BMM150_E_COM_FAIL;
 
   settings.preset_mode = BMM150_PRESETMODE_ENHANCED;
   rslt = bmm150_set_presetmode(&settings, &dev_);
-  return rslt;
+  if (rslt != BMM150_OK || this->bus_error_)
+    return BMM150_E_COM_FAIL;
+  return BMM150_OK;
 }
 
 int8_t reg_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t length, void *intf_ptr) {
   auto *self = (BMM150Component *) intf_ptr;
-  return self->read_bytes(reg_addr, reg_data, (uint8_t) length) ? BMM150_INTF_RET_SUCCESS : BMM150_E_COM_FAIL;
+  if (self->read_bytes(reg_addr, reg_data, (uint8_t) length))
+    return BMM150_INTF_RET_SUCCESS;
+  self->set_bus_error();
+  return BMM150_E_COM_FAIL;
 }
 
 int8_t reg_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t length, void *intf_ptr) {
   auto *self = (BMM150Component *) intf_ptr;
-  return self->write_bytes(reg_addr, reg_data, (uint8_t) length) ? BMM150_INTF_RET_SUCCESS : BMM150_E_COM_FAIL;
+  if (self->write_bytes(reg_addr, reg_data, (uint8_t) length))
+    return BMM150_INTF_RET_SUCCESS;
+  self->set_bus_error();
+  return BMM150_E_COM_FAIL;
 }
 
 void delay_us(uint32_t period_us, void *intf_ptr) { delayMicroseconds(period_us); }

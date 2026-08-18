@@ -192,9 +192,9 @@ return rslt;
 
     // chip_id 검증 통과 후에만 op_mode / presetmode 설정. 센서 부재 시 레지스터 쓰기를
     // 시도하지 않도록 bmm150_set_op_mode() 호출 전에 early return 한다.
-    // read_trim_registers()는 부분 I2C 실패 시에도 BMM150_OK를 반환하므로, set_op_mode가
-    // intf_rslt를 덮어쓰기 전에 버스 결과를 검사한다.
-    if (dev_.intf_rslt != BMM150_INTF_RET_SUCCESS)
+    // read_trim_registers()는 3번 읽기를 하며 intf_rslt는 마지막 트랜잭션만 남긴다.
+    // reg_read/reg_write 콜백에서 bus_error_를 래치하고 여기서 검사한다.
+    if (bus_error_)
         return BMM150_E_COM_FAIL;
     // (아래 set_op_mode / set_presetmode 코드는 이 검증 뒤에 둘 것)
 ```

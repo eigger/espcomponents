@@ -20,6 +20,8 @@ class BMM150Component : public PollingComponent, public i2c::I2CDevice {
   float get_setup_priority() const override;
   void update() override;
 
+  void set_bus_error() { this->bus_error_ = true; }
+
  protected:
   sensor::Sensor *mag_x_{nullptr};
   sensor::Sensor *mag_y_{nullptr};
@@ -27,6 +29,7 @@ class BMM150Component : public PollingComponent, public i2c::I2CDevice {
 
   struct bmm150_dev dev_;
   struct bmm150_mag_data mag_data_;
+  bool bus_error_{false};
 
   int8_t bmm150_initialization();
 };
