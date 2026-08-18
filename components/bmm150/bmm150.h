@@ -90,6 +90,7 @@ class BMM150Component : public PollingComponent, public i2c::I2CDevice {
   float cal_min_[3]{};
   float cal_max_[3]{};
   bool tilt_unavailable_logged_{false};
+  bool init_retry_logged_{false};
   Trigger<bool> calibration_finished_trigger_;
 
   int8_t bmm150_initialization();

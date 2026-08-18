@@ -52,6 +52,7 @@ void BMM150Component::setup() {
   if (code == BMM150_OK) {
     this->initialized_ = true;
     this->consecutive_failures_ = 0;
+    this->init_retry_logged_ = false;
     return;
   }
   // Wrong/missing chip ID is definitive. Bus NAKs during boot are not — this bus
@@ -62,6 +63,7 @@ void BMM150Component::setup() {
     return;
   }
   ESP_LOGW(TAG, "Init failed (%d), will retry", code);
+  this->init_retry_logged_ = true;
   this->status_set_warning();
 }
 
@@ -119,12 +121,16 @@ void BMM150Component::update() {
       return;
     }
     if (code != BMM150_OK) {
-      ESP_LOGW(TAG, "Init retry failed (%d)", code);
+      if (!this->init_retry_logged_) {
+        ESP_LOGW(TAG, "Init retry failed (%d); will keep retrying quietly", code);
+        this->init_retry_logged_ = true;
+      }
       this->status_set_warning();
       return;
     }
     this->initialized_ = true;
     this->consecutive_failures_ = 0;
+    this->init_retry_logged_ = false;
     ESP_LOGI(TAG, "Initialized after retry");
   }
 
