@@ -17,3 +17,6 @@ bbq10_keyboard:
     name: Key
   last_key:
     name: Last Key
+
+logger:
+  level: VERY_VERBOSE

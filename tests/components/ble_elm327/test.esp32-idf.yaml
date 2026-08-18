@@ -45,3 +45,6 @@ sensor:
     update_interval: 5s
     formula: "return (e * 256.0f + f + x[6]);"
     unit_of_measurement: "V"
+
+logger:
+  level: VERY_VERBOSE

@@ -37,3 +37,6 @@ display:
 time:
   - platform: sntp
     id: sntp_time
+
+logger:
+  level: VERY_VERBOSE

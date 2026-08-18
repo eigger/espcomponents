@@ -8,6 +8,7 @@ esphome:
   name: test-bmm150
 
 logger:
+  level: VERY_VERBOSE
 
 i2c:
   sda: ${sda}

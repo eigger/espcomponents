@@ -29,3 +29,6 @@ tca8418_keyboard:
     name: press key
   release_key:
     name: release key
+
+logger:
+  level: VERY_VERBOSE
