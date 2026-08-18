@@ -14,11 +14,12 @@ static const char *const TAG = "divoom";
 
 void DivoomDisplay::dump_config()
 {
+    char uuid_buf[espbt::UUID_STR_LEN];
     LOG_DISPLAY("", "divoom", this);
     ESP_LOGCONFIG(TAG, "  Width: %d, Height: %d", this->width_, this->height_);
-    ESP_LOGCONFIG(TAG, "  MAC address        : %s", this->parent_->address_str().c_str());
-    ESP_LOGCONFIG(TAG, "  Service UUID       : %s", this->service_uuid_.to_str().c_str());
-    ESP_LOGCONFIG(TAG, "  Characteristic UUID: %s", this->char_uuid_.to_str().c_str());
+    ESP_LOGCONFIG(TAG, "  MAC address        : %s", this->parent_->address_str());
+    ESP_LOGCONFIG(TAG, "  Service UUID       : %s", this->service_uuid_.to_str(uuid_buf));
+    ESP_LOGCONFIG(TAG, "  Characteristic UUID: %s", this->char_uuid_.to_str(uuid_buf));
     ESP_LOGCONFIG(TAG, "  Update Interval: %u ms", this->get_update_interval());
 }
 
@@ -58,20 +59,21 @@ void DivoomDisplay::loop()
 
 void DivoomDisplay::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param)
 {
-    switch (event) 
+    char uuid_buf[espbt::UUID_STR_LEN];
+    switch (event)
     {
     case ESP_GATTC_OPEN_EVT:
         connected_ = true;
         if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
         this->client_state_ = espbt::ClientState::ESTABLISHED;
-        ESP_LOGW(TAG, "[%s] Connected successfully!", this->char_uuid_.to_str().c_str());
+        ESP_LOGW(TAG, "[%s] Connected successfully!", this->char_uuid_.to_str(uuid_buf));
         break;
     case ESP_GATTC_DISCONNECT_EVT:
         connected_ = false;
         synced_time_ = false;
         old_image_buffer_.clear();
         if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
-        ESP_LOGW(TAG, "[%s] Disconnected", this->char_uuid_.to_str().c_str());
+        ESP_LOGW(TAG, "[%s] Disconnected", this->char_uuid_.to_str(uuid_buf));
         this->client_state_ = espbt::ClientState::IDLE;
         break;
     case ESP_GATTC_WRITE_CHAR_EVT:
@@ -83,12 +85,12 @@ void DivoomDisplay::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_
         auto *chr = this->parent()->get_characteristic(this->service_uuid_, this->char_uuid_);
         if (chr == nullptr)
         {
-            ESP_LOGW(TAG, "[%s] Characteristic not found.", this->char_uuid_.to_str().c_str());
+            ESP_LOGW(TAG, "[%s] Characteristic not found.", this->char_uuid_.to_str(uuid_buf));
             break;
         }
         if (param->write.handle == chr->handle)
         {
-            ESP_LOGW(TAG, "[%s] Write error, status=%d", this->char_uuid_.to_str().c_str(), param->write.status);
+            ESP_LOGW(TAG, "[%s] Write error, status=%d", this->char_uuid_.to_str(uuid_buf), param->write.status);
         }
         break;
     }
@@ -282,15 +284,16 @@ void DivoomDisplay::add_color_point(ColorPoint point)
 
 bool DivoomDisplay::write_data(std::vector<uint8_t> &data)
 {
+    char uuid_buf[espbt::UUID_STR_LEN];
     if (this->client_state_ != espbt::ClientState::ESTABLISHED)
     {
-        ESP_LOGW(TAG, "[%s] Not connected to BLE client.  State update can not be written.", this->char_uuid_.to_str().c_str());
+        ESP_LOGW(TAG, "[%s] Not connected to BLE client.  State update can not be written.", this->char_uuid_.to_str(uuid_buf));
         return false;
     }
     auto *chr = this->parent()->get_characteristic(this->service_uuid_, this->char_uuid_);
     if (chr == nullptr)
     {
-        ESP_LOGW(TAG, "[%s] Characteristic not found.  State update can not be written.", this->char_uuid_.to_str().c_str());
+        ESP_LOGW(TAG, "[%s] Characteristic not found.  State update can not be written.", this->char_uuid_.to_str(uuid_buf));
         return false;
     }
     if (this->require_response_)
@@ -447,7 +450,7 @@ void DivoomDisplay::sync_time_()
     auto time = this->time_->now();
     if (!time.is_valid())
     {
-        ESP_LOGW(TAG, "[%s] Time is not yet valid.  Time can not be synced.", this->parent_->address_str().c_str());
+        ESP_LOGW(TAG, "[%s] Time is not yet valid.  Time can not be synced.", this->parent_->address_str());
         return;
     }
     time.recalc_timestamp_utc(true);  // calculate timestamp of local time
