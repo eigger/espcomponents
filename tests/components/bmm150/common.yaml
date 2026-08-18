@@ -7,18 +7,55 @@ external_components:
 esphome:
   name: test-bmm150
 
+logger:
+
 i2c:
   sda: ${sda}
   scl: ${scl}
   scan: true
-     
+
 sensor:
+  - platform: template
+    id: dummy_accel_x
+    lambda: "return 0.0f;"
+    update_interval: 1s
+  - platform: template
+    id: dummy_accel_y
+    lambda: "return 0.0f;"
+    update_interval: 1s
+  - platform: template
+    id: dummy_accel_z
+    lambda: "return 1.0f;"
+    update_interval: 1s
+
   - platform: bmm150
+    id: bmm150_mag
     address: 0x10
-    update_interval: 30s
+    update_interval: 1s
     magnetic_field_x:
       name: "MAG X"
     magnetic_field_y:
       name: "MAG Y"
     magnetic_field_z:
       name: "MAG Z"
+    heading:
+      name: "Heading"
+    accel_x_id: dummy_accel_x
+    accel_y_id: dummy_accel_y
+    accel_z_id: dummy_accel_z
+    declination: 0
+    heading_offset: 0
+    soft_iron: false
+    calibration_mode: yaw
+    mag_axes: [x, y, z]
+    accel_axes: [x, y, z]
+    on_calibration_finished:
+      - lambda: |-
+          ESP_LOGI("test", "calibration success=%d", success);
+
+interval:
+  - interval: 24h
+    then:
+      - bmm150.calibrate:
+          id: bmm150_mag
+          duration: 30s
