@@ -121,11 +121,12 @@ void BleElm327Component::loop() {
 }
 
 void BleElm327Component::dump_config() {
+  char uuid_buf[espbt::UUID_STR_LEN];
   ESP_LOGCONFIG(TAG, "BLE ELM327:");
   ESP_LOGCONFIG(TAG, "  MAC address        : %s", this->parent_->address_str());
-  ESP_LOGCONFIG(TAG, "  Service UUID       : %s", service_uuid_.to_str().c_str());
-  ESP_LOGCONFIG(TAG, "  RX Char UUID       : %s", rx_char_uuid_.to_str().c_str());
-  ESP_LOGCONFIG(TAG, "  TX Char UUID       : %s", tx_char_uuid_.to_str().c_str());
+  ESP_LOGCONFIG(TAG, "  Service UUID       : %s", service_uuid_.to_str(uuid_buf));
+  ESP_LOGCONFIG(TAG, "  RX Char UUID       : %s", rx_char_uuid_.to_str(uuid_buf));
+  ESP_LOGCONFIG(TAG, "  TX Char UUID       : %s", tx_char_uuid_.to_str(uuid_buf));
   ESP_LOGCONFIG(TAG, "  TX delay           : %lums", (unsigned long) tx_delay_ms_);
   ESP_LOGCONFIG(TAG, "  Base init commands : ATZ, ATE0, ATL0, ATS0, ATH0, ATSP0");
   ESP_LOGCONFIG(TAG, "  Extra init commands: %u", (unsigned)extra_init_commands_.size());
