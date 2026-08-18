@@ -15,8 +15,10 @@ static const char *TAG = "bmm150";
 // B-1 unverified: Bosch integer compensate_*() is documented as µT. Confirm on hardware
 // (horizontal circle radius ~30 µT in Seoul, |B| ~50 µT). Change this if the scale is wrong.
 static constexpr float MAG_UT_SCALE = 1.0f;
-static constexpr float CAL_MIN_DELTA_UT = 20.0f;
+static constexpr float CAL_MIN_DELTA_XY_UT = 20.0f;
+static constexpr float CAL_MIN_DELTA_Z_UT = 5.0f;
 static constexpr uint8_t CALIB_VERSION = 1;
+static constexpr uint8_t RESET_FAILURE_THRESHOLD = 5;
 
 int8_t reg_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t length, void *intf_ptr);
 int8_t reg_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t length, void *intf_ptr);
@@ -49,6 +51,7 @@ void BMM150Component::setup() {
   int8_t code = this->bmm150_initialization();
   if (code == BMM150_OK) {
     this->initialized_ = true;
+    this->consecutive_failures_ = 0;
     return;
   }
   // Wrong/missing chip ID is definitive. Bus NAKs during boot are not — this bus
@@ -78,7 +81,10 @@ void BMM150Component::dump_config() {
   LOG_SENSOR("  ", "Magnetic Field Z", this->mag_z_);
   LOG_SENSOR("  ", "Heading", this->heading_);
   ESP_LOGCONFIG(TAG, "  Declination: %.1f°", this->declination_);
+  ESP_LOGCONFIG(TAG, "  Heading offset: %.1f°", this->heading_offset_);
   ESP_LOGCONFIG(TAG, "  Soft-iron: %s", YESNO(this->soft_iron_));
+  ESP_LOGCONFIG(TAG, "  Calibration mode: %s",
+                this->calibration_mode_ == CALIBRATION_MODE_FULL ? "full (figure-8)" : "yaw (in-place turn)");
   ESP_LOGCONFIG(TAG, "  Tilt compensation: %s",
                 this->has_accel_ids_() ? "required (heading unknown until accel publishes)"
                                        : "disabled (planar fallback)");
@@ -118,6 +124,7 @@ void BMM150Component::update() {
       return;
     }
     this->initialized_ = true;
+    this->consecutive_failures_ = 0;
     ESP_LOGI(TAG, "Initialized after retry");
   }
 
@@ -127,16 +134,17 @@ void BMM150Component::update() {
   // transaction. The callback latch covers any I2C failure in this call.
   if (code != BMM150_OK || this->bus_error_) {
     ESP_LOGW(TAG, "Read failed (rslt=%d)", code);
-    this->status_set_warning();
+    this->note_failure_();
     return;
   }
 
   if (is_overflow(mag_data_.x) || is_overflow(mag_data_.y) || is_overflow(mag_data_.z)) {
     ESP_LOGW(TAG, "Compensation overflow (x=%d y=%d z=%d)", mag_data_.x, mag_data_.y, mag_data_.z);
-    this->status_set_warning();
+    this->note_failure_();
     return;
   }
 
+  this->consecutive_failures_ = 0;
   this->status_clear_warning();
 
   float raw[3] = {mag_data_.x * MAG_UT_SCALE, mag_data_.y * MAG_UT_SCALE, mag_data_.z * MAG_UT_SCALE};
@@ -204,7 +212,19 @@ void BMM150Component::start_calibration(uint32_t duration_ms) {
   }
   this->cancel_timeout("bmm150_cal");
   this->set_timeout("bmm150_cal", duration_ms, [this]() { this->finish_calibration_(); });
-  ESP_LOGI(TAG, "Calibration started (%" PRIu32 " ms); rotate the device in a figure-8", duration_ms);
+  ESP_LOGI(TAG, "Calibration started (%" PRIu32 " ms); %s", duration_ms,
+           this->calibration_mode_ == CALIBRATION_MODE_FULL
+               ? "rotate the device in a figure-8"
+               : "turn the vehicle slowly in place through a full circle");
+}
+
+void BMM150Component::note_failure_() {
+  this->status_set_warning();
+  if (++this->consecutive_failures_ < RESET_FAILURE_THRESHOLD)
+    return;
+  ESP_LOGW(TAG, "Sensor appears to have reset; re-initializing");
+  this->initialized_ = false;
+  this->consecutive_failures_ = 0;
 }
 
 void BMM150Component::finish_calibration_() {
@@ -212,9 +232,10 @@ void BMM150Component::finish_calibration_() {
   float dx = this->cal_max_[0] - this->cal_min_[0];
   float dy = this->cal_max_[1] - this->cal_min_[1];
   float dz = this->cal_max_[2] - this->cal_min_[2];
-  if (dx < CAL_MIN_DELTA_UT || dy < CAL_MIN_DELTA_UT || dz < CAL_MIN_DELTA_UT) {
-    ESP_LOGW(TAG, "Calibration rejected: axis delta (%.1f, %.1f, %.1f) µT, need > %.0f µT each", dx, dy, dz,
-             CAL_MIN_DELTA_UT);
+  const bool yaw_only = this->calibration_mode_ == CALIBRATION_MODE_YAW;
+  if (dx < CAL_MIN_DELTA_XY_UT || dy < CAL_MIN_DELTA_XY_UT || (!yaw_only && dz < CAL_MIN_DELTA_Z_UT)) {
+    ESP_LOGW(TAG, "Calibration rejected: axis delta (%.1f, %.1f, %.1f) µT, need XY>%.0f%s", dx, dy, dz,
+             CAL_MIN_DELTA_XY_UT, yaw_only ? "" : ", Z>5");
     this->calibration_finished_trigger_.trigger(false);
     return;
   }
@@ -222,14 +243,28 @@ void BMM150Component::finish_calibration_() {
   this->stamp_calibration_context_(&this->calib_);
   this->calib_.offset_x = (int16_t) ((this->cal_max_[0] + this->cal_min_[0]) / 2.0f);
   this->calib_.offset_y = (int16_t) ((this->cal_max_[1] + this->cal_min_[1]) / 2.0f);
-  this->calib_.offset_z = (int16_t) ((this->cal_max_[2] + this->cal_min_[2]) / 2.0f);
-  if (this->soft_iron_) {
-    float avg = (dx + dy + dz) / 3.0f;
-    this->calib_.scale_x = avg / dx;
-    this->calib_.scale_y = avg / dy;
-    this->calib_.scale_z = avg / dz;
+  if (yaw_only) {
+    // In-place yaw does not excite Z enough for a trustworthy offset; keep the previous Z.
+    ESP_LOGI(TAG, "Yaw calibration: Z offset unchanged (delta %.1f µT)", dz);
   } else {
-    this->calib_.scale_x = this->calib_.scale_y = this->calib_.scale_z = 1.0f;
+    this->calib_.offset_z = (int16_t) ((this->cal_max_[2] + this->cal_min_[2]) / 2.0f);
+  }
+  if (this->soft_iron_) {
+    if (yaw_only) {
+      float avg = (dx + dy) / 2.0f;
+      this->calib_.scale_x = avg / dx;
+      this->calib_.scale_y = avg / dy;
+      this->calib_.scale_z = 1.0f;
+    } else {
+      float avg = (dx + dy + dz) / 3.0f;
+      this->calib_.scale_x = avg / dx;
+      this->calib_.scale_y = avg / dy;
+      this->calib_.scale_z = avg / dz;
+    }
+  } else {
+    this->calib_.scale_x = this->calib_.scale_y = 1.0f;
+    if (!yaw_only)
+      this->calib_.scale_z = 1.0f;
   }
   this->calib_.valid = 1;
   this->save_calibration_();
@@ -320,8 +355,12 @@ float BMM150Component::wrap_degrees_(float deg) {
   return deg;
 }
 
+float BMM150Component::apply_heading_offsets_(float magnetic_heading) const {
+  return wrap_degrees_(magnetic_heading + this->declination_ + this->heading_offset_);
+}
+
 float BMM150Component::compute_planar_heading_(float mx, float my) const {
-  return wrap_degrees_(atan2f(-my, mx) * (180.0f / std::numbers::pi_v<float>) + this->declination_);
+  return this->apply_heading_offsets_(atan2f(-my, mx) * (180.0f / std::numbers::pi_v<float>));
 }
 
 float BMM150Component::compute_tilt_heading_(float mx, float my, float mz, const float accel[3]) const {
@@ -333,7 +372,7 @@ float BMM150Component::compute_tilt_heading_(float mx, float my, float mz, const
   const float pitch = atan2f(-ax, ay * sinf(roll) + az * cosf(roll));
   const float xh = mx * cosf(pitch) + mz * sinf(pitch);
   const float yh = mx * sinf(roll) * sinf(pitch) + my * cosf(roll) - mz * sinf(roll) * cosf(pitch);
-  return wrap_degrees_(atan2f(-yh, xh) * (180.0f / std::numbers::pi_v<float>) + this->declination_);
+  return this->apply_heading_offsets_(atan2f(-yh, xh) * (180.0f / std::numbers::pi_v<float>));
 }
 
 int8_t BMM150Component::bmm150_initialization() {

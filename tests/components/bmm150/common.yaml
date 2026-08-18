@@ -18,15 +18,15 @@ sensor:
   - platform: template
     id: dummy_accel_x
     lambda: "return 0.0f;"
-    update_interval: never
+    update_interval: 1s
   - platform: template
     id: dummy_accel_y
     lambda: "return 0.0f;"
-    update_interval: never
+    update_interval: 1s
   - platform: template
     id: dummy_accel_z
     lambda: "return 1.0f;"
-    update_interval: never
+    update_interval: 1s
 
   - platform: bmm150
     id: bmm150_mag
@@ -44,7 +44,9 @@ sensor:
     accel_y_id: dummy_accel_y
     accel_z_id: dummy_accel_z
     declination: 0
-    soft_iron: true
+    heading_offset: 0
+    soft_iron: false
+    calibration_mode: yaw
     mag_axes: [x, y, z]
     accel_axes: [x, y, z]
     on_calibration_finished:

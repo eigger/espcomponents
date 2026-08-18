@@ -24,7 +24,9 @@ CONF_ACCEL_X_ID = "accel_x_id"
 CONF_ACCEL_Y_ID = "accel_y_id"
 CONF_ACCEL_Z_ID = "accel_z_id"
 CONF_DECLINATION = "declination"
+CONF_HEADING_OFFSET = "heading_offset"
 CONF_SOFT_IRON = "soft_iron"
+CONF_CALIBRATION_MODE = "calibration_mode"
 CONF_MAG_AXES = "mag_axes"
 CONF_ACCEL_AXES = "accel_axes"
 CONF_ON_CALIBRATION_FINISHED = "on_calibration_finished"
@@ -41,6 +43,11 @@ AXIS_MAP = {
 bmm150_ns = cg.esphome_ns.namespace("bmm150")
 BMM150Component = bmm150_ns.class_("BMM150Component", cg.PollingComponent, i2c.I2CDevice)
 CalibrateAction = bmm150_ns.class_("CalibrateAction", automation.Action)
+CalibrationMode = bmm150_ns.enum("CalibrationMode")
+CALIBRATION_MODES = {
+    "yaw": CalibrationMode.CALIBRATION_MODE_YAW,
+    "full": CalibrationMode.CALIBRATION_MODE_FULL,
+}
 
 
 def validate_axes(value):
@@ -94,7 +101,9 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_ACCEL_Y_ID): cv.use_id(sensor.Sensor),
             cv.Optional(CONF_ACCEL_Z_ID): cv.use_id(sensor.Sensor),
             cv.Optional(CONF_DECLINATION, default=0.0): cv.float_,
-            cv.Optional(CONF_SOFT_IRON, default=True): cv.boolean,
+            cv.Optional(CONF_HEADING_OFFSET, default=0.0): cv.float_,
+            cv.Optional(CONF_SOFT_IRON, default=False): cv.boolean,
+            cv.Optional(CONF_CALIBRATION_MODE, default="yaw"): cv.enum(CALIBRATION_MODES, lower=True),
             cv.Optional(CONF_MAG_AXES, default=["x", "y", "z"]): validate_axes,
             cv.Optional(CONF_ACCEL_AXES, default=["x", "y", "z"]): validate_axes,
             cv.Optional(CONF_ON_CALIBRATION_FINISHED): automation.validate_automation(single=True),
@@ -130,7 +139,9 @@ async def to_code(config):
         cg.add(var.set_accel_z(await cg.get_variable(config[CONF_ACCEL_Z_ID])))
 
     cg.add(var.set_declination(config[CONF_DECLINATION]))
+    cg.add(var.set_heading_offset(config[CONF_HEADING_OFFSET]))
     cg.add(var.set_soft_iron(config[CONF_SOFT_IRON]))
+    cg.add(var.set_calibration_mode(config[CONF_CALIBRATION_MODE]))
     cg.add(var.set_mag_axes(*axes_to_args(config[CONF_MAG_AXES])))
     cg.add(var.set_accel_axes(*axes_to_args(config[CONF_ACCEL_AXES])))
 

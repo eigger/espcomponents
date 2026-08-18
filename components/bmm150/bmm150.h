@@ -1,5 +1,4 @@
-#ifndef __BMM150_H__
-#define __BMM150_H__
+#pragma once
 
 #include "esphome/core/automation.h"
 #include "esphome/core/component.h"
@@ -11,6 +10,11 @@
 
 namespace esphome {
 namespace bmm150 {
+
+enum CalibrationMode : uint8_t {
+  CALIBRATION_MODE_YAW = 0,
+  CALIBRATION_MODE_FULL = 1,
+};
 
 struct BMM150Calibration {
   uint8_t version;
@@ -43,7 +47,9 @@ class BMM150Component : public PollingComponent, public i2c::I2CDevice {
   void set_accel_z(sensor::Sensor *accel_z) { accel_z_ = accel_z; }
 
   void set_declination(float declination) { declination_ = declination; }
+  void set_heading_offset(float heading_offset) { heading_offset_ = heading_offset; }
   void set_soft_iron(bool soft_iron) { soft_iron_ = soft_iron; }
+  void set_calibration_mode(CalibrationMode mode) { calibration_mode_ = mode; }
   void set_mag_axes(uint8_t x_src, int8_t x_sign, uint8_t y_src, int8_t y_sign, uint8_t z_src, int8_t z_sign);
   void set_accel_axes(uint8_t x_src, int8_t x_sign, uint8_t y_src, int8_t y_sign, uint8_t z_src, int8_t z_sign);
 
@@ -69,9 +75,12 @@ class BMM150Component : public PollingComponent, public i2c::I2CDevice {
   struct bmm150_mag_data mag_data_;
   bool bus_error_{false};
   bool initialized_{false};
+  uint8_t consecutive_failures_{0};
 
   float declination_{0.0f};
-  bool soft_iron_{true};
+  float heading_offset_{0.0f};
+  bool soft_iron_{false};
+  CalibrationMode calibration_mode_{CALIBRATION_MODE_YAW};
   BMM150AxisMap mag_axes_;
   BMM150AxisMap accel_axes_;
 
@@ -84,6 +93,7 @@ class BMM150Component : public PollingComponent, public i2c::I2CDevice {
   Trigger<bool> calibration_finished_trigger_;
 
   int8_t bmm150_initialization();
+  void note_failure_();
   void load_calibration_();
   void save_calibration_();
   void finish_calibration_();
@@ -93,6 +103,7 @@ class BMM150Component : public PollingComponent, public i2c::I2CDevice {
   void apply_axes_(const float in[3], const BMM150AxisMap &map, float out[3]) const;
   bool has_accel_ids_() const;
   bool read_accel_(float accel[3]) const;
+  float apply_heading_offsets_(float magnetic_heading) const;
   float compute_planar_heading_(float mx, float my) const;
   float compute_tilt_heading_(float mx, float my, float mz, const float accel[3]) const;
   static float wrap_degrees_(float deg);
@@ -111,4 +122,3 @@ template<typename... Ts> class CalibrateAction : public Action<Ts...> {
 
 }  // namespace bmm150
 }  // namespace esphome
-#endif
