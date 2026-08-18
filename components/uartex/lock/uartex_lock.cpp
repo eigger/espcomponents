@@ -116,6 +116,10 @@ void UARTExLock::control(const lock::LockCall& call)
             break;
         case lock::LOCK_STATE_JAMMED:
             break;
+        case lock::LOCK_STATE_OPEN:
+            break;
+        case lock::LOCK_STATE_OPENING:
+            break;
         }
         publish_state(this->state);
     }
