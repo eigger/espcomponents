@@ -13,6 +13,10 @@ namespace esphome {
 namespace bmm150 {
 
 struct BMM150Calibration {
+  uint8_t version;
+  uint8_t mag_src[3];
+  int8_t mag_sign[3];
+  float mag_ut_scale;
   int16_t offset_x;
   int16_t offset_y;
   int16_t offset_z;
@@ -76,15 +80,21 @@ class BMM150Component : public PollingComponent, public i2c::I2CDevice {
   bool calibrating_{false};
   float cal_min_[3]{};
   float cal_max_[3]{};
+  bool tilt_unavailable_logged_{false};
   Trigger<bool> calibration_finished_trigger_;
 
   int8_t bmm150_initialization();
   void load_calibration_();
   void save_calibration_();
   void finish_calibration_();
+  void reset_calibration_();
+  void stamp_calibration_context_(BMM150Calibration *out) const;
+  bool calibration_matches_config_(const BMM150Calibration &c) const;
   void apply_axes_(const float in[3], const BMM150AxisMap &map, float out[3]) const;
+  bool has_accel_ids_() const;
   bool read_accel_(float accel[3]) const;
-  float compute_heading_(float mx, float my, float mz) const;
+  float compute_planar_heading_(float mx, float my) const;
+  float compute_tilt_heading_(float mx, float my, float mz, const float accel[3]) const;
   static float wrap_degrees_(float deg);
 };
 

@@ -151,7 +151,7 @@ async def to_code(config):
             cv.Optional(CONF_DURATION, default="30s"): cv.positive_time_period_milliseconds,
         }
     ),
-    synchronous=False,
+    synchronous=True,
 )
 async def bmm150_calibrate_to_code(config, action_id, template_arg, args):
     paren = await cg.get_variable(config[CONF_ID])

@@ -1,32 +1,35 @@
 # BMM150
 
-Bosch BMM150 3축 지자기 센서. 원시 XYZ와 차량용 방위각(heading)을 제공합니다.
+Bosch BMM150 3-axis magnetometer. Publishes raw XYZ and a vehicle heading.
 
-M5Stack Unit GNSS는 주소 **0x10**. 나침반 용도라면 `update_interval`을 **200ms~1s**로 두는 것을 권장합니다.
+M5Stack Unit GNSS uses address **0x10**. For a compass, set `update_interval` to **200ms–1s**.
 
-## 옵션
+## Options
 
-| 키 | 기본값 | 설명 |
+| Key | Default | Description |
 |---|---|---|
-| `address` | `0x10` | I2C 주소 (0x10~0x13, CSB/SDO 스트랩) |
-| `update_interval` | `60s` | 폴링 주기. 나침반은 200ms~1s |
-| `magnetic_field_x/y/z` | — | 지자기 (µT, Bosch 정수 보상. **실측 미검증**) |
-| `heading` | — | 진북 방위각 0~360°. 캘리브레이션 전에는 `unknown` |
-| `accel_x_id` / `accel_y_id` / `accel_z_id` | — | 틸트 보정용 가속도 센서 3개. 미지정 시 평면 공식 |
-| `declination` | `0` | 자기 편각(도). 한국은 약 **-8**(서편). 기본값을 지역에 맞추지 않음 |
-| `soft_iron` | `true` | 캘리브레이션 시 축별 스케일 보정 |
-| `mag_axes` | `[x, y, z]` | 지자기 축 리매핑 (`x`,`y`,`z`,`-x`,`-y`,`-z`). **기판 정렬 미검증** |
-| `accel_axes` | `[x, y, z]` | 가속도 축 리매핑. **기판 정렬 미검증** |
-| `on_calibration_finished` | — | 캘리브레이션 종료 트리거. `success`(bool) |
+| `address` | `0x10` | I2C address (0x10–0x13, CSB/SDO strap) |
+| `update_interval` | `60s` | Poll period. Use 200ms–1s for heading |
+| `magnetic_field_x/y/z` | — | Magnetic field in µT (Bosch integer compensation; **unverified on hardware**) |
+| `heading` | — | True heading 0–360°. Stays `unknown` until a valid calibration is stored |
+| `accel_x_id` / `accel_y_id` / `accel_z_id` | — | Accel sensors for tilt compensation. If omitted, planar `atan2(-my, mx)` is used. If set but the accel has no valid sample, heading stays `unknown` (no silent planar fallback) |
+| `declination` | `0` | Magnetic declination in degrees. Korea is about **-8** (west). Not hardcoded |
+| `soft_iron` | `true` | Per-axis scale correction during calibration |
+| `mag_axes` | `[x, y, z]` | Mag axis remap (`x`,`y`,`z`,`-x`,`-y`,`-z`). **PCB alignment unverified** |
+| `accel_axes` | `[x, y, z]` | Accel axis remap. **PCB alignment unverified** |
+| `on_calibration_finished` | — | Trigger after calibration. `success` (bool) |
 
-## 캘리브레이션
+## Calibration
 
-차량은 철판·스피커 때문에 하드아이언 오프셋이 큽니다. 보정 없이 heading은 내지 않습니다.
+A dashboard has hard-iron offset from steel and speakers. Heading is not published without a stored calibration.
 
-1. 센서를 설치 위치에 고정한 채 아래 액션을 실행합니다.
-2. `duration` 동안 기기를 **8자**로 천천히 회전합니다 (세 축이 모두 움직이게).
-3. 축별 min/max 차이(delta)가 **20 µT 미만**이면 저장하지 않고 `success=false`.
-4. 통과하면 NVS에 저장되어 재부팅 후에도 유지됩니다.
+1. Mount the sensor, then run the action below.
+2. During `duration`, rotate the device in a slow **figure-8** so all three axes move.
+3. If any axis min/max delta is **below 20 µT**, the result is discarded (`success=false`).
+4. On success the offsets are stored in NVS (in flash) and survive reboot.
+5. Changing `mag_axes` or the internal µT scale invalidates the stored blob; recalibrate.
+
+`duration` must cover several `update_interval` samples. With the schema default of 60s and `duration: 30s`, calibration will always be rejected.
 
 ```yaml
 on_...:
@@ -35,17 +38,17 @@ on_...:
       duration: 30s
 ```
 
-## 차량 설치
+## Vehicle install
 
-스피커 자석, 철판, 대전류 배선에서 가능한 한 떨어뜨리십시오. GNSS 모듈을 대시보드 철판에 붙이면 오프셋이 수십 µT로 커집니다.
+Keep the module away from speaker magnets, steel panels, and high-current wiring. Mounting the GNSS unit on a steel dash can add tens of µT of offset.
 
-## 축 정렬 · 편각
+## Axis alignment and declination
 
-틸트 보정 공식은 mag/accel의 X/Y/Z가 같은 방향을 가리킨다고 가정합니다. M5 Unit GNSS의 BMM150과 BMI270은 기판에서 축이 다를 수 있으니, 실측 후 `mag_axes` / `accel_axes`로 맞추십시오.
+Tilt compensation assumes mag and accel X/Y/Z point the same way. On M5 Unit GNSS the BMM150 and BMI270 may be rotated relative to each other — measure, then set `mag_axes` / `accel_axes`. Recalibrate after changing those lists.
 
-진북이 필요하면 `declination`을 넣습니다. 서울은 대략 `-8`.
+For true north, set `declination`. Seoul is about `-8`.
 
-## 예시
+## Example
 
 ```yaml
 external_components:

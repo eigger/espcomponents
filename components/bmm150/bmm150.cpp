@@ -2,6 +2,7 @@
 #include "esphome/core/log.h"
 #include "esphome/core/hal.h"
 #include "esphome/core/helpers.h"
+#include <cinttypes>
 #include <cmath>
 #include <cstring>
 #include <numbers>
@@ -15,6 +16,7 @@ static const char *TAG = "bmm150";
 // (horizontal circle radius ~30 µT in Seoul, |B| ~50 µT). Change this if the scale is wrong.
 static constexpr float MAG_UT_SCALE = 1.0f;
 static constexpr float CAL_MIN_DELTA_UT = 20.0f;
+static constexpr uint8_t CALIB_VERSION = 1;
 
 int8_t reg_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t length, void *intf_ptr);
 int8_t reg_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t length, void *intf_ptr);
@@ -78,7 +80,8 @@ void BMM150Component::dump_config() {
   ESP_LOGCONFIG(TAG, "  Declination: %.1f°", this->declination_);
   ESP_LOGCONFIG(TAG, "  Soft-iron: %s", YESNO(this->soft_iron_));
   ESP_LOGCONFIG(TAG, "  Tilt compensation: %s",
-                (this->accel_x_ != nullptr) ? "accel sensors" : "disabled (planar fallback)");
+                this->has_accel_ids_() ? "required (heading unknown until accel publishes)"
+                                       : "disabled (planar fallback)");
   // B-4 unverified: identity maps assume mag and accel axes are parallel on the PCB.
   ESP_LOGCONFIG(TAG, "  Mag axes: %c%c %c%c %c%c (unverified)", this->mag_axes_.sign[0] < 0 ? '-' : '+',
                 "XYZ"[this->mag_axes_.src[0]], this->mag_axes_.sign[1] < 0 ? '-' : '+', "XYZ"[this->mag_axes_.src[1]],
@@ -170,7 +173,26 @@ void BMM150Component::update() {
   float mx = (mag[0] - this->calib_.offset_x) * this->calib_.scale_x;
   float my = (mag[1] - this->calib_.offset_y) * this->calib_.scale_y;
   float mz = (mag[2] - this->calib_.offset_z) * this->calib_.scale_z;
-  float heading = this->compute_heading_(mx, my, mz);
+
+  float heading;
+  if (this->has_accel_ids_()) {
+    float accel[3];
+    if (!this->read_accel_(accel)) {
+      if (!this->tilt_unavailable_logged_) {
+        ESP_LOGW(TAG, "Accel IDs set but no valid accel sample; heading unknown (not using planar fallback)");
+        this->tilt_unavailable_logged_ = true;
+      }
+      this->heading_->publish_state(NAN);
+      return;
+    }
+    if (this->tilt_unavailable_logged_) {
+      ESP_LOGI(TAG, "Accel samples restored; tilt compensation active");
+      this->tilt_unavailable_logged_ = false;
+    }
+    heading = this->compute_tilt_heading_(mx, my, mz, accel);
+  } else {
+    heading = this->compute_planar_heading_(mx, my);
+  }
   this->heading_->publish_state(heading);
 }
 
@@ -182,7 +204,7 @@ void BMM150Component::start_calibration(uint32_t duration_ms) {
   }
   this->cancel_timeout("bmm150_cal");
   this->set_timeout("bmm150_cal", duration_ms, [this]() { this->finish_calibration_(); });
-  ESP_LOGI(TAG, "Calibration started (%u ms); rotate the device in a figure-8", duration_ms);
+  ESP_LOGI(TAG, "Calibration started (%" PRIu32 " ms); rotate the device in a figure-8", duration_ms);
 }
 
 void BMM150Component::finish_calibration_() {
@@ -197,6 +219,7 @@ void BMM150Component::finish_calibration_() {
     return;
   }
 
+  this->stamp_calibration_context_(&this->calib_);
   this->calib_.offset_x = (int16_t) ((this->cal_max_[0] + this->cal_min_[0]) / 2.0f);
   this->calib_.offset_y = (int16_t) ((this->cal_max_[1] + this->cal_min_[1]) / 2.0f);
   this->calib_.offset_z = (int16_t) ((this->cal_max_[2] + this->cal_min_[2]) / 2.0f);
@@ -216,19 +239,47 @@ void BMM150Component::finish_calibration_() {
   this->calibration_finished_trigger_.trigger(true);
 }
 
+void BMM150Component::reset_calibration_() {
+  memset(&this->calib_, 0, sizeof(this->calib_));
+  this->calib_.scale_x = this->calib_.scale_y = this->calib_.scale_z = 1.0f;
+  this->stamp_calibration_context_(&this->calib_);
+}
+
+void BMM150Component::stamp_calibration_context_(BMM150Calibration *out) const {
+  out->version = CALIB_VERSION;
+  out->mag_ut_scale = MAG_UT_SCALE;
+  for (int i = 0; i < 3; i++) {
+    out->mag_src[i] = this->mag_axes_.src[i];
+    out->mag_sign[i] = this->mag_axes_.sign[i];
+  }
+}
+
+bool BMM150Component::calibration_matches_config_(const BMM150Calibration &c) const {
+  if (c.valid != 1 || c.version != CALIB_VERSION)
+    return false;
+  if (c.mag_ut_scale != MAG_UT_SCALE)
+    return false;
+  for (int i = 0; i < 3; i++) {
+    if (c.mag_src[i] != this->mag_axes_.src[i] || c.mag_sign[i] != this->mag_axes_.sign[i])
+      return false;
+  }
+  return true;
+}
+
 void BMM150Component::load_calibration_() {
   // Component is not an EntityBase, so get_object_id_hash() is unavailable.
-  uint32_t hash = fnv1_hash(str_sprintf("bmm150_cal_%02X", this->address_));
+  // Version is in the key so older blobs are not decoded as this struct.
+  uint32_t hash = fnv1_hash(str_sprintf("bmm150_cal_v%u_%02X", CALIB_VERSION, this->address_));
   this->pref_ = global_preferences->make_preference<BMM150Calibration>(hash, true);
-  this->calib_.offset_x = this->calib_.offset_y = this->calib_.offset_z = 0;
-  this->calib_.scale_x = this->calib_.scale_y = this->calib_.scale_z = 1.0f;
-  this->calib_.valid = 0;
+  this->reset_calibration_();
   BMM150Calibration loaded{};
-  if (this->pref_.load(&loaded) && loaded.valid == 1) {
+  if (this->pref_.load(&loaded) && this->calibration_matches_config_(loaded)) {
     this->calib_ = loaded;
     ESP_LOGI(TAG, "Loaded calibration offset=(%d,%d,%d) scale=(%.3f,%.3f,%.3f)", this->calib_.offset_x,
              this->calib_.offset_y, this->calib_.offset_z, this->calib_.scale_x, this->calib_.scale_y,
              this->calib_.scale_z);
+  } else if (loaded.valid == 1) {
+    ESP_LOGW(TAG, "Stored calibration ignored (version/axes/scale mismatch); heading unknown until recalibrated");
   } else {
     ESP_LOGW(TAG, "No stored calibration; heading will stay unknown until bmm150.calibrate succeeds");
   }
@@ -246,8 +297,12 @@ void BMM150Component::apply_axes_(const float in[3], const BMM150AxisMap &map, f
   out[2] = map.sign[2] * in[map.src[2]];
 }
 
+bool BMM150Component::has_accel_ids_() const {
+  return this->accel_x_ != nullptr && this->accel_y_ != nullptr && this->accel_z_ != nullptr;
+}
+
 bool BMM150Component::read_accel_(float accel[3]) const {
-  if (this->accel_x_ == nullptr || this->accel_y_ == nullptr || this->accel_z_ == nullptr)
+  if (!this->has_accel_ids_())
     return false;
   if (!this->accel_x_->has_state() || !this->accel_y_->has_state() || !this->accel_z_->has_state())
     return false;
@@ -265,23 +320,20 @@ float BMM150Component::wrap_degrees_(float deg) {
   return deg;
 }
 
-float BMM150Component::compute_heading_(float mx, float my, float mz) const {
-  float heading;
-  float accel[3];
-  if (this->read_accel_(accel)) {
-    // Standard tilt-compensated compass. Valid only if mag/accel axes are aligned (see mag_axes/accel_axes).
-    const float ax = accel[0];
-    const float ay = accel[1];
-    const float az = accel[2];
-    const float roll = atan2f(ay, az);
-    const float pitch = atan2f(-ax, ay * sinf(roll) + az * cosf(roll));
-    const float xh = mx * cosf(pitch) + mz * sinf(pitch);
-    const float yh = mx * sinf(roll) * sinf(pitch) + my * cosf(roll) - mz * sinf(roll) * cosf(pitch);
-    heading = atan2f(-yh, xh) * (180.0f / std::numbers::pi_v<float>);
-  } else {
-    heading = atan2f(-my, mx) * (180.0f / std::numbers::pi_v<float>);
-  }
-  return wrap_degrees_(heading + this->declination_);
+float BMM150Component::compute_planar_heading_(float mx, float my) const {
+  return wrap_degrees_(atan2f(-my, mx) * (180.0f / std::numbers::pi_v<float>) + this->declination_);
+}
+
+float BMM150Component::compute_tilt_heading_(float mx, float my, float mz, const float accel[3]) const {
+  // Standard tilt-compensated compass. Valid only if mag/accel axes are aligned (see mag_axes/accel_axes).
+  const float ax = accel[0];
+  const float ay = accel[1];
+  const float az = accel[2];
+  const float roll = atan2f(ay, az);
+  const float pitch = atan2f(-ax, ay * sinf(roll) + az * cosf(roll));
+  const float xh = mx * cosf(pitch) + mz * sinf(pitch);
+  const float yh = mx * sinf(roll) * sinf(pitch) + my * cosf(roll) - mz * sinf(roll) * cosf(pitch);
+  return wrap_degrees_(atan2f(-yh, xh) * (180.0f / std::numbers::pi_v<float>) + this->declination_);
 }
 
 int8_t BMM150Component::bmm150_initialization() {
