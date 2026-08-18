@@ -1,8 +1,9 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import i2c, sensor
-from esphome.const import CONF_ID,\
-    STATE_CLASS_MEASUREMENT
+from esphome.const import CONF_ID, STATE_CLASS_MEASUREMENT
+
+CODEOWNERS = ["@eigger"]
 
 DEPENDENCIES = ['i2c']
 CONF_MAG_X = 'magnetic_field_x'
@@ -16,15 +17,18 @@ CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(BMM150Component),
     cv.Optional(CONF_MAG_X): sensor.sensor_schema(
         state_class=STATE_CLASS_MEASUREMENT,
-        icon='mdi:axis-x-arrow'
+        icon='mdi:axis-x-arrow',
+        accuracy_decimals=0,
     ),
     cv.Optional(CONF_MAG_Y): sensor.sensor_schema(
         state_class=STATE_CLASS_MEASUREMENT,
-        icon='mdi:axis-y-arrow'
+        icon='mdi:axis-y-arrow',
+        accuracy_decimals=0,
     ),
     cv.Optional(CONF_MAG_Z): sensor.sensor_schema(
         state_class=STATE_CLASS_MEASUREMENT,
-        icon='mdi:axis-z-arrow'
+        icon='mdi:axis-z-arrow',
+        accuracy_decimals=0,
     ),
 }).extend(cv.polling_component_schema("60s")).extend(i2c.i2c_device_schema(0x10))
 
@@ -45,4 +49,3 @@ async def to_code(config):
         conf = config[CONF_MAG_Z]
         sens = await sensor.new_sensor(conf)
         cg.add(var.set_mag_z(sens))
-

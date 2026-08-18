@@ -15,7 +15,7 @@ i2c:
 sensor:
   - platform: bmm150
     address: 0x10
-    update_interval: 30s
+    update_interval: 60s
     magnetic_field_x:
       name: "MAG X"
     magnetic_field_y:
