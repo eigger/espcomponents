@@ -203,12 +203,20 @@ return rslt;
 
 ```cpp
     int8_t code = bmm150_initialization();
-    if (code != BMM150_OK)
-    {
+    if (code == BMM150_OK) {
+        this->initialized_ = true;
+        return;
+    }
+    // E_DEV_NOT_FOUND는 칩 부재/오식별 — mark_failed()가 맞다.
+    // E_COM_FAIL은 부팅 중 일시 NAK일 수 있다. mark_failed()는 복구 경로가 없으므로
+    // warning만 걸고 update()에서 재시도한다. Component::set_retry()는 deprecated.
+    if (code == BMM150_E_DEV_NOT_FOUND) {
         ESP_LOGE(TAG, "Init failed (%d)", code);
         this->mark_failed();
         return;
     }
+    ESP_LOGW(TAG, "Init failed (%d), will retry", code);
+    this->status_set_warning();
 ```
 
 `mark_failed()`는 `esphome/core/component.h:223`에 있다.
@@ -230,21 +238,27 @@ return rslt;   /* null_ptr_check 결과만 반환. intf_rslt는 반환값에 반
 따라서 `bmm150_read_mag_data()`는 **I2C가 완전히 죽어도 `BMM150_OK`를 반환한다.**
 현재 `update()`는 이 반환값만 보므로 통신 실패를 영원히 감지하지 못한다.
 
-**수정 방침:** 라이브러리를 고치지 말고 `dev_.intf_rslt`를 직접 검사한다.
+**수정 방침:** 라이브러리를 고치지 말고 콜백에서 `bus_error_`를 래치한다.
+`intf_rslt`는 마지막 트랜잭션만 남기므로 init의 트림 3회 읽기에는 부족하다.
 `update()` 진입 시 `is_failed()` 가드도 추가한다(BMI270 등 ESPHome 관례).
+초기화가 아직 안 됐으면(`initialized_ == false`) 같은 `update()`에서 재시도한다.
 
 ```cpp
 void BMM150Component::update()
 {
     if (this->is_failed())
         return;
+    if (!this->initialized_) {
+        // E_DEV_NOT_FOUND → mark_failed(); E_COM_FAIL → warning 후 return
+        ...
+    }
 
+    this->bus_error_ = false;
     int8_t code = bmm150_read_mag_data(&mag_data_, &dev_);
-    // bmm150_get_regs()는 버스 결과를 intf_rslt에만 남기고 반환값에는 반영하지
-    // 않는다. 반환값만 보면 I2C가 끊겨도 항상 OK로 보인다.
-    if (code != BMM150_OK || dev_.intf_rslt != BMM150_INTF_RET_SUCCESS)
+    // 반환값만 보면 I2C가 끊겨도 항상 OK로 보인다. 콜백 래치를 본다.
+    if (code != BMM150_OK || this->bus_error_)
     {
-        ESP_LOGW(TAG, "Read failed (rslt=%d intf=%d)", code, dev_.intf_rslt);
+        ESP_LOGW(TAG, "Read failed (rslt=%d)", code);
         this->status_set_warning();
         return;
     }

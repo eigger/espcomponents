@@ -30,6 +30,7 @@ class BMM150Component : public PollingComponent, public i2c::I2CDevice {
   struct bmm150_dev dev_;
   struct bmm150_mag_data mag_data_;
   bool bus_error_{false};
+  bool initialized_{false};
 
   int8_t bmm150_initialization();
 };

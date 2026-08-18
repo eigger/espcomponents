@@ -15,13 +15,20 @@ void delay_us(uint32_t period_us, void *intf_ptr);
 static bool is_overflow(int16_t value) { return value == BMM150_OVERFLOW_OUTPUT; }
 
 void BMM150Component::setup() {
-  memset(&dev_, 0, sizeof(dev_));
   int8_t code = this->bmm150_initialization();
-  if (code != BMM150_OK) {
+  if (code == BMM150_OK) {
+    this->initialized_ = true;
+    return;
+  }
+  // Wrong/missing chip ID is definitive. Bus NAKs during boot are not — this bus
+  // recovers after setup(), and mark_failed() has no retry path.
+  if (code == BMM150_E_DEV_NOT_FOUND) {
     ESP_LOGE(TAG, "Init failed (%d)", code);
     this->mark_failed();
     return;
   }
+  ESP_LOGW(TAG, "Init failed (%d), will retry", code);
+  this->status_set_warning();
 }
 
 void BMM150Component::dump_config() {
@@ -30,6 +37,9 @@ void BMM150Component::dump_config() {
   if (this->is_failed()) {
     ESP_LOGE(TAG, "  Communication failed!");
     return;
+  }
+  if (!this->initialized_) {
+    ESP_LOGW(TAG, "  Initialization pending, will retry");
   }
   LOG_UPDATE_INTERVAL(this);
   LOG_SENSOR("  ", "Magnetic Field X", this->mag_x_);
@@ -43,10 +53,28 @@ void BMM150Component::update() {
   if (this->is_failed())
     return;
 
+  if (!this->initialized_) {
+    int8_t code = this->bmm150_initialization();
+    if (code == BMM150_E_DEV_NOT_FOUND) {
+      ESP_LOGE(TAG, "Init failed (%d)", code);
+      this->mark_failed();
+      return;
+    }
+    if (code != BMM150_OK) {
+      ESP_LOGW(TAG, "Init retry failed (%d)", code);
+      this->status_set_warning();
+      return;
+    }
+    this->initialized_ = true;
+    ESP_LOGI(TAG, "Initialized after retry");
+  }
+
+  this->bus_error_ = false;
   int8_t code = bmm150_read_mag_data(&mag_data_, &dev_);
-  // bmm150_get_regs() stores bus results in intf_rslt only; the return code stays OK on I2C failure.
-  if (code != BMM150_OK || dev_.intf_rslt != BMM150_INTF_RET_SUCCESS) {
-    ESP_LOGW(TAG, "Read failed (rslt=%d intf=%d)", code, dev_.intf_rslt);
+  // bmm150_get_regs() stores bus results in intf_rslt only and overwrites it per
+  // transaction. The callback latch covers any I2C failure in this call.
+  if (code != BMM150_OK || this->bus_error_) {
+    ESP_LOGW(TAG, "Read failed (rslt=%d)", code);
     this->status_set_warning();
     return;
   }
@@ -68,6 +96,7 @@ void BMM150Component::update() {
 }
 
 int8_t BMM150Component::bmm150_initialization() {
+  memset(&dev_, 0, sizeof(dev_));
   int8_t rslt = BMM150_OK;
   dev_.intf = BMM150_I2C_INTF;
   dev_.read = reg_read;
@@ -90,12 +119,16 @@ int8_t BMM150Component::bmm150_initialization() {
   struct bmm150_settings settings;
   settings.pwr_mode = BMM150_POWERMODE_NORMAL;
   rslt = bmm150_set_op_mode(&settings, &dev_);
-  if (rslt != BMM150_OK || this->bus_error_)
+  if (rslt != BMM150_OK)
+    return rslt;
+  if (this->bus_error_)
     return BMM150_E_COM_FAIL;
 
   settings.preset_mode = BMM150_PRESETMODE_ENHANCED;
   rslt = bmm150_set_presetmode(&settings, &dev_);
-  if (rslt != BMM150_OK || this->bus_error_)
+  if (rslt != BMM150_OK)
+    return rslt;
+  if (this->bus_error_)
     return BMM150_E_COM_FAIL;
   return BMM150_OK;
 }
