@@ -81,6 +81,10 @@ int8_t BMM150Component::bmm150_initialization() {
     return rslt;
   if (dev_.chip_id != BMM150_CHIP_ID)
     return BMM150_E_DEV_NOT_FOUND;
+  // read_trim_registers() commits zeroed trim_data on partial I2C failure but still returns OK.
+  // Check intf_rslt before set_op_mode overwrites it.
+  if (dev_.intf_rslt != BMM150_INTF_RET_SUCCESS)
+    return BMM150_E_COM_FAIL;
 
   struct bmm150_settings settings;
   settings.pwr_mode = BMM150_POWERMODE_NORMAL;

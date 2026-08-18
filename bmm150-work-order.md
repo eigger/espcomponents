@@ -192,6 +192,10 @@ return rslt;
 
     // chip_id 검증 통과 후에만 op_mode / presetmode 설정. 센서 부재 시 레지스터 쓰기를
     // 시도하지 않도록 bmm150_set_op_mode() 호출 전에 early return 한다.
+    // read_trim_registers()는 부분 I2C 실패 시에도 BMM150_OK를 반환하므로, set_op_mode가
+    // intf_rslt를 덮어쓰기 전에 버스 결과를 검사한다.
+    if (dev_.intf_rslt != BMM150_INTF_RET_SUCCESS)
+        return BMM150_E_COM_FAIL;
     // (아래 set_op_mode / set_presetmode 코드는 이 검증 뒤에 둘 것)
 ```
 
@@ -334,8 +338,6 @@ A-2 수정에 포함됨. `uint32_t length` → `(uint8_t) length`.
 - 세 센서에 `unit_of_measurement`가 없다. **Phase A에서는 건드리지 말고 B-1 결과를 기다릴 것.**
 - `CODEOWNERS = ["@eigger"]` 추가
 - `accuracy_decimals=0` 명시 (정수 출력이므로)
-- README 예시의 `update_interval`은 `sensor.py` 기본값(`60s`)과 일치시킬 것.
-  (기존 README/common.yaml의 `30s`는 스키마와 불일치였음)
 
 ---
 
@@ -344,7 +346,7 @@ A-2 수정에 포함됨. `uint32_t length` → `(uint8_t) length`.
 - [ ] `bmm150_lib.c` / `bmm150_lib.h` / `bmm150_defs.h`가 **변경되지 않았음** (`git diff`로 확인)
 - [ ] 아래 테스트 YAML로 `esphome compile` 통과
 - [ ] 센서 부재 시나리오가 코드상 `mark_failed()`로 귀결됨을 리뷰로 확인
-- [ ] `README.md` 예시가 실제 스키마와 일치 (`update_interval` 포함)
+- [ ] `README.md` 예시가 유효한 스키마를 따름
 
 테스트는 리포지토리 기존 경로 `tests/components/bmm150/`를 사용한다
 (`common.yaml` + `test.esp32-idf.yaml` 등). 별도 `test/bmm150-test.yaml` 생성은 불필요.
