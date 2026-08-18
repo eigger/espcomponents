@@ -4,6 +4,10 @@
 esphome:
   name: "${name}"
   friendly_name: "${friendly_name}"
+  # This config intentionally uses YAML anchors with per-instance key overrides
+  # (e.g. gauge_bar's max_value, gauge_value's x, info_value's text_color), which
+  # is valid YAML merge-key precedence but triggers ESPHome's merge_warnings.
+  merge_warnings: false
   on_boot:
     - script.execute:
         id: script_logs
@@ -55,17 +59,10 @@ esphome:
     
 logger:
   level: DEBUG
-  baud_rate: 921600                   
+  baud_rate: 921600
 
-# =================================================================
-# OTA Updates (무선 펌웨어 업데이트):
-# OTA 기능을 사용하려면 ESPHome OTA Publisher 애드온이 필요합니다:
-# https://github.com/eigger/hassio-apps/tree/master/esphome_ota
-# 애드온에서 기기 등록 후 생성되는 패키지(ota_server/devices/esp-colorado-tab5.yaml)를 include합니다.
-# =================================================================
-packages:
-  ota: !include ota_server/devices/esp-colorado-tab5.yaml
-  
+safe_mode:
+
 time:
   - platform: sntp
     id: sntp_time
@@ -122,17 +119,28 @@ ws_bridge:
   on_disconnected:
     then:
       - lambda: id(script_logs).execute("ws_bridge Disconnected");
+  trackers:
+    - name: "${friendly_name} Tracker"
+      unique_id: "${name}_tracker"
+      latitude: !lambda 'return id(id_gps_latitude).state;'
+      longitude: !lambda 'return id(id_gps_longitude).state;'
+      gps_accuracy: !lambda |-
+        float h = id(id_gps_hdop).state;
+        return isnan(h) ? 10.0f : (h * 2.5f);
+      update_interval: 10s
+      icon: "mdi:crosshairs-gps"
   entities:
     - source_id: wifi_sig
     - source_id: fuel_level
-    - source_id: throttle
+    #- source_id: throttle
     - source_id: engine_rpm
-    - source_id: engine_load
+    #- source_id: engine_load
     - source_id: car_speed
-    - source_id: car_acceleration
-    - source_id: gear_position
-    - source_id: prnd_status_alt
-    - source_id: actual_torque
+    #- source_id: car_acceleration
+    #- source_id: gear_position
+    #- source_id: prnd_status_alt
+    #- source_id: actual_torque
+    #- source_id: car_battery_soc
     - source_id: engine_oil_pressure
     - source_id: transmission_temperature
     - source_id: ambient_air_temperature
@@ -155,13 +163,19 @@ ws_bridge:
     - source_id: engine_run_time
     - source_id: gm_fuel_level_liters
     - source_id: ota_update
+    # - source_id: id_pm1_0
+    # - source_id: id_pm2_5
+    # - source_id: id_pm10_0
+    - source_id: id_gps_speed
+    - source_id: id_gps_altitude
+    - source_id: id_gps_satellites
+    #- source_id: id_gps_hdop
+    - source_id: id_gnss_bmp280_temperature
+    - source_id: id_gnss_bmp280_pressure
 
 # api:
 #   batch_delay: 1s
 #   reboot_timeout: 0s
-
-
-
 
 esp32_hosted:
   variant: esp32c6
@@ -261,6 +275,52 @@ i2c:
     scl: GPIO54
     scan: false
 
+#DIP, CORE3, PIN, TAB5
+#PPS
+#2 - G10 - 2 - G16
+#TXD
+#2 - G13 - 23 - G47
+#RXD
+#3 - G14 - 26 - G51
+
+uart:
+#  - id: uart_pm25
+#    rx_pin: GPIO7
+#    tx_pin: GPIO6
+#    baud_rate: 9600
+  - id: uart_gps
+    rx_pin: GPIO51
+    tx_pin: GPIO47
+    baud_rate: 38400
+
+gps:
+  id: id_gps
+  uart_id: uart_gps
+  latitude:
+    name: "GPS Latitude"
+    id: id_gps_latitude
+    internal: true
+  longitude:
+    name: "GPS Longitude"
+    id: id_gps_longitude
+    internal: true
+  altitude:
+    name: "GPS Altitude"
+    id: id_gps_altitude
+    internal: true
+  speed:
+    name: "GPS Speed"
+    id: id_gps_speed
+    internal: true
+  satellites:
+    name: "GPS Satellites"
+    id: id_gps_satellites
+    internal: true
+  hdop:
+    name: "GPS HDOP"
+    id: id_gps_hdop
+    internal: true
+
 pi4ioe5v6408:
   - id: pi4ioe1
     i2c_id: bsp_bus
@@ -353,7 +413,7 @@ globals:
            if (engine_on) { // 시동 후 (발전기 동작 중)
              if (val < 12.8f) return c_red;         // 발전기 미충전
              else if (val < 13.2f) return c_orange; // 충전전압 낮음
-             else if (val <= 14.8f) return c_white;  // 정상 충전 범위 (13.2V~14.8V)
+             else if (val <= 14.85f) return c_white;  // 정상 충전 범위 (13.2V~14.8V)
              else if (val <= 15.0f) return c_orange; // 충전전압 높음
              return c_red;                          // 발전기 과충전
            } else { // 시동 전
@@ -404,7 +464,12 @@ globals:
            else if (val <= 150) return c_white;
            else if (val <= 300) return c_orange;
            return c_red;
-         }
+          } else if (mode == 20) { // 배터리 충전율(SOC) %
+            if (val > 100) return c_red;          // 100% 초과: 과충전 (빨강)
+            else if (val < 25) return c_red;     // 25% 미만: 충전율 심각 부족 (빨강)
+            else if (val < 50) return c_orange;  // 25%~50%: 충전율 낮음 (주황)
+            return c_yellow;                     // 일반 정상 범위 50%~100% (골드)
+          }
          return c_white;
       }
 switch:
@@ -466,6 +531,12 @@ switch:
       number: 2
     restore_mode: ALWAYS_ON
     internal: true
+  #- platform: gpio
+  #  id: pm25_sensor_enable
+  #  name: "PM2.5 Sensor Enable"
+  #  pin: GPIO48
+  #  restore_mode: ALWAYS_ON
+  #  internal: true
 
 binary_sensor:
   # - platform: status
@@ -485,6 +556,15 @@ binary_sensor:
     pin:
       pi4ioe5v6408: pi4ioe1
       number: 7
+    internal: true
+  - platform: gpio
+    id: id_gps_pps
+    name: "GPS PPS"
+    pin:
+      number: GPIO16
+      mode:
+        input: true
+        pulldown: true
     internal: true
 
 select:
@@ -680,7 +760,9 @@ sensor:
             text_color: !lambda return id(fn_state_color)(x, 6);
         - lvgl.bar.update:
             id: bar_fuel
-            value: !lambda return (int)x;
+            value: !lambda |-
+              if (isnan(x)) return 0;
+              return (int)x;
         - lvgl.widget.update:
             id: bar_fuel
             indicator:
@@ -740,6 +822,62 @@ sensor:
         - lvgl.widget.update:
             id: widget_img_battery
             image_recolor: !lambda return id(fn_state_color)(x, 7);
+        - lambda: |-
+            if (isnan(x) || x <= 5.0f) {
+              id(car_battery_soc).publish_state(NAN);
+              return;
+            }
+            float soc = 0.0f;
+            bool engine_on = !isnan(id(engine_rpm).state) && id(engine_rpm).state >= 400.0f;
+            if (engine_on) {
+              // 시동 중: 알터네이터 충전 강도/충전율 (12.8V ~ 14.8V -> 0% ~ 100%)
+              if (x <= 12.8f) soc = 0.0f;
+              else soc = (x - 12.8f) / 2.0f * 100.0f;
+            } else {
+              // 시동 전: 12V 배터리 자체 잔량 (11.7V ~ 12.7V -> 0% ~ 100%)
+              if (x <= 11.7f) soc = 0.0f;
+              else if (x <= 12.7f) soc = (x - 11.7f) / 1.0f * 100.0f;
+              else if (x <= 13.5f) soc = 100.0f;
+              else soc = 100.0f + (x - 13.5f) * 50.0f;
+            }
+            if (soc > 120.0f) soc = 120.0f;
+            if (soc < 0.0f) soc = 0.0f;
+            id(car_battery_soc).publish_state(soc);
+
+  - platform: template
+    id: "car_battery_soc"
+    name: "Car Battery SOC"
+    icon: mdi:battery-charging
+    unit_of_measurement: "%"
+    state_class: "measurement"
+    accuracy_decimals: 0
+    internal: true
+    update_interval: never
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: lbl_battery_title
+            text: !lambda |-
+              bool engine_on = !isnan(id(engine_rpm).state) && id(engine_rpm).state >= 400.0f;
+              return engine_on ? std::string("충전율") : std::string("잔량");
+        - lvgl.label.update:
+            id: lbl_battery_soc
+            text: !lambda |-
+              if (isnan(x)) return std::string("--");
+              char buf[10]; snprintf(buf, sizeof(buf), "%.0f", x); return std::string(buf);
+            text_color: !lambda return id(fn_state_color)(x, 20);
+        - lvgl.bar.update:
+            id: bar_battery_soc
+            value: !lambda |-
+              if (isnan(x)) return 0;
+              return (int)x;
+        - lvgl.widget.update:
+            id: bar_battery_soc
+            indicator:
+              bg_color: !lambda return id(fn_state_color)(x, 20);
+        - lvgl.widget.update:
+            id: widget_img_battery_soc
+            image_recolor: !lambda return id(fn_state_color)(x, 20);
   - platform: ble_elm327
     id: "engine_rpm"
     name: "Engine RPM"
@@ -756,7 +894,9 @@ sensor:
             text_color: !lambda return id(fn_state_color)(x, 8);
         - lvgl.bar.update:
             id: bar_engine_rpm
-            value: !lambda return (int)x;
+            value: !lambda |-
+              if (isnan(x)) return 0;
+              return (int)x;
         - lvgl.widget.update:
             id: bar_engine_rpm
             indicator:
@@ -780,7 +920,9 @@ sensor:
             text_color: !lambda return id(fn_state_color)(x, 9);
         - lvgl.bar.update:
             id: bar_engine_load
-            value: !lambda return (int)x;
+            value: !lambda |-
+              if (isnan(x)) return 0;
+              return (int)x;
         - lvgl.widget.update:
             id: bar_engine_load
             indicator:
@@ -819,12 +961,12 @@ sensor:
         - lambda: |-
             if (!isnan(x)) {
               static float old_speed = 0.0f;
-              static unsigned long timer = millis();
-              if (millis() - timer > 1000) {
+              static uint32_t timer = esphome::millis();
+              if (esphome::millis() - timer > 1000) {
                 float acc = x - old_speed;
                 id(car_acceleration).publish_state(acc);
                 old_speed = x;
-                timer = millis();
+                timer = esphome::millis();
               }
             }
 
@@ -887,7 +1029,7 @@ sensor:
             id: lbl_gear
             text: !lambda |-
               if (isnan(x) || (int)x <= 0) return std::string("-");
-              char buf[8]; snprintf(buf, sizeof(buf), "%d", (int)x);
+              char buf[12]; snprintf(buf, sizeof(buf), "%d", (int)x);
               return std::string(buf);
 
   - platform: ble_elm327
@@ -913,26 +1055,8 @@ sensor:
     id: "actual_torque"
     name: "Actual Torque"
     preset: actual_torque
-    update_interval: 1s
+    update_interval: 10s
     internal: true
-    on_value:
-      then:
-        - lvgl.label.update:
-            id: lbl_actual_torque
-            text: !lambda |-
-              if (isnan(x)) return std::string("--");
-              char buf[10]; snprintf(buf, sizeof(buf), "%.0f", x); return std::string(buf);
-            text_color: !lambda return id(fn_state_color)(x, 9);
-        - lvgl.bar.update:
-            id: bar_actual_torque
-            value: !lambda return (int)x;
-        - lvgl.widget.update:
-            id: bar_actual_torque
-            indicator:
-              bg_color: !lambda return id(fn_state_color)(x, 9);
-        - lvgl.widget.update:
-            id: widget_img_actual_torque
-            image_recolor: !lambda return id(fn_state_color)(x, 9);
 
   - platform: ble_elm327
     id: "engine_oil_pressure"
@@ -950,7 +1074,9 @@ sensor:
             text_color: !lambda return id(fn_state_color)(x, 14);
         - lvgl.bar.update:
             id: bar_oil_pressure
-            value: !lambda return (int)x;
+            value: !lambda |-
+              if (isnan(x)) return 0;
+              return (int)x;
         - lvgl.widget.update:
             id: bar_oil_pressure
             indicator:
@@ -1062,6 +1188,65 @@ sensor:
       name: "BMI270 Temperature"
       internal: true
 
+  # ── PM2.5 Base (PMSA003)
+  # - platform: pmsx003
+  #   type: PMSX003
+  #   uart_id: uart_pm25
+  #   pm_1_0:
+  #     name: "PM1.0"
+  #     id: id_pm1_0
+  #     internal: true
+  #   pm_2_5:
+  #     name: "PM2.5"
+  #     id: id_pm2_5
+  #     internal: true
+  #   pm_10_0:
+  #     name: "PM10.0"
+  #     id: id_pm10_0
+  #     internal: true 
+
+  # ── GNSS Module (BMP280)
+  - platform: bmp280_i2c
+    i2c_id: bsp_bus
+    address: 0x76
+    temperature:
+      name: "GNSS BMP280 Temperature"
+      id: id_gnss_bmp280_temperature
+      internal: true
+    pressure:
+      name: "GNSS BMP280 Pressure"
+      id: id_gnss_bmp280_pressure
+      internal: true
+
+  # ── GNSS Module (BMI270 at 0x69)
+  #- platform: bmi270
+  #  i2c_id: bsp_bus
+  #  address: 0x69
+  #  accel_x:
+  #    name: "GNSS BMI270 Accel X"
+  #    id: id_gnss_bmi270_accel_x
+  #    internal: true
+  #  accel_y:
+  #    name: "GNSS BMI270 Accel Y"
+  #    id: id_gnss_bmi270_accel_y
+  #    internal: true
+  #  accel_z:
+  #    name: "GNSS BMI270 Accel Z"
+  #    id: id_gnss_bmi270_accel_z
+  #    internal: true
+  #  gyro_x:
+  #    name: "GNSS BMI270 Gyro X"
+  #    internal: true
+  #  gyro_y:
+  #    name: "GNSS BMI270 Gyro Y"
+  #    internal: true
+  #  gyro_z:
+  #    name: "GNSS BMI270 Gyro Z"
+  #    internal: true
+  #  temperature:
+  #    name: "GNSS BMI270 Temperature"
+  #    internal: true
+
   - platform: template
     name: "Roll"
     id: id_device_roll
@@ -1168,7 +1353,7 @@ interval:
           else if (bat_valid && !engine_on && bat < 11.8f) { msg = "배터리 방전 위험!"; a = true; color_hex = 0xA0190F; }
           else if (bat_valid && !engine_on && bat > 13.5f) { msg = "시동전 전압 이상!"; a = true; color_hex = 0xA0190F; }
           else if (bat_valid && engine_on && bat < 13.2f) { msg = "충전전압 낮음!"; a = true; color_hex = 0xD9720A; }
-          else if (bat_valid && engine_on && bat > 14.8f) { msg = "충전전압 높음!"; a = true; color_hex = 0xD9720A; }
+          else if (bat_valid && engine_on && bat > 14.85f) { msg = "충전전압 높음!"; a = true; color_hex = 0xD9720A; }
           else if (bat_valid && !engine_on && bat < 12.0f) { msg = "배터리 전압 낮음!"; a = true; color_hex = 0xD9720A; }
           else if (!isnan(id(fuel_level).state) && id(fuel_level).state < 10) { msg = "주유 필요!"; a = true; color_hex = 0xD9720A; }
           else if (id(parking_info).has_state() && id(parking_info).state.length() > 0 && id(parking_info).state != "unknown" && id(parking_info).state != "off") {
@@ -1762,33 +1947,10 @@ lvgl:
                         id: bar_engine_rpm
                         max_value: 8000
 
-              # ── 토크 카드 (progress) ──
-              - obj:
-                  <<: *gauge_card
-                  y: 116
-                  widgets:
-                    - image:
-                        <<: *gauge_icon
-                        id: widget_img_actual_torque
-                        src: img_torque
-                    - label:
-                        <<: *gauge_title
-                        text: "토크"
-                    - label:
-                        <<: *gauge_value
-                        id: lbl_actual_torque
-                        text: "--"
-                    - label:
-                        <<: *gauge_unit
-                        text: "%"
-                    - bar:
-                        <<: *gauge_bar
-                        id: bar_actual_torque
-
               # ── 엔진 부하 카드 (progress) ──
               - obj:
                   <<: *gauge_card
-                  y: 226
+                  y: 116
                   widgets:
                     - image:
                         <<: *gauge_icon
@@ -1811,7 +1973,7 @@ lvgl:
               # ── 엔진 오일 압력 카드 (progress) ──
               - obj:
                   <<: *gauge_card
-                  y: 336
+                  y: 226
                   widgets:
                     - image:
                         <<: *gauge_icon
@@ -1835,7 +1997,7 @@ lvgl:
               # ── 연료 카드 (progress) ──
               - obj:
                   <<: *gauge_card
-                  y: 446
+                  y: 336
                   widgets:
                     - image:
                         <<: *gauge_icon
@@ -1853,8 +2015,31 @@ lvgl:
                         text: "%"
                     - bar:
                         <<: *gauge_bar
-                        width: 340
                         id: bar_fuel
+
+              # ── 잔량/충전율 카드 (progress) ──
+              - obj:
+                  <<: *gauge_card
+                  y: 446
+                  widgets:
+                    - image:
+                        <<: *gauge_icon
+                        id: widget_img_battery_soc
+                        src: img_car_battery
+                    - label:
+                        <<: *gauge_title
+                        id: lbl_battery_title
+                        text: "잔량"
+                    - label:
+                        <<: *gauge_value
+                        id: lbl_battery_soc
+                        text: "--"
+                    - label:
+                        <<: *gauge_unit
+                        text: "%"
+                    - bar:
+                        <<: *gauge_bar
+                        id: bar_battery_soc
 
         # ────────────────────────────────────────────────────────
         # 중앙 패널 (화면 중앙 정렬, w=540): 속도 Hero + 속도 Arc
@@ -2135,13 +2320,13 @@ lvgl:
                     - label: { <<: *info_value, id: lbl_intake_temp_display, text: "--", x: -48 }
                     - label: { <<: *info_unit, text: "°C" }
 
-              # ── 배터리 카드 ──
+              # ── 전압 카드 ──
               - obj:
                   <<: *info_card
                   y: 460
                   widgets:
                     - image: { <<: *info_icon, id: widget_img_battery, src: img_car_battery, image_recolor: 0x7F8EA3 }
-                    - label: { <<: *info_title, text: "배터리" }
+                    - label: { <<: *info_title, text: "전압" }
                     - label: { <<: *info_value, id: lbl_car_battery, text: "--", x: -42 }
                     - label: { <<: *info_unit, text: "V" }
 
@@ -2369,7 +2554,7 @@ font:
     id: notosans25
     size: 25
   - file: "gfonts://Noto+Sans+KR"
-    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%월화수목금토일머운행배터리냉각부하엔진과속주의졸음경고가스환기필요급감장치열유력팬템재시작겠습니까예아오면밝울보정로그록지우을초틀크압연료거미션온도흡자이발방위험동상낮높'
+    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%월화수목금토일머운행배터리충전율잔량냉각부하엔진과속주의졸음경고가스환기필요급감장치열유력팬템재시작겠습니까예아오면밝울보정로그록지우을초틀크압연료거미션온도흡자이발방위험동상낮높'
     id: notosans30
     size: 30
   - file: "gfonts://Noto+Sans+KR"
@@ -2442,15 +2627,20 @@ image:
     file: mdi:car-lifted-pickup
     id: img_truck_side
     resize: 60x60
-    type: grayscale
+    type: binary
   - platform: file
     file: mdi:car-back
     id: img_truck_front
     resize: 60x60
-    type: grayscale
+    type: binary
   - platform: file
     file: mdi:coolant-temperature
     id: img_coolant
+    resize: 50x50
+    type: binary
+  - platform: file
+    file: mdi:battery-charging
+    id: img_battery_charging
     resize: 50x50
     type: binary
   - platform: file
