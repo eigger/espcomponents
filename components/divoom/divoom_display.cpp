@@ -17,8 +17,8 @@ void DivoomDisplay::dump_config()
     LOG_DISPLAY("", "divoom", this);
     ESP_LOGCONFIG(TAG, "  Width: %d, Height: %d", this->width_, this->height_);
     ESP_LOGCONFIG(TAG, "  MAC address        : %s", this->parent_->address_str().c_str());
-    ESP_LOGCONFIG(TAG, "  Service UUID       : %s", this->service_uuid_.to_string().c_str());
-    ESP_LOGCONFIG(TAG, "  Characteristic UUID: %s", this->char_uuid_.to_string().c_str());
+    ESP_LOGCONFIG(TAG, "  Service UUID       : %s", this->service_uuid_.to_str().c_str());
+    ESP_LOGCONFIG(TAG, "  Characteristic UUID: %s", this->char_uuid_.to_str().c_str());
     ESP_LOGCONFIG(TAG, "  Update Interval: %u ms", this->get_update_interval());
 }
 
@@ -64,31 +64,35 @@ void DivoomDisplay::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_
         connected_ = true;
         if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
         this->client_state_ = espbt::ClientState::ESTABLISHED;
-        ESP_LOGW(TAG, "[%s] Connected successfully!", this->char_uuid_.to_string().c_str());
+        ESP_LOGW(TAG, "[%s] Connected successfully!", this->char_uuid_.to_str().c_str());
         break;
     case ESP_GATTC_DISCONNECT_EVT:
         connected_ = false;
         synced_time_ = false;
         old_image_buffer_.clear();
         if (this->bt_connected_) this->bt_connected_->publish_state(connected_);
-        ESP_LOGW(TAG, "[%s] Disconnected", this->char_uuid_.to_string().c_str());
+        ESP_LOGW(TAG, "[%s] Disconnected", this->char_uuid_.to_str().c_str());
         this->client_state_ = espbt::ClientState::IDLE;
         break;
-    case ESP_GATTC_WRITE_CHAR_EVT: 
+    case ESP_GATTC_WRITE_CHAR_EVT:
+    {
         if (param->write.status == 0)
         {
             break;
         }
         auto *chr = this->parent()->get_characteristic(this->service_uuid_, this->char_uuid_);
-        if (chr == nullptr) 
+        if (chr == nullptr)
         {
-            ESP_LOGW(TAG, "[%s] Characteristic not found.", this->char_uuid_.to_string().c_str());
+            ESP_LOGW(TAG, "[%s] Characteristic not found.", this->char_uuid_.to_str().c_str());
             break;
         }
         if (param->write.handle == chr->handle)
         {
-            ESP_LOGW(TAG, "[%s] Write error, status=%d", this->char_uuid_.to_string().c_str(), param->write.status);
+            ESP_LOGW(TAG, "[%s] Write error, status=%d", this->char_uuid_.to_str().c_str(), param->write.status);
         }
+        break;
+    }
+    default:
         break;
     }
 }
@@ -280,13 +284,13 @@ bool DivoomDisplay::write_data(std::vector<uint8_t> &data)
 {
     if (this->client_state_ != espbt::ClientState::ESTABLISHED)
     {
-        ESP_LOGW(TAG, "[%s] Not connected to BLE client.  State update can not be written.", this->char_uuid_.to_string().c_str());
+        ESP_LOGW(TAG, "[%s] Not connected to BLE client.  State update can not be written.", this->char_uuid_.to_str().c_str());
         return false;
     }
     auto *chr = this->parent()->get_characteristic(this->service_uuid_, this->char_uuid_);
     if (chr == nullptr)
     {
-        ESP_LOGW(TAG, "[%s] Characteristic not found.  State update can not be written.", this->char_uuid_.to_string().c_str());
+        ESP_LOGW(TAG, "[%s] Characteristic not found.  State update can not be written.", this->char_uuid_.to_str().c_str());
         return false;
     }
     if (this->require_response_)

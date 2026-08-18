@@ -123,10 +123,10 @@ void BleElm327Component::loop() {
 void BleElm327Component::dump_config() {
   ESP_LOGCONFIG(TAG, "BLE ELM327:");
   ESP_LOGCONFIG(TAG, "  MAC address        : %s", this->parent_->address_str());
-  ESP_LOGCONFIG(TAG, "  Service UUID       : %s", service_uuid_.to_string().c_str());
-  ESP_LOGCONFIG(TAG, "  RX Char UUID       : %s", rx_char_uuid_.to_string().c_str());
-  ESP_LOGCONFIG(TAG, "  TX Char UUID       : %s", tx_char_uuid_.to_string().c_str());
-  ESP_LOGCONFIG(TAG, "  TX delay           : %ums", tx_delay_ms_);
+  ESP_LOGCONFIG(TAG, "  Service UUID       : %s", service_uuid_.to_str().c_str());
+  ESP_LOGCONFIG(TAG, "  RX Char UUID       : %s", rx_char_uuid_.to_str().c_str());
+  ESP_LOGCONFIG(TAG, "  TX Char UUID       : %s", tx_char_uuid_.to_str().c_str());
+  ESP_LOGCONFIG(TAG, "  TX delay           : %lums", (unsigned long) tx_delay_ms_);
   ESP_LOGCONFIG(TAG, "  Base init commands : ATZ, ATE0, ATL0, ATS0, ATH0, ATSP0");
   ESP_LOGCONFIG(TAG, "  Extra init commands: %u", (unsigned)extra_init_commands_.size());
   ESP_LOGCONFIG(TAG, "  Devices            : %u", (unsigned)devices_.size());
@@ -172,7 +172,7 @@ void BleElm327Component::gattc_event_handler(esp_gattc_cb_event_t event, esp_gat
 
       ESP_LOGI(TAG, "RX handle=%d TX handle=%d — registering notify", rx_char_handle_, tx_char_handle_);
       auto status = esp_ble_gattc_register_for_notify(gattc_if_, remote_bda_, rx_char_handle_);
-      if (status != ESP_GATT_OK) ESP_LOGW(TAG, "Register notify failed: %d", status);
+      if (status != ESP_GATT_OK) { ESP_LOGW(TAG, "Register notify failed: %d", status); }
       break;
     }
 
@@ -200,8 +200,9 @@ void BleElm327Component::gattc_event_handler(esp_gattc_cb_event_t event, esp_gat
       break;
 
     case ESP_GATTC_WRITE_CHAR_EVT:
-      if (param->write.status != ESP_GATT_OK)
+      if (param->write.status != ESP_GATT_OK) {
         ESP_LOGW(TAG, "Write failed, status=%d", param->write.status);
+      }
       break;
 
     default:

@@ -406,7 +406,7 @@ void log_config(const char* tag, const char* title, const state_t* state)
 {
     if (state == nullptr) return;
     ESP_LOGCONFIG(tag, "%s: %s, offset: %d, inverted: %s", title, to_hex_string(state->data).c_str(), state->offset, YESNO(state->inverted));
-    if (!state->mask.empty()) ESP_LOGCONFIG(tag, "%s mask: %s", title, to_hex_string(state->mask).c_str());
+    if (!state->mask.empty()) { ESP_LOGCONFIG(tag, "%s mask: %s", title, to_hex_string(state->mask).c_str()); }
 }
 
 void log_config(const char* tag, const char* title, const state_num_t* state_num)

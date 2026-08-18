@@ -183,6 +183,15 @@ void UARTExMediaPlayer::control(const media_player::MediaPlayerCall &call)
         case media_player::MEDIA_PLAYER_COMMAND_CLEAR_PLAYLIST :
             enqueue_tx_cmd(get_command_clear_playlist());
             break;
+        case media_player::MEDIA_PLAYER_COMMAND_TURN_ON:
+        case media_player::MEDIA_PLAYER_COMMAND_TURN_OFF:
+        case media_player::MEDIA_PLAYER_COMMAND_NEXT:
+        case media_player::MEDIA_PLAYER_COMMAND_PREVIOUS:
+        case media_player::MEDIA_PLAYER_COMMAND_REPEAT_ALL:
+        case media_player::MEDIA_PLAYER_COMMAND_SHUFFLE:
+        case media_player::MEDIA_PLAYER_COMMAND_UNSHUFFLE:
+        case media_player::MEDIA_PLAYER_COMMAND_GROUP_JOIN:
+            break;
         }
     }
 
