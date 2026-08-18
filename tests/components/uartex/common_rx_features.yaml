@@ -7,6 +7,9 @@ external_components:
 esphome:
   name: test-uartex-rx-features
 
+logger:
+  level: VERY_VERBOSE
+
 uart:
   baud_rate: 9600
   data_bits: 8

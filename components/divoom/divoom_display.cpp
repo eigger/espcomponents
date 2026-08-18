@@ -20,7 +20,7 @@ void DivoomDisplay::dump_config()
     ESP_LOGCONFIG(TAG, "  MAC address        : %s", this->parent_->address_str());
     ESP_LOGCONFIG(TAG, "  Service UUID       : %s", this->service_uuid_.to_str(uuid_buf));
     ESP_LOGCONFIG(TAG, "  Characteristic UUID: %s", this->char_uuid_.to_str(uuid_buf));
-    ESP_LOGCONFIG(TAG, "  Update Interval: %u ms", this->get_update_interval());
+    ESP_LOGCONFIG(TAG, "  Update Interval: %lu ms", (unsigned long) this->get_update_interval());
 }
 
 void DivoomDisplay::update()

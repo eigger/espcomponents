@@ -60,3 +60,6 @@ number:
       name: "Scale EMA Filter"
     gap:
       name: "Scale Gap Value"
+
+logger:
+  level: VERY_VERBOSE

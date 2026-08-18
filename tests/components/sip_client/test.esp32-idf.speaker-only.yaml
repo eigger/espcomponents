@@ -17,6 +17,7 @@ wifi:
   password: "test_password"
 
 logger:
+  level: VERY_VERBOSE
 
 i2s_audio:
   - id: i2s_out

@@ -20,3 +20,6 @@ sensor:
       name: "Jaalee JHT Humidity"
     battery_level:
       name: "Jaalee JHT Battery Level"
+
+logger:
+  level: VERY_VERBOSE

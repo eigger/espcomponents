@@ -31,3 +31,6 @@ ip5306:
     on_release:
       then:
         - lambda: ESP_LOGD("TEST", "still charging");
+
+logger:
+  level: VERY_VERBOSE

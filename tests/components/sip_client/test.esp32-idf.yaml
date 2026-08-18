@@ -17,6 +17,7 @@ wifi:
   password: "test_password"
 
 logger:
+  level: VERY_VERBOSE
 
 # Microphone/speaker can be any ESPHome platform (e.g. i2s_audio)
 i2s_audio:

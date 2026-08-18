@@ -31,3 +31,6 @@ sensor:
       name: "BMI270 Gyro Z"
     temperature:
       name: "BMI270 Temperature"
+
+logger:
+  level: VERY_VERBOSE

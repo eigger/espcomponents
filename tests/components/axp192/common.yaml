@@ -27,3 +27,6 @@ axp192:
     name: "Screen Brightness"
   poweroff:
     name: "Power Off Button"
+
+logger:
+  level: VERY_VERBOSE

@@ -25,3 +25,6 @@ tcp_server:
     then:
       - lambda: |-
           ESP_LOGI("tcp", "Read %d bytes", len);
+
+logger:
+  level: VERY_VERBOSE
