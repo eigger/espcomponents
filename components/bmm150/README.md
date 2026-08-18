@@ -29,7 +29,7 @@ A dashboard has hard-iron offset from steel and speakers. Heading is not publish
 
 1. Leave the module mounted.
 2. Run `bmm150.calibrate` and **slowly drive or turn the vehicle through a full circle in place**.
-3. X and Y min/max delta must each exceed **20 µT**. Z is not gated; the previous Z offset is kept (or 0 on first run).
+3. X and Y min/max delta must each exceed **20 µT**. If Z delta also exceeds **5 µT** (typical on a tilted dash), the Z offset is updated; otherwise the previous Z offset is kept.
 4. A level mount cannot excite Z by yaw rotation — that is expected.
 
 ### Off the vehicle (`calibration_mode: full`)

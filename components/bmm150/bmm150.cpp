@@ -212,6 +212,7 @@ void BMM150Component::start_calibration(uint32_t duration_ms) {
   }
   this->cancel_timeout("bmm150_cal");
   this->set_timeout("bmm150_cal", duration_ms, [this]() { this->finish_calibration_(); });
+  this->tilt_unavailable_logged_ = false;
   ESP_LOGI(TAG, "Calibration started (%" PRIu32 " ms); %s", duration_ms,
            this->calibration_mode_ == CALIBRATION_MODE_FULL
                ? "rotate the device in a figure-8"
@@ -234,8 +235,13 @@ void BMM150Component::finish_calibration_() {
   float dz = this->cal_max_[2] - this->cal_min_[2];
   const bool yaw_only = this->calibration_mode_ == CALIBRATION_MODE_YAW;
   if (dx < CAL_MIN_DELTA_XY_UT || dy < CAL_MIN_DELTA_XY_UT || (!yaw_only && dz < CAL_MIN_DELTA_Z_UT)) {
-    ESP_LOGW(TAG, "Calibration rejected: axis delta (%.1f, %.1f, %.1f) µT, need XY>%.0f%s", dx, dy, dz,
-             CAL_MIN_DELTA_XY_UT, yaw_only ? "" : ", Z>5");
+    if (yaw_only) {
+      ESP_LOGW(TAG, "Calibration rejected: axis delta (%.1f, %.1f, %.1f) µT, need XY>%.0f", dx, dy, dz,
+               CAL_MIN_DELTA_XY_UT);
+    } else {
+      ESP_LOGW(TAG, "Calibration rejected: axis delta (%.1f, %.1f, %.1f) µT, need XY>%.0f, Z>%.0f", dx, dy, dz,
+               CAL_MIN_DELTA_XY_UT, CAL_MIN_DELTA_Z_UT);
+    }
     this->calibration_finished_trigger_.trigger(false);
     return;
   }
@@ -243,9 +249,8 @@ void BMM150Component::finish_calibration_() {
   this->stamp_calibration_context_(&this->calib_);
   this->calib_.offset_x = (int16_t) ((this->cal_max_[0] + this->cal_min_[0]) / 2.0f);
   this->calib_.offset_y = (int16_t) ((this->cal_max_[1] + this->cal_min_[1]) / 2.0f);
-  if (yaw_only) {
-    // In-place yaw does not excite Z enough for a trustworthy offset; keep the previous Z.
-    ESP_LOGI(TAG, "Yaw calibration: Z offset unchanged (delta %.1f µT)", dz);
+  if (yaw_only && dz < CAL_MIN_DELTA_Z_UT) {
+    ESP_LOGI(TAG, "Yaw calibration: Z delta %.1f µT too small, keeping previous Z offset", dz);
   } else {
     this->calib_.offset_z = (int16_t) ((this->cal_max_[2] + this->cal_min_[2]) / 2.0f);
   }
@@ -262,9 +267,7 @@ void BMM150Component::finish_calibration_() {
       this->calib_.scale_z = avg / dz;
     }
   } else {
-    this->calib_.scale_x = this->calib_.scale_y = 1.0f;
-    if (!yaw_only)
-      this->calib_.scale_z = 1.0f;
+    this->calib_.scale_x = this->calib_.scale_y = this->calib_.scale_z = 1.0f;
   }
   this->calib_.valid = 1;
   this->save_calibration_();
@@ -389,12 +392,13 @@ int8_t BMM150Component::bmm150_initialization() {
   // bmm150_init() only sets dev_.chip_id on ID match but still returns BMM150_OK otherwise.
   if (rslt != BMM150_OK)
     return rslt;
-  if (dev_.chip_id != BMM150_CHIP_ID)
-    return BMM150_E_DEV_NOT_FOUND;
-  // read_trim_registers() runs three reads; intf_rslt only reflects the last one and partial
-  // failures still commit zeroed trim_data. Latch any callback failure instead.
+  // A NAK leaves chip_id at 0; that is not proof the chip is missing. Classify bus
+  // failure first so setup()/update() can retry instead of mark_failed().
   if (this->bus_error_)
     return BMM150_E_COM_FAIL;
+  // Bus ACKed but ID is not 0x32: wrong chip or address collision.
+  if (dev_.chip_id != BMM150_CHIP_ID)
+    return BMM150_E_DEV_NOT_FOUND;
 
   struct bmm150_settings settings;
   settings.pwr_mode = BMM150_POWERMODE_NORMAL;
