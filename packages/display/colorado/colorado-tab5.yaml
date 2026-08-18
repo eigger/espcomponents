@@ -2627,12 +2627,12 @@ image:
     file: mdi:car-lifted-pickup
     id: img_truck_side
     resize: 60x60
-    type: binary
+    type: grayscale
   - platform: file
     file: mdi:car-back
     id: img_truck_front
     resize: 60x60
-    type: binary
+    type: grayscale
   - platform: file
     file: mdi:coolant-temperature
     id: img_coolant
