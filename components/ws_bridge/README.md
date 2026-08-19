@@ -534,6 +534,7 @@ ws_bridge:
 |--------|:--------:|-------------|
 | `unique_id` / `name` | ✓ | Same as every other platform |
 | `latitude` / `longitude` | ✓ | Float or `!lambda`. Return `NAN` when there's no fix yet — Home Assistant then shows the tracker as unavailable rather than pinning it at 0,0 |
+| `report_unknown` | | Default `true`. When `latitude`/`longitude` are `NAN`, send `"unknown"` so Home Assistant marks the tracker unavailable. Set `false` to skip the update and leave the last reported coordinates in place |
 | `gps_accuracy` | | Float or `!lambda`, meters. Home Assistant uses it when deciding zone membership |
 | `icon` | | Same as every other platform |
 | `update_interval` | | Default `60s` |
