@@ -25,6 +25,7 @@ class WsBridgeTracker : public PollingComponent, public WsBridgeDevice {
     this->gps_accuracy_ = v;
     this->has_gps_accuracy_ = true;
   }
+  void set_report_unknown(bool report_unknown) { this->report_unknown_ = report_unknown; }
 
   void dump_config() override;
   void update() override;
@@ -39,6 +40,7 @@ class WsBridgeTracker : public PollingComponent, public WsBridgeDevice {
   TemplatableValue<float> longitude_{};
   TemplatableValue<float> gps_accuracy_{};
   bool has_gps_accuracy_{false};
+  bool report_unknown_{true};
 };
 
 }  // namespace ws_bridge

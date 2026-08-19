@@ -23,6 +23,7 @@ CONF_ON_DECLARE = "on_declare"
 
 CONF_TRACKERS = "trackers"
 CONF_GPS_ACCURACY = "gps_accuracy"
+CONF_REPORT_UNKNOWN = "report_unknown"
 CONF_UPDATE_ID = "update_id"
 CONF_BUTTON_ID = "button_id"
 CONF_SENSOR_ID = "sensor_id"

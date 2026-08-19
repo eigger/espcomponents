@@ -33,7 +33,8 @@ void WsBridgeTracker::publish_position_() {
   // serializes badly, or a zeroed pair, would put the device at 0,0 — a spot
   // in the Atlantic that Home Assistant can't tell apart from a real reading.
   if (std::isnan(lat) || std::isnan(lon)) {
-    this->parent_->send_state_string(this->unique_id_, "unknown");
+    if (this->report_unknown_)
+      this->parent_->send_state_string(this->unique_id_, "unknown");
     return;
   }
   this->parent_->send_state_object(this->unique_id_, [this, lat, lon](JsonObject value) {

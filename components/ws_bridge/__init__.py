@@ -52,6 +52,7 @@ from .const import (
     CONF_ON_DECLARE,
     CONF_TRACKERS,
     CONF_GPS_ACCURACY,
+    CONF_REPORT_UNKNOWN,
     CONF_PING_INTERVAL,
     CONF_PONG_TIMEOUT,
     CONF_RECONNECT_TIMEOUT,
@@ -90,6 +91,7 @@ TRACKER_SCHEMA = cv.Schema(
         cv.Required(CONF_LATITUDE): cv.templatable(cv.float_),
         cv.Required(CONF_LONGITUDE): cv.templatable(cv.float_),
         cv.Optional(CONF_GPS_ACCURACY): cv.templatable(cv.float_),
+        cv.Optional(CONF_REPORT_UNKNOWN, default=True): cv.boolean,
     }
 ).extend(cv.polling_component_schema("60s"))
 
@@ -350,6 +352,7 @@ async def to_code(config):
         if CONF_GPS_ACCURACY in conf:
             acc_template = await cg.templatable(conf[CONF_GPS_ACCURACY], [], cg.float_)
             cg.add(tracker.set_gps_accuracy(acc_template))
+        cg.add(tracker.set_report_unknown(conf[CONF_REPORT_UNKNOWN]))
 
     for conf in config.get(CONF_ENTITIES, []):
         await to_code_entity_ref(var, conf)

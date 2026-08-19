@@ -49,6 +49,12 @@ ws_bridge:
       longitude: !lambda return 126.9780;
       gps_accuracy: 8
       update_interval: 30s
+    - unique_id: car_location_stale
+      name: "Car Location (keep last fix)"
+      latitude: !lambda return NAN;
+      longitude: !lambda return NAN;
+      report_unknown: false
+      update_interval: 30s
   # Exposes existing, locally-declared entities (below) without a parallel
   # `platform: ws_bridge` entity per value — see the README's "Exposing
   # existing entities" section. unique_id/name default to the source's own
