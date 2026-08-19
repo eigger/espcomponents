@@ -28,10 +28,12 @@ void WsBridgeTracker::ws_bridge_declare() {
 void WsBridgeTracker::publish_position_() {
   float lat = this->latitude_.value();
   float lon = this->longitude_.value();
-  // No fix yet, or the source sensor has no state. Report the position as
-  // explicitly unknown rather than sending the coordinates anyway: a NaN that
-  // serializes badly, or a zeroed pair, would put the device at 0,0 — a spot
-  // in the Atlantic that Home Assistant can't tell apart from a real reading.
+  // No fix yet, or the source sensor has no state. Never send the coordinates
+  // anyway: a NaN that serializes badly, or a zeroed pair, would put the
+  // device at 0,0 — a spot in the Atlantic that Home Assistant can't tell
+  // apart from a real reading. When report_unknown_ is true, send "unknown" so
+  // HA marks the tracker unavailable; otherwise skip the update and leave the
+  // last reported coordinates in place.
   if (std::isnan(lat) || std::isnan(lon)) {
     if (this->report_unknown_)
       this->parent_->send_state_string(this->unique_id_, "unknown");
