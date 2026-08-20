@@ -1,26 +1,40 @@
 # Colorado Tab5 Dashboard
 
-ESPHome configuration for a vehicle dashboard based on the ESP32-P4 EV Board (`esp32-p4-evboard`). This dashboard provides real-time vehicle telemetry via an OBD2 Bluetooth adapter, climate tracking using BLE sensors, and air quality monitoring.
+ESPHome configuration for a vehicle dashboard based on the M5Stack Core TAB5 (ESP32-P4 + ESP32-C6). This dashboard provides real-time vehicle telemetry via an OBD2 Bluetooth adapter, high-precision GNSS tracking, vehicle inclinometer (pitch/roll), cabin & cargo climate tracking using BLE sensors, and comprehensive air quality monitoring (CO2 & TVOC).
 
 ## Preview
 
-| 1. M5Stack Tab5 | 2. vLinker BLE OBD2 Adapter | 3. Jaalee JHT BLE Sensor |
-| :---: | :---: | :---: |
-| <img src="../../../documents/colorado/1.png" width="200" alt="M5Stack Tab5"> | <img src="../../../documents/colorado/2.jpg" width="300" alt="vLinker BLE OBD2"> | <img src="../../../documents/colorado/3.png" width="300" alt="Jaalee JHT"> |
+### In-Vehicle Dashboard
+<p align="center">
+  <img src="../../../documents/colorado/dash.jpg" width="720" alt="Colorado Tab5 In-Vehicle Dashboard">
+</p>
 
-### 4. Comprehensive Dashboard Results
-| 4 | 5 |
+### Hardware Assembly
+| Front View (Tab5 & GPS Antenna) | Rear View (Module GNSS, Unit HUB, SCD40, SGP30) |
 | :---: | :---: |
-| <img src="../../../documents/colorado/4.jpg" width="400" alt="Comprehensive Results 4"> | <img src="../../../documents/colorado/5.jpg" width="400" alt="Comprehensive Results 5"> |
+| <img src="../../../documents/colorado/assembly_front.jpg" width="360" alt="Colorado Tab5 Assembly Front"> | <img src="../../../documents/colorado/assembly_rear.jpg" width="360" alt="Colorado Tab5 Assembly Rear"> |
+
+### Hardware Components
+
+| 1. M5Stack Core TAB5 | 2. Vgate vLinker MC+ BLE | 3. M5Stack Module GNSS | 4. Jaalee JHT BLE Sensor |
+| :---: | :---: | :---: | :---: |
+| <img src="../../../documents/colorado/tab5.webp" width="200" alt="M5Stack Core TAB5"> | <img src="../../../documents/colorado/vlinker.jpg" width="200" alt="vLinker MC+ BLE OBD2"> | <img src="../../../documents/colorado/gnss.webp" width="200" alt="M5Stack Module GNSS"> | <img src="../../../documents/colorado/jaalee.png" width="200" alt="Jaalee JHT BLE Sensor"> |
+
+| 5. M5Stack Unit CO2 (SCD40) | 6. M5Stack Unit TVOC (SGP30) | 7. M5Stack Unit HUB (1-to-3) |
+| :---: | :---: | :---: |
+| <img src="../../../documents/colorado/co2.webp" width="200" alt="M5Stack Unit CO2 (SCD40)"> | <img src="../../../documents/colorado/tvoc.webp" width="200" alt="M5Stack Mini Unit TVOC/eCO2 (SGP30)"> | <img src="../../../documents/colorado/hub.webp" width="200" alt="M5Stack Unit HUB 1 to 3"> |
 
 ## Features
 
-- **Vehicle Telemetry**: Integrates with the custom [ble_elm327](/components/ble_elm327) component to connect to a vLinker BLE OBD2 adapter, exposing Engine RPM, Coolant Temperature, Fuel Level (% and GM liters), Engine Load, Speed, Odometer, Gear Position, PRND, and Runtime as native ESPHome sensors.
-- **Climate Monitoring**: Tracks cabin and cargo-bed (적재함) temperature/humidity using the custom [jaalee_jht](/components/jaalee_jht) BLE component.
-- **Air Quality**: Monitors CO2, eCO2, and TVOC using onboard SCD4x and SGP30 I2C sensors.
-- **Dynamic UI**: LVGL-based UI with dynamic color changes based on sensor values and pop-up alerts for critical conditions (e.g., Overheating, High RPM, Low Fuel, Speeding, Drowsiness Warning via High CO2).
+- **Live Vehicle Dashboard**: High-resolution (1280x720) LVGL UI featuring real-time speedometer, gear/PRND indicator, dynamic gauge bars, pitch/roll inclinometer with vehicle tilt icons, and intelligent warning popups (e.g., Drowsiness Warning on high CO2, Overheating, High RPM, Low Fuel, Rapid Acceleration/Braking).
+- **Vehicle Telemetry (OBD2)**: Integrates with the custom [ble_elm327](/components/ble_elm327) component to connect to a Vgate vLinker MC+ BLE OBD2 adapter, exposing Engine RPM, Speed, Engine Load, Coolant Temperature, Transmission Fluid Temperature, Oil Pressure, Intake Air Temperature, Fuel Level (% and GM liters), Car Battery Voltage, Odometer, Trip Distance, Gear Position, PRND status, and Runtime.
+- **GNSS & Location Tracking**: Integrates the M5Stack Module GNSS (NEO-M9N-00B) via UART and BMP280 barometer via I2C, providing real-time GPS coordinates, speed, altitude, satellite count, HDOP, and Home Assistant `device_tracker` integration.
+- **Vehicle Inclinometer**: Real-time vehicle pitch and roll angles calculated dynamically using the onboard 6-axis BMI270 IMU sensor.
+- **Climate Monitoring**: Tracks cabin and cargo-bed (적재함) temperature, humidity, and battery levels using the custom [jaalee_jht](/components/jaalee_jht) BLE component.
+- **Air Quality & Health Safety**: Monitors CO2, eCO2, and TVOC using Sensirion SCD40 and SGP30 I2C sensors connected via the M5Stack Unit HUB, providing real-time cabin air status and drowsiness alerts.
 - **Power Management**: Monitors power consumption using INA226 and controls power peripherals (USB power, Quick Charge, Speakers, etc.) via PI4IOE5V6408 I2C GPIO expanders.
-- **Home Assistant Real-time Sync**: Outbound WebSocket bridge via [ws_bridge](/components/ws_bridge) component, pushing 25+ telemetry and environmental entities directly to Home Assistant without needing an MQTT broker or VPN.
+- **Home Assistant Real-time Sync**: Outbound WebSocket bridge via [ws_bridge](/components/ws_bridge) component, pushing 30+ telemetry, GNSS, environmental, and diagnostic entities directly to Home Assistant without needing an MQTT broker or VPN.
+- **Garage Integration**: Seamless integration with [hass-garage](https://github.com/eigger/hass-garage) and [Garage](https://github.com/eigger/garage) server for automatic trip logging, fuel tracking, maintenance intervals, and parking location sync.
 
 ## Configuration Usage
 
@@ -50,10 +64,12 @@ The dashboard connects directly to Home Assistant's `/api/websocket` endpoint ov
 - **No MQTT / No VPN Needed**: Outbound WSS connection works seamlessly across mobile hotspots, home Wi-Fi, or remote tunnels (e.g., Nabu Casa / Cloudflare).
 - **Persistent State**: With `keep_last_state_on_disconnect: true`, vehicle telemetry remains visible in Home Assistant even when the vehicle is parked and offline.
 - **Auto Entity Pruning**: `sync_entities: true` automatically removes old or renamed entities on connection while preserving history and long-term statistics.
-- **Synchronized Entities (25+)**:
+- **Synchronized Entities (30+)**:
   - **Vehicle Telemetry**: Speed, RPM, Engine Load, Throttle, Acceleration, Gear, PRND, Oil Pressure, Coolant Temp, Transmission Fluid Temp, Intake/Ambient Temp, Fuel Level (% & Liters), Odometer, Trip Distance, Engine Runtime, and Car Battery Voltage.
+  - **GNSS & Location**: GPS Latitude & Longitude (`device_tracker`), GPS Speed, Altitude, Satellites Count, HDOP, Barometric Pressure & Temperature (BMP280).
+  - **Inclinometer**: Vehicle Pitch and Roll angles (°).
   - **Cabin & Cargo Climate**: Jaalee JHT temperature, humidity, and battery levels for both cabin and cargo bed (적재함).
-  - **Air Quality**: SCD40 CO2/temp/humidity, SGP30 eCO2 & TVOC, and internal device temperatures.
+  - **Air Quality**: SCD40 CO2/temp/humidity, SGP30 eCO2 & TVOC.
   - **Firmware Update**: Exposes the `ota_update` entity as a native Home Assistant Update card with one-click install.
 
 ## OTA Updates (ESPHome OTA Publisher)
@@ -161,22 +177,30 @@ M5Stack Tab5 routes BLE through an ESP32-C6 co-processor. Include `esp32_hosted`
 ## Hardware Configurations
 
 ### Main Board
-- **Board**: `esp32-p4-evboard`
-- **I2C Bus (Internal)**: SDA GPIO31, SCL GPIO32
-- **I2C Bus (External)**: SDA GPIO53, SCL GPIO54
+- **Board**: M5Stack Core TAB5 (`esp32-p4-evboard` + ESP32-C6 Hosted BLE/WiFi)
+- **Display**: 5.0" 1280x720 IPS Capacitive Touch LCD (MIPI-DSI ST7703 + FT5x06)
+- **I2C Bus (Internal / `bsp_bus`)**: SDA GPIO31, SCL GPIO32 (400kHz)
+- **I2C Bus (External Port.A / `ext_bus`)**: SDA GPIO53, SCL GPIO54 (100kHz)
+
+### GNSS & Expansion Modules
+- **GNSS Module**: M5Stack Module GNSS (NEO-M9N-00B on UART RX GPIO51 / TX GPIO47, PPS GPIO16)
+- **Barometer / Altimeter**: BMP280 on internal I2C bus (`bsp_bus`, address `0x76`)
+- **I2C Expansion**: M5Stack Unit HUB (HY2.0-4P 1-to-3 Hub connected to Port.A `ext_bus`)
+- **CO2 Sensor**: M5Stack Unit CO2 (Sensirion SCD40, I2C address `0x62` on `ext_bus`)
+- **TVOC / eCO2 Sensor**: M5Stack Mini Unit TVOC/eCO2 (Sensirion SGP30, I2C address `0x58` on `ext_bus`)
 
 ### BLE Devices
 Configure your device MAC addresses via `substitutions` variables as shown in the Configuration Usage.
-- **OBD2 BLE Adapter**: `vLinker` (`mac_vlinker`)
-- **Cabin Climate Sensor**: `Jaalee JHT` (`mac_cabin_jht`)
-- **Cargo Bed Climate Sensor**: `Jaalee JHT` (`mac_bed_jht`, UI label 적재함)
+- **OBD2 BLE Adapter**: Vgate vLinker MC+ (`mac_vlinker`)
+- **Cabin Climate Sensor**: Jaalee JHT BLE Beacon (`mac_cabin_jht`)
+- **Cargo Bed Climate Sensor**: Jaalee JHT BLE Beacon (`mac_bed_jht`, UI label 적재함)
 - **External Sensors**: Parses `035D` Manufacturer Data (e.g., parking remote / sensors)
 
-### Sensors & ICs
-- **PI4IOE5V6408 (I2C 0x43, 0x44)**: GPIO Expansion handling USB power, Quick charge, external 5V, speaker enable, WiFi antenna switching, charge status, and headphone detection.
-- **INA226 (I2C 0x41)**: Battery voltage and current monitoring.
-- **SGP30 (I2C 0x58)**: eCO2 and TVOC air quality monitoring.
-- **SCD4x**: High accuracy CO2 concentration, temp, and humidity polling.
+### Onboard ICs & Peripherals
+- **PI4IOE5V6408 (I2C `0x43`, `0x44`)**: GPIO Expansion handling USB power, Quick charge, external 5V, speaker enable, WiFi antenna switching, charge status, and headphone detection.
+- **INA226 (I2C `0x41`)**: Battery voltage, bus current, and power monitoring.
+- **BMI270 (I2C `0x68`)**: 6-axis IMU (Accelerometer & Gyroscope) for vehicle pitch and roll orientation calculation.
+- **RX8130CE (I2C `0x32`)**: Real-Time Clock with backup battery support.
 
 ## Garage Integration (`hass-garage`)
 

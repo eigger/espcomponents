@@ -1,3 +1,4 @@
+
 .helpers:
   ver: &version !lambda 'return std::string(ESPHOME_PROJECT_VERSION);'
 
@@ -61,8 +62,6 @@ logger:
   level: DEBUG
   baud_rate: 921600
 
-safe_mode:
-
 time:
   - platform: sntp
     id: sntp_time
@@ -122,6 +121,7 @@ ws_bridge:
   trackers:
     - name: "${friendly_name} Tracker"
       unique_id: "${name}_tracker"
+      report_unknown: false
       latitude: !lambda 'return id(id_gps_latitude).state;'
       longitude: !lambda 'return id(id_gps_longitude).state;'
       gps_accuracy: !lambda |-
@@ -316,6 +316,17 @@ gps:
     name: "GPS Satellites"
     id: id_gps_satellites
     internal: true
+    on_value:
+      then:
+        - if:
+            condition:
+              lambda: 'return x >= 4;'
+            then:
+              - lvgl.widget.show:
+                  id: lbl_satellite
+            else:
+              - lvgl.widget.hide:
+                  id: lbl_satellite
   hdop:
     name: "GPS HDOP"
     id: id_gps_hdop
@@ -361,6 +372,32 @@ globals:
     restore_value: yes
     initial_value: '0.0'
   - id: g_logs_visible
+    type: bool
+    initial_value: 'false'
+  # ── 발전기 저전압 지속시간 추적 (RVC 연비모드 오탐 방지: 순간전압이 아닌 지속시간으로 실고장 판정)
+  - id: alt_low_since_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  # ── OTA 업데이트 상태 추적 ──
+  - id: g_latest_version
+    type: std::string
+    initial_value: '""'
+  - id: g_update_available
+    type: bool
+    initial_value: 'false'
+  - id: g_update_alert_dismissed
+    type: bool
+    initial_value: 'false'
+  # 현재 표시 중인 팝업이 차량 경고가 아닌 업데이트 안내인지 (닫기 클릭 시 어느 dismiss 플래그를 세울지 판단)
+  - id: g_alert_is_update
+    type: bool
+    initial_value: 'false'
+  - id: g_updating
+    type: bool
+    initial_value: 'false'
+  # 수동 "업데이트 확인" 진행 중 여부 (버튼 중복 클릭/중복 요청 방지)
+  - id: g_checking
     type: bool
     initial_value: 'false'
   # ── 텍스트 색상 함수 (버그 수정: mode 8/10 분리)
@@ -411,7 +448,11 @@ globals:
            if (val <= 5.0f) return c_gray; // 무효값/연결불가 (회색)
            bool engine_on = !isnan(id(engine_rpm).state) && id(engine_rpm).state >= 400.0f;
            if (engine_on) { // 시동 후 (발전기 동작 중)
-             if (val < 12.8f) return c_red;         // 발전기 미충전
+             if (val < 12.8f) {
+               // RVC 연비모드는 순간적으로 이 구간에 들어올 수 있으므로, 3분 이상 지속될 때만 실고장(빨강)으로 판정
+               bool sustained = id(alt_low_since_ms) != 0 && (esphome::millis() - id(alt_low_since_ms) >= 180000);
+               return sustained ? c_red : c_orange;   // 발전기 미충전(지속) / 일시적 저전압(RVC 가능성)
+             }
              else if (val < 13.2f) return c_orange; // 충전전압 낮음
              else if (val <= 14.85f) return c_white;  // 정상 충전 범위 (13.2V~14.8V)
              else if (val <= 15.0f) return c_orange; // 충전전압 높음
@@ -464,11 +505,25 @@ globals:
            else if (val <= 150) return c_white;
            else if (val <= 300) return c_orange;
            return c_red;
-          } else if (mode == 20) { // 배터리 충전율(SOC) %
-            if (val > 100) return c_red;          // 100% 초과: 과충전 (빨강)
-            else if (val < 25) return c_red;     // 25% 미만: 충전율 심각 부족 (빨강)
-            else if (val < 50) return c_orange;  // 25%~50%: 충전율 낮음 (주황)
-            return c_yellow;                     // 일반 정상 범위 50%~100% (골드)
+          } else if (mode == 20) { // 배터리 충전율(SOC)/잔량 — 색상은 mode 7과 동일한 전압 임계값 기준, 정상=골드 유지
+            float bat = id(car_battery).state;
+            if (isnan(bat) || bat <= 5.0f) return c_gray;
+            bool engine_on = !isnan(id(engine_rpm).state) && id(engine_rpm).state >= 400.0f;
+            if (engine_on) { // 시동 중 (충전율)
+              if (bat < 12.8f) {
+                bool sustained = id(alt_low_since_ms) != 0 && (esphome::millis() - id(alt_low_since_ms) >= 180000);
+                return sustained ? c_red : c_orange;  // 발전기 미충전(지속) / 일시적 저전압(RVC 가능성)
+              }
+              else if (bat < 13.2f) return c_orange;  // 충전전압 낮음
+              else if (bat <= 14.85f) return c_yellow; // 정상 충전 (골드)
+              else if (bat <= 15.0f) return c_orange; // 충전전압 높음
+              return c_red;                           // 과충전
+            } else { // 시동 전 (잔량)
+              if (bat < 11.8f) return c_red;          // 방전 위험
+              else if (bat < 12.0f) return c_orange;  // 저전압
+              else if (bat <= 13.5f) return c_yellow; // 정상 (골드)
+              return c_red;                           // 전압 이상 (고전압)
+            }
           }
          return c_white;
       }
@@ -829,10 +884,16 @@ sensor:
             }
             float soc = 0.0f;
             bool engine_on = !isnan(id(engine_rpm).state) && id(engine_rpm).state >= 400.0f;
+            // 발전기 저전압 지속시간 추적: 시동 중 12.8V 미만이 시작된 시각을 기록, 벗어나면 리셋
+            if (engine_on && x < 12.8f) {
+              if (id(alt_low_since_ms) == 0) id(alt_low_since_ms) = esphome::millis();
+            } else {
+              id(alt_low_since_ms) = 0;
+            }
             if (engine_on) {
-              // 시동 중: 알터네이터 충전 강도/충전율 (12.8V ~ 14.8V -> 0% ~ 100%)
+              // 시동 중: 알터네이터 충전 강도/충전율 (12.8V ~ 15.0V -> 0% ~ 100%, mode 7 정상 상한과 정렬)
               if (x <= 12.8f) soc = 0.0f;
-              else soc = (x - 12.8f) / 2.0f * 100.0f;
+              else soc = (x - 12.8f) / 2.2f * 100.0f;
             } else {
               // 시동 전: 12V 배터리 자체 잔량 (11.7V ~ 12.7V -> 0% ~ 100%)
               if (x <= 11.7f) soc = 0.0f;
@@ -1326,11 +1387,23 @@ sensor:
               return (std::abs(id(g_pitch_offset)) > 0.0001f) ? lv_color_hex(0xF1C36C) : lv_color_hex(0x7F8EA3);
 
 interval:
-  # ── 경고 팝업 제어 (1초 주기)
+  # ── OTA 업데이트 상태 주기적 확인 (5초 주기) ──
+  - interval: 5s
+    then:
+      - lambda: |-
+          const auto st = id(ota_update).state;
+          if (st == update::UPDATE_STATE_UNKNOWN || st == update::UPDATE_STATE_INSTALLING) return;
+          bool has_up = (st == update::UPDATE_STATE_AVAILABLE);
+          std::string latest_ver = id(ota_update).update_info.latest_version;
+          if (has_up != id(g_update_available) || latest_ver != id(g_latest_version)) {
+            id(script_set_update_available).execute(latest_ver, has_up);
+          }
+
+  # ── 경고 팝업 제어 (1초 주기) ──
   - interval: 1s
     then:
       - lambda: |-
-          bool a = false;
+          bool car_alert = false;
           std::string msg = "";
           uint32_t color_hex = 0xD9720A;
 
@@ -1339,31 +1412,55 @@ interval:
           bool engine_on = !isnan(rpm) && rpm >= 400.0f;
           bool bat_valid = !isnan(bat) && bat > 5.0f;
 
-          if (!isnan(id(car_speed).state) && id(car_speed).state > 110) { msg = "과속 주의!"; a = true; color_hex = 0xA0190F; }
-          else if (!isnan(id(id_scd40_co2).state) && id(id_scd40_co2).state > 2500) { msg = "졸음 경고!"; a = true; color_hex = 0xA0190F; }
-          else if (!isnan(id(id_scd40_co2).state) && id(id_scd40_co2).state > 1500) { msg = "졸음 주의!"; a = true; color_hex = 0xD9720A; }
-          else if (!isnan(id(id_sgp30_tvoc).state) && id(id_sgp30_tvoc).state > 5000) { msg = "가스 주의!"; a = true; color_hex = 0xD9720A; }
-          else if (!isnan(id(id_sgp30_tvoc).state) && id(id_sgp30_tvoc).state > 3333) { msg = "환기 필요!"; a = true; color_hex = 0xD9720A; }
-          else if (!isnan(id(car_acceleration).state) && id(car_acceleration).state > 9.0) { msg = "급가속!"; a = true; color_hex = 0xA0190F; }
-          else if (!isnan(id(car_acceleration).state) && id(car_acceleration).state < -9.0) { msg = "급감속!"; a = true; color_hex = 0xA0190F; }
-          else if (!isnan(id(engine_load).state) && id(engine_load).state > 95) { msg = "엔진 과부하!"; a = true; color_hex = 0xD9720A; }
-          else if (!isnan(id(id_tab5_internal_temperature).state) && id(id_tab5_internal_temperature).state > 70) { msg = "장치 과열!"; a = true; color_hex = 0xA0190F; }
-          else if (bat_valid && engine_on && bat < 12.8f) { msg = "발전기 미충전!"; a = true; color_hex = 0xA0190F; }
-          else if (bat_valid && engine_on && bat > 15.0f) { msg = "배터리 과충전!"; a = true; color_hex = 0xA0190F; }
-          else if (bat_valid && !engine_on && bat < 11.8f) { msg = "배터리 방전 위험!"; a = true; color_hex = 0xA0190F; }
-          else if (bat_valid && !engine_on && bat > 13.5f) { msg = "시동전 전압 이상!"; a = true; color_hex = 0xA0190F; }
-          else if (bat_valid && engine_on && bat < 13.2f) { msg = "충전전압 낮음!"; a = true; color_hex = 0xD9720A; }
-          else if (bat_valid && engine_on && bat > 14.85f) { msg = "충전전압 높음!"; a = true; color_hex = 0xD9720A; }
-          else if (bat_valid && !engine_on && bat < 12.0f) { msg = "배터리 전압 낮음!"; a = true; color_hex = 0xD9720A; }
-          else if (!isnan(id(fuel_level).state) && id(fuel_level).state < 10) { msg = "주유 필요!"; a = true; color_hex = 0xD9720A; }
+          if (!isnan(id(car_speed).state) && id(car_speed).state > 110) { msg = "과속 주의!"; car_alert = true; color_hex = 0xA0190F; }
+          else if (!isnan(id(id_scd40_co2).state) && id(id_scd40_co2).state > 2500) { msg = "졸음 경고!"; car_alert = true; color_hex = 0xA0190F; }
+          else if (!isnan(id(id_scd40_co2).state) && id(id_scd40_co2).state > 1500) { msg = "졸음 주의!"; car_alert = true; color_hex = 0xD9720A; }
+          else if (!isnan(id(id_sgp30_tvoc).state) && id(id_sgp30_tvoc).state > 5000) { msg = "가스 주의!"; car_alert = true; color_hex = 0xD9720A; }
+          else if (!isnan(id(id_sgp30_tvoc).state) && id(id_sgp30_tvoc).state > 3333) { msg = "환기 필요!"; car_alert = true; color_hex = 0xD9720A; }
+          else if (!isnan(id(car_acceleration).state) && id(car_acceleration).state > 9.0) { msg = "급가속!"; car_alert = true; color_hex = 0xA0190F; }
+          else if (!isnan(id(car_acceleration).state) && id(car_acceleration).state < -9.0) { msg = "급감속!"; car_alert = true; color_hex = 0xA0190F; }
+          else if (!isnan(id(engine_load).state) && id(engine_load).state > 95) { msg = "엔진 과부하!"; car_alert = true; color_hex = 0xD9720A; }
+          else if (!isnan(id(id_tab5_internal_temperature).state) && id(id_tab5_internal_temperature).state > 70) { msg = "장치 과열!"; car_alert = true; color_hex = 0xA0190F; }
+          else if (bat_valid && engine_on && bat < 12.8f && id(alt_low_since_ms) != 0 && (esphome::millis() - id(alt_low_since_ms) >= 180000)) { msg = "발전기 미충전!"; car_alert = true; color_hex = 0xA0190F; }
+          else if (bat_valid && engine_on && bat > 15.0f) { msg = "배터리 과충전!"; car_alert = true; color_hex = 0xA0190F; }
+          else if (bat_valid && !engine_on && bat < 11.8f) { msg = "배터리 방전 위험!"; car_alert = true; color_hex = 0xA0190F; }
+          else if (bat_valid && !engine_on && bat > 13.5f) { msg = "시동전 전압 이상!"; car_alert = true; color_hex = 0xA0190F; }
+          else if (bat_valid && engine_on && bat < 13.2f) { msg = "충전전압 낮음!"; car_alert = true; color_hex = 0xD9720A; }
+          else if (bat_valid && engine_on && bat > 14.85f) { msg = "충전전압 높음!"; car_alert = true; color_hex = 0xD9720A; }
+          else if (bat_valid && !engine_on && bat < 12.0f) { msg = "배터리 전압 낮음!"; car_alert = true; color_hex = 0xD9720A; }
+          else if (!isnan(id(fuel_level).state) && id(fuel_level).state < 10) { msg = "주유 필요!"; car_alert = true; color_hex = 0xD9720A; }
           else if (id(parking_info).has_state() && id(parking_info).state.length() > 0 && id(parking_info).state != "unknown" && id(parking_info).state != "off") {
             msg = id(parking_info).state;
-            a = true;
+            car_alert = true;
             color_hex = 0x2864C8;
           }
 
-          id(alert_active) = a;
-          if (!a) id(alert_dismissed) = false;
+          // 새로운 차량 경고가 발생했거나 변경되었으면 차량 경고 dismiss를 자동으로 리셋
+          static std::string last_car_msg = "";
+          if (msg != last_car_msg) {
+            if (car_alert) {
+              id(alert_dismissed) = false;
+            }
+            last_car_msg = msg;
+          }
+
+          if (!car_alert) {
+            id(alert_dismissed) = false; // 차량 경고 해소 시 dismiss 리셋
+            // 차량 경고가 없을 때만 독립된 플래그(g_update_alert_dismissed)로 업데이트 알림 검사
+            if (id(g_update_available) && !id(g_update_alert_dismissed)) {
+              if (!id(g_latest_version).empty()) {
+                msg = "새 버전 " + id(g_latest_version) + " 업데이트 가능!";
+              } else {
+                msg = "새 업데이트 가능!";
+              }
+              color_hex = 0x2864C8;
+            }
+          }
+
+          bool is_update_msg = !car_alert && !msg.empty();
+          id(g_alert_is_update) = is_update_msg;
+          bool show_popup = (!msg.empty()) && (car_alert ? !id(alert_dismissed) : !id(g_update_alert_dismissed));
+          id(alert_active) = show_popup;
 
           std::string level = "주의";
           if (color_hex == 0xA0190F) level = "경고";
@@ -1384,7 +1481,7 @@ interval:
           }
       - if:
           condition:
-            lambda: 'return id(alert_active) && !id(alert_dismissed);'
+            lambda: 'return id(alert_active);'
           then:
             - lvgl.widget.show:
                 id: popup_alert
@@ -1399,7 +1496,7 @@ interval:
                 bg_color: !lambda 'return lv_color_hex(id(g_alert_color));'
       - if:
           condition:
-            lambda: 'return !id(alert_active) || id(alert_dismissed);'
+            lambda: 'return !id(alert_active);'
           then:
             - lvgl.widget.hide:
                 id: popup_alert
@@ -1723,14 +1820,23 @@ lvgl:
                 align: left_mid
                 x: 160
                 y: 0
-            - label:
-                id: lbl_version
-                text: *version
+            - image:
+                src: img_satellite
+                id: lbl_satellite
+                hidden: true
+                image_recolor: 0xF1C36C
+                image_recolor_opa: 100%
                 align: left_mid
                 x: 225
                 y: 0
-                text_color: 0x7F8EA3
-                text_font: notosans20
+            #- label:
+            #    id: lbl_version
+            #    text: *version
+            #    align: left_mid
+            #    x: 290
+            #    y: 0
+            #    text_color: 0x7F8EA3
+            #    text_font: notosans20
             - label:
                 id: lbl_date
                 hidden: true
@@ -1777,7 +1883,11 @@ lvgl:
                 on_click:
                   then:
                     - lambda: |-
-                        id(alert_dismissed) = true;
+                        if (id(g_alert_is_update)) {
+                          id(g_update_alert_dismissed) = true;
+                        } else {
+                          id(alert_dismissed) = true;
+                        }
                         id(script_logs).execute("ALERT: Dismissed");
                     - lvgl.widget.hide:
                         id: popup_alert
@@ -2444,13 +2554,13 @@ lvgl:
                         text: "화면 밝기"
                         align: top_left
                         x: 10
-                        y: 20
+                        y: 15
                         text_color: 0x7F8EA3
-                        text_font: notosans30
+                        text_font: notosans25
                     - slider:
                         id: slider_backlight
                         align: top_mid
-                        y: 75
+                        y: 55
                         width: 240
                         height: 20
                         min_value: 10
@@ -2472,9 +2582,9 @@ lvgl:
                     - button:
                         id: btn_reset_calibration
                         align: top_mid
-                        y: 135
+                        y: 105
                         width: 250
-                        height: 65
+                        height: 54
                         bg_color: 0x2A3542
                         radius: 8
                         border_width: 0
@@ -2489,13 +2599,13 @@ lvgl:
                               text: "기울기 보정 초기화"
                               align: center
                               text_color: 0xFFFFFF
-                              text_font: notosans30
+                              text_font: notosans25
                     - button:
                         id: btn_clear_logs
                         align: top_mid
-                        y: 220
+                        y: 175
                         width: 250
-                        height: 65
+                        height: 54
                         bg_color: 0x2A3542
                         radius: 8
                         border_width: 0
@@ -2509,13 +2619,84 @@ lvgl:
                               text: "로그 기록 지우기"
                               align: center
                               text_color: 0xFFFFFF
-                              text_font: notosans30
+                              text_font: notosans25
+                    - obj:
+                        align: top_mid
+                        y: 250
+                        width: 250
+                        height: 168
+                        bg_color: 0x141C26
+                        border_width: 1
+                        border_color: 0x1E2A38
+                        radius: 8
+                        pad_all: 8
+                        scrollbar_mode: "OFF"
+                        scrollable: false
+                        widgets:
+                          - label:
+                              text: "현재 버전"
+                              align: top_left
+                              x: 8
+                              y: 6
+                              text_color: 0x7F8EA3
+                              text_font: notosans20
+                          - label:
+                              id: lbl_menu_curr_ver
+                              text: *version
+                              align: top_right
+                              x: -8
+                              y: 6
+                              text_color: 0xE8EEF7
+                              text_font: notosans20
+                          - label:
+                              text: "최신 상태"
+                              align: top_left
+                              x: 8
+                              y: 38
+                              text_color: 0x7F8EA3
+                              text_font: notosans20
+                          - label:
+                              id: lbl_menu_latest_ver
+                              text: "최신 버전"
+                              align: top_right
+                              x: -8
+                              y: 38
+                              text_color: 0x28C840
+                              text_font: notosans20
+                          - button:
+                              id: btn_menu_update
+                              align: bottom_mid
+                              y: -6
+                              width: 230
+                              height: 50
+                              bg_color: 0x1E2A38
+                              radius: 6
+                              border_width: 0
+                              on_click:
+                                then:
+                                  - if:
+                                      condition:
+                                        lambda: 'return id(g_update_available) && !id(g_updating) && !id(g_checking);'
+                                      then:
+                                        - script.execute: script_perform_update
+                                  - if:
+                                      condition:
+                                        lambda: 'return !id(g_update_available) && !id(g_updating) && !id(g_checking);'
+                                      then:
+                                        - script.execute: script_check_update
+                              widgets:
+                                - label:
+                                    id: lbl_btn_menu_update
+                                    text: "최신 상태"
+                                    align: center
+                                    text_color: 0x506070
+                                    text_font: notosans25
                     - button:
                         id: btn_log_restart
                         align: bottom_mid
                         y: -20
                         width: 250
-                        height: 65
+                        height: 56
                         bg_color: 0xC85850
                         radius: 8
                         border_width: 0
@@ -2530,7 +2711,7 @@ lvgl:
                               text: "시스템 재시작"
                               align: center
                               text_color: 0xFFFFFF
-                              text_font: notosans30
+                              text_font: notosans25
 
 font:
   - file: "gfonts://Gothic+A1"
@@ -2538,7 +2719,7 @@ font:
     id: font_alert_title
     size: 28
   - file: "gfonts://Gothic+A1"
-    glyphs: '#()_-+@*/:;?!,.=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%실내외온습도기압가속냉각수부하배터리연료운행머버전번호판뚝엔진미션오일명주거력팬화면밝울보정초로그록지우시스템재작적함과의졸음경고환필요급감장치열유안신결류알림충점검발방위험동이상낮높'
+    glyphs: '#()_-+@*/:;?!,.=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%실내외온습도기압가속냉각수부하배터리연료운행머버전번호판뚝엔진미션오일명주거력팬화면밝울보정초로그록지우시스템재작적함과의졸음경고환필요급감장치열유안신결류알림충점검발방위험동이상낮높새업데트능'
     id: font_alert_msg
     size: 34
   - file: "gfonts://Noto+Sans+KR"
@@ -2546,15 +2727,15 @@ font:
     id: notosans16
     size: 16
   - file: "gfonts://Noto+Sans+KR"
-    glyphs: '#()_-+@*/:;?!,.=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%실내외온습도기압가속냉각수부하배터리연료운행머버전번호판뚝엔진미션오일명주거[]력팬스템을재시작겠니까예아소모율류로틀개량흡토크화면밝울보정초그록지우과의졸음경고환필요급감장치열유안'
+    glyphs: '#()_-+@*/:;?!,.=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%실내외온습도기압가속냉각수부하배터리연료운행머버전번호판뚝엔진미션오일명주거[]력팬스템을재시작겠니까예아소모율류로틀개량흡토크화면밝울보정초그록지우과의졸음경고환필요급감장치열유안현최신상태새발견업데이트있'
     id: notosans20
     size: 20
   - file: "gfonts://Noto+Sans+KR"
-    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%실내외온습도기압가속냉각수부하배터리연료운행머버전번호판뚝엔진미션오일명주거력팬화면밝울보정초로그록지우시스템재작적함과의졸음경고환필요급감장치열유'
+    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%실내외온습도기압가속냉각수부하배터리연료운행머버전번호판뚝엔진미션오일명주거력팬화면밝울보정초로그록지우시스템재작적함과의졸음경고환필요급감장치열유합겠니까예아업데이트최신상태중확인'
     id: notosans25
     size: 25
   - file: "gfonts://Noto+Sans+KR"
-    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%월화수목금토일머운행배터리충전율잔량냉각부하엔진과속주의졸음경고가스환기필요급감장치열유력팬템재시작겠습니까예아오면밝울보정로그록지우을초틀크압연료거미션온도흡자이발방위험동상낮높'
+    glyphs: '#()_-+@*/:;?!,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz°%월화수목금토일머운행배터리충전율잔량냉각부하엔진과속주의졸음경고가스환기필요급감장치열유력팬템재시작겠습니까예아오면밝울보정로그록지우을초틀크압연료거미션온도흡자이발방위험동상낮높업데트최신새능'
     id: notosans30
     size: 30
   - file: "gfonts://Noto+Sans+KR"
@@ -2611,6 +2792,11 @@ image:
   - platform: file
     file: mdi:bluetooth
     id: img_bluetooth
+    resize: 50x50
+    type: binary
+  - platform: file
+    file: mdi:crosshairs-gps
+    id: img_satellite
     resize: 50x50
     type: binary
   - platform: file
@@ -2738,3 +2924,98 @@ script:
               if (!temp.ends_with("\r\n")) str += "\r\n";
             }
             return str;
+  - id: script_check_update
+    # 기본 script mode(single): 이미 실행 중이면 재호출은 무시됨.
+    # 중복 실행 방지는 버튼 on_click 조건(!g_updating && !g_checking)에서도 이중으로 처리.
+    then:
+      - lambda: |-
+          id(g_checking) = true;
+          id(script_logs).execute("Checking for update...");
+      - lvgl.label.update:
+          id: lbl_btn_menu_update
+          text: "확인 중..."
+          text_color: 0x7F8EA3
+      - update.check: ota_update
+      # ── check()는 비동기(백그라운드 태스크 + defer)로 처리되므로, 결과 반영을
+      # 위해 짧게 대기 후 현재 상태를 강제로 다시 읽어 UI를 확정 ──
+      - delay: 8s
+      - lambda: |-
+          id(g_checking) = false;
+          const auto st = id(ota_update).state;
+          bool has_up = (st == update::UPDATE_STATE_AVAILABLE);
+          std::string latest_ver = id(ota_update).update_info.latest_version;
+          id(script_set_update_available).execute(latest_ver, has_up);
+  - id: script_set_update_available
+    parameters:
+      latest_ver: string
+      available: bool
+    then:
+      - lambda: |-
+          if (latest_ver != id(g_latest_version)) {
+            id(g_update_alert_dismissed) = false;
+          }
+          id(g_latest_version) = latest_ver;
+          id(g_update_available) = available;
+      - if:
+          condition:
+            lambda: 'return available;'
+          then:
+            - lvgl.label.update:
+                id: lbl_menu_latest_ver
+                text: !lambda |-
+                  return id(g_latest_version).empty() ? "새 버전 있음" : id(g_latest_version);
+                text_color: 0xF1C36C
+            - lvgl.widget.update:
+                id: btn_menu_update
+                bg_color: 0x1F6FEB
+            - lvgl.label.update:
+                id: lbl_btn_menu_update
+                text: "업데이트 실행"
+                text_color: 0xFFFFFF
+            - lambda: |-
+                id(script_logs).execute("Update Available: " + latest_ver);
+          else:
+            - lvgl.label.update:
+                id: lbl_menu_latest_ver
+                text: "최신 버전"
+                text_color: 0x28C840
+            - lvgl.widget.update:
+                id: btn_menu_update
+                bg_color: 0x1E2A38
+            - lvgl.label.update:
+                id: lbl_btn_menu_update
+                text: "최신 상태"
+                text_color: 0x506070
+  - id: script_perform_update
+    then:
+      - lambda: |-
+          id(g_updating) = true;
+          id(script_logs).execute("OTA Update Triggered...");
+      - lvgl.label.update:
+          id: lbl_btn_menu_update
+          text: "업데이트 중..."
+          text_color: 0xF1C36C
+      - lvgl.widget.update:
+          id: btn_menu_update
+          bg_color: 0x2A3542
+      # ── update.perform은 동기 실행되어 루프를 블로킹하므로, 버튼 텍스트가
+      # 화면에 실제로 그려질 시간을 한 프레임 확보 ──
+      - delay: 100ms
+      - update.perform: ota_update
+      # ── 타임아웃 안전 장치 (http_request timeout 60s보다 여유를 두고 90초 후에도
+      # 미완료 시 상태 롤백) ──
+      - delay: 90s
+      - if:
+          condition:
+            lambda: 'return id(g_updating);'
+          then:
+            - lambda: |-
+                id(g_updating) = false;
+                id(script_logs).execute("OTA Update Timeout / Not rebooted");
+            - script.execute:
+                id: script_set_update_available
+                latest_ver: !lambda 'return id(g_latest_version);'
+                available: !lambda 'return id(g_update_available);'
+
+packages:
+  ota: !include ota_server/devices/esp-colorado-tab5.yaml
