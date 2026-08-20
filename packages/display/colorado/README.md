@@ -86,13 +86,19 @@ To enable remote Over-The-Air (OTA) firmware updates via Home Assistant without 
 
 Make sure you have the following defined in your `secrets.yaml`:
 
-- `ota_password`
-- `colorado_wifi_ssid`
-- `colorado_wifi_password`
-- `wifi_ssid`
-- `wifi_password`
-- `ha_address`
-- `ha_token`
+```yaml
+# Vehicle Wi-Fi / Hotspot (Primary, priority 10)
+colorado_wifi_ssid: "your_vehicle_hotspot_ssid"
+colorado_wifi_password: "your_vehicle_hotspot_password"
+
+# Home / Backup Wi-Fi (Secondary, priority 5)
+wifi_ssid: "your_home_wifi_ssid"
+wifi_password: "your_home_wifi_password"
+
+# Home Assistant WebSocket Bridge (ws_bridge)
+ha_address: "homeassistant.yourdomain.com"
+ha_token: "your_long_lived_access_token"
+```
 
 
 ## ble_elm327 Setup (vLinker OBD2)
