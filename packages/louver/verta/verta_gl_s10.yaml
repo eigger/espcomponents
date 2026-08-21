@@ -1,0 +1,252 @@
+esp32:
+  board: esp32doit-devkit-v1
+  framework:
+    type: esp-idf
+
+# Ethernet configuration for GL-S10
+ethernet:
+  type: IP101
+  mdc_pin: GPIO23
+  mdio_pin: GPIO18
+  clk:
+    mode: CLK_EXT_IN
+    pin: 0
+  phy_addr: 1
+  power_pin: GPIO5
+
+# Wi-Fi STA connected to Verta Louver AP
+wifi:
+  ssid: "${verta_wifi_ssid}"
+  password: "${verta_wifi_password}"
+  fast_connect: true
+  power_save_mode: none
+  manual_ip:
+    static_ip: 172.217.28.100
+    gateway: 172.217.28.1
+    subnet: 255.255.255.0
+
+# Network interface priority (Ethernet as default gateway)
+network:
+  priority:
+    - ethernet
+    - wifi
+
+http_request:
+  verify_ssl: false
+  timeout: 5s
+
+# Interval polling (every 60s)
+interval:
+  - interval: 60s
+    then:
+      - script.execute: request_status
+      - script.execute: request_setup
+
+# Manual refresh button
+button:
+  - platform: template
+    name: "Louver Request Status"
+    icon: "mdi:refresh"
+    on_press:
+      - script.execute: request_status
+      - script.execute: request_setup
+
+number:
+  - platform: template
+    name: "Louver Vent Temperature"
+    id: louver_vent_temp
+    icon: "mdi:thermometer"
+    min_value: 0
+    max_value: 50
+    step: 1
+    unit_of_measurement: "°C"
+    optimistic: true
+    set_action:
+      - script.execute: status_led_on
+      - http_request.get:
+          url: !lambda |-
+            return ((std::string) "http://172.217.28.1/cmd/update?ventTemp=" + to_string((int)x)).c_str();
+          on_response:
+            then:
+              - script.execute: status_led_off
+          on_error:
+            then:
+              - script.execute: status_led_off
+
+  - platform: template
+    name: "Louver Vent Angle"
+    id: louver_vent_angle
+    icon: "mdi:angle-acute"
+    min_value: 0
+    max_value: 90
+    step: 5
+    unit_of_measurement: "°"
+    optimistic: true
+    set_action:
+      - script.execute: status_led_on
+      - http_request.get:
+          url: !lambda |-
+            return ((std::string) "http://172.217.28.1/cmd/update?ventAngle=" + to_string((int)x)).c_str();
+          on_response:
+            then:
+              - script.execute: status_led_off
+          on_error:
+            then:
+              - script.execute: status_led_off
+
+  - platform: template
+    name: "Louver Cool Angle"
+    id: louver_cool_angle
+    icon: "mdi:angle-acute"
+    min_value: 0
+    max_value: 90
+    step: 5
+    unit_of_measurement: "°"
+    optimistic: true
+    set_action:
+      - script.execute: status_led_on
+      - http_request.get:
+          url: !lambda |-
+            return ((std::string) "http://172.217.28.1/cmd/update?coolAngle=" + to_string((int)x)).c_str();
+          on_response:
+            then:
+              - script.execute: status_led_off
+          on_error:
+            then:
+              - script.execute: status_led_off
+
+sensor:
+  - platform: template
+    name: "Louver Angle"
+    id: louver_angle
+    icon: "mdi:angle-acute"
+    unit_of_measurement: "°"
+    accuracy_decimals: 0
+
+  - platform: template
+    name: "Louver Temperature"
+    id: louver_temperature
+    icon: "mdi:thermometer"
+    device_class: "temperature"
+    state_class: "measurement"
+    unit_of_measurement: "°C"
+    accuracy_decimals: 0
+
+text_sensor:
+  - platform: template
+    name: "Louver App State"
+    id: louver_app_state
+    icon: "mdi:window-shutter"
+
+  - platform: template
+    name: "Louver Motor State"
+    id: louver_motor_state
+    icon: "mdi:arrow-up-down"
+
+script:
+  - id: status_led_on
+    mode: restart
+    then:
+      - if:
+          condition:
+            - switch.is_on: led_switch
+          then:
+            - output.turn_on: status_led
+
+  - id: status_led_off
+    mode: restart
+    then:
+      - output.turn_off: status_led
+
+  - id: request_status
+    mode: restart
+    then:
+      - script.execute: status_led_on
+      - http_request.get:
+          url: "http://172.217.28.1/cmd/notify_status"
+          capture_response: true
+          on_response:
+            then:
+              - script.execute: status_led_off
+              - lambda: |-
+                  json::parse_json(body, [](JsonObject root) -> bool {
+                    if (root["appState"].is<uint8_t>()) {
+                      uint8_t state = root["appState"];
+                      std::string state_str = "점검";
+                      switch(state) {
+                        case 0: state_str = "자동"; break;
+                        case 2: state_str = "환기"; break;
+                        case 3: state_str = "수동"; break;
+                        case 4: state_str = "냉방"; break;
+                        case 5: state_str = "비상"; break;
+                        case 6: state_str = "시험"; break;
+                        case 7: state_str = "메뉴"; break;
+                        case 8: state_str = "이상"; break;
+                      }
+                      id(louver_app_state).publish_state(state_str);
+                    }
+                    if (root["motState"].is<int>()) {
+                      id(louver_motor_state).publish_state(root["motState"].as<int>() == 1 ? "동작" : "정지");
+                    }
+                    if (root["angle"].is<float>()) id(louver_angle).publish_state(root["angle"].as<float>());
+                    if (root["temp"].is<float>()) id(louver_temperature).publish_state(root["temp"].as<float>());
+                    if (root["ventTemp"].is<float>()) id(louver_vent_temp).publish_state(root["ventTemp"].as<float>());
+                    if (root["ventAngle"].is<float>()) id(louver_vent_angle).publish_state(root["ventAngle"].as<float>());
+                    return true;
+                  });
+          on_error:
+            then:
+              - script.execute: status_led_off
+
+  - id: request_setup
+    mode: restart
+    then:
+      - script.execute: status_led_on
+      - http_request.get:
+          url: "http://172.217.28.1/cmd/notify_setup"
+          capture_response: true
+          on_response:
+            then:
+              - script.execute: status_led_off
+              - lambda: |-
+                  json::parse_json(body, [](JsonObject root) -> bool {
+                    if (root["coolAngle"].is<float>()) {
+                      id(louver_cool_angle).publish_state(root["coolAngle"].as<float>());
+                    }
+                    return true;
+                  });
+          on_error:
+            then:
+              - script.execute: status_led_off
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO33
+      inverted: true
+    name: "Reset Button"
+    id: binary_sensor_reset_button
+
+switch:
+  - platform: template
+    name: "LED"
+    id: led_switch
+    optimistic: true
+    restore_mode: ALWAYS_ON
+    on_turn_on:
+      then:
+        - output.turn_on: power_led
+    on_turn_off:
+      then:
+        - output.turn_off: power_led
+        - output.turn_off: status_led
+
+output:
+  - platform: gpio
+    pin: GPIO14
+    inverted: true
+    id: power_led
+  - platform: gpio
+    pin: GPIO32
+    inverted: true
+    id: status_led

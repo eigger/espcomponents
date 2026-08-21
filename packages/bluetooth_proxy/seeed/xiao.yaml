@@ -22,7 +22,3 @@ esp32_ble_tracker:
 bluetooth_proxy:
   active: true
   connection_slots: 4
-
-button:
-  - platform: factory_reset
-    name: "Factory reset"
