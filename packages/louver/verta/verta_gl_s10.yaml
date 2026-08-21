@@ -1,8 +1,19 @@
+esphome:
+  areas:
+    - id: area_mechanical
+      name: ""
+      
+  devices:
+    - id: device_mechanical
+      area_id: area_mechanical
+      name: "${friendly_name} Mechanical"
+        
 esp32:
   board: esp32doit-devkit-v1
   framework:
     type: esp-idf
 
+    
 # Ethernet configuration for GL-S10
 ethernet:
   type: IP101
@@ -16,14 +27,27 @@ ethernet:
 
 # Wi-Fi STA connected to Verta Louver AP
 wifi:
-  ssid: "${verta_wifi_ssid}"
-  password: "${verta_wifi_password}"
+  id: verta_wifi
+  ssid: !secret verta_wifi_ssid
+  password: !secret verta_wifi_password
   fast_connect: true
   power_save_mode: none
   manual_ip:
     static_ip: 172.217.28.100
     gateway: 172.217.28.1
     subnet: 255.255.255.0
+  on_connect:
+    then:
+      - binary_sensor.template.publish:
+          id: wifi_status_sensor
+          state: ON
+      - script.execute: request_status
+      - script.execute: request_setup
+  on_disconnect:
+    then:
+      - binary_sensor.template.publish:
+          id: wifi_status_sensor
+          state: OFF
 
 # Network interface priority (Ethernet as default gateway)
 network:
@@ -39,14 +63,19 @@ http_request:
 interval:
   - interval: 60s
     then:
-      - script.execute: request_status
-      - script.execute: request_setup
+      - if:
+          condition:
+            wifi.connected:
+          then:
+            - script.execute: request_status
+            - script.execute: request_setup
 
 # Manual refresh button
 button:
   - platform: template
     name: "Louver Request Status"
     icon: "mdi:refresh"
+    device_id: device_mechanical
     on_press:
       - script.execute: request_status
       - script.execute: request_setup
@@ -56,6 +85,7 @@ number:
     name: "Louver Vent Temperature"
     id: louver_vent_temp
     icon: "mdi:thermometer"
+    device_id: device_mechanical
     min_value: 0
     max_value: 50
     step: 1
@@ -77,6 +107,7 @@ number:
     name: "Louver Vent Angle"
     id: louver_vent_angle
     icon: "mdi:angle-acute"
+    device_id: device_mechanical
     min_value: 0
     max_value: 90
     step: 5
@@ -98,6 +129,7 @@ number:
     name: "Louver Cool Angle"
     id: louver_cool_angle
     icon: "mdi:angle-acute"
+    device_id: device_mechanical
     min_value: 0
     max_value: 90
     step: 5
@@ -120,6 +152,7 @@ sensor:
     name: "Louver Angle"
     id: louver_angle
     icon: "mdi:angle-acute"
+    device_id: device_mechanical
     unit_of_measurement: "°"
     accuracy_decimals: 0
 
@@ -127,22 +160,59 @@ sensor:
     name: "Louver Temperature"
     id: louver_temperature
     icon: "mdi:thermometer"
+    device_id: device_mechanical
     device_class: "temperature"
     state_class: "measurement"
     unit_of_measurement: "°C"
     accuracy_decimals: 0
 
+  - platform: wifi_signal
+    name: "WiFi signal"
+    icon: mdi:wifi-arrow-up-down
+    device_id: device_mechanical
+    update_interval: 60s
+    internal: true
+    filters:
+      - sliding_window_moving_average:
+          window_size: 15
+          send_every: 15
+    id: wifi_sig
+
+  - platform: template
+    name: "WiFi Quality"
+    icon: "mdi:wifi"
+    device_id: device_mechanical
+    update_interval: 60s
+    unit_of_measurement: '%'
+    entity_category: "diagnostic"
+    state_class: measurement
+    accuracy_decimals: 0
+    lambda: !lambda |-
+      float dBm = id(wifi_sig).state;
+      if (isnan(dBm)) return -1;
+      if (dBm <= -100) return 0;
+      if (dBm >= -50) return 100;
+      return round(2 * (dBm + 100));
+      
 text_sensor:
   - platform: template
     name: "Louver App State"
     id: louver_app_state
     icon: "mdi:window-shutter"
+    device_id: device_mechanical
 
   - platform: template
     name: "Louver Motor State"
     id: louver_motor_state
     icon: "mdi:arrow-up-down"
+    device_id: device_mechanical
 
+  - platform: wifi_info
+    ip_address:
+      name: "WIFI IP"
+      icon: mdi:ip-outline
+      device_id: device_mechanical
+    
 script:
   - id: status_led_on
     mode: restart
@@ -226,6 +296,15 @@ binary_sensor:
       inverted: true
     name: "Reset Button"
     id: binary_sensor_reset_button
+
+  - platform: template
+    name: "WiFi Status"
+    id: wifi_status_sensor
+    device_id: device_mechanical
+    device_class: connectivity
+    entity_category: "diagnostic"
+    lambda: |-
+      return id(verta_wifi).is_connected();
 
 switch:
   - platform: template
