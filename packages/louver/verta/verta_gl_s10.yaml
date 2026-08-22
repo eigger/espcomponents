@@ -32,10 +32,10 @@ wifi:
   password: !secret verta_wifi_password
   fast_connect: true
   power_save_mode: none
-  manual_ip:
+  #manual_ip:
     #static_ip: 172.217.28.100
-    gateway: 172.217.28.1
-    subnet: 255.255.255.0
+    #gateway: 172.217.28.1
+    #subnet: 255.255.255.0
   on_connect:
     then:
       - binary_sensor.template.publish:
