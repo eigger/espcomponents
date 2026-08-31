@@ -1,4 +1,5 @@
 #pragma once
+#include <cstddef>
 #include <cstdint>
 #include <string>
 
@@ -13,6 +14,15 @@ inline char dtmf_event_to_char(uint8_t event) {
   if (event == 11) return '#';
   if (event <= 15) return (char) ('A' + (event - 12));
   return 0;
+}
+
+// Whether a packet on `pt` should be decoded as a telephone-event even though
+// it is not the negotiated DTMF payload type. Some ATAs send RFC 2833 without
+// ever offering telephone-event in their SDP, or on a different dynamic PT than
+// the one negotiated; a 4-byte payload on a dynamic PT is the telephone-event
+// shape (event, E|R|volume, duration), never an audio frame.
+inline bool is_unnegotiated_telephone_event(uint8_t pt, uint8_t audio_pt, size_t payload_len) {
+  return pt != audio_pt && pt >= 96 && pt <= 127 && payload_len == 4;
 }
 
 inline bool is_dtmf_char(char c) {
@@ -45,15 +55,18 @@ class DtmfRxDedup {
   uint32_t last_timestamp_{0};
 };
 
-// DTMF carried in a SIP INFO body, as sent by the 3CX Android app and by desk
-// phones configured for "SIP INFO" DTMF. Returns the digit, or 0 when the INFO
-// is not a DTMF INFO.
+// DTMF carried in a SIP INFO body, as sent by the 3CX Android app, by ATAs
+// and by desk phones configured for "SIP INFO" DTMF. Returns the digit, or 0
+// when the INFO is not a DTMF INFO.
 //
 //   application/dtmf-relay:  "Signal=1\r\nDuration=160"
 //   application/dtmf:        "1"
+//   audio/telephone-event:   either shape
 //
-// Senders disagree on how * and # are written -- literally, or as the RFC 4733
-// event codes 10 and 11 -- so both spellings are accepted.
+// The signal is read from a `Signal=` / `d=` / `dtmf=` line, or from a body
+// that is nothing but the digit. Senders disagree on how * and # are written
+// -- literally, or as the RFC 4733 event codes 10 and 11 -- so both spellings
+// are accepted. A body without a Content-Type is parsed too; gateways omit it.
 char parse_dtmf_info(const std::string &content_type, const std::string &body);
 
 }  // namespace sip_client

@@ -80,6 +80,7 @@ class RtpSession {
   uint32_t dtmf_timestamp_{0};
   int dtmf_end_packets_{0};
   DtmfRxDedup dtmf_rx_{};
+  bool rx_dtmf_pt_warned_{false};
 
   std::function<void(const int16_t *, size_t)> on_audio_{};
   std::function<void(char)> on_dtmf_{};

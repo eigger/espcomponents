@@ -40,32 +40,43 @@ char signal_token_to_char(const std::string &token) {
   return is_dtmf_char(c) ? c : 0;
 }
 
-// Value of "Signal=<token>" in a dtmf-relay body. The name is matched
-// case-insensitively; "Duration=" and friends are left alone because the '='
-// must follow the name.
-std::string signal_token(const std::string &body) {
-  std::string lower = to_lower(body);
-  for (size_t p = lower.find("signal"); p != std::string::npos; p = lower.find("signal", p + 6)) {
-    size_t i = p + 6;
-    while (i < body.size() && (body[i] == ' ' || body[i] == '\t')) i++;
-    if (i >= body.size() || body[i] != '=') continue;
-    i++;
-    while (i < body.size() && (body[i] == ' ' || body[i] == '\t')) i++;
-    std::string token;
-    while (i < body.size() && !std::isspace((unsigned char) body[i])) token += body[i++];
-    return token;
-  }
-  return "";
+bool is_dtmf_content_type(const std::string &content_type) {
+  // Empty: gateways that send a body with no Content-Type at all.
+  if (trim(content_type).empty()) return true;
+  std::string type = to_lower(content_type);
+  return type.find("application/dtmf") != std::string::npos ||
+         type.find("audio/telephone-event") != std::string::npos;
+}
+
+// Key of a "<name>=<value>" body line, lowercased; empty when the line has no
+// '=' at all.
+std::string line_key(const std::string &line) {
+  size_t eq = line.find('=');
+  if (eq == std::string::npos) return "";
+  return to_lower(trim(line.substr(0, eq)));
 }
 
 }  // namespace
 
 char parse_dtmf_info(const std::string &content_type, const std::string &body) {
-  // Content-Type may carry parameters, e.g. "application/dtmf-relay;charset=utf-8".
-  std::string type = to_lower(trim(content_type.substr(0, content_type.find(';'))));
-  if (type == "application/dtmf-relay") return signal_token_to_char(signal_token(body));
-  if (type == "application/dtmf") return signal_token_to_char(trim(body));
-  return 0;
+  if (!is_dtmf_content_type(content_type)) return 0;
+  if (body.empty()) return 0;
+
+  // "Signal=1", "d=1" or "dtmf=1" on a line of its own. Other keys, notably
+  // "Duration=250", must not be read as a digit.
+  size_t pos = 0;
+  while (pos < body.size()) {
+    size_t eol = body.find('\n', pos);
+    std::string line = body.substr(pos, eol == std::string::npos ? std::string::npos : eol - pos);
+    std::string key = line_key(line);
+    if (key == "signal" || key == "d" || key == "dtmf")
+      return signal_token_to_char(trim(line.substr(line.find('=') + 1)));
+    if (eol == std::string::npos) break;
+    pos = eol + 1;
+  }
+
+  // No key/value pair: some devices send just the digit as the whole body.
+  return signal_token_to_char(trim(body));
 }
 
 }  // namespace sip_client

@@ -97,6 +97,7 @@ bool RtpSession::start(uint16_t local_port) {
   this->dtmf_queue_.clear();
   this->dtmf_active_ = false;
   this->dtmf_rx_.reset();
+  this->rx_dtmf_pt_warned_ = false;
   this->last_tx_ms_ = millis();
   // Treat the session start as "just sent audio" so the grace period applies
   // from here; a session with no microphone starts emitting silence right after.
@@ -105,6 +106,10 @@ bool RtpSession::start(uint16_t local_port) {
   this->recv_buf_.resize(1500);
   ESP_LOGI(TAG, "RTP started on port %u (pt=%u %s, dtmf_pt=%d)", local_port,
            this->codec_->desc().pt, this->codec_->desc().rtpmap, this->dtmf_pt_);
+  if (this->dtmf_pt_ < 0) {
+    ESP_LOGW(TAG, "Remote did not negotiate telephone-event (RFC 2833); inbound DTMF "
+                  "relies on SIP INFO or an unnegotiated payload type");
+  }
   return true;
 }
 
@@ -285,9 +290,15 @@ void RtpSession::receive_() {
     size_t header_len = 12 + 4 * (this->recv_buf_[0] & 0x0F);  // CSRC count
     if ((size_t) len <= header_len) continue;
 
-    if (this->dtmf_pt_ >= 0 && pt == (uint8_t) this->dtmf_pt_) {
+    size_t payload_len = (size_t) len - header_len;
+    bool negotiated_dtmf = this->dtmf_pt_ >= 0 && pt == (uint8_t) this->dtmf_pt_;
+    if (negotiated_dtmf || is_unnegotiated_telephone_event(pt, expect_pt, payload_len)) {
+      if (!negotiated_dtmf && !this->rx_dtmf_pt_warned_) {
+        this->rx_dtmf_pt_warned_ = true;
+        ESP_LOGI(TAG, "Accepting inbound DTMF on unnegotiated payload type %u", pt);
+      }
       // RFC 4733 payload: event, E|R|volume, duration (16 bit).
-      if ((size_t) len >= header_len + 4 && this->on_dtmf_) {
+      if (payload_len >= 4 && this->on_dtmf_) {
         uint32_t event_ts = ((uint32_t) this->recv_buf_[4] << 24) |
                             ((uint32_t) this->recv_buf_[5] << 16) |
                             ((uint32_t) this->recv_buf_[6] << 8) | this->recv_buf_[7];

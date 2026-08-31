@@ -47,7 +47,9 @@ tests/native/sip_sdp/run.sh
 | `info_star_hash_spellings` | `Signal=*` and `Signal=10`/`11` both accepted |
 | `info_plain_dtmf` | `application/dtmf` bare-digit body |
 | `info_duration_is_not_a_digit` | `Duration=250` must not be read as DTMF `D` |
-| `info_non_dtmf_is_ignored` | other INFO bodies / no Content-Type → no digit |
+| `info_non_dtmf_is_ignored` | other INFO content types / out-of-range codes → no digit |
+| `info_alternate_keys_and_types` | `d=` / `dtmf=` keys, `audio/telephone-event`, missing Content-Type |
+| `unnegotiated_telephone_event_pt` | 4-byte payload on a dynamic PT is DTMF; audio PT and static PTs are not |
 
 ### `G711Codec` (`test_g711_codec.cpp`)
 

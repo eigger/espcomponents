@@ -5,11 +5,19 @@
 #include <string>
 
 using esphome::sip_client::DtmfRxDedup;
+using esphome::sip_client::is_unnegotiated_telephone_event;
 using esphome::sip_client::parse_dtmf_info;
 
 namespace {
 
 int g_failures = 0;
+
+void require(bool condition, const char *message) {
+  if (!condition) {
+    std::cerr << "FAIL: " << message << '\n';
+    g_failures++;
+  }
+}
 
 void require_eq_char(char actual, char expected, const char *message) {
   if (actual != expected) {
@@ -101,10 +109,32 @@ void test_info_duration_is_not_a_digit() {
 void test_info_non_dtmf_is_ignored() {
   require_eq_char(parse_dtmf_info("application/media_control+xml", "<vc_primitive/>"), 0,
                   "video fast-update INFO must not fire DTMF");
-  require_eq_char(parse_dtmf_info("", "Signal=1"), 0, "no Content-Type -> no DTMF");
   require_eq_char(parse_dtmf_info("application/dtmf-relay", "Signal=99\r\n"), 0,
                   "out-of-range event code");
   require_eq_char(parse_dtmf_info("application/dtmf-relay", "Signal=\r\n"), 0, "empty signal");
+}
+
+void test_info_alternate_keys_and_types() {
+  // ATAs and gateways vary the key, the type, and whether they send a type at
+  // all; hass-sip accepts all of these and the door relay depends on it.
+  require_eq_char(parse_dtmf_info("application/dtmf-relay", "d=7\r\n"), '7', "d= key");
+  require_eq_char(parse_dtmf_info("application/dtmf-relay", "dtmf=3"), '3', "dtmf= key");
+  require_eq_char(parse_dtmf_info("audio/telephone-event", "Signal=8\r\nDuration=160"), '8',
+                  "audio/telephone-event type");
+  require_eq_char(parse_dtmf_info("", "Signal=1\r\n"), '1', "body with no Content-Type");
+  require_eq_char(parse_dtmf_info("", "6"), '6', "bare digit with no Content-Type");
+}
+
+void test_unnegotiated_telephone_event_pt() {
+  // Some ATAs never offer telephone-event in SDP, or send it on a PT other than
+  // the negotiated one. A 4-byte payload on a dynamic PT is the RFC 4733 shape.
+  require(is_unnegotiated_telephone_event(/*pt=*/96, /*audio_pt=*/0, /*payload_len=*/4),
+          "dynamic PT with a 4-byte payload is a telephone-event");
+  require(is_unnegotiated_telephone_event(127, 8, 4), "top of the dynamic range");
+  require(!is_unnegotiated_telephone_event(96, 96, 4), "the negotiated audio PT is never DTMF");
+  require(!is_unnegotiated_telephone_event(0, 8, 4), "static PTs are not probed");
+  require(!is_unnegotiated_telephone_event(96, 0, 160), "an audio frame is not a telephone-event");
+  require(!is_unnegotiated_telephone_event(96, 0, 3), "a runt payload is not a telephone-event");
 }
 
 }  // namespace
@@ -120,6 +150,8 @@ int main() {
   test_info_plain_dtmf();
   test_info_duration_is_not_a_digit();
   test_info_non_dtmf_is_ignored();
+  test_info_alternate_keys_and_types();
+  test_unnegotiated_telephone_event_pt();
 
   if (g_failures != 0) {
     std::cerr << g_failures << " failure(s)\n";

@@ -202,11 +202,15 @@ binary_sensor:
   is reported once when the event starts, independent of the RTP marker bit —
   Yealink DECT handsets (W70B/W73H) and the 3CX Android app send the event
   without it. Repeat packets of the same event, including the retransmitted end
-  packets, do not re-fire the trigger.
-- **SIP INFO** with `application/dtmf-relay` (`Signal=1`) or `application/dtmf`,
-  answered with `200 OK`. `*` and `#` are accepted both literally and as the
-  event codes `10` / `11`. INFO requests outside an established call are
-  answered but do not fire the trigger.
+  packets, do not re-fire the trigger. A 4-byte payload on any other dynamic
+  payload type (96–127) is also taken as a telephone-event, for ATAs that never
+  offer one in their SDP or send it on a different PT than negotiated.
+- **SIP INFO**, answered with `200 OK`. Content types `application/dtmf-relay`,
+  `application/dtmf` and `audio/telephone-event` are accepted, as is a body with
+  no Content-Type at all. The digit is read from a `Signal=` / `d=` / `dtmf=`
+  line or from a body that is nothing but the digit; `*` and `#` are accepted
+  both literally and as the event codes `10` / `11`. INFO requests outside an
+  established call are answered but do not fire the trigger.
 
 In-band audio tones (no telephone-event, no INFO) are **not** decoded.
 
