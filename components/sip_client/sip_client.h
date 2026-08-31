@@ -46,6 +46,9 @@ class SipClient : public Component {
   void set_server(const std::string &server) { this->server_ = server; }
   void set_port(uint16_t port) { this->server_port_ = port; }
   void set_username(const std::string &v) { this->username_ = v; }
+  // Digest authentication user, when the PBX separates it from the extension
+  // (3CX calls it the Authentication ID). Empty = authenticate as `username`.
+  void set_auth_username(const std::string &v) { this->auth_username_ = v; }
   void set_password(const std::string &v) { this->password_ = v; }
   void set_domain(const std::string &v) { this->domain_ = v; }
   void set_caller_id(const std::string &v) { this->caller_id_ = v; }
@@ -153,9 +156,14 @@ class SipClient : public Component {
   std::string server_;
   uint16_t server_port_{5060};
   std::string username_;
+  std::string auth_username_;
   std::string password_;
   std::string domain_;
   std::string caller_id_;
+  // From / To / Contact always stay on username_; only Digest uses this.
+  const std::string &auth_user_() const {
+    return this->auth_username_.empty() ? this->username_ : this->auth_username_;
+  }
   uint32_t expiration_{300};
   uint16_t local_rtp_port_{7078};
   SipAudioChannel channel_{SIP_CH_STEREO};

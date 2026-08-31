@@ -12,6 +12,7 @@ from esphome.const import (
     CONF_TRIGGER_ID,
 )
 from .const import (
+    CONF_AUTH_USERNAME,
     CONF_SERVER,
     CONF_DOMAIN,
     CONF_CALLER_ID,
@@ -94,6 +95,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Required(CONF_SERVER): cv.string,
             cv.Optional(CONF_PORT, default=5060): cv.port,
             cv.Required(CONF_USERNAME): cv.string,
+            cv.Optional(CONF_AUTH_USERNAME): cv.string,
             cv.Required(CONF_PASSWORD): cv.string,
             cv.Optional(CONF_DOMAIN): cv.string,
             cv.Optional(CONF_CALLER_ID): cv.string,
@@ -141,6 +143,8 @@ async def to_code(config):
     cg.add(var.set_server(config[CONF_SERVER]))
     cg.add(var.set_port(config[CONF_PORT]))
     cg.add(var.set_username(config[CONF_USERNAME]))
+    if CONF_AUTH_USERNAME in config:
+        cg.add(var.set_auth_username(config[CONF_AUTH_USERNAME]))
     cg.add(var.set_password(config[CONF_PASSWORD]))
     if CONF_DOMAIN in config:
         cg.add(var.set_domain(config[CONF_DOMAIN]))

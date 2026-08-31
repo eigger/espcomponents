@@ -96,6 +96,7 @@ bool RtpSession::start(uint16_t local_port) {
   }
   this->dtmf_queue_.clear();
   this->dtmf_active_ = false;
+  this->dtmf_rx_.reset();
   this->last_tx_ms_ = millis();
   // Treat the session start as "just sent audio" so the grace period applies
   // from here; a session with no microphone starts emitting silence right after.
@@ -118,6 +119,7 @@ void RtpSession::stop() {
   }
   this->dtmf_queue_.clear();
   this->dtmf_active_ = false;
+  this->dtmf_rx_.reset();
 }
 
 void RtpSession::push_tx_audio(const int16_t *pcm, size_t samples) {
@@ -280,19 +282,17 @@ void RtpSession::receive_() {
     ssize_t len = this->socket_->read(this->recv_buf_.data(), this->recv_buf_.size());
     if (len < 12) return;  // EAGAIN or runt packet
     uint8_t pt = this->recv_buf_[1] & 0x7F;
-    bool marker = (this->recv_buf_[1] & 0x80) != 0;
     size_t header_len = 12 + 4 * (this->recv_buf_[0] & 0x0F);  // CSRC count
     if ((size_t) len <= header_len) continue;
 
     if (this->dtmf_pt_ >= 0 && pt == (uint8_t) this->dtmf_pt_) {
-      if (marker && this->on_dtmf_) {
-        int event = this->recv_buf_[header_len];
-        char c = '?';
-        if (event <= 9) c = '0' + event;
-        else if (event == 10) c = '*';
-        else if (event == 11) c = '#';
-        else if (event <= 15) c = 'A' + (event - 12);
-        this->on_dtmf_(c);
+      // RFC 4733 payload: event, E|R|volume, duration (16 bit).
+      if ((size_t) len >= header_len + 4 && this->on_dtmf_) {
+        uint32_t event_ts = ((uint32_t) this->recv_buf_[4] << 24) |
+                            ((uint32_t) this->recv_buf_[5] << 16) |
+                            ((uint32_t) this->recv_buf_[6] << 8) | this->recv_buf_[7];
+        char c = this->dtmf_rx_.feed(this->recv_buf_[header_len], event_ts);
+        if (c != 0) this->on_dtmf_(c);
       }
       continue;
     }

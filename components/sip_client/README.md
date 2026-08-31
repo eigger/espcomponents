@@ -5,7 +5,8 @@ An ESPHome external component for ESP32. It registers to a SIP PBX
 delegated to ESPHome's standard `microphone` / `speaker` platforms (either may
 be omitted for send-only or receive-only endpoints). Codecs are G.711
 (PCMU/PCMA, 8 kHz) by default, with optional wideband **G.722** (16 kHz PCM,
-8 kHz RTP clock per RFC 3551). DTMF is sent via RFC 2833 (telephone-event).
+8 kHz RTP clock per RFC 3551). DTMF is sent via RFC 2833 (telephone-event) and
+received via RFC 2833 or SIP INFO.
 
 ## Installation
 
@@ -50,6 +51,7 @@ sip_client:
   server: 192.168.0.10      # PBX address (IP recommended)
   port: 5060                # (default 5060)
   username: "1001"
+  auth_username: "auth-id"  # (optional) Digest auth ID, when the PBX separates it
   password: "secret"
   domain: "192.168.0.10"    # (default: server)
   caller_id: "ESP Doorbell" # (optional)
@@ -100,6 +102,7 @@ sip_client:
 | `server` | ✓ | - | PBX address (IP recommended) |
 | `port` | | 5060 | SIP server port |
 | `username` | ✓ | - | SIP account (extension) |
+| `auth_username` | | `username` | Digest authentication user, for PBXs that separate it from the extension number (3CX v20 calls it *Authentication ID*). `From` / `To` / `Contact` keep using `username`, so the device still presents its extension. Omit unless the PBX rejects REGISTER with *credentials don't match*. |
 | `password` | ✓ | - | SIP password |
 | `domain` | | server | SIP domain / realm |
 | `caller_id` | | username | Outgoing display name |
@@ -188,7 +191,24 @@ binary_sensor:
 - `on_incoming_call` — incoming call (variable `caller`: `std::string`)
 - `on_call_connected` — call has been connected
 - `on_call_ended` — call has ended
-- `on_dtmf` — DTMF received from the remote party (variable `digit`: `std::string`)
+- `on_dtmf` — DTMF received from the remote party (variable `digit`: `std::string`).
+  See [DTMF reception](#dtmf-reception) for what is accepted.
+
+### DTMF reception
+
+`on_dtmf` fires for both of the out-of-band ways a phone can signal a digit:
+
+- **RFC 2833 / 4733 telephone-event** (preferred, negotiated in SDP). The digit
+  is reported once when the event starts, independent of the RTP marker bit —
+  Yealink DECT handsets (W70B/W73H) and the 3CX Android app send the event
+  without it. Repeat packets of the same event, including the retransmitted end
+  packets, do not re-fire the trigger.
+- **SIP INFO** with `application/dtmf-relay` (`Signal=1`) or `application/dtmf`,
+  answered with `200 OK`. `*` and `#` are accepted both literally and as the
+  event codes `10` / `11`. INFO requests outside an established call are
+  answered but do not fire the trigger.
+
+In-band audio tones (no telephone-event, no INFO) are **not** decoded.
 
 ## Behavior / Limitations
 

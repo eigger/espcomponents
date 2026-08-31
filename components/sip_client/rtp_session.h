@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include "codec.h"
+#include "dtmf.h"
 #include "esphome/components/socket/socket.h"
 
 namespace esphome {
@@ -78,6 +79,7 @@ class RtpSession {
   uint16_t dtmf_duration_{0};
   uint32_t dtmf_timestamp_{0};
   int dtmf_end_packets_{0};
+  DtmfRxDedup dtmf_rx_{};
 
   std::function<void(const int16_t *, size_t)> on_audio_{};
   std::function<void(char)> on_dtmf_{};

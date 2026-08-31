@@ -34,6 +34,21 @@ tests/native/sip_sdp/run.sh
 | `answer_single_codec_dynamic_pcma` | answer PT 97 + `PCMA/8000` (not PCMU) |
 | `answer_without_dtmf` | no telephone-event when dtmf_pt < 0 |
 
+### DTMF receive (`test_dtmf.cpp`)
+
+| Test | Intent |
+|------|--------|
+| `digit_fires_once_per_event` | all packets of one RFC 4733 event (incl. the 3 end retransmits) → 1 digit |
+| `marker_less_sender_still_fires` | Yealink DECT / 3CX Android send no marker bit |
+| `same_digit_pressed_twice` | new RTP timestamp = new press |
+| `star_hash_and_letters` | events 10/11/12/15 → `*` `#` `A` `D`; 16 (flash) dropped |
+| `reset_between_calls` | `stop()`/`start()` clears dedup state |
+| `info_dtmf_relay` | `Signal=1`, case/space tolerance, Content-Type params |
+| `info_star_hash_spellings` | `Signal=*` and `Signal=10`/`11` both accepted |
+| `info_plain_dtmf` | `application/dtmf` bare-digit body |
+| `info_duration_is_not_a_digit` | `Duration=250` must not be read as DTMF `D` |
+| `info_non_dtmf_is_ignored` | other INFO bodies / no Content-Type → no digit |
+
 ### `G711Codec` (`test_g711_codec.cpp`)
 
 | Test | Intent |

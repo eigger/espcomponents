@@ -1,3 +1,4 @@
+CONF_AUTH_USERNAME = "auth_username"
 CONF_SERVER = "server"
 CONF_DOMAIN = "domain"
 CONF_CALLER_ID = "caller_id"

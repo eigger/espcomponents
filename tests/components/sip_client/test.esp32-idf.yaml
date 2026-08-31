@@ -50,6 +50,7 @@ sip_client:
   server: 192.168.0.10      # PBX address (IP recommended)
   port: 5060                # (default 5060)
   username: "1001"
+  auth_username: "1001-auth"
   password: "secret"
   domain: "192.168.0.10"    # (default: server)
   caller_id: "ESP Doorbell" # (optional)

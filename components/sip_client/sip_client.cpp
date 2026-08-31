@@ -7,6 +7,7 @@
 #include "esphome/components/network/util.h"
 #include "esphome/components/audio/audio.h"
 #include "audio_resampler.h"
+#include "dtmf.h"
 #include "g711_codec.h"
 #include "g722_codec.h"
 #include "sdp_builder.h"
@@ -70,6 +71,8 @@ void SipClient::dump_config() {
   ESP_LOGCONFIG(TAG, "SIP Client:");
   ESP_LOGCONFIG(TAG, "  Server: %s:%u", this->server_.c_str(), this->server_port_);
   ESP_LOGCONFIG(TAG, "  Username: %s", this->username_.c_str());
+  if (!this->auth_username_.empty())
+    ESP_LOGCONFIG(TAG, "  Auth username: %s", this->auth_username_.c_str());
   ESP_LOGCONFIG(TAG, "  Domain: %s", this->domain_.c_str());
   ESP_LOGCONFIG(TAG, "  Local RTP port: %u", this->local_rtp_port_);
   ESP_LOGCONFIG(TAG, "  Channel: %s", this->channel_ == SIP_CH_MONO ? "mono" : "stereo");
@@ -250,7 +253,8 @@ void SipClient::handle_register_response_(const SipMessage &m) {
     std::string uri = "sip:" + this->domain_;
     std::string nc = "00000001";
     std::string cnonce = gen_random_hex(8);
-    std::string resp = digest_response(this->username_, this->password_, realm, "REGISTER", uri,
+    const std::string &auth_user = this->auth_user_();
+    std::string resp = digest_response(auth_user, this->password_, realm, "REGISTER", uri,
                                        nonce, qop.empty() ? "" : "auth", nc, cnonce);
 
     this->reg_cseq_++;
@@ -258,7 +262,7 @@ void SipClient::handle_register_response_(const SipMessage &m) {
     std::string msg = this->build_register_();
     // insert Authorization before Content-Length
     std::string auth = std::string(proxy ? "Proxy-Authorization: " : "Authorization: ") +
-                       "Digest username=\"" + this->username_ + "\", realm=\"" + realm +
+                       "Digest username=\"" + auth_user + "\", realm=\"" + realm +
                        "\", nonce=\"" + nonce + "\", uri=\"" + uri + "\", response=\"" + resp +
                        "\", algorithm=MD5";
     if (!qop.empty()) auth += ", qop=auth, nc=" + nc + ", cnonce=\"" + cnonce + "\"";
@@ -415,13 +419,14 @@ void SipClient::handle_invite_response_(const SipMessage &m, const std::string &
     std::string uri = this->d_remote_target_;
     std::string nc = "00000001";
     std::string cnonce = gen_random_hex(8);
-    std::string resp = digest_response(this->username_, this->password_, realm, "INVITE", uri,
+    const std::string &auth_user = this->auth_user_();
+    std::string resp = digest_response(auth_user, this->password_, realm, "INVITE", uri,
                                        nonce, qop.empty() ? "" : "auth", nc, cnonce);
     this->d_cseq_++;
     this->d_branch_ = gen_branch();
     std::string msg = this->build_invite_();
     std::string auth = std::string(proxy ? "Proxy-Authorization: " : "Authorization: ") +
-                       "Digest username=\"" + this->username_ + "\", realm=\"" + realm +
+                       "Digest username=\"" + auth_user + "\", realm=\"" + realm +
                        "\", nonce=\"" + nonce + "\", uri=\"" + uri + "\", response=\"" + resp +
                        "\", algorithm=MD5";
     if (!qop.empty()) auth += ", qop=auth, nc=" + nc + ", cnonce=\"" + cnonce + "\"";
@@ -607,6 +612,19 @@ void SipClient::handle_request_(const SipMessage &m, const std::string &raw) {
 
   if (method == "OPTIONS") {
     this->send_raw_(this->build_response_(m, 200, "OK", false));
+    return;
+  }
+
+  if (method == "INFO") {
+    this->send_raw_(this->build_response_(m, 200, "OK", false));
+    char digit = parse_dtmf_info(m.header("Content-Type"), m.body);
+    if (digit == 0) return;
+    if (this->state_ != SIP_IN_CALL) {
+      ESP_LOGW(TAG, "DTMF INFO '%c' ignored in state %d", digit, this->state_);
+      return;
+    }
+    ESP_LOGI(TAG, "DTMF via SIP INFO: %c", digit);
+    this->dtmf_cb_.call(std::string(1, digit));
     return;
   }
 

@@ -20,6 +20,12 @@ g++ "${CXXFLAGS[@]}" "${INC[@]}" \
 "$OUT/sip_sdp_builder_test"
 
 g++ "${CXXFLAGS[@]}" "${INC[@]}" \
+  "$ROOT/components/sip_client/dtmf.cpp" \
+  "$ROOT/tests/native/sip_sdp/test_dtmf.cpp" \
+  -o "$OUT/sip_dtmf_test"
+"$OUT/sip_dtmf_test"
+
+g++ "${CXXFLAGS[@]}" "${INC[@]}" \
   "$ROOT/tests/native/sip_sdp/test_g711_codec.cpp" \
   -o "$OUT/sip_g711_codec_test"
 "$OUT/sip_g711_codec_test"
