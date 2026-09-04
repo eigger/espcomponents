@@ -1,8 +1,9 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
+from esphome import automation
 from esphome.components import ble_client, esp32_ble_tracker
 from esphome.const import (
-    CONF_ID, CONF_SERVICE_UUID,
+    CONF_ID, CONF_SERVICE_UUID, CONF_COMMAND,
 )
 from .const import (
     CONF_BLE_ELM327_ID, CONF_BLE_CLIENT_ID, CONF_RX_CHAR_UUID, CONF_TX_CHAR_UUID,
@@ -24,6 +25,10 @@ BleElm327Component = ble_elm327_ns.class_(
 )
 # Device IS a PollingComponent — each sensor owns its update_interval
 BleElm327Device = ble_elm327_ns.class_("BleElm327Device", cg.PollingComponent)
+
+BleElm327SendCommandAction = ble_elm327_ns.class_(
+    "BleElm327SendCommandAction", automation.Action
+)
 
 
 def _add_uuid(var, uuid_val, fn16, fn32, fn128):
@@ -138,3 +143,26 @@ async def register_ble_elm327_device(var, config):
             return_type=cg.float_,
         )
         cg.add(var.set_formula(formula_))
+
+
+SEND_COMMAND_ACTION_SCHEMA = cv.maybe_simple_value(
+    {
+        cv.GenerateID(): cv.use_id(BleElm327Component),
+        cv.Required(CONF_COMMAND): cv.templatable(cv.string),
+    },
+    key=CONF_COMMAND,
+)
+
+
+@automation.register_action(
+    "ble_elm327.send_command",
+    BleElm327SendCommandAction,
+    SEND_COMMAND_ACTION_SCHEMA,
+)
+async def ble_elm327_send_command_to_code(config, action_id, template_arg, args):
+    parent = await cg.get_variable(config[CONF_ID])
+    var = cg.new_Pvariable(action_id, template_arg, parent)
+    templ = await cg.templatable(config[CONF_COMMAND], args, cg.std_string)
+    cg.add(var.set_command(templ))
+    return var
+

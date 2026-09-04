@@ -22,6 +22,8 @@ The component registers as a node under ESPHome's standard `ble_client:` compone
     - [Per-device Pre-commands](#per-device-pre-commands)
 - [Platforms](#platforms)
   - [Sensor](#sensor)
+- [Actions](#actions)
+  - [ble_elm327.send_command](#ble_elm327send_command)
 - [Presets](#presets)
   - [GM Extended PIDs (Mode 22)](#gm-extended-pids-mode-22)
 - [Response Parsing](#response-parsing)
@@ -251,6 +253,36 @@ sensor:
 ```
 
 All standard ESPHome sensor options (`unit_of_measurement`, `device_class`, `state_class`, `accuracy_decimals`, `filters`, …) are supported.
+
+---
+
+## Actions
+
+### `ble_elm327.send_command`
+
+Enqueues an arbitrary AT command or OBD PID request to be transmitted over BLE to the ELM327 adapter. Commands are queued and transmitted with the configured `tx_delay` timing.
+
+This is especially useful for closing the active OBD/CAN protocol session (`AT PC` - Protocol Close) or putting the adapter into low-power mode (`AT LP`) before disconnecting BLE, ensuring vehicle ECUs can enter deep sleep and prevent 12V battery drain.
+
+```yaml
+# Simple syntax
+- ble_elm327.send_command: "AT PC"
+
+# Explicit ID syntax
+- ble_elm327.send_command:
+    id: ble_elm327_vgate_dongle
+    command: "AT PC"
+
+# Templated command in lambdas / scripts
+- ble_elm327.send_command: !lambda |-
+    return "AT PC";
+```
+
+You can also call `send_command()` directly from C++ lambdas:
+
+```cpp
+id(ble_elm327_vgate_dongle).send_command("AT PC");
+```
 
 ---
 

@@ -96,6 +96,9 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
   void add_init_command(const std::string &cmd);
   void set_tx_delay(uint32_t ms) { tx_delay_ms_ = ms; }
 
+  // Enqueues a command (AT command, PID, etc.) to be transmitted to the ELM327 adapter.
+  void send_command(const std::string &cmd);
+
  protected:
   enum class ElmState { IDLE, CONNECTED, READY };
 
@@ -104,7 +107,7 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
     BleElm327Device *dev{nullptr};
   };
 
-  bool send_command(const std::string &cmd);
+  bool send_command_raw_(const std::string &cmd);
   void on_notify(const uint8_t *data, uint16_t length);
   void process_response(const std::string &response);
 
@@ -141,4 +144,6 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
 
 }  // namespace ble_elm327
 }  // namespace esphome
+
+#include "automation.h"
 #endif

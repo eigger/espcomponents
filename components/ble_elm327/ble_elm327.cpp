@@ -70,6 +70,15 @@ void BleElm327Component::add_init_command(const std::string &cmd) {
   extra_init_commands_.push_back(normalized + "\r");
 }
 
+void BleElm327Component::send_command(const std::string &cmd) {
+  if (cmd.empty()) return;
+  std::string formatted = cmd;
+  if (formatted.back() != '\r') {
+    formatted += '\r';
+  }
+  tx_queue_.push({formatted, nullptr});
+}
+
 // ── BleElm327Component ──────────────────────────────────────────────────────
 
 void BleElm327Component::loop() {
@@ -90,7 +99,7 @@ void BleElm327Component::loop() {
     auto item = tx_queue_.front();
     tx_queue_.pop();
     if (item.dev) item.dev->on_dequeue();
-    send_command(item.cmd);
+    send_command_raw_(item.cmd);
     last_tx_time_ = millis();
     if (elm_state_ == ElmState::CONNECTED && tx_queue_.empty()) {
       elm_state_ = ElmState::READY;
@@ -211,7 +220,7 @@ void BleElm327Component::gattc_event_handler(esp_gattc_cb_event_t event, esp_gat
   }
 }
 
-bool BleElm327Component::send_command(const std::string &cmd) {
+bool BleElm327Component::send_command_raw_(const std::string &cmd) {
   if (client_state_ != espbt::ClientState::ESTABLISHED || tx_char_handle_ == 0) return false;
   auto *chr = this->parent_->get_characteristic(service_uuid_, tx_char_uuid_);
   if (chr == nullptr) { ESP_LOGW(TAG, "TX characteristic missing"); return false; }
