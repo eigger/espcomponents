@@ -176,6 +176,12 @@ samsung_ac:
       silence_mode:
         name: "Living AC Silence"
         device_id: device_livingroom
+      plasma_ion_supported:
+        name: "Living AC Plasma Ion Supported"
+        device_id: device_livingroom
+      plasma_ion:
+        name: "Living AC Purify"
+        device_id: device_livingroom
       cumulative_operation_time:
         name: "Living AC Cumulative Operation Time"
         device_id: device_livingroom
@@ -291,6 +297,12 @@ samsung_ac:
       silence_mode:
         name: "Master AC Silence"
         device_id: device_bedroom
+      plasma_ion_supported:
+        name: "Master AC Plasma Ion Supported"
+        device_id: device_bedroom
+      plasma_ion:
+        name: "Master AC Purify"
+        device_id: device_bedroom
       cumulative_operation_time:
         name: "Master AC Cumulative Operation Time"
         device_id: device_bedroom
@@ -404,6 +416,12 @@ samsung_ac:
         device_id: device_room_1
       silence_mode:
         name: "Room 1 AC Silence"
+        device_id: device_room_1
+      plasma_ion_supported:
+        name: "Room 1 AC Plasma Ion Supported"
+        device_id: device_room_1
+      plasma_ion:
+        name: "Room 1 AC Purify"
         device_id: device_room_1
       cumulative_operation_time:
         name: "Room 1 AC Cumulative Operation Time"
@@ -519,6 +537,12 @@ samsung_ac:
       silence_mode:
         name: "Room 2 AC Silence"
         device_id: device_room_2
+      plasma_ion_supported:
+        name: "Room 2 AC Plasma Ion Supported"
+        device_id: device_room_2
+      plasma_ion:
+        name: "Room 2 AC Purify"
+        device_id: device_room_2
       cumulative_operation_time:
         name: "Room 2 AC Cumulative Operation Time"
         device_id: device_room_2
@@ -632,6 +656,12 @@ samsung_ac:
         device_id: device_livingroom_2
       silence_mode:
         name: "Living 2 AC Silence"
+        device_id: device_livingroom_2
+      plasma_ion_supported:
+        name: "Living 2 AC Plasma Ion Supported"
+        device_id: device_livingroom_2
+      plasma_ion:
+        name: "Living 2 AC Purify"
         device_id: device_livingroom_2
       cumulative_operation_time:
         name: "Living 2 AC Cumulative Operation Time"
