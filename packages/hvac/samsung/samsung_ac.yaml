@@ -185,6 +185,19 @@ samsung_ac:
       cumulative_operation_time:
         name: "Living AC Cumulative Operation Time"
         device_id: device_livingroom
+      # 0x4424 - 실제 가동 중에만 증가. 위 cumulative_operation_time(0x4222)은
+      # 대기 중에도 계속 흘러서 전원 인가 후 경과 시간에 가깝다.
+      indoor_operating_time:
+        name: "Living AC Operating Hours"
+        device_id: device_livingroom
+      # 0x421C - 실내기 팬 실회전수 (정지 0 / 약 1026 / 강 1239 관측)
+      indoor_fan_rpm:
+        name: "Living AC Fan RPM"
+        device_id: device_livingroom
+      # 0x4027 - 필터 청소 시기 도달 시 on, 리모컨 필터 리셋으로 해제
+      filter_warning:
+        name: "Living AC Filter Warning"
+        device_id: device_livingroom
       # 실외기 전력/에너지 분배 추정 (합 = 실외기 값)
       estimated_power:
         name: "Living AC Estimated Power"
@@ -306,6 +319,19 @@ samsung_ac:
       cumulative_operation_time:
         name: "Master AC Cumulative Operation Time"
         device_id: device_bedroom
+      # 0x4424 - 실제 가동 중에만 증가. 위 cumulative_operation_time(0x4222)은
+      # 대기 중에도 계속 흘러서 전원 인가 후 경과 시간에 가깝다.
+      indoor_operating_time:
+        name: "Master AC Operating Hours"
+        device_id: device_bedroom
+      # 0x421C - 실내기 팬 실회전수 (정지 0 / 약 1026 / 강 1239 관측)
+      indoor_fan_rpm:
+        name: "Master AC Fan RPM"
+        device_id: device_bedroom
+      # 0x4027 - 필터 청소 시기 도달 시 on, 리모컨 필터 리셋으로 해제
+      filter_warning:
+        name: "Master AC Filter Warning"
+        device_id: device_bedroom
       estimated_power:
         name: "Master AC Estimated Power"
         device_id: device_bedroom
@@ -425,6 +451,19 @@ samsung_ac:
         device_id: device_room_1
       cumulative_operation_time:
         name: "Room 1 AC Cumulative Operation Time"
+        device_id: device_room_1
+      # 0x4424 - 실제 가동 중에만 증가. 위 cumulative_operation_time(0x4222)은
+      # 대기 중에도 계속 흘러서 전원 인가 후 경과 시간에 가깝다.
+      indoor_operating_time:
+        name: "Room 1 AC Operating Hours"
+        device_id: device_room_1
+      # 0x421C - 실내기 팬 실회전수 (정지 0 / 약 1026 / 강 1239 관측)
+      indoor_fan_rpm:
+        name: "Room 1 AC Fan RPM"
+        device_id: device_room_1
+      # 0x4027 - 필터 청소 시기 도달 시 on, 리모컨 필터 리셋으로 해제
+      filter_warning:
+        name: "Room 1 AC Filter Warning"
         device_id: device_room_1
       estimated_power:
         name: "Room 1 AC Estimated Power"
@@ -546,6 +585,19 @@ samsung_ac:
       cumulative_operation_time:
         name: "Room 2 AC Cumulative Operation Time"
         device_id: device_room_2
+      # 0x4424 - 실제 가동 중에만 증가. 위 cumulative_operation_time(0x4222)은
+      # 대기 중에도 계속 흘러서 전원 인가 후 경과 시간에 가깝다.
+      indoor_operating_time:
+        name: "Room 2 AC Operating Hours"
+        device_id: device_room_2
+      # 0x421C - 실내기 팬 실회전수 (정지 0 / 약 1026 / 강 1239 관측)
+      indoor_fan_rpm:
+        name: "Room 2 AC Fan RPM"
+        device_id: device_room_2
+      # 0x4027 - 필터 청소 시기 도달 시 on, 리모컨 필터 리셋으로 해제
+      filter_warning:
+        name: "Room 2 AC Filter Warning"
+        device_id: device_room_2
       estimated_power:
         name: "Room 2 AC Estimated Power"
         device_id: device_room_2
@@ -665,6 +717,19 @@ samsung_ac:
         device_id: device_livingroom_2
       cumulative_operation_time:
         name: "Living 2 AC Cumulative Operation Time"
+        device_id: device_livingroom_2
+      # 0x4424 - 실제 가동 중에만 증가. 위 cumulative_operation_time(0x4222)은
+      # 대기 중에도 계속 흘러서 전원 인가 후 경과 시간에 가깝다.
+      indoor_operating_time:
+        name: "Living 2 AC Operating Hours"
+        device_id: device_livingroom_2
+      # 0x421C - 실내기 팬 실회전수 (정지 0 / 약 1026 / 강 1239 관측)
+      indoor_fan_rpm:
+        name: "Living 2 AC Fan RPM"
+        device_id: device_livingroom_2
+      # 0x4027 - 필터 청소 시기 도달 시 on, 리모컨 필터 리셋으로 해제
+      filter_warning:
+        name: "Living 2 AC Filter Warning"
         device_id: device_livingroom_2
       estimated_power:
         name: "Living 2 AC Estimated Power"
