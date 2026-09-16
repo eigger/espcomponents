@@ -347,3 +347,16 @@ Create an extension (e.g. 1001) on the PBX and register with the config above;
 it will show up as online in `sip show peers` (or `pjsip show endpoints`).
 Calling 1001 from another SIP endpoint fires `on_incoming_call`; answering with
 `sip_client.answer` opens two-way audio.
+
+## Home Assistant Integration (hass-sip)
+
+Looking to connect your ESPHome SIP devices to Home Assistant?
+
+Check out the Home Assistant custom component: [**hass-sip (eigger/hass-sip)**](https://github.com/eigger/hass-sip).
+
+- **Registers Home Assistant on the PBX**: Functions as a SIP extension alongside your ESPHome endpoints.
+- **Voice Assist over SIP**: Dial into Home Assistant from your ESP32 intercom or phone for multi-turn voice commands.
+- **Intercom Auto-Answer & DTMF**: Automatically answer door station calls and send DTMF digits (e.g., door/gate release) from Home Assistant dashboards.
+- **TTS Call Broadcasts**: Home Assistant automations can dial your ESP32 paging speakers or intercoms to deliver spoken announcements.
+- **Matching Codecs**: Built with identical G.711 (PCMU/PCMA) and wideband G.722 codec support for clean audio interoperability.
+

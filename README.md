@@ -29,6 +29,7 @@
 - Registers to a SIP PBX (Asterisk/FreePBX/3CX, etc.) and makes/receives voice calls.
 - Two-way audio via ESPHome's standard `microphone`/`speaker` platforms (G.711 PCMU/PCMA, 8 kHz), with DTMF (RFC 2833).
 - Ready-to-use package for Home Assistant Voice PE: [packages/sip/voice_pe](/packages/sip/voice_pe)
+- Pairs with [hass-sip](https://github.com/eigger/hass-sip) for Home Assistant Voice Assist, intercom auto-answer, and TTS calls.
 
 ---
 
