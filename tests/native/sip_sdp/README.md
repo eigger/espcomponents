@@ -25,6 +25,25 @@ tests/native/sip_sdp/run.sh
 | `rejected_audio_stream_port_zero` | `m=audio 0` still parses |
 | `port_with_number_of_ports_suffix` | `m=audio 12345/2` → port 12345 |
 
+### SIP header parsing / routing helpers (`test_sip_message.cpp`)
+
+| Test | Intent |
+|------|--------|
+| `multiple_via_kept_in_order` | INVITE through a proxy/SBC has one Via per hop; all kept, topmost first; `via_branch` reads the top one |
+| `record_route_preserved` | Record-Route survives parsing and `;lr` is detected |
+| `repeated_record_route_rows_and_comma_list_are_equivalent` | repeated rows vs one comma list → same ordered route set |
+| `non_list_header_keeps_first_value` | Contact etc. still keep the first occurrence |
+| `compact_via_is_merged` | `v:` and `Via:` rows merge into one chain |
+| `header_folding` | leading-whitespace continuation lines are joined |
+| `split_ignores_nested_commas` | commas inside `"..."` / `<...>` are not separators |
+| `via_branch_variants` | param order, case, comma-joined chain, missing branch |
+| `loose_route_detection` | `;lr`, `;lr=`, `;lr;`, case; `;lrx` and user-part `lr` are strict |
+| `extract_angle_uri` | `<...>` vs bare `sip:` vs garbage |
+| `route_set_empty_keeps_target` | no / blank route set → Request-URI untouched, no Route |
+| `route_set_loose_router` | `;lr` first hop: Request-URI = remote target, one `Route:` per hop |
+| `route_set_strict_router` | strict first hop takes the Request-URI, remote target appended |
+| `route_set_from_reversed_2xx_record_route` | UAC route set = 2xx Record-Route reversed |
+
 ### `build_sdp_body` (`test_sdp_builder.cpp`)
 
 | Test | Intent |
