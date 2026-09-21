@@ -168,6 +168,9 @@ void test_loose_route_detection() {
   require(!is_loose_route("<sip:user;lr;x@p>"), "lr;x inside the user part is not a URI param");
   require(is_loose_route("<sip:user;lr@p;lr>"), "userinfo lr does not hide a real ;lr param");
   require(!is_loose_route("<sip:p?Subject=;lr>"), "lr in the headers part is not a URI param");
+  require(is_loose_route("<sip:192.168.1.194:5060;lr?x=a@b>"),
+          "an '@' inside the headers part is not the userinfo separator");
+  require(!is_loose_route("<sip:user;lr@p?x=a@b>"), "userinfo lr still strict with '@' in headers");
   require(!is_loose_route(""), "empty -> strict");
 }
 

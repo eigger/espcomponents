@@ -193,13 +193,14 @@ bool is_loose_route(const std::string &route) {
   std::string uri = extract_angle_uri(route);
   if (uri.empty()) uri = trim(route);
   std::string lower = to_lower(uri);
-  // Only URI parameters count (RFC 3261 §16.4), and those follow the
-  // hostport: anything before '@' is userinfo, and ";lr" there is not one.
-  size_t p = lower.find('@');
-  p = (p == std::string::npos) ? 0 : p + 1;
-  // A "?" starts the headers part; ";lr" after it is not a parameter either.
-  size_t end = lower.find('?', p);
+  // Only URI parameters count (RFC 3261 §16.4). They sit between the
+  // hostport and the "?" that starts the headers part; cut there first so an
+  // '@' inside a header value is not mistaken for the userinfo separator,
+  // then skip the userinfo (";lr" before '@' is not a parameter).
+  size_t end = lower.find('?');
   if (end == std::string::npos) end = lower.size();
+  size_t p = lower.rfind('@', end);
+  p = (p == std::string::npos) ? 0 : p + 1;
   // ";lr" must be a whole parameter: ";lr", ";lr=...", ";lr;..." or ";lr?"
   // count, but ";lrx" must not.
   while ((p = lower.find(";lr", p)) != std::string::npos && p < end) {
