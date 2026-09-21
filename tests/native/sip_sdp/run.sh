@@ -14,6 +14,12 @@ g++ "${CXXFLAGS[@]}" "${INC[@]}" \
 "$OUT/sip_sdp_parse_test"
 
 g++ "${CXXFLAGS[@]}" "${INC[@]}" \
+  "$ROOT/components/sip_client/sip_message.cpp" \
+  "$ROOT/tests/native/sip_sdp/test_sip_message.cpp" \
+  -o "$OUT/sip_message_test"
+"$OUT/sip_message_test"
+
+g++ "${CXXFLAGS[@]}" "${INC[@]}" \
   "$ROOT/components/sip_client/sdp_builder.cpp" \
   "$ROOT/tests/native/sip_sdp/test_sdp_builder.cpp" \
   -o "$OUT/sip_sdp_builder_test"

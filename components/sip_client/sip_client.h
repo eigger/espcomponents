@@ -102,6 +102,9 @@ class SipClient : public Component {
   std::string build_invite_();
   std::string build_ack_(const SipMessage &resp);
   std::string build_request_in_dialog_(const std::string &method);
+  // Request-URI and "Route: ...\r\n" block (or "") for an in-dialog request
+  // (RFC 3261 §12.2.1.1: loose vs strict routers).
+  void route_request_(std::string &target, std::string &route_block) const;
   std::string build_response_(const SipMessage &req, int code, const std::string &reason,
                               bool with_sdp);
   // Offer (answer=false): all supported codecs. Answer (true): chosen codec
@@ -193,6 +196,8 @@ class SipClient : public Component {
   std::string d_local_;        // our From-style header incl. tag
   std::string d_remote_;       // peer header incl. tag
   std::string d_remote_target_;  // request-URI for in-dialog requests
+  std::string d_invite_uri_;     // Request-URI of our INVITE (non-2xx ACK / CANCEL target)
+  std::vector<std::string> dialog_routes_;  // route set (RFC 3261 §12.1), first hop first
   std::string d_local_tag_;
   std::string d_branch_;       // branch of the INVITE transaction
   uint32_t d_cseq_{0};

@@ -1,4 +1,5 @@
 #include "sip_client.h"
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -24,19 +25,6 @@ static std::string trim(const std::string &s) {
   if (b == std::string::npos) return "";
   size_t e = s.find_last_not_of(" \t\r\n");
   return s.substr(b, e - b + 1);
-}
-
-static std::string extract_angle_uri(const std::string &value) {
-  size_t lt = value.find('<');
-  size_t gt = value.find('>');
-  if (lt != std::string::npos && gt != std::string::npos && gt > lt) {
-    return value.substr(lt + 1, gt - lt - 1);
-  }
-  std::string stripped = trim(value);
-  if (stripped.rfind("sip", 0) == 0) {
-    return stripped;
-  }
-  return "";
 }
 
 // Render an IPv4 sockaddr to dotted-quad without depending on inet_ntop.
@@ -307,6 +295,8 @@ void SipClient::call(const std::string &number) {
                    ">;tag=" + this->d_local_tag_;
   this->d_remote_ = "<sip:" + number + "@" + this->domain_ + ">";
   this->d_remote_target_ = "sip:" + number + "@" + this->domain_;
+  this->d_invite_uri_ = this->d_remote_target_;
+  this->dialog_routes_.clear();
   this->send_raw_(this->build_invite_());
   this->set_state_(SIP_INVITING);
   ESP_LOGI(TAG, "Calling %s", number.c_str());
@@ -351,7 +341,7 @@ std::string SipClient::local_sdp_(bool answer) {
 std::string SipClient::build_invite_() {
   std::string sdp = this->local_sdp_();
   std::string msg;
-  msg += "INVITE " + this->d_remote_target_ + " SIP/2.0\r\n";
+  msg += "INVITE " + this->d_invite_uri_ + " SIP/2.0\r\n";
   msg += "Via: SIP/2.0/UDP " + this->local_ip_ + ":" + std::to_string(this->local_port_) +
          ";branch=" + this->d_branch_ + ";rport\r\n";
   msg += "Max-Forwards: 70\r\n";
@@ -369,10 +359,28 @@ std::string SipClient::build_invite_() {
 
 std::string SipClient::build_ack_(const SipMessage &resp) {
   std::string to = resp.header("To");
-  std::string contact = resp.header("Contact");
-  std::string target = extract_angle_uri(contact);
-  if (target.empty()) {
-    target = this->d_remote_target_;
+  bool success = resp.status_code >= 200 && resp.status_code < 300;
+
+  // RFC 3261 §17.1.1.3: the ACK for a 3xx-6xx belongs to the INVITE
+  // transaction — same Request-URI and same top Via branch — or the server
+  // keeps retransmitting the failure (seen with 3CX after a 407). The ACK
+  // for a 2xx is its own transaction: new branch, sent to the dialog's
+  // remote target through the route set.
+  std::string target;
+  std::string route_block;
+  std::string branch;
+  if (success) {
+    target = extract_angle_uri(resp.header("Contact"));
+    if (target.empty()) target = this->d_remote_target_;
+    this->route_request_(target, route_block);
+    branch = gen_branch();
+  } else {
+    target = this->d_invite_uri_.empty() ? this->d_remote_target_ : this->d_invite_uri_;
+    // Take the branch from the response itself so a late retransmission of
+    // an old transaction (e.g. the 407 while the authenticated INVITE is
+    // already in flight) is acknowledged with its own branch.
+    branch = via_branch(resp.header("Via"));
+    if (branch.empty()) branch = this->d_branch_;
   }
 
   uint32_t cseq = (uint32_t) std::atoi(resp.header("CSeq").c_str());
@@ -383,8 +391,9 @@ std::string SipClient::build_ack_(const SipMessage &resp) {
   std::string msg;
   msg += "ACK " + target + " SIP/2.0\r\n";
   msg += "Via: SIP/2.0/UDP " + this->local_ip_ + ":" + std::to_string(this->local_port_) +
-         ";branch=" + gen_branch() + ";rport\r\n";
+         ";branch=" + branch + ";rport\r\n";
   msg += "Max-Forwards: 70\r\n";
+  msg += route_block;
   msg += "From: " + this->d_local_ + "\r\n";
   msg += "To: " + (to.empty() ? this->d_remote_ : to) + "\r\n";
   msg += "Call-ID: " + this->d_call_id_ + "\r\n";
@@ -451,13 +460,17 @@ void SipClient::handle_invite_response_(const SipMessage &m, const std::string &
       return;
     }
 
-    // Capture remote tag and target, parse SDP, ACK, start media.
+    // Capture remote tag, target and route set, parse SDP, ACK, start media.
     std::string to = m.header("To");
     if (!to.empty()) this->d_remote_ = to;
     std::string contact = m.header("Contact");
     std::string target = extract_angle_uri(contact);
     if (!target.empty())
       this->d_remote_target_ = target;
+    // RFC 3261 §12.1.2: the UAC's route set is the Record-Route list of the
+    // 2xx in reverse order.
+    this->dialog_routes_ = split_header_values(m.header("Record-Route"));
+    std::reverse(this->dialog_routes_.begin(), this->dialog_routes_.end());
 
     SdpInfo sdp = parse_sdp(m.body);
     this->remote_rtp_ip_ = sdp.connection_ip.empty() ? this->remote_rtp_ip_ : sdp.connection_ip;
@@ -516,13 +529,23 @@ std::string SipClient::build_response_(const SipMessage &req, int code, const st
   std::string sdp = with_sdp ? this->local_sdp_(/*answer=*/true) : "";
   std::string msg;
   msg += "SIP/2.0 " + std::to_string(code) + " " + reason + "\r\n";
-  msg += "Via: " + req.header("Via") + "\r\n";
+  // Echo every Via, topmost first: a request that crossed a proxy/SBC has
+  // one per hop and the response must retrace them all (RFC 3261 §8.2.6.2).
+  for (const auto &via : split_header_values(req.header("Via")))
+    msg += "Via: " + via + "\r\n";
   msg += "From: " + req.header("From") + "\r\n";
   msg += "To: " + to + "\r\n";
   msg += "Call-ID: " + req.header("Call-ID") + "\r\n";
   msg += "CSeq: " + req.header("CSeq") + "\r\n";
-  if (code >= 200 && code < 300 && req.method == "INVITE")
+  // RFC 3261 §12.1.1: every dialog-establishing response — the early dialog
+  // of a 18x included — must echo the request's Record-Route and carry a
+  // Contact the peer can route in-dialog requests to. Dropping either
+  // strands the proxy outside the dialog and its ACK never reaches us.
+  if (req.method == "INVITE" && code > 100 && code < 300) {
+    for (const auto &route : split_header_values(req.header("Record-Route")))
+      msg += "Record-Route: " + route + "\r\n";
     msg += "Contact: " + this->contact_uri_() + "\r\n";
+  }
   msg += "User-Agent: " + std::string(USER_AGENT) + "\r\n";
   if (with_sdp) {
     msg += "Content-Type: application/sdp\r\n";
@@ -567,6 +590,9 @@ void SipClient::handle_request_(const SipMessage &m, const std::string &raw) {
     this->d_remote_ = m.header("From");
     std::string contact = m.header("Contact");
     this->d_remote_target_ = extract_angle_uri(contact);
+    this->d_invite_uri_.clear();
+    // RFC 3261 §12.1.1: the UAS's route set is the Record-Route list as-is.
+    this->dialog_routes_ = split_header_values(m.header("Record-Route"));
     this->d_cseq_ = std::atoi(m.header("CSeq").c_str());
     this->remote_rtp_ip_ = sdp.connection_ip;
     this->remote_rtp_port_ = sdp.audio_port;
@@ -658,7 +684,7 @@ void SipClient::hangup() {
     case SIP_RINGING_OUT: {
       // CANCEL the pending INVITE (same branch/cseq).
       std::string msg;
-      msg += "CANCEL " + this->d_remote_target_ + " SIP/2.0\r\n";
+      msg += "CANCEL " + this->d_invite_uri_ + " SIP/2.0\r\n";
       msg += "Via: SIP/2.0/UDP " + this->local_ip_ + ":" + std::to_string(this->local_port_) +
              ";branch=" + this->d_branch_ + ";rport\r\n";
       msg += "Max-Forwards: 70\r\n";
@@ -684,12 +710,46 @@ void SipClient::hangup() {
   }
 }
 
+void SipClient::route_request_(std::string &target, std::string &route_block) const {
+  route_block.clear();
+  std::vector<std::string> active;
+  for (const auto &r : this->dialog_routes_) {
+    if (!trim(r).empty()) active.push_back(r);
+  }
+  if (active.empty()) return;
+  auto join = [](const std::vector<std::string> &v) {
+    std::string out;
+    for (size_t i = 0; i < v.size(); i++) {
+      if (i) out += ", ";
+      out += v[i];
+    }
+    return out;
+  };
+  if (is_loose_route(active[0])) {
+    // Loose router: remote target stays in the Request-URI, whole route set
+    // travels as Route headers.
+    route_block = "Route: " + join(active) + "\r\n";
+    return;
+  }
+  // Strict router: it takes the Request-URI; the remote target moves to the
+  // tail of the route set so it is not lost.
+  std::vector<std::string> remaining(active.begin() + 1, active.end());
+  if (!target.empty()) remaining.push_back("<" + target + ">");
+  if (!remaining.empty()) route_block = "Route: " + join(remaining) + "\r\n";
+  std::string first = extract_angle_uri(active[0]);
+  target = first.empty() ? active[0] : first;
+}
+
 std::string SipClient::build_request_in_dialog_(const std::string &method) {
+  std::string target = this->d_remote_target_;
+  std::string route_block;
+  this->route_request_(target, route_block);
   std::string msg;
-  msg += method + " " + this->d_remote_target_ + " SIP/2.0\r\n";
+  msg += method + " " + target + " SIP/2.0\r\n";
   msg += "Via: SIP/2.0/UDP " + this->local_ip_ + ":" + std::to_string(this->local_port_) +
          ";branch=" + gen_branch() + ";rport\r\n";
   msg += "Max-Forwards: 70\r\n";
+  msg += route_block;
   // For BYE the From/To orientation follows who originates: we are always local.
   msg += "From: " + this->d_local_ + "\r\n";
   msg += "To: " + this->d_remote_ + "\r\n";

@@ -16,8 +16,9 @@ struct SipMessage {
   std::string reason;       // response only
 
   // Common headers (raw values, leading/trailing space trimmed). Names are
-  // stored lowercase in `headers`; the convenience fields below mirror the most
-  // used ones.
+  // stored lowercase in `headers`. Repeated list headers (Via, Record-Route,
+  // Route, Service-Route) are joined with ", " in wire order so the full
+  // proxy path survives; every other repeated header keeps its first value.
   std::map<std::string, std::string> headers;
   std::string body;
 
@@ -44,6 +45,19 @@ struct SdpInfo {
 
 SipMessage parse_sip_message(const std::string &raw);
 SdpInfo parse_sdp(const std::string &body);
+
+// Split a comma-list header value (Via, Record-Route, Route, ...) into its
+// field-values without splitting commas nested in <...> or quoted strings.
+std::vector<std::string> split_header_values(const std::string &value);
+
+// URI inside <...>, or the trimmed value itself when it is a bare sip: URI.
+std::string extract_angle_uri(const std::string &value);
+
+// Branch parameter of the top Via (the transaction the message belongs to).
+std::string via_branch(const std::string &via);
+
+// Whether a Record-Route/Route field-value points at a loose router (;lr).
+bool is_loose_route(const std::string &route);
 
 // Extract a quoted-or-token parameter from an auth header value, e.g.
 // auth_param("Digest realm=\"asterisk\", nonce=\"abc\"", "nonce") -> "abc".
