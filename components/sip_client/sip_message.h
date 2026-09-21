@@ -59,6 +59,14 @@ std::string via_branch(const std::string &via);
 // Whether a Record-Route/Route field-value points at a loose router (;lr).
 bool is_loose_route(const std::string &route);
 
+// Resolve the Request-URI and "Route: ...\r\n" lines for an in-dialog request
+// (RFC 3261 §12.2.1.1). `target` is the remote target on entry; on return it
+// is the Request-URI to use (a strict first hop takes it over and the remote
+// target moves to the end of the route set). `route_block` is one Route
+// header per hop, or empty when there is no route set.
+void apply_route_set(const std::vector<std::string> &routes, std::string &target,
+                     std::string &route_block);
+
 // Extract a quoted-or-token parameter from an auth header value, e.g.
 // auth_param("Digest realm=\"asterisk\", nonce=\"abc\"", "nonce") -> "abc".
 std::string auth_param(const std::string &header_value, const std::string &key);

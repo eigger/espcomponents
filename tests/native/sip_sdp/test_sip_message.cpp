@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+using esphome::sip_client::apply_route_set;
 using esphome::sip_client::extract_angle_uri;
 using esphome::sip_client::is_loose_route;
 using esphome::sip_client::parse_sip_message;
@@ -163,7 +164,72 @@ void test_loose_route_detection() {
   require(!is_loose_route("<sip:p>"), "no lr -> strict");
   require(!is_loose_route("<sip:p;lrx>"), ";lrx is not ;lr");
   require(!is_loose_route("<sip:user;lr@p>"), "lr inside the user part is not a URI param");
+  require(!is_loose_route("<sip:user;lr=on@p>"), "lr=on inside the user part is not a URI param");
+  require(!is_loose_route("<sip:user;lr;x@p>"), "lr;x inside the user part is not a URI param");
+  require(is_loose_route("<sip:user;lr@p;lr>"), "userinfo lr does not hide a real ;lr param");
+  require(!is_loose_route("<sip:p?Subject=;lr>"), "lr in the headers part is not a URI param");
   require(!is_loose_route(""), "empty -> strict");
+}
+
+// ---------------- apply_route_set ----------------
+
+void test_route_set_empty_keeps_target() {
+  std::string target = "sip:100@10.0.0.5:5060";
+  std::string block = "stale";
+  apply_route_set({}, target, block);
+  require_eq_str(target, "sip:100@10.0.0.5:5060", "no route set: target untouched");
+  require_eq_str(block, "", "no route set: no Route header");
+
+  apply_route_set({"", "  "}, target, block);
+  require_eq_str(block, "", "blank entries count as no route set");
+}
+
+void test_route_set_loose_router() {
+  // 3CX / Kamailio style: the whole set travels as Route, one header per
+  // hop, and the Request-URI stays the remote Contact.
+  std::string target = "sip:100@10.0.0.5:5060";
+  std::string block;
+  apply_route_set({"<sip:192.168.1.194:5060;lr>", "<sip:10.0.0.1;lr>"}, target, block);
+  require_eq_str(target, "sip:100@10.0.0.5:5060", "loose: Request-URI is the remote target");
+  require_eq_str(block, "Route: <sip:192.168.1.194:5060;lr>\r\nRoute: <sip:10.0.0.1;lr>\r\n",
+                 "loose: one Route line per hop, first hop first");
+}
+
+void test_route_set_strict_router() {
+  // RFC 2543-style first hop: it takes the Request-URI and the remote target
+  // is appended to the route set so it is not lost.
+  std::string target = "sip:100@10.0.0.5:5060";
+  std::string block;
+  apply_route_set({"<sip:strict.example>", "<sip:10.0.0.1;lr>"}, target, block);
+  require_eq_str(target, "sip:strict.example", "strict: first hop becomes the Request-URI");
+  require_eq_str(block, "Route: <sip:10.0.0.1;lr>\r\nRoute: <sip:100@10.0.0.5:5060>\r\n",
+                 "strict: remaining hops then the remote target");
+
+  target = "sip:100@10.0.0.5:5060";
+  apply_route_set({"<sip:strict.example>"}, target, block);
+  require_eq_str(target, "sip:strict.example", "single strict hop takes the Request-URI");
+  require_eq_str(block, "Route: <sip:100@10.0.0.5:5060>\r\n", "remote target still travels");
+
+  target = "";
+  apply_route_set({"sip:bare.strict"}, target, block);
+  require_eq_str(target, "sip:bare.strict", "bare URI hop works without <>");
+  require_eq_str(block, "", "no remote target -> nothing to append");
+}
+
+void test_route_set_from_reversed_2xx_record_route() {
+  // UAC: Record-Route of the 2xx reversed is the route set (RFC 3261 §12.1.2).
+  const char *raw =
+      "SIP/2.0 200 OK\r\n"
+      "Record-Route: <sip:outer;lr>\r\n"
+      "Record-Route: <sip:inner;lr>\r\n"
+      "Contact: <sip:bob@10.0.0.9>\r\n\r\n";
+  std::vector<std::string> routes = split_header_values(parse_sip_message(raw).header("Record-Route"));
+  std::vector<std::string> reversed(routes.rbegin(), routes.rend());
+  std::string target = "sip:bob@10.0.0.9";
+  std::string block;
+  apply_route_set(reversed, target, block);
+  require_eq_str(block, "Route: <sip:inner;lr>\r\nRoute: <sip:outer;lr>\r\n",
+                 "nearest proxy (last Record-Route) is the first Route");
 }
 
 // ---------------- extract_angle_uri ----------------
@@ -188,6 +254,10 @@ int main() {
   test_via_branch_variants();
   test_loose_route_detection();
   test_extract_angle_uri();
+  test_route_set_empty_keeps_target();
+  test_route_set_loose_router();
+  test_route_set_strict_router();
+  test_route_set_from_reversed_2xx_record_route();
 
   if (g_failures != 0) {
     std::cerr << g_failures << " failure(s)\n";

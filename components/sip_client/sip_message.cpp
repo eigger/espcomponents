@@ -193,17 +193,51 @@ bool is_loose_route(const std::string &route) {
   std::string uri = extract_angle_uri(route);
   if (uri.empty()) uri = trim(route);
   std::string lower = to_lower(uri);
-  // ";lr" must be a whole parameter: ";lr", ";lr=...", ";lr;..." or ";lr?..."
-  // count, but ";lrx" and a query/user part mentioning lr must not.
-  size_t p = 0;
-  while ((p = lower.find(";lr", p)) != std::string::npos) {
+  // Only URI parameters count (RFC 3261 §16.4), and those follow the
+  // hostport: anything before '@' is userinfo, and ";lr" there is not one.
+  size_t p = lower.find('@');
+  p = (p == std::string::npos) ? 0 : p + 1;
+  // A "?" starts the headers part; ";lr" after it is not a parameter either.
+  size_t end = lower.find('?', p);
+  if (end == std::string::npos) end = lower.size();
+  // ";lr" must be a whole parameter: ";lr", ";lr=...", ";lr;..." or ";lr?"
+  // count, but ";lrx" must not.
+  while ((p = lower.find(";lr", p)) != std::string::npos && p < end) {
     size_t after = p + 3;
-    if (after >= lower.size()) return true;
+    if (after >= end) return true;
     char c = lower[after];
     if (c == ';' || c == '=' || c == '?') return true;
     p = after;
   }
   return false;
+}
+
+void apply_route_set(const std::vector<std::string> &routes, std::string &target,
+                     std::string &route_block) {
+  route_block.clear();
+  std::vector<std::string> active;
+  for (const auto &r : routes) {
+    if (!trim(r).empty()) active.push_back(r);
+  }
+  if (active.empty()) return;
+  // One Route header per hop (like the Record-Route echo): some proxies only
+  // read the first value of a comma-joined list.
+  auto emit = [&route_block](const std::vector<std::string> &v) {
+    for (const auto &r : v) route_block += "Route: " + r + "\r\n";
+  };
+  if (is_loose_route(active[0])) {
+    // Loose router: remote target stays in the Request-URI, whole route set
+    // travels as Route headers.
+    emit(active);
+    return;
+  }
+  // Strict router: it takes the Request-URI; the remote target moves to the
+  // tail of the route set so it is not lost.
+  std::vector<std::string> remaining(active.begin() + 1, active.end());
+  if (!target.empty()) remaining.push_back("<" + target + ">");
+  emit(remaining);
+  std::string first = extract_angle_uri(active[0]);
+  target = first.empty() ? active[0] : first;
 }
 
 static void derive_codec_pts_(SdpInfo &info) {

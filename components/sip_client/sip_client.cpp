@@ -20,13 +20,6 @@ namespace sip_client {
 static const char *const TAG = "sip_client";
 static const char *const USER_AGENT = "ESPHome-sip_client";
 
-static std::string trim(const std::string &s) {
-  size_t b = s.find_first_not_of(" \t\r\n");
-  if (b == std::string::npos) return "";
-  size_t e = s.find_last_not_of(" \t\r\n");
-  return s.substr(b, e - b + 1);
-}
-
 // Render an IPv4 sockaddr to dotted-quad without depending on inet_ntop.
 static std::string sockaddr_ip(const struct sockaddr_storage &ss, uint16_t *port) {
   if (ss.ss_family != AF_INET) return "";
@@ -364,15 +357,18 @@ std::string SipClient::build_ack_(const SipMessage &resp) {
   // RFC 3261 §17.1.1.3: the ACK for a 3xx-6xx belongs to the INVITE
   // transaction — same Request-URI and same top Via branch — or the server
   // keeps retransmitting the failure (seen with 3CX after a 407). The ACK
-  // for a 2xx is its own transaction: new branch, sent to the dialog's
-  // remote target through the route set.
+  // for a 2xx is its own transaction: new branch, sent to that response's
+  // Contact through that response's route set — not the stored dialog's,
+  // so a forked 2xx from another leg is acknowledged along its own path.
   std::string target;
   std::string route_block;
   std::string branch;
   if (success) {
     target = extract_angle_uri(resp.header("Contact"));
     if (target.empty()) target = this->d_remote_target_;
-    this->route_request_(target, route_block);
+    std::vector<std::string> routes = split_header_values(resp.header("Record-Route"));
+    std::reverse(routes.begin(), routes.end());
+    apply_route_set(routes, target, route_block);
     branch = gen_branch();
   } else {
     target = this->d_invite_uri_.empty() ? this->d_remote_target_ : this->d_invite_uri_;
@@ -710,40 +706,10 @@ void SipClient::hangup() {
   }
 }
 
-void SipClient::route_request_(std::string &target, std::string &route_block) const {
-  route_block.clear();
-  std::vector<std::string> active;
-  for (const auto &r : this->dialog_routes_) {
-    if (!trim(r).empty()) active.push_back(r);
-  }
-  if (active.empty()) return;
-  auto join = [](const std::vector<std::string> &v) {
-    std::string out;
-    for (size_t i = 0; i < v.size(); i++) {
-      if (i) out += ", ";
-      out += v[i];
-    }
-    return out;
-  };
-  if (is_loose_route(active[0])) {
-    // Loose router: remote target stays in the Request-URI, whole route set
-    // travels as Route headers.
-    route_block = "Route: " + join(active) + "\r\n";
-    return;
-  }
-  // Strict router: it takes the Request-URI; the remote target moves to the
-  // tail of the route set so it is not lost.
-  std::vector<std::string> remaining(active.begin() + 1, active.end());
-  if (!target.empty()) remaining.push_back("<" + target + ">");
-  if (!remaining.empty()) route_block = "Route: " + join(remaining) + "\r\n";
-  std::string first = extract_angle_uri(active[0]);
-  target = first.empty() ? active[0] : first;
-}
-
 std::string SipClient::build_request_in_dialog_(const std::string &method) {
   std::string target = this->d_remote_target_;
   std::string route_block;
-  this->route_request_(target, route_block);
+  apply_route_set(this->dialog_routes_, target, route_block);
   std::string msg;
   msg += method + " " + target + " SIP/2.0\r\n";
   msg += "Via: SIP/2.0/UDP " + this->local_ip_ + ":" + std::to_string(this->local_port_) +

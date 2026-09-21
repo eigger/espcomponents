@@ -39,6 +39,10 @@ tests/native/sip_sdp/run.sh
 | `via_branch_variants` | param order, case, comma-joined chain, missing branch |
 | `loose_route_detection` | `;lr`, `;lr=`, `;lr;`, case; `;lrx` and user-part `lr` are strict |
 | `extract_angle_uri` | `<...>` vs bare `sip:` vs garbage |
+| `route_set_empty_keeps_target` | no / blank route set → Request-URI untouched, no Route |
+| `route_set_loose_router` | `;lr` first hop: Request-URI = remote target, one `Route:` per hop |
+| `route_set_strict_router` | strict first hop takes the Request-URI, remote target appended |
+| `route_set_from_reversed_2xx_record_route` | UAC route set = 2xx Record-Route reversed |
 
 ### `build_sdp_body` (`test_sdp_builder.cpp`)
 
