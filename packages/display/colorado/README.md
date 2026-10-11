@@ -72,15 +72,15 @@ The dashboard connects directly to Home Assistant's `/api/websocket` endpoint ov
   - **Air Quality**: SCD40 CO2/temp/humidity, SGP30 eCO2 & TVOC.
   - **Firmware Update**: Exposes the `ota_update` entity as a native Home Assistant Update card with one-click install.
 
-## OTA Updates (ESPHome OTA Publisher)
+## OTA Updates (hass-esphome-ota)
 
-To enable remote Over-The-Air (OTA) firmware updates via Home Assistant without exposing local ports or using a VPN, this configuration integrates with the **[ESPHome OTA Publisher](https://github.com/eigger/hassio-apps/tree/master/esphome_ota)** add-on.
+To build and publish firmware for remote Over-The-Air (OTA) updates through Home Assistant, this configuration works with **[hass-esphome-ota](https://github.com/eigger/hass-esphome-ota)**. The integration discovers devices from ESPHome Device Builder and publishes firmware for the device to install over HTTP OTA.
 
-1. **Install Add-on**: Install [ESPHome OTA Publisher](https://github.com/eigger/hassio-apps/tree/master/esphome_ota) in Home Assistant.
-2. **Register Device**: Register `esp-colorado-tab5` in the add-on UI and build/publish firmware.
-3. **OTA Package**: The add-on generates `ota_server/devices/esp-colorado-tab5.yaml` (or `ota_server/update.yaml`), which defines `ota_update` and sets `esphome.project.version`.
+1. **Install Integration**: Install [hass-esphome-ota](https://github.com/eigger/hass-esphome-ota) in Home Assistant and restart Home Assistant.
+2. **Prepare Device**: Open the ESPHome OTA panel, select `esp-colorado-tab5`, and apply the proposed OTA configuration to its ESPHome YAML.
+3. **Build and Publish**: Use **Build & Publish** in the panel. If the device does not already have HTTP OTA enabled, install the published firmware once over USB or local OTA first.
 4. **Version Management**: The dashboard automatically uses `ESPHOME_PROJECT_VERSION` (`*version`) across boot logs, header version label, splash screen, and `ws_bridge` device info.
-5. **Home Assistant Update Entity**: `ws_bridge` exposes `ota_update` to Home Assistant as a native firmware Update entity with install/check features.
+5. **Home Assistant Update Entity**: `ws_bridge` exposes the device's update entity to Home Assistant with install/check features.
 
 ## Required Secrets
 

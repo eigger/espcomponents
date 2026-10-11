@@ -392,10 +392,11 @@ available version), which native `http_request` update cannot do on its own
 when the device is not using ESPHome's native API. This requires
 `hass-ws-bridge` **1.2.0+** (the `update` platform) and **ESPHome 2025.7+**.
 
-The [ESPHome OTA Publisher](https://github.com/eigger/hassio-apps/tree/master/esphome_ota)
-add-on is the intended firmware host: it publishes `firmware.ota.bin` + a
-manifest under HA's `/local/` (reachable over LAN and a remote tunnel). It
-generates two packages — pick one.
+The [hass-esphome-ota](https://github.com/eigger/hass-esphome-ota)
+Home Assistant integration is the intended firmware builder and publisher. It
+publishes firmware for HTTP OTA updates and integrates with ESPHome Device
+Builder. The legacy add-on generated two packages — pick one if you are
+maintaining an existing add-on setup.
 
 **Force-install button** (`flash_button.yaml`, the add-on's default): no
 version tracking, just a button that pulls the `.ota.bin` and checks MD5.
