@@ -3016,6 +3016,3 @@ script:
                 id: script_set_update_available
                 latest_ver: !lambda 'return id(g_latest_version);'
                 available: !lambda 'return id(g_update_available);'
-
-packages:
-  ota: !include ota_server/devices/esp-colorado-tab5.yaml
