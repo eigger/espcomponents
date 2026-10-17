@@ -18,7 +18,7 @@ M5Stack AtomS3 Lite와 Tail485 (Atom Tail RS485) 모듈을 이용하여 삼성 �
 Tail485 모듈 4핀 터미널 블록(`B`, `A`, `12V`, `GND`)에 벽면 전원/통신 라인을 연결합니다.
 
 <br>
-<img src="../../../documents/hvac/samsung/samsung_tail485_atoms3_wiring.jpg" alt="M5Stack Tail485 + AtomS3 Lite Wiring" width="550">
+<img src="../../../docs/images/packages/hvac/samsung/samsung_tail485_atoms3_wiring.jpg" alt="M5Stack Tail485 + AtomS3 Lite Wiring" width="550">
 <br>
 
 #### 📌 Tail485 결선 핀 맵
@@ -33,7 +33,7 @@ Tail485 모듈 4핀 터미널 블록(`B`, `A`, `12V`, `GND`)에 벽면 전원/�
 벽면 내부 서브 PCB (AIM-H04N 등)의 **F1 / F2** (통신) 및 **V1 / V2** (12V 전원) 단자 위치 구조입니다.
 
 <br>
-<img src="../../../documents/hvac/samsung/samsung_f1f2_wiring.jpg" alt="Samsung AC Sub PCB Terminal" width="550">
+<img src="../../../docs/images/packages/hvac/samsung/samsung_f1f2_wiring.jpg" alt="Samsung AC Sub PCB Terminal" width="550">
 <br>
 
 ---

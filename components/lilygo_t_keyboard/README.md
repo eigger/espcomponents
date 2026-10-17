@@ -10,4 +10,4 @@ lilygo_t_keyboard:
   release_key:
     name: release key
 ```
-<img src="https://cdn.shopify.com/s/files/1/0617/7190/7253/files/T-Keyboard.jpg?v=1708422205" width="400">
+<img src="../../docs/images/hardware/lilygo-t-keyboard.jpg" width="400">

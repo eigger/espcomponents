@@ -21,7 +21,7 @@ A simple button component configuration for ESP8266 (D1 Mini).
 
 | 1 | 2 | 3 |
 |---|---|---|
-| ![](../../../documents/button/1.jpg) | ![](../../../documents/button/2.jpg) | ![](../../../documents/button/3.jpg) |
+| ![](../../../docs/images/packages/button/neimz/1.jpg) | ![](../../../docs/images/packages/button/neimz/2.jpg) | ![](../../../docs/images/packages/button/neimz/3.jpg) |
 
 ## Purchase Link
 

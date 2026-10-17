@@ -6,23 +6,23 @@ ESPHome configuration for a vehicle dashboard based on the M5Stack Core TAB5 (ES
 
 ### In-Vehicle Dashboard
 <p align="center">
-  <img src="../../../documents/colorado/dash.jpg" width="720" alt="Colorado Tab5 In-Vehicle Dashboard">
+  <img src="../../../docs/images/packages/display/colorado/dash.jpg" width="720" alt="Colorado Tab5 In-Vehicle Dashboard">
 </p>
 
 ### Hardware Assembly
 | Front View (Tab5 & GPS Antenna) | Rear View (Module GNSS, Unit HUB, SCD40, SGP30) |
 | :---: | :---: |
-| <img src="../../../documents/colorado/assembly_front.jpg" width="360" alt="Colorado Tab5 Assembly Front"> | <img src="../../../documents/colorado/assembly_rear.jpg" width="360" alt="Colorado Tab5 Assembly Rear"> |
+| <img src="../../../docs/images/packages/display/colorado/assembly_front.jpg" width="360" alt="Colorado Tab5 Assembly Front"> | <img src="../../../docs/images/packages/display/colorado/assembly_rear.jpg" width="360" alt="Colorado Tab5 Assembly Rear"> |
 
 ### Hardware Components
 
 | 1. M5Stack Core TAB5 | 2. Vgate vLinker MC+ BLE | 3. M5Stack Module GNSS | 4. Jaalee JHT BLE Sensor |
 | :---: | :---: | :---: | :---: |
-| <img src="../../../documents/colorado/tab5.webp" width="200" alt="M5Stack Core TAB5"> | <img src="../../../documents/colorado/vlinker.jpg" width="200" alt="vLinker MC+ BLE OBD2"> | <img src="../../../documents/colorado/gnss.webp" width="200" alt="M5Stack Module GNSS"> | <img src="../../../documents/colorado/jaalee.png" width="200" alt="Jaalee JHT BLE Sensor"> |
+| <img src="../../../docs/images/packages/display/colorado/tab5.webp" width="200" alt="M5Stack Core TAB5"> | <img src="../../../docs/images/packages/display/colorado/vlinker.jpg" width="200" alt="vLinker MC+ BLE OBD2"> | <img src="../../../docs/images/packages/display/colorado/gnss.webp" width="200" alt="M5Stack Module GNSS"> | <img src="../../../docs/images/packages/display/colorado/jaalee.png" width="200" alt="Jaalee JHT BLE Sensor"> |
 
 | 5. M5Stack Unit CO2 (SCD40) | 6. M5Stack Unit TVOC (SGP30) | 7. M5Stack Unit HUB (1-to-3) |
 | :---: | :---: | :---: |
-| <img src="../../../documents/colorado/co2.webp" width="200" alt="M5Stack Unit CO2 (SCD40)"> | <img src="../../../documents/colorado/tvoc.webp" width="200" alt="M5Stack Mini Unit TVOC/eCO2 (SGP30)"> | <img src="../../../documents/colorado/hub.webp" width="200" alt="M5Stack Unit HUB 1 to 3"> |
+| <img src="../../../docs/images/packages/display/colorado/co2.webp" width="200" alt="M5Stack Unit CO2 (SCD40)"> | <img src="../../../docs/images/packages/display/colorado/tvoc.webp" width="200" alt="M5Stack Mini Unit TVOC/eCO2 (SGP30)"> | <img src="../../../docs/images/packages/display/colorado/hub.webp" width="200" alt="M5Stack Unit HUB 1 to 3"> |
 
 ## Features
 

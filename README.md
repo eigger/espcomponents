@@ -5,8 +5,8 @@
 
 <a href="https://esphome.io/">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://media.esphome.io/logo/logo-text-on-dark.svg", alt="ESPHome Logo">
-    <img src="https://media.esphome.io/logo/logo-text-on-light.svg" alt="ESPHome Logo">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/logos/esphome-on-dark.svg", alt="ESPHome Logo">
+    <img src="docs/images/logos/esphome-on-light.svg" alt="ESPHome Logo">
   </picture>
 </a>
 
@@ -65,7 +65,7 @@
 **Lilygo Watch Keyboard Component**  
 - Supports BBQ10 Keyboard for Lilygo Watch.
 - Product image:  
-  <img src="https://lilygo.cc/cdn/shop/products/Q374-watch-keyboard-lilygo.jpg?v=1679983894" width="200">
+  <img src="docs/images/hardware/lilygo-watch-keyboard.jpg" width="200">
 
 ---
 
@@ -73,7 +73,7 @@
 **Lilygo T Keyboard Component**  
 - Supports Lilygo T Keyboard.
 - Product image:  
-  <img src="https://cdn.shopify.com/s/files/1/0617/7190/7253/files/T-Keyboard.jpg?v=1708422205" width="200">
+  <img src="docs/images/hardware/lilygo-t-keyboard.jpg" width="200">
   
 ---
 
@@ -81,7 +81,7 @@
 **TCA8418 Keyboard Component**  
 - Supports TCA8418 I2C keypad scan IC (M5Cardputer ADV keyboard).
 - Product image:  
-  <img src="https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/1178/Cardputer-Adv_02.webp" width="200">
+  <img src="docs/images/hardware/m5stack-cardputer-adv.webp" width="200">
 
 ---
 
@@ -90,4 +90,4 @@
 - Supports M5Stack Unit-Mini Scales (SKU: U177) and Unit Scales.
 - Allows weight measurements, LED control, button monitoring, calibration, and filter settings over I2C.
 - Product images:  
-  <img src="https://static-cdn.m5stack.com/resource/docs/products/unit/Unit-Mini%20Scales/img-e124306a-177f-4385-996d-18f10f928040.webp" width="200" alt="Unit-Mini Scales"> <img src="https://static-cdn.m5stack.com/resource/docs/products/unit/UNIT%20Scales/img-22f5b336-4142-40f9-90ad-a99eaefeea09.webp" width="200" alt="Unit Scales">
+  <img src="docs/images/hardware/m5stack-unit-mini-scales.webp" width="200" alt="Unit-Mini Scales"> <img src="docs/images/hardware/m5stack-unit-scales.webp" width="200" alt="Unit Scales">

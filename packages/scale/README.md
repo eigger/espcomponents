@@ -39,7 +39,7 @@ packages:
 
 | M5Stack AtomS3R-M12 | M5Stack Unit-Mini Scales |
 |---|---|
-| <img src="https://m5stack.oss-cn-shenzhen.aliyuncs.com/resource/docs/products/core/AtomS3R-M12/4.webp" alt="M5Stack AtomS3R-M12" width="250"> | <img src="https://static-cdn.m5stack.com/resource/docs/products/unit/Unit-Mini%20Scales/img-b9cc6e44-bd3c-4256-bd72-5fb45423483c.webp" alt="M5Stack Unit-Mini Scales" width="250"> |
+| <img src="../../docs/images/hardware/m5stack-atoms3r-m12.webp" alt="M5Stack AtomS3R-M12" width="250"> | <img src="../../docs/images/hardware/m5stack-unit-mini-scales-dimensions.webp" alt="M5Stack Unit-Mini Scales" width="250"> |
 
 
 ### 1. Weight Sensor (I2C)
@@ -62,10 +62,10 @@ The onboard GC0308 camera on the AtomS3R-M12 uses the following pin map:
 
 | Photo | Description |
 |---|---|
-| <img src="../../documents/scale/1.jpg" width="400"> | **1. Before Assembly**: AtomS3R-M12 and Unit-Mini Scales before Lego assembly. |
-| <img src="../../documents/scale/2.jpg" width="400"> | **2. Assembled**: Assembled Lego structure with the AtomS3R-M12 and Unit-Mini Scales. |
-| <img src="../../documents/scale/3.jpg" width="400"> | **3. With Food Bowl**: The assembled Lego scale structure with the pet food bowl placed on it. |
-| <img src="../../documents/scale/4.jpg" width="400"> | **4. Placement (No Bowl)**: The setup positioned at the actual feeding spot (without the bowl). |
-| <img src="../../documents/scale/5.jpg" width="400"> | **5. Final Setup**: The final setup positioned at the actual feeding spot with the food bowl ready. |
-| <img src="../../documents/scale/6.png" width="400"> | **6. Home Assistant Dashboard**: Real-time entities, controls, and sensor values displayed in the Home Assistant UI. |
+| <img src="../../docs/images/packages/scale/1.jpg" width="400"> | **1. Before Assembly**: AtomS3R-M12 and Unit-Mini Scales before Lego assembly. |
+| <img src="../../docs/images/packages/scale/2.jpg" width="400"> | **2. Assembled**: Assembled Lego structure with the AtomS3R-M12 and Unit-Mini Scales. |
+| <img src="../../docs/images/packages/scale/3.jpg" width="400"> | **3. With Food Bowl**: The assembled Lego scale structure with the pet food bowl placed on it. |
+| <img src="../../docs/images/packages/scale/4.jpg" width="400"> | **4. Placement (No Bowl)**: The setup positioned at the actual feeding spot (without the bowl). |
+| <img src="../../docs/images/packages/scale/5.jpg" width="400"> | **5. Final Setup**: The final setup positioned at the actual feeding spot with the food bowl ready. |
+| <img src="../../docs/images/packages/scale/6.png" width="400"> | **6. Home Assistant Dashboard**: Real-time entities, controls, and sensor values displayed in the Home Assistant UI. |
 

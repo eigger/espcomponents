@@ -41,13 +41,13 @@ packages:
 ## Gallery
 
 <div align="center">
-  <img src="../../documents/led/1.gif" width="48%">
-  <img src="../../documents/led/2.jpg" width="20%">
+  <img src="../../docs/images/packages/led/1.gif" width="48%">
+  <img src="../../docs/images/packages/led/2.jpg" width="20%">
 </div>
 <div align="center">
-  <img src="../../documents/led/3.jpg" width="32%">
-  <img src="../../documents/led/4.jpg" width="32%">
-  <img src="../../documents/led/5.jpg" width="32%">
+  <img src="../../docs/images/packages/led/3.jpg" width="32%">
+  <img src="../../docs/images/packages/led/4.jpg" width="32%">
+  <img src="../../docs/images/packages/led/5.jpg" width="32%">
 </div>
 
 
