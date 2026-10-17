@@ -67,6 +67,24 @@ number:
       name: "Scale Gap Value"
 ```
 
+## Options and model selection
+
+| Option | Required / default |
+| --- | --- |
+| `model` | Required: `MINI` or `STANDARD` |
+| `address` | `0x26` |
+| `update_interval` | `1s` |
+| `i2c_id` | Select the bus when using multiple I2C buses |
+| `m5unit_scales_id` | Set on child platforms when using multiple scale hubs |
+
+Only configure filter and GAP controls on the MINI model. For multiple scales,
+give each hub an `id` and set `m5unit_scales_id` on its sensor, light, button,
+binary sensor, switch, and number platforms.
+
+If the scale is missing, check the I2C scan and the selected model. Use tare with
+an empty platform or an empty bowl before measuring. A complete camera-and-scale
+configuration is available in the [pet scale package](../../packages/scale).
+
 ## Calibration Procedure (MINI Model)
 
 To calibrate your scale, you can use the GAP calibration formula:

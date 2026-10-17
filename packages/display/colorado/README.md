@@ -1,5 +1,7 @@
 # Colorado Tab5 Dashboard
 
+[Configuration](#configuration-usage) · [Required secrets](#required-secrets) · [OBD setup](#ble_elm327-setup-vlinker-obd2) · [Hardware](#hardware-configurations)
+
 ESPHome configuration for a vehicle dashboard based on the M5Stack Core TAB5 (ESP32-P4 + ESP32-C6). This dashboard provides real-time vehicle telemetry via an OBD2 Bluetooth adapter, high-precision GNSS tracking, vehicle inclinometer (pitch/roll), cabin & cargo climate tracking using BLE sensors, and comprehensive air quality monitoring (CO2 & TVOC).
 
 ## Preview
@@ -52,7 +54,8 @@ substitutions:
 packages:
   remote:
     refresh: always
-    url: https://github.com/eigger/espcomponents/
+    url: https://github.com/eigger/espcomponents
+    ref: master
     files:
       - packages/display/colorado/colorado-tab5.yaml
 ```
@@ -116,7 +119,8 @@ substitutions:
 packages:
   remote:
     refresh: always
-    url: https://github.com/eigger/espcomponents/
+    url: https://github.com/eigger/espcomponents
+    ref: master
     files:
       - packages/display/colorado/colorado-ble-elm327.yaml
 ```

@@ -28,7 +28,8 @@ substitutions:
 packages:
   remote:
     refresh: always
-    url: https://github.com/eigger/espcomponents@latest
+    url: https://github.com/eigger/espcomponents
+    ref: master
     files:
       - packages/device_base.yaml
       - packages/esp32.yaml

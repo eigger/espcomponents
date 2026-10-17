@@ -1,5 +1,7 @@
 # ws_bridge
 
+[Installation](#installation) · [Configuration](#configuration) · [Existing entities](#exposing-existing-entities) · [OTA updates](#remote-ota-updates-no-vpn-no-mqtt) · [Limitations](#behavior--limitations)
+
 An ESPHome external component for ESP32 (ESP-IDF only). It connects over a
 secure WebSocket directly to Home Assistant's standard `/api/websocket`
 endpoint and speaks the protocol of the

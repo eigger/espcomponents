@@ -2,11 +2,9 @@
 
 [![ESPHome](https://img.shields.io/badge/ESPHome-Custom%20Component-blue)](https://esphome.io/)
 
-A high-performance, **completely standalone** ESPHome custom component for the Bosch **BMI270** 6-axis Inertial Measurement Unit (IMU). 
-
-Unlike other implementations, this component has **zero external framework dependencies** (no separate `motion` component required) and exposes all six telemetry axes (Accelerometer X/Y/Z, Gyroscope X/Y/Z) and Temperature directly to ESPHome as standard individual sensor nodes.
-
-Additionally, it automatically handles the mandatory Bosch binary configuration blob upload (~8KB firmware) over I2C on startup to ensure high precision, calibration, and optimal performance.
+ESPHome I2C driver for the Bosch BMI270 accelerometer, gyroscope, and temperature
+sensor. It exposes each axis as a sensor and uploads the Bosch initialization
+configuration at startup. No separate `motion` component is required.
 
 ---
 

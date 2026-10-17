@@ -24,7 +24,8 @@ substitutions:
 packages:
   remote:
     refresh: always
-    url: https://github.com/eigger/espcomponents/
+    url: https://github.com/eigger/espcomponents
+    ref: master
     files:
       - packages/device_base.yaml
       - packages/esp32.yaml
@@ -32,6 +33,15 @@ packages:
 ```
 
 ---
+
+## Before first use
+
+Provide the Wi-Fi/OTA secrets required by the
+[shared base](../README.md#common-device-setup). The scale preset already selects
+ESP32-S3 / ESP-IDF and octal PSRAM; it targets AtomS3R-M12 rather than a generic
+Atom board. Confirm that the I2C scale appears at `0x26`, tare the empty bowl, and
+use the [MINI calibration procedure](../../components/m5unit_scales#calibration-procedure-mini-model)
+if a known weight reads incorrectly.
 
 ## Hardware Specifications & Pin Mapping
 

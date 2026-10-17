@@ -1,66 +1,92 @@
-# 1. HW 구성
-- **문서 링크**: [M5Stack Atom RS485 문서](https://docs.m5stack.com/en/atom/Atomic%20RS485%20Base)
-- **이미지**:
-  <br>
-  <img src="../../docs/images/hardware/m5stack-atomic-rs485-base.webp" alt="M5Stack Atom RS485" width="300">
-  <img src="../../docs/images/hardware/m5stack-tail485.webp" alt="M5Stack Atom RS485 Tail" width="300">
-  <br>
-  <img src="../../docs/images/hardware/m5stack-atom-lite.webp" alt="M5Stack Atom Lite" width="300">
-  <img src="../../docs/images/hardware/m5stack-atoms3-lite.webp" alt="M5Stack Atom Lite" width="300">
-  <br>
-1. **구매 링크**: [알리익스프레스(RS485)](https://ko.aliexpress.com/item/1005005912210853.html?pdp_npi=4%40dis%21KRW%21%E2%82%A9%2015%2C450%21%E2%82%A9%2015%2C450%21%21%2110.19%2110.19%21%402101246417367405806363493eb3a8%2112000034821216022%21sh%21KR%210%21X&spm=a2g0o.store_pc_allItems_or_groupList.new_all_items_2007608036152.1005005912210853&gatewayAdapt=glo2kor) RX:GPIO22, TX:GPIO19<br>
-or [알리익스프레스(RS485 Tail)](https://ko.aliexpress.com/item/1005003297531645.html?pdp_npi=4%40dis%21USD%21US%20%246.95%21US%20%240.99%21%21%216.95%210.99%21%40212a6e3217429992481557241e10e2%2112000025078858343%21sh%21KR%210%21X&spm=a2g0o.store_pc_allItems_or_groupList.new_all_items_2007608036152.1005003297531645&gatewayAdapt=glo2kor) RX:GPIO32, TX:GPIO26 중 택1
-2. **구매 링크**: [알리익스프레스(Atom)](https://ko.aliexpress.com/item/1005003299215808.html?pdp_npi=4%40dis%21KRW%21₩%2011%2C341%21₩%2011%2C341%21%21%217.65%217.65%21%402140c1c317374652352956593e85b5%2112000025086683331%21sh%21KR%210%21X&spm=a2g0o.store_pc_allItems_or_groupList.new_all_items_2007608036152.1005003299215808&gatewayAdapt=glo2kor) or [알리익스프레스(AtomS3)](https://ko.aliexpress.com/item/1005005177952629.html?pdp_npi=4%40dis%21KRW%21₩%2011%2C400%21₩%2011%2C400%21%21%217.69%217.69%21%40210123bc17374653830282226e4c98%2112000031987959059%21sh%21KR%210%21X&spm=a2g0o.store_pc_allItems_or_groupList.new_all_items_2007608036152.1005005177952629&gatewayAdapt=glo2kor) 중 택 1
+# RS-485 월패드 패키지
 
-- 485Base or 485Tail + Atom(ESP32) Lite or AtomS3 Lite 구매
-- 485모듈과 ESP32모듈 각 1개 (총 2개 구매)
+제조사별 프로토콜을 [uartex](../../components/uartex)로 Home Assistant에
+연결하는 구성입니다. 같은 제조사라도 단지·모델에 따라 패킷과 방 주소가 다를 수
+있으므로 해당 패키지의 설정을 먼저 확인하세요.
 
-<img src="../../docs/images/hardware/m5stack-atom-lite-pinmap.jpg" alt="M5Stack Atom Lite" width="100%">
+## 제조사 선택
 
-- 485Base + Atom Lite (기본)
-  ```yaml
-  uart:
-    rx_pin: GPIO22
-    tx_pin: GPIO19
-  ```
-- 485Tail + Atom Lite (아래 항목 yaml 추가)
-  ```yaml
-  uart:
-    rx_pin: GPIO32
-    tx_pin: GPIO26
-  ```
-<img src="../../docs/images/hardware/m5stack-atoms3-lite-pinmap.jpg" alt="M5Stack Atom Lite" width="100%">
+| 제조사 | 구성 문서 |
+| --- | --- |
+| 코콤 | [범용 / Theart / Thinks / 현관문](kocom) |
+| 현대 | [Imazu / 현관문](hyundai) |
+| 삼성 SDS | [월패드 / 현관문](samsung) |
+| 코맥스 | [패킷 및 구성 — 실기기 검증 전](commax) |
+| CVnet | [작성 중 / 실기기 검증 전](cvnet) |
+| 이지빌 | [작성 중 / 실기기 검증 전](ezville) |
 
-- AtomS3 사용시 보드 타입
-  ```yaml
-  esp32:
-    board: m5stack-atoms3
-  ```
-- 485Base + AtomS3 Lite (아래 항목 yaml 추가)
-  ```yaml
-  uart:
-    rx_pin: GPIO05
-    tx_pin: GPIO06
-  ```
-- 485Tail + AtomS3 Lite (아래 항목 yaml 추가)
-  ```yaml
-  uart:
-    rx_pin: GPIO01
-    tx_pin: GPIO02
-  ```
+## 기본 구성
 
----
-- **소형 디자인**
-  - 컴팩트한 크기로 간결하고 일체형의 구조.
-- **편리한 RS485 통신 지원**
-  - 산업 표준 통신 프로토콜을 손쉽게 활용 가능.
-  - TTL 신호를 RS485로 변환하는 내장 전환 칩 탑재.
-- **12V DC 컨버터 내장**
-  - 내장된 12V DC 컨버터를 통해 12V 환경에서도 별도의 컨버터 없이 동작 가능.
-- **확장성과 호환성**
-  - M5Stack 생태계와의 완벽한 호환성.
-  - ESP32 기반으로 Wi-Fi 및 Bluetooth 기능 함께 지원.
-- **산업용 및 상업용 응용 가능성**
-  - 강력한 노이즈 내성을 가진 RS485로 다양한 산업 환경에서 사용 가능.
-  - 멀티 드롭 지원으로 여러 장치 간 통신 가능.
----
+Atom Lite + Atomic RS485 Base에서 코콤 범용 구성을 사용하는 예입니다.
+마지막 파일을 선택한 제조사 패키지로 바꾸세요.
+
+```yaml
+substitutions:
+  name: my-wallpad
+  friendly_name: "Wallpad"
+
+esp32:
+  board: m5stack-atom
+  framework:
+    type: esp-idf
+
+packages:
+  remote:
+    url: https://github.com/eigger/espcomponents
+    ref: master
+    files:
+      - packages/device_base.yaml
+      - packages/wallpad/kocom/kocom.yaml
+```
+
+Wi-Fi/OTA secrets는 [공통 설정](../README.md#common-device-setup)을 참고하세요.
+월패드와 현관문 프리셋은 각각 UART를 정의하므로, 파일 두 개를 그대로 합치지 말고
+버스와 `uartex` ID를 분리한 사용자 구성을 작성하세요.
+
+## 하드웨어와 UART 핀
+
+Atom 보드 1개와 RS-485 변환 모듈 1개를 조합합니다.
+아래 표의 RX/TX는 ESP32 측 핀이며, 연결한 조합에 맞게 `uart:`를 덮어쓰세요.
+
+| 보드 | RS-485 모듈 | RX | TX |
+| --- | --- | --- | --- |
+| Atom Lite | Atomic RS485 Base | GPIO22 | GPIO19 |
+| Atom Lite | Tail485 | GPIO32 | GPIO26 |
+| AtomS3 Lite | Atomic RS485 Base | GPIO5 | GPIO6 |
+| AtomS3 Lite | Tail485 | GPIO1 | GPIO2 |
+
+```yaml
+# AtomS3 Lite + Tail485 example
+esp32:
+  board: m5stack-atoms3
+  framework:
+    type: esp-idf
+
+uart:
+  rx_pin: GPIO1
+  tx_pin: GPIO2
+```
+
+속도·패리티·프레임 설정은 제조사 YAML에 있으므로 핀 변경 시 함께 확인하세요.
+기본 예제의 Atom Lite 설정을 AtomS3 설정과 동시에 선언하지 마세요.
+
+<details>
+<summary>제품 사진과 핀맵</summary>
+
+<img src="../../docs/images/hardware/m5stack-atomic-rs485-base.webp" alt="Atomic RS485 Base" width="240">
+<img src="../../docs/images/hardware/m5stack-tail485.webp" alt="Tail485" width="240">
+<img src="../../docs/images/hardware/m5stack-atom-lite.webp" alt="Atom Lite" width="240">
+<img src="../../docs/images/hardware/m5stack-atoms3-lite.webp" alt="AtomS3 Lite" width="240">
+<img src="../../docs/images/hardware/m5stack-atom-lite-pinmap.jpg" alt="Atom Lite pin map" width="720">
+<img src="../../docs/images/hardware/m5stack-atoms3-lite-pinmap.jpg" alt="AtomS3 Lite pin map" width="720">
+
+</details>
+
+## 수신·제어가 안 될 때
+
+1. `esphome config my-wallpad.yaml`로 설정을 확인합니다.
+2. 장치 YAML에서 `logger.level: DEBUG`로 임시 변경하고 수신 여부를 확인합니다.
+3. RX/TX, 속도, 패리티와 프레임 설정을 선택한 제조사 YAML과 비교합니다.
+4. 수신 패킷의 방·장치 주소를 확인한 뒤 엔티티별 패킷을 수정합니다.
+
+[패키지 목록](../README.md) · [월패드 연동 가이드](https://github.com/eigger/espcomponents/wiki)

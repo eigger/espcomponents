@@ -11,6 +11,9 @@ Supports standard OBD-II (Mode 01) and vendor-extended UDS PIDs (Mode 22, e.g. G
 
 The component registers as a node under ESPHome's standard `ble_client:` component.
 
+Requires an ESP32 with BLE. For a complete vehicle dashboard, see the
+[Colorado Tab5 package](../../packages/display/colorado).
+
 ## Table of Contents
 
 - [Installation](#installation)

@@ -1,23 +1,17 @@
-# 1. HW 구성
-- **문서 링크**: [M5Stack Atom RS485 문서](https://docs.m5stack.com/en/atom/Atomic%20RS485%20Base)
-- **이미지**:
-  <br>
-  <img src="../../docs/images/hardware/m5stack-atomic-rs485-base.webp" alt="M5Stack Atom RS485" width="300">
-  <br>
-- **구매 링크**: [알리익스프레스(RS485)](https://ko.aliexpress.com/item/1005005912210853.html?pdp_npi=4%40dis%21KRW%21%E2%82%A9%2015%2C450%21%E2%82%A9%2015%2C450%21%21%2110.19%2110.19%21%402101246417367405806363493eb3a8%2112000034821216022%21sh%21KR%210%21X&spm=a2g0o.store_pc_allItems_or_groupList.new_all_items_2007608036152.1005005912210853&gatewayAdapt=glo2kor)
-- **구매 링크**: [알리익스프레스(Atom)](https://ko.aliexpress.com/item/1005003299215808.html?pdp_npi=4%40dis%21KRW%21₩%2011%2C341%21₩%2011%2C341%21%21%217.65%217.65%21%402140c1c317374652352956593e85b5%2112000025086683331%21sh%21KR%210%21X&spm=a2g0o.store_pc_allItems_or_groupList.new_all_items_2007608036152.1005003299215808&gatewayAdapt=glo2kor) or [알리익스프레스(AtomS3)](https://ko.aliexpress.com/item/1005005177952629.html?pdp_npi=4%40dis%21KRW%21₩%2011%2C400%21₩%2011%2C400%21%21%217.69%217.69%21%40210123bc17374653830282226e4c98%2112000031987959059%21sh%21KR%210%21X&spm=a2g0o.store_pc_allItems_or_groupList.new_all_items_2007608036152.1005005177952629&gatewayAdapt=glo2kor)
----
-- **소형 디자인**
-  - 컴팩트한 크기로 간결하고 일체형의 구조.
-- **편리한 RS485 통신 지원**
-  - 산업 표준 통신 프로토콜을 손쉽게 활용 가능.
-  - TTL 신호를 RS485로 변환하는 내장 전환 칩 탑재.
-- **12V DC 컨버터 내장**
-  - 내장된 12V DC 컨버터를 통해 12V 환경에서도 별도의 컨버터 없이 동작 가능.
-- **확장성과 호환성**
-  - M5Stack 생태계와의 완벽한 호환성.
-  - ESP32 기반으로 Wi-Fi 및 Bluetooth 기능 함께 지원.
-- **산업용 및 상업용 응용 가능성**
-  - 강력한 노이즈 내성을 가진 RS485로 다양한 산업 환경에서 사용 가능.
-  - 멀티 드롭 지원으로 여러 장치 간 통신 가능.
----
+# 에어컨 패키지
+
+삼성 시스템 에어컨의 RS-485 통신 구성입니다. 아래 두 구현을 구분해서 선택하세요.
+
+| 파일 | 구현 / 상태 |
+| --- | --- |
+| [`samsung/samsung_ac.yaml`](samsung/samsung_ac.yaml) | 별도 `samsung_ac` 외부 컴포넌트 기반 NASA 구성 |
+| [`samsung/samsung_system.yaml`](samsung/samsung_system.yaml) | `uartex` 기반 작성 중인 구성 |
+
+[삼성 설치·배선 안내](samsung/README.md)에서 AtomS3 Lite + Tail485의 핀과
+F1/F2 결선을 확인하세요. `samsung_ac.yaml`에는 현장별 실내기 주소와 방 구성이
+들어 있으므로 그대로 포함하기 전에 자신의 설치 주소에 맞춰야 합니다.
+
+장치 이름·Wi-Fi·API·OTA는 [공통 장치 설정](../README.md#common-device-setup)을
+사용할 수 있습니다. 선택한 에어컨 패키지와 보드 설정이 일치하는지도 확인하세요.
+
+[패키지 목록](../README.md)

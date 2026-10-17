@@ -1,5 +1,7 @@
 # Home Assistant Voice PE — Voice Assistant + SIP Intercom
 
+[Configuration](#configuration) · [Controls](#behavior) · [Requirements](#requirements--notes) · [Troubleshooting](#troubleshooting)
+
 Adds SIP intercom / phone functionality on top of the **full stock
 [Home Assistant Voice PE](https://www.home-assistant.io/voice-pe/)** firmware
 (wake word, Assist voice pipeline, timers, media player, LED ring, dial,
@@ -50,7 +52,8 @@ substitutions:
 packages:
   remote:
     refresh: always
-    url: https://github.com/eigger/espcomponents@latest
+    url: https://github.com/eigger/espcomponents
+    ref: master
     files:
       - packages/device_base.yaml
       - packages/esp32.yaml

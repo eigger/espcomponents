@@ -1,5 +1,7 @@
 # sip_client
 
+[Installation](#installation) · [Configuration](#configuration) · [Actions](#actions-automation) · [Device packages](../../packages/sip/README.md)
+
 An ESPHome external component for ESP32. It registers to a SIP PBX
 (Asterisk/FreePBX/3CX, etc.) and makes/receives voice calls. Audio I/O is
 delegated to ESPHome's standard `microphone` / `speaker` platforms (either may

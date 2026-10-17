@@ -1,15 +1,20 @@
 # 코맥스 월패드 구성 (검증x)
+실기기 검증 전 구성입니다. 아래는 패키지 포함 예제이며, 보드·Wi-Fi·API·OTA는
+[월패드 공통 설정](../README.md#기본-구성)에 따라 추가해야 합니다.
+UART 기본값은 `9600 / 8N1`, RX `GPIO22` / TX `GPIO19`입니다.
+
 ```
 packages:
   remote:
     refresh: always
-    url: https://github.com/eigger/espcomponents/
+    url: https://github.com/eigger/espcomponents
+    ref: master
     files:
       - packages/wallpad/commax/commax.yaml
 ```
 
-# 코맥스 월패드 패킷 구조
-## 📌 장치별 상세 패킷 정보
+## 코맥스 월패드 패킷 구조
+### 장치별 상세 패킷 정보
 ---
 
 ### 1️⃣ 일괄소등

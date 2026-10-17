@@ -42,12 +42,7 @@ A dashboard has hard-iron offset from steel and speakers. Heading is not publish
 
 Changing `mag_axes` or the internal µT scale invalidates the stored blob; recalibrate.
 
-```yaml
-on_...:
-  - bmm150.calibrate:
-      id: mag
-      duration: 30s
-```
+The example below includes a template button that starts a 30-second calibration.
 
 ## Vehicle install
 
@@ -62,6 +57,10 @@ Tilt compensation assumes mag and accel X/Y/Z point the same way. On M5 Unit GNS
 For true north, set `declination`. Seoul is about `-8`.
 
 ## Example
+
+Merge into a device configuration and adapt the I2C pins. The example uses planar
+heading; uncomment the acceleration IDs only after defining the corresponding
+[acceleration sensors](../bmi270). Heading remains unknown until calibration succeeds.
 
 ```yaml
 external_components:
@@ -86,9 +85,10 @@ sensor:
       name: "MAG Z"
     heading:
       name: "Heading"
-    accel_x_id: id_gnss_bmi270_accel_x
-    accel_y_id: id_gnss_bmi270_accel_y
-    accel_z_id: id_gnss_bmi270_accel_z
+    # Optional: set all three to existing acceleration sensor IDs for tilt compensation.
+    # accel_x_id: id_gnss_bmi270_accel_x
+    # accel_y_id: id_gnss_bmi270_accel_y
+    # accel_z_id: id_gnss_bmi270_accel_z
     declination: -8
     heading_offset: 0
     calibration_mode: yaw
@@ -99,3 +99,17 @@ sensor:
           format: "BMM150 calibration %s"
           args: ['success ? "ok" : "failed"']
 ```
+
+To start calibration from Home Assistant, add:
+
+```yaml
+button:
+  - platform: template
+    name: "Calibrate Compass"
+    on_press:
+      - bmm150.calibrate:
+          id: mag
+          duration: 30s
+```
+
+[Other components](../README.md)

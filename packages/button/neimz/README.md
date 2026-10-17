@@ -2,6 +2,26 @@
 
 A simple button component configuration for ESP8266 (D1 Mini).
 
+## Configuration
+
+Use the [shared device setup](../../README.md#common-device-setup) with
+[`neimz_d1_mini.yaml`](neimz_d1_mini.yaml):
+
+```yaml
+packages:
+  remote:
+    url: https://github.com/eigger/espcomponents
+    ref: master
+    files:
+      - packages/device_base.yaml
+      - packages/button/neimz/neimz_d1_mini.yaml
+```
+
+Set `name`, `friendly_name`, and Wi-Fi/OTA secrets as described in the shared setup.
+The package provides the D1 Mini board definition. In Home Assistant, enable the
+ESPHome device's permission to perform Home Assistant actions so button events
+can reach automations.
+
 ## Features
 
 - Detects "Single Click" and "Hold" (Long Press).
@@ -41,9 +61,10 @@ triggers:
       action: single
 conditions: []
 actions:
-  - type: toggle
-    device_id: d90a21ef3ca4d7bc156ec69dfd388ce1
-    entity_id: ee4631bc9d12781978a5c5031c5cbd75
-    domain: switch
+  - action: switch.toggle
+    target:
+      entity_id: switch.your_switch  # Replace with your entity
 mode: single
 ```
+If several devices emit `esphome.esp_button`, also filter by the device identifier
+in the received event data. Inspect an event in Home Assistant before adding that filter.

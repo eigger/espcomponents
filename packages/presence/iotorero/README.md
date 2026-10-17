@@ -2,6 +2,31 @@
 
 ESPHome configurations for the **Iotorero** series of human presence sensors. These sensors are based on the ESP32-C3 microcontroller and provide advanced presence detection capabilities using mmWave and PIR technology, along with integrated light sensing.
 
+## Configuration
+
+Choose **one** preset; both include the ESP32-C3 board definition:
+
+| File | Sensor type |
+| --- | --- |
+| [`ps01_c3.yaml`](ps01_c3.yaml) | PIR + mmWave + illuminance |
+| [`ps02_c3_mz.yaml`](ps02_c3_mz.yaml) | LD2450 multi-zone presence + illuminance + BLE proxy |
+
+```yaml
+packages:
+  remote:
+    url: https://github.com/eigger/espcomponents
+    ref: master
+    files:
+      - packages/device_base.yaml
+      - packages/presence/iotorero/ps01_c3.yaml
+```
+
+Set `name` / `friendly_name` and the Wi-Fi/OTA secrets using the
+[shared device setup](../../README.md#common-device-setup). Replace the last file
+with `ps02_c3_mz.yaml` for the multi-zone model. Its BLE scanning starts when an
+API client connects and stops when one disconnects; check the API connection if
+Bluetooth discovery appears inactive.
+
 ## Supported Devices
 
 ### 1. Standard Human Presence Sensor (`ps01_c3.yaml`)

@@ -4,6 +4,8 @@
 
 A custom ESPHome component that extends UART communication to easily integrate various serial protocols with Home Assistant.
 
+Related: [wallpad presets](../../packages/wallpad) · [TCP forwarding](../tcp_server).
+
 ## Table of Contents
 
 - [Installation](#installation)

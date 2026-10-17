@@ -13,6 +13,12 @@
 
 ---
 
+## 시작 전
+
+아래 포함 예제는 패키지 조각입니다. 보드·Wi-Fi·API·OTA 및 secrets는
+[월패드 공통 설정](../README.md#기본-구성)과 함께 구성하세요. 기본 UART는
+`9600 / 8N1`, RX `GPIO22` / TX `GPIO19`이며, 다른 보드에서는 핀을 변경해야 합니다.
+
 ## 기존 구성 방법 (모놀리식)
 
 패키지 파일 하나에 `uart` / `uartex` / 엔티티가 모두 들어 있습니다. 단지 preset이 이미 맞으면 아래처럼 `packages:` remote include만 하면 됩니다.
@@ -26,7 +32,8 @@ substitutions:
 packages:
   remote:
     refresh: always
-    url: https://github.com/eigger/espcomponents/
+    url: https://github.com/eigger/espcomponents
+    ref: master
     files:
       - packages/wallpad/kocom/kocom.yaml        # 범용
       # - packages/wallpad/kocom/kocom_theart.yaml  # Theart (fragments)
@@ -39,7 +46,8 @@ packages:
 packages:
   remote:
     refresh: always
-    url: https://github.com/eigger/espcomponents/
+    url: https://github.com/eigger/espcomponents
+    ref: master
     files:
       - packages/wallpad/kocom/kocom_door.yaml
 ```
@@ -70,7 +78,8 @@ esp32:
 packages:
   remote:
     refresh: always
-    url: https://github.com/eigger/espcomponents/
+    url: https://github.com/eigger/espcomponents
+    ref: master
     files:
       - packages/wallpad/kocom/kocom_theart.yaml
 ```

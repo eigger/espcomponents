@@ -4,6 +4,18 @@ M5Stack AtomS3 Lite와 Tail485 (Atom Tail RS485) 모듈을 이용하여 삼성 �
 
 ---
 
+## 구성 파일 선택
+
+| 파일 | 내용 |
+| --- | --- |
+| [`samsung_ac.yaml`](samsung_ac.yaml) | 별도 저장소의 `samsung_ac` 컴포넌트를 사용하는 구성; 이 문서의 대상 |
+| [`samsung_system.yaml`](samsung_system.yaml) | `uartex` 기반 작성 중인 구성 |
+
+`samsung_ac.yaml`은 `github://eigger/esphome_samsung_hvac_bus`에서 컴포넌트를
+가져옵니다. 실내기 `address`, 방·장치 목록과 기능 지원 여부는 현장에 맞게
+변경하세요. 장치 이름과 Wi-Fi/API/OTA는
+[공통 설정](../../README.md#common-device-setup)에 따라 별도로 구성해야 합니다.
+
 ## 🛠️ 1. 하드웨어 구성 및 실물 배선 (Hardware & Wiring)
 
 | 항목 | 제품명 | 비고 |
@@ -55,7 +67,8 @@ Tail485 모듈 4핀 터미널 블록(`B`, `A`, `12V`, `GND`)에 벽면 전원/�
 packages:
   remote:
     refresh: always
-    url: https://github.com/eigger/espcomponents/
+    url: https://github.com/eigger/espcomponents
+    ref: master
     files:
       - packages/hvac/samsung/samsung_ac.yaml
 ```

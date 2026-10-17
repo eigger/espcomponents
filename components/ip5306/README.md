@@ -1,28 +1,45 @@
-# IP5306 battery charger
+# IP5306 Battery Charger
 
-This component provides support for the IP5306 battery charger IC.
+Reads battery and charger status from an I2C-capable IP5306. Requires an I2C bus;
+all exposed entities are optional.
 
-You need an `i2c:` component configured.  All the sensors are optional.
+## Configuration
 
-Example:
+Merge into your device YAML, using the SDA/SCL pins wired to the IP5306:
+
 ```yaml
+external_components:
+  - source: github://eigger/espcomponents@latest
+    components: [ip5306]
+
+i2c:
+  sda: GPIO21
+  scl: GPIO22
+  scan: true
+
 ip5306:
-  battery_level:   # sensor
-    name: Battery Level
-  charger_connected:  # binary_sensor
-    id: connected
-    on_press:
-      then:
-        - lambda: ESP_LOGD("TEST", "charging");
-    on_release:
-      then:
-        - lambda: ESP_LOGD("TEST", "not charging");
-  charge_full:  # binary_sensor
-    id: full
-    on_press:
-      then:
-        - lambda: ESP_LOGD("TEST", "fully charged");
-    on_release:
-      then:
-        - lambda: ESP_LOGD("TEST", "still charging");
+  address: 0x75
+  battery_level:
+    name: "Battery Level"
+  charger_connected:
+    name: "Charger Connected"
+  charge_full:
+    name: "Charge Full"
+  poweroff:
+    name: "Power Off"
 ```
+
+| Option | Description |
+| --- | --- |
+| `address` | I2C address; default `0x75` |
+| `i2c_id` | Selects the bus when multiple I2C buses are configured |
+| `battery_level` | Coarse battery level in %, from the chip's level register |
+| `charger_connected` | Binary sensor for charger connection |
+| `charge_full` | Binary sensor for full-charge indication |
+| `poweroff` | Button to switch off the power output |
+
+Use binary sensor `on_press` / `on_release` automations for charger notifications.
+This component is not a polling component and has no `update_interval` option.
+If no values appear, check that the board exposes the IP5306 I2C interface at `0x75`.
+
+[Other components](../README.md)
