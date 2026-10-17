@@ -10,6 +10,7 @@ Images used by those documents are stored here:
 
 ```text
 images/
+├── badges/                    # Static badges such as the MIT license
 ├── hardware/                  # Shared product photos and pin maps
 ├── logos/                     # Project and vendor logos
 └── packages/                  # Package-specific photos and diagrams
