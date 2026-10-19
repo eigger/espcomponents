@@ -11,6 +11,8 @@ CONF_FORMULA = "formula"
 CONF_PRESET = "preset"
 CONF_COMMAND = "command"
 CONF_RESPONSE_TIMEOUT = "response_timeout"
+CONF_AUTO_RECOVERY = "auto_recovery"
+CONF_RECOVERY_THRESHOLD = "recovery_threshold"
 
 # Diagnostic entities
 CONF_TIMEOUT_COUNT = "timeout_count"

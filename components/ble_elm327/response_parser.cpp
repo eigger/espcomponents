@@ -171,6 +171,21 @@ bool counts_as_link_failure(const std::string &error, const std::string &last_se
   return true;
 }
 
+TimeoutCheck check_response_timeout(bool auto_recovery, uint32_t active_timeout_ms, bool search_in_progress,
+                                    uint32_t since_write_ms, uint32_t since_activity_ms) {
+  TimeoutCheck r{false, false, active_timeout_ms, active_timeout_ms};
+  if (!auto_recovery) {
+    r.expired = since_write_ms > active_timeout_ms;
+    return r;
+  }
+  if (search_in_progress && r.timeout_ms < SEARCH_RESPONSE_TIMEOUT_MS) r.timeout_ms = SEARCH_RESPONSE_TIMEOUT_MS;
+  r.hard_limit_ms = 2 * r.timeout_ms > ABSOLUTE_RESPONSE_LIMIT_MS ? 2 * r.timeout_ms : ABSOLUTE_RESPONSE_LIMIT_MS;
+  const bool idle = since_activity_ms > r.timeout_ms;
+  r.hard_limit_hit = !idle && since_write_ms > r.hard_limit_ms;
+  r.expired = idle || r.hard_limit_hit;
+  return r;
+}
+
 uint32_t reconnect_backoff_ms(uint8_t reconnects) {
   static const uint32_t BASE_MS = 30000;
   static const uint32_t MAX_MS = 600000;

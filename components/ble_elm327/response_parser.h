@@ -59,6 +59,27 @@ bool is_bus_error(const std::string &error);
 bool counts_as_link_failure(const std::string &error, const std::string &last_sent_command_normalized,
                             bool follows_timeout = false);
 
+// Response timeout decision for the command in flight.
+//
+// auto_recovery == false (default, same as earlier versions): the command
+// times out `active_timeout_ms` after the write.
+// auto_recovery == true: the timer restarts with every received byte; while a
+// protocol search is reported the idle timeout is at least
+// SEARCH_RESPONSE_TIMEOUT_MS; a hard limit of max(ABSOLUTE_RESPONSE_LIMIT_MS,
+// 2 x idle timeout) from the write always applies.
+static const uint32_t SEARCH_RESPONSE_TIMEOUT_MS = 20000;
+static const uint32_t ABSOLUTE_RESPONSE_LIMIT_MS = 30000;
+
+struct TimeoutCheck {
+  bool expired;
+  bool hard_limit_hit;     // expired by the hard limit (data kept arriving)
+  uint32_t timeout_ms;     // idle timeout that applied
+  uint32_t hard_limit_ms;  // hard limit that applied (== timeout_ms without auto_recovery)
+};
+
+TimeoutCheck check_response_timeout(bool auto_recovery, uint32_t active_timeout_ms, bool search_in_progress,
+                                    uint32_t since_write_ms, uint32_t since_activity_ms);
+
 // Minimum time between two recovery reconnects after `reconnects` recovery
 // reconnects in a row: 30 s, 60 s, 120 s, ... capped at 10 min. 0 for 0.
 uint32_t reconnect_backoff_ms(uint8_t reconnects);

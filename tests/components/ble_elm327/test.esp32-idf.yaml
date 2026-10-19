@@ -22,6 +22,8 @@ ble_elm327:
   ble_client_id: obd_client
   tx_delay: 50
   response_timeout: 1500
+  auto_recovery: true
+  recovery_threshold: 3
 
 text_sensor:
   - platform: ble_elm327

@@ -8,6 +8,7 @@ from esphome.const import (
 from .const import (
     CONF_BLE_ELM327_ID, CONF_BLE_CLIENT_ID, CONF_RX_CHAR_UUID, CONF_TX_CHAR_UUID,
     CONF_INIT_COMMANDS, CONF_PRE_COMMANDS, CONF_TX_DELAY, CONF_RESPONSE_TIMEOUT,
+    CONF_AUTO_RECOVERY, CONF_RECOVERY_THRESHOLD,
     CONF_PID, CONF_MODE, CONF_FORMULA, CONF_PRESET,
 )
 from .presets import OBD_PRESETS
@@ -40,7 +41,16 @@ def _add_uuid(var, uuid_val, fn16, fn32, fn128):
         cg.add(getattr(var, fn128)(esp32_ble_tracker.as_reversed_hex_array(uuid_val)))
 
 
-CONFIG_SCHEMA = cv.Schema(
+def _validate_recovery(config):
+    if CONF_RECOVERY_THRESHOLD in config and not config[CONF_AUTO_RECOVERY]:
+        raise cv.Invalid(
+            f"'{CONF_RECOVERY_THRESHOLD}' only has an effect with '{CONF_AUTO_RECOVERY}: true'",
+            path=[CONF_RECOVERY_THRESHOLD],
+        )
+    return config
+
+
+CONFIG_SCHEMA = cv.All(cv.Schema(
     {
         cv.GenerateID(): cv.declare_id(BleElm327Component),
         cv.Required(CONF_BLE_CLIENT_ID): cv.use_id(ble_client.BLEClient),
@@ -49,12 +59,14 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_TX_CHAR_UUID, default="2AF1"): esp32_ble_tracker.bt_uuid,
         cv.Optional(CONF_INIT_COMMANDS): cv.ensure_list(cv.string_strict),
         cv.Optional(CONF_TX_DELAY, default=50): cv.positive_int,           # ms
-        # ms; raised to max(this, 5000) during init / until PID data flows again,
-        # and to max(this, 20000) while the adapter reports a protocol search
+        # ms; raised to max(this, 5000) during init / until PID data flows again
         # (see README "Response Timeout")
-        cv.Optional(CONF_RESPONSE_TIMEOUT, default=1500): cv.int_range(min=100, max=60000),
+        cv.Optional(CONF_RESPONSE_TIMEOUT, default=5000): cv.int_range(min=100, max=60000),
+        # Opt-in: re-init / reconnect after repeated failures (README "Recovery")
+        cv.Optional(CONF_AUTO_RECOVERY, default=False): cv.boolean,
+        cv.Optional(CONF_RECOVERY_THRESHOLD): cv.int_range(min=1, max=20),
     }
-)
+), _validate_recovery)
 
 
 async def to_code(config):
@@ -76,6 +88,9 @@ async def to_code(config):
 
     cg.add(var.set_tx_delay(config[CONF_TX_DELAY]))
     cg.add(var.set_response_timeout(config[CONF_RESPONSE_TIMEOUT]))
+    cg.add(var.set_auto_recovery(config[CONF_AUTO_RECOVERY]))
+    if CONF_RECOVERY_THRESHOLD in config:
+        cg.add(var.set_recovery_threshold(config[CONF_RECOVERY_THRESHOLD]))
 
 
 # ── Shared device schema (used by every sub-platform) ────────────────────────

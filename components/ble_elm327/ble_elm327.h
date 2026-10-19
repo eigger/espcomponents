@@ -103,6 +103,8 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
   void add_init_command(const std::string &cmd);
   void set_tx_delay(uint32_t ms) { tx_delay_ms_ = ms; }
   void set_response_timeout(uint32_t ms) { response_timeout_ms_ = ms; }
+  void set_auto_recovery(bool enabled) { auto_recovery_ = enabled; }
+  void set_recovery_threshold(uint8_t n) { recovery_threshold_ = n; }
 
 #ifdef USE_SENSOR
   void set_timeout_count_sensor(sensor::Sensor *s) { timeout_count_sensor_ = s; }
@@ -176,10 +178,14 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
 
   // Timing
   uint32_t tx_delay_ms_{50};
-  uint32_t response_timeout_ms_{1500};
+  uint32_t response_timeout_ms_{5000};
+  // Opt-in: re-init / reconnect after recovery_threshold_ failures in a row,
+  // activity-based timeout with search extension. Off = previous behaviour.
+  bool auto_recovery_{false};
+  uint8_t recovery_threshold_{3};
   // Timeout applied to the command currently in flight (see ble_elm327.cpp for
   // when the longer init timeout is used).
-  uint32_t current_timeout_ms_{1500};
+  uint32_t current_timeout_ms_{5000};
   // Last time a command was written or a notify chunk arrived (idle timeout base).
   uint32_t last_activity_time_{0};
   // Time the command in flight was written (absolute timeout base).

@@ -16,19 +16,9 @@ static const char *const BASE_INIT_COMMANDS[] = {"ATZ", "ATE0", "ATL0", "ATS0", 
 // request gets a normal reply after (re)init, a timeout or an error reply
 // (an ATSP0 protocol search can take several seconds).
 static const uint32_t INIT_RESPONSE_TIMEOUT_MS = 5000;
-// Consecutive failures (timeouts, failed writes, adapter-level error replies)
-// before a re-init, and again before a reconnect.
-static const uint8_t MAX_CONSECUTIVE_FAILURES = 3;
 // Normal PID replies in a row needed after a re-init before the next failure
 // streak starts with a re-init again instead of a reconnect.
 static const uint8_t SUCCESSES_TO_CLEAR_RECOVERY = 5;
-// Idle timeout while the adapter reports a protocol search ("SEARCHING...",
-// "BUS INIT: ..."): with the ignition off an ATSP0 search can take this long
-// before it ends with UNABLE TO CONNECT.
-static const uint32_t SEARCH_RESPONSE_TIMEOUT_MS = 20000;
-// Hard cap from the write to the '>' prompt, even if data keeps arriving
-// (raised to 2x the active timeout when that is larger).
-static const uint32_t ABSOLUTE_RESPONSE_LIMIT_MS = 30000;
 // Bytes buffered without a '>' prompt before the buffer is discarded.
 static const size_t MAX_RX_BUFFER_SIZE = 4096;
 // Minimum interval between diagnostic entity publishes.
@@ -135,22 +125,17 @@ void BleElm327Component::loop() {
   if (elm_state_ == ElmState::IDLE) return;
 
   if (waiting_for_response_) {
-    // Idle timeout: measured from the last write or the last received chunk.
-    // While the adapter reports a protocol search, allow the search timeout.
-    uint32_t timeout = current_timeout_ms_;
-    if (is_protocol_search_in_progress(rx_buffer_)) timeout = std::max(timeout, SEARCH_RESPONSE_TIMEOUT_MS);
-    // Absolute limit: an adapter that keeps sending data without a prompt.
-    const uint32_t hard_limit = std::max(ABSOLUTE_RESPONSE_LIMIT_MS, 2 * timeout);
-    const bool idle_expired = now - last_activity_time_ > timeout;
-    const bool hard_expired = now - last_write_time_ > hard_limit;
-    if (!idle_expired && !hard_expired) return;
+    const TimeoutCheck check =
+        check_response_timeout(auto_recovery_, current_timeout_ms_, is_protocol_search_in_progress(rx_buffer_),
+                               now - last_write_time_, now - last_activity_time_);
+    if (!check.expired) return;
 
     timeout_count_++;
-    if (hard_expired && !idle_expired) {
-      ESP_LOGW(TAG, "Timeout: no '>' prompt %ums after sending '%s' (%u failures in a row)", (unsigned) hard_limit,
-               last_sent_command_.c_str(), (unsigned) (consecutive_failures_ + 1));
+    if (check.hard_limit_hit) {
+      ESP_LOGW(TAG, "Timeout: no '>' prompt %ums after sending '%s' (%u failures in a row)",
+               (unsigned) check.hard_limit_ms, last_sent_command_.c_str(), (unsigned) (consecutive_failures_ + 1));
     } else {
-      ESP_LOGW(TAG, "Timeout (%ums) waiting for response to '%s' (%u failures in a row)", (unsigned) timeout,
+      ESP_LOGW(TAG, "Timeout (%ums) waiting for response to '%s' (%u failures in a row)", (unsigned) check.timeout_ms,
                last_sent_command_.c_str(), (unsigned) (consecutive_failures_ + 1));
     }
     set_last_error_("TIMEOUT (" + last_sent_command_ + ")");
@@ -225,8 +210,13 @@ void BleElm327Component::dump_config() {
   ESP_LOGCONFIG(TAG, "  RX Char UUID       : %s", rx_char_uuid_.to_str(uuid_buf));
   ESP_LOGCONFIG(TAG, "  TX Char UUID       : %s", tx_char_uuid_.to_str(uuid_buf));
   ESP_LOGCONFIG(TAG, "  TX delay           : %lums", (unsigned long) tx_delay_ms_);
-  ESP_LOGCONFIG(TAG, "  Response timeout   : %lums (init/search: %lums)", (unsigned long) response_timeout_ms_,
+  ESP_LOGCONFIG(TAG, "  Response timeout   : %lums (init: %lums)", (unsigned long) response_timeout_ms_,
                 (unsigned long) std::max(response_timeout_ms_, INIT_RESPONSE_TIMEOUT_MS));
+  if (auto_recovery_) {
+    ESP_LOGCONFIG(TAG, "  Auto recovery      : on (threshold %u)", (unsigned) recovery_threshold_);
+  } else {
+    ESP_LOGCONFIG(TAG, "  Auto recovery      : off");
+  }
   ESP_LOGCONFIG(TAG, "  Base init commands : ATZ, ATE0, ATL0, ATS0, ATH0, ATSP0");
   ESP_LOGCONFIG(TAG, "  Extra init commands: %u", (unsigned)extra_init_commands_.size());
 #ifdef USE_SENSOR
@@ -370,20 +360,28 @@ void BleElm327Component::fail_exchange_(uint32_t now) {
 
   on_exchange_failure_();
 
-  // The last init command got no answer: re-send it rather than declaring
-  // READY (unless the failure escalated to a re-init or reconnect).
-  if (retry_final_init && elm_state_ == ElmState::CONNECTED && tx_queue_.empty()) {
+  if (!retry_final_init || elm_state_ != ElmState::CONNECTED || !tx_queue_.empty()) return;
+  if (auto_recovery_) {
+    // The last init command got no answer: re-send it rather than declaring
+    // READY (repeated failures escalate to a re-init / reconnect).
     tx_queue_.push({final_init_command_, nullptr});
+  } else {
+    // Default: carry on as before auto_recovery existed.
+    elm_state_ = ElmState::READY;
+    ESP_LOGI(TAG, "ELM327 initialized and ready (last init command got no reply)");
   }
 }
 
-// Called for every timeout, failed write and adapter-level error reply. After
-// MAX_CONSECUTIVE_FAILURES in a row the adapter is re-initialized (ATZ + init
-// sequence); if the next streak comes before PID replies have recovered, the
-// BLE link is dropped so ble_client reconnects from scratch.
+// Called for every timeout, failed write and adapter-level error reply. With
+// auto_recovery, after recovery_threshold failures in a row the adapter is
+// re-initialized (ATZ + init sequence); if the next streak comes before PID
+// replies have recovered, the BLE link is dropped so ble_client reconnects.
+// Without auto_recovery nothing else happens (the failures are only counted).
 void BleElm327Component::on_exchange_failure_() {
   successes_since_reinit_ = 0;
-  if (++consecutive_failures_ < MAX_CONSECUTIVE_FAILURES) return;
+  if (consecutive_failures_ < 255) consecutive_failures_++;
+  if (!auto_recovery_) return;
+  if (consecutive_failures_ < recovery_threshold_) return;
   consecutive_failures_ = 0;
   if (!reinit_attempted_) {
     reinit_attempted_ = true;
@@ -408,7 +406,12 @@ void BleElm327Component::handle_error_response_(const std::string &error, bool e
     ESP_LOGD(TAG, "NO DATA for '%s'", last_sent_command_.c_str());
   } else {
     error_count_++;
-    ESP_LOGW(TAG, "ELM327 replied '%s' to '%s'", error.c_str(), last_sent_command_.c_str());
+    if (is_bus_error(error)) {
+      // Vehicle side (e.g. ignition off): expected, keep the log quiet.
+      ESP_LOGD(TAG, "ELM327 replied '%s' to '%s'", error.c_str(), last_sent_command_.c_str());
+    } else {
+      ESP_LOGW(TAG, "ELM327 replied '%s' to '%s'", error.c_str(), last_sent_command_.c_str());
+    }
     set_last_error_(error + " (" + last_sent_command_ + ")");
   }
   // A late reply belongs to an exchange that already timed out (and was counted).
@@ -432,7 +435,7 @@ void BleElm327Component::reinitialize_() {
   reinit_count_++;
   successes_since_reinit_ = 0;
   final_init_in_flight_ = false;
-  ESP_LOGW(TAG, "%u consecutive failures — re-initializing ELM327", (unsigned) MAX_CONSECUTIVE_FAILURES);
+  ESP_LOGW(TAG, "%u consecutive failures — re-initializing ELM327", (unsigned) recovery_threshold_);
   set_last_error_("REINIT");
   clear_tx_queue_();
   // ATZ resets the adapter, including any ATSH header applied by pre_commands.

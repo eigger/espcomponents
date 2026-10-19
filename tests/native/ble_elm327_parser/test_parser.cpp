@@ -14,6 +14,7 @@ using esphome::ble_elm327::counts_as_link_failure;
 using esphome::ble_elm327::is_bus_error;
 using esphome::ble_elm327::is_protocol_search_in_progress;
 using esphome::ble_elm327::reconnect_backoff_ms;
+using esphome::ble_elm327::check_response_timeout;
 
 namespace {
 
@@ -205,6 +206,33 @@ void test_reconnect_backoff() {
   require(reconnect_backoff_ms(255) == 600000, "backoff: stays capped");
 }
 
+void test_default_timeout_matches_previous_behaviour() {
+  // auto_recovery off: fixed timeout from the write; received data, SEARCHING
+  // and the hard limit make no difference (same as before the option existed).
+  auto r = check_response_timeout(false, 5000, false, 4999, 0);
+  require(!r.expired, "default: not expired before 5000 ms after the write");
+  r = check_response_timeout(false, 5000, false, 5001, 0);
+  require(r.expired && !r.hard_limit_hit, "default: expired 5000 ms after the write even if data just arrived");
+  r = check_response_timeout(false, 5000, true, 5001, 0);
+  require(r.expired, "default: SEARCHING does not extend the timeout");
+  require(r.timeout_ms == 5000 && r.hard_limit_ms == 5000, "default: reports the plain timeout");
+}
+
+void test_auto_recovery_timeout_rules() {
+  auto r = check_response_timeout(true, 1500, false, 6000, 1000);
+  require(!r.expired, "auto: activity keeps the exchange alive");
+  r = check_response_timeout(true, 1500, false, 1600, 1600);
+  require(r.expired && !r.hard_limit_hit, "auto: idle timeout expires");
+  r = check_response_timeout(true, 1500, true, 15000, 15000);
+  require(!r.expired && r.timeout_ms == 20000, "auto: SEARCHING raises the idle timeout to 20 s");
+  r = check_response_timeout(true, 1500, true, 20001, 20001);
+  require(r.expired, "auto: search timeout expires after 20 s");
+  r = check_response_timeout(true, 1500, false, 30001, 100);
+  require(r.expired && r.hard_limit_hit && r.hard_limit_ms == 30000, "auto: hard limit 30 s from the write");
+  r = check_response_timeout(true, 20000, false, 39999, 100);
+  require(!r.expired && r.hard_limit_ms == 40000, "auto: hard limit is 2x a long timeout");
+}
+
 }  // namespace
 
 int main() {
@@ -227,6 +255,8 @@ int main() {
   test_protocol_search_detection();
   test_stopped_after_timeout_is_not_a_failure();
   test_reconnect_backoff();
+  test_default_timeout_matches_previous_behaviour();
+  test_auto_recovery_timeout_rules();
 
   if (g_failures > 0) {
     std::cerr << g_failures << " ble_elm327 parser test(s) failed\n";
