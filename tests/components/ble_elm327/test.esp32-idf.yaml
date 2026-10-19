@@ -44,6 +44,8 @@ sensor:
       name: "OBD Re-inits"
     reconnect_count:
       name: "OBD Reconnects"
+    response_time:
+      name: "OBD Response Time"
 
   - platform: ble_elm327
     name: "Engine RPM"

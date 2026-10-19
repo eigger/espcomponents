@@ -226,6 +226,7 @@ void BleElm327Component::dump_config() {
   LOG_SENSOR("  ", "Write failure count", write_failure_count_sensor_);
   LOG_SENSOR("  ", "Re-init count", reinit_count_sensor_);
   LOG_SENSOR("  ", "Reconnect count", reconnect_count_sensor_);
+  LOG_SENSOR("  ", "Response time", response_time_sensor_);
 #endif
 #ifdef USE_TEXT_SENSOR
   LOG_TEXT_SENSOR("  ", "Last error", last_error_text_sensor_);
@@ -483,6 +484,8 @@ void BleElm327Component::flush_diagnostics_(uint32_t now) {
   publish_count_(write_failure_count_sensor_, write_failure_count_);
   publish_count_(reinit_count_sensor_, reinit_count_);
   publish_count_(reconnect_count_sensor_, reconnect_count_);
+  // Only the latest sample is published per interval.
+  if (has_response_time_) publish_count_(response_time_sensor_, last_response_time_ms_);
 #endif
 #ifdef USE_TEXT_SENSOR
   if (last_error_text_sensor_ != nullptr && !last_error_.empty() &&
@@ -586,6 +589,13 @@ void BleElm327Component::process_response(const std::string &response, bool expe
     consecutive_failures_ = 0;
   }
   if (expected && in_flight_kind_ == TxKind::DEVICE) {
+    // Response time: successful write → '>' of a normal PID reply. AT / init
+    // commands, error replies, timeouts and late replies are not sampled.
+    last_response_time_ms_ = millis() - last_write_time_;
+    has_response_time_ = true;
+#ifdef USE_SENSOR
+    if (response_time_sensor_ != nullptr) diag_dirty_ = true;
+#endif
     long_timeout_until_data_ = false;
     if ((reinit_attempted_ || recovery_reconnects_ > 0) &&
         ++successes_since_reinit_ >= SUCCESSES_TO_CLEAR_RECOVERY) {

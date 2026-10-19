@@ -2,8 +2,11 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import sensor
 from esphome.const import (
+    DEVICE_CLASS_DURATION,
     ENTITY_CATEGORY_DIAGNOSTIC,
+    STATE_CLASS_MEASUREMENT,
     STATE_CLASS_TOTAL_INCREASING,
+    UNIT_MILLISECOND,
 )
 from .. import (
     ble_elm327_ns,
@@ -21,6 +24,7 @@ from ..const import (
     CONF_WRITE_FAILURE_COUNT,
     CONF_REINIT_COUNT,
     CONF_RECONNECT_COUNT,
+    CONF_RESPONSE_TIME,
 )
 
 DEPENDENCIES = ["ble_elm327"]
@@ -35,16 +39,7 @@ DEVICE_SCHEMA = cv.All(
 )
 
 
-# ── Diagnostic counters (component health, not OBD data) ─────────────────────
-# key -> (setter on BleElm327Component, icon)
-DIAGNOSTIC_SENSORS = {
-    CONF_TIMEOUT_COUNT: ("set_timeout_count_sensor", "mdi:timer-alert-outline"),
-    CONF_ERROR_COUNT: ("set_error_count_sensor", "mdi:alert-circle-outline"),
-    CONF_NO_DATA_COUNT: ("set_no_data_count_sensor", "mdi:database-off-outline"),
-    CONF_WRITE_FAILURE_COUNT: ("set_write_failure_count_sensor", "mdi:upload-off-outline"),
-    CONF_REINIT_COUNT: ("set_reinit_count_sensor", "mdi:restart"),
-    CONF_RECONNECT_COUNT: ("set_reconnect_count_sensor", "mdi:bluetooth-connect"),
-}
+# ── Diagnostic sensors (component health, not OBD data) ──────────────────────
 
 
 def _counter_schema(icon):
@@ -56,12 +51,35 @@ def _counter_schema(icon):
     )
 
 
+def _response_time_schema(icon):
+    return sensor.sensor_schema(
+        icon=icon,
+        unit_of_measurement=UNIT_MILLISECOND,
+        accuracy_decimals=0,
+        device_class=DEVICE_CLASS_DURATION,
+        state_class=STATE_CLASS_MEASUREMENT,
+        entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+    )
+
+
+# key -> (setter on BleElm327Component, schema)
+DIAGNOSTIC_SENSORS = {
+    CONF_TIMEOUT_COUNT: ("set_timeout_count_sensor", _counter_schema("mdi:timer-alert-outline")),
+    CONF_ERROR_COUNT: ("set_error_count_sensor", _counter_schema("mdi:alert-circle-outline")),
+    CONF_NO_DATA_COUNT: ("set_no_data_count_sensor", _counter_schema("mdi:database-off-outline")),
+    CONF_WRITE_FAILURE_COUNT: ("set_write_failure_count_sensor", _counter_schema("mdi:upload-off-outline")),
+    CONF_REINIT_COUNT: ("set_reinit_count_sensor", _counter_schema("mdi:restart")),
+    CONF_RECONNECT_COUNT: ("set_reconnect_count_sensor", _counter_schema("mdi:bluetooth-connect")),
+    CONF_RESPONSE_TIME: ("set_response_time_sensor", _response_time_schema("mdi:timer-outline")),
+}
+
+
 DIAGNOSTIC_SCHEMA = cv.Schema(
     {
         cv.GenerateID(CONF_BLE_ELM327_ID): cv.use_id(BleElm327Component),
         **{
-            cv.Optional(key): _counter_schema(icon)
-            for key, (_, icon) in DIAGNOSTIC_SENSORS.items()
+            cv.Optional(key): schema
+            for key, (_, schema) in DIAGNOSTIC_SENSORS.items()
         },
     }
 )

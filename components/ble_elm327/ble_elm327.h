@@ -113,6 +113,7 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
   void set_write_failure_count_sensor(sensor::Sensor *s) { write_failure_count_sensor_ = s; }
   void set_reinit_count_sensor(sensor::Sensor *s) { reinit_count_sensor_ = s; }
   void set_reconnect_count_sensor(sensor::Sensor *s) { reconnect_count_sensor_ = s; }
+  void set_response_time_sensor(sensor::Sensor *s) { response_time_sensor_ = s; }
 #endif
 #ifdef USE_TEXT_SENSOR
   void set_last_error_text_sensor(text_sensor::TextSensor *s) { last_error_text_sensor_ = s; }
@@ -238,6 +239,9 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
   uint32_t write_failure_count_{0};
   uint32_t reinit_count_{0};
   uint32_t reconnect_count_{0};
+  // Write → '>' time of the last normal PID reply.
+  uint32_t last_response_time_ms_{0};
+  bool has_response_time_{false};
   std::string last_error_;
 
 #ifdef USE_SENSOR
@@ -247,6 +251,7 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
   sensor::Sensor *write_failure_count_sensor_{nullptr};
   sensor::Sensor *reinit_count_sensor_{nullptr};
   sensor::Sensor *reconnect_count_sensor_{nullptr};
+  sensor::Sensor *response_time_sensor_{nullptr};
 #endif
 #ifdef USE_TEXT_SENSOR
   text_sensor::TextSensor *last_error_text_sensor_{nullptr};

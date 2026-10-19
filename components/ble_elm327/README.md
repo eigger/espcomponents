@@ -165,6 +165,8 @@ sensor:
       name: "OBD Timeouts"
     reconnect_count:
       name: "OBD Reconnects"
+    response_time:
+      name: "OBD Response Time"
 ```
 
 #### UUID Formats
@@ -376,6 +378,8 @@ sensor:
       name: "OBD Re-inits"
     reconnect_count:
       name: "OBD Reconnects"
+    response_time:
+      name: "OBD Response Time"
 
 text_sensor:
   - platform: ble_elm327
@@ -391,11 +395,33 @@ text_sensor:
 | `write_failure_count` | sensor | Failed BLE writes to the TX characteristic (rejected locally or reported failed by the BLE stack) |
 | `reinit_count` | sensor | Automatic re-initializations (`auto_recovery: true` only, otherwise always `0`) |
 | `reconnect_count` | sensor | Forced BLE disconnects after re-init did not help (`auto_recovery: true` only, otherwise always `0`) |
+| `response_time` | sensor | Time in ms from a successful write to the `>` prompt of the most recent **normal PID reply**. Not sampled: AT / init / `pre_commands`, error replies (incl. `NO DATA`), timeouts, failed writes, late replies. `measurement`, unit `ms`. |
 | `last_error` | text_sensor | Most recent problem, e.g. `TIMEOUT (010c)`, `STOPPED (010d)`, `CAN ERROR (010c)`, `? (010c)`, `WRITE FAILED (010c)`, `RX OVERFLOW (...)`, `REINIT`, `RECONNECT`, `DISCONNECTED`. `NO DATA` is not reported here (see `no_data_count`). |
 
 **Publish policy:** diagnostic entities are published at most once every **5 s**, and only when a value changed. Counters publish `0` at boot. Several events within one interval show up as the final counter value and the most recent `last_error`. Counters are `total_increasing` and reset to `0` on reboot.
 
 Each key accepts all standard sensor / text sensor options (`name`, `id`, `filters`, `internal`, …). Every key is optional, so configure only the ones you need.
+
+#### Using `response_time`
+
+`response_time` publishes the latest sample once per 5 s interval, so it jumps around. For a steadier value or a peak, use the standard ESPHome sensor filters:
+
+```yaml
+sensor:
+  - platform: ble_elm327
+    response_time:
+      name: "OBD Response Time"
+      filters:
+        - sliding_window_moving_average:
+            window_size: 6     # ~30 s at one publish every 5 s
+            send_every: 1
+```
+
+Use it to tune the timing options:
+
+- **`response_timeout`:** keep it well above the typical response time. If the (filtered) value regularly exceeds about half of `response_timeout`, or `timeout_count` rises while response times are close to the limit, raise `response_timeout`.
+- **`tx_delay`:** a response time that keeps creeping up during a session, often followed by timeouts, suggests the adapter is overloaded. Raise `tx_delay` or lengthen `update_interval`s.
+- **Typical values:** a healthy BLE adapter on CAN usually answers in tens to a few hundred ms. A first request after `ATSP0` can take seconds (protocol search).
 
 > [!TIP]
 > `NO DATA`, and with the ignition off also `CAN ERROR` / `UNABLE TO CONNECT`, are normal for PIDs your vehicle does not support. A steadily rising `timeout_count` points at an adapter that cannot keep up. Increase `tx_delay` or reduce polling rates, and consider `auto_recovery: true`.
