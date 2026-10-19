@@ -135,13 +135,18 @@ ble_elm327:
 | `rx_char_uuid` | UUID | `2AF0` | BLE notify characteristic UUID (adapter → ESP32) |
 | `tx_char_uuid` | UUID | `2AF1` | BLE write characteristic UUID (ESP32 → adapter) |
 | `init_commands` | list | *(none)* | Extra AT commands queued **after** the mandatory base sequence (see below). |
-| `tx_delay` | int (ms) | `50` | Idle time after the previous command finished (its `>` prompt was received, or it timed out) before the next command is written. Gives slow adapters breathing room. See the note below. |
+| `tx_delay` | int (ms) | `50` | Extra wait after the previous command finished (its `>` prompt was received, it timed out, or its write failed) before the next command is written. `0` = no extra wait. See the note below. |
 | `response_timeout` | int (ms) | `5000` | How long to wait for the `>` prompt. Init commands always get at least `5000` ms. See [Response Timeout](#response-timeout). Range `100`–`60000`. |
 | `auto_recovery` | bool | `false` | Opt-in. Re-initialize the adapter and, if that does not help, reconnect BLE after repeated failures. Also switches to an activity-based timeout. See [Recovery](#recovery). |
 | `recovery_threshold` | int | `3` | Failures in a row before each recovery step. Only valid with `auto_recovery: true`. Range `1`–`20`. |
 
 > [!NOTE]
-> **`tx_delay` timing changed:** earlier versions measured `tx_delay` from the moment a command was *written*. Because the next command is only written after the previous `>` prompt, the delay had no effect on slow adapters. It is now measured from the end of the previous exchange (prompt received or timeout). Adapters that answer faster than `tx_delay` behave as before. With slower adapters, each request now takes `response time + tx_delay` instead of just the response time, so total polling throughput can drop slightly. Lower `tx_delay` if you need the old throughput.
+> **`tx_delay` timing changed:** earlier versions measured `tx_delay` from the moment a command was *written*. If the reply took longer than 50 ms, the delay had already passed and had no effect. If the reply was faster, it only forced a 50 ms write-to-write interval. Now the component always waits `tx_delay` after the reply (or timeout / failed write). With the default `50`:
+>
+> - **slow adapters** (reply > 50 ms): each request cycle becomes 50 ms longer (`response time + 50 ms` instead of `response time`). This idle time is what lets an overloaded adapter recover.
+> - **fast adapters** (reply < 50 ms): practically unchanged (`response time + 50 ms` instead of a flat 50 ms).
+>
+> Set `tx_delay: 0` to send the next command right after each reply, which gives the most throughput on a stable adapter. Raise it (e.g. `100`–`200`) for slow or unstable adapters that start timing out or answering `STOPPED` / `BUFFER FULL`.
 
 **Recommended setup for unstable adapters** (e.g. adapters that stop answering after a while):
 
@@ -218,7 +223,7 @@ If the last init command times out or its write fails, the default is to enter R
 
 Only **one command is in flight at a time**: after each write the component waits for the ELM327 `>` prompt (or `response_timeout`), then waits `tx_delay` before writing the next queued command. In **READY** state, `loop()` collects per-device poll requests into the same queue. When a response arrives it is broadcast to **all** registered devices; each device checks whether the mode + PID bytes match its own configuration and updates its state if they do.
 
-Init commands use the same flow. Responses to AT commands during init don't match any sensor's mode + PID and are ignored.
+Init commands use the same flow. Each one, including the one after `ATZ`, is written only after the previous `>` prompt. The ELM327 prints that prompt once its reset has finished, so `ATZ` needs no extra delay (even with `tx_delay: 0`). Responses to AT commands during init don't match any sensor's mode + PID and are ignored.
 
 #### Response Timeout
 
@@ -300,7 +305,7 @@ All sub-platforms (sensor, …) share these options:
 | `formula` | lambda | - | Custom value parser (see [Formula Lambda](#formula-lambda)) |
 | `update_interval` | time | `60s` | Per-sensor polling interval |
 
-> **Note**: Each sensor has an **independent** `update_interval`. Requests from all sensors are queued and sent one at a time with `tx_delay` between them.
+> **Note**: Each sensor has an **independent** `update_interval`. Requests from all sensors are queued and sent one at a time: each is written after the previous reply (or timeout) plus `tx_delay`.
 
 #### Per-device Pre-commands
 
@@ -432,7 +437,7 @@ Use it to tune the timing options:
 
 ### `ble_elm327.send_command`
 
-Enqueues an arbitrary AT command or OBD PID request to be transmitted over BLE to the ELM327 adapter. Commands are queued and transmitted with the configured `tx_delay` timing.
+Enqueues an arbitrary AT command or OBD PID request to be transmitted over BLE to the ELM327 adapter. Commands are queued and sent one at a time like sensor requests (after the previous reply plus `tx_delay`).
 
 This is especially useful for closing the active OBD/CAN protocol session (`AT PC` - Protocol Close) or putting the adapter into low-power mode (`AT LP`) before disconnecting BLE, ensuring vehicle ECUs can enter deep sleep and prevent 12V battery drain.
 
@@ -1064,8 +1069,8 @@ sensor:
 | Connects but no data | Wrong service / characteristic UUID | Scan the adapter's BLE services and update `service_uuid`, `rx_char_uuid`, `tx_char_uuid` |
 | `RX characteristic not found` | UUID mismatch | Some adapters use 128-bit UUIDs — use the full form in config |
 | Sensor never updates | PID/mode mismatch or ECU doesn't support it | Enable DEBUG logs and confirm the response byte matches `0x40 + mode`; check `ATDP` to verify protocol |
-| Sensors never update after connect | Adapter slow to respond to init commands | Increase `tx_delay`; check `last_error` / DEBUG logs |
-| Updates stop after a while, `Timeout (5000ms) waiting for response to '…'` in logs | Adapter overloaded or hung | Increase `tx_delay` and lengthen `update_interval`s. Enable `auto_recovery: true` so the component re-inits and reconnects by itself (see [Recovery](#recovery)). Watch the [diagnostic sensors](#diagnostics) |
+| Sensors never update after connect | Adapter slow to respond to init commands | Check `last_error` / DEBUG logs; increase `response_timeout` if init commands time out, and `tx_delay` (extra wait after each reply) if the adapter answers `STOPPED` / `?` |
+| Updates stop after a while, `Timeout (5000ms) waiting for response to '…'` in logs | Adapter overloaded or hung | Increase `tx_delay` (extra idle time after each reply, e.g. `100`–`200`) and lengthen `update_interval`s. Enable `auto_recovery: true` so the component re-inits and reconnects by itself (see [Recovery](#recovery)). Watch the [diagnostic sensors](#diagnostics) |
 | `Response received with no command pending (late reply after a timeout?)` | Adapter answers slower than `response_timeout` | Increase `response_timeout` |
 | `ELM327 replied 'STOPPED' to '…'` | A command was written while the adapter was still busy | Increase `tx_delay` / `response_timeout` |
 | `Adapter still failing after re-init — disconnecting to force a BLE reconnect`, then stays disconnected | `ble_client` has `auto_connect: false` | Use the default `auto_connect: true`, or reconnect from an automation |
