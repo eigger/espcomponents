@@ -258,7 +258,11 @@ ELM327 status replies are detected and counted. They are not parsed as data.
 | `STOPPED`, `BUFFER FULL`, `ERRxx`, `LV RESET`, `ACT ALERT` | adapter / link | Logged at WARN, counted in `error_count`, and counts as a **failure** (see below). Exception: `STOPPED` in reply to the first command after a timeout is not a failure. It only means the adapter aborted the request that timed out (e.g. a slow protocol search) when the new command arrived. |
 | `?` | adapter | Counts as a failure for PID requests. In reply to an `AT` command it only means the adapter does not support that command, so it is just logged and counted. |
 
-If a device's `pre_commands` (e.g. `ATSH`) times out, fails to write, or gets an adapter/link error reply (`STOPPED`, `BUFFER FULL`, `ERRxx`, …), the tracked header is cleared and re-sent before the next PID request. A `?` reply (command not supported by this adapter) or a vehicle-side error does **not** clear it: the header stays sticky as before, so an unsupported pre-command is not re-sent on every poll.
+If a device's `pre_commands` (e.g. `ATSH`) times out, fails to write, or gets an adapter/link error reply (`STOPPED`, `BUFFER FULL`, `ERRxx`, …), the tracked header is cleared and re-sent before the next PID request. A `?` reply (command not supported by this adapter) or a vehicle-side error does **not** clear it: the header stays sticky as before, so an unsupported pre-command is not re-sent on every poll. (Trade-off, same as earlier versions: with an unsupported pre-command, the PID goes out with whatever header the adapter has.)
+
+If the header is cleared while a PID request that depends on it is already queued, that request is not sent with the wrong header. It is re-queued together with its `pre_commands` at the next poll collection. When no failure happens this never triggers, and the traffic is the same as before.
+
+The header is also cleared when the adapter reports `LV RESET` (it restarted), and when `ATZ`, `ATWS` or `ATD` is sent (e.g. with `ble_elm327.send_command`), because these reset the adapter's settings.
 
 #### Recovery
 

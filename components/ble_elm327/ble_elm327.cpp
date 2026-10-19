@@ -154,6 +154,21 @@ void BleElm327Component::loop() {
     tx_queue_.pop();
     if (item.dev) item.dev->on_dequeue();
 
+    // The header this PID depends on was lost after it was queued (failed
+    // pre-command, adapter reset): don't send it with the wrong header. The
+    // next collection queues pre_commands + PID again. Never true when no
+    // failure happened, because a device's pre_commands are tracked as applied
+    // when they are queued.
+    if (item.dev != nullptr && elm_state_ == ElmState::READY &&
+        !pre_commands_applied(item.dev->get_pre_commands(), current_pre_commands_)) {
+      ESP_LOGD(TAG, "Header for '%s' was lost — re-queueing with its pre_commands", item.dev->get_pid().c_str());
+      item.dev->requeue();
+      return;
+    }
+
+    // ATZ / ATWS / ATD reset the adapter, including the ATSH header.
+    if (command_resets_adapter(normalize_command(item.cmd))) current_pre_commands_.clear();
+
     if (elm_state_ == ElmState::CONNECTED) {
       in_flight_kind_ = TxKind::INIT;
       // READY is entered when this last init command is answered (on_notify).
@@ -400,6 +415,9 @@ void BleElm327Component::on_exchange_failure_() {
 }
 
 void BleElm327Component::handle_error_response_(const std::string &error, bool expected) {
+  // Low-voltage reset: the adapter restarted and lost the ATSH header,
+  // whatever command was in flight (and even for a late reply).
+  if (error == "LV RESET") current_pre_commands_.clear();
   if (error == "NO DATA") {
     // Normal for unsupported PIDs / ignition off: counted, not a "last error".
     no_data_count_++;

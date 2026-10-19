@@ -16,6 +16,8 @@ using esphome::ble_elm327::is_protocol_search_in_progress;
 using esphome::ble_elm327::reconnect_backoff_ms;
 using esphome::ble_elm327::check_response_timeout;
 using esphome::ble_elm327::pre_command_reply_invalidates_header;
+using esphome::ble_elm327::pre_commands_applied;
+using esphome::ble_elm327::command_resets_adapter;
 
 namespace {
 
@@ -245,6 +247,24 @@ void test_pre_command_header_invalidation() {
   require(pre_command_reply_invalidates_header("ERR94"), "pre_command: ERRxx forces a re-send");
 }
 
+void test_pre_commands_applied() {
+  const std::vector<std::string> tcm = {"ATSH 7E2\r"};
+  const std::vector<std::string> none;
+  require(pre_commands_applied(tcm, tcm), "header: normal path (pre_commands tracked when queued) sends the PID");
+  require(pre_commands_applied(none, none), "header: device without pre_commands is sent");
+  require(!pre_commands_applied(tcm, none), "header: cleared after a pre-command failure -> PID is held back");
+  require(!pre_commands_applied(tcm, {"ATSH 7E0\r"}), "header: different header -> PID is held back");
+}
+
+void test_command_resets_adapter() {
+  require(command_resets_adapter(normalize_command("ATZ\r")), "reset: ATZ");
+  require(command_resets_adapter(normalize_command("AT WS")), "reset: ATWS");
+  require(command_resets_adapter(normalize_command("at d")), "reset: ATD");
+  require(!command_resets_adapter(normalize_command("ATDP")), "reset: ATDP (describe protocol) is not a reset");
+  require(!command_resets_adapter(normalize_command("ATSH 7E0")), "reset: ATSH is not a reset");
+  require(!command_resets_adapter(normalize_command("010C")), "reset: PID request is not a reset");
+}
+
 }  // namespace
 
 int main() {
@@ -270,6 +290,8 @@ int main() {
   test_default_timeout_matches_previous_behaviour();
   test_auto_recovery_timeout_rules();
   test_pre_command_header_invalidation();
+  test_pre_commands_applied();
+  test_command_resets_adapter();
 
   if (g_failures > 0) {
     std::cerr << g_failures << " ble_elm327 parser test(s) failed\n";

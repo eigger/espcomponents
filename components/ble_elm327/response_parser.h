@@ -92,6 +92,18 @@ uint32_t reconnect_backoff_ms(uint8_t reconnects);
 // timeout.
 bool pre_command_reply_invalidates_header(const std::string &error);
 
+// True if a queued PID request may be sent: the device's pre_commands match
+// the header currently tracked as applied on the adapter. False only after the
+// tracked header was cleared (pre-command failure, adapter reset) between
+// queueing the device's pre_commands and its PID request.
+bool pre_commands_applied(const std::vector<std::string> &device_pre_commands,
+                          const std::vector<std::string> &current_pre_commands);
+
+// True for commands that reset the adapter's settings, including any ATSH
+// header: ATZ (reset), ATWS (warm start), ATD (defaults). Expects a
+// normalize_command() result.
+bool command_resets_adapter(const std::string &normalized_command);
+
 // True while a partial reply shows the adapter is still searching for /
 // initializing the OBD protocol ("SEARCHING...", "BUS INIT: ...").
 bool is_protocol_search_in_progress(const std::string &partial_response);

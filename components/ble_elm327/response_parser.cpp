@@ -200,6 +200,15 @@ bool pre_command_reply_invalidates_header(const std::string &error) {
   return !error.empty() && error != "?" && !is_bus_error(error);
 }
 
+bool pre_commands_applied(const std::vector<std::string> &device_pre_commands,
+                          const std::vector<std::string> &current_pre_commands) {
+  return device_pre_commands == current_pre_commands;
+}
+
+bool command_resets_adapter(const std::string &normalized_command) {
+  return normalized_command == "atz" || normalized_command == "atws" || normalized_command == "atd";
+}
+
 bool is_protocol_search_in_progress(const std::string &partial_response) {
   std::string upper = to_upper(partial_response);
   return upper.find("SEARCHING") != std::string::npos || upper.find("BUS INIT") != std::string::npos;
