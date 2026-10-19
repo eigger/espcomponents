@@ -1,8 +1,15 @@
 #pragma once
 
 #include "esphome/core/component.h"
+#include "esphome/core/defines.h"
 #include "esphome/components/ble_client/ble_client.h"
 #include "esphome/components/esp32_ble_tracker/esp32_ble_tracker.h"
+#ifdef USE_SENSOR
+#include "esphome/components/sensor/sensor.h"
+#endif
+#ifdef USE_TEXT_SENSOR
+#include "esphome/components/text_sensor/text_sensor.h"
+#endif
 #include <functional>
 #include <queue>
 #include <string>
@@ -36,7 +43,6 @@ class BleElm327Device : public PollingComponent {
 
   // Called when the device is popped from tx_queue_, allowing re-enqueue on next update().
   void on_dequeue() { in_queue_ = false; }
-
   void set_pid(const std::string &pid) { pid_ = pid; }
   void set_mode(const std::string &mode) { mode_ = mode; }
   void set_formula(std::function<float(uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, const std::vector<uint8_t> &)> f) { formula_ = f; }
@@ -70,7 +76,7 @@ class BleElm327Device : public PollingComponent {
 
 class BleElm327Component : public Component, public ble_client::BLEClientNode {
  public:
-  void setup() override {}
+  void setup() override;
   void loop() override;
   void dump_config() override;
   float get_setup_priority() const override { return setup_priority::AFTER_WIFI; }
@@ -95,6 +101,22 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
   // Duplicate commands (case-insensitive, trimmed) are ignored.
   void add_init_command(const std::string &cmd);
   void set_tx_delay(uint32_t ms) { tx_delay_ms_ = ms; }
+  void set_response_timeout(uint32_t ms) { response_timeout_ms_ = ms; }
+  void set_auto_recovery(bool enabled) { auto_recovery_ = enabled; }
+  void set_recovery_threshold(uint8_t n) { recovery_threshold_ = n; }
+
+#ifdef USE_SENSOR
+  void set_timeout_count_sensor(sensor::Sensor *s) { timeout_count_sensor_ = s; }
+  void set_error_count_sensor(sensor::Sensor *s) { error_count_sensor_ = s; }
+  void set_no_data_count_sensor(sensor::Sensor *s) { no_data_count_sensor_ = s; }
+  void set_write_failure_count_sensor(sensor::Sensor *s) { write_failure_count_sensor_ = s; }
+  void set_reinit_count_sensor(sensor::Sensor *s) { reinit_count_sensor_ = s; }
+  void set_reconnect_count_sensor(sensor::Sensor *s) { reconnect_count_sensor_ = s; }
+  void set_response_time_sensor(sensor::Sensor *s) { response_time_sensor_ = s; }
+#endif
+#ifdef USE_TEXT_SENSOR
+  void set_last_error_text_sensor(text_sensor::TextSensor *s) { last_error_text_sensor_ = s; }
+#endif
 
   // Enqueues a command (AT command, PID, etc.) to be transmitted to the ELM327 adapter.
   void send_command(const std::string &cmd);
@@ -105,11 +127,32 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
   struct TxItem {
     std::string cmd;
     BleElm327Device *dev{nullptr};
+    bool pre{false};  // a device's pre_command (e.g. ATSH)
   };
+
+  // What the command currently in flight was queued as.
+  enum class TxKind { INIT, PRE, DEVICE, USER };
 
   bool send_command_raw_(const std::string &cmd);
   void on_notify(const uint8_t *data, uint16_t length);
-  void process_response(const std::string &response);
+  void process_response(const std::string &response, bool expected);
+
+  // Recovery
+  void queue_init_commands_();
+  void on_exchange_failure_();
+  void fail_exchange_(uint32_t now);
+  void handle_error_response_(const std::string &error, bool expected);
+  void record_write_failure_();
+  void reinitialize_();
+  void reconnect_();
+  void clear_tx_queue_();
+
+  // Diagnostics
+  void set_last_error_(const std::string &error);
+  void flush_diagnostics_(uint32_t now);
+#ifdef USE_SENSOR
+  static void publish_count_(sensor::Sensor *s, uint32_t value);
+#endif
 
   // BLE handles
   espbt::ESPBTUUID service_uuid_;
@@ -135,11 +178,83 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
 
   // Timing
   uint32_t tx_delay_ms_{50};
-  uint32_t last_tx_time_{0};
+  uint32_t response_timeout_ms_{5000};
+  // Opt-in: re-init / reconnect after recovery_threshold_ failures in a row,
+  // activity-based timeout with search extension. Off = previous behaviour.
+  bool auto_recovery_{false};
+  uint8_t recovery_threshold_{3};
+  // Timeout applied to the command currently in flight (see ble_elm327.cpp for
+  // when the longer init timeout is used).
+  uint32_t current_timeout_ms_{5000};
+  // Last time a command was written or a notify chunk arrived (idle timeout base).
+  uint32_t last_activity_time_{0};
+  // Time the command in flight was written (absolute timeout base).
+  uint32_t last_write_time_{0};
+  // Last time the exchange finished: '>' received, timeout, or write failure.
+  // tx_delay is measured from here so a slow adapter gets idle time.
+  uint32_t last_rx_time_{0};
 
   std::string rx_buffer_;
   std::string last_sent_command_;
   bool waiting_for_response_{false};
+  TxKind in_flight_kind_{TxKind::USER};
+  // The last init command is in flight: READY is entered only once it is
+  // answered; on timeout / failed write it is re-sent.
+  bool final_init_in_flight_{false};
+  std::string final_init_command_;
+  // The previous exchange timed out / the command in flight is the first one
+  // written after a timeout (a STOPPED reply to it is not counted).
+  bool last_exchange_timed_out_{false};
+  bool follows_timeout_{false};
+  // Use the long init timeout until a PID request gets a normal (non-error)
+  // reply. Set on (re)init and after timeouts / error replies, because with
+  // ATSP0 the next request may start a protocol search that takes seconds.
+  bool long_timeout_until_data_{false};
+
+  // Recovery state
+  // Timeouts, failed writes and adapter-level error replies in a row. Reset only
+  // by a normal reply to a PID request or init command.
+  uint8_t consecutive_failures_{0};
+  // Set once a re-init was done; the next failure streak escalates to a
+  // reconnect. Cleared after several PID replies in a row succeed again.
+  bool reinit_attempted_{false};
+  uint8_t successes_since_reinit_{0};
+  // reconnect_() requested a disconnect; loop() is paused until it happens.
+  bool reconnect_pending_{false};
+  uint32_t reconnect_requested_at_{0};
+  // Recovery reconnects in a row (exponential backoff), cleared when PID replies
+  // have recovered. Survives the disconnect it causes.
+  uint8_t recovery_reconnects_{0};
+  uint32_t last_reconnect_at_{0};
+
+  // Diagnostics publishing is rate limited (see flush_diagnostics_()).
+  bool diag_dirty_{false};
+  uint32_t last_diag_publish_{0};
+
+  // Diagnostic counters
+  uint32_t timeout_count_{0};
+  uint32_t error_count_{0};
+  uint32_t no_data_count_{0};
+  uint32_t write_failure_count_{0};
+  uint32_t reinit_count_{0};
+  uint32_t reconnect_count_{0};
+  // Write → '>' time of the last normal PID reply.
+  uint32_t last_response_time_ms_{0};
+  bool has_response_time_{false};
+  std::string last_error_;
+
+#ifdef USE_SENSOR
+  sensor::Sensor *timeout_count_sensor_{nullptr};
+  sensor::Sensor *error_count_sensor_{nullptr};
+  sensor::Sensor *no_data_count_sensor_{nullptr};
+  sensor::Sensor *write_failure_count_sensor_{nullptr};
+  sensor::Sensor *reinit_count_sensor_{nullptr};
+  sensor::Sensor *reconnect_count_sensor_{nullptr};
+  sensor::Sensor *response_time_sensor_{nullptr};
+#endif
+#ifdef USE_TEXT_SENSOR
+  text_sensor::TextSensor *last_error_text_sensor_{nullptr};
+#endif
 };
 
 }  // namespace ble_elm327
