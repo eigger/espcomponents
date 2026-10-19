@@ -103,5 +103,46 @@ std::vector<uint8_t> parse_response_bytes(const std::string &response,
   return bytes;
 }
 
+std::string classify_error_response(const std::string &response,
+                                    const std::string &last_sent_command_normalized) {
+  // Status replies documented in the ELM327 datasheet. Order matters only
+  // for readability; none of these is a substring of another.
+  static const char *const ERROR_LABELS[] = {
+      "NO DATA",   "STOPPED",  "BUFFER FULL", "CAN ERROR", "BUS ERROR",
+      "BUS BUSY",  "DATA ERROR", "FB ERROR",  "RX ERROR",  "UNABLE TO CONNECT",
+      "LV RESET",
+  };
+
+  size_t start = 0;
+  while (start <= response.size()) {
+    size_t end = response.find_first_of("\r\n", start);
+    if (end == std::string::npos) end = response.size();
+    std::string line = response.substr(start, end - start);
+    start = end + 1;
+
+    // Trim and uppercase
+    std::string upper;
+    upper.reserve(line.size());
+    for (char c : line) upper.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(c))));
+    size_t first = upper.find_first_not_of(" \t");
+    if (first == std::string::npos) continue;
+    size_t last = upper.find_last_not_of(" \t");
+    upper = upper.substr(first, last - first + 1);
+
+    if (!last_sent_command_normalized.empty() && normalize_command(upper) == last_sent_command_normalized) continue;
+
+    if (upper == "?") return "?";
+    for (const char *label : ERROR_LABELS) {
+      if (upper.find(label) != std::string::npos) return label;
+    }
+    // "ERRxx" internal error codes (e.g. ERR94)
+    if (upper.size() >= 4 && upper.compare(0, 3, "ERR") == 0 &&
+        std::isdigit(static_cast<unsigned char>(upper[3]))) {
+      return upper;
+    }
+  }
+  return "";
+}
+
 }  // namespace ble_elm327
 }  // namespace esphome

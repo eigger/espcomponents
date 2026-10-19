@@ -10,3 +10,13 @@ CONF_MODE = "mode"
 CONF_FORMULA = "formula"
 CONF_PRESET = "preset"
 CONF_COMMAND = "command"
+CONF_RESPONSE_TIMEOUT = "response_timeout"
+
+# Diagnostic entities
+CONF_TIMEOUT_COUNT = "timeout_count"
+CONF_ERROR_COUNT = "error_count"
+CONF_NO_DATA_COUNT = "no_data_count"
+CONF_WRITE_FAILURE_COUNT = "write_failure_count"
+CONF_REINIT_COUNT = "reinit_count"
+CONF_RECONNECT_COUNT = "reconnect_count"
+CONF_LAST_ERROR = "last_error"

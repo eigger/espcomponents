@@ -9,6 +9,7 @@
 
 using esphome::ble_elm327::normalize_command;
 using esphome::ble_elm327::parse_response_bytes;
+using esphome::ble_elm327::classify_error_response;
 
 namespace {
 
@@ -128,6 +129,28 @@ void test_normalize_command_strips_whitespace_and_case() {
   require(normalize_command("010C") == "010c", "normalize_command: lowercases hex command");
 }
 
+void test_classify_error_responses() {
+  require(classify_error_response("NO DATA\r\r", "010c") == "NO DATA", "classify: NO DATA");
+  require(classify_error_response("STOPPED\r", "010c") == "STOPPED", "classify: STOPPED");
+  require(classify_error_response("?\r", "atxx") == "?", "classify: unknown command '?'");
+  require(classify_error_response("BUFFER FULL\r", "2201") == "BUFFER FULL", "classify: BUFFER FULL");
+  require(classify_error_response("CAN ERROR\r", "010c") == "CAN ERROR", "classify: CAN ERROR");
+  require(classify_error_response("SEARCHING...\rUNABLE TO CONNECT\r", "010c") == "UNABLE TO CONNECT",
+          "classify: UNABLE TO CONNECT after SEARCHING");
+  require(classify_error_response("ERR94\r", "010c") == "ERR94", "classify: ERRxx code");
+  require(classify_error_response("no data", "010c") == "NO DATA", "classify: lowercase input");
+}
+
+void test_classify_ignores_normal_responses() {
+  require(classify_error_response("410C1AF8\r", "010c").empty(), "classify: data line is not an error");
+  require(classify_error_response("SEARCHING...\r410C1AF8\r", "010c").empty(), "classify: SEARCHING is not an error");
+  require(classify_error_response("OK\r", "ate0").empty(), "classify: OK is not an error");
+  require(classify_error_response("ELM327 v1.5\r", "atz").empty(), "classify: ATZ banner is not an error");
+  require(classify_error_response("0: 62 E0 02\r1: AA BB\r", "22e002").empty(), "classify: multiline data");
+  require(classify_error_response("", "010c").empty(), "classify: empty response");
+  require(classify_error_response("010C\r410C1AF8\r", "010c").empty(), "classify: echo line is skipped");
+}
+
 }  // namespace
 
 int main() {
@@ -143,6 +166,8 @@ int main() {
   test_blank_lines_and_whitespace_are_ignored();
   test_empty_response_yields_no_bytes();
   test_normalize_command_strips_whitespace_and_case();
+  test_classify_error_responses();
+  test_classify_ignores_normal_responses();
 
   if (g_failures > 0) {
     std::cerr << g_failures << " ble_elm327 parser test(s) failed\n";

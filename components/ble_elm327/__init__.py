@@ -7,7 +7,7 @@ from esphome.const import (
 )
 from .const import (
     CONF_BLE_ELM327_ID, CONF_BLE_CLIENT_ID, CONF_RX_CHAR_UUID, CONF_TX_CHAR_UUID,
-    CONF_INIT_COMMANDS, CONF_PRE_COMMANDS, CONF_TX_DELAY,
+    CONF_INIT_COMMANDS, CONF_PRE_COMMANDS, CONF_TX_DELAY, CONF_RESPONSE_TIMEOUT,
     CONF_PID, CONF_MODE, CONF_FORMULA, CONF_PRESET,
 )
 from .presets import OBD_PRESETS
@@ -49,6 +49,8 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_TX_CHAR_UUID, default="2AF1"): esp32_ble_tracker.bt_uuid,
         cv.Optional(CONF_INIT_COMMANDS): cv.ensure_list(cv.string_strict),
         cv.Optional(CONF_TX_DELAY, default=50): cv.positive_int,           # ms
+        # ms; init commands and the first PID request after init use max(this, 5000)
+        cv.Optional(CONF_RESPONSE_TIMEOUT, default=1500): cv.int_range(min=100, max=60000),
     }
 )
 
@@ -71,6 +73,7 @@ async def to_code(config):
         cg.add(var.add_init_command(cmd))
 
     cg.add(var.set_tx_delay(config[CONF_TX_DELAY]))
+    cg.add(var.set_response_timeout(config[CONF_RESPONSE_TIMEOUT]))
 
 
 # ── Shared device schema (used by every sub-platform) ────────────────────────

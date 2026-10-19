@@ -34,5 +34,13 @@ std::string normalize_command(const std::string &cmd);
 std::vector<uint8_t> parse_response_bytes(const std::string &response,
                                            const std::string &last_sent_command_normalized);
 
+// Detects ELM327 status / error replies in a response (everything received
+// before the '>' prompt). Returns a short label such as "NO DATA", "STOPPED",
+// "?", "BUFFER FULL", "CAN ERROR", "UNABLE TO CONNECT" or "ERRxx", or an empty
+// string when the response contains no error line. The command echo line is
+// ignored.
+std::string classify_error_response(const std::string &response,
+                                    const std::string &last_sent_command_normalized);
+
 }  // namespace ble_elm327
 }  // namespace esphome

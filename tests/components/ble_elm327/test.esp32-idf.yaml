@@ -20,8 +20,29 @@ ble_client:
 
 ble_elm327:
   ble_client_id: obd_client
+  tx_delay: 50
+  response_timeout: 1500
+
+text_sensor:
+  - platform: ble_elm327
+    last_error:
+      name: "OBD Last Error"
 
 sensor:
+  - platform: ble_elm327
+    timeout_count:
+      name: "OBD Timeouts"
+    error_count:
+      name: "OBD Error Responses"
+    no_data_count:
+      name: "OBD NO DATA Responses"
+    write_failure_count:
+      name: "OBD Write Failures"
+    reinit_count:
+      name: "OBD Re-inits"
+    reconnect_count:
+      name: "OBD Reconnects"
+
   - platform: ble_elm327
     name: "Engine RPM"
     pid: "0C"

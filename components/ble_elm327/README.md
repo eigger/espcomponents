@@ -25,6 +25,7 @@ Requires an ESP32 with BLE. For a complete vehicle dashboard, see the
     - [Per-device Pre-commands](#per-device-pre-commands)
 - [Platforms](#platforms)
   - [Sensor](#sensor)
+  - [Diagnostics](#diagnostics)
 - [Actions](#actions)
   - [ble_elm327.send_command](#ble_elm327send_command)
 - [Presets](#presets)
@@ -121,6 +122,7 @@ ble_elm327:
   init_commands:
     - "ATSP6"
   tx_delay: 50
+  response_timeout: 1500
 ```
 
 #### Options
@@ -132,7 +134,8 @@ ble_elm327:
 | `rx_char_uuid` | UUID | `2AF0` | BLE notify characteristic UUID (adapter → ESP32) |
 | `tx_char_uuid` | UUID | `2AF1` | BLE write characteristic UUID (ESP32 → adapter) |
 | `init_commands` | list | *(none)* | Extra AT commands queued **after** the mandatory base sequence (see below). |
-| `tx_delay` | int (ms) | `50` | Minimum delay between consecutive BLE writes |
+| `tx_delay` | int (ms) | `50` | Idle time after the previous command finished (its `>` prompt was received, or it timed out) before the next command is written. Gives slow adapters breathing room. |
+| `response_timeout` | int (ms) | `1500` | How long to wait for the `>` prompt after a command (measured from the last received byte). Init commands (`ATZ` …) and the first PID request after init use at least `5000` ms. Range `100`–`60000`. |
 
 #### UUID Formats
 
@@ -179,9 +182,22 @@ IDLE → (BLE connect + service discovery + notify registered)
      → READY
 ```
 
-In **READY** state, `loop()` collects per-device poll requests and drains them with `tx_delay` between each write — commands are sent without waiting for a response. When a response arrives it is broadcast to **all** registered devices; each device checks whether the mode + PID bytes match its own configuration and updates its state if they do.
+Only **one command is in flight at a time**: after each write the component waits for the ELM327 `>` prompt (or `response_timeout`), then waits `tx_delay` before writing the next queued command. In **READY** state, `loop()` collects per-device poll requests into the same queue. When a response arrives it is broadcast to **all** registered devices; each device checks whether the mode + PID bytes match its own configuration and updates its state if they do.
 
-Init commands are sent with the same `tx_delay` timing as sensor commands. Responses to AT commands during init are silently ignored (they don't match any sensor's mode + PID).
+Init commands use the same flow. Responses to AT commands during init don't match any sensor's mode + PID and are ignored.
+
+ELM327 status replies (`NO DATA`, `STOPPED`, `?`, `BUFFER FULL`, `CAN ERROR`, `BUS ERROR`, `UNABLE TO CONNECT`, `ERRxx`, …) are detected, logged (`NO DATA` at DEBUG, the rest at WARN) and counted; they are not parsed as data.
+
+#### Timeout Recovery
+
+| Event | Action |
+|-------|--------|
+| No `>` within `response_timeout` | Partial reply is discarded, the command is dropped (the sensor is polled again on its next `update_interval`), `tx_delay` starts from the timeout. |
+| BLE write fails | The command is not waited on; counted like a timeout. |
+| 3 timeouts / write failures in a row | Adapter is **re-initialized**: queue cleared, base + `init_commands` re-sent (starting with `ATZ`), tracked `pre_commands` header reset. |
+| 3 more in a row before any PID request is answered | BLE link is **disconnected**; `ble_client` reconnects and runs the full init sequence again. |
+
+Any received `>` prompt resets the consecutive-failure counter. A reply that arrives after its command already timed out is logged with a hint to increase `response_timeout`.
 
 ---
 
@@ -233,7 +249,7 @@ sensor:
     update_interval: 1s
 ```
 
-On disconnect the tracked header is cleared, so the first device polled after a reconnect re-applies its `pre_commands`.
+On disconnect or re-init the tracked header is cleared, so the first device polled after a reconnect re-applies its `pre_commands`.
 
 > **Note**: `pre_commands` is for per-device, on-demand setup (typically `ATSH`, `ATCRA`, `ATFCSH`). For one-shot adapter setup that should run once at connect time, use the top-level `init_commands` instead.
 
@@ -256,6 +272,48 @@ sensor:
 ```
 
 All standard ESPHome sensor options (`unit_of_measurement`, `device_class`, `state_class`, `accuracy_decimals`, `filters`, …) are supported.
+
+### Diagnostics
+
+Optional diagnostic entities show what is going wrong on the link (all use `entity_category: diagnostic`). They are configured as a separate `ble_elm327` platform entry: an entry that contains any of the diagnostic keys below is a diagnostic block and cannot also contain `pid` / `preset`.
+
+```yaml
+sensor:
+  - platform: ble_elm327
+    # ble_elm327_id: elm        # only needed with more than one ble_elm327
+    timeout_count:
+      name: "OBD Timeouts"
+    error_count:
+      name: "OBD Error Responses"
+    no_data_count:
+      name: "OBD NO DATA Responses"
+    write_failure_count:
+      name: "OBD Write Failures"
+    reinit_count:
+      name: "OBD Re-inits"
+    reconnect_count:
+      name: "OBD Reconnects"
+
+text_sensor:
+  - platform: ble_elm327
+    last_error:
+      name: "OBD Last Error"
+```
+
+| Key | Platform | Description |
+|-----|----------|-------------|
+| `timeout_count` | sensor | Commands that got no `>` prompt within `response_timeout` |
+| `error_count` | sensor | ELM327 error replies other than `NO DATA` (`STOPPED`, `?`, `BUFFER FULL`, `CAN ERROR`, `BUS ERROR`, `UNABLE TO CONNECT`, `ERRxx`, …) |
+| `no_data_count` | sensor | `NO DATA` replies (ECU did not answer — unsupported PID, wrong header, or ignition off) |
+| `write_failure_count` | sensor | Failed BLE writes to the TX characteristic |
+| `reinit_count` | sensor | Automatic re-initializations after repeated timeouts |
+| `reconnect_count` | sensor | Forced BLE disconnects after re-init did not help |
+| `last_error` | text_sensor | Most recent problem, e.g. `TIMEOUT (010c)`, `NO DATA (221940)`, `STOPPED (010d)`, `? (atxx)`, `WRITE FAILED (010c)`, `REINIT`, `RECONNECT`, `DISCONNECTED` |
+
+Counters are `total_increasing` and reset to `0` on reboot. Each key accepts all standard sensor / text sensor options (`name`, `id`, `filters`, `internal`, …). Every key is optional; configure only the ones you need.
+
+> [!TIP]
+> `NO DATA` is normal for PIDs your vehicle does not support and while the ignition is off. A steadily rising `timeout_count` (often followed by `reinit_count`) points at an adapter that cannot keep up — increase `tx_delay`, reduce polling rates, or raise `response_timeout`.
 
 ---
 
@@ -895,7 +953,10 @@ sensor:
 | Connects but no data | Wrong service / characteristic UUID | Scan the adapter's BLE services and update `service_uuid`, `rx_char_uuid`, `tx_char_uuid` |
 | `RX characteristic not found` | UUID mismatch | Some adapters use 128-bit UUIDs — use the full form in config |
 | Sensor never updates | PID/mode mismatch or ECU doesn't support it | Enable DEBUG logs and confirm the response byte matches `0x40 + mode`; check `ATDP` to verify protocol |
-| Sensors never update after connect | Adapter slow to respond to init commands | Increase `tx_delay` |
+| Sensors never update after connect | Adapter slow to respond to init commands | Increase `tx_delay`; check `last_error` / DEBUG logs |
+| Updates stop after a while, `Timeout waiting for response` in logs | Adapter overloaded or hung | Increase `tx_delay`, lengthen `update_interval`s; the component re-inits after 3 timeouts and reconnects if that fails. Watch the [diagnostic sensors](#diagnostics) |
+| `Response received with no command pending` | Adapter answers slower than `response_timeout` | Increase `response_timeout` |
+| `ELM327 replied 'STOPPED'` | A command was written while the adapter was still busy | Increase `tx_delay` / `response_timeout` |
 | Data wrong / garbled | Wrong `formula` | Check raw response in DEBUG logs and adjust formula |
 | Sensors update too fast / slow | Per-sensor `update_interval` | Tune each sensor's `update_interval` independently |
 

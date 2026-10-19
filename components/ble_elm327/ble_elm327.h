@@ -1,8 +1,15 @@
 #pragma once
 
 #include "esphome/core/component.h"
+#include "esphome/core/defines.h"
 #include "esphome/components/ble_client/ble_client.h"
 #include "esphome/components/esp32_ble_tracker/esp32_ble_tracker.h"
+#ifdef USE_SENSOR
+#include "esphome/components/sensor/sensor.h"
+#endif
+#ifdef USE_TEXT_SENSOR
+#include "esphome/components/text_sensor/text_sensor.h"
+#endif
 #include <functional>
 #include <queue>
 #include <string>
@@ -70,7 +77,7 @@ class BleElm327Device : public PollingComponent {
 
 class BleElm327Component : public Component, public ble_client::BLEClientNode {
  public:
-  void setup() override {}
+  void setup() override;
   void loop() override;
   void dump_config() override;
   float get_setup_priority() const override { return setup_priority::AFTER_WIFI; }
@@ -95,6 +102,19 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
   // Duplicate commands (case-insensitive, trimmed) are ignored.
   void add_init_command(const std::string &cmd);
   void set_tx_delay(uint32_t ms) { tx_delay_ms_ = ms; }
+  void set_response_timeout(uint32_t ms) { response_timeout_ms_ = ms; }
+
+#ifdef USE_SENSOR
+  void set_timeout_count_sensor(sensor::Sensor *s) { timeout_count_sensor_ = s; }
+  void set_error_count_sensor(sensor::Sensor *s) { error_count_sensor_ = s; }
+  void set_no_data_count_sensor(sensor::Sensor *s) { no_data_count_sensor_ = s; }
+  void set_write_failure_count_sensor(sensor::Sensor *s) { write_failure_count_sensor_ = s; }
+  void set_reinit_count_sensor(sensor::Sensor *s) { reinit_count_sensor_ = s; }
+  void set_reconnect_count_sensor(sensor::Sensor *s) { reconnect_count_sensor_ = s; }
+#endif
+#ifdef USE_TEXT_SENSOR
+  void set_last_error_text_sensor(text_sensor::TextSensor *s) { last_error_text_sensor_ = s; }
+#endif
 
   // Enqueues a command (AT command, PID, etc.) to be transmitted to the ELM327 adapter.
   void send_command(const std::string &cmd);
@@ -109,7 +129,20 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
 
   bool send_command_raw_(const std::string &cmd);
   void on_notify(const uint8_t *data, uint16_t length);
-  void process_response(const std::string &response);
+  void process_response(const std::string &response, bool expected);
+
+  // Recovery
+  void queue_init_commands_();
+  void on_exchange_failure_();
+  void reinitialize_();
+  void reconnect_();
+  void clear_tx_queue_();
+
+  // Diagnostics
+  void set_last_error_(const std::string &error);
+#ifdef USE_SENSOR
+  static void publish_count_(sensor::Sensor *s, uint32_t value);
+#endif
 
   // BLE handles
   espbt::ESPBTUUID service_uuid_;
@@ -135,11 +168,49 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
 
   // Timing
   uint32_t tx_delay_ms_{50};
-  uint32_t last_tx_time_{0};
+  uint32_t response_timeout_ms_{1500};
+  // Timeout applied to the command currently in flight (init commands and the
+  // first PID request after init get a longer one, see ble_elm327.cpp).
+  uint32_t current_timeout_ms_{1500};
+  // Last time a command was written or a notify chunk arrived (timeout base).
+  uint32_t last_activity_time_{0};
+  // Last time the exchange finished: '>' received, timeout, or write failure.
+  // tx_delay is measured from here so a slow adapter gets idle time.
+  uint32_t last_rx_time_{0};
 
   std::string rx_buffer_;
   std::string last_sent_command_;
   bool waiting_for_response_{false};
+  bool last_sent_was_device_{false};
+  // Next device (PID) request gets the long init timeout (protocol search).
+  bool long_timeout_next_request_{false};
+
+  // Recovery state
+  uint8_t consecutive_failures_{0};
+  // Set once a re-init was done for the current failure streak; cleared when a
+  // PID request is answered. A second streak then escalates to a reconnect.
+  bool reinit_attempted_{false};
+
+  // Diagnostic counters
+  uint32_t timeout_count_{0};
+  uint32_t error_count_{0};
+  uint32_t no_data_count_{0};
+  uint32_t write_failure_count_{0};
+  uint32_t reinit_count_{0};
+  uint32_t reconnect_count_{0};
+  std::string last_error_;
+
+#ifdef USE_SENSOR
+  sensor::Sensor *timeout_count_sensor_{nullptr};
+  sensor::Sensor *error_count_sensor_{nullptr};
+  sensor::Sensor *no_data_count_sensor_{nullptr};
+  sensor::Sensor *write_failure_count_sensor_{nullptr};
+  sensor::Sensor *reinit_count_sensor_{nullptr};
+  sensor::Sensor *reconnect_count_sensor_{nullptr};
+#endif
+#ifdef USE_TEXT_SENSOR
+  text_sensor::TextSensor *last_error_text_sensor_{nullptr};
+#endif
 };
 
 }  // namespace ble_elm327
