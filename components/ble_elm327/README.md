@@ -260,9 +260,9 @@ ELM327 status replies are detected and counted. They are not parsed as data.
 
 If a device's `pre_commands` (e.g. `ATSH`) times out, fails to write, or gets an adapter/link error reply (`STOPPED`, `BUFFER FULL`, `ERRxx`, …), the tracked header is cleared and re-sent before the next PID request. A `?` reply (command not supported by this adapter) or a vehicle-side error does **not** clear it: the header stays sticky as before, so an unsupported pre-command is not re-sent on every poll. (Trade-off, same as earlier versions: with an unsupported pre-command, the PID goes out with whatever header the adapter has.)
 
-If the header is cleared while a PID request that depends on it is already queued, that request is not sent with the wrong header. It is re-queued together with its `pre_commands` at the next poll collection. When no failure happens this never triggers, and the traffic is the same as before.
+If the header is cleared while a PID request that depends on it is already queued, that request is not sent with the wrong header. It is skipped for this poll, and on its next `update_interval` its `pre_commands` and PID are queued again together. There is no extra polling. This only happens after a failure (a failed pre-command or an adapter reset). Without failures the traffic is the same as before.
 
-The header is also cleared when the adapter reports `LV RESET` (it restarted), and when `ATZ`, `ATWS` or `ATD` is sent (e.g. with `ble_elm327.send_command`), because these reset the adapter's settings.
+The header is also cleared when the adapter reports `LV RESET` (it restarted), and when `ATZ`, `ATWS` or `ATD` is sent on its own (init or `ble_elm327.send_command`), because these reset the adapter's settings. Inside a device's own `pre_commands` (e.g. `["ATD", "ATSP6", "ATSH 7E4"]`) they do not clear it: the rest of that list re-applies the header, so the list is sent once and stays sticky as before.
 
 #### Recovery
 

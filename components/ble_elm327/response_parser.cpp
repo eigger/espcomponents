@@ -209,6 +209,16 @@ bool command_resets_adapter(const std::string &normalized_command) {
   return normalized_command == "atz" || normalized_command == "atws" || normalized_command == "atd";
 }
 
+DequeueAction decide_dequeue(bool is_pre_item, const std::vector<std::string> *device_pre_commands, bool ready,
+                             const std::vector<std::string> &current_pre_commands,
+                             const std::string &normalized_command) {
+  if (device_pre_commands != nullptr && ready && !pre_commands_applied(*device_pre_commands, current_pre_commands)) {
+    return DequeueAction::HOLD_BACK;
+  }
+  if (!is_pre_item && command_resets_adapter(normalized_command)) return DequeueAction::SEND_AND_CLEAR_HEADER;
+  return DequeueAction::SEND;
+}
+
 bool is_protocol_search_in_progress(const std::string &partial_response) {
   std::string upper = to_upper(partial_response);
   return upper.find("SEARCHING") != std::string::npos || upper.find("BUS INIT") != std::string::npos;

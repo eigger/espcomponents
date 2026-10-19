@@ -18,6 +18,8 @@ using esphome::ble_elm327::check_response_timeout;
 using esphome::ble_elm327::pre_command_reply_invalidates_header;
 using esphome::ble_elm327::pre_commands_applied;
 using esphome::ble_elm327::command_resets_adapter;
+using esphome::ble_elm327::decide_dequeue;
+using esphome::ble_elm327::DequeueAction;
 
 namespace {
 
@@ -265,6 +267,69 @@ void test_command_resets_adapter() {
   require(!command_resets_adapter(normalize_command("010C")), "reset: PID request is not a reset");
 }
 
+// Mirrors loop(): at collection the device's pre_commands become the tracked
+// header and pre items + PID are queued; then each item is dequeued in order.
+// Returns how many items were written and whether the PID was written.
+struct CycleResult {
+  int written;
+  bool pid_sent;
+};
+CycleResult run_poll_cycle(const std::vector<std::string> &pre, std::vector<std::string> &current) {
+  struct Item {
+    std::string cmd;
+    bool pre;
+    bool is_device;
+  };
+  std::vector<Item> queue;
+  if (pre != current) {
+    for (const auto &c : pre) queue.push_back({c, true, false});
+    current = pre;
+  }
+  queue.push_back({"2219401\r", false, true});
+  CycleResult r{0, false};
+  for (const auto &item : queue) {
+    auto action = decide_dequeue(item.pre, item.is_device ? &pre : nullptr, true, current, normalize_command(item.cmd));
+    if (action == DequeueAction::HOLD_BACK) continue;
+    if (action == DequeueAction::SEND_AND_CLEAR_HEADER) current.clear();
+    r.written++;
+    if (item.is_device) r.pid_sent = true;
+  }
+  return r;
+}
+
+void test_reset_commands_inside_pre_commands_do_not_livelock() {
+  // Regression: a reset command inside a device's own pre_commands used to
+  // clear the tracked header and hold the PID back on every poll.
+  const std::vector<std::vector<std::string>> configs = {
+      {"ATD\r", "ATSP6\r", "ATSH 7E4\r"},
+      {"ATZ\r", "ATSH 7E4\r"},
+      {"AT WS\r", "ATSH 7E2\r"},
+  };
+  for (const auto &pre : configs) {
+    std::vector<std::string> current;
+    auto first = run_poll_cycle(pre, current);
+    require(first.pid_sent, "reset in pre_commands: PID is sent on the first poll");
+    require(first.written == static_cast<int>(pre.size()) + 1, "reset in pre_commands: pre list + PID written once");
+    auto second = run_poll_cycle(pre, current);
+    require(second.pid_sent && second.written == 1, "reset in pre_commands: header sticky, next poll sends only the PID");
+  }
+}
+
+void test_decide_dequeue() {
+  const std::vector<std::string> tcm = {"ATSH 7E2\r"};
+  const std::vector<std::string> none;
+  require(decide_dequeue(false, &tcm, true, tcm, "221940") == DequeueAction::SEND, "dequeue: normal PID is sent");
+  require(decide_dequeue(false, &tcm, true, none, "221940") == DequeueAction::HOLD_BACK,
+          "dequeue: PID whose header was lost is held back");
+  require(decide_dequeue(false, &tcm, false, none, "221940") == DequeueAction::SEND,
+          "dequeue: no header check outside READY");
+  require(decide_dequeue(false, nullptr, true, tcm, "atz") == DequeueAction::SEND_AND_CLEAR_HEADER,
+          "dequeue: standalone ATZ (send_command / init) clears the header");
+  require(decide_dequeue(true, nullptr, true, tcm, "atz") == DequeueAction::SEND,
+          "dequeue: ATZ as a device pre item keeps the header tracking");
+  require(decide_dequeue(false, nullptr, true, tcm, "atsh7e0") == DequeueAction::SEND, "dequeue: other AT command");
+}
+
 }  // namespace
 
 int main() {
@@ -292,6 +357,8 @@ int main() {
   test_pre_command_header_invalidation();
   test_pre_commands_applied();
   test_command_resets_adapter();
+  test_reset_commands_inside_pre_commands_do_not_livelock();
+  test_decide_dequeue();
 
   if (g_failures > 0) {
     std::cerr << g_failures << " ble_elm327 parser test(s) failed\n";

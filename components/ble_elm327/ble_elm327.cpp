@@ -154,20 +154,19 @@ void BleElm327Component::loop() {
     tx_queue_.pop();
     if (item.dev) item.dev->on_dequeue();
 
-    // The header this PID depends on was lost after it was queued (failed
-    // pre-command, adapter reset): don't send it with the wrong header. The
-    // next collection queues pre_commands + PID again. Never true when no
-    // failure happened, because a device's pre_commands are tracked as applied
-    // when they are queued.
-    if (item.dev != nullptr && elm_state_ == ElmState::READY &&
-        !pre_commands_applied(item.dev->get_pre_commands(), current_pre_commands_)) {
-      ESP_LOGD(TAG, "Header for '%s' was lost — re-queueing with its pre_commands", item.dev->get_pid().c_str());
-      item.dev->requeue();
+    const DequeueAction action =
+        decide_dequeue(item.pre, item.dev != nullptr ? &item.dev->get_pre_commands() : nullptr,
+                       elm_state_ == ElmState::READY, current_pre_commands_, normalize_command(item.cmd));
+    if (action == DequeueAction::HOLD_BACK) {
+      // The header this PID depends on was lost after it was queued (failed
+      // pre-command, adapter reset): don't send it with the wrong header. It is
+      // skipped for this cycle; its next update() queues pre_commands + PID
+      // again (no extra polling beyond update_interval).
+      ESP_LOGD(TAG, "Header for PID '%s' was lost — skipping this poll", item.dev->get_pid().c_str());
       return;
     }
-
-    // ATZ / ATWS / ATD reset the adapter, including the ATSH header.
-    if (command_resets_adapter(normalize_command(item.cmd))) current_pre_commands_.clear();
+    // ATZ / ATWS / ATD sent on their own reset the adapter, including ATSH.
+    if (action == DequeueAction::SEND_AND_CLEAR_HEADER) current_pre_commands_.clear();
 
     if (elm_state_ == ElmState::CONNECTED) {
       in_flight_kind_ = TxKind::INIT;

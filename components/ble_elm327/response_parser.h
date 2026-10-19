@@ -104,6 +104,25 @@ bool pre_commands_applied(const std::vector<std::string> &device_pre_commands,
 // normalize_command() result.
 bool command_resets_adapter(const std::string &normalized_command);
 
+// What loop() does with a command taken off the TX queue.
+enum class DequeueAction {
+  SEND,                   // write it
+  SEND_AND_CLEAR_HEADER,  // write it and forget the tracked ATSH header
+  HOLD_BACK,              // drop it this cycle (its header was lost)
+};
+
+// Pure decision for a dequeued command.
+//  - A device's PID request (`device_pre_commands` != nullptr) while READY is
+//    held back if its pre_commands are not the tracked header.
+//  - ATZ / ATWS / ATD sent as a standalone command (init or send_command)
+//    reset the adapter, so the tracked header is cleared. Sent as one of a
+//    device's own pre_commands (`is_pre_item`) they are not: the tracked
+//    header already is that device's full pre_commands list, which the
+//    following pre items re-apply, so its PID is sent exactly as before.
+DequeueAction decide_dequeue(bool is_pre_item, const std::vector<std::string> *device_pre_commands, bool ready,
+                             const std::vector<std::string> &current_pre_commands,
+                             const std::string &normalized_command);
+
 // True while a partial reply shows the adapter is still searching for /
 // initializing the OBD protocol ("SEARCHING...", "BUS INIT: ...").
 bool is_protocol_search_in_progress(const std::string &partial_response);

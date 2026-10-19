@@ -43,11 +43,6 @@ class BleElm327Device : public PollingComponent {
 
   // Called when the device is popped from tx_queue_, allowing re-enqueue on next update().
   void on_dequeue() { in_queue_ = false; }
-
-  // Called when a dequeued request was not sent (its header was lost): poll
-  // again at the next collection so pre_commands + PID are queued together.
-  void requeue() { enqueued_ = true; }
-
   void set_pid(const std::string &pid) { pid_ = pid; }
   void set_mode(const std::string &mode) { mode_ = mode; }
   void set_formula(std::function<float(uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, const std::vector<uint8_t> &)> f) { formula_ = f; }
