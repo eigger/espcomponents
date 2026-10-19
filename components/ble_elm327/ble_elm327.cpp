@@ -22,6 +22,10 @@ static const uint8_t MAX_CONSECUTIVE_FAILURES = 3;
 // Normal PID replies in a row needed after a re-init before the next failure
 // streak starts with a re-init again instead of a reconnect.
 static const uint8_t SUCCESSES_TO_CLEAR_RECOVERY = 5;
+// Idle timeout while the adapter reports a protocol search ("SEARCHING...",
+// "BUS INIT: ..."): with the ignition off an ATSP0 search can take this long
+// before it ends with UNABLE TO CONNECT.
+static const uint32_t SEARCH_RESPONSE_TIMEOUT_MS = 20000;
 // Hard cap from the write to the '>' prompt, even if data keeps arriving
 // (raised to 2x the active timeout when that is larger).
 static const uint32_t ABSOLUTE_RESPONSE_LIMIT_MS = 30000;
@@ -132,9 +136,9 @@ void BleElm327Component::loop() {
 
   if (waiting_for_response_) {
     // Idle timeout: measured from the last write or the last received chunk.
-    // While the adapter reports a protocol search, allow the init timeout.
+    // While the adapter reports a protocol search, allow the search timeout.
     uint32_t timeout = current_timeout_ms_;
-    if (is_protocol_search_in_progress(rx_buffer_)) timeout = std::max(timeout, INIT_RESPONSE_TIMEOUT_MS);
+    if (is_protocol_search_in_progress(rx_buffer_)) timeout = std::max(timeout, SEARCH_RESPONSE_TIMEOUT_MS);
     // Absolute limit: an adapter that keeps sending data without a prompt.
     const uint32_t hard_limit = std::max(ABSOLUTE_RESPONSE_LIMIT_MS, 2 * timeout);
     const bool idle_expired = now - last_activity_time_ > timeout;
@@ -152,8 +156,8 @@ void BleElm327Component::loop() {
     set_last_error_("TIMEOUT (" + last_sent_command_ + ")");
     // The adapter may have been searching for a protocol without saying so.
     long_timeout_until_data_ = true;
-    finish_failed_exchange_(now);
-    on_exchange_failure_();
+    last_exchange_timed_out_ = true;
+    fail_exchange_(now);
     return;
   }
 
@@ -167,6 +171,9 @@ void BleElm327Component::loop() {
 
     if (elm_state_ == ElmState::CONNECTED) {
       in_flight_kind_ = TxKind::INIT;
+      // READY is entered when this last init command is answered (on_notify).
+      final_init_in_flight_ = tx_queue_.empty();
+      if (final_init_in_flight_) final_init_command_ = item.cmd;
     } else if (item.pre) {
       in_flight_kind_ = TxKind::PRE;
     } else if (item.dev != nullptr) {
@@ -182,12 +189,10 @@ void BleElm327Component::loop() {
                         normalize_command(item.cmd) == "atz";
     current_timeout_ms_ = long_timeout ? std::max(response_timeout_ms_, INIT_RESPONSE_TIMEOUT_MS) : response_timeout_ms_;
 
-    send_command_raw_(item.cmd);  // failures are counted and escalated inside
+    follows_timeout_ = last_exchange_timed_out_;
+    last_exchange_timed_out_ = false;
 
-    if (elm_state_ == ElmState::CONNECTED && tx_queue_.empty() && !reconnect_pending_) {
-      elm_state_ = ElmState::READY;
-      ESP_LOGI(TAG, "ELM327 initialized and ready");
-    }
+    send_command_raw_(item.cmd);  // failures are counted and escalated inside
     return;
   }
 
@@ -264,9 +269,14 @@ void BleElm327Component::gattc_event_handler(esp_gattc_cb_event_t event, esp_gat
       last_sent_command_.clear();
       waiting_for_response_ = false;
       consecutive_failures_ = 0;
-      reinit_attempted_ = false;
+      // After our own recovery disconnect keep reinit_attempted_, so the next
+      // failure streak goes to the (backed-off) reconnect instead of starting
+      // another re-init -> reconnect cycle.
+      if (!reconnect_pending_) reinit_attempted_ = false;
       successes_since_reinit_ = 0;
       reconnect_pending_ = false;
+      final_init_in_flight_ = false;
+      last_exchange_timed_out_ = false;
       set_last_error_("DISCONNECTED");
       ESP_LOGW(TAG, "Disconnected from ELM327");
       break;
@@ -297,6 +307,8 @@ void BleElm327Component::gattc_event_handler(esp_gattc_cb_event_t event, esp_gat
       waiting_for_response_ = false;
       consecutive_failures_ = 0;
       reconnect_pending_ = false;
+      final_init_in_flight_ = false;
+      last_exchange_timed_out_ = false;
       rx_buffer_.clear();
       queue_init_commands_();
       break;
@@ -309,14 +321,18 @@ void BleElm327Component::gattc_event_handler(esp_gattc_cb_event_t event, esp_gat
     case ESP_GATTC_WRITE_CHAR_EVT:
       // Only our TX characteristic; other nodes on the same ble_client write too.
       if (param->write.handle != tx_char_handle_ || param->write.status == ESP_GATT_OK) break;
-      ESP_LOGW(TAG, "Write of '%s' failed, status=%d", last_sent_command_.c_str(), param->write.status);
+      if (param->write.status == ESP_GATT_CONGESTED) {
+        // For write-without-response, Bluedroid reports CONGESTED when the
+        // packet was accepted but the L2CAP channel is congested
+        // (att_protocol.c: "ATT congested, message accepted"). Not a failure.
+        ESP_LOGD(TAG, "Write of '%s' accepted, link congested", last_sent_command_.c_str());
+        break;
+      }
+      ESP_LOGW(TAG, "Write of '%s' failed, status=0x%02x", last_sent_command_.c_str(), param->write.status);
       record_write_failure_();
       // The adapter never got the command: end the exchange now instead of
       // also counting a timeout for it later.
-      if (waiting_for_response_) {
-        finish_failed_exchange_(millis());
-        on_exchange_failure_();
-      }
+      if (waiting_for_response_) fail_exchange_(millis());
       break;
 
     default:
@@ -341,14 +357,24 @@ void BleElm327Component::clear_tx_queue_() {
   for (auto *d : devices_) d->on_dequeue();
 }
 
-// Ends the exchange in flight after a timeout or failed write.
-void BleElm327Component::finish_failed_exchange_(uint32_t now) {
+// Ends the exchange in flight after a timeout or failed write and counts it.
+void BleElm327Component::fail_exchange_(uint32_t now) {
   waiting_for_response_ = false;
   // Drop any partial reply so it cannot be glued to the next command's response.
   rx_buffer_.clear();
   last_rx_time_ = now;  // tx_delay counts from here
   // A header command that did not go through: re-send it before the next PID.
   if (in_flight_kind_ == TxKind::PRE) current_pre_commands_.clear();
+  const bool retry_final_init = final_init_in_flight_;
+  final_init_in_flight_ = false;
+
+  on_exchange_failure_();
+
+  // The last init command got no answer: re-send it rather than declaring
+  // READY (unless the failure escalated to a re-init or reconnect).
+  if (retry_final_init && elm_state_ == ElmState::CONNECTED && tx_queue_.empty()) {
+    tx_queue_.push({final_init_command_, nullptr});
+  }
 }
 
 // Called for every timeout, failed write and adapter-level error reply. After
@@ -362,9 +388,16 @@ void BleElm327Component::on_exchange_failure_() {
   if (!reinit_attempted_) {
     reinit_attempted_ = true;
     reinitialize_();
-  } else {
-    reconnect_();
+    return;
   }
+  const uint32_t backoff = reconnect_backoff_ms(recovery_reconnects_);
+  const uint32_t since_last = millis() - last_reconnect_at_;
+  if (recovery_reconnects_ > 0 && since_last < backoff) {
+    ESP_LOGW(TAG, "Reconnect held off for %us more (backoff after %u recovery reconnects)",
+             (unsigned) ((backoff - since_last) / 1000), (unsigned) recovery_reconnects_);
+    return;
+  }
+  reconnect_();
 }
 
 void BleElm327Component::handle_error_response_(const std::string &error, bool expected) {
@@ -384,7 +417,10 @@ void BleElm327Component::handle_error_response_(const std::string &error, bool e
   // ATSP0 may (re)start a protocol search on the next request.
   if (error != "?") long_timeout_until_data_ = true;
   if (in_flight_kind_ == TxKind::PRE) current_pre_commands_.clear();
-  if (counts_as_link_failure(error, last_sent_command_)) on_exchange_failure_();
+  if (error == "STOPPED" && follows_timeout_) {
+    ESP_LOGD(TAG, "STOPPED right after a timeout: the adapter aborted the previous request");
+  }
+  if (counts_as_link_failure(error, last_sent_command_, follows_timeout_)) on_exchange_failure_();
 }
 
 void BleElm327Component::record_write_failure_() {
@@ -395,6 +431,7 @@ void BleElm327Component::record_write_failure_() {
 void BleElm327Component::reinitialize_() {
   reinit_count_++;
   successes_since_reinit_ = 0;
+  final_init_in_flight_ = false;
   ESP_LOGW(TAG, "%u consecutive failures — re-initializing ELM327", (unsigned) MAX_CONSECUTIVE_FAILURES);
   set_last_error_("REINIT");
   clear_tx_queue_();
@@ -408,6 +445,9 @@ void BleElm327Component::reinitialize_() {
 
 void BleElm327Component::reconnect_() {
   reconnect_count_++;
+  final_init_in_flight_ = false;
+  if (recovery_reconnects_ < 255) recovery_reconnects_++;
+  last_reconnect_at_ = millis();
   ESP_LOGW(TAG, "Adapter still failing after re-init — disconnecting to force a BLE reconnect");
   set_last_error_("RECONNECT");
   clear_tx_queue_();
@@ -459,13 +499,16 @@ void BleElm327Component::publish_count_(sensor::Sensor *s, uint32_t value) {
 #endif
 
 bool BleElm327Component::send_command_raw_(const std::string &cmd) {
-  if (client_state_ != espbt::ClientState::ESTABLISHED || tx_char_handle_ == 0) return false;
   last_sent_command_ = normalize_command(cmd);
 
   esp_err_t err = ESP_FAIL;
-  auto *chr = this->parent_->get_characteristic(service_uuid_, tx_char_uuid_);
+  auto *chr = (client_state_ == espbt::ClientState::ESTABLISHED && tx_char_handle_ != 0)
+                  ? this->parent_->get_characteristic(service_uuid_, tx_char_uuid_)
+                  : nullptr;
   if (chr == nullptr) {
-    ESP_LOGW(TAG, "TX characteristic missing");
+    // Not connected (or TX characteristic gone): handled like a failed write so
+    // the command is not silently dropped and a stuck link escalates.
+    ESP_LOGW(TAG, "Cannot send '%s': not connected / TX characteristic missing", last_sent_command_.c_str());
   } else {
     err = chr->write_value(reinterpret_cast<uint8_t *>(const_cast<char *>(cmd.data())), cmd.size(),
                            ESP_GATT_WRITE_TYPE_NO_RSP);
@@ -476,8 +519,7 @@ bool BleElm327Component::send_command_raw_(const std::string &cmd) {
     // Do not wait for a reply that cannot come; back off by tx_delay instead.
     ESP_LOGW(TAG, "Write of '%s' failed: %s", last_sent_command_.c_str(), esp_err_to_name(err));
     record_write_failure_();
-    finish_failed_exchange_(now);
-    on_exchange_failure_();
+    fail_exchange_(now);
     return false;
   }
 
@@ -503,6 +545,15 @@ void BleElm327Component::on_notify(const uint8_t *data, uint16_t length) {
     if (!expected) {
       ESP_LOGW(TAG, "Response received with no command pending (late reply after a timeout?) — "
                     "consider increasing response_timeout");
+    }
+    if (expected && final_init_in_flight_) {
+      // Any reply (even "?" for an unsupported AT command) means the adapter
+      // processed the whole init sequence.
+      final_init_in_flight_ = false;
+      if (elm_state_ == ElmState::CONNECTED) {
+        elm_state_ = ElmState::READY;
+        ESP_LOGI(TAG, "ELM327 initialized and ready");
+      }
     }
     process_response(response, expected);
   }
@@ -533,9 +584,11 @@ void BleElm327Component::process_response(const std::string &response, bool expe
   }
   if (expected && in_flight_kind_ == TxKind::DEVICE) {
     long_timeout_until_data_ = false;
-    if (reinit_attempted_ && ++successes_since_reinit_ >= SUCCESSES_TO_CLEAR_RECOVERY) {
+    if ((reinit_attempted_ || recovery_reconnects_ > 0) &&
+        ++successes_since_reinit_ >= SUCCESSES_TO_CLEAR_RECOVERY) {
       // Healthy again: the next failure streak starts with a re-init, not a reconnect.
       reinit_attempted_ = false;
+      recovery_reconnects_ = 0;
       successes_since_reinit_ = 0;
     }
   }

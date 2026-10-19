@@ -13,6 +13,7 @@ using esphome::ble_elm327::classify_error_response;
 using esphome::ble_elm327::counts_as_link_failure;
 using esphome::ble_elm327::is_bus_error;
 using esphome::ble_elm327::is_protocol_search_in_progress;
+using esphome::ble_elm327::reconnect_backoff_ms;
 
 namespace {
 
@@ -188,6 +189,22 @@ void test_protocol_search_detection() {
   require(!is_protocol_search_in_progress(""), "search: empty buffer");
 }
 
+void test_stopped_after_timeout_is_not_a_failure() {
+  require(counts_as_link_failure("STOPPED", "010c", false), "STOPPED normally counts as a link failure");
+  require(!counts_as_link_failure("STOPPED", "010c", true),
+          "STOPPED right after a timeout (adapter aborted the old request) does not count");
+  require(counts_as_link_failure("BUFFER FULL", "010c", true), "other adapter errors still count after a timeout");
+}
+
+void test_reconnect_backoff() {
+  require(reconnect_backoff_ms(0) == 0, "backoff: none before the first reconnect");
+  require(reconnect_backoff_ms(1) == 30000, "backoff: 30 s after one reconnect");
+  require(reconnect_backoff_ms(2) == 60000, "backoff: doubles");
+  require(reconnect_backoff_ms(5) == 480000, "backoff: 480 s after five");
+  require(reconnect_backoff_ms(6) == 600000, "backoff: capped at 10 min");
+  require(reconnect_backoff_ms(255) == 600000, "backoff: stays capped");
+}
+
 }  // namespace
 
 int main() {
@@ -208,6 +225,8 @@ int main() {
   test_classify_bus_init_and_act_alert();
   test_error_categories();
   test_protocol_search_detection();
+  test_stopped_after_timeout_is_not_a_failure();
+  test_reconnect_backoff();
 
   if (g_failures > 0) {
     std::cerr << g_failures << " ble_elm327 parser test(s) failed\n";

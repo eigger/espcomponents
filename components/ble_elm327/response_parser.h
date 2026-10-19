@@ -51,7 +51,17 @@ bool is_bus_error(const std::string &error);
 // toward the consecutive-failure streak: STOPPED, BUFFER FULL, ERRxx, LV RESET,
 // ACT ALERT, and "?" in reply to a non-AT command ("?" to an AT command only
 // means that command is unsupported by this adapter).
-bool counts_as_link_failure(const std::string &error, const std::string &last_sent_command_normalized);
+//
+// `follows_timeout` is true when the command was the first one written after
+// the previous command timed out. A "STOPPED" then only means the adapter
+// aborted the earlier, still-running request (e.g. a slow ATSP0 protocol
+// search) when our next command arrived, so it is not counted.
+bool counts_as_link_failure(const std::string &error, const std::string &last_sent_command_normalized,
+                            bool follows_timeout = false);
+
+// Minimum time between two recovery reconnects after `reconnects` recovery
+// reconnects in a row: 30 s, 60 s, 120 s, ... capped at 10 min. 0 for 0.
+uint32_t reconnect_backoff_ms(uint8_t reconnects);
 
 // True while a partial reply shows the adapter is still searching for /
 // initializing the OBD protocol ("SEARCHING...", "BUS INIT: ...").

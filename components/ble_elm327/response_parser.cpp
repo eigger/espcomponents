@@ -163,10 +163,22 @@ bool is_bus_error(const std::string &error) {
   return false;
 }
 
-bool counts_as_link_failure(const std::string &error, const std::string &last_sent_command_normalized) {
+bool counts_as_link_failure(const std::string &error, const std::string &last_sent_command_normalized,
+                            bool follows_timeout) {
   if (error.empty() || is_bus_error(error)) return false;
+  if (error == "STOPPED" && follows_timeout) return false;
   if (error == "?") return last_sent_command_normalized.compare(0, 2, "at") != 0;
   return true;
+}
+
+uint32_t reconnect_backoff_ms(uint8_t reconnects) {
+  static const uint32_t BASE_MS = 30000;
+  static const uint32_t MAX_MS = 600000;
+  if (reconnects == 0) return 0;
+  uint8_t shift = reconnects - 1;
+  if (shift > 5) shift = 5;
+  uint32_t ms = BASE_MS << shift;
+  return ms > MAX_MS ? MAX_MS : ms;
 }
 
 bool is_protocol_search_in_progress(const std::string &partial_response) {

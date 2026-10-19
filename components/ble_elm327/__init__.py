@@ -49,7 +49,9 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_TX_CHAR_UUID, default="2AF1"): esp32_ble_tracker.bt_uuid,
         cv.Optional(CONF_INIT_COMMANDS): cv.ensure_list(cv.string_strict),
         cv.Optional(CONF_TX_DELAY, default=50): cv.positive_int,           # ms
-        # ms; init commands and the first PID request after init use max(this, 5000)
+        # ms; raised to max(this, 5000) during init / until PID data flows again,
+        # and to max(this, 20000) while the adapter reports a protocol search
+        # (see README "Response Timeout")
         cv.Optional(CONF_RESPONSE_TIMEOUT, default=1500): cv.int_range(min=100, max=60000),
     }
 )

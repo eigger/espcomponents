@@ -178,9 +178,11 @@ Do not repeat `ATZ`, `ATE0`, `ATL0`, `ATS0`, or `ATH0` in YAML unless you intent
 ```
 IDLE → (BLE connect + service discovery + notify registered)
      → CONNECTED: base init + extra init_commands queued into tx_queue
-     → loop() drains tx_queue at tx_delay intervals
-     → READY
+     → loop() sends them one at a time (prompt / timeout, then tx_delay)
+     → READY once the last init command is answered
 ```
+
+If the last init command times out or its write fails, it is re-sent (and counted as a failure, see [Recovery](#recovery)) instead of entering READY.
 
 Only **one command is in flight at a time**: after each write the component waits for the ELM327 `>` prompt (or `response_timeout`), then waits `tx_delay` before writing the next queued command. In **READY** state, `loop()` collects per-device poll requests into the same queue. When a response arrives it is broadcast to **all** registered devices; each device checks whether the mode + PID bytes match its own configuration and updates its state if they do.
 
@@ -192,9 +194,13 @@ A command times out when no `>` prompt arrives within `response_timeout`, measur
 
 - for the init commands, and for a manual `ATZ` sent with `ble_elm327.send_command`
 - for every command until a PID request gets a normal reply after a (re)init, a timeout, or an error reply other than `?`. With `ATSP0`, the next request after `UNABLE TO CONNECT` / `NO DATA` / `STOPPED` (for example while the ignition is being switched on) may start a protocol search that takes seconds. This keeps the search from being cut short.
-- while the partial reply contains `SEARCHING...` or `BUS INIT`
+
+While the partial reply contains `SEARCHING...` or `BUS INIT`, the idle timeout is raised further, to `max(active timeout, 20000)` ms. With the ignition off, an `ATSP0` protocol search can run that long before it ends with `UNABLE TO CONNECT`.
 
 There is also a hard limit from the write to the prompt of `max(30000, 2 × active timeout)` ms, for an adapter that keeps sending data without a prompt. More than 4096 bytes without a prompt are discarded (`RX OVERFLOW`).
+
+> [!TIP]
+> **Ignition off + `ATSP0` (the default protocol):** every request starts a new protocol search that ends in `UNABLE TO CONNECT` / `NO DATA`. These count as vehicle-side errors, not failures, so they do not trigger recovery. They do keep the queue slow, though, and some adapters stay silent long enough to time out. If you see repeated timeouts while the car is off, pin the protocol (e.g. `init_commands: ["ATSP6"]` for 11-bit 500 kbps CAN) or increase `response_timeout`.
 
 #### Error Replies
 
@@ -204,10 +210,10 @@ ELM327 status replies are detected and counted. They are not parsed as data.
 |-------|----------|--------|
 | `NO DATA` | vehicle / bus | Logged at DEBUG, counted in `no_data_count`. Not shown in `last_error`. |
 | `CAN ERROR`, `BUS ERROR`, `BUS BUSY`, `BUS INIT ERROR`, `UNABLE TO CONNECT`, `DATA ERROR`, `FB ERROR`, `RX ERROR` | vehicle / bus | Logged at WARN, counted in `error_count`. Not a failure, because these are normal with the ignition off and re-initializing would not help. |
-| `STOPPED`, `BUFFER FULL`, `ERRxx`, `LV RESET`, `ACT ALERT` | adapter / link | Logged at WARN, counted in `error_count`, and counts as a **failure** (see below). |
+| `STOPPED`, `BUFFER FULL`, `ERRxx`, `LV RESET`, `ACT ALERT` | adapter / link | Logged at WARN, counted in `error_count`, and counts as a **failure** (see below). Exception: `STOPPED` in reply to the first command after a timeout is not a failure. It only means the adapter aborted the request that timed out (e.g. a slow protocol search) when the new command arrived. |
 | `?` | adapter | Counts as a failure for PID requests. In reply to an `AT` command it only means the adapter does not support that command, so it is just logged and counted. |
 
-If a device's `pre_commands` (e.g. `ATSH`) times out or gets an error reply, the tracked header is cleared and re-sent before the next PID request.
+If a device's `pre_commands` (e.g. `ATSH`) times out, fails to write, or gets an error reply, the tracked header is cleared and re-sent before the next PID request.
 
 #### Recovery
 
@@ -216,24 +222,17 @@ A **failure** is a timeout, a failed BLE write, or an adapter/link error reply.
 | Event | Action |
 |-------|--------|
 | Timeout | The partial reply is discarded. The command is dropped (the sensor is polled again on its next `update_interval`), and `tx_delay` starts from the timeout. |
-| BLE write fails | The command is not waited on, and the failure is counted once (no extra timeout). |
+| BLE write fails | The command is not waited on, and the failure is counted once (no extra timeout). A write the BLE stack reports as `CONGESTED` (status `0x8f`) was accepted and is **not** a failure; it is logged at DEBUG only. A command that cannot be sent because the link is not established counts as a failed write. |
 | 3 failures in a row | The adapter is **re-initialized**: the queue is cleared, base + `init_commands` are re-sent (starting with `ATZ`), and the tracked `pre_commands` header is reset. |
-| 3 more in a row before PID replies recover | The BLE link is **disconnected**, and command traffic stops until the disconnect completes. `ble_client` then reconnects and runs the full init sequence. |
+| 3 more in a row before PID replies recover | The BLE link is **disconnected**, and command traffic stops until the disconnect completes (the disconnect is re-issued every 10 s if needed). `ble_client` then reconnects and runs the full init sequence. |
+| Further streaks after a recovery reconnect | Go straight to another reconnect (no extra re-init), with **exponential backoff** between recovery reconnects of 30 s, 60 s, 120 s … up to 10 min. A streak during the backoff is logged (`Reconnect held off for …`), and polling continues. |
 
-The failure streak is reset only by a normal (non-error) reply to a PID request or init command. `NO DATA`, bus errors and `?` to AT commands neither count nor reset it. After a re-init, 5 normal PID replies in a row are needed before the next streak starts with a re-init again instead of a reconnect.
+The failure streak is reset only by a normal (non-error) reply to a PID request or init command. `NO DATA`, bus errors and `?` to AT commands neither count nor reset it. After a re-init or reconnect, 5 normal PID replies in a row are needed to clear the recovery state: the next streak then starts with a re-init again, and the reconnect backoff is reset. A disconnect that the component did not cause (e.g. the adapter lost power) also makes the next streak start with a re-init, but keeps the backoff.
 
 A reply that arrives after its command already timed out is logged as `Response received with no command pending (late reply after a timeout?) — consider increasing response_timeout`. Its data is still delivered to matching sensors, but it does not reset the failure streak.
 
 > [!IMPORTANT]
 > The reconnect step relies on `ble_client` reconnecting by itself (`auto_connect: true`, the default). With `auto_connect: false`, the adapter stays disconnected after the recovery disconnect until you connect it again yourself (e.g. with `ble_client.connect`).
-
--------|--------|
-| No `>` within `response_timeout` | Partial reply is discarded, the command is dropped (the sensor is polled again on its next `update_interval`), `tx_delay` starts from the timeout. |
-| BLE write fails | The command is not waited on; counted like a timeout. |
-| 3 timeouts / write failures in a row | Adapter is **re-initialized**: queue cleared, base + `init_commands` re-sent (starting with `ATZ`), tracked `pre_commands` header reset. |
-| 3 more in a row before any PID request is answered | BLE link is **disconnected**; `ble_client` reconnects and runs the full init sequence again. |
-
-Any received `>` prompt resets the consecutive-failure counter. A reply that arrives after its command already timed out is logged with a hint to increase `response_timeout`.
 
 ---
 
@@ -285,7 +284,7 @@ sensor:
     update_interval: 1s
 ```
 
-On disconnect or re-init, and when a `pre_commands` command times out or gets an error reply, the tracked header is cleared, so the first device polled after a reconnect re-applies its `pre_commands`.
+On disconnect or re-init, and when a `pre_commands` command times out, fails to write, or gets an error reply, the tracked header is cleared, so the first device polled after a reconnect re-applies its `pre_commands`.
 
 > **Note**: `pre_commands` is for per-device, on-demand setup (typically `ATSH`, `ATCRA`, `ATFCSH`). For one-shot adapter setup that should run once at connect time, use the top-level `init_commands` instead.
 
@@ -996,6 +995,8 @@ sensor:
 | `Response received with no command pending (late reply after a timeout?)` | Adapter answers slower than `response_timeout` | Increase `response_timeout` |
 | `ELM327 replied 'STOPPED' to '…'` | A command was written while the adapter was still busy | Increase `tx_delay` / `response_timeout` |
 | `Adapter still failing after re-init — disconnecting to force a BLE reconnect`, then stays disconnected | `ble_client` has `auto_connect: false` | Use the default `auto_connect: true`, or reconnect from an automation |
+| Timeouts / `UNABLE TO CONNECT` while the ignition is off | `ATSP0` searches for a protocol on every request | Pin the protocol in `init_commands` (e.g. `ATSP6`) or increase `response_timeout` |
+| `Reconnect held off for …` | Recovery reconnects keep failing (backoff active) | Check the adapter power / BLE range; see the diagnostic counters |
 | Data wrong / garbled | Wrong `formula` | Check raw response in DEBUG logs and adjust formula |
 | Sensors update too fast / slow | Per-sensor `update_interval` | Tune each sensor's `update_interval` independently |
 

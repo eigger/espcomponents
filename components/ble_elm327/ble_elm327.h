@@ -138,7 +138,7 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
   // Recovery
   void queue_init_commands_();
   void on_exchange_failure_();
-  void finish_failed_exchange_(uint32_t now);
+  void fail_exchange_(uint32_t now);
   void handle_error_response_(const std::string &error, bool expected);
   void record_write_failure_();
   void reinitialize_();
@@ -192,6 +192,14 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
   std::string last_sent_command_;
   bool waiting_for_response_{false};
   TxKind in_flight_kind_{TxKind::USER};
+  // The last init command is in flight: READY is entered only once it is
+  // answered; on timeout / failed write it is re-sent.
+  bool final_init_in_flight_{false};
+  std::string final_init_command_;
+  // The previous exchange timed out / the command in flight is the first one
+  // written after a timeout (a STOPPED reply to it is not counted).
+  bool last_exchange_timed_out_{false};
+  bool follows_timeout_{false};
   // Use the long init timeout until a PID request gets a normal (non-error)
   // reply. Set on (re)init and after timeouts / error replies, because with
   // ATSP0 the next request may start a protocol search that takes seconds.
@@ -208,6 +216,10 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
   // reconnect_() requested a disconnect; loop() is paused until it happens.
   bool reconnect_pending_{false};
   uint32_t reconnect_requested_at_{0};
+  // Recovery reconnects in a row (exponential backoff), cleared when PID replies
+  // have recovered. Survives the disconnect it causes.
+  uint8_t recovery_reconnects_{0};
+  uint32_t last_reconnect_at_{0};
 
   // Diagnostics publishing is rate limited (see flush_diagnostics_()).
   bool diag_dirty_{false};
