@@ -262,6 +262,11 @@ If a device's `pre_commands` (e.g. `ATSH`) times out, fails to write, or gets an
 
 If the header is cleared while a PID request that depends on it is already queued, that request is not sent with the wrong header. It is skipped for this poll, and on its next `update_interval` its `pre_commands` and PID are queued again together. There is no extra polling. This only happens after a failure (a failed pre-command or an adapter reset). Without failures the traffic is the same as before.
 
+> [!NOTE]
+> **Trade-off:** a device can miss updates for a while if its pre-command keeps failing. Example: two devices use different `ATSH` headers, so the header is re-sent on every switch; a slow ECU makes the previous request time out every time, and the adapter answers the following `ATSH` with `STOPPED`. Earlier versions sent the PID anyway with the wrong header, which produced a wrong value (another ECU's reply) or none. Now that poll is skipped, so no wrong value is published, but the sensor may not update until the pre-command succeeds. There is no extra retry. Remedies:
+> - raise `response_timeout`, so slow ECUs (especially multi-frame replies) do not time out;
+> - enable `auto_recovery: true`, so a persistent failure streak leads to a re-init / reconnect.
+
 The header is also cleared when the adapter reports `LV RESET` (it restarted), and when `ATZ`, `ATWS` or `ATD` is sent on its own (init or `ble_elm327.send_command`), because these reset the adapter's settings. Inside a device's own `pre_commands` (e.g. `["ATD", "ATSP6", "ATSH 7E4"]`) they do not clear it: the rest of that list re-applies the header, so the list is sent once and stays sticky as before.
 
 #### Recovery
@@ -289,6 +294,8 @@ These failure-handling steps apply in both modes:
 The failure streak is reset only by a normal (non-error) reply to a PID request or init command. `NO DATA`, bus errors, `?` to AT commands, and `STOPPED` right after a timeout neither count nor reset it. After a re-init or reconnect, 5 normal PID replies in a row are needed to clear the recovery state: the next streak then starts with a re-init again, and the reconnect backoff is reset. A disconnect that the component did not cause (e.g. the adapter lost power) also makes the next streak start with a re-init, but keeps the backoff.
 
 A reply that arrives after its command already timed out is logged as `Response received with no command pending (late reply after a timeout?) — consider increasing response_timeout`. Its data is still delivered to matching sensors, but it does not reset the failure streak.
+
+If a device's `pre_commands` fail (timeout, failed write, `STOPPED`, …), its PID is skipped for that poll rather than sent with the wrong header. With a slow ECU that keeps timing out, a device that needs a header switch can therefore miss updates. See the trade-off note under [Error Replies](#error-replies). Raise `response_timeout` or enable `auto_recovery`.
 
 > [!IMPORTANT]
 > The reconnect step relies on `ble_client` reconnecting by itself (`auto_connect: true`, the default). With `auto_connect: false`, the adapter stays disconnected after the recovery disconnect until you connect it again yourself (e.g. with `ble_client.connect`).
@@ -343,7 +350,7 @@ sensor:
     update_interval: 1s
 ```
 
-On disconnect or re-init, and when a `pre_commands` command times out, fails to write, or gets an adapter/link error reply (not `?`), the tracked header is cleared, so the first device polled after a reconnect re-applies its `pre_commands`.
+On disconnect or re-init, and when a `pre_commands` command times out, fails to write, or gets an adapter/link error reply (not `?`), the tracked header is cleared, so the first device polled after a reconnect re-applies its `pre_commands`. A PID whose header was lost this way is skipped for that poll instead of being sent with the wrong header. A device whose pre-command keeps failing (e.g. after a slow ECU times out) can therefore miss updates. See the trade-off note under [Error Replies](#error-replies). Raise `response_timeout` or enable `auto_recovery`.
 
 > **Note**: `pre_commands` is for per-device, on-demand setup (typically `ATSH`, `ATCRA`, `ATFCSH`). For one-shot adapter setup that should run once at connect time, use the top-level `init_commands` instead.
 

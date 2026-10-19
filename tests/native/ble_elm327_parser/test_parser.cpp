@@ -274,7 +274,12 @@ struct CycleResult {
   int written;
   bool pid_sent;
 };
-CycleResult run_poll_cycle(const std::vector<std::string> &pre, std::vector<std::string> &current) {
+// `pre_failure`: outcome of the device's pre items in this cycle. "" = all
+// answered normally, "TIMEOUT" = timed out / write failed (loop() clears the
+// tracked header in fail_exchange_), otherwise an error reply that is passed
+// through pre_command_reply_invalidates_header() like handle_error_response_().
+CycleResult run_poll_cycle(const std::vector<std::string> &pre, std::vector<std::string> &current,
+                           const std::string &pre_failure = "") {
   struct Item {
     std::string cmd;
     bool pre;
@@ -293,8 +298,34 @@ CycleResult run_poll_cycle(const std::vector<std::string> &pre, std::vector<std:
     if (action == DequeueAction::SEND_AND_CLEAR_HEADER) current.clear();
     r.written++;
     if (item.is_device) r.pid_sent = true;
+    if (item.pre && !pre_failure.empty() &&
+        (pre_failure == "TIMEOUT" || pre_command_reply_invalidates_header(pre_failure))) {
+      current.clear();
+    }
   }
   return r;
+}
+
+void test_failed_pre_command_cycle() {
+  // ATSH fails -> tracked header cleared -> PID held back (not sent with the
+  // wrong header) -> next poll re-sends ATSH + PID -> then PID only.
+  const std::vector<std::string> pre = {"ATSH 7E4\r"};
+  for (const char *failure : {"TIMEOUT", "STOPPED", "BUFFER FULL"}) {
+    std::vector<std::string> current;
+    auto failed = run_poll_cycle(pre, current, failure);
+    require(!failed.pid_sent && failed.written == 1, "failed ATSH: only ATSH written, PID held back");
+    require(current.empty(), "failed ATSH: tracked header cleared");
+    auto retry = run_poll_cycle(pre, current);
+    require(retry.pid_sent && retry.written == 2, "failed ATSH: next poll re-sends ATSH + PID");
+    auto steady = run_poll_cycle(pre, current);
+    require(steady.pid_sent && steady.written == 1, "failed ATSH: header sticky again, PID only");
+  }
+  // '?' (unsupported) keeps the header sticky: PID still sent, no re-send loop.
+  std::vector<std::string> current;
+  auto unsupported = run_poll_cycle(pre, current, "?");
+  require(unsupported.pid_sent && unsupported.written == 2, "'?' to ATSH: PID sent, header kept");
+  auto next = run_poll_cycle(pre, current);
+  require(next.pid_sent && next.written == 1, "'?' to ATSH: no ATSH re-send on the next poll");
 }
 
 void test_reset_commands_inside_pre_commands_do_not_livelock() {
@@ -359,6 +390,7 @@ int main() {
   test_command_resets_adapter();
   test_reset_commands_inside_pre_commands_do_not_livelock();
   test_decide_dequeue();
+  test_failed_pre_command_cycle();
 
   if (g_failures > 0) {
     std::cerr << g_failures << " ble_elm327 parser test(s) failed\n";
