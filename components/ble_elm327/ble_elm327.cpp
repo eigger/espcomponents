@@ -420,7 +420,11 @@ void BleElm327Component::handle_error_response_(const std::string &error, bool e
 
   // ATSP0 may (re)start a protocol search on the next request.
   if (error != "?") long_timeout_until_data_ = true;
-  if (in_flight_kind_ == TxKind::PRE) current_pre_commands_.clear();
+  // An unsupported pre_command ("?") stays sticky like before; only replies that
+  // mean the header was not applied force a re-send.
+  if (in_flight_kind_ == TxKind::PRE && pre_command_reply_invalidates_header(error)) {
+    current_pre_commands_.clear();
+  }
   if (error == "STOPPED" && follows_timeout_) {
     ESP_LOGD(TAG, "STOPPED right after a timeout: the adapter aborted the previous request");
   }

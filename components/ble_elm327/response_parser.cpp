@@ -196,6 +196,10 @@ uint32_t reconnect_backoff_ms(uint8_t reconnects) {
   return ms > MAX_MS ? MAX_MS : ms;
 }
 
+bool pre_command_reply_invalidates_header(const std::string &error) {
+  return !error.empty() && error != "?" && !is_bus_error(error);
+}
+
 bool is_protocol_search_in_progress(const std::string &partial_response) {
   std::string upper = to_upper(partial_response);
   return upper.find("SEARCHING") != std::string::npos || upper.find("BUS INIT") != std::string::npos;

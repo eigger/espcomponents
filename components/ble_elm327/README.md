@@ -144,7 +144,7 @@ ble_elm327:
 > **`tx_delay` timing changed:** earlier versions measured `tx_delay` from the moment a command was *written*. If the reply took longer than 50 ms, the delay had already passed and had no effect. If the reply was faster, it only forced a 50 ms write-to-write interval. Now the component always waits `tx_delay` after the reply (or timeout / failed write). With the default `50`:
 >
 > - **slow adapters** (reply > 50 ms): each request cycle becomes 50 ms longer (`response time + 50 ms` instead of `response time`). This idle time is what lets an overloaded adapter recover.
-> - **fast adapters** (reply < 50 ms): practically unchanged (`response time + 50 ms` instead of a flat 50 ms).
+> - **fast adapters** (reply < 50 ms): slightly slower per cycle. Before, the interval was `max(50 ms, response time)`; now it is `response time + 50 ms` (e.g. a 30 ms reply: 50 → 80 ms). Set `tx_delay: 0` for master-like throughput.
 >
 > Set `tx_delay: 0` to send the next command right after each reply, which gives the most throughput on a stable adapter. Raise it (e.g. `100`–`200`) for slow or unstable adapters that start timing out or answering `STOPPED` / `BUFFER FULL`.
 
@@ -240,7 +240,7 @@ How the timeout is measured depends on `auto_recovery`:
 |---|---|---|
 | Timer starts | at the write (same as earlier versions) | at the write, restarted by every received byte, so slow multi-frame replies keep the exchange alive |
 | While the reply shows `SEARCHING...` / `BUS INIT` | no change | idle timeout raised to `max(active timeout, 20000)` ms (an `ATSP0` search with the ignition off can take that long) |
-| Hard limit from the write | — (the timer already starts at the write) | `max(30000, 2 × active timeout)` ms |
+| Hard limit from the write | — (the timer already starts at the write) | `max(30000, 2 × active timeout)` ms. While `SEARCHING` / `BUS INIT` is shown the idle timeout is at least 20000 ms, so the hard limit is at least **40000 ms** |
 
 On a timeout the partial reply is discarded, a warning is logged (`Timeout (5000ms) waiting for response to '…'`), and the next queued command is sent after `tx_delay`. Any data still buffered when a new command is written is also discarded. More than 4096 bytes without a prompt are discarded too (`RX OVERFLOW`).
 
@@ -258,7 +258,7 @@ ELM327 status replies are detected and counted. They are not parsed as data.
 | `STOPPED`, `BUFFER FULL`, `ERRxx`, `LV RESET`, `ACT ALERT` | adapter / link | Logged at WARN, counted in `error_count`, and counts as a **failure** (see below). Exception: `STOPPED` in reply to the first command after a timeout is not a failure. It only means the adapter aborted the request that timed out (e.g. a slow protocol search) when the new command arrived. |
 | `?` | adapter | Counts as a failure for PID requests. In reply to an `AT` command it only means the adapter does not support that command, so it is just logged and counted. |
 
-If a device's `pre_commands` (e.g. `ATSH`) times out, fails to write, or gets an error reply, the tracked header is cleared and re-sent before the next PID request.
+If a device's `pre_commands` (e.g. `ATSH`) times out, fails to write, or gets an adapter/link error reply (`STOPPED`, `BUFFER FULL`, `ERRxx`, …), the tracked header is cleared and re-sent before the next PID request. A `?` reply (command not supported by this adapter) or a vehicle-side error does **not** clear it: the header stays sticky as before, so an unsupported pre-command is not re-sent on every poll.
 
 #### Recovery
 
@@ -339,7 +339,7 @@ sensor:
     update_interval: 1s
 ```
 
-On disconnect or re-init, and when a `pre_commands` command times out, fails to write, or gets an error reply, the tracked header is cleared, so the first device polled after a reconnect re-applies its `pre_commands`.
+On disconnect or re-init, and when a `pre_commands` command times out, fails to write, or gets an adapter/link error reply (not `?`), the tracked header is cleared, so the first device polled after a reconnect re-applies its `pre_commands`.
 
 > **Note**: `pre_commands` is for per-device, on-demand setup (typically `ATSH`, `ATCRA`, `ATFCSH`). For one-shot adapter setup that should run once at connect time, use the top-level `init_commands` instead.
 

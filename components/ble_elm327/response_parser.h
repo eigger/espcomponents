@@ -84,6 +84,14 @@ TimeoutCheck check_response_timeout(bool auto_recovery, uint32_t active_timeout_
 // reconnects in a row: 30 s, 60 s, 120 s, ... capped at 10 min. 0 for 0.
 uint32_t reconnect_backoff_ms(uint8_t reconnects);
 
+// True if an error reply to a pre_command (e.g. ATSH) means the header may not
+// be applied, so it must be re-sent before the next PID request. "?" (command
+// not supported by this adapter) and vehicle-side errors leave the adapter
+// state unchanged, so the header stays sticky and is not re-sent every poll.
+// STOPPED always counts here (the command was aborted), even right after a
+// timeout.
+bool pre_command_reply_invalidates_header(const std::string &error);
+
 // True while a partial reply shows the adapter is still searching for /
 // initializing the OBD protocol ("SEARCHING...", "BUS INIT: ...").
 bool is_protocol_search_in_progress(const std::string &partial_response);

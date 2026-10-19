@@ -15,6 +15,7 @@ using esphome::ble_elm327::is_bus_error;
 using esphome::ble_elm327::is_protocol_search_in_progress;
 using esphome::ble_elm327::reconnect_backoff_ms;
 using esphome::ble_elm327::check_response_timeout;
+using esphome::ble_elm327::pre_command_reply_invalidates_header;
 
 namespace {
 
@@ -233,6 +234,17 @@ void test_auto_recovery_timeout_rules() {
   require(!r.expired && r.hard_limit_ms == 40000, "auto: hard limit is 2x a long timeout");
 }
 
+void test_pre_command_header_invalidation() {
+  require(!pre_command_reply_invalidates_header("?"),
+          "pre_command: '?' (unsupported) keeps the header sticky, no re-send every poll");
+  require(!pre_command_reply_invalidates_header(""), "pre_command: normal reply keeps the header");
+  require(!pre_command_reply_invalidates_header("NO DATA"), "pre_command: bus errors keep the header");
+  require(!pre_command_reply_invalidates_header("CAN ERROR"), "pre_command: bus errors keep the header");
+  require(pre_command_reply_invalidates_header("STOPPED"), "pre_command: STOPPED forces a re-send");
+  require(pre_command_reply_invalidates_header("BUFFER FULL"), "pre_command: adapter errors force a re-send");
+  require(pre_command_reply_invalidates_header("ERR94"), "pre_command: ERRxx forces a re-send");
+}
+
 }  // namespace
 
 int main() {
@@ -257,6 +269,7 @@ int main() {
   test_reconnect_backoff();
   test_default_timeout_matches_previous_behaviour();
   test_auto_recovery_timeout_rules();
+  test_pre_command_header_invalidation();
 
   if (g_failures > 0) {
     std::cerr << g_failures << " ble_elm327 parser test(s) failed\n";
