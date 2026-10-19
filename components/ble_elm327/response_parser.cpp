@@ -103,27 +103,31 @@ std::vector<uint8_t> parse_response_bytes(const std::string &response,
   return bytes;
 }
 
+static std::string to_upper(const std::string &in) {
+  std::string out;
+  out.reserve(in.size());
+  for (char c : in) out.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(c))));
+  return out;
+}
+
+static const char *const BUS_ERROR_LABELS[] = {
+    "NO DATA",  "CAN ERROR", "BUS ERROR", "BUS BUSY", "BUS INIT ERROR", "DATA ERROR",
+    "FB ERROR", "RX ERROR",  "UNABLE TO CONNECT",
+};
+
+static const char *const ADAPTER_ERROR_LABELS[] = {
+    "STOPPED", "BUFFER FULL", "LV RESET", "ACT ALERT",
+};
+
 std::string classify_error_response(const std::string &response,
                                     const std::string &last_sent_command_normalized) {
-  // Status replies documented in the ELM327 datasheet. Order matters only
-  // for readability; none of these is a substring of another.
-  static const char *const ERROR_LABELS[] = {
-      "NO DATA",   "STOPPED",  "BUFFER FULL", "CAN ERROR", "BUS ERROR",
-      "BUS BUSY",  "DATA ERROR", "FB ERROR",  "RX ERROR",  "UNABLE TO CONNECT",
-      "LV RESET",
-  };
-
   size_t start = 0;
   while (start <= response.size()) {
     size_t end = response.find_first_of("\r\n", start);
     if (end == std::string::npos) end = response.size();
-    std::string line = response.substr(start, end - start);
+    std::string upper = to_upper(response.substr(start, end - start));
     start = end + 1;
 
-    // Trim and uppercase
-    std::string upper;
-    upper.reserve(line.size());
-    for (char c : line) upper.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(c))));
     size_t first = upper.find_first_not_of(" \t");
     if (first == std::string::npos) continue;
     size_t last = upper.find_last_not_of(" \t");
@@ -132,7 +136,15 @@ std::string classify_error_response(const std::string &response,
     if (!last_sent_command_normalized.empty() && normalize_command(upper) == last_sent_command_normalized) continue;
 
     if (upper == "?") return "?";
-    for (const char *label : ERROR_LABELS) {
+    // "BUS INIT: ...ERROR" (ISO 9141 / KWP slow or fast init failed)
+    if (upper.find("BUS INIT") != std::string::npos) {
+      if (upper.find("ERROR") != std::string::npos) return "BUS INIT ERROR";
+      continue;  // "BUS INIT: ...OK" / in progress
+    }
+    for (const char *label : BUS_ERROR_LABELS) {
+      if (upper.find(label) != std::string::npos) return label;
+    }
+    for (const char *label : ADAPTER_ERROR_LABELS) {
       if (upper.find(label) != std::string::npos) return label;
     }
     // "ERRxx" internal error codes (e.g. ERR94)
@@ -142,6 +154,24 @@ std::string classify_error_response(const std::string &response,
     }
   }
   return "";
+}
+
+bool is_bus_error(const std::string &error) {
+  for (const char *label : BUS_ERROR_LABELS) {
+    if (error == label) return true;
+  }
+  return false;
+}
+
+bool counts_as_link_failure(const std::string &error, const std::string &last_sent_command_normalized) {
+  if (error.empty() || is_bus_error(error)) return false;
+  if (error == "?") return last_sent_command_normalized.compare(0, 2, "at") != 0;
+  return true;
+}
+
+bool is_protocol_search_in_progress(const std::string &partial_response) {
+  std::string upper = to_upper(partial_response);
+  return upper.find("SEARCHING") != std::string::npos || upper.find("BUS INIT") != std::string::npos;
 }
 
 }  // namespace ble_elm327

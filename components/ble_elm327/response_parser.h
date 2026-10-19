@@ -42,5 +42,20 @@ std::vector<uint8_t> parse_response_bytes(const std::string &response,
 std::string classify_error_response(const std::string &response,
                                     const std::string &last_sent_command_normalized);
 
+// True for replies that describe the vehicle bus / ECU side (NO DATA, CAN
+// ERROR, BUS ERROR, BUS INIT ERROR, UNABLE TO CONNECT, DATA ERROR, ...). These
+// are normal with the ignition off, so they do not count as adapter failures.
+bool is_bus_error(const std::string &error);
+
+// True if an error reply indicates an adapter / link problem that should count
+// toward the consecutive-failure streak: STOPPED, BUFFER FULL, ERRxx, LV RESET,
+// ACT ALERT, and "?" in reply to a non-AT command ("?" to an AT command only
+// means that command is unsupported by this adapter).
+bool counts_as_link_failure(const std::string &error, const std::string &last_sent_command_normalized);
+
+// True while a partial reply shows the adapter is still searching for /
+// initializing the OBD protocol ("SEARCHING...", "BUS INIT: ...").
+bool is_protocol_search_in_progress(const std::string &partial_response);
+
 }  // namespace ble_elm327
 }  // namespace esphome

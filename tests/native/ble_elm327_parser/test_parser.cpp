@@ -10,6 +10,9 @@
 using esphome::ble_elm327::normalize_command;
 using esphome::ble_elm327::parse_response_bytes;
 using esphome::ble_elm327::classify_error_response;
+using esphome::ble_elm327::counts_as_link_failure;
+using esphome::ble_elm327::is_bus_error;
+using esphome::ble_elm327::is_protocol_search_in_progress;
 
 namespace {
 
@@ -151,6 +154,40 @@ void test_classify_ignores_normal_responses() {
   require(classify_error_response("010C\r410C1AF8\r", "010c").empty(), "classify: echo line is skipped");
 }
 
+void test_classify_bus_init_and_act_alert() {
+  require(classify_error_response("BUS INIT: ...ERROR\r", "0100") == "BUS INIT ERROR", "classify: BUS INIT ERROR");
+  require(classify_error_response("BUS INIT: ...OK\r4100BE3FA813\r", "0100").empty(), "classify: BUS INIT OK is not an error");
+  require(classify_error_response("ACT ALERT\r", "010c") == "ACT ALERT", "classify: ACT ALERT");
+  require(classify_error_response("LV RESET\r", "010c") == "LV RESET", "classify: LV RESET");
+  require(classify_error_response("<RX ERROR\r", "010c") == "RX ERROR", "classify: RX ERROR");
+  require(classify_error_response("DATA ERROR\r", "010c") == "DATA ERROR", "classify: DATA ERROR");
+}
+
+void test_error_categories() {
+  // Vehicle-side conditions (normal with ignition off) do not count as link failures.
+  const char *bus[] = {"NO DATA", "CAN ERROR", "BUS ERROR", "BUS INIT ERROR", "UNABLE TO CONNECT", "DATA ERROR"};
+  for (const char *e : bus) {
+    require(is_bus_error(e), "category: bus error recognized");
+    require(!counts_as_link_failure(e, "010c"), "category: bus error is not a link failure");
+  }
+  const char *adapter[] = {"STOPPED", "BUFFER FULL", "LV RESET", "ACT ALERT", "ERR94"};
+  for (const char *e : adapter) {
+    require(!is_bus_error(e), "category: adapter error is not a bus error");
+    require(counts_as_link_failure(e, "010c"), "category: adapter error is a link failure");
+  }
+  require(counts_as_link_failure("?", "010c"), "category: '?' to a PID request is a link failure");
+  require(!counts_as_link_failure("?", "atsh7e4"), "category: '?' to an AT command is not a link failure");
+  require(!counts_as_link_failure("", "010c"), "category: no error is not a failure");
+}
+
+void test_protocol_search_detection() {
+  require(is_protocol_search_in_progress("SEARCHING..."), "search: SEARCHING");
+  require(is_protocol_search_in_progress("searching..."), "search: lowercase");
+  require(is_protocol_search_in_progress("BUS INIT: ..."), "search: BUS INIT");
+  require(!is_protocol_search_in_progress("410C1A"), "search: data is not a search");
+  require(!is_protocol_search_in_progress(""), "search: empty buffer");
+}
+
 }  // namespace
 
 int main() {
@@ -168,6 +205,9 @@ int main() {
   test_normalize_command_strips_whitespace_and_case();
   test_classify_error_responses();
   test_classify_ignores_normal_responses();
+  test_classify_bus_init_and_act_alert();
+  test_error_categories();
+  test_protocol_search_detection();
 
   if (g_failures > 0) {
     std::cerr << g_failures << " ble_elm327 parser test(s) failed\n";

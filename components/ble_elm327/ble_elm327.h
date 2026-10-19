@@ -125,7 +125,11 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
   struct TxItem {
     std::string cmd;
     BleElm327Device *dev{nullptr};
+    bool pre{false};  // a device's pre_command (e.g. ATSH)
   };
+
+  // What the command currently in flight was queued as.
+  enum class TxKind { INIT, PRE, DEVICE, USER };
 
   bool send_command_raw_(const std::string &cmd);
   void on_notify(const uint8_t *data, uint16_t length);
@@ -134,12 +138,16 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
   // Recovery
   void queue_init_commands_();
   void on_exchange_failure_();
+  void finish_failed_exchange_(uint32_t now);
+  void handle_error_response_(const std::string &error, bool expected);
+  void record_write_failure_();
   void reinitialize_();
   void reconnect_();
   void clear_tx_queue_();
 
   // Diagnostics
   void set_last_error_(const std::string &error);
+  void flush_diagnostics_(uint32_t now);
 #ifdef USE_SENSOR
   static void publish_count_(sensor::Sensor *s, uint32_t value);
 #endif
@@ -169,11 +177,13 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
   // Timing
   uint32_t tx_delay_ms_{50};
   uint32_t response_timeout_ms_{1500};
-  // Timeout applied to the command currently in flight (init commands and the
-  // first PID request after init get a longer one, see ble_elm327.cpp).
+  // Timeout applied to the command currently in flight (see ble_elm327.cpp for
+  // when the longer init timeout is used).
   uint32_t current_timeout_ms_{1500};
-  // Last time a command was written or a notify chunk arrived (timeout base).
+  // Last time a command was written or a notify chunk arrived (idle timeout base).
   uint32_t last_activity_time_{0};
+  // Time the command in flight was written (absolute timeout base).
+  uint32_t last_write_time_{0};
   // Last time the exchange finished: '>' received, timeout, or write failure.
   // tx_delay is measured from here so a slow adapter gets idle time.
   uint32_t last_rx_time_{0};
@@ -181,15 +191,27 @@ class BleElm327Component : public Component, public ble_client::BLEClientNode {
   std::string rx_buffer_;
   std::string last_sent_command_;
   bool waiting_for_response_{false};
-  bool last_sent_was_device_{false};
-  // Next device (PID) request gets the long init timeout (protocol search).
-  bool long_timeout_next_request_{false};
+  TxKind in_flight_kind_{TxKind::USER};
+  // Use the long init timeout until a PID request gets a normal (non-error)
+  // reply. Set on (re)init and after timeouts / error replies, because with
+  // ATSP0 the next request may start a protocol search that takes seconds.
+  bool long_timeout_until_data_{false};
 
   // Recovery state
+  // Timeouts, failed writes and adapter-level error replies in a row. Reset only
+  // by a normal reply to a PID request or init command.
   uint8_t consecutive_failures_{0};
-  // Set once a re-init was done for the current failure streak; cleared when a
-  // PID request is answered. A second streak then escalates to a reconnect.
+  // Set once a re-init was done; the next failure streak escalates to a
+  // reconnect. Cleared after several PID replies in a row succeed again.
   bool reinit_attempted_{false};
+  uint8_t successes_since_reinit_{0};
+  // reconnect_() requested a disconnect; loop() is paused until it happens.
+  bool reconnect_pending_{false};
+  uint32_t reconnect_requested_at_{0};
+
+  // Diagnostics publishing is rate limited (see flush_diagnostics_()).
+  bool diag_dirty_{false};
+  uint32_t last_diag_publish_{0};
 
   // Diagnostic counters
   uint32_t timeout_count_{0};
