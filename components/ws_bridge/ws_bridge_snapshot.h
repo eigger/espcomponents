@@ -39,7 +39,8 @@ class WsBridgeSnapshot : public PollingComponent, public camera::CameraListener 
   void dump_config() override;
 
  protected:
-  enum class WorkType : uint8_t { START, STOP, WAKE, EVENT };
+  enum class WorkType : uint8_t { START, WAKE, EVENT };
+  enum class MediaStage : uint8_t { IDLE, WAIT_TRANSPORT, WAIT_AUTH, WAIT_MEDIA_CONNECT, READY };
   struct WorkItem {
     WorkType type;
     esp_websocket_client_handle_t client{nullptr};
@@ -60,11 +61,12 @@ class WsBridgeSnapshot : public PollingComponent, public camera::CameraListener 
   static void media_task_(void *arg);
   static void media_event_(void *arg, esp_event_base_t base, int32_t event_id, void *event_data);
   void worker_loop_();
-  void enqueue_(WorkItem *item);
+  bool enqueue_(WorkItem *item);
   void process_item_(WorkItem *item);
   void start_media_(const std::string &session_id);
   void stop_media_();
   void transport_failed_();
+  void check_worker_deadline_();
   void handle_media_event_(WorkItem *item);
   void handle_media_message_(const std::string &raw);
   void send_pending_();
@@ -72,6 +74,7 @@ class WsBridgeSnapshot : public PollingComponent, public camera::CameraListener 
   void on_control_disconnected_();
   void on_control_message_(const ParsedMessage &message);
   void open_media_();
+  void schedule_open_retry_();
   void request_frame_();
 
   WsBridgeComponent *parent_{nullptr};
@@ -88,6 +91,8 @@ class WsBridgeSnapshot : public PollingComponent, public camera::CameraListener 
   uint32_t active_generation_{0};  // worker task only
   std::string worker_session_id_;                 // worker task only
   uint32_t media_connect_id_{0};                  // worker task only
+  MediaStage media_stage_{MediaStage::IDLE};      // worker task only
+  uint32_t media_stage_started_ms_{0};            // worker task only
   std::string rx_accum_;                          // worker task only
   bool rx_text_frame_{false};                     // worker task only
   bool rx_drop_message_{false};                   // worker task only
@@ -98,12 +103,17 @@ class WsBridgeSnapshot : public PollingComponent, public camera::CameraListener 
   std::atomic<uint8_t> handler_id_{0};
   std::atomic<bool> media_ready_{false};
   std::atomic<bool> needs_media_open_{false};
+  std::atomic<bool> stop_requested_{false};
   std::atomic<bool> stopping_{false};
   uint32_t media_open_id_{0};  // ESPHome loop only
   uint32_t media_open_sent_ms_{0};
+  uint32_t next_media_open_ms_{0};
+  uint32_t media_open_backoff_ms_{2000};
   static constexpr size_t MAX_JPEG_BYTES = 1024 * 1024;
   static constexpr size_t RX_ACCUM_MAX = 16384;
   static constexpr uint32_t MEDIA_OPEN_TIMEOUT_MS = 15000;
+  static constexpr uint32_t MEDIA_STAGE_TIMEOUT_MS = 15000;
+  static constexpr uint32_t MEDIA_OPEN_BACKOFF_MAX_MS = 30000;
 };
 
 }  // namespace esphome::ws_bridge

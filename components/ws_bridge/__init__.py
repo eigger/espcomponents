@@ -329,10 +329,13 @@ async def to_code(config):
     # needs ESPHome's trimmed mbedTLS client symbols in every configuration.
     if hasattr(esp32, "request_tls"):
         esp32.request_tls()
-    else:
-        # ESPHome before 2026.10 has no request_tls helper.
+    elif hasattr(esp32, "include_builtin_idf_component"):
+        # ESPHome releases with component trimming but before request_tls().
         esp32.include_builtin_idf_component("esp-tls")
-        esp32.add_idf_sdkconfig_option("CONFIG_MBEDTLS_TLS_ENABLED", True)
+        if hasattr(esp32, "add_idf_sdkconfig_option"):
+            esp32.add_idf_sdkconfig_option("CONFIG_MBEDTLS_TLS_ENABLED", True)
+    # Older ESPHome releases did not trim these TLS symbols, so no helper is
+    # needed (and their esp32 module does not expose the newer APIs above).
     if config[CONF_SSL]:
         # esp_websocket_client itself does not request ESPHome's trimmed TLS
         # pieces.  Explicitly retain the TLS stack and public CA bundle used by
@@ -341,7 +344,7 @@ async def to_code(config):
         cg.add_define("USE_WS_BRIDGE_CERT_BUNDLE")
         if hasattr(esp32, "require_certificate_bundle"):
             esp32.require_certificate_bundle()
-        else:
+        elif hasattr(esp32, "require_full_certificate_bundle"):
             # Older ESPHome's full-bundle request also enables the bundle.
             esp32.require_full_certificate_bundle()
 

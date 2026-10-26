@@ -2,6 +2,7 @@
 
 #ifdef USE_WS_BRIDGE_SNAPSHOT
 
+#include <algorithm>
 #ifdef USE_WS_BRIDGE_CERT_BUNDLE
 #include "esp_crt_bundle.h"
 #endif
@@ -43,12 +44,15 @@ void WsBridgeSnapshot::dump_config() {
 }
 
 void WsBridgeSnapshot::loop() {
-  if (needs_media_open_.exchange(false, std::memory_order_acq_rel))
-    open_media_();
-  if (media_open_id_ != 0 && millis() - media_open_sent_ms_ >= MEDIA_OPEN_TIMEOUT_MS) {
-    media_open_id_ = 0;
-    open_media_();
+  if (media_ready_.load(std::memory_order_acquire)) {
+    media_open_backoff_ms_ = 2000;
+    next_media_open_ms_ = 0;
   }
+  if (media_open_id_ != 0 && millis() - media_open_sent_ms_ >= MEDIA_OPEN_TIMEOUT_MS) {
+    schedule_open_retry_();
+  }
+  if (needs_media_open_.load(std::memory_order_acquire) && media_open_id_ == 0)
+    open_media_();
 }
 
 void WsBridgeSnapshot::update() { request_frame_(); }
@@ -57,8 +61,9 @@ void WsBridgeSnapshot::on_control_connected_() {
   media_open_id_ = 0;
   media_ready_.store(false, std::memory_order_release);
   handler_id_.store(0, std::memory_order_release);
-  enqueue_(new WorkItem{WorkType::STOP});
-  open_media_();
+  stop_requested_.store(true, std::memory_order_release);
+  next_media_open_ms_ = 0;
+  needs_media_open_.store(true, std::memory_order_release);
 }
 
 void WsBridgeSnapshot::on_control_disconnected_() {
@@ -70,15 +75,33 @@ void WsBridgeSnapshot::on_control_disconnected_() {
     capture_requested_ = false;
     pending_image_.reset();
   }
-  enqueue_(new WorkItem{WorkType::STOP});
+  stop_requested_.store(true, std::memory_order_release);
 }
 
 void WsBridgeSnapshot::open_media_() {
   if (parent_ == nullptr || !parent_->is_connected() || media_open_id_ != 0)
     return;
+  uint32_t now = millis();
+  if (next_media_open_ms_ != 0 && static_cast<int32_t>(now - next_media_open_ms_) < 0)
+    return;
   media_open_id_ = parent_->open_media_session(unique_id_);
-  if (media_open_id_ != 0)
+  if (media_open_id_ != 0) {
     media_open_sent_ms_ = millis();
+    // A later denial, worker failure, or dropped START waits at least this
+    // long before reserving another one-use HA session.
+    next_media_open_ms_ = now + media_open_backoff_ms_;
+    needs_media_open_.store(false, std::memory_order_release);
+  } else {
+    // The control TX queue can reject admission without a result callback.
+    schedule_open_retry_();
+  }
+}
+
+void WsBridgeSnapshot::schedule_open_retry_() {
+  media_open_id_ = 0;
+  needs_media_open_.store(true, std::memory_order_release);
+  next_media_open_ms_ = millis() + media_open_backoff_ms_;
+  media_open_backoff_ms_ = std::min(media_open_backoff_ms_ * 2, MEDIA_OPEN_BACKOFF_MAX_MS);
 }
 
 void WsBridgeSnapshot::on_control_message_(const ParsedMessage &message) {
@@ -86,12 +109,13 @@ void WsBridgeSnapshot::on_control_message_(const ParsedMessage &message) {
     return;
   media_open_id_ = 0;
   if (!message.success || message.session_id.empty()) {
-    needs_media_open_.store(true, std::memory_order_release);
+    schedule_open_retry_();
     return;
   }
   auto *item = new WorkItem{WorkType::START};
   item->session_id = message.session_id;  // opaque one-use session; never logged
-  enqueue_(item);
+  if (!enqueue_(item))
+    schedule_open_retry_();
 }
 
 void WsBridgeSnapshot::request_frame_() {
@@ -120,24 +144,29 @@ void WsBridgeSnapshot::on_camera_image(const std::shared_ptr<camera::CameraImage
   enqueue_(new WorkItem{WorkType::WAKE});
 }
 
-void WsBridgeSnapshot::enqueue_(WorkItem *item) {
+bool WsBridgeSnapshot::enqueue_(WorkItem *item) {
   if (item == nullptr)
-    return;
+    return false;
   if (worker_queue_ == nullptr || xQueueSend(worker_queue_, &item, 0) != pdPASS) {
     ESP_LOGW(TAG, "Media worker queue full; dropping work item");
     delete item;
+    return false;
   }
+  return true;
 }
 
 void WsBridgeSnapshot::media_task_(void *arg) { static_cast<WsBridgeSnapshot *>(arg)->worker_loop_(); }
 
 void WsBridgeSnapshot::worker_loop_() {
   while (true) {
+    if (stop_requested_.exchange(false, std::memory_order_acq_rel))
+      stop_media_();
     WorkItem *item = nullptr;
     if (xQueueReceive(worker_queue_, &item, pdMS_TO_TICKS(100)) == pdPASS && item != nullptr) {
       process_item_(item);
       delete item;
     }
+    check_worker_deadline_();
     send_pending_();
   }
 }
@@ -146,9 +175,6 @@ void WsBridgeSnapshot::process_item_(WorkItem *item) {
   switch (item->type) {
     case WorkType::START:
       start_media_(item->session_id);
-      break;
-    case WorkType::STOP:
-      stop_media_();
       break;
     case WorkType::WAKE:
       break;
@@ -165,6 +191,8 @@ void WsBridgeSnapshot::start_media_(const std::string &session_id) {
     return;
   }
   worker_session_id_ = session_id;
+  media_stage_ = MediaStage::WAIT_TRANSPORT;
+  media_stage_started_ms_ = millis();
   esp_websocket_client_config_t config = {};
   config.host = parent_->get_host().c_str();
   config.port = parent_->get_port();
@@ -196,9 +224,18 @@ void WsBridgeSnapshot::stop_media_() {
   handler_id_.store(0, std::memory_order_release);
   worker_session_id_.clear();
   media_connect_id_ = 0;
+  media_stage_ = MediaStage::IDLE;
+  media_stage_started_ms_ = 0;
   rx_accum_.clear();
   rx_text_frame_ = false;
   rx_drop_message_ = false;
+  {
+    std::lock_guard<std::mutex> lock(frame_mutex_);
+    // A response from a request issued before this media session died must
+    // not retain the camera buffer or become a frame for a replacement.
+    capture_requested_ = false;
+    pending_image_.reset();
+  }
   if (media_ != nullptr) {
     stopping_.store(true, std::memory_order_release);
     esp_websocket_unregister_events(media_, WEBSOCKET_EVENT_ANY, media_event_);
@@ -229,6 +266,15 @@ void WsBridgeSnapshot::transport_failed_() {
   needs_media_open_.store(true, std::memory_order_release);
 }
 
+void WsBridgeSnapshot::check_worker_deadline_() {
+  if (media_ == nullptr || media_stage_ == MediaStage::IDLE || media_stage_ == MediaStage::READY)
+    return;
+  if (millis() - media_stage_started_ms_ >= MEDIA_STAGE_TIMEOUT_MS) {
+    ESP_LOGW(TAG, "Media %s timed out", media_stage_ == MediaStage::WAIT_MEDIA_CONNECT ? "connect" : "authentication");
+    transport_failed_();
+  }
+}
+
 void WsBridgeSnapshot::media_event_(void *arg, esp_event_base_t, int32_t event_id, void *event_data) {
   auto *context = static_cast<CallbackContext *>(arg);
   if (context == nullptr || context->snapshot == nullptr)
@@ -247,7 +293,15 @@ void WsBridgeSnapshot::media_event_(void *arg, esp_event_base_t, int32_t event_i
     if (data->data_ptr != nullptr && data->data_len > 0)
       item->text.assign(data->data_ptr, data->data_len);
   }
-  self->enqueue_(item);
+  if (!self->enqueue_(item) &&
+      (event_id == WEBSOCKET_EVENT_DISCONNECTED || event_id == WEBSOCKET_EVENT_ERROR ||
+       event_id == WEBSOCKET_EVENT_CLOSED)) {
+    // A terminal transport event must not be lost behind a full queue.
+    self->media_ready_.store(false, std::memory_order_release);
+    self->handler_id_.store(0, std::memory_order_release);
+    self->stop_requested_.store(true, std::memory_order_release);
+    self->needs_media_open_.store(true, std::memory_order_release);
+  }
 }
 
 void WsBridgeSnapshot::handle_media_event_(WorkItem *item) {
@@ -301,11 +355,15 @@ void WsBridgeSnapshot::handle_media_message_(const std::string &raw) {
   ParsedMessage message = parse_message(raw);
   if (message.type == "auth_required") {
     std::string auth = build_auth(parent_->get_token());
+    media_stage_ = MediaStage::WAIT_AUTH;
+    media_stage_started_ms_ = millis();
     if (media_ == nullptr || esp_websocket_client_send_text(media_, auth.c_str(), auth.size(), pdMS_TO_TICKS(10000)) < 0)
       transport_failed_();
   } else if (message.type == "auth_ok") {
     media_connect_id_ = 1;
     std::string connect = build_media_connect(media_connect_id_, worker_session_id_);
+    media_stage_ = MediaStage::WAIT_MEDIA_CONNECT;
+    media_stage_started_ms_ = millis();
     if (media_ == nullptr || esp_websocket_client_send_text(media_, connect.c_str(), connect.size(), pdMS_TO_TICKS(10000)) < 0)
       transport_failed_();
   } else if (message.type == "auth_invalid") {
@@ -314,6 +372,7 @@ void WsBridgeSnapshot::handle_media_message_(const std::string &raw) {
   } else if (message.type == "result" && message.id == media_connect_id_ && message.success && message.handler_id != 0) {
     handler_id_.store(message.handler_id, std::memory_order_release);
     media_ready_.store(true, std::memory_order_release);
+    media_stage_ = MediaStage::READY;
   } else if (message.type == "result" && message.id == media_connect_id_) {
     ESP_LOGW(TAG, "Home Assistant rejected media session");
     transport_failed_();
