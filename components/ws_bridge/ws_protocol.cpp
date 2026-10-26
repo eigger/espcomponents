@@ -47,6 +47,15 @@ ParsedMessage parse_message(const std::string &raw) {
     if (msg.type == "result") {
       msg.success = root["success"].is<bool>() && root["success"].as<bool>();
       if (!root["id"].isNull()) msg.id = root["id"].as<uint32_t>();
+      JsonObject result = root["result"].as<JsonObject>();
+      if (!result.isNull()) {
+        if (result["session_id"].is<const char *>()) msg.session_id = result["session_id"].as<std::string>();
+        if (result["handler_id"].is<uint32_t>()) {
+          uint32_t handler_id = result["handler_id"].as<uint32_t>();
+          // HA binary handler IDs are one byte; 0 is never a usable handler.
+          if (handler_id > 0 && handler_id <= 255) msg.handler_id = static_cast<uint8_t>(handler_id);
+        }
+      }
       return true;
     }
 
@@ -175,6 +184,22 @@ std::string build_ping(uint32_t id) {
   return json::build_json([&](JsonObject root) {
     root["id"] = id;
     root["type"] = "ping";
+  });
+}
+
+std::string build_media_open(uint32_t id, const std::string &unique_id) {
+  return json::build_json([&](JsonObject root) {
+    root["id"] = id;
+    root["type"] = "ws_bridge/media_open";
+    root["unique_id"] = unique_id;
+  });
+}
+
+std::string build_media_connect(uint32_t id, const std::string &session_id) {
+  return json::build_json([&](JsonObject root) {
+    root["id"] = id;
+    root["type"] = "ws_bridge/media_connect";
+    root["session_id"] = session_id;
   });
 }
 

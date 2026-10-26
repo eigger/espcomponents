@@ -57,6 +57,8 @@ struct ParsedMessage {
   std::string type;  // "auth_required" | "auth_ok" | "auth_invalid" | "result" | "event" | "" (unrecognized)
   bool success{false};  // for "result"
   uint32_t id{0};        // for "result": echoes the id of the command it answers
+  std::string session_id;  // ws_bridge/media_open result
+  uint8_t handler_id{0};  // ws_bridge/media_connect result
   WsCommand command;     // populated when type == "event" and event.kind == "command"
 };
 
@@ -75,6 +77,8 @@ std::string build_connect(uint32_t id, const std::string &gateway_id, const std:
 // layer itself doesn't notice (e.g. HA process killed without a clean WS
 // close, so the socket never sees a FIN/RST).
 std::string build_ping(uint32_t id);
+std::string build_media_open(uint32_t id, const std::string &unique_id);
+std::string build_media_connect(uint32_t id, const std::string &session_id);
 
 // Tells HA the complete set of unique_ids this gateway currently provides, so
 // it can drop entities we no longer declare (PROTOCOL.md §3.5). Entities that

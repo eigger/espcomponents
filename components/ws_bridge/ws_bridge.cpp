@@ -1,6 +1,8 @@
 #include "ws_bridge.h"
 #include <algorithm>
+#ifdef USE_WS_BRIDGE_CERT_BUNDLE
 #include "esp_crt_bundle.h"
+#endif
 #include "esp_transport_ws.h"
 #include "esphome/components/network/util.h"
 #include "esphome/core/application.h"
@@ -23,7 +25,9 @@ void WsBridgeComponent::setup() {
   config.path = "/api/websocket";
   config.transport = this->ssl_ ? WEBSOCKET_TRANSPORT_OVER_SSL : WEBSOCKET_TRANSPORT_OVER_TCP;
   if (this->ssl_) {
+#ifdef USE_WS_BRIDGE_CERT_BUNDLE
     config.crt_bundle_attach = esp_crt_bundle_attach;
+#endif
   }
   config.disable_auto_reconnect = false;
   config.reconnect_timeout_ms = 10000;
@@ -501,6 +505,14 @@ void WsBridgeComponent::handle_message_(const std::string &raw) {
       this->awaiting_connect_result_ = false;
     }
   }
+  this->message_cb_.call(msg);
+}
+
+uint32_t WsBridgeComponent::open_media_session(const std::string &unique_id) {
+  if (!this->is_connected())
+    return 0;
+  uint32_t id = this->next_id_();
+  return this->send_raw_(build_media_open(id, unique_id)) ? id : 0;
 }
 
 void WsBridgeComponent::route_command_(const WsCommand &command) {

@@ -1,0 +1,55 @@
+esphome:
+  name: test-ws-bridge-snapshot
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: local
+      path: ../../../components
+    components: [ws_bridge]
+
+wifi:
+  ssid: "test_ssid"
+  password: "test_password"
+
+psram:
+  mode: quad
+  speed: 80MHz
+
+# Compile-only camera wiring: these common ESP32-CAM pins are not accessed by
+# this fixture, but ensure the generic camera::Camera listener path is built.
+esp32_camera:
+  id: test_camera
+  name: "Test Camera"
+  external_clock:
+    pin: GPIO0
+    frequency: 20MHz
+  i2c_pins:
+    sda: GPIO26
+    scl: GPIO27
+  data_pins: [GPIO5, GPIO18, GPIO19, GPIO21, GPIO36, GPIO39, GPIO34, GPIO35]
+  vsync_pin: GPIO25
+  href_pin: GPIO23
+  pixel_clock_pin: GPIO22
+  resolution: 320x240
+
+ws_bridge:
+  id: bridge
+  host: 192.0.2.1
+  token: "test_token"
+  snapshots:
+    - camera_id: test_camera
+      unique_id: front_camera
+      name: "Front Camera"
+      # Default is camera; image proves both HA entity types use the same
+      # separate media WebSocket upload path.
+      update_interval: 30s
+    - camera_id: test_camera
+      unique_id: front_thumbnail
+      name: "Front Thumbnail"
+      platform: image
+      update_interval: 2min

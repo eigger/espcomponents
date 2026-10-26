@@ -59,6 +59,9 @@ from .const import (
     CONF_REANNOUNCE_INTERVAL,
     CONF_ENTITIES,
     CONF_SOURCE_ID,
+    CONF_SNAPSHOTS,
+    CONF_CAMERA_ID,
+    CONF_PLATFORM,
 )
 
 CODEOWNERS = ["@eigger"]
@@ -70,6 +73,10 @@ ESP_WEBSOCKET_CLIENT_VERSION = "1.7.0"
 ws_bridge_ns = cg.esphome_ns.namespace("ws_bridge")
 WsBridgeComponent = ws_bridge_ns.class_("WsBridgeComponent", cg.Component)
 WsBridgeDevice = ws_bridge_ns.class_("WsBridgeDevice")
+# Camera is deliberately not imported here.  A normal ws_bridge configuration
+# must not auto-load the camera integration; snapshots import/check it only
+# inside to_code when their optional list is actually present.
+WsBridgeSnapshot = ws_bridge_ns.class_("WsBridgeSnapshot", cg.PollingComponent)
 
 ConnectedTrigger = ws_bridge_ns.class_("ConnectedTrigger", automation.Trigger.template())
 DisconnectedTrigger = ws_bridge_ns.class_("DisconnectedTrigger", automation.Trigger.template())
@@ -145,6 +152,20 @@ ENTITY_SCHEMA = cv.Schema(
     }
 )
 
+SNAPSHOT_SCHEMA = cv.Schema(
+    {
+        cv.GenerateID(): cv.declare_id(WsBridgeSnapshot),
+        # Kept loosely typed until to_code so importing this component alone
+        # does not auto-load camera.  The conditional check there still
+        # rejects non-camera ids with a useful message.
+        cv.Required(CONF_CAMERA_ID): cv.use_id(cg.Component),
+        cv.Required(CONF_UNIQUE_ID): cv.string_strict,
+        cv.Required(CONF_NAME): cv.string_strict,
+        # HA's image and camera entities share the same JPEG upload transport.
+        cv.Optional(CONF_PLATFORM, default="camera"): cv.one_of("camera", "image", lower=True),
+    }
+).extend(cv.polling_component_schema("60s"))
+
 
 async def to_code_entity_ref(hub_var, conf):
     source_id = conf[CONF_SOURCE_ID]
@@ -182,6 +203,14 @@ async def to_code_entity_ref(hub_var, conf):
 def _validate_esp_idf(config):
     if CORE.target_framework != "esp-idf":
         raise cv.Invalid("ws_bridge requires the ESP-IDF framework (esp32: framework: type: esp-idf)")
+    return config
+
+
+def _validate_snapshot_version(config):
+    # Generic camera::CameraListener landed in ESPHome 2026.10. Keep this
+    # opt-in check separate from the hub's long-standing configuration.
+    if config.get(CONF_SNAPSHOTS):
+        cv.require_esphome_version(2026, 10, 0)(config)
     return config
 
 
@@ -261,9 +290,14 @@ CONFIG_SCHEMA = cv.All(
             # `platform: ws_bridge` entity per value — see ENTITY_SCHEMA above
             # and the README's "Exposing existing entities" section.
             cv.Optional(CONF_ENTITIES, default=[]): cv.ensure_list(ENTITY_SCHEMA),
+            # Optional snapshot media. This is intentionally not AUTO_LOADed:
+            # only configs using it need a camera platform and ESPHome 2026.10
+            # (the generic camera::Camera listener API used by this feature).
+            cv.Optional(CONF_SNAPSHOTS, default=[]): cv.ensure_list(SNAPSHOT_SCHEMA),
         }
     ).extend(cv.COMPONENT_SCHEMA),
     _validate_esp_idf,
+    _validate_snapshot_version,
 )
 
 # Shared schema every ws_bridge platform must extend, mirroring uartex's
@@ -291,6 +325,25 @@ async def register_ws_bridge_device(var, config):
 
 async def to_code(config):
     esp32.add_idf_component(name="espressif/esp_websocket_client", ref=ESP_WEBSOCKET_CLIENT_VERSION)
+    # The managed WebSocket client links ESP-TLS even for ws:// builds, so it
+    # needs ESPHome's trimmed mbedTLS client symbols in every configuration.
+    if hasattr(esp32, "request_tls"):
+        esp32.request_tls()
+    else:
+        # ESPHome before 2026.10 has no request_tls helper.
+        esp32.include_builtin_idf_component("esp-tls")
+        esp32.add_idf_sdkconfig_option("CONFIG_MBEDTLS_TLS_ENABLED", True)
+    if config[CONF_SSL]:
+        # esp_websocket_client itself does not request ESPHome's trimmed TLS
+        # pieces.  Explicitly retain the TLS stack and public CA bundle used by
+        # esp_crt_bundle_attach; otherwise a minimal ws_bridge firmware cannot
+        # even compile its TLS configuration.
+        cg.add_define("USE_WS_BRIDGE_CERT_BUNDLE")
+        if hasattr(esp32, "require_certificate_bundle"):
+            esp32.require_certificate_bundle()
+        else:
+            # Older ESPHome's full-bundle request also enables the bundle.
+            esp32.require_full_certificate_bundle()
 
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
@@ -356,3 +409,31 @@ async def to_code(config):
 
     for conf in config.get(CONF_ENTITIES, []):
         await to_code_entity_ref(var, conf)
+
+    snapshots = config.get(CONF_SNAPSHOTS, [])
+    if snapshots:
+        # Keep ws_bridge's existing minimum unchanged; snapshot users require
+        # the newer generic camera listener API (documented in README).
+        # ESPHome's generic C++ camera::Camera has no Python MockObjClass;
+        # esp32_camera is the currently supported source of that interface.
+        # Import it only here so ordinary ws_bridge configurations stay free
+        # of a camera dependency.
+        from esphome.components import esp32_camera
+
+        cg.add_define("USE_WS_BRIDGE_SNAPSHOT")
+        for conf in snapshots:
+            camera_full_id, camera_var = await cg.get_variable_with_full_id(conf[CONF_CAMERA_ID])
+            if not isinstance(camera_full_id.type, cg.MockObjClass) or not camera_full_id.type.inherits_from(
+                esp32_camera.ESP32Camera
+            ):
+                raise cv.Invalid(
+                    f"'{conf[CONF_CAMERA_ID].id}' is not an esp32_camera id; "
+                    "snapshot currently supports esp32_camera"
+                )
+            snapshot = cg.new_Pvariable(conf[CONF_ID])
+            await cg.register_component(snapshot, conf)
+            cg.add(snapshot.set_parent(var))
+            cg.add(snapshot.set_camera(camera_var))
+            cg.add(snapshot.set_unique_id(conf[CONF_UNIQUE_ID]))
+            cg.add(snapshot.set_name(conf[CONF_NAME]))
+            cg.add(snapshot.set_platform(conf[CONF_PLATFORM]))

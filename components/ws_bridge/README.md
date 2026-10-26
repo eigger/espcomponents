@@ -222,6 +222,7 @@ update:
 | `reannounce_interval` | | `60s` | How often to resend `ws_bridge/connect` + all entity/state declarations while nominally connected. Guards against the HA-side integration losing track of this gateway (e.g. its config entry reloaded) while the raw connection and ping/pong stay healthy — that scenario is otherwise invisible, since HA answers pings regardless of our integration's state. If a re-announce goes unanswered, forces a full reconnect rather than repeating the same no-op |
 | `trackers` | | - | List of GPS `device_tracker` entities — see [GPS device trackers](#gps-device-trackers) below |
 | `entities` | | - | Existing ESPHome entities to expose without a parallel `platform: ws_bridge` entity — see [Exposing existing entities](#exposing-existing-entities) |
+| `snapshots` | | - | Optional ESP32 camera snapshots uploaded as HA `camera` or `image` entities — see [Camera snapshots](#camera-snapshots) |
 
 "Templatable" fields accept a plain string or a `!lambda return std::string(...);` — the lambda is re-evaluated on every `ws_bridge/connect` (the initial connect and each `reannounce_interval`), not just once at boot.
 
@@ -269,6 +270,52 @@ left out. `datetime_id:` must point at an entity of the same `type:`.
 `date` / `time` / `datetime` states cross the wire as timezone-naive ISO 8601
 strings (`2026-08-13`, `21:30:00`, `2026-08-13T21:30:00`); Home Assistant
 attaches its own local timezone to them rather than reading them as UTC.
+
+## Camera snapshots
+
+`snapshots:` exposes JPEG frames from an `esp32_camera` as either a Home
+Assistant `camera` (the default) or `image`. It requires **ESPHome 2026.10+
+and ESP-IDF** because it uses ESPHome's generic `camera::Camera` listener API.
+This requirement applies only to configurations that use `snapshots:`; normal
+`ws_bridge` entity configurations keep their existing compatibility.
+
+```yaml
+esp32_camera:
+  id: front_sensor
+  # ...normal esp32_camera pins and settings...
+
+ws_bridge:
+  host: !secret ha_host
+  token: !secret ha_token
+  snapshots:
+    - camera_id: front_sensor
+      unique_id: front_camera
+      name: "Front camera"
+      update_interval: 30s       # request a fresh JPEG periodically
+    - camera_id: front_sensor
+      unique_id: front_thumbnail
+      name: "Front thumbnail"
+      platform: image            # default is camera
+      update_interval: 2min
+```
+
+Each list item has a separate, ESP-initiated media WebSocket because Home
+Assistant binds one media connection to exactly one declared entity. The
+firmware first uses the existing authenticated control connection to request
+`ws_bridge/media_open`, then authenticates a second standard `/api/websocket`
+connection with the same token and sends `ws_bridge/media_connect`. Its JPEG
+is one logical binary WebSocket message: the assigned handler byte immediately
+followed by the JPEG bytes. This remains compatible with Home Assistant remote
+access/reverse proxies: Home Assistant never connects back to the ESP device.
+
+The worker retains a camera frame until its complete send finishes and keeps at
+most one pending/latest frame per configured snapshot. A failed fragment closes
+that media connection and obtains a fresh one-use session rather than trying to
+continue an incomplete binary message. Frames larger than 1 MiB are discarded.
+The media socket is recreated after a real control reconnect; routine control
+re-announces leave an established media socket alone. See the HA-side
+[wire protocol](https://github.com/eigger/hass-ws-bridge/blob/main/docs/PROTOCOL.md#321-authenticated-jpeg-upload-ws_bridgemedia_open--ws_bridgemedia_connect)
+for authentication and frame limits.
 
 ## Exposing existing entities
 
