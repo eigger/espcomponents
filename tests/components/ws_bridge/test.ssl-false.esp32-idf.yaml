@@ -1,0 +1,24 @@
+esphome:
+  name: test-ws-bridge-plain
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: local
+      path: ../../../components
+    components: [ws_bridge]
+
+wifi:
+  ssid: "test_ssid"
+  password: "test_password"
+
+# Exercises the no-certificate-bundle compile path. This is only appropriate
+# for local development; normal deployments should keep ws_bridge's ssl:true.
+ws_bridge:
+  host: 192.0.2.1
+  ssl: false
+  token: "test_token"

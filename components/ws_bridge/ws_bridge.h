@@ -77,6 +77,10 @@ class WsBridgeComponent : public Component {
   // declarations must hook this rather than on_connected, so that a
   // re-announce which heals a lost HA-side registration re-declares them too.
   void add_on_declare_callback(std::function<void()> &&cb) { this->declare_cb_.add(std::move(cb)); }
+  // Receives complete, parsed control-channel messages on the ESPHome loop.
+  // Optional features (such as snapshot media) use this for their own result
+  // IDs without handling messages in the websocket client task.
+  void add_message_callback(std::function<void(const ParsedMessage &)> &&cb) { this->message_cb_.add(std::move(cb)); }
 
   void setup() override;
   void loop() override;
@@ -89,6 +93,14 @@ class WsBridgeComponent : public Component {
   // atomic. See ws_event_handler_ for why the disconnect-family transitions
   // in particular can't wait for the main loop to process a queued event.
   bool is_connected() const { return this->state_.load(std::memory_order_acquire) == WS_BRIDGE_CONNECTED; }
+  const std::string &get_host() const { return this->host_; }
+  uint16_t get_port() const { return this->port_; }
+  bool get_ssl() const { return this->ssl_; }
+  const std::string &get_token() const { return this->token_; }
+
+  // Opens a one-use, HA-authenticated media session for an already declared
+  // entity.  The caller correlates the returned control-channel message ID.
+  uint32_t open_media_session(const std::string &unique_id);
 
   // Called by platform entities (via WsBridgeDevice helpers) to push state
   // and declarations. No-ops while not connected; the next (re)connect will
@@ -314,6 +326,7 @@ class WsBridgeComponent : public Component {
   CallbackManager<void()> connected_cb_{};
   CallbackManager<void()> disconnected_cb_{};
   CallbackManager<void()> declare_cb_{};
+  CallbackManager<void(const ParsedMessage &)> message_cb_{};
 };
 
 }  // namespace ws_bridge

@@ -10,11 +10,11 @@ DEPENDENCIES = ["ws_bridge"]
 WsBridgeEvent = ws_bridge_ns.class_("WsBridgeEvent", event.Event, cg.Component, ws_bridge.WsBridgeDevice)
 
 # An empty Python list renders as a bare `{}`, which is ambiguous across
-# Event::set_event_types()'s initializer_list / FixedVector / vector overloads
-# (including the =delete'd std::string ones that exist to catch mistakes). Name
-# the type so the vector overload is an exact match. The wrapper's real list is
-# copied off the source in setup() — see WsBridgeEvent::setup().
-_NO_EVENT_TYPES = cg.RawExpression("std::vector<const char *>{}")
+# Event::set_event_types() has a FixedVector overload in both supported older
+# ESPHome and 2026.10+, while its std::vector overload was removed in 2026.10.
+# Explicitly select the durable overload for an event_id: wrapper whose real
+# list is copied from its source during setup().
+_NO_EVENT_TYPES = cg.RawExpression("esphome::FixedVector<const char *>{}")
 
 
 def validate_event_types(config):
