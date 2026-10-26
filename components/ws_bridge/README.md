@@ -322,7 +322,22 @@ stopped. Repeated commands are safe. This is pushed JPEG/MJPEG, not HLS, does
 not advertise HA's `STREAM` feature, and needs neither an ESP HTTP server nor
 an inbound HA connection. The FPS and bandwidth values are local limits, not
 wire-protocol settings; under backpressure only the newest completed frame is
-kept.
+kept, and no capture is requested while the bandwidth limit is holding uploads
+back.
+
+Things to know about `video: true`:
+
+- `video_fps` and `video_max_bandwidth` are accepted only together with
+  `video: true` (defaults 5 FPS, 256000 bytes/s; bandwidth must be at least 1).
+- `update_interval` is ignored for a video item.
+- With no viewer there is no capture and no media connection, and Home Assistant
+  drops its cached frame, so the entity picture and the card's still thumbnail
+  are empty until someone watches. Add a separate still snapshot of the same
+  camera (without `video`) if you want a thumbnail.
+- Home Assistant needs a hass-ws-bridge release with `push_stream` support;
+  older integrations never send `start_stream`, so no video appears.
+- A repeated `start_stream` is ignored, and a `stop_stream` followed quickly by
+  a new `start_stream` is applied in order.
 
 Each list item has a separate, ESP-initiated media WebSocket because Home
 Assistant binds one media connection to exactly one declared entity. The

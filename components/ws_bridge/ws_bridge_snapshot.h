@@ -32,8 +32,13 @@ class WsBridgeSnapshot : public PollingComponent, public camera::CameraListener,
   void set_name(const std::string &name) { name_ = name; }
   void set_platform(const std::string &platform) { platform_ = platform; }
   void set_video(bool video) { video_ = video; }
-  void set_video_fps(uint8_t fps) { video_frame_interval_ms_ = 1000 / fps; }
-  void set_video_max_bandwidth(uint32_t bytes_per_second) { video_max_bandwidth_ = bytes_per_second; }
+  void set_video_fps(uint8_t fps) {
+    video_fps_ = fps;
+    video_frame_interval_ms_ = 1000 / fps;
+  }
+  void set_video_max_bandwidth(uint32_t bytes_per_second) {
+    video_max_bandwidth_ = bytes_per_second == 0 ? 1 : bytes_per_second;
+  }
 
   void setup() override;
   void loop() override;
@@ -55,6 +60,7 @@ class WsBridgeSnapshot : public PollingComponent, public camera::CameraListener,
     int payload_offset{0};
     bool fin{false};
     uint32_t generation{0};
+    uint32_t stop_epoch{0};  // START only: stop requests already issued
     std::string text;
     std::string session_id;
   };
@@ -75,6 +81,7 @@ class WsBridgeSnapshot : public PollingComponent, public camera::CameraListener,
   void handle_media_event_(WorkItem *item);
   void handle_media_message_(const std::string &raw);
   void send_pending_();
+  void request_stop_();
   void on_control_connected_();
   void on_control_disconnected_();
   void on_control_message_(const ParsedMessage &message);
@@ -87,10 +94,11 @@ class WsBridgeSnapshot : public PollingComponent, public camera::CameraListener,
   std::string name_;
   std::string platform_{"camera"};
   bool video_{false};
+  uint8_t video_fps_{5};
   uint32_t video_frame_interval_ms_{200};
   uint32_t video_max_bandwidth_{256000};
   uint32_t next_video_capture_ms_{0};  // ESPHome loop only
-  uint32_t next_video_send_ms_{0};     // worker task only
+  std::atomic<uint32_t> next_video_send_ms_{0};  // written by worker; read by loop to skip throttled captures
   QueueHandle_t worker_queue_{nullptr};
   TaskHandle_t worker_task_{nullptr};
   esp_websocket_client_handle_t media_{nullptr};  // worker task only
@@ -113,7 +121,10 @@ class WsBridgeSnapshot : public PollingComponent, public camera::CameraListener,
   std::atomic<bool> media_ready_{false};
   std::atomic<bool> needs_media_open_{false};
   std::atomic<bool> stream_requested_{false};
-  std::atomic<bool> stop_requested_{false};
+  // Stop requests are an epoch, not a flag, so a START can record which stops
+  // precede it: the worker never tears down a session opened after a stop.
+  std::atomic<uint32_t> stop_epoch_{0};
+  uint32_t handled_stop_epoch_{0};  // worker task only
   // Event callbacks cannot read worker-only active_generation_. On a full
   // queue they record only their immutable generation; the worker compares it
   // before deciding whether the current client may be stopped.

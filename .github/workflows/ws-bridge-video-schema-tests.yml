@@ -1,0 +1,32 @@
+name: ws_bridge Video Schema Tests
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'components/ws_bridge/**'
+      - 'tests/native/ws_bridge_video_schema/**'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'components/ws_bridge/**'
+      - 'tests/native/ws_bridge_video_schema/**'
+  workflow_dispatch:
+
+jobs:
+  ws-bridge-video-schema-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Install ESPHome
+        run: pip install esphome
+
+      - name: Run schema tests
+        run: python tests/native/ws_bridge_video_schema/test_schema.py
