@@ -104,6 +104,10 @@ class WsBridgeSnapshot : public PollingComponent, public camera::CameraListener 
   std::atomic<bool> media_ready_{false};
   std::atomic<bool> needs_media_open_{false};
   std::atomic<bool> stop_requested_{false};
+  // Event callbacks cannot read worker-only active_generation_. On a full
+  // queue they record only their immutable generation; the worker compares it
+  // before deciding whether the current client may be stopped.
+  std::atomic<uint32_t> terminal_event_generation_{0};
   std::atomic<bool> stopping_{false};
   uint32_t media_open_id_{0};  // ESPHome loop only
   uint32_t media_open_sent_ms_{0};

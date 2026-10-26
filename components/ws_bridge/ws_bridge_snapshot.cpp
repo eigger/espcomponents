@@ -159,6 +159,9 @@ void WsBridgeSnapshot::media_task_(void *arg) { static_cast<WsBridgeSnapshot *>(
 
 void WsBridgeSnapshot::worker_loop_() {
   while (true) {
+    uint32_t terminal_generation = terminal_event_generation_.exchange(0, std::memory_order_acq_rel);
+    if (terminal_generation != 0 && terminal_generation == active_generation_)
+      transport_failed_();
     if (stop_requested_.exchange(false, std::memory_order_acq_rel))
       stop_media_();
     WorkItem *item = nullptr;
@@ -296,11 +299,14 @@ void WsBridgeSnapshot::media_event_(void *arg, esp_event_base_t, int32_t event_i
   if (!self->enqueue_(item) &&
       (event_id == WEBSOCKET_EVENT_DISCONNECTED || event_id == WEBSOCKET_EVENT_ERROR ||
        event_id == WEBSOCKET_EVENT_CLOSED)) {
-    // A terminal transport event must not be lost behind a full queue.
-    self->media_ready_.store(false, std::memory_order_release);
-    self->handler_id_.store(0, std::memory_order_release);
-    self->stop_requested_.store(true, std::memory_order_release);
-    self->needs_media_open_.store(true, std::memory_order_release);
+    // A terminal transport event must not be lost behind a full queue. Do
+    // not mutate global connection state here: this callback can belong to a
+    // retired client. The worker validates the recorded immutable generation.
+    uint32_t observed = self->terminal_event_generation_.load(std::memory_order_acquire);
+    while (observed < context->generation &&
+           !self->terminal_event_generation_.compare_exchange_weak(
+               observed, context->generation, std::memory_order_release, std::memory_order_acquire)) {
+    }
   }
 }
 
