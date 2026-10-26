@@ -271,7 +271,7 @@ left out. `datetime_id:` must point at an entity of the same `type:`.
 strings (`2026-08-13`, `21:30:00`, `2026-08-13T21:30:00`); Home Assistant
 attaches its own local timezone to them rather than reading them as UTC.
 
-## Camera snapshots
+## Camera snapshots and live camera video
 
 `snapshots:` exposes JPEG frames from an `esp32_camera` as either a Home
 Assistant `camera` (the default) or `image`. It requires **ESPHome 2026.10+
@@ -298,6 +298,31 @@ ws_bridge:
       platform: image            # default is camera
       update_interval: 2min
 ```
+
+Those are still photos: a frame is requested on `update_interval`, even if no
+camera card is open. To opt a **camera** into viewer-driven live MJPEG instead,
+set `video: true` (an `image` cannot be a live stream):
+
+```yaml
+ws_bridge:
+  # ...host and token...
+  snapshots:
+    - camera_id: front_sensor
+      unique_id: front_live
+      name: "Front live camera"
+      video: true
+      video_fps: 5                  # local capture limit, 1..30
+      video_max_bandwidth: 256000   # local upload limit, bytes/second
+```
+
+Video declarations advertise only the `push_stream` camera capability. Home
+Assistant sends `start_stream` when its first native MJPEG viewer opens and
+`stop_stream` after the final viewer leaves; no capture is requested while
+stopped. Repeated commands are safe. This is pushed JPEG/MJPEG, not HLS, does
+not advertise HA's `STREAM` feature, and needs neither an ESP HTTP server nor
+an inbound HA connection. The FPS and bandwidth values are local limits, not
+wire-protocol settings; under backpressure only the newest completed frame is
+kept.
 
 Each list item has a separate, ESP-initiated media WebSocket because Home
 Assistant binds one media connection to exactly one declared entity. The

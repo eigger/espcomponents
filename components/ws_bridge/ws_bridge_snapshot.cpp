@@ -29,9 +29,6 @@ void WsBridgeSnapshot::setup() {
     return;
   }
   camera_->add_listener(this);
-  parent_->add_on_declare_callback([this]() {
-    parent_->send_entity_declare(unique_id_, platform_, name_, "", "", nullptr);
-  });
   parent_->add_on_connected_callback([this]() { on_control_connected_(); });
   parent_->add_on_disconnected_callback([this]() { on_control_disconnected_(); });
   parent_->add_message_callback([this](const ParsedMessage &message) { on_control_message_(message); });
@@ -40,7 +37,11 @@ void WsBridgeSnapshot::setup() {
 void WsBridgeSnapshot::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge snapshot:");
   ESP_LOGCONFIG(TAG, "  Entity: %s (%s)", unique_id_.c_str(), platform_.c_str());
-  ESP_LOGCONFIG(TAG, "  Capture interval: %u ms", static_cast<unsigned>(get_update_interval()));
+  if (video_)
+    ESP_LOGCONFIG(TAG, "  Live MJPEG: %u FPS, %u bytes/s", static_cast<unsigned>(1000 / video_frame_interval_ms_),
+                  static_cast<unsigned>(video_max_bandwidth_));
+  else
+    ESP_LOGCONFIG(TAG, "  Capture interval: %u ms", static_cast<unsigned>(get_update_interval()));
 }
 
 void WsBridgeSnapshot::loop() {
@@ -51,11 +52,60 @@ void WsBridgeSnapshot::loop() {
   if (media_open_id_ != 0 && millis() - media_open_sent_ms_ >= MEDIA_OPEN_TIMEOUT_MS) {
     schedule_open_retry_();
   }
-  if (needs_media_open_.load(std::memory_order_acquire) && media_open_id_ == 0)
+  if (needs_media_open_.load(std::memory_order_acquire) && media_open_id_ == 0 && media_demand_())
     open_media_();
+  if (video_ && stream_requested_.load(std::memory_order_acquire) && media_ready_.load(std::memory_order_acquire)) {
+    uint32_t now = millis();
+    if (next_video_capture_ms_ == 0 || static_cast<int32_t>(now - next_video_capture_ms_) >= 0) {
+      next_video_capture_ms_ = now + video_frame_interval_ms_;
+      request_frame_();
+    }
+  }
 }
 
-void WsBridgeSnapshot::update() { request_frame_(); }
+void WsBridgeSnapshot::update() {
+  if (!video_)
+    request_frame_();
+}
+
+bool WsBridgeSnapshot::media_demand_() const {
+  return !video_ || stream_requested_.load(std::memory_order_acquire);
+}
+
+void WsBridgeSnapshot::ws_bridge_declare() {
+  parent_->send_entity_declare(unique_id_, platform_, name_, "", "", [this](JsonObject root) {
+    if (video_) {
+      JsonArray features = root["features"].to<JsonArray>();
+      features.add("push_stream");
+    }
+  });
+}
+
+void WsBridgeSnapshot::ws_bridge_handle_command(const WsCommand &command) {
+  if (!video_)
+    return;
+  std::string format;
+  if (!command.param_string("format", format) || format != "mjpeg")
+    return;
+  if (command.action == "start_stream") {
+    stream_requested_.store(true, std::memory_order_release);
+    next_video_capture_ms_ = 0;
+    needs_media_open_.store(true, std::memory_order_release);
+  } else if (command.action == "stop_stream") {
+    // Idempotent: capture requests issued before this command are discarded by
+    // on_camera_image(), and the worker owns the actual socket teardown.
+    stream_requested_.store(false, std::memory_order_release);
+    next_video_capture_ms_ = 0;
+    needs_media_open_.store(false, std::memory_order_release);
+    media_open_id_ = 0;
+    {
+      std::lock_guard<std::mutex> lock(frame_mutex_);
+      capture_requested_ = false;
+      pending_image_.reset();
+    }
+    stop_requested_.store(true, std::memory_order_release);
+  }
+}
 
 void WsBridgeSnapshot::on_control_connected_() {
   media_open_id_ = 0;
@@ -63,7 +113,7 @@ void WsBridgeSnapshot::on_control_connected_() {
   handler_id_.store(0, std::memory_order_release);
   stop_requested_.store(true, std::memory_order_release);
   next_media_open_ms_ = 0;
-  needs_media_open_.store(true, std::memory_order_release);
+  needs_media_open_.store(media_demand_(), std::memory_order_release);
 }
 
 void WsBridgeSnapshot::on_control_disconnected_() {
@@ -76,10 +126,11 @@ void WsBridgeSnapshot::on_control_disconnected_() {
     pending_image_.reset();
   }
   stop_requested_.store(true, std::memory_order_release);
+  stream_requested_.store(false, std::memory_order_release);
 }
 
 void WsBridgeSnapshot::open_media_() {
-  if (parent_ == nullptr || !parent_->is_connected() || media_open_id_ != 0)
+  if (parent_ == nullptr || !parent_->is_connected() || media_open_id_ != 0 || !media_demand_())
     return;
   uint32_t now = millis();
   if (next_media_open_ms_ != 0 && static_cast<int32_t>(now - next_media_open_ms_) < 0)
@@ -99,7 +150,7 @@ void WsBridgeSnapshot::open_media_() {
 
 void WsBridgeSnapshot::schedule_open_retry_() {
   media_open_id_ = 0;
-  needs_media_open_.store(true, std::memory_order_release);
+  needs_media_open_.store(media_demand_(), std::memory_order_release);
   next_media_open_ms_ = millis() + media_open_backoff_ms_;
   media_open_backoff_ms_ = std::min(media_open_backoff_ms_ * 2, MEDIA_OPEN_BACKOFF_MAX_MS);
 }
@@ -119,7 +170,7 @@ void WsBridgeSnapshot::on_control_message_(const ParsedMessage &message) {
 }
 
 void WsBridgeSnapshot::request_frame_() {
-  if (!media_ready_.load(std::memory_order_acquire) || camera_ == nullptr)
+  if (!media_ready_.load(std::memory_order_acquire) || camera_ == nullptr || !media_demand_())
     return;
   std::lock_guard<std::mutex> lock(frame_mutex_);
   if (capture_requested_)
@@ -133,7 +184,7 @@ void WsBridgeSnapshot::on_camera_image(const std::shared_ptr<camera::CameraImage
     return;  // do not steal webserver/API camera requests
   {
     std::lock_guard<std::mutex> lock(frame_mutex_);
-    if (!capture_requested_)
+    if (!capture_requested_ || !media_demand_())
       return;
     capture_requested_ = false;
     if (image->get_data_length() == 0 || image->get_data_length() > MAX_JPEG_BYTES)
@@ -227,6 +278,7 @@ void WsBridgeSnapshot::stop_media_() {
   handler_id_.store(0, std::memory_order_release);
   worker_session_id_.clear();
   media_connect_id_ = 0;
+  next_video_send_ms_ = 0;
   media_stage_ = MediaStage::IDLE;
   media_stage_started_ms_ = 0;
   rx_accum_.clear();
@@ -266,7 +318,7 @@ void WsBridgeSnapshot::transport_failed_() {
   // peer may still await its FIN. Stop/destroy on the owner worker and obtain
   // a fresh one-use HA session through the control channel.
   stop_media_();
-  needs_media_open_.store(true, std::memory_order_release);
+  needs_media_open_.store(media_demand_(), std::memory_order_release);
 }
 
 void WsBridgeSnapshot::check_worker_deadline_() {
@@ -388,6 +440,8 @@ void WsBridgeSnapshot::handle_media_message_(const std::string &raw) {
 void WsBridgeSnapshot::send_pending_() {
   if (!media_ready_.load(std::memory_order_acquire) || media_ == nullptr || !esp_websocket_client_is_connected(media_))
     return;
+  if (video_ && next_video_send_ms_ != 0 && static_cast<int32_t>(millis() - next_video_send_ms_) < 0)
+    return;
   std::shared_ptr<camera::CameraImage> image;
   {
     std::lock_guard<std::mutex> lock(frame_mutex_);
@@ -408,6 +462,12 @@ void WsBridgeSnapshot::send_pending_() {
   if (first != 1 || body != static_cast<int>(image->get_data_length()) || finish < 0) {
     ESP_LOGW(TAG, "JPEG upload failed; reopening media connection");
     transport_failed_();
+  } else if (video_) {
+    // A slow transport deliberately drops intermediate captures: the one
+    // pending slot is always replaced by the newest completed camera frame.
+    uint64_t delay = (static_cast<uint64_t>(image->get_data_length()) * 1000U + video_max_bandwidth_ - 1) /
+                     video_max_bandwidth_;
+    next_video_send_ms_ = millis() + static_cast<uint32_t>(std::min<uint64_t>(delay, UINT32_MAX));
   }
 }
 

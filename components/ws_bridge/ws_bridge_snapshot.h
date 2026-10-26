@@ -17,6 +17,7 @@
 #include "freertos/queue.h"
 
 #include "ws_protocol.h"
+#include "ws_bridge_device.h"
 
 namespace esphome::ws_bridge {
 
@@ -24,19 +25,23 @@ class WsBridgeComponent;
 
 // The ESPHome loop owns camera/control decisions. A dedicated worker owns all
 // esp_websocket_client calls, including start/stop/destroy and binary writes.
-class WsBridgeSnapshot : public PollingComponent, public camera::CameraListener {
+class WsBridgeSnapshot : public PollingComponent, public camera::CameraListener, public WsBridgeDevice {
  public:
-  void set_parent(WsBridgeComponent *parent) { parent_ = parent; }
+  void set_parent(WsBridgeComponent *parent) { set_ws_bridge_parent(parent); }
   void set_camera(camera::Camera *camera) { camera_ = camera; }
-  void set_unique_id(const std::string &id) { unique_id_ = id; }
   void set_name(const std::string &name) { name_ = name; }
   void set_platform(const std::string &platform) { platform_ = platform; }
+  void set_video(bool video) { video_ = video; }
+  void set_video_fps(uint8_t fps) { video_frame_interval_ms_ = 1000 / fps; }
+  void set_video_max_bandwidth(uint32_t bytes_per_second) { video_max_bandwidth_ = bytes_per_second; }
 
   void setup() override;
   void loop() override;
   void update() override;
   void on_camera_image(const std::shared_ptr<camera::CameraImage> &image) override;
   void dump_config() override;
+  void ws_bridge_declare() override;
+  void ws_bridge_handle_command(const WsCommand &command) override;
 
  protected:
   enum class WorkType : uint8_t { START, WAKE, EVENT };
@@ -76,12 +81,16 @@ class WsBridgeSnapshot : public PollingComponent, public camera::CameraListener 
   void open_media_();
   void schedule_open_retry_();
   void request_frame_();
+  bool media_demand_() const;
 
-  WsBridgeComponent *parent_{nullptr};
   camera::Camera *camera_{nullptr};
-  std::string unique_id_;
   std::string name_;
   std::string platform_{"camera"};
+  bool video_{false};
+  uint32_t video_frame_interval_ms_{200};
+  uint32_t video_max_bandwidth_{256000};
+  uint32_t next_video_capture_ms_{0};  // ESPHome loop only
+  uint32_t next_video_send_ms_{0};     // worker task only
   QueueHandle_t worker_queue_{nullptr};
   TaskHandle_t worker_task_{nullptr};
   esp_websocket_client_handle_t media_{nullptr};  // worker task only
@@ -103,6 +112,7 @@ class WsBridgeSnapshot : public PollingComponent, public camera::CameraListener 
   std::atomic<uint8_t> handler_id_{0};
   std::atomic<bool> media_ready_{false};
   std::atomic<bool> needs_media_open_{false};
+  std::atomic<bool> stream_requested_{false};
   std::atomic<bool> stop_requested_{false};
   // Event callbacks cannot read worker-only active_generation_. On a full
   // queue they record only their immutable generation; the worker compares it

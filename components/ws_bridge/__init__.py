@@ -62,6 +62,9 @@ from .const import (
     CONF_SNAPSHOTS,
     CONF_CAMERA_ID,
     CONF_PLATFORM,
+    CONF_VIDEO,
+    CONF_VIDEO_FPS,
+    CONF_VIDEO_MAX_BANDWIDTH,
 )
 
 CODEOWNERS = ["@eigger"]
@@ -152,7 +155,14 @@ ENTITY_SCHEMA = cv.Schema(
     }
 )
 
-SNAPSHOT_SCHEMA = cv.Schema(
+def _validate_snapshot(conf):
+    if conf[CONF_VIDEO] and conf[CONF_PLATFORM] != "camera":
+        raise cv.Invalid("video is supported only with platform: camera")
+    return conf
+
+
+SNAPSHOT_SCHEMA = cv.All(
+    cv.Schema(
     {
         cv.GenerateID(): cv.declare_id(WsBridgeSnapshot),
         # Kept loosely typed until to_code so importing this component alone
@@ -163,8 +173,17 @@ SNAPSHOT_SCHEMA = cv.Schema(
         cv.Required(CONF_NAME): cv.string_strict,
         # HA's image and camera entities share the same JPEG upload transport.
         cv.Optional(CONF_PLATFORM, default="camera"): cv.one_of("camera", "image", lower=True),
+        # Live video is an explicit opt-in.  A video item declares only
+        # push_stream and captures only while HA has an MJPEG viewer.
+        cv.Optional(CONF_VIDEO, default=False): cv.boolean,
+        cv.Optional(CONF_VIDEO_FPS, default=5): cv.int_range(min=1, max=30),
+        # Bytes per second; this is intentionally local policy, never a
+        # protocol field negotiated with Home Assistant.
+        cv.Optional(CONF_VIDEO_MAX_BANDWIDTH, default=256000): cv.positive_int,
     }
-).extend(cv.polling_component_schema("60s"))
+    ).extend(cv.polling_component_schema("60s")),
+    _validate_snapshot,
+)
 
 
 async def to_code_entity_ref(hub_var, conf):
@@ -440,3 +459,7 @@ async def to_code(config):
             cg.add(snapshot.set_unique_id(conf[CONF_UNIQUE_ID]))
             cg.add(snapshot.set_name(conf[CONF_NAME]))
             cg.add(snapshot.set_platform(conf[CONF_PLATFORM]))
+            cg.add(snapshot.set_video(conf[CONF_VIDEO]))
+            cg.add(snapshot.set_video_fps(conf[CONF_VIDEO_FPS]))
+            cg.add(snapshot.set_video_max_bandwidth(conf[CONF_VIDEO_MAX_BANDWIDTH]))
+            cg.add(var.register_device(snapshot))
