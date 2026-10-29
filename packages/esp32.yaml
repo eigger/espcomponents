@@ -1,6 +1,7 @@
 sensor:
   - platform: internal_temperature
     name: "Internal Temperature"
+    id: device_internal_temperature
     update_interval: 5min
     filters:
       - filter_out: nan
