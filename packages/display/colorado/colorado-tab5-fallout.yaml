@@ -1,0 +1,2549 @@
+# Public ESPHome example. Put Wi-Fi and Home Assistant credentials in secrets.yaml.
+substitutions:
+  name: "esp-colorado-tab5"
+  friendly_name: "ESP Colorado TAB5"
+  tab5_panel: ili9881c  # ili9881c, st7123, or st7121; match the rear label.
+  number: "00가 0000"  # Example plate shown at boot.
+  splash_title: "COLORADO"
+  tab5_motion_emphasis: 1
+  # Local phosphor palette. The shared Tab5 package retains its default colors.
+  tab5_color_background: 0x07100B
+  tab5_color_panel_bg: 0x0B160E
+  tab5_color_card_bg: 0x122218
+  tab5_color_card_border: 0x35583C
+  tab5_color_gauge_track: 0x284631
+  tab5_color_text_primary: 0xD4FFCA
+  tab5_color_text_secondary: 0xB9F3AE
+  tab5_color_text_muted: 0x9DC598
+  tab5_color_text_inactive: 0x608D63
+  tab5_color_accent: 0xAEF799
+  tab5_color_status_cold: 0x83D9C9
+  tab5_color_status_cool: 0x97E2B9
+  tab5_color_status_warm: 0xFFD08A
+  tab5_color_status_hot: 0xFF8C84
+  tab5_color_status_ok: 0x83CC72
+  tab5_color_alert_warning: 0x643B0D
+  tab5_color_alert_danger: 0x792A25
+  tab5_color_alert_notice: 0x254E31
+  tab5_color_button_bg: 0x203C28
+  tab5_color_button_pressed: 0x31573B
+  tab5_color_danger_pressed: 0x792A25
+  tab5_color_panel_pressed: 0x1D3525
+  # Replace the example addresses with your local BLE device addresses.
+  mac_vlinker: "02:00:00:00:00:01"
+  mac_cabin_jht: "02:00:00:00:00:02"
+  mac_bed_jht: "02:00:00:00:00:03"
+
+  ui_ascii: ' !"#$%&''()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
+  # Shared by the warning popup and the log. Add characters from external parking text here.
+  ui_alert_hangul: "가감경고과급기낮높능데동력료리미발방배버변부상새속스시압업엔연열오요위유음의이일장전족졸주진충치터트필하험환"
+  ui_extra_glyphs: ""
+
+.helpers:
+  ver: &version !lambda 'return std::string(ESPHOME_PROJECT_VERSION);'
+  card_style: &card_style
+    bg_color: "${tab5_color_card_bg}"
+    border_width: 1
+    border_color: "${tab5_color_card_border}"
+    radius: 12
+    pad_all: 0
+  button_shape: &button_shape
+    radius: 8
+    border_width: 0
+  neutral_button: &neutral_button
+    <<: *button_shape
+    bg_color: "${tab5_color_button_bg}"
+    pressed:
+      bg_color: "${tab5_color_button_pressed}"
+  danger_button: &danger_button
+    <<: *button_shape
+    bg_color: "${tab5_color_status_hot}"
+    pressed:
+      bg_color: "${tab5_color_danger_pressed}"
+
+esphome:
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+  project:
+    name: "eigger.esp-colorado-tab5-fallout"
+    version: "261028.1"
+  # This config intentionally uses YAML anchors with per-instance key overrides
+  # for the reusable terminal widget styles. ESPHome warns on valid overrides.
+  merge_warnings: false
+  on_boot:
+    - then:
+        - script.execute:
+            id: script_logs
+            log: *version
+        - light.turn_on:
+            id: backlight
+            brightness: 40%
+        - lvgl.animation.start: anim_crt_beam
+        - delay: 170ms
+        - lvgl.animation.start:
+            id: [anim_crt_raster, anim_splash_terminal, anim_crt_scan]
+        - delay: 210ms
+        - lambda: id(script_splash_stage).execute(18, id(obj_splash_stage_system));
+        - delay: 650ms
+        - lambda: id(script_splash_stage).execute(42, id(obj_splash_stage_network));
+        - delay: 650ms
+        - lambda: id(script_splash_stage).execute(76, id(obj_splash_stage_dash));
+        - delay: 650ms
+        - lambda: id(script_splash_stage).execute(100, id(obj_splash_stage_ready));
+        - delay: 520ms
+        - lvgl.page.show: main_page
+        - lvgl.widget.show:
+            id: obj_header
+        - lambda: id(tab5_motion_fade)(id(obj_splash), LV_OPA_COVER, LV_OPA_0, 200);
+        - delay: 200ms
+        - lvgl.widget.hide:
+            id: obj_splash
+        - lambda: id(tab5_motion_start)();
+
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: Asia/Seoul
+    servers:
+      - 0.pool.ntp.org
+      - 1.pool.ntp.org
+      - 2.pool.ntp.org
+    on_time_sync:
+      then:
+        - lvgl.widget.show:
+            id: lbl_date
+        - lvgl.widget.show:
+            id: lbl_time
+        - lambda: id(script_logs).execute("NTP Time Synced");
+
+ws_bridge:
+  host: !secret ha_address
+  port: 443
+  ssl: true
+  token: !secret ha_token
+  gateway_id: "${name}"
+  name: "${friendly_name}"
+  model: "Tab5"
+  manufacturer: "M5Stack"
+  hw_version: *version
+  keep_last_state_on_disconnect: true
+  sync_entities: true
+  on_connected:
+    then:
+      - lambda: |-
+          id(script_logs).execute("ws_bridge Connected");
+  on_disconnected:
+    then:
+      - lambda: id(script_logs).execute("ws_bridge Disconnected");
+  trackers:
+    - name: "${friendly_name} Tracker"
+      unique_id: "${name}_tracker"
+      report_unknown: false
+      latitude: !lambda 'return id(id_gps_latitude).state;'
+      longitude: !lambda 'return id(id_gps_longitude).state;'
+      gps_accuracy: !lambda |-
+        float h = id(id_gps_hdop).state;
+        return isnan(h) ? 10.0f : (h * 2.5f);
+      update_interval: 10s
+      icon: "mdi:crosshairs-gps"
+  entities:
+    - source_id: wifi_sig
+    - source_id: fuel_level
+    #- source_id: throttle
+    - source_id: engine_rpm
+    #- source_id: engine_load
+    - source_id: car_speed
+    #- source_id: car_acceleration
+    #- source_id: gear_position
+    #- source_id: prnd_status_alt
+    #- source_id: actual_torque
+    #- source_id: car_battery_soc
+    - source_id: engine_oil_pressure
+    - source_id: transmission_temperature
+    - source_id: ambient_air_temperature
+    - source_id: engine_coolant_temperature
+    - source_id: car_battery
+    - source_id: odometer
+    - source_id: trip_distance
+    - source_id: id_sgp30_eco2
+    - source_id: id_sgp30_tvoc
+    - source_id: id_scd40_co2
+    - source_id: id_scd40_temperature
+    - source_id: id_scd40_humidity
+    - source_id: id_tab5_internal_temperature
+    - source_id: id_cabin_temperature
+    - source_id: id_cabin_humidity
+    - source_id: id_cabin_battery_level
+    - source_id: id_bed_temperature
+    - source_id: id_bed_humidity
+    - source_id: id_bed_battery_level
+    - source_id: engine_run_time
+    - source_id: gm_fuel_level_liters
+    # - source_id: id_pm1_0
+    # - source_id: id_pm2_5
+    # - source_id: id_pm10_0
+    - source_id: id_gps_speed
+    - source_id: id_gps_altitude
+    - source_id: id_gps_satellites
+    #- source_id: id_gps_hdop
+    - source_id: id_gnss_bmp280_temperature
+    - source_id: id_gnss_bmp280_pressure
+    - source_id: id_elm_reconnect_count
+    - source_id: id_elm_last_error
+
+
+    - source_id: id_elm_timeouts
+    - source_id: id_elm_error_responses
+    - source_id: id_elm_no_data_responses
+    - source_id: id_elm_write_failures
+    - source_id: id_elm_response_time
+
+# api:
+#   batch_delay: 1s
+#   reboot_timeout: 0s
+
+wifi:
+  networks:
+    - ssid: !secret colorado_wifi_ssid
+      password: !secret colorado_wifi_password
+      priority: 10
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
+      priority: 5
+
+  on_connect:
+    then:
+      - lambda: id(script_logs).execute("Wifi Connected");
+      - lambda: id(tab5_motion_visible)(id(lbl_wifi), true, 165);
+  on_disconnect:
+    then:
+      - lambda: id(script_logs).execute("Wifi Disconnected");
+      - lambda: id(tab5_motion_visible)(id(lbl_wifi), false, 120);
+
+external_components:
+  - source: github://eigger/espcomponents
+    components: [jaalee_jht, ble_elm327, ws_bridge]
+    refresh: always
+
+#esp32_ble_tracker:
+#  on_ble_manufacturer_data_advertise:
+#    - manufacturer_id: 035D
+#      then:
+#        - lambda: |-
+#            std::string hex_string;
+#            for (auto b : x) {
+#              char buf[4];
+#              sprintf(buf, "%02X ", b);
+#              hex_string += buf;
+#            }
+#            id(script_logs).execute(hex_string);
+#            id(manufacturer_data).publish_state(hex_string);
+#            if (x.size() != 14) return;
+#            char buf[24];
+#            sprintf(buf, "%02d-%02d %02d:%02d B%d %c%c", x[7], x[8], x[9], x[10], 0xFF - x[11] + 1, x[12], x[13]);
+#            std::string info = std::string(buf);
+#            id(parking_info).publish_state(info);
+
+ble_client:
+  - mac_address: ${mac_vlinker}
+    id: obd_client
+    on_connect:
+      then:
+        - lambda: id(tab5_motion_visible)(id(lbl_bluetooth), true, 165);
+        - lambda: id(script_logs).execute("OBD BLE Connected");
+    on_disconnect:
+      then:
+        - lambda: id(tab5_motion_visible)(id(lbl_bluetooth), false, 120);
+        - script.stop: script_speed_expire
+        - lambda: id(script_render_speed).execute(NAN);
+        - lambda: |-
+            id(g_dashboard_gear) = NAN;
+            id(script_render_prnd).execute("-");
+        - lambda: id(script_logs).execute("OBD BLE Disconnected");
+
+ble_elm327:
+  id: obd_elm
+  ble_client_id: obd_client
+  service_uuid: "18F0"
+  rx_char_uuid: "2AF0"
+  tx_char_uuid: "2AF1"
+  init_commands:
+    - "ATSP6"
+    #- "ATCRA 7E8"
+  tx_delay: 0
+
+#DIP, CORE3, PIN, TAB5
+#PPS
+#2 - G10 - 2 - G16
+#TXD
+#2 - G13 - 23 - G47
+#RXD
+#3 - G14 - 26 - G51
+
+uart:
+#  - id: uart_pm25
+#    rx_pin: GPIO7
+#    tx_pin: GPIO6
+#    baud_rate: 9600
+  - id: uart_gps
+    rx_pin: GPIO51
+    tx_pin: GPIO47
+    baud_rate: 38400
+
+gps:
+  id: id_gps
+  uart_id: uart_gps
+  update_interval: 2s
+  latitude:
+    name: "GPS Latitude"
+    id: id_gps_latitude
+    internal: true
+  longitude:
+    name: "GPS Longitude"
+    id: id_gps_longitude
+    internal: true
+  altitude:
+    name: "GPS Altitude"
+    id: id_gps_altitude
+    internal: true
+  speed:
+    name: "GPS Speed"
+    id: id_gps_speed
+    internal: true
+  satellites:
+    name: "GPS Satellites"
+    id: id_gps_satellites
+    internal: true
+    on_value:
+      then:
+        - lambda: id(tab5_motion_visible)(id(lbl_satellite), x >= 4, 165);
+  hdop:
+    name: "GPS HDOP"
+    id: id_gps_hdop
+    internal: true
+
+globals:
+  - id: alert_dismissed
+    type: bool
+    initial_value: 'false'
+  - id: g_logs
+    type: std::vector<std::string>
+    restore_value: no
+    initial_value: ''
+  - id: g_initial_odometer
+    type: float
+    initial_value: '-1.0'
+  - id: g_roll_offset
+    type: float
+    restore_value: yes
+    initial_value: '0.0'
+  - id: g_pitch_offset
+    type: float
+    restore_value: yes
+    initial_value: '0.0'
+  - id: g_logs_visible
+    type: bool
+    initial_value: 'false'
+  - id: g_dashboard_gear
+    type: float
+    initial_value: 'NAN'
+  # ── 발전기 저전압 지속시간 추적 (RVC 연비모드 오탐 방지: 순간전압이 아닌 지속시간으로 실고장 판정)
+  - id: alt_low_since_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: fn_readout_text
+    type: "std::string (*)(float, int)"
+    initial_value: |-
+      +[](float value, int decimals) -> std::string {
+        if (!std::isfinite(value)) return "--";
+        char text[16];
+        snprintf(text, sizeof(text), "%.*f", decimals, value);
+        return text;
+      }
+  # ── 계기판 상태 색상 ──
+  - id: fn_state_color
+    type: "std::function<lv_color_t(float, int)>"
+    initial_value: |-
+      [](float val, int mode) -> lv_color_t {
+         const auto unavailable   = lv_color_hex(${tab5_color_text_muted});
+         const auto cold    = lv_color_hex(${tab5_color_status_cold});
+         const auto cool    = lv_color_hex(${tab5_color_status_cool});
+         const auto normal  = lv_color_hex(${tab5_color_text_primary});
+         const auto active  = lv_color_hex(${tab5_color_accent});
+         const auto danger  = lv_color_hex(${tab5_color_status_hot});
+         const auto warning = lv_color_hex(${tab5_color_status_warm});
+
+         if (isnan(val)) return unavailable;
+
+         if (mode == 1 || mode == 2) { // 실내 온도
+           if (val < 10)  return cold;
+           else if (val < 18) return cool;
+           else if (val <= 26) return normal;
+           else if (val <= 31) return warning;
+           return danger;
+         } else if (mode == 3) { // 실내 습도
+           if (val < 25) return danger;
+           else if (val < 40) return warning;
+           else if (val <= 60) return normal;
+           else if (val <= 75) return cool;
+           return cold;
+         } else if (mode == 15) { // 적재함 온도
+           if (val < 0)  return cold;
+           else if (val < 10) return cool;
+           else if (val <= 30) return normal;
+           else if (val <= 40) return warning;
+           return danger;
+         } else if (mode == 16) { // 적재함 습도
+           if (val < 15) return danger;
+           else if (val < 30) return warning;
+           else if (val <= 70) return normal;
+           else if (val <= 85) return cool;
+           return cold;
+         } else if (mode == 5) { // 냉각수
+           if (val < 60) {
+             // 워밍업 10분 이후 지속 저온만 냉온 표시
+             float rt = id(engine_run_time).state;
+             return (!isnan(rt) && rt >= 600) ? cold : normal;
+           }
+           else if (val < 95) return normal;
+           else if (val < 110) return warning;
+           return danger;
+         } else if (mode == 6) { // 연료
+           if (val > 30) return active;
+           else if (val > 15) return warning;
+           return danger;
+         } else if (mode == 7 || mode == 20) { // 전압과 충전율/잔량 카드의 공통 기준
+           const bool is_soc = mode == 20;
+           const float voltage = is_soc ? id(car_battery).state : val;
+           if (isnan(voltage) || voltage <= 5.0f) return unavailable;
+           const auto normal_color = is_soc ? active : normal;
+           const bool engine_on = id(engine_rpm).state >= 400.0f;
+           if (engine_on) {
+             if (voltage < 12.8f) {
+               // RVC 연비모드의 순간 저전압과 3분 이상 지속되는 미충전을 구분한다.
+               const bool sustained = id(alt_low_since_ms) != 0 &&
+                                      esphome::millis() - id(alt_low_since_ms) >= 180000;
+               return sustained ? danger : warning;
+             }
+             if (voltage < 13.2f) return warning;
+             if (voltage <= 14.85f) return normal_color;
+             return voltage <= 15.0f ? warning : danger;
+           }
+           if (voltage < 11.8f) return danger;
+           if (voltage < 12.0f) return warning;
+           return voltage <= 13.5f ? normal_color : danger;
+         } else if (mode == 8) { // RPM
+           if (val > 3500) return danger;
+           else if (val > 2500) return warning;
+           return active;
+         } else if (mode == 9) { // 엔진 부하 %
+           if (val > 95) return danger;
+           else if (val > 75) return warning;
+           return active;
+         } else if (mode == 10) { // Speed (분리 수정)
+           if (val > 120) return danger;
+           else if (val > 110) return warning;
+           else if (val > 100) return active;
+           return normal;
+         } else if (mode == 11) { // 운행시간 (초)
+           if (val < 3600) return normal;
+           if (val < 7200) return warning;
+           return danger;
+         } else if (mode == 12) { // TVOC — 경고 팝업 기준(3333=환기 필요)과 일치, 팝업이 red를 안 쓰므로 카드도 orange까지만
+           if (val > 3333) return warning;
+           return normal;
+         } else if (mode == 13) { // CO2 — 경고 팝업 기준과 일치 (1500=졸음 주의, 2500=졸음 경고)
+           if (val > 2500) return danger;
+           else if (val > 1500) return warning;
+           return normal;
+         } else if (mode == 14) { // 오일 압력 (3.6L V6 공회전 15~25 PSI, 주행 40~60 PSI)
+           bool engine_on = !isnan(id(engine_rpm).state) && id(engine_rpm).state >= 400.0f;
+           if (!engine_on) return unavailable;
+           float rpm = id(engine_rpm).state;
+           if (rpm >= 1000.0f) {
+             if (val < 18 || val > 80) return danger;
+             else if (val < 25) return warning;
+             return active;
+           } else {
+             if (val < 10 || val > 80) return danger;
+             else if (val < 15) return warning;
+             return active;
+           }
+         } else if (mode == 17) { // 흡기온도 — 엔진룸 흡기 공기 기준
+           if (val <= 45) return normal;
+           else if (val <= 60) return warning;
+           return danger;
+         } else if (mode == 18) { // 변속기(미션) 오일 온도 — 냉각수보다 정상 운용범위 높음
+           if (val < 50) {
+             // 워밍업 15분 이후 지속 저온만 냉온 표시
+             float rt = id(engine_run_time).state;
+             return (!isnan(rt) && rt >= 900) ? cold : normal;
+           }
+           else if (val <= 110) return normal;
+           else if (val <= 130) return warning;
+           return danger;
+         } else if (mode == 19) { // 운행거리 (km)
+           if (val <= 150) return normal;
+           else if (val <= 300) return warning;
+           return danger;
+         }
+         return normal;
+      }
+
+binary_sensor:
+  - platform: gpio
+    id: id_gps_pps
+    name: "GPS PPS"
+    pin:
+      number: GPIO16
+      mode:
+        input: true
+        pulldown: true
+    internal: true
+
+sensor:
+  - platform: jaalee_jht
+    mac_address: ${mac_cabin_jht}
+    temperature:
+      id: "id_cabin_temperature"
+      name: "Cabin Temperature"
+      internal: true
+      on_value:
+        then:
+          - lambda: id(script_render_readout).execute(id(lbl_cabin_temperature), id(widget_img_cabin_temp), x, 2, 1, 155);
+    humidity:
+      id: "id_cabin_humidity"
+      name: "Cabin Humidity"
+      internal: true
+      on_value:
+        then:
+          - lambda: id(script_render_readout).execute(id(lbl_cabin_humidity), id(widget_img_cabin_humidity), x, 3, 1, 155);
+    battery_level:
+      id: "id_cabin_battery_level"
+      name: "Cabin Battery Level"
+      internal: true
+  - platform: jaalee_jht
+    mac_address: ${mac_bed_jht}
+    temperature:
+      id: "id_bed_temperature"
+      name: "Bed Temperature"
+      internal: true
+      on_value:
+        then:
+          - lambda: id(script_render_readout).execute(id(lbl_bed_temperature), id(widget_img_bed_temp), x, 15, 1, 155);
+    humidity:
+      id: "id_bed_humidity"
+      name: "Bed Humidity"
+      internal: true
+      on_value:
+        then:
+          - lambda: id(script_render_readout).execute(id(lbl_bed_humidity), id(widget_img_bed_humidity), x, 16, 1, 155);
+    battery_level:
+      id: "id_bed_battery_level"
+      name: "Bed Battery Level"
+      internal: true
+  - platform: ble_elm327
+    reconnect_count:
+      name: "ELM327 Reconnects"
+      id: id_elm_reconnect_count
+    timeout_count:
+      name: "ELM327 Timeouts"
+      id: id_elm_timeouts
+    error_count:
+      name: "ELM327 Error Responses"
+      id: id_elm_error_responses
+    no_data_count:
+      name: "ELM327 NO DATA Responses"
+      id: id_elm_no_data_responses
+    write_failure_count:
+      name: "ELM327 Write Failures"
+      id: id_elm_write_failures
+    response_time:
+      name: "ELM327 Response Time"
+      id: id_elm_response_time
+  - platform: ble_elm327
+    id: "engine_run_time"
+    name: "Engine Run Time"
+    preset: run_time
+    update_interval: 5s
+    internal: true
+  - platform: ble_elm327
+    id: "engine_coolant_temperature"
+    name: "Engine Coolant Temperature"
+    preset: coolant_temp
+    update_interval: 10s
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(script_render_readout).execute(id(lbl_engine_coolant_temperature), id(widget_img_coolant), x, 5, 0, 0);
+            const bool hot = std::isfinite(x) && x > 110.0f;
+            id(tab5_motion_visible)(id(obj_scan_hood_hot), hot, 150);
+            lv_obj_set_style_bg_color(id(obj_scan_engine_node),
+                lv_color_hex(hot ? ${tab5_color_status_hot} : ${tab5_color_accent}), LV_PART_MAIN);
+  - platform: ble_elm327
+    id: "fuel_level"
+    name: "Fuel Level"
+    preset: fuel_level
+    update_interval: 30s
+    internal: true
+    filters:
+      - median:
+          window_size: 5
+          send_every: 1
+          send_first_at: 1
+      - delta: 0.5
+    on_value:
+      then:
+        - lambda: |-
+            id(script_render_gauge).execute(id(lbl_fuel_level), id(bar_fuel), id(widget_img_fuel), x, 6, 400, false);
+  - platform: ble_elm327
+    id: "gm_fuel_level_liters"
+    name: "Fuel Level Liters"
+    preset: gm_fuel_level_liters
+    update_interval: 30s
+    internal: true
+  - platform: ble_elm327
+    id: "throttle"
+    name: "Throttle Position"
+    preset: throttle
+    update_interval: 1s
+    internal: true
+  - platform: ble_elm327
+    id: "intake_air_temperature"
+    name: "Intake Air Temperature"
+    preset: intake_air_temp
+    update_interval: 10s
+    internal: true
+    on_value:
+      then:
+        - lambda: id(script_render_readout).execute(id(lbl_intake_temp_display), id(widget_img_intake), x, 17, 0, 0);
+  - platform: ble_elm327
+    id: "ambient_air_temperature"
+    name: "Ambient Air Temperature"
+    preset: ambient_temp
+    update_interval: 30s
+    internal: true
+  - platform: ble_elm327
+    id: "car_battery"
+    name: "Car Battery"
+    preset: battery_voltage
+    update_interval: 10s
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(script_render_readout).execute(id(lbl_car_battery), id(widget_img_battery),
+                                              x <= 5.0f ? NAN : x, 7, 1, 0);
+        - lambda: |-
+            if (isnan(x) || x <= 5.0f) {
+              id(car_battery_soc).publish_state(NAN);
+              return;
+            }
+            float soc = 0.0f;
+            bool engine_on = !isnan(id(engine_rpm).state) && id(engine_rpm).state >= 400.0f;
+            // 발전기 저전압 지속시간 추적: 시동 중 12.8V 미만이 시작된 시각을 기록, 벗어나면 리셋
+            if (engine_on && x < 12.8f) {
+              if (id(alt_low_since_ms) == 0) id(alt_low_since_ms) = esphome::millis();
+            } else {
+              id(alt_low_since_ms) = 0;
+            }
+            if (engine_on) {
+              // 시동 중: 알터네이터 충전 강도/충전율 (12.8V ~ 15.0V -> 0% ~ 100%, mode 7 정상 상한과 정렬)
+              if (x <= 12.8f) soc = 0.0f;
+              else soc = (x - 12.8f) / 2.2f * 100.0f;
+            } else {
+              // 시동 전: 12V 배터리 자체 잔량 (11.7V ~ 12.7V -> 0% ~ 100%)
+              if (x <= 11.7f) soc = 0.0f;
+              else if (x <= 12.7f) soc = (x - 11.7f) / 1.0f * 100.0f;
+              else if (x <= 13.5f) soc = 100.0f;
+              else soc = 100.0f + (x - 13.5f) * 50.0f;
+            }
+            if (soc > 120.0f) soc = 120.0f;
+            if (soc < 0.0f) soc = 0.0f;
+            id(car_battery_soc).publish_state(soc);
+
+  - platform: template
+    id: "car_battery_soc"
+    name: "Car Battery SOC"
+    icon: mdi:battery-charging
+    unit_of_measurement: "%"
+    state_class: "measurement"
+    accuracy_decimals: 0
+    internal: true
+    update_interval: never
+    on_value:
+      then:
+        - lambda: |-
+            const bool engine_on = id(engine_rpm).state >= 400.0f;
+            const char *title = engine_on ? "충전율" : "잔량";
+            const bool changed = std::strcmp(lv_label_get_text(id(lbl_battery_title)), title) != 0;
+            if (changed) lv_label_set_text(id(lbl_battery_title), title);
+            id(script_render_gauge).execute(id(lbl_battery_soc), id(bar_battery_soc), id(widget_img_battery_soc),
+                                            x, 20, 375, changed && engine_on);
+  - platform: ble_elm327
+    id: "engine_rpm"
+    name: "Engine RPM"
+    preset: rpm
+    update_interval: 1s
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(script_render_gauge).execute(id(lbl_engine_rpm_left), id(bar_engine_rpm), id(widget_img_rpm), x, 8, 200, false);
+  - platform: ble_elm327
+    id: "engine_load"
+    name: "Engine Load"
+    preset: engine_load
+    update_interval: 1s
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(script_render_gauge).execute(id(lbl_engine_load_left), id(bar_engine_load), id(widget_img_load), x, 9, 220, false);
+  - platform: ble_elm327
+    id: "car_speed"
+    name: "Car Speed"
+    preset: speed
+    update_interval: 1s
+    internal: true
+    filters:
+      - lambda: |-
+          if (x >= 255) return {};
+          return x;
+    on_value:
+      then:
+        - lambda: |-
+            if (!id(obd_client).connected()) return;
+            id(script_render_speed).execute(x);
+            if (std::isfinite(x)) id(script_speed_expire).execute();
+            else id(script_speed_expire).stop();
+        - lambda: |-
+            if (!isnan(x)) {
+              static float old_speed = 0.0f;
+              static uint32_t timer = esphome::millis();
+              if (esphome::millis() - timer > 1000) {
+                float acc = x - old_speed;
+                id(car_acceleration).publish_state(acc);
+                old_speed = x;
+                timer = esphome::millis();
+              }
+            }
+
+  - platform: template
+    id: "car_acceleration"
+    name: "Car Acceleration"
+    icon: mdi:speedometer
+    state_class: "measurement"
+    unit_of_measurement: km/h/s
+    update_interval: never
+    internal: true
+
+  - platform: ble_elm327
+    id: "odometer"
+    name: "Odometer"
+    preset: odometer
+    update_interval: 30s
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (!isnan(x) && x > 0) {
+              if (id(g_initial_odometer) < 0) {
+                id(g_initial_odometer) = x;
+              }
+              float trip = x - id(g_initial_odometer);
+              id(trip_distance).publish_state(trip);
+            }
+  - platform: template
+    id: "trip_distance"
+    name: "Trip Distance"
+    icon: mdi:map-marker-distance
+    state_class: "measurement"
+    unit_of_measurement: "km"
+    device_class: "distance"
+    accuracy_decimals: 0
+    internal: true
+    update_interval: never
+    on_value:
+      then:
+        - lambda: id(script_render_readout).execute(id(lbl_trip_distance), id(widget_img_trip), x, 19, 0, 0);
+
+  - platform: ble_elm327
+    id: "gear_position"
+    name: "Gear Position"
+    preset: gm_current_gear
+    update_interval: 1s
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(g_dashboard_gear) = x;
+            id(script_render_gear).execute(true);
+
+  - platform: ble_elm327
+    id: "prnd_status_alt"
+    name: "PRND Status"
+    preset: gm_prnd_status_alt
+    update_interval: 1s
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            const char *text = "-";
+            if (std::isfinite(x)) {
+              switch ((int)x) {
+                case 8: text = "P"; break;
+                case 7: text = "R"; break;
+                case 6: text = "N"; break;
+                case 18: text = "D"; break;
+                default: text = "L"; break;
+              }
+            }
+            id(script_render_prnd).execute(text);
+
+  - platform: ble_elm327
+    id: "actual_torque"
+    name: "Actual Torque"
+    preset: actual_torque
+    update_interval: 10s
+    internal: true
+
+  - platform: ble_elm327
+    id: "engine_oil_pressure"
+    name: "Engine Oil Pressure"
+    preset: gm_oil_pressure
+    update_interval: 2s
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(script_render_gauge).execute(id(lbl_oil_pressure), id(bar_oil_pressure), id(widget_img_oil_pressure), x, 14, 235, false);
+
+  - platform: ble_elm327
+    id: "transmission_temperature"
+    name: "Transmission Fluid Temperature"
+    preset: gm_trans_temp
+    update_interval: 10s
+    internal: true
+    on_value:
+      then:
+        - lambda: id(script_render_readout).execute(id(lbl_transmission_temperature), id(widget_img_trans_temp), x, 18, 0, 0);
+
+  - platform: sgp30
+    i2c_id: ext_bus
+    update_interval: 1s
+    eco2:
+      name: "eCO2"
+      id: id_sgp30_eco2
+      accuracy_decimals: 1
+      internal: true
+    tvoc:
+      name: "TVOC"
+      id: id_sgp30_tvoc
+      accuracy_decimals: 1
+      internal: true
+      on_value:
+        then:
+          - lambda: id(script_render_readout).execute(id(lbl_cabin_tvoc), id(widget_img_cabin_tvoc), x, 12, 0, 0);
+    store_baseline: yes
+    address: 0x58
+
+  - platform: scd4x
+    i2c_id: ext_bus
+    update_interval: 1s
+    co2:
+      name: "CO2"
+      id: id_scd40_co2
+      accuracy_decimals: 1
+      internal: true
+      on_value:
+        then:
+          - lambda: id(script_render_readout).execute(id(lbl_cabin_co2), id(widget_img_cabin_co2), x, 13, 0, 0);
+
+    temperature:
+      name: "SCD Temperature"
+      id: id_scd40_temperature
+      internal: true
+    humidity:
+      name: "SCD Humidity"
+      id: id_scd40_humidity
+      internal: true
+
+  # ── PM2.5 Base (PMSA003)
+  #- platform: gpio
+  #  id: pm25_sensor_enable
+  #  name: "PM2.5 Sensor Enable"
+  #  pin: GPIO48
+  #  restore_mode: ALWAYS_ON
+  #  internal: true
+  # - platform: pmsx003
+  #   type: PMSX003
+  #   uart_id: uart_pm25
+  #   pm_1_0:
+  #     name: "PM1.0"
+  #     id: id_pm1_0
+  #     internal: true
+  #   pm_2_5:
+  #     name: "PM2.5"
+  #     id: id_pm2_5
+  #     internal: true
+  #   pm_10_0:
+  #     name: "PM10.0"
+  #     id: id_pm10_0
+  #     internal: true
+
+  # ── GNSS Module (BMP280)
+  - platform: bmp280_i2c
+    i2c_id: bsp_bus
+    address: 0x76
+    temperature:
+      name: "GNSS BMP280 Temperature"
+      id: id_gnss_bmp280_temperature
+      internal: true
+    pressure:
+      name: "GNSS BMP280 Pressure"
+      id: id_gnss_bmp280_pressure
+      internal: true
+
+  # ── GNSS Module (BMI270 at 0x69)
+  #- platform: bmi270
+  #  i2c_id: bsp_bus
+  #  address: 0x69
+  #  accel_x:
+  #    name: "GNSS BMI270 Accel X"
+  #    id: id_gnss_bmi270_accel_x
+  #    internal: true
+  #  accel_y:
+  #    name: "GNSS BMI270 Accel Y"
+  #    id: id_gnss_bmi270_accel_y
+  #    internal: true
+  #  accel_z:
+  #    name: "GNSS BMI270 Accel Z"
+  #    id: id_gnss_bmi270_accel_z
+  #    internal: true
+  #  gyro_x:
+  #    name: "GNSS BMI270 Gyro X"
+  #    internal: true
+  #  gyro_y:
+  #    name: "GNSS BMI270 Gyro Y"
+  #    internal: true
+  #  gyro_z:
+  #    name: "GNSS BMI270 Gyro Z"
+  #    internal: true
+  #  temperature:
+  #    name: "GNSS BMI270 Temperature"
+  #    internal: true
+
+  - platform: template
+    name: "Roll"
+    id: id_device_roll
+    icon: "mdi:rotate-left"
+    unit_of_measurement: "°"
+    accuracy_decimals: 1
+    state_class: measurement
+    update_interval: 200ms
+    internal: true
+    filters:
+      - sliding_window_moving_average:
+          window_size: 5
+          send_every: 1
+    lambda: |-
+      float ax = id(id_bmi270_accel_x).state;
+      float ay = id(id_bmi270_accel_y).state;
+      float az = id(id_bmi270_accel_z).state;
+      if (isnan(ax) || isnan(ay) || isnan(az)) return NAN;
+      float raw = atan2(-ay, sqrt(ax*ax + az*az)) * 180.0f / (float)M_PI;
+      return raw - id(g_roll_offset);
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: lbl_roll_value
+            text: &tilt_text !lambda |-
+              if (isnan(x)) return std::string("--");
+              char buf[12]; snprintf(buf, sizeof(buf), "%+.1f°", x); return std::string(buf);
+        - script.execute: script_render_pose
+        - lvgl.label.update:
+            id: lbl_roll_title
+            text_color: !lambda |-
+              return (std::abs(id(g_roll_offset)) > 0.0001f) ? lv_color_hex(${tab5_color_accent}) : lv_color_hex(${tab5_color_text_muted});
+
+  - platform: template
+    name: "Pitch"
+    id: id_device_pitch
+    icon: "mdi:rotate-right"
+    unit_of_measurement: "°"
+    accuracy_decimals: 1
+    state_class: measurement
+    update_interval: 200ms
+    internal: true
+    filters:
+      - sliding_window_moving_average:
+          window_size: 5
+          send_every: 1
+    lambda: |-
+      float ax = id(id_bmi270_accel_x).state;
+      float ay = id(id_bmi270_accel_y).state;
+      float az = id(id_bmi270_accel_z).state;
+      if (isnan(ax) || isnan(ay) || isnan(az)) return NAN;
+      float raw = atan2(-az, sqrt(ax*ax + ay*ay)) * 180.0f / (float)M_PI;
+      return raw - id(g_pitch_offset);
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: lbl_pitch_value
+            text: *tilt_text
+        - script.execute: script_render_pose
+        - lvgl.label.update:
+            id: lbl_pitch_title
+            text_color: !lambda |-
+              return (std::abs(id(g_pitch_offset)) > 0.0001f) ? lv_color_hex(${tab5_color_accent}) : lv_color_hex(${tab5_color_text_muted});
+
+interval:
+  # ── 경고 팝업 제어 (1초 주기) ──
+  - interval: 1s
+    then:
+      - lambda: |-
+          constexpr uint32_t warning = ${tab5_color_alert_warning};
+          constexpr uint32_t danger = ${tab5_color_alert_danger};
+          constexpr uint32_t notice = ${tab5_color_alert_notice};
+          std::string msg;
+          uint32_t color_hex = warning;
+          const auto set_alert = [&](const char *text, uint32_t color) {
+            msg = text;
+            color_hex = color;
+          };
+
+          float bat = id(car_battery).state;
+          float rpm = id(engine_rpm).state;
+          bool engine_on = !isnan(rpm) && rpm >= 400.0f;
+          bool bat_valid = !isnan(bat) && bat > 5.0f;
+
+          if (!isnan(id(engine_coolant_temperature).state) && id(engine_coolant_temperature).state > 110) {
+            set_alert("엔진 과열!", danger);
+          } else if (!isnan(id(transmission_temperature).state) && id(transmission_temperature).state > 130) {
+            set_alert("변속기 과열!", danger);
+          } else if (engine_on && !isnan(id(engine_oil_pressure).state) && (
+                     (rpm >= 1000.0f && (id(engine_oil_pressure).state < 18 || id(engine_oil_pressure).state > 80)) ||
+                     (rpm < 1000.0f && (id(engine_oil_pressure).state < 10 || id(engine_oil_pressure).state > 80))
+                   )) {
+            set_alert("오일 압력 위험!", danger);
+          } else if (!isnan(id(car_speed).state) && id(car_speed).state > 120) {
+            set_alert("과속 위험!", danger);
+          } else if (!isnan(id(car_speed).state) && id(car_speed).state > 110) {
+            set_alert("과속 주의!", warning);
+          } else if (!isnan(id(id_scd40_co2).state) && id(id_scd40_co2).state > 2500) {
+            set_alert("졸음 경고!", danger);
+          } else if (!isnan(id(id_scd40_co2).state) && id(id_scd40_co2).state > 1500) {
+            set_alert("졸음 주의!", warning);
+          } else if (!isnan(id(id_sgp30_tvoc).state) && id(id_sgp30_tvoc).state > 5000) {
+            set_alert("가스 주의!", warning);
+          } else if (!isnan(id(id_sgp30_tvoc).state) && id(id_sgp30_tvoc).state > 3333) {
+            set_alert("환기 필요!", warning);
+          } else if (!isnan(id(car_acceleration).state) && id(car_acceleration).state > 9.0) {
+            set_alert("급가속!", danger);
+          } else if (!isnan(id(car_acceleration).state) && id(car_acceleration).state < -9.0) {
+            set_alert("급감속!", danger);
+          } else if (!isnan(id(engine_load).state) && id(engine_load).state > 95) {
+            set_alert("엔진 과부하!", warning);
+          } else if (!isnan(id(id_tab5_internal_temperature).state) && id(id_tab5_internal_temperature).state > 70) {
+            set_alert("장치 과열!", danger);
+          } else if (bat_valid && engine_on && bat < 12.8f && id(alt_low_since_ms) != 0 && (esphome::millis() - id(alt_low_since_ms) >= 180000)) {
+            set_alert("발전기 미충전!", danger);
+          } else if (bat_valid && engine_on && bat > 15.0f) {
+            set_alert("배터리 과충전!", danger);
+          } else if (bat_valid && !engine_on && bat < 11.8f) {
+            set_alert("배터리 방전 위험!", danger);
+          } else if (bat_valid && !engine_on && bat > 13.5f) {
+            set_alert("시동전 전압 이상!", danger);
+          } else if (bat_valid && engine_on && bat < 13.2f) {
+            set_alert("충전전압 낮음!", warning);
+          } else if (bat_valid && engine_on && bat > 14.85f) {
+            set_alert("충전전압 높음!", warning);
+          } else if (bat_valid && !engine_on && bat < 12.0f) {
+            set_alert("배터리 전압 낮음!", warning);
+          } else if (!isnan(id(fuel_level).state) && id(fuel_level).state < 8) {
+            set_alert("연료 부족 (주유 시급)!", danger);
+          } else if (!isnan(id(fuel_level).state) && id(fuel_level).state < 15) {
+            set_alert("주유 필요!", warning);
+          } else if (id(parking_info).has_state() && id(parking_info).state.length() > 0 && id(parking_info).state != "unknown" && id(parking_info).state != "off") {
+            msg = id(parking_info).state;
+            color_hex = notice;
+          }
+
+          // New vehicle warnings and parking notices can reopen a dismissed popup.
+          static std::string last_msg;
+          if (msg != last_msg) {
+            id(alert_dismissed) = false;
+            id(script_logs).execute(msg.empty() ? "ALERT: Cleared" : "ALERT: " + msg);
+            last_msg = msg;
+          }
+
+          const bool show_popup = !msg.empty() && !id(alert_dismissed);
+          const bool urgent = show_popup && color_hex != notice;
+          id(tab5_motion_notice_active) = urgent;
+          const char *level = color_hex == danger ? "경고" : color_hex == notice ? "안내" : "주의";
+
+          auto *popup = id(popup_alert);
+          if (!show_popup) {
+            id(tab5_motion_visible)(popup, false, 0);
+            return;
+          }
+
+          const bool reopening = lv_obj_has_flag(popup, LV_OBJ_FLAG_HIDDEN);
+          const auto color = lv_color_hex(color_hex);
+          if (!reopening && msg == lv_label_get_text(id(lbl_alert_msg)) &&
+              std::strcmp(level, lv_label_get_text(id(lbl_alert_title))) == 0 &&
+              lv_color_eq(color, lv_obj_get_style_bg_color(popup, LV_PART_MAIN))) return;
+
+          lv_label_set_text(id(lbl_alert_title), level);
+          lv_label_set_text(id(lbl_alert_msg), msg.c_str());
+          lv_obj_set_style_bg_color(popup, color, LV_PART_MAIN);
+          id(tab5_motion_visible)(popup, true, urgent ? 0 : 185);
+          if (urgent) {
+            id(tab5_motion_fade)(popup, LV_OPA_COVER, LV_OPA_COVER, 0);
+            id(tab5_motion_outline)(popup, 200);
+          }
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP"
+      icon: mdi:ip-outline
+  - platform: template
+    name: "Time"
+    internal: true
+    update_interval: 1s
+    lambda: |-
+      char buf[20];
+      auto time = id(sntp_time).now();
+      sprintf(buf, "%02d:%02d", time.hour, time.minute);
+      return std::string(buf);
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: lbl_time
+            text: !lambda return x;
+  - platform: template
+    name: "Date"
+    internal: true
+    update_interval: 1s
+    lambda: |-
+      char buf[20];
+      auto time = id(sntp_time).now();
+      int weekday = time.day_of_week - 1;
+      const char* weekdays[] = {"일", "월", "화", "수", "목", "금", "토"};
+      sprintf(buf, "%02d월 %02d일 (%s)", time.month, time.day_of_month, weekdays[weekday]);
+      return std::string(buf);
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: lbl_date
+            text: !lambda return x;
+  - platform: template
+    name: "Manufacturer Data"
+    id: manufacturer_data
+    icon: "mdi:package-variant-closed"
+    internal: true
+  - platform: template
+    name: "Parking Info"
+    id: parking_info
+    icon: "mdi:car"
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (x.length() > 0 && x != "unknown" && x != "off") {
+              id(alert_dismissed) = false;
+            }
+            //id(ws_parking_info).publish_state(x);
+#  - platform: ws_bridge
+#    id: ws_parking_info
+#    unique_id: parking_info
+#    name: "Parking Info"
+#    icon: "mdi:car"
+
+  - platform: template
+    name: "Template Engine Run Time"
+    internal: true
+    update_interval: 1s
+    lambda: |-
+      if (isnan(id(engine_run_time).state)) return std::string("--:--");
+      char buf[20];
+      int seconds = (int)id(engine_run_time).state;
+      int minutes = seconds / 60;
+      int hours = minutes / 60;
+      if (hours > 0) sprintf(buf, "%d:%02d:%02d", hours, minutes % 60, seconds % 60);
+      else sprintf(buf, "%02d:%02d", minutes, seconds % 60);
+      return std::string(buf);
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: lbl_engine_run_time
+            text: !lambda return x;
+            text_color: !lambda return id(fn_state_color)(id(engine_run_time).state, 11);
+        - lambda: id(tab5_motion_icon)(id(widget_img_timer), id(fn_state_color)(id(engine_run_time).state, 11), 11, false);
+  - platform: ble_elm327
+    last_error:
+      name: "ELM327 Last Error"
+      id: id_elm_last_error
+
+# Focus Drive dashboard, 1280 × 720 after rotation.
+lvgl:
+  animations:
+    - id: anim_crt_beam
+      duration: 170ms
+      timing: ease_out
+      widgets:
+        - id: obj_splash_crt
+          min_width: { from: 2, to: 1120 }
+          opa: { from: 0%, to: 85% }
+    - id: anim_crt_raster
+      duration: 250ms
+      timing: ease_out
+      widgets:
+        - id: obj_splash_crt
+          min_height: { from: 2, to: 550 }
+          opa: { from: 85%, to: 0% }
+    - id: anim_splash_terminal
+      start_delay: 60ms
+      duration: 390ms
+      timing: ease_out
+      widgets:
+        - id: obj_splash_terminal
+          translate_y: { from: 9, to: 0 }
+          opa: { from: 0%, to: 100% }
+    - id: anim_crt_scan
+      start_delay: 170ms
+      duration: 650ms
+      widgets:
+        - id: obj_splash_scan
+          translate_y: { from: 0, to: 504 }
+          opa: { from: 85%, to: 0% }
+
+  top_layer:
+    widgets:
+      # ── 재시작 팝업 백드롭 ──
+      - obj:
+          id: obj_restart_backdrop
+          hidden: true
+          align: center
+          width: 1280
+          height: 720
+          bg_color: "${tab5_color_shadow}"
+          bg_opa: 50%
+          border_width: 0
+          radius: 0
+          clickable: true
+
+      # ── 재시작 팝업 모달 ──
+      - obj:
+          id: obj_restart_popup
+          hidden: true
+          align: center
+          width: 520
+          height: 310
+          bg_color: "${tab5_color_card_bg}"
+          border_width: 1
+          border_color: "${tab5_color_card_border}"
+          radius: 16
+          pad_all: 20
+          shadow_width: 30
+          shadow_color: "${tab5_color_shadow}"
+          shadow_opa: 50%
+          widgets:
+            - label:
+                text: "시스템 재시작"
+                align: top_mid
+                y: 10
+                text_color: "${tab5_color_accent}"
+                text_font: notosans35
+            - label:
+                text: "시스템을 재시작하시겠습니까?"
+                align: center
+                y: -10
+                text_color: "${tab5_color_text_primary}"
+                text_font: notosans30
+            - button:
+                id: btn_restart_yes
+                align: bottom_left
+                x: 30
+                y: -10
+                width: 190
+                height: 65
+                <<: *danger_button
+                on_click:
+                  then:
+                    - switch.turn_on: sw_restart
+                widgets:
+                  - label:
+                      text: "예"
+                      align: center
+                      text_color: "${tab5_color_text_primary}"
+                      text_font: notosans30
+            - button:
+                id: btn_restart_no
+                align: bottom_right
+                x: -30
+                y: -10
+                width: 190
+                height: 65
+                <<: *neutral_button
+                on_click:
+                  then:
+                    - lambda: |-
+                        id(tab5_motion_visible)(id(obj_restart_backdrop), false, 0);
+                        id(tab5_motion_visible)(id(obj_restart_popup), false, 0);
+                widgets:
+                  - label:
+                      text: "아니오"
+                      align: center
+                      text_color: "${tab5_color_text_primary}"
+                      text_font: notosans30
+
+      # ── 상단 헤더 (경고는 헤더 내부 최상단 레이어) ──
+      - obj:
+          id: obj_header
+          hidden: true
+          bg_color: "${tab5_color_panel_bg}"
+          border_width: 0
+          border_color: "${tab5_color_card_border}"
+          align: top_mid
+          pad_all: 0
+          width: 1280
+          height: 72
+          x: 0
+          y: 0
+          widgets:
+            - button:
+                id: btn_logs_toggle
+                align: left_mid
+                x: 8
+                y: 0
+                width: 68
+                height: 48
+                bg_opa: 0%
+                border_width: 0
+                pad_all: 0
+                outline_width: 0
+                shadow_width: 0
+                shadow_opa: 0%
+                pressed:
+                  bg_color: "${tab5_color_panel_pressed}"
+                  bg_opa: COVER
+                on_click:
+                  then:
+                    - lambda: |-
+                        id(g_logs_visible) = !id(g_logs_visible);
+                        id(tab5_motion_visible)(id(obj_log), id(g_logs_visible), 175);
+                widgets:
+                  - label:
+                      align: center
+                      text: "LOG"
+                      text_font: notosans20
+                      text_color: "${tab5_color_accent}"
+            - image:
+                src: img_wifi
+                <<: &status_icon
+                  hidden: true
+                  image_recolor: "${tab5_color_accent}"
+                  image_recolor_opa: 100%
+                  align: left_mid
+                  y: 0
+                id: lbl_wifi
+                x: 95
+            - image:
+                src: img_bluetooth
+                <<: *status_icon
+                id: lbl_bluetooth
+                x: 160
+            - image:
+                src: img_satellite
+                <<: *status_icon
+                id: lbl_satellite
+                x: 225
+            #- label:
+            #    id: lbl_version
+            #    text: *version
+            #    align: left_mid
+            #    x: 290
+            #    y: 0
+            #    text_color: "${tab5_color_text_muted}"
+            #    text_font: notosans20
+            - label:
+                id: lbl_date
+                hidden: true
+                text: ""
+                align: right_mid
+                x: -135
+                y: 0
+                text_color: "${tab5_color_accent}"
+                text_font: notosans35
+            - label:
+                id: lbl_time
+                hidden: true
+                text: ""
+                align: right_mid
+                x: -10
+                y: 0
+                text_color: "${tab5_color_text_secondary}"
+                text_font: notosans45
+            - button:
+                id: popup_alert
+                hidden: true
+                align: center
+                width: SIZE_CONTENT
+                min_width: 480
+                height: 72
+                bg_color: "${tab5_color_alert_danger}"
+                bg_opa: COVER
+                radius: 14
+                border_width: 1
+                border_color: "${tab5_color_text_primary}"
+                border_opa: 28%
+                pad_all: 8
+                shadow_width: 16
+                shadow_offset_x: 0
+                shadow_offset_y: 6
+                shadow_spread: 0
+                shadow_color: "${tab5_color_shadow}"
+                shadow_opa: 42%
+                outline_width: 1
+                outline_color: "${tab5_color_text_primary}"
+                outline_opa: 0%
+                pressed:
+                  shadow_width: 4
+                  shadow_offset_y: 2
+                  border_opa: 18%
+                on_click:
+                  then:
+                    - lambda: |-
+                        id(alert_dismissed) = true;
+                        id(script_logs).execute("ALERT: Dismissed");
+                        id(tab5_motion_notice_active) = false;
+                        id(tab5_motion_visible)(id(popup_alert), false, 0);
+                widgets:
+                  - image:
+                      id: widget_img_alert
+                      src: img_alert
+                      align: left_mid
+                      x: 8
+                      image_recolor: "${tab5_color_text_primary}"
+                      image_recolor_opa: 100%
+                  - label:
+                      id: lbl_alert_title
+                      text: ""
+                      align: left_mid
+                      x: 56
+                      y: 0
+                      text_color: "${tab5_color_text_primary}"
+                      text_font: font_alert_title
+                  - label:
+                      id: lbl_alert_msg
+                      text: ""
+                      align: left_mid
+                      x: 140
+                      y: 0
+                      text_color: "${tab5_color_text_primary}"
+                      text_font: font_alert_msg
+
+      # CRT power-on and a staged terminal log. The log describes UI startup stages.
+      - obj:
+          id: obj_splash
+          bg_color: "${tab5_color_background}"
+          border_width: 0
+          pad_all: 0
+          align: center
+          width: 1280
+          height: 720
+          scrollable: false
+          widgets:
+            - obj:
+                id: obj_splash_crt
+                align: center
+                width: 2
+                height: 2
+                radius: 0
+                border_width: 0
+                pad_all: 0
+                bg_color: "${tab5_color_accent}"
+                bg_grad_color: "${tab5_color_background}"
+                bg_grad_dir: VER
+                bg_opa: 58%
+                opa: 0%
+                clickable: false
+            - obj:
+                id: obj_splash_terminal
+                align: center
+                width: 1168
+                height: 574
+                radius: 5
+                pad_all: 0
+                border_width: 1
+                border_color: "${tab5_color_card_border}"
+                bg_color: "${tab5_color_panel_bg}"
+                opa: 0%
+                clickable: false
+                scrollable: false
+                widgets:
+                  - label: { <<: &boot_text { align: top_left, text_color: "${tab5_color_text_muted}", text_font: font_terminal_boot }, x: 32, y: 25, text: "MOBILE SERVICE TERMINAL", text_letter_space: 2 }
+                  - label: { <<: *boot_text, align: top_right, x: -32, y: 25, text: *version }
+                  - line: { <<: &boot_rule { align: top_left, line_color: "${tab5_color_card_border}", line_width: 1, clickable: false }, x: 32, y: 67, points: ["0, 0", "1100, 0"] }
+                  - line: { <<: *boot_rule, x: 560, y: 99, points: ["0, 0", "0, 304"] }
+
+                  - label: { <<: *boot_text, x: 32, y: 109, text: "VEHICLE INTERFACE", text_letter_space: 2 }
+                  - label:
+                      id: lbl_splash_title
+                      text: "${splash_title}"
+                      align: top_left
+                      x: 29
+                      y: 146
+                      width: 507
+                      long_mode: CLIP
+                      text_color: "${tab5_color_text_primary}"
+                      text_font: font_terminal_title
+                  - line: { <<: *boot_rule, x: 32, y: 259, points: ["0, 0", "476, 0"] }
+                  - label: { <<: *boot_text, x: 32, y: 293, text: "VEHICLE ID", text_letter_space: 2 }
+                  - label:
+                      id: lbl_splash_plate
+                      <<: *boot_text
+                      text: "${number}"
+                      x: 32
+                      y: 329
+                      text_color: "${tab5_color_text_secondary}"
+                      text_font: font_splash_plate
+
+                  - label: { <<: *boot_text, x: 605, y: 109, text: "BOOT SEQUENCE", text_letter_space: 2 }
+                  - obj:
+                      id: obj_splash_stage_system
+                      <<: &boot_log_row
+                        align: top_left
+                        x: 605
+                        width: 1
+                        height: 39
+                        bg_opa: TRANSP
+                        border_width: 0
+                        pad_all: 0
+                        radius: 0
+                        hidden: true
+                        clickable: false
+                        scrollable: false
+                      y: 156
+                      widgets:
+                        - label: { <<: &boot_log_text { <<: *boot_text, width: SIZE_CONTENT, long_mode: CLIP, text_color: "${tab5_color_text_primary}" }, text: "01  >  WAKE DISPLAY" }
+                  - obj:
+                      <<: *boot_log_row
+                      id: obj_splash_stage_network
+                      y: 217
+                      widgets:
+                        - label: { <<: *boot_log_text, text: "02  >  PREPARE INPUT" }
+                  - obj:
+                      <<: *boot_log_row
+                      id: obj_splash_stage_dash
+                      y: 278
+                      widgets:
+                        - label: { <<: *boot_log_text, text: "03  >  LOAD INSTRUMENTS" }
+                  - obj:
+                      <<: *boot_log_row
+                      id: obj_splash_stage_ready
+                      y: 339
+                      widgets:
+                        - label: { <<: *boot_log_text, text_color: "${tab5_color_accent}", text: "04  >  DISPLAY READY" }
+
+                  - line: { <<: *boot_rule, x: 32, y: 436, points: ["0, 0", "1100, 0"] }
+                  - label: { <<: *boot_text, x: 32, y: 467, text: "INITIALIZATION", text_letter_space: 2 }
+                  - label:
+                      id: lbl_splash_percent
+                      <<: *boot_text
+                      align: top_right
+                      x: -32
+                      y: 467
+                      text: "000%"
+                      text_color: "${tab5_color_accent}"
+                  - bar:
+                      id: bar_splash_progress
+                      align: top_left
+                      x: 32
+                      y: 513
+                      width: 1100
+                      height: 12
+                      min_value: 0
+                      max_value: 100
+                      value: 0
+                      anim_duration: 320ms
+                      bg_color: "${tab5_color_gauge_track}"
+                      indicator: { bg_color: "${tab5_color_accent}", radius: 0 }
+                      border_width: 0
+                      radius: 0
+                      clickable: false
+                  - line: { <<: *boot_rule, x: 32, y: 518, line_color: "${tab5_color_panel_bg}", line_width: 12, line_dash_width: 3, line_dash_gap: 107, points: ["0, 0", "1099, 0"] }
+            - obj:
+                id: obj_splash_scan
+                align: top_left
+                x: 58
+                y: 94
+                width: 1164
+                height: 27
+                radius: 0
+                border_width: 0
+                pad_all: 0
+                bg_color: "${tab5_color_accent}"
+                bg_grad_color: "${tab5_color_background}"
+                bg_grad_dir: VER
+                bg_opa: 22%
+                opa: 0%
+                clickable: false
+                scrollable: false
+
+  pages:
+    # =============================================================
+    # MAIN PAGE: Fallout-inspired vehicle status terminal
+    # =============================================================
+    - id: main_page
+      bg_color: "${tab5_color_background}"
+      widgets:
+
+        # Speed, selector and trip information
+        - obj:
+            <<: &terminal_panel
+              bg_opa: TRANSP
+              border_width: 0
+              pad_all: 0
+              radius: 0
+              scrollable: false
+              clickable: false
+            align: top_left
+            x: 30
+            y: 103
+            width: 304
+            height: 452
+            widgets:
+              - label: { <<: &terminal_heading { align: top_left, text_color: "${tab5_color_text_muted}", text_font: notosans20 }, text: "SPEED", text_letter_space: 4 }
+              - label: { id: lbl_speed, text: "--", align: top_left, y: 32, text_color: "${tab5_color_text_muted}", text_font: font_terminal_speed }
+              - label: { <<: *terminal_heading, text: "km/h", y: 197 }
+              - bar:
+                  id: bar_speed
+                  align: top_left
+                  y: 237
+                  width: 300
+                  height: 8
+                  min_value: 0
+                  max_value: 160
+                  animated: false
+                  <<: &terminal_bar
+                    bg_color: "${tab5_color_gauge_track}"
+                    bg_opa: COVER
+                    radius: 0
+                    border_width: 0
+                    pad_all: 0
+                    clickable: false
+                    indicator: { bg_color: "${tab5_color_accent}", radius: 0 }
+              - obj:
+                  <<: *terminal_panel
+                  align: top_left
+                  y: 262
+                  width: 216
+                  height: 44
+                  widgets:
+                    - label: { <<: &shift_letter { align: top_left, width: 40, y: 2, text_align: CENTER, text_color: "${tab5_color_text_muted}", text_font: notosans30 }, text: "P" }
+                    - label: { <<: *shift_letter, text: "R", x: 43 }
+                    - label: { <<: *shift_letter, text: "N", x: 86 }
+                    - label: { <<: *shift_letter, text: "D", x: 129 }
+                    - label: { <<: *shift_letter, text: "L", x: 172 }
+                    - obj:
+                        id: obj_prnd_selection
+                        <<: *terminal_panel
+                        align: top_left
+                        width: 40
+                        height: 42
+                        hidden: true
+                        bg_color: "${tab5_color_accent}"
+                        bg_opa: COVER
+                        widgets:
+                          - label: { id: lbl_prnd, text: "-", align: center, text_color: "${tab5_color_background}", text_font: notosans30 }
+              - label: { <<: *terminal_heading, text: "GEAR", x: 217, y: 271 }
+              - obj:
+                  <<: *terminal_panel
+                  align: top_left
+                  x: 263
+                  y: 255
+                  width: 41
+                  height: 55
+                  widgets:
+                    - label: { id: lbl_gear, text: "-", align: center, text_color: "${tab5_color_text_primary}", text_font: notosans35 }
+              - line: { <<: &terminal_line { align: top_left, line_color: "${tab5_color_card_border}", line_width: 1, clickable: false }, y: 328, points: ["0, 0", "300, 0"] }
+              - obj:
+                  <<: *terminal_panel
+                  align: top_left
+                  y: 344
+                  width: 145
+                  height: 77
+                  widgets:
+                    - image: { <<: &terminal_icon { align: top_left, image_recolor: "${tab5_color_accent}", image_recolor_opa: COVER, clickable: false }, id: widget_img_timer, src: img_timer }
+                    - label: { <<: *terminal_heading, x: 33, y: 3, text: "운행시간" }
+                    - label: { <<: &terminal_number { align: top_left, y: 31, text: "--", text_font: notosans30, text_align: RIGHT, text_color: "${tab5_color_text_muted}" }, id: lbl_engine_run_time, width: 145, text_align: LEFT, text: "--:--" }
+              - obj:
+                  <<: *terminal_panel
+                  align: top_left
+                  x: 157
+                  y: 344
+                  width: 145
+                  height: 77
+                  widgets:
+                    - image: { <<: *terminal_icon, id: widget_img_trip, src: img_odometer }
+                    - label: { <<: *terminal_heading, x: 33, y: 3, text: "운행거리" }
+                    - label: { <<: *terminal_number, id: lbl_trip_distance, width: 94 }
+                    - label: { <<: *terminal_heading, text: "km", x: 97, y: 44, text_font: notosans16 }
+        # Vehicle service diagram and sensor labels
+        - obj:
+            <<: *terminal_panel
+            align: top_left
+            x: 364
+            y: 99
+            width: 886
+            height: 458
+            widgets:
+              - obj:
+                  <<: *terminal_panel
+                  align: top_left
+                  x: 0
+                  y: 0
+                  width: 145
+                  height: 77
+                  widgets:
+                    - image: { <<: *terminal_icon, id: widget_img_coolant, src: img_coolant }
+                    - label: { <<: *terminal_heading, x: 33, y: 3, text: "냉각수" }
+                    - label: { <<: *terminal_number, id: lbl_engine_coolant_temperature, width: 94 }
+                    - label: { <<: *terminal_heading, text: "°C", x: 97, y: 44, text_font: notosans16 }
+              - obj:
+                  <<: *terminal_panel
+                  align: top_left
+                  x: 148
+                  y: 0
+                  width: 145
+                  height: 77
+                  widgets:
+                    - image: { <<: *terminal_icon, id: widget_img_intake, src: img_thermometer_lines }
+                    - label: { <<: *terminal_heading, x: 33, y: 3, text: "흡기온도" }
+                    - label: { <<: *terminal_number, id: lbl_intake_temp_display, width: 94 }
+                    - label: { <<: *terminal_heading, text: "°C", x: 97, y: 44, text_font: notosans16 }
+              - obj:
+                  <<: *terminal_panel
+                  align: top_left
+                  x: 296
+                  y: 0
+                  width: 145
+                  height: 77
+                  widgets:
+                    - image: { <<: *terminal_icon, id: widget_img_cabin_temp, src: img_thermometer_sm }
+                    - label: { <<: *terminal_heading, x: 33, y: 3, text: "실내온도" }
+                    - label: { <<: *terminal_number, id: lbl_cabin_temperature, width: 94 }
+                    - label: { <<: *terminal_heading, text: "°C", x: 97, y: 44, text_font: notosans16 }
+              - obj:
+                  <<: *terminal_panel
+                  align: top_left
+                  x: 444
+                  y: 0
+                  width: 145
+                  height: 77
+                  widgets:
+                    - image: { <<: *terminal_icon, id: widget_img_cabin_humidity, src: img_water_sm }
+                    - label: { <<: *terminal_heading, x: 33, y: 3, text: "실내습도" }
+                    - label: { <<: *terminal_number, id: lbl_cabin_humidity, width: 94 }
+                    - label: { <<: *terminal_heading, text: "%", x: 97, y: 44, text_font: notosans16 }
+              - obj:
+                  <<: *terminal_panel
+                  align: top_left
+                  x: 592
+                  y: 0
+                  width: 145
+                  height: 77
+                  widgets:
+                    - image: { <<: *terminal_icon, id: widget_img_bed_temp, src: img_thermometer_sm }
+                    - label: { <<: *terminal_heading, x: 33, y: 3, text: "적재함온도" }
+                    - label: { <<: *terminal_number, id: lbl_bed_temperature, width: 94 }
+                    - label: { <<: *terminal_heading, text: "°C", x: 97, y: 44, text_font: notosans16 }
+              - obj:
+                  <<: *terminal_panel
+                  align: top_left
+                  x: 740
+                  y: 0
+                  width: 145
+                  height: 77
+                  widgets:
+                    - image: { <<: *terminal_icon, id: widget_img_bed_humidity, src: img_water_sm }
+                    - label: { <<: *terminal_heading, x: 33, y: 3, text: "적재함습도" }
+                    - label: { <<: *terminal_number, id: lbl_bed_humidity, width: 94 }
+                    - label: { <<: *terminal_heading, text: "%", x: 97, y: 44, text_font: notosans16 }
+              - obj:
+                  <<: *terminal_panel
+                  align: top_left
+                  x: 22
+                  y: 83
+                  width: 842
+                  height: 277
+                  widgets:
+                    - line: { <<: &scan_grid { <<: *terminal_line, line_dash_width: 5, line_dash_gap: 8 }, x: 26, y: 20, points: ["2, 62", "2, 2", "54, 2"] }
+                    - line: { <<: *scan_grid, x: 760, y: 20, points: ["2, 2", "54, 2", "54, 62"] }
+                    - line: { <<: *scan_grid, x: 26, y: 193, points: ["2, 2", "2, 62", "54, 62"] }
+                    - line: { <<: *scan_grid, x: 760, y: 193, points: ["2, 62", "54, 62", "54, 2"] }
+                    # GM 1/T2M43 crew-cab top view, simplified to the body and visible trim.
+                    - line: { <<: &truck_outline { <<: *terminal_line, line_color: "${tab5_color_accent}", line_width: 3 }, x: 98, y: 27, points: ["2, 111", "4, 78", "10, 49", "20, 30", "36, 13", "50, 6", "76, 2", "164, 2", "184, 9", "416, 9", "432, 4", "456, 2", "536, 2", "584, 6", "617, 12", "632, 20", "640, 38", "642, 65", "642, 111", "642, 157", "640, 184", "632, 202", "617, 210", "584, 216", "536, 220", "456, 220", "432, 218", "416, 213", "184, 213", "164, 220", "76, 220", "50, 216", "36, 209", "20, 192", "10, 173", "4, 144", "2, 111"] }
+                    # Headlamps, hood contour and center ribs.
+                    - line: { <<: *truck_outline, x: 110, y: 40, points: ["2, 42", "16, 20", "29, 7", "50, 2", "54, 9", "35, 16"] }
+                    - line: { <<: *truck_outline, x: 110, y: 192, points: ["2, 2", "16, 24", "29, 37", "50, 42", "54, 35", "35, 28"] }
+                    - line: { <<: &truck_detail { <<: *terminal_line, line_color: "${tab5_color_text_inactive}", line_width: 2 }, x: 107, y: 52, points: ["2, 86", "3, 53", "11, 27", "27, 10", "53, 4", "135, 2", "151, 4"] }
+                    - line: { <<: *truck_detail, x: 107, y: 136, points: ["2, 2", "3, 35", "11, 61", "27, 78", "53, 84", "135, 86", "151, 84"] }
+                    - line: { <<: *truck_detail, x: 107, y: 116, points: ["2, 16", "27, 6", "67, 2", "131, 2"] }
+                    - line: { <<: *truck_detail, x: 107, y: 142, points: ["2, 2", "27, 12", "67, 16", "131, 16"] }
+                    # Windshield, roof boundary, side mirrors and four side windows.
+                    - line: { <<: *truck_detail, x: 239, y: 54, points: ["2, 84", "3, 49", "9, 18", "20, 2", "44, 2", "92, 11", "98, 24", "98, 84", "98, 144", "92, 157", "44, 166", "20, 166", "9, 150", "3, 119", "2, 84"] }
+                    - line: { <<: *truck_detail, x: 330, y: 58, points: ["2, 8", "38, 9", "160, 9", "188, 2", "194, 14", "194, 146", "188, 158", "160, 151", "38, 151", "2, 152"] }
+                    - line: { <<: *truck_detail, x: 281, y: 14, points: ["2, 30", "15, 7", "29, 2", "33, 7", "27, 26", "15, 33", "2, 30"] }
+                    - line: { <<: *truck_detail, x: 281, y: 227, points: ["2, 5", "15, 28", "29, 33", "33, 28", "27, 9", "15, 2", "2, 5"] }
+                    - line: { <<: *truck_detail, x: 308, y: 40, points: ["2, 2", "88, 2", "96, 20", "44, 22", "2, 14", "2, 2"] }
+                    - line: { <<: *truck_detail, x: 308, y: 212, points: ["2, 22", "88, 22", "96, 4", "44, 2", "2, 10", "2, 22"] }
+                    - line: { <<: *truck_detail, x: 412, y: 40, points: ["2, 2", "98, 2", "93, 22", "2, 22", "2, 2"] }
+                    - line: { <<: *truck_detail, x: 412, y: 212, points: ["2, 22", "98, 22", "93, 2", "2, 2", "2, 22"] }
+                    # The short box has distinct rails, wheel tubs and a separate tailgate.
+                    - line: { <<: *truck_detail, x: 532, y: 47, points: ["2, 2", "184, 2", "198, 13", "198, 169", "184, 180", "2, 180", "2, 2"] }
+                    - line: { <<: *truck_detail, x: 542, y: 61, points: ["2, 2", "18, 2", "26, 14", "84, 14", "100, 9", "107, 2", "172, 2", "172, 152", "107, 152", "100, 145", "84, 140", "26, 140", "18, 152", "2, 152", "2, 2"] }
+                    - line: { <<: *truck_detail, x: 716, y: 52, points: ["2, 2", "2, 170"] }
+                    - line: { <<: *truck_detail, x: 557, y: 106, points: ["2, 2", "145, 2"] }
+                    - line: { <<: *truck_detail, x: 557, y: 136, points: ["2, 2", "145, 2"] }
+                    - line: { <<: *truck_detail, x: 557, y: 166, points: ["2, 2", "145, 2"] }
+                    # Sensor leaders and the moving attitude point.
+                    - line: { <<: *truck_detail, x: 42, y: 0, points: ["2, 2", "2, 14", "148, 100"] }
+                    - line: { <<: *truck_detail, x: 340, y: 0, points: ["2, 2", "2, 14", "82, 102"] }
+                    - line: { <<: *truck_detail, x: 637, y: 0, points: ["2, 2", "2, 14", "2, 99"] }
+                    - obj:
+                        id: obj_scan_hood_hot
+                        <<: *terminal_panel
+                        align: top_left
+                        x: 148
+                        y: 96
+                        width: 83
+                        height: 86
+                        bg_color: "${tab5_color_status_hot}"
+                        bg_opa: 18%
+                        border_color: "${tab5_color_status_hot}"
+                        border_width: 2
+                        radius: 8
+                        hidden: true
+                    - obj: { <<: &scan_node { <<: *terminal_panel, align: top_left, width: 8, height: 8, radius: 4, bg_opa: COVER, bg_color: "${tab5_color_accent}" }, id: obj_scan_engine_node, x: 186, y: 96 }
+                    - obj: { <<: *scan_node, x: 418, y: 98 }
+                    - obj: { <<: *scan_node, x: 635, y: 95 }
+                    - line: { <<: *truck_detail, x: 373, y: 138, points: ["0, 0", "98, 0"] }
+                    - line: { <<: *truck_detail, x: 421, y: 107, points: ["0, 0", "0, 63"] }
+                    - obj:
+                        <<: *terminal_panel
+                        align: top_left
+                        x: 401
+                        y: 117
+                        width: 42
+                        height: 42
+                        radius: 21
+                        border_width: 1
+                        border_color: "${tab5_color_text_inactive}"
+                    - obj: { <<: *scan_node, id: obj_pose_dot, x: 418, y: 134, hidden: true }
+              - obj:
+                  <<: *terminal_panel
+                  align: top_left
+                  x: 0
+                  y: 380
+                  width: 145
+                  height: 77
+                  widgets:
+                    - image: { <<: *terminal_icon, id: widget_img_trans_temp, src: img_oil_temp }
+                    - label: { <<: *terminal_heading, x: 33, y: 3, text: "미션온도" }
+                    - label: { <<: *terminal_number, id: lbl_transmission_temperature, width: 94 }
+                    - label: { <<: *terminal_heading, text: "°C", x: 97, y: 44, text_font: notosans16 }
+              - obj:
+                  <<: *terminal_panel
+                  align: top_left
+                  x: 148
+                  y: 380
+                  width: 145
+                  height: 77
+                  widgets:
+                    - image: { <<: *terminal_icon, id: widget_img_battery, src: img_car_battery }
+                    - label: { <<: *terminal_heading, x: 33, y: 3, text: "전압" }
+                    - label: { <<: *terminal_number, id: lbl_car_battery, width: 94 }
+                    - label: { <<: *terminal_heading, text: "V", x: 97, y: 44, text_font: notosans16 }
+              - button:
+                  id: btn_pitch
+                  <<: &scan_tilt
+                    <<: *terminal_panel
+                    align: top_left
+                    y: 379
+                    width: 142
+                    height: 72
+                    clickable: true
+                    outline_width: 1
+                    outline_opa: TRANSP
+                    outline_color: "${tab5_color_accent}"
+                    shadow_width: 0
+                    pressed: { bg_opa: COVER, bg_color: "${tab5_color_panel_pressed}" }
+                  x: 296
+                  on_click:
+                    - lambda: id(script_calibrate_tilt).execute(&id(g_pitch_offset), id(id_device_pitch).state, id(btn_pitch), "Pitch");
+                  widgets:
+                    - label: { <<: *terminal_heading, id: lbl_pitch_title, x: 7, y: 3, text: "PITCH" }
+                    - label: { <<: *terminal_number, id: lbl_pitch_value, x: 7, text_align: LEFT }
+              - button:
+                  id: btn_roll
+                  <<: *scan_tilt
+                  x: 444
+                  on_click:
+                    - lambda: id(script_calibrate_tilt).execute(&id(g_roll_offset), id(id_device_roll).state, id(btn_roll), "Roll");
+                  widgets:
+                    - label: { <<: *terminal_heading, id: lbl_roll_title, x: 7, y: 3, text: "ROLL" }
+                    - label: { <<: *terminal_number, id: lbl_roll_value, x: 7, text_align: LEFT }
+              - obj:
+                  <<: *terminal_panel
+                  align: top_left
+                  x: 592
+                  y: 380
+                  width: 145
+                  height: 77
+                  widgets:
+                    - image: { <<: *terminal_icon, id: widget_img_cabin_co2, src: img_co2_sm }
+                    - label: { <<: *terminal_heading, x: 33, y: 3, text: "CO2" }
+                    - label: { <<: *terminal_number, id: lbl_cabin_co2, width: 94 }
+                    - label: { <<: *terminal_heading, text: "ppm", x: 97, y: 44, text_font: notosans16 }
+              - obj:
+                  <<: *terminal_panel
+                  align: top_left
+                  x: 740
+                  y: 380
+                  width: 145
+                  height: 77
+                  widgets:
+                    - image: { <<: *terminal_icon, id: widget_img_cabin_tvoc, src: img_tvoc_sm }
+                    - label: { <<: *terminal_heading, x: 33, y: 3, text: "TVOC" }
+                    - label: { <<: *terminal_number, id: lbl_cabin_tvoc, width: 94 }
+                    - label: { <<: *terminal_heading, text: "ppb", x: 97, y: 44, text_font: notosans16 }
+        # Five lower phosphor gauges
+        - obj:
+            <<: *terminal_panel
+            align: top_left
+            y: 575
+            width: 1280
+            height: 145
+            bg_color: "${tab5_color_panel_bg}"
+            bg_opa: COVER
+            border_side: TOP
+            border_width: 1
+            border_color: "${tab5_color_card_border}"
+            widgets:
+              - obj:
+                  <<: *terminal_panel
+                  align: top_left
+                  x: 30
+                  y: 17
+                  width: 224
+                  height: 105
+                  widgets:
+                    - image: { <<: *terminal_icon, id: widget_img_rpm, src: img_rpm }
+                    - label: { <<: *terminal_heading, x: 33, y: 3, text: "RPM" }
+                    - label: { <<: *terminal_number, id: lbl_engine_rpm_left, y: 31, text_align: LEFT }
+                    - bar: { <<: *terminal_bar, id: bar_engine_rpm, align: top_left, y: 79, width: 224, height: 7, min_value: 0, max_value: 8000, animated: false }
+                    - line: { <<: &terminal_segments { <<: *terminal_line, line_color: "${tab5_color_panel_bg}", line_width: 7, line_dash_width: 2, line_dash_gap: 17, y: 82, points: ["0, 0", "223, 0"] } }
+              - obj:
+                  <<: *terminal_panel
+                  align: top_left
+                  x: 279
+                  y: 17
+                  width: 224
+                  height: 105
+                  widgets:
+                    - image: { <<: *terminal_icon, id: widget_img_load, src: img_load }
+                    - label: { <<: *terminal_heading, x: 33, y: 3, text: "엔진부하" }
+                    - label: { <<: *terminal_number, id: lbl_engine_load_left, y: 31, width: 58 }
+                    - label: { <<: *terminal_heading, x: 64, y: 44, text: "%", text_font: notosans16 }
+                    - bar: { <<: *terminal_bar, id: bar_engine_load, align: top_left, y: 79, width: 224, height: 7, min_value: 0, max_value: 100, animated: false }
+                    - line: { <<: *terminal_segments }
+              - obj:
+                  <<: *terminal_panel
+                  align: top_left
+                  x: 528
+                  y: 17
+                  width: 224
+                  height: 105
+                  widgets:
+                    - image: { <<: *terminal_icon, id: widget_img_oil_pressure, src: img_oil_pressure }
+                    - label: { <<: *terminal_heading, x: 33, y: 3, text: "오일압력" }
+                    - label: { <<: *terminal_number, id: lbl_oil_pressure, y: 31, width: 58 }
+                    - label: { <<: *terminal_heading, x: 64, y: 44, text: "psi", text_font: notosans16 }
+                    - bar: { <<: *terminal_bar, id: bar_oil_pressure, align: top_left, y: 79, width: 224, height: 7, min_value: 0, max_value: 100, animated: false }
+                    - line: { <<: *terminal_segments }
+              - obj:
+                  <<: *terminal_panel
+                  align: top_left
+                  x: 777
+                  y: 17
+                  width: 224
+                  height: 105
+                  widgets:
+                    - image: { <<: *terminal_icon, id: widget_img_fuel, src: img_fuel }
+                    - label: { <<: *terminal_heading, x: 33, y: 3, text: "연료" }
+                    - label: { <<: *terminal_number, id: lbl_fuel_level, y: 31, width: 58 }
+                    - label: { <<: *terminal_heading, x: 64, y: 44, text: "%", text_font: notosans16 }
+                    - bar: { <<: *terminal_bar, id: bar_fuel, align: top_left, y: 79, width: 224, height: 7, min_value: 0, max_value: 100, animated: false }
+                    - line: { <<: *terminal_segments }
+              - obj:
+                  <<: *terminal_panel
+                  align: top_left
+                  x: 1026
+                  y: 17
+                  width: 224
+                  height: 105
+                  widgets:
+                    - image: { <<: *terminal_icon, id: widget_img_battery_soc, src: img_battery_charging }
+                    - label: { <<: *terminal_heading, id: lbl_battery_title, x: 33, y: 3, text: "잔량" }
+                    - label: { <<: *terminal_number, id: lbl_battery_soc, y: 31, width: 58 }
+                    - label: { <<: *terminal_heading, x: 64, y: 44, text: "%", text_font: notosans16 }
+                    - bar: { <<: *terminal_bar, id: bar_battery_soc, align: top_left, y: 79, width: 224, height: 7, min_value: 0, max_value: 100, animated: false }
+                    - line: { <<: *terminal_segments }
+
+        # 로그 (개발용, 숨김)
+        - obj:
+            id: obj_log
+            hidden: true
+            bg_color: "${tab5_color_panel_bg}"
+            border_width: 0
+            radius: 0
+            align: top_left
+            x: 0
+            y: 72
+            width: 1280
+            height: 648
+            pad_all: 0
+            scrollbar_mode: "OFF"
+            scrollable: false
+            widgets:
+              - textarea:
+                  id: textarea_log
+                  align: top_left
+                  x: 0
+                  y: 0
+                  one_line: false
+                  text_color: "${tab5_color_text_secondary}"
+                  text_font: notosans20
+                  width: 1000
+                  height: 100%
+                  bg_color: "${tab5_color_panel_bg}"
+                  border_width: 0
+                  scrollbar_mode: "OFF"
+                  scrollable: false
+              - obj:
+                  id: obj_log_menu_panel
+                  align: top_right
+                  x: 0
+                  y: 0
+                  width: 275
+                  height: 100%
+                  bg_color: "${tab5_color_panel_bg}"
+                  border_width: 0
+                  radius: 0
+                  pad_all: 15
+                  scrollbar_mode: "OFF"
+                  scrollable: false
+                  widgets:
+                    - label:
+                        text: "화면 밝기"
+                        align: top_left
+                        x: 10
+                        y: 15
+                        text_color: "${tab5_color_text_muted}"
+                        text_font: notosans25
+                    - slider:
+                        id: slider_backlight
+                        align: top_mid
+                        y: 55
+                        width: 240
+                        height: 20
+                        min_value: 10
+                        max_value: 100
+                        value: 40
+                        bg_color: "${tab5_color_gauge_track}"
+                        bg_opa: COVER
+                        indicator:
+                          bg_color: "${tab5_color_accent}"
+                          bg_opa: COVER
+                        knob:
+                          bg_color: "${tab5_color_text_primary}"
+                          bg_opa: COVER
+                        on_value:
+                          then:
+                            - light.control:
+                                id: backlight
+                                brightness: !lambda 'return x / 100.0f;'
+                    - button:
+                        id: btn_reset_calibration
+                        align: top_mid
+                        y: 105
+                        width: 250
+                        height: 54
+                        <<: *neutral_button
+                        on_click:
+                          then:
+                            - lambda: |-
+                                id(g_pitch_offset) = 0.0f;
+                                id(g_roll_offset) = 0.0f;
+                                id(script_logs).execute("Pitch/Roll calibration reset");
+                        widgets:
+                          - label:
+                              text: "기울기 보정 초기화"
+                              align: center
+                              text_color: "${tab5_color_text_primary}"
+                              text_font: notosans25
+                    - button:
+                        id: btn_clear_logs
+                        align: top_mid
+                        y: 175
+                        width: 250
+                        height: 54
+                        <<: *neutral_button
+                        on_click:
+                          then:
+                            - lambda: |-
+                                id(g_logs).clear();
+                                id(script_logs).execute("Logs cleared");
+                        widgets:
+                          - label:
+                              text: "로그 기록 지우기"
+                              align: center
+                              text_color: "${tab5_color_text_primary}"
+                              text_font: notosans25
+                    - obj:
+                        align: top_mid
+                        y: 250
+                        width: 250
+                        height: 60
+                        bg_color: "${tab5_color_card_bg}"
+                        border_width: 1
+                        border_color: "${tab5_color_card_border}"
+                        radius: 8
+                        pad_all: 8
+                        scrollbar_mode: "OFF"
+                        scrollable: false
+                        widgets:
+                          - label:
+                              text: "현재 버전"
+                              align: top_left
+                              x: 8
+                              y: 6
+                              text_color: "${tab5_color_text_muted}"
+                              text_font: notosans20
+                          - label:
+                              id: lbl_menu_curr_ver
+                              text: *version
+                              align: top_right
+                              x: -8
+                              y: 6
+                              text_color: "${tab5_color_text_secondary}"
+                              text_font: notosans20
+                    - button:
+                        id: btn_log_restart
+                        align: bottom_mid
+                        y: -20
+                        width: 250
+                        height: 56
+                        <<: *danger_button
+                        on_click:
+                          then:
+                            - lambda: |-
+                                id(tab5_motion_visible)(id(obj_restart_backdrop), true, 185);
+                                id(tab5_motion_visible)(id(obj_restart_popup), true, 185);
+                        widgets:
+                          - label:
+                              text: "시스템 재시작"
+                              align: center
+                              text_color: "${tab5_color_text_primary}"
+                              text_font: notosans25
+
+font:
+  - file: "gfonts://Share+Tech+Mono"
+    id: font_terminal_speed
+    size: 150
+    glyphs: "-0123456789"
+  - file: "gfonts://Gothic+A1"
+    id: font_alert_title
+    size: 28
+    glyphs: "경고주의안내"
+  - file: "gfonts://Gothic+A1"
+    id: font_alert_msg
+    size: 34
+    glyphs: ${ (ui_ascii + ui_alert_hangul + ui_extra_glyphs + '°') | unique(case_sensitive=true) | join }
+  - file: "gfonts://Noto+Sans+KR"
+    id: notosans16
+    size: 16
+    glyphs: [ "${ui_ascii}", "°" ]
+  - file: "gfonts://Noto+Sans+KR"
+    id: notosans20
+    size: 20
+    glyphs: ${ (ui_ascii + ui_alert_hangul + ui_extra_glyphs + '°각간거기내냉도량력료리미부션수습신실압엔연오온운율있일잔재적전진충최태하함행현흡') | unique(case_sensitive=true) | join }
+  - file: "gfonts://Noto+Sans+KR"
+    id: notosans25
+    size: 25
+    glyphs: [ "${ui_ascii}", "그기내데도로록면밝보상스습시신실업온우울이인작재적정중지초최태템트함행화확" ]
+  - file: "gfonts://Noto+Sans+KR"
+    id: notosans30
+    size: 30
+    glyphs: [ "${ui_ascii}", "°", "각거겠기까냉니도량력료리미부션수스습시아압엔연예오온운율을일작잔재전진충템하행흡" ]
+  - file: "gfonts://Noto+Sans+KR"
+    id: notosans35
+    size: 35
+    glyphs: [ "${ui_ascii}", "금목수스시월일작재템토화" ]
+  - file: "gfonts://Noto+Sans+KR"
+    id: notosans45
+    size: 45
+    glyphs: "${ui_ascii}"
+  - file: "gfonts://Share+Tech+Mono"
+    id: font_terminal_boot
+    size: 24
+    glyphs: "${ui_ascii}"
+  - file: "gfonts://Share+Tech+Mono"
+    id: font_terminal_title
+    size: 94
+    glyphs: ${ splash_title | unique(case_sensitive=true) | join }
+  - file: "gfonts://Noto+Sans+KR"
+    id: font_splash_plate
+    size: 31
+    glyphs: ${ (ui_ascii + number) | unique(case_sensitive=true) | join }
+
+image:
+  - platform: file
+    file: mdi:oil-temperature
+    id: img_oil_temp
+    resize: 28x28
+    type: binary
+  - platform: file
+    file: mdi:oil-level
+    id: img_oil_pressure
+    resize: 28x28
+    type: binary
+  - platform: file
+    file: mdi:gauge-low
+    id: img_torque
+    resize: 50x50
+    type: binary
+  - platform: file
+    file: mdi:counter
+    id: img_odometer
+    resize: 28x28
+    type: binary
+  - platform: file
+    file: mdi:alert-circle
+    id: img_alert
+    resize: 34x34
+    type: binary
+  - platform: file
+    file: mdi:wifi
+    id: img_wifi
+    resize: 50x50
+    type: binary
+  - platform: file
+    file: mdi:bluetooth
+    id: img_bluetooth
+    resize: 50x50
+    type: binary
+  - platform: file
+    file: mdi:crosshairs-gps
+    id: img_satellite
+    resize: 50x50
+    type: binary
+  - platform: file
+    file: mdi:timer-outline
+    id: img_timer
+    resize: 28x28
+    type: binary
+  - platform: file
+    file: mdi:thermometer-lines
+    id: img_thermometer_lines
+    resize: 28x28
+    type: binary
+  - platform: file
+    file: mdi:coolant-temperature
+    id: img_coolant
+    resize: 28x28
+    type: binary
+  - platform: file
+    file: mdi:battery-charging
+    id: img_battery_charging
+    resize: 28x28
+    type: binary
+  - platform: file
+    file: mdi:car-battery
+    id: img_car_battery
+    resize: 28x28
+    type: binary
+  - platform: file
+    file: mdi:gas-station
+    id: img_fuel
+    resize: 28x28
+    type: binary
+  - platform: file
+    file: mdi:piston
+    id: img_rpm
+    resize: 28x28
+    type: binary
+  - platform: file
+    file: mdi:engine
+    id: img_load
+    resize: 28x28
+    type: binary
+  # 하단 센서 패널 전용 (작은 아이콘, zoom 대신 실제 리사이즈)
+  - platform: file
+    file: mdi:thermometer
+    id: img_thermometer_sm
+    resize: 28x28
+    type: binary
+  - platform: file
+    file: mdi:water
+    id: img_water_sm
+    resize: 28x28
+    type: binary
+  - platform: file
+    file: mdi:molecule-co2
+    id: img_co2_sm
+    resize: 28x28
+    type: binary
+  - platform: file
+    file: mdi:weather-dust
+    id: img_tvoc_sm
+    resize: 28x28
+    type: binary
+
+script:
+  - id: script_render_speed
+    parameters:
+      speed: float
+    then:
+      - lambda: |-
+          const bool valid = std::isfinite(speed);
+          const auto color = id(fn_state_color)(valid ? speed : NAN, 10);
+          char text[12] = "--";
+          if (valid) snprintf(text, sizeof(text), "%d", static_cast<int>(speed));
+          id(tab5_motion_label_value)(id(lbl_speed), text, 0);
+          lv_obj_set_style_text_color(id(lbl_speed), color, LV_PART_MAIN);
+          auto *bar = id(bar_speed);
+          lv_obj_set_style_bg_opa(bar, valid ? LV_OPA_COVER : LV_OPA_40, LV_PART_MAIN);
+          lv_obj_set_style_bg_color(bar,
+              valid && speed <= 110.0f ? lv_color_hex(${tab5_color_accent}) : color,
+              LV_PART_INDICATOR);
+          id(tab5_motion_bar)(bar, valid ? speed : NAN, speed < lv_bar_get_value(bar) ? 165 : 220);
+
+  - id: script_render_prnd
+    parameters:
+      position: string
+    then:
+      - lambda: |-
+          auto *label = id(lbl_prnd);
+          if (position == lv_label_get_text(label)) return;
+          const char *positions = "PRNDL";
+          const char *slot = position.size() == 1 ? std::strchr(positions, position[0]) : nullptr;
+          auto *selection = id(obj_prnd_selection);
+          if (slot) {
+            lv_obj_set_x(selection, 43 * (slot - positions));
+            lv_obj_remove_flag(selection, LV_OBJ_FLAG_HIDDEN);
+          } else {
+            lv_obj_add_flag(selection, LV_OBJ_FLAG_HIDDEN);
+          }
+          id(tab5_motion_prnd)(label, id(lbl_gear), position.c_str());
+          id(script_render_gear).execute(false);
+
+  - id: script_render_gear
+    parameters:
+      animate: bool
+    then:
+      - lambda: |-
+          auto *label = id(lbl_gear);
+          const char position = lv_label_get_text(id(lbl_prnd))[0];
+          const float gear = id(g_dashboard_gear);
+          const bool valid = (position == 'D' || position == 'L') &&
+                             std::isfinite(gear) && gear >= 1.0f && gear < 100.0f;
+          char text[4] = "-";
+          if (valid) snprintf(text, sizeof(text), "%d", static_cast<int>(gear));
+          const char *previous = lv_label_get_text(label);
+          const bool changed = std::strcmp(previous, text) != 0;
+          if (animate && !changed) return;
+          const int last = std::atoi(previous);
+          const auto slide = +[](void *obj, int32_t offset) {
+            lv_obj_set_style_translate_y(static_cast<lv_obj_t *>(obj), offset, LV_PART_MAIN);
+          };
+          lv_anim_delete(label, slide);
+          slide(label, 0);
+          if (!changed) return;
+          lv_label_set_text(label, text);
+          if (!animate || !valid || !last || id(tab5_motion_notice_active) ||
+              !lv_obj_has_flag(id(obj_splash), LV_OBJ_FLAG_HIDDEN) || id(g_logs_visible)) return;
+          lv_anim_t motion;
+          lv_anim_init(&motion);
+          lv_anim_set_var(&motion, label);
+          lv_anim_set_exec_cb(&motion, slide);
+          lv_anim_set_values(&motion, gear > last ? 14 : -14, 0);
+          lv_anim_set_duration(&motion, 140);
+          lv_anim_set_path_cb(&motion, lv_anim_path_ease_out);
+          lv_anim_start(&motion);
+
+  - id: script_render_pose
+    then:
+      - lambda: |-
+          auto *dot = id(obj_pose_dot);
+          const float pitch = id(id_device_pitch).state;
+          const float roll = id(id_device_roll).state;
+          const auto move_x = +[](void *obj, int32_t offset) {
+            lv_obj_set_style_translate_x(static_cast<lv_obj_t *>(obj), offset, LV_PART_MAIN);
+          };
+          const auto move_y = +[](void *obj, int32_t offset) {
+            lv_obj_set_style_translate_y(static_cast<lv_obj_t *>(obj), offset, LV_PART_MAIN);
+          };
+          if (!std::isfinite(pitch) || !std::isfinite(roll)) {
+            lv_anim_delete(dot, move_x);
+            lv_anim_delete(dot, move_y);
+            lv_obj_add_flag(dot, LV_OBJ_FLAG_HIDDEN);
+            return;
+          }
+          const bool immediate = lv_obj_has_flag(dot, LV_OBJ_FLAG_HIDDEN) ||
+                                 !lv_obj_has_flag(id(obj_splash), LV_OBJ_FLAG_HIDDEN);
+          const auto follow = [&](lv_anim_exec_xcb_t apply, int32_t from, int32_t target) {
+            const auto *active = lv_anim_get(dot, apply);
+            if (!immediate && ((active && active->end_value == target) || (!active && from == target))) return;
+            lv_anim_delete(dot, apply);
+            if (immediate || from == target) {
+              apply(dot, target);
+              return;
+            }
+            lv_anim_t motion;
+            lv_anim_init(&motion);
+            lv_anim_set_var(&motion, dot);
+            lv_anim_set_exec_cb(&motion, apply);
+            lv_anim_set_values(&motion, from, target);
+            lv_anim_set_duration(&motion, 165);
+            lv_anim_set_path_cb(&motion, lv_anim_path_ease_out);
+            lv_anim_start(&motion);
+          };
+          follow(move_x, lv_obj_get_style_translate_x(dot, LV_PART_MAIN), std::lround(-1.65f * std::clamp(pitch, -20.0f, 20.0f)));
+          follow(move_y, lv_obj_get_style_translate_y(dot, LV_PART_MAIN), std::lround(1.20f * std::clamp(roll, -20.0f, 20.0f)));
+          lv_obj_remove_flag(dot, LV_OBJ_FLAG_HIDDEN);
+
+  - id: script_speed_expire
+    mode: restart
+    then:
+      # Keep the UI fresh even if BLE is connected and the ECU stops replying.
+      - delay: 5s
+      - lambda: id(script_render_speed).execute(NAN);
+
+  - id: script_splash_stage
+    parameters:
+      progress: int
+      row: lv_obj_t*
+    then:
+      - lvgl.bar.update:
+          id: bar_splash_progress
+          value: !lambda return progress;
+      - lambda: |-
+          lv_label_set_text_fmt(id(lbl_splash_percent), "%03d%%", progress);
+          lv_obj_remove_flag(row, LV_OBJ_FLAG_HIDDEN);
+          lv_obj_update_layout(row);
+          const int32_t text_width = lv_obj_get_width(lv_obj_get_child(row, 0));
+          lv_anim_t reveal;
+          lv_anim_init(&reveal);
+          lv_anim_set_var(&reveal, row);
+          lv_anim_set_exec_cb(&reveal, +[](void *obj, int32_t width) {
+            lv_obj_set_width(static_cast<lv_obj_t *>(obj), width);
+          });
+          lv_anim_set_values(&reveal, 1, text_width + 2);
+          lv_anim_set_duration(&reveal, 300);
+          lv_anim_start(&reveal);
+
+  - id: script_render_readout
+    parameters:
+      label: lv_obj_t*
+      icon: lv_obj_t*
+      value: float
+      color_mode: int
+      decimals: int
+      fade_ms: uint32_t
+    then:
+      - lambda: |-
+          const auto color = id(fn_state_color)(value, color_mode);
+          const auto text = id(fn_readout_text)(value, decimals);
+          lv_obj_set_style_text_color(label, color, LV_PART_MAIN);
+          const bool accented = id(tab5_motion_icon)(icon, color, color_mode, false);
+          id(tab5_motion_label_value)(label, text.c_str(), accented ? 0 : fade_ms);
+
+  - id: script_render_gauge
+    parameters:
+      label: lv_obj_t*
+      bar: lv_obj_t*
+      icon: lv_obj_t*
+      value: float
+      color_mode: int
+      duration: uint32_t
+      force_accent: bool
+    then:
+      - lambda: |-
+          const auto color = id(fn_state_color)(value, color_mode);
+          const auto text = id(fn_readout_text)(value, 0);
+          lv_obj_set_style_text_color(label, color, LV_PART_MAIN);
+          id(tab5_motion_label_value)(label, text.c_str(), 0);
+          id(tab5_motion_bar)(bar, value, duration);
+          lv_obj_set_style_bg_color(bar, color, LV_PART_INDICATOR);
+          id(tab5_motion_icon)(icon, color, color_mode, force_accent);
+
+  - id: script_calibrate_tilt
+    parameters:
+      offset: float*
+      angle: float
+      button: lv_obj_t*
+      axis: string
+    then:
+      - lambda: |-
+          if (std::abs(*offset) > 0.0001f) {
+            *offset = 0.0f;
+            id(script_logs).execute(axis + " calibration cleared");
+          } else {
+            if (isnan(angle)) return;
+            *offset = angle;
+            char value[20];
+            snprintf(value, sizeof(value), "%+.1f°", angle);
+            id(script_logs).execute(axis + " calibrated to " + value);
+          }
+          id(tab5_motion_outline)(button, 205);
+
+  - id: script_logs
+    parameters:
+      log: string
+    then:
+      - lambda: |-
+          auto &logs = id(g_logs);
+          const auto time = id(sntp_time).now();
+          char timestamp[16];
+          snprintf(timestamp, sizeof(timestamp), "[%02d:%02d:%02d] ", time.hour, time.minute, time.second);
+          size_t length = std::min(log.size(), 127 - std::strlen(timestamp));
+          // Preserve the log's byte limit without cutting a UTF-8 character in half.
+          while (length > 0 && length < log.size() &&
+                 (static_cast<unsigned char>(log[length]) & 0xC0) == 0x80) {
+            --length;
+          }
+          logs.emplace_back(std::string(timestamp) + log.substr(0, length));
+          if (logs.size() > 50) logs.erase(logs.begin());
+      - lvgl.textarea.update:
+          id: textarea_log
+          text: !lambda |-
+            std::string str;
+            for (const auto &line : id(g_logs)) {
+              str += line;
+              if (!line.ends_with("\r\n")) str += "\r\n";
+            }
+            return str;
+packages:
+  tab5_common:
+    url: https://github.com/eigger/espcomponents.git
+    file: packages/display/tab5_common.yaml
+    ref: master
+    refresh: 0s
