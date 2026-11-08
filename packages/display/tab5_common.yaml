@@ -1,0 +1,693 @@
+# M5Stack Tab5 hardware, shared runtime settings, and LVGL motion.
+
+substitutions:
+  # Set this to the LCD controller printed on the back of the device.
+  tab5_panel: ili9881c
+  tab5_display_models:
+    ili9881c: M5STACK-TAB5
+    st7123: M5STACK-TAB5-ST7123
+    st7121: M5STACK-TAB5-ST7121
+  tab5_touch_profiles:
+    gt911:
+      platform: gt911
+      update_interval: never
+      reset_pin: {pi4ioe5v6408: pi4ioe1, number: 5}
+      calibration: {x_min: 0, x_max: 720, y_min: 0, y_max: 1280}
+    st7123:
+      platform: st7123
+      # The first poll initializes the controller before it attaches the interrupt.
+      update_interval: 50ms
+
+  # Shared by widget styles, sensor colors, and icon motion.
+  tab5_color_background: 0x0B0F14
+  tab5_color_panel_bg: 0x0D1117
+  tab5_color_card_bg: 0x141C26
+  tab5_color_card_border: 0x1E2A38
+  tab5_color_gauge_track: 0x1A2536
+  tab5_color_text_primary: 0xFFFFFF
+  tab5_color_text_muted: 0x7F8EA3
+  tab5_color_text_secondary: 0xE8EEF7
+  tab5_color_text_inactive: 0x506070
+  tab5_color_accent: 0xF1C36C
+  tab5_color_status_cold: 0x4A90E2
+  tab5_color_status_cool: 0x38BDF8
+  tab5_color_status_warm: 0xD9A060
+  tab5_color_status_hot: 0xC85850
+  tab5_color_status_ok: 0x28C840
+  tab5_color_alert_warning: 0xD9720A
+  tab5_color_alert_danger: 0xA0190F
+  tab5_color_alert_notice: 0x2864C8
+  tab5_color_button_bg: 0x2A3542
+  tab5_color_button_pressed: 0x384B60
+  tab5_color_danger_pressed: 0xA74640
+  tab5_color_panel_pressed: 0x253548
+  tab5_color_shadow: 0x000000
+
+esp32:
+  board: esp32-p4-evboard
+  cpu_frequency: 360MHz
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+    advanced:
+      enable_idf_experimental_features: true
+    sdkconfig_options:
+      CONFIG_LWIP_TCPIP_TASK_STACK_SIZE: "6144"
+      CONFIG_LWIP_CHECK_THREAD_SAFETY: y
+      CONFIG_LWIP_TCPIP_CORE_LOCKING: n
+
+# update:
+#   - platform: esp32_hosted
+#     name: "Update Hosted"
+#     type: embedded
+#     path: firmware/network_adapter_esp32c6.bin
+#     sha256: ee7c546eb726ba92aa583448969c05f378a0deae5b3556699122761b7a595f51
+
+psram:
+  mode: hex
+  speed: 200MHz
+
+i2c:
+  - id: bsp_bus
+    sda: GPIO31
+    scl: GPIO32
+    frequency: 400kHz
+    scan: false
+  - id: ext_bus
+    sda: GPIO53
+    scl: GPIO54
+    scan: false
+
+pi4ioe5v6408:
+  - id: pi4ioe1
+    i2c_id: bsp_bus
+    address: 0x43
+  - id: pi4ioe2
+    i2c_id: bsp_bus
+    address: 0x44
+
+esp32_hosted:
+  variant: esp32c6
+  active_high: true
+  clk_pin: GPIO12
+  cmd_pin: GPIO13
+  d0_pin: GPIO11
+  d1_pin: GPIO10
+  d2_pin: GPIO9
+  d3_pin: GPIO8
+  reset_pin: GPIO15
+  slot: 1
+
+logger:
+  level: DEBUG
+  baud_rate: 921600
+
+wifi:
+  power_save_mode: none
+  reboot_timeout: 0s
+  fast_connect: true
+
+safe_mode:
+
+switch:
+  - platform: restart
+    name: "Restart"
+    id: sw_restart
+  - platform: safe_mode
+    name: "Restart Safemode"
+  - platform: gpio
+    id: wifi_power
+    name: "WiFi Power"
+    pin:
+      pi4ioe5v6408: pi4ioe2
+      number: 0
+    restore_mode: ALWAYS_ON
+    internal: true
+  - platform: gpio
+    id: usb_5v_power
+    name: "USB Power"
+    pin:
+      pi4ioe5v6408: pi4ioe2
+      number: 3
+    internal: true
+  - platform: gpio
+    id: quick_charge
+    name: "Quick Charge"
+    pin:
+      pi4ioe5v6408: pi4ioe2
+      number: 5
+      inverted: true
+    internal: true
+  - platform: gpio
+    id: charge_enable
+    name: "Charge Enable"
+    pin:
+      pi4ioe5v6408: pi4ioe2
+      number: 7
+    restore_mode: ALWAYS_OFF
+    internal: true
+  - platform: gpio
+    id: wifi_antenna_int_ext
+    pin:
+      pi4ioe5v6408: pi4ioe1
+      number: 0
+    internal: true
+  - platform: gpio
+    id: speaker_enable
+    name: "Speaker Enable"
+    pin:
+      pi4ioe5v6408: pi4ioe1
+      number: 1
+    restore_mode: ALWAYS_OFF
+    internal: true
+  - platform: gpio
+    id: external_5v_power
+    name: "External 5V Power"
+    pin:
+      pi4ioe5v6408: pi4ioe1
+      number: 2
+    restore_mode: ALWAYS_ON
+    internal: true
+
+binary_sensor:
+  # - platform: status
+  #   name: "Status"
+
+  - platform: gpio
+    id: charging
+    name: "Charging Status"
+    pin:
+      pi4ioe5v6408: pi4ioe2
+      number: 6
+      mode: INPUT_PULLDOWN
+    internal: true
+  - platform: gpio
+    id: headphone_detect
+    name: "Headphone Detect"
+    pin:
+      pi4ioe5v6408: pi4ioe1
+      number: 7
+    internal: true
+
+select:
+  - platform: template
+    id: wifi_antenna_select
+    name: "WiFi Antenna"
+    options:
+      - "Internal"
+      - "External"
+    optimistic: true
+    on_value:
+      - if:
+          condition:
+            lambda: return i == 0;
+          then:
+            - switch.turn_off: wifi_antenna_int_ext
+          else:
+            - switch.turn_on: wifi_antenna_int_ext
+    internal: true
+
+sensor:
+  - platform: uptime
+    id: uptime_sec
+    name: "System Uptime"
+    update_interval: 1s
+    internal: true
+
+  - platform: wifi_signal
+    name: "WiFi signal"
+    icon: mdi:wifi-arrow-up-down
+    update_interval: 60s
+    internal: true
+    id: wifi_sig
+    filters:
+      - sliding_window_moving_average:
+          window_size: 15
+          send_every: 15
+  - platform: template
+    name: "WiFi Quality"
+    id: wifi_quality
+    internal: true
+    icon: "mdi:wifi"
+    update_interval: 60s
+    unit_of_measurement: '%'
+    entity_category: "diagnostic"
+    state_class: measurement
+    accuracy_decimals: 0
+    lambda: !lambda |-
+      float dBm = id(wifi_sig).state;
+      if (isnan(dBm)) return -1;
+      if (dBm <= -100) return 0;
+      if (dBm >= -50) return 100;
+      return round(2 * (dBm + 100));
+  - platform: ina226
+    i2c_id: bsp_bus
+    address: 0x41
+    adc_averaging: 16
+    max_current: 8.192A
+    shunt_resistance: 0.005ohm
+    bus_voltage:
+      name: Battery Voltage
+      internal: true
+    current:
+      name: Battery Current
+      internal: true
+  - platform: internal_temperature
+    name: "Internal Temperature"
+    id: "id_tab5_internal_temperature"
+    internal: true
+    update_interval: 5min
+    filters:
+      - filter_out: nan
+      - heartbeat: 15s
+      - sliding_window_moving_average:
+          window_size: 30
+          send_every: 1
+          send_first_at: 1
+
+  - platform: motion
+    motion_id: tab5_imu
+    type: acceleration_x
+    name: "BMI270 Accel X"
+    id: id_bmi270_accel_x
+    accuracy_decimals: 4
+    internal: true
+  - platform: motion
+    motion_id: tab5_imu
+    type: acceleration_y
+    name: "BMI270 Accel Y"
+    id: id_bmi270_accel_y
+    accuracy_decimals: 4
+    internal: true
+  - platform: motion
+    motion_id: tab5_imu
+    type: acceleration_z
+    name: "BMI270 Accel Z"
+    id: id_bmi270_accel_z
+    accuracy_decimals: 4
+    internal: true
+  - platform: motion
+    motion_id: tab5_imu
+    type: angular_rate_x
+    name: "BMI270 Gyro X"
+    accuracy_decimals: 3
+    internal: true
+  - platform: motion
+    motion_id: tab5_imu
+    type: angular_rate_y
+    name: "BMI270 Gyro Y"
+    accuracy_decimals: 3
+    internal: true
+  - platform: motion
+    motion_id: tab5_imu
+    type: angular_rate_z
+    name: "BMI270 Gyro Z"
+    accuracy_decimals: 3
+    internal: true
+  - platform: bmi270
+    bmi270_id: tab5_imu
+    name: "BMI270 Temperature"
+    internal: true
+
+motion:
+  - platform: bmi270
+    id: tab5_imu
+    i2c_id: bsp_bus
+    address: 0x68
+    update_interval: 200ms
+
+touchscreen:
+  - >-
+    ${ dict(tab5_touch_profiles['gt911' if tab5_panel | lower == 'ili9881c' else 'st7123'],
+            id='touch', i2c_id='bsp_bus', interrupt_pin='GPIO23') }
+
+esp_ldo:
+  - voltage: 2.5V
+    channel: 3
+
+display:
+  - platform: mipi_dsi
+    model: ${ tab5_display_models[tab5_panel | lower] }
+    dimensions:
+      height: 1280
+      width: 720
+    reset_pin:
+      pi4ioe5v6408: pi4ioe1
+      number: 4
+      # The ST712x boot hook drives reset low; display setup keeps the pin released.
+      mode: ${ 'OUTPUT' if tab5_panel | lower == 'ili9881c' else 'INPUT_PULLUP' }
+
+output:
+  - platform: ledc
+    pin: GPIO22
+    id: backlight_pwm
+    frequency: 1000Hz
+
+light:
+  - platform: monochromatic
+    output: backlight_pwm
+    name: "Display Backlight"
+    id: backlight
+    restore_mode: RESTORE_DEFAULT_ON
+    default_transition_length: 250ms
+    internal: true
+
+lvgl:
+  byte_order: little_endian
+  rotation: 270°
+
+# Shared animation callbacks. Each project binds them to its own widgets.
+globals:
+  - id: tab5_motion_bar
+    type: 'void (*)(lv_obj_t *, float, uint32_t)'
+  - id: tab5_motion_speed_arc
+    type: 'void (*)(lv_obj_t *, float)'
+  - id: tab5_motion_tilt
+    type: 'void (*)(lv_obj_t *, float)'
+  - id: tab5_motion_prnd
+    type: 'void (*)(lv_obj_t *, lv_obj_t *, const char *)'
+  - id: tab5_motion_gear
+    type: 'void (*)(lv_obj_t *, const char *)'
+  - id: tab5_motion_label_value
+    type: 'void (*)(lv_obj_t *, const char *, uint32_t)'
+  - id: tab5_motion_icon
+    type: 'bool (*)(lv_obj_t *, lv_color_t, int, bool)'
+  - id: tab5_motion_notice_active
+    type: bool
+    initial_value: 'false'
+  - id: tab5_motion_fade
+    type: 'void (*)(lv_obj_t *, lv_opa_t, lv_opa_t, uint32_t)'
+  - id: tab5_motion_visible
+    type: 'void (*)(lv_obj_t *, bool, uint32_t)'
+  - id: tab5_motion_outline
+    type: 'void (*)(lv_obj_t *, uint32_t)'
+  - id: tab5_motion_start
+    type: 'void (*)()'
+
+esphome:
+  on_boot:
+    # Reset integrated panels after GPIO-expander setup and before display/touch setup.
+    - priority: 850
+      then:
+        - lambda: |-
+            if (std::strcmp("${ tab5_panel | lower }", "ili9881c") == 0) return;
+            constexpr uint8_t lcd_reset = 4;
+            constexpr uint8_t touch_reset = 5;
+            auto *expander = id(pi4ioe1);
+            expander->digital_write(lcd_reset, false);
+            expander->digital_write(touch_reset, false);
+            expander->pin_mode(lcd_reset, gpio::FLAG_OUTPUT);
+            expander->pin_mode(touch_reset, gpio::FLAG_OUTPUT);
+            delay(100);
+            expander->digital_write(touch_reset, true);
+            // Release LCD reset via pull-up, as the M5Stack factory firmware does.
+            expander->pin_mode(lcd_reset, gpio::FLAG_INPUT | gpio::FLAG_PULLUP);
+            delay(100);
+    # Install callbacks before display and sensor setup. They only touch widgets when called.
+    - priority: 1000
+      then:
+        - lambda: |-
+            struct Tab5Motion {
+              static void animate(lv_obj_t *obj, lv_anim_exec_xcb_t apply, int32_t from, int32_t to,
+                                  uint32_t duration, lv_anim_path_cb_t curve = lv_anim_path_ease_out,
+                                  uint32_t return_duration = 0) {
+                lv_anim_delete(obj, apply);
+                if (duration == 0 || from == to) {
+                  apply(obj, to);
+                  return;
+                }
+
+                lv_anim_t animation;
+                lv_anim_init(&animation);
+                lv_anim_set_var(&animation, obj);
+                lv_anim_set_exec_cb(&animation, apply);
+                lv_anim_set_values(&animation, from, to);
+                lv_anim_set_duration(&animation, duration);
+                lv_anim_set_path_cb(&animation, curve);
+                lv_anim_set_reverse_duration(&animation, return_duration);
+                lv_anim_start(&animation);
+              }
+
+              static void follow(lv_obj_t *obj, lv_anim_exec_xcb_t apply, int32_t from, int32_t to,
+                                 uint32_t duration) {
+                const auto *active = lv_anim_get(obj, apply);
+                if (active && duration && active->end_value == to) return;
+                if (active || from != to) animate(obj, apply, from, to, duration);
+              }
+
+            #if LV_USE_BAR
+              static void set_bar(void *obj, int32_t value) {
+                lv_bar_set_value(static_cast<lv_obj_t *>(obj), value, LV_ANIM_OFF);
+              }
+
+              static void bar(lv_obj_t *obj, float value, uint32_t duration) {
+                const bool valid = std::isfinite(value);
+                const int32_t target = valid ? static_cast<int32_t>(std::clamp(
+                    value, static_cast<float>(lv_bar_get_min_value(obj)),
+                    static_cast<float>(lv_bar_get_max_value(obj)))) : 0;
+                follow(obj, set_bar, lv_bar_get_value(obj), target, dashboard_ready() && valid ? duration : 0);
+              }
+            #endif
+
+            #if LV_USE_ARC
+              static void set_arc(void *obj, int32_t value) {
+                lv_arc_set_value(static_cast<lv_obj_t *>(obj), value);
+              }
+
+              static void speed_arc(lv_obj_t *obj, float value) {
+                const bool valid = std::isfinite(value);
+                const int32_t target = valid ? static_cast<int32_t>(std::clamp(
+                    value, static_cast<float>(lv_arc_get_min_value(obj)),
+                    static_cast<float>(lv_arc_get_max_value(obj)))) : 0;
+                const int32_t current = lv_arc_get_value(obj);
+                const uint32_t duration = target == 0 ? 100 : target < current ? 160 : 220;
+                follow(obj, set_arc, current, target, dashboard_ready() && valid ? duration : 0);
+              }
+            #endif
+
+            #if LV_USE_IMAGE
+              static void set_rotation(void *obj, int32_t angle) {
+                lv_image_set_rotation(static_cast<lv_obj_t *>(obj), angle);
+              }
+
+              static void tilt(lv_obj_t *obj, float degrees) {
+                const bool valid = std::isfinite(degrees);
+                const int32_t target = valid ? static_cast<int32_t>(std::fmod(degrees, 360.0f) * 10.0f) : 0;
+                const int32_t current = lv_image_get_rotation(obj);
+                // LVGL stores rotations in [0, 3600). Interpolate through the nearest equivalent angle.
+                const int32_t delta = ((target - current + 5400) % 3600 + 3600) % 3600 - 1800;
+                if (const auto *active = lv_anim_get(obj, set_rotation);
+                    dashboard_ready() && valid && active && (active->end_value - target) % 3600 == 0)
+                  return;
+                follow(obj, set_rotation, current, current + delta, dashboard_ready() && valid ? 120 : 0);
+              }
+            #endif
+
+              static void set_scale(void *obj, int32_t scale) {
+                auto *widget = static_cast<lv_obj_t *>(obj);
+                lv_obj_set_style_transform_scale_x(widget, scale, LV_PART_MAIN);
+                lv_obj_set_style_transform_scale_y(widget, scale, LV_PART_MAIN);
+              }
+
+              static void center_scale(lv_obj_t *obj) {
+                lv_obj_set_style_transform_pivot_x(obj, lv_pct(50), LV_PART_MAIN);
+                lv_obj_set_style_transform_pivot_y(obj, lv_pct(50), LV_PART_MAIN);
+              }
+
+              enum class Accent { None, Light, Heat, Cold, Drop, Dry, Grow };
+
+              struct IconState {
+                lv_color_t color{};
+                Accent motion = Accent::None;
+                uint32_t last_play = 0;
+                bool has_played = false;
+              };
+
+              static std::map<lv_obj_t *, IconState> &icons() {
+                static std::map<lv_obj_t *, IconState> states;
+                return states;
+              }
+
+              // Use the dashboard's existing color bands, including warm-up and warning thresholds.
+              static Accent accent_for(int mode, lv_color_t color) {
+                const uint32_t rgb = lv_color_to_u32(color) & 0xFFFFFF;
+                const bool cool = rgb == ${tab5_color_status_cold} || rgb == ${tab5_color_status_cool};
+                const bool warm = rgb == ${tab5_color_status_warm} || rgb == ${tab5_color_status_hot};
+                switch (mode) {
+                  case 2: case 5: case 15: case 17: case 18:
+                    if (cool) return Accent::Cold;
+                    return (warm || rgb == ${tab5_color_accent}) ? Accent::Heat : Accent::None;
+                  case 3: case 16:
+                    if (cool) return Accent::Drop;
+                    return warm ? Accent::Dry : Accent::None;
+                  case 6:
+                    return warm ? Accent::Drop : Accent::None;
+                  case 8: case 13:
+                    return warm ? Accent::Grow : Accent::None;
+                  default:
+                    return warm ? Accent::Light : Accent::None;
+                }
+              }
+
+              static void icon_frame(void *var, int32_t progress) {
+                auto *obj = static_cast<lv_obj_t *>(var);
+                const auto &state = icons().at(obj);
+                const int32_t amount = std::min(progress, 100 - progress);
+                switch (state.motion) {
+                  case Accent::Heat:
+                    lv_obj_set_style_translate_y(obj, -(amount + 12) / 25, LV_PART_MAIN);
+                    break;
+                  case Accent::Cold: {
+                    // Two short shivers, starting and finishing at the baseline position.
+                    const int32_t phase = (progress * 8 / 100) % 4;
+                    lv_obj_set_style_translate_x(obj, phase == 1 ? -1 : phase == 3 ? 1 : 0, LV_PART_MAIN);
+                    break;
+                  }
+                  case Accent::Drop:
+                    lv_obj_set_style_translate_y(obj, (amount + 12) / 25, LV_PART_MAIN);
+                    break;
+                  case Accent::Dry:
+                    set_scale(obj, LV_SCALE_NONE - amount / 4);
+                    break;
+                  case Accent::Grow:
+                    set_scale(obj, LV_SCALE_NONE + amount / 6);
+                    break;
+                  default:
+                    break;
+                }
+                lv_obj_set_style_image_recolor(obj, lv_color_lighten(state.color, amount), LV_PART_MAIN);
+              }
+
+              static bool icon(lv_obj_t *obj, lv_color_t color, int mode, bool force) {
+                auto [entry, first] = icons().try_emplace(obj);
+                auto &state = entry->second;
+                if (!first && !force && lv_color_eq(state.color, color)) return false;
+                if (lv_anim_delete(obj, icon_frame)) icon_frame(obj, 100);
+                state.color = color;
+                lv_obj_set_style_image_recolor(obj, color, LV_PART_MAIN);
+
+                state.motion = force ? Accent::Light : accent_for(mode, color);
+                if (!dashboard_ready() || notice_active() || (first && !force) || state.motion == Accent::None)
+                  return false;
+                if (state.has_played && lv_tick_elaps(state.last_play) < 2500) return false;
+                static uint32_t last_icon = 0;
+                if (last_icon && lv_tick_elaps(last_icon) < 230) return false;
+
+                if (state.motion == Accent::Dry || state.motion == Accent::Grow) center_scale(obj);
+                last_icon = state.last_play = lv_tick_get();
+                state.has_played = true;
+                const uint32_t duration = state.motion == Accent::Heat ? 220 : state.motion == Accent::Cold ? 160 : 180;
+                animate(obj, icon_frame, 0, 100, duration, lv_anim_path_linear);
+                return true;
+              }
+
+            #if LV_USE_LABEL
+              static void set_text_opa(void *obj, int32_t opacity) {
+                lv_obj_set_style_text_opa(static_cast<lv_obj_t *>(obj), opacity, LV_PART_MAIN);
+              }
+
+              static void reset_text_opa(lv_obj_t *obj) {
+                if (lv_anim_delete(obj, set_text_opa)) set_text_opa(obj, LV_OPA_COVER);
+              }
+
+              static void prnd(lv_obj_t *label, lv_obj_t *gear_label, const char *text) {
+                if (std::strcmp(lv_label_get_text(label), text) == 0) return;
+                lv_label_set_text(label, text);
+                last_prnd_change() = lv_tick_get();
+                reset_text_opa(gear_label);
+                if (!dashboard_ready() || text[0] == '-') {
+                  lv_anim_delete(label, set_scale);
+                  set_scale(label, LV_SCALE_NONE);
+                  return;
+                }
+                center_scale(label);
+                animate(label, set_scale, LV_SCALE_NONE, 276, 65, lv_anim_path_ease_out, 115);
+              }
+
+              static void label_value(lv_obj_t *label, const char *text, uint32_t fade_duration) {
+                const char *previous = lv_label_get_text(label);
+                if (std::strcmp(previous, text) == 0) return;
+                const bool both_valid = std::strcmp(previous, "--") != 0 && std::strcmp(text, "--") != 0 &&
+                                        std::strcmp(previous, "-") != 0 && std::strcmp(text, "-") != 0;
+                lv_label_set_text(label, text);
+                if (dashboard_ready() && !notice_active() && both_valid && fade_duration) {
+                  animate(label, set_text_opa, 224, LV_OPA_COVER, fade_duration);
+                } else {
+                  reset_text_opa(label);
+                }
+              }
+
+              static void gear(lv_obj_t *label, const char *text) {
+                const auto elapsed = lv_tick_elaps(last_prnd_change());
+                label_value(label, text, elapsed >= 180 ? 100 : 0);
+              }
+            #endif
+
+              static void set_opacity(void *obj, int32_t opacity) {
+                lv_obj_set_style_opa(static_cast<lv_obj_t *>(obj), opacity, LV_PART_MAIN);
+              }
+
+              static void fade(lv_obj_t *obj, lv_opa_t from, lv_opa_t to, uint32_t duration) {
+                animate(obj, set_opacity, from, to, duration);
+              }
+
+              static void visible(lv_obj_t *obj, bool shown, uint32_t duration) {
+                if (shown == !lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN)) return;
+                if (shown) {
+                  fade(obj, LV_OPA_0, LV_OPA_COVER, dashboard_ready() ? duration : 0);
+                  lv_obj_remove_flag(obj, LV_OBJ_FLAG_HIDDEN);
+                } else {
+                  lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+                  lv_anim_delete(obj, set_opacity);
+                  if (lv_anim_delete(obj, set_outline_opacity)) set_outline_opacity(obj, LV_OPA_0);
+                }
+              }
+
+              static void set_outline_opacity(void *obj, int32_t opacity) {
+                lv_obj_set_style_outline_opa(static_cast<lv_obj_t *>(obj), opacity, LV_PART_MAIN);
+              }
+
+              static void outline(lv_obj_t *obj, uint32_t duration) {
+                if (dashboard_ready()) animate(obj, set_outline_opacity, LV_OPA_50, LV_OPA_0, duration);
+              }
+
+              static bool &dashboard_ready() {
+                static bool ready = false;
+                return ready;
+              }
+
+              static bool *&notice_flag() {
+                static bool *flag = nullptr;
+                return flag;
+              }
+
+              static bool notice_active() { return *notice_flag(); }
+
+              static uint32_t &last_prnd_change() {
+                static uint32_t tick = 0;
+                return tick;
+              }
+
+              static void start_dashboard() { dashboard_ready() = true; }
+            };
+
+            #if LV_USE_BAR
+            id(tab5_motion_bar) = &Tab5Motion::bar;
+            #endif
+            #if LV_USE_ARC
+            id(tab5_motion_speed_arc) = &Tab5Motion::speed_arc;
+            #endif
+            #if LV_USE_IMAGE
+            id(tab5_motion_tilt) = &Tab5Motion::tilt;
+            #endif
+            #if LV_USE_LABEL
+            id(tab5_motion_prnd) = &Tab5Motion::prnd;
+            id(tab5_motion_gear) = &Tab5Motion::gear;
+            id(tab5_motion_label_value) = &Tab5Motion::label_value;
+            #endif
+            id(tab5_motion_icon) = &Tab5Motion::icon;
+            id(tab5_motion_fade) = &Tab5Motion::fade;
+            id(tab5_motion_visible) = &Tab5Motion::visible;
+            id(tab5_motion_outline) = &Tab5Motion::outline;
+            id(tab5_motion_start) = &Tab5Motion::start_dashboard;
+            Tab5Motion::notice_flag() = &id(tab5_motion_notice_active);
