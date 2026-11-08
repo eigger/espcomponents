@@ -43,6 +43,9 @@ substitutions:
   tab5_color_panel_pressed: 0x253548
   tab5_color_shadow: 0x000000
 
+  # Set to 1 for larger, slightly slower motion on the dashboard.
+  tab5_motion_emphasis: 0
+
 esp32:
   board: esp32-p4-evboard
   cpu_frequency: 360MHz
@@ -408,6 +411,8 @@ esphome:
       then:
         - lambda: |-
             struct Tab5Motion {
+              static constexpr bool emphasis() { return ${tab5_motion_emphasis} != 0; }
+
               static void animate(lv_obj_t *obj, lv_anim_exec_xcb_t apply, int32_t from, int32_t to,
                                   uint32_t duration, lv_anim_path_cb_t curve = lv_anim_path_ease_out,
                                   uint32_t return_duration = 0) {
@@ -461,7 +466,8 @@ esphome:
                     static_cast<float>(lv_arc_get_max_value(obj)))) : 0;
                 const int32_t current = lv_arc_get_value(obj);
                 const uint32_t duration = target == 0 ? 100 : target < current ? 160 : 220;
-                follow(obj, set_arc, current, target, dashboard_ready() && valid ? duration : 0);
+                const uint32_t motion_ms = duration + (emphasis() && target != 0 ? 55 : 0);
+                follow(obj, set_arc, current, target, dashboard_ready() && valid ? motion_ms : 0);
               }
             #endif
 
@@ -479,7 +485,8 @@ esphome:
                 if (const auto *active = lv_anim_get(obj, set_rotation);
                     dashboard_ready() && valid && active && (active->end_value - target) % 3600 == 0)
                   return;
-                follow(obj, set_rotation, current, current + delta, dashboard_ready() && valid ? 120 : 0);
+                const uint32_t duration = emphasis() ? 155 : 120;
+                follow(obj, set_rotation, current, current + delta, dashboard_ready() && valid ? duration : 0);
               }
             #endif
 
@@ -533,29 +540,33 @@ esphome:
                 auto *obj = static_cast<lv_obj_t *>(var);
                 const auto &state = icons().at(obj);
                 const int32_t amount = std::min(progress, 100 - progress);
+                const int32_t travel = emphasis() ? 3 : 2;
+                const int32_t shift = (amount * travel + 25) / 50;
                 switch (state.motion) {
                   case Accent::Heat:
-                    lv_obj_set_style_translate_y(obj, -(amount + 12) / 25, LV_PART_MAIN);
+                    lv_obj_set_style_translate_y(obj, -shift, LV_PART_MAIN);
                     break;
                   case Accent::Cold: {
                     // Two short shivers, starting and finishing at the baseline position.
                     const int32_t phase = (progress * 8 / 100) % 4;
-                    lv_obj_set_style_translate_x(obj, phase == 1 ? -1 : phase == 3 ? 1 : 0, LV_PART_MAIN);
+                    const int32_t shake = emphasis() ? 2 : 1;
+                    lv_obj_set_style_translate_x(obj, phase == 1 ? -shake : phase == 3 ? shake : 0, LV_PART_MAIN);
                     break;
                   }
                   case Accent::Drop:
-                    lv_obj_set_style_translate_y(obj, (amount + 12) / 25, LV_PART_MAIN);
+                    lv_obj_set_style_translate_y(obj, shift, LV_PART_MAIN);
                     break;
                   case Accent::Dry:
-                    set_scale(obj, LV_SCALE_NONE - amount / 4);
+                    set_scale(obj, LV_SCALE_NONE - (emphasis() ? amount * 2 / 5 : amount / 4));
                     break;
                   case Accent::Grow:
-                    set_scale(obj, LV_SCALE_NONE + amount / 6);
+                    set_scale(obj, LV_SCALE_NONE + (emphasis() ? amount * 3 / 10 : amount / 6));
                     break;
                   default:
                     break;
                 }
-                lv_obj_set_style_image_recolor(obj, lv_color_lighten(state.color, amount), LV_PART_MAIN);
+                const auto light = emphasis() ? amount * 3 / 2 : amount;
+                lv_obj_set_style_image_recolor(obj, lv_color_lighten(state.color, light), LV_PART_MAIN);
               }
 
               static bool icon(lv_obj_t *obj, lv_color_t color, int mode, bool force) {
@@ -571,13 +582,13 @@ esphome:
                   return false;
                 if (state.has_played && lv_tick_elaps(state.last_play) < 2500) return false;
                 static uint32_t last_icon = 0;
-                if (last_icon && lv_tick_elaps(last_icon) < 230) return false;
+                if (last_icon && lv_tick_elaps(last_icon) < (emphasis() ? 275 : 230)) return false;
 
                 if (state.motion == Accent::Dry || state.motion == Accent::Grow) center_scale(obj);
                 last_icon = state.last_play = lv_tick_get();
                 state.has_played = true;
                 const uint32_t duration = state.motion == Accent::Heat ? 220 : state.motion == Accent::Cold ? 160 : 180;
-                animate(obj, icon_frame, 0, 100, duration, lv_anim_path_linear);
+                animate(obj, icon_frame, 0, 100, duration + (emphasis() ? 40 : 0), lv_anim_path_linear);
                 return true;
               }
 
@@ -590,18 +601,27 @@ esphome:
                 if (lv_anim_delete(obj, set_text_opa)) set_text_opa(obj, LV_OPA_COVER);
               }
 
+              static void reset_scale(lv_obj_t *obj) {
+                if (lv_anim_delete(obj, set_scale)) set_scale(obj, LV_SCALE_NONE);
+              }
+
+              static void pulse_scale(lv_obj_t *obj, int32_t percent, uint32_t up, uint32_t down) {
+                center_scale(obj);
+                const int32_t peak = (LV_SCALE_NONE * percent + 50) / 100;
+                animate(obj, set_scale, LV_SCALE_NONE, peak, up, lv_anim_path_ease_out, down);
+              }
+
               static void prnd(lv_obj_t *label, lv_obj_t *gear_label, const char *text) {
                 if (std::strcmp(lv_label_get_text(label), text) == 0) return;
                 lv_label_set_text(label, text);
                 last_prnd_change() = lv_tick_get();
                 reset_text_opa(gear_label);
+                reset_scale(gear_label);
                 if (!dashboard_ready() || text[0] == '-') {
-                  lv_anim_delete(label, set_scale);
-                  set_scale(label, LV_SCALE_NONE);
+                  reset_scale(label);
                   return;
                 }
-                center_scale(label);
-                animate(label, set_scale, LV_SCALE_NONE, 276, 65, lv_anim_path_ease_out, 115);
+                pulse_scale(label, emphasis() ? 120 : 108, emphasis() ? 80 : 65, emphasis() ? 150 : 115);
               }
 
               static void label_value(lv_obj_t *label, const char *text, uint32_t fade_duration) {
@@ -611,15 +631,21 @@ esphome:
                                         std::strcmp(previous, "-") != 0 && std::strcmp(text, "-") != 0;
                 lv_label_set_text(label, text);
                 if (dashboard_ready() && !notice_active() && both_valid && fade_duration) {
-                  animate(label, set_text_opa, 224, LV_OPA_COVER, fade_duration);
+                  animate(label, set_text_opa, emphasis() ? 208 : 224, LV_OPA_COVER, fade_duration);
                 } else {
                   reset_text_opa(label);
                 }
               }
 
               static void gear(lv_obj_t *label, const char *text) {
-                const auto elapsed = lv_tick_elaps(last_prnd_change());
-                label_value(label, text, elapsed >= 180 ? 100 : 0);
+                const char *previous = lv_label_get_text(label);
+                if (std::strcmp(previous, text) == 0) return;
+                const bool outside_prnd = lv_tick_elaps(last_prnd_change()) >= (emphasis() ? 230 : 180);
+                const bool pulse = emphasis() && outside_prnd && dashboard_ready() && !notice_active() &&
+                                   previous[0] != '-' && text[0] != '-';
+                label_value(label, text, !pulse && outside_prnd ? 100 : 0);
+                if (pulse) pulse_scale(label, 114, 70, 145);
+                else reset_scale(label);
               }
             #endif
 
@@ -648,7 +674,8 @@ esphome:
               }
 
               static void outline(lv_obj_t *obj, uint32_t duration) {
-                if (dashboard_ready()) animate(obj, set_outline_opacity, LV_OPA_50, LV_OPA_0, duration);
+                if (dashboard_ready())
+                  animate(obj, set_outline_opacity, emphasis() ? LV_OPA_70 : LV_OPA_50, LV_OPA_0, duration);
               }
 
               static bool &dashboard_ready() {
