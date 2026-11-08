@@ -11,6 +11,13 @@ ESPHome configuration for a vehicle dashboard based on the M5Stack Core TAB5 (ES
   <img src="../../../docs/images/packages/display/colorado/dash.jpg" width="720" alt="Colorado Tab5 In-Vehicle Dashboard">
 </p>
 
+### Fallout Theme
+<p align="center">
+  <img src="../../../docs/images/packages/display/colorado/dash_fallout.jpg" width="720" alt="Colorado Tab5 dashboard with the Fallout theme installed in the vehicle">
+</p>
+
+Use [`colorado-tab5-fallout.yaml`](colorado-tab5-fallout.yaml) as the package file to install this theme.
+
 ### Hardware Assembly
 | Front View (Tab5 & GPS Antenna) | Rear View (Module GNSS, Unit HUB, SCD40, SGP30) |
 | :---: | :---: |
@@ -47,9 +54,9 @@ substitutions:
   name: "esp-colorado-tab5"
   friendly_name: "ESP Colorado TAB5"
   number: "12가 1234"
-  mac_vlinker: "C0:25:E8:53:2C:90"
-  mac_cabin_jht: "DA:E8:DD:E2:9A:47"
-  mac_bed_jht: "F5:A8:DB:76:1A:F5"
+  mac_vlinker: "02:00:00:00:00:01"
+  mac_cabin_jht: "02:00:00:00:00:02"
+  mac_bed_jht: "02:00:00:00:00:03"
 
 packages:
   remote:
@@ -114,7 +121,7 @@ Add `mac_vlinker` to your substitutions, then include the OBD package. The paren
 
 ```yaml
 substitutions:
-  mac_vlinker: "C0:25:E8:53:2C:90"   # replace with your adapter MAC
+  mac_vlinker: "02:00:00:00:00:01"   # replace with your adapter MAC
 
 packages:
   remote:
