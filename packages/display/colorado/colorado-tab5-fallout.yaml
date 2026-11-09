@@ -91,6 +91,11 @@ esphome:
         - delay: 650ms
         - lambda: id(script_splash_stage).execute(100, id(obj_splash_stage_ready));
         - delay: 520ms
+        - script.execute: script_init_scan_images
+        - script.execute:
+            id: script_dashboard_watchdog
+            install: true
+            disconnect: false
         - lvgl.page.show: main_page
         - lvgl.widget.show:
             id: obj_header
@@ -256,9 +261,10 @@ ble_client:
         - lambda: id(tab5_motion_visible)(id(lbl_bluetooth), false, 120);
         - script.stop: script_speed_expire
         - lambda: id(script_render_speed).execute(NAN);
-        - lambda: |-
-            id(g_dashboard_gear) = NAN;
-            id(script_render_prnd).execute("-");
+        - script.execute:
+            id: script_dashboard_watchdog
+            install: false
+            disconnect: true
         - lambda: id(script_logs).execute("OBD BLE Disconnected");
 
 ble_elm327:
@@ -347,6 +353,9 @@ globals:
   - id: g_dashboard_gear
     type: float
     initial_value: 'NAN'
+  - id: g_dashboard_samples
+    type: "std::array<uint32_t, 24>"
+    initial_value: 'std::array<uint32_t, 24>{}'
   # ── 발전기 저전압 지속시간 추적 (RVC 연비모드 오탐 방지: 순간전압이 아닌 지속시간으로 실고장 판정)
   - id: alt_low_since_ms
     type: uint32_t
@@ -568,6 +577,9 @@ sensor:
     preset: run_time
     update_interval: 5s
     internal: true
+    on_value:
+      then:
+        - lambda: 'id(g_dashboard_samples)[11] = std::isfinite(x) ? esphome::millis() : 0;'
   - platform: ble_elm327
     id: "engine_coolant_temperature"
     name: "Engine Coolant Temperature"
@@ -576,12 +588,7 @@ sensor:
     internal: true
     on_value:
       then:
-        - lambda: |-
-            id(script_render_readout).execute(id(lbl_engine_coolant_temperature), id(widget_img_coolant), x, 5, 0, 0);
-            const bool hot = std::isfinite(x) && x > 110.0f;
-            id(tab5_motion_visible)(id(obj_scan_hood_hot), hot, 150);
-            lv_obj_set_style_bg_color(id(obj_scan_engine_node),
-                lv_color_hex(hot ? ${tab5_color_status_hot} : ${tab5_color_accent}), LV_PART_MAIN);
+        - lambda: id(script_render_readout).execute(id(lbl_engine_coolant_temperature), id(widget_img_coolant), x, 5, 0, 0);
   - platform: ble_elm327
     id: "fuel_level"
     name: "Fuel Level"
@@ -594,6 +601,18 @@ sensor:
           send_every: 1
           send_first_at: 1
       - delta: 0.5
+    on_raw_value:
+      then:
+        - lambda: |-
+            // A valid response can be suppressed by the delta filter.
+            if (std::isfinite(x) && std::isfinite(id(fuel_level).state)) {
+              if (id(g_dashboard_samples)[6] == 0) {
+                id(script_render_gauge).execute(id(lbl_fuel_level), id(bar_fuel), id(widget_img_fuel),
+                                                id(fuel_level).state, 6, 400, false);
+              } else {
+                id(g_dashboard_samples)[6] = esphome::millis();
+              }
+            }
     on_value:
       then:
         - lambda: |-
@@ -780,6 +799,7 @@ sensor:
       then:
         - lambda: |-
             id(g_dashboard_gear) = x;
+            id(g_dashboard_samples)[21] = std::isfinite(x) ? esphome::millis() : 0;
             id(script_render_gear).execute(true);
 
   - platform: ble_elm327
@@ -792,6 +812,7 @@ sensor:
       then:
         - lambda: |-
             const char *text = "-";
+            id(g_dashboard_samples)[22] = std::isfinite(x) ? esphome::millis() : 0;
             if (std::isfinite(x)) {
               switch ((int)x) {
                 case 8: text = "P"; break;
@@ -950,6 +971,8 @@ sensor:
           window_size: 5
           send_every: 1
     lambda: |-
+      const uint32_t last_sample = id(g_dashboard_samples)[23];
+      if (!last_sample || esphome::millis() - last_sample >= 3000) return NAN;
       float ax = id(id_bmi270_accel_x).state;
       float ay = id(id_bmi270_accel_y).state;
       float az = id(id_bmi270_accel_z).state;
@@ -983,6 +1006,8 @@ sensor:
           window_size: 5
           send_every: 1
     lambda: |-
+      const uint32_t last_sample = id(g_dashboard_samples)[23];
+      if (!last_sample || esphome::millis() - last_sample >= 3000) return NAN;
       float ax = id(id_bmi270_accel_x).state;
       float ay = id(id_bmi270_accel_y).state;
       float az = id(id_bmi270_accel_z).state;
@@ -1004,6 +1029,10 @@ interval:
   # ── 경고 팝업 제어 (1초 주기) ──
   - interval: 1s
     then:
+      - script.execute:
+          id: script_dashboard_watchdog
+          install: false
+          disconnect: false
       - lambda: |-
           constexpr uint32_t warning = ${tab5_color_alert_warning};
           constexpr uint32_t danger = ${tab5_color_alert_danger};
@@ -1015,37 +1044,46 @@ interval:
             color_hex = color;
           };
 
-          float bat = id(car_battery).state;
-          float rpm = id(engine_rpm).state;
-          bool engine_on = !isnan(rpm) && rpm >= 400.0f;
-          bool bat_valid = !isnan(bat) && bat > 5.0f;
+          const auto live = [&](int mode, float value) {
+            return id(g_dashboard_samples)[mode] != 0 ? value : NAN;
+          };
+          const float bat = live(7, id(car_battery).state);
+          const float rpm = live(8, id(engine_rpm).state);
+          const float coolant = live(5, id(engine_coolant_temperature).state);
+          const float transmission = live(18, id(transmission_temperature).state);
+          const float oil = live(14, id(engine_oil_pressure).state);
+          const float speed = live(10, id(car_speed).state);
+          const float co2 = live(13, id(id_scd40_co2).state);
+          const float tvoc = live(12, id(id_sgp30_tvoc).state);
+          const float acceleration = live(10, id(car_acceleration).state);
+          const float load = live(9, id(engine_load).state);
+          const float fuel = live(6, id(fuel_level).state);
+          const bool engine_on = rpm >= 400.0f;
+          const bool bat_valid = std::isfinite(rpm) && bat > 5.0f;
 
-          if (!isnan(id(engine_coolant_temperature).state) && id(engine_coolant_temperature).state > 110) {
+          if (coolant > 110) {
             set_alert("엔진 과열!", danger);
-          } else if (!isnan(id(transmission_temperature).state) && id(transmission_temperature).state > 130) {
+          } else if (transmission > 130) {
             set_alert("변속기 과열!", danger);
-          } else if (engine_on && !isnan(id(engine_oil_pressure).state) && (
-                     (rpm >= 1000.0f && (id(engine_oil_pressure).state < 18 || id(engine_oil_pressure).state > 80)) ||
-                     (rpm < 1000.0f && (id(engine_oil_pressure).state < 10 || id(engine_oil_pressure).state > 80))
-                   )) {
+          } else if (engine_on && (oil < (rpm >= 1000.0f ? 18 : 10) || oil > 80)) {
             set_alert("오일 압력 위험!", danger);
-          } else if (!isnan(id(car_speed).state) && id(car_speed).state > 120) {
+          } else if (speed > 120) {
             set_alert("과속 위험!", danger);
-          } else if (!isnan(id(car_speed).state) && id(car_speed).state > 110) {
+          } else if (speed > 110) {
             set_alert("과속 주의!", warning);
-          } else if (!isnan(id(id_scd40_co2).state) && id(id_scd40_co2).state > 2500) {
+          } else if (co2 > 2500) {
             set_alert("졸음 경고!", danger);
-          } else if (!isnan(id(id_scd40_co2).state) && id(id_scd40_co2).state > 1500) {
+          } else if (co2 > 1500) {
             set_alert("졸음 주의!", warning);
-          } else if (!isnan(id(id_sgp30_tvoc).state) && id(id_sgp30_tvoc).state > 5000) {
+          } else if (tvoc > 5000) {
             set_alert("가스 주의!", warning);
-          } else if (!isnan(id(id_sgp30_tvoc).state) && id(id_sgp30_tvoc).state > 3333) {
+          } else if (tvoc > 3333) {
             set_alert("환기 필요!", warning);
-          } else if (!isnan(id(car_acceleration).state) && id(car_acceleration).state > 9.0) {
+          } else if (acceleration > 9.0) {
             set_alert("급가속!", danger);
-          } else if (!isnan(id(car_acceleration).state) && id(car_acceleration).state < -9.0) {
+          } else if (acceleration < -9.0) {
             set_alert("급감속!", danger);
-          } else if (!isnan(id(engine_load).state) && id(engine_load).state > 95) {
+          } else if (load > 95) {
             set_alert("엔진 과부하!", warning);
           } else if (!isnan(id(id_tab5_internal_temperature).state) && id(id_tab5_internal_temperature).state > 70) {
             set_alert("장치 과열!", danger);
@@ -1063,9 +1101,9 @@ interval:
             set_alert("충전전압 높음!", warning);
           } else if (bat_valid && !engine_on && bat < 12.0f) {
             set_alert("배터리 전압 낮음!", warning);
-          } else if (!isnan(id(fuel_level).state) && id(fuel_level).state < 8) {
+          } else if (fuel < 8) {
             set_alert("연료 부족 (주유 시급)!", danger);
-          } else if (!isnan(id(fuel_level).state) && id(fuel_level).state < 15) {
+          } else if (fuel < 15) {
             set_alert("주유 필요!", warning);
           } else if (id(parking_info).has_state() && id(parking_info).state.length() > 0 && id(parking_info).state != "unknown" && id(parking_info).state != "off") {
             msg = id(parking_info).state;
@@ -1169,7 +1207,9 @@ text_sensor:
     internal: true
     update_interval: 1s
     lambda: |-
-      if (isnan(id(engine_run_time).state)) return std::string("--:--");
+      if (id(g_dashboard_samples)[11] == 0 || !std::isfinite(id(engine_run_time).state)) {
+        return std::string("--:--");
+      }
       char buf[20];
       int seconds = (int)id(engine_run_time).state;
       int minutes = seconds / 60;
@@ -1182,8 +1222,8 @@ text_sensor:
         - lvgl.label.update:
             id: lbl_engine_run_time
             text: !lambda return x;
-            text_color: !lambda return id(fn_state_color)(id(engine_run_time).state, 11);
-        - lambda: id(tab5_motion_icon)(id(widget_img_timer), id(fn_state_color)(id(engine_run_time).state, 11), 11, false);
+            text_color: !lambda 'return id(fn_state_color)(x == "--:--" ? NAN : id(engine_run_time).state, 11);'
+        - lambda: 'id(tab5_motion_icon)(id(widget_img_timer), id(fn_state_color)(x == "--:--" ? NAN : id(engine_run_time).state, 11), 11, false);'
   - platform: ble_elm327
     last_error:
       name: "ELM327 Last Error"
@@ -1620,8 +1660,8 @@ lvgl:
             height: 452
             widgets:
               - label: { <<: &terminal_heading { align: top_left, text_color: "${tab5_color_text_muted}", text_font: notosans20 }, text: "SPEED", text_letter_space: 4 }
-              - label: { id: lbl_speed, text: "--", align: top_left, y: 32, text_color: "${tab5_color_text_muted}", text_font: font_terminal_speed }
-              - label: { <<: *terminal_heading, text: "km/h", y: 197 }
+              - label: { id: lbl_speed, text: "--", align: top_left, y: 26, width: 300, text_align: RIGHT, text_color: "${tab5_color_text_muted}", text_font: font_terminal_speed }
+              - label: { <<: *terminal_heading, text: "km/h", y: 197, width: 300, text_align: RIGHT }
               - bar:
                   id: bar_speed
                   align: top_left
@@ -1646,7 +1686,7 @@ lvgl:
                   width: 216
                   height: 44
                   widgets:
-                    - label: { <<: &shift_letter { align: top_left, width: 40, y: 2, text_align: CENTER, text_color: "${tab5_color_text_muted}", text_font: notosans30 }, text: "P" }
+                    - label: { <<: &shift_letter { align: top_left, width: 40, y: -2, text_align: CENTER, text_color: "${tab5_color_text_muted}", text_font: notosans35 }, text: "P" }
                     - label: { <<: *shift_letter, text: "R", x: 43 }
                     - label: { <<: *shift_letter, text: "N", x: 86 }
                     - label: { <<: *shift_letter, text: "D", x: 129 }
@@ -1660,41 +1700,53 @@ lvgl:
                         hidden: true
                         bg_color: "${tab5_color_accent}"
                         bg_opa: COVER
+                        outline_color: "${tab5_color_accent}"
+                        outline_width: 2
+                        outline_opa: TRANSP
                         widgets:
-                          - label: { id: lbl_prnd, text: "-", align: center, text_color: "${tab5_color_background}", text_font: notosans30 }
-              - label: { <<: *terminal_heading, text: "GEAR", x: 217, y: 271 }
+                          - label: { id: lbl_prnd, text: "-", align: top_mid, y: -2, text_color: "${tab5_color_background}", text_font: notosans35 }
+              - label: { <<: *terminal_heading, text: "GEAR", x: 213, y: 273, text_font: notosans16 }
               - obj:
                   <<: *terminal_panel
                   align: top_left
-                  x: 263
-                  y: 255
-                  width: 41
-                  height: 55
+                  x: 254
+                  y: 245
+                  width: 50
+                  height: 82
                   widgets:
-                    - label: { id: lbl_gear, text: "-", align: center, text_color: "${tab5_color_text_primary}", text_font: notosans35 }
+                    - label: { id: lbl_gear, text: "-", align: center, text_color: "${tab5_color_text_primary}", text_font: notosans45 }
               - line: { <<: &terminal_line { align: top_left, line_color: "${tab5_color_card_border}", line_width: 1, clickable: false }, y: 328, points: ["0, 0", "300, 0"] }
               - obj:
                   <<: *terminal_panel
                   align: top_left
                   y: 344
-                  width: 145
-                  height: 77
+                  width: 155
+                  height: 88
                   widgets:
-                    - image: { <<: &terminal_icon { align: top_left, image_recolor: "${tab5_color_accent}", image_recolor_opa: COVER, clickable: false }, id: widget_img_timer, src: img_timer }
-                    - label: { <<: *terminal_heading, x: 33, y: 3, text: "운행시간" }
-                    - label: { <<: &terminal_number { align: top_left, y: 31, text: "--", text_font: notosans30, text_align: RIGHT, text_color: "${tab5_color_text_muted}" }, id: lbl_engine_run_time, width: 145, text_align: LEFT, text: "--:--" }
+                    - image: { <<: &terminal_icon { align: top_left, image_recolor: "${tab5_color_accent}", image_recolor_opa: COVER, clickable: false }, id: widget_img_timer, src: img_timer, x: 24 }
+                    - label: { <<: *terminal_heading, x: 57, y: 3, text: "운행시간" }
+                    - label: { <<: &terminal_number { align: top_left, y: 28, text: "--", text_font: notosans35, text_align: RIGHT, text_color: "${tab5_color_text_muted}" }, id: lbl_engine_run_time, width: 155, text_align: CENTER, text: "--:--", text_font: font_terminal_trip }
               - obj:
                   <<: *terminal_panel
                   align: top_left
                   x: 157
                   y: 344
                   width: 145
-                  height: 77
+                  height: 88
                   widgets:
-                    - image: { <<: *terminal_icon, id: widget_img_trip, src: img_odometer }
-                    - label: { <<: *terminal_heading, x: 33, y: 3, text: "운행거리" }
-                    - label: { <<: *terminal_number, id: lbl_trip_distance, width: 94 }
-                    - label: { <<: *terminal_heading, text: "km", x: 97, y: 44, text_font: notosans16 }
+                    - image: { <<: *terminal_icon, id: widget_img_trip, src: img_odometer, x: 19 }
+                    - label: { <<: *terminal_heading, x: 52, y: 3, text: "운행거리" }
+                    - obj:
+                        <<: *terminal_panel
+                        align: top_left
+                        y: 28
+                        width: 145
+                        height: 58
+                        layout: { type: flex, flex_flow: ROW, flex_align_main: CENTER, flex_align_cross: CENTER, pad_column: 4 }
+                        widgets:
+                          - label: { id: lbl_trip_distance, text: "--", max_width: 117, text_font: font_terminal_trip, text_color: "${tab5_color_text_muted}" }
+                          - label: { text: "km", text_font: notosans16, text_color: "${tab5_color_text_muted}", translate_y: 10 }
+        - line: { <<: *terminal_line, x: 349, y: 103, points: ["0, 0", "0, 454"] }
         # Vehicle service diagram and sensor labels
         - obj:
             <<: *terminal_panel
@@ -1790,50 +1842,28 @@ lvgl:
                     - line: { <<: *scan_grid, x: 760, y: 193, points: ["2, 62", "54, 62", "54, 2"] }
                     # GM 1/T2M43 crew-cab top view, simplified to the body and visible trim.
                     - line: { <<: &truck_outline { <<: *terminal_line, line_color: "${tab5_color_accent}", line_width: 3 }, x: 98, y: 27, points: ["2, 111", "4, 78", "10, 49", "20, 30", "36, 13", "50, 6", "76, 2", "164, 2", "184, 9", "416, 9", "432, 4", "456, 2", "536, 2", "584, 6", "617, 12", "632, 20", "640, 38", "642, 65", "642, 111", "642, 157", "640, 184", "632, 202", "617, 210", "584, 216", "536, 220", "456, 220", "432, 218", "416, 213", "184, 213", "164, 220", "76, 220", "50, 216", "36, 209", "20, 192", "10, 173", "4, 144", "2, 111"] }
-                    # Headlamps, hood contour and center ribs.
+                    # Headlamps, hood contour, windshield and mirrors.
                     - line: { <<: *truck_outline, x: 110, y: 40, points: ["2, 42", "16, 20", "29, 7", "50, 2", "54, 9", "35, 16"] }
                     - line: { <<: *truck_outline, x: 110, y: 192, points: ["2, 2", "16, 24", "29, 37", "50, 42", "54, 35", "35, 28"] }
                     - line: { <<: &truck_detail { <<: *terminal_line, line_color: "${tab5_color_text_inactive}", line_width: 2 }, x: 107, y: 52, points: ["2, 86", "3, 53", "11, 27", "27, 10", "53, 4", "135, 2", "151, 4"] }
                     - line: { <<: *truck_detail, x: 107, y: 136, points: ["2, 2", "3, 35", "11, 61", "27, 78", "53, 84", "135, 86", "151, 84"] }
-                    - line: { <<: *truck_detail, x: 107, y: 116, points: ["2, 16", "27, 6", "67, 2", "131, 2"] }
-                    - line: { <<: *truck_detail, x: 107, y: 142, points: ["2, 2", "27, 12", "67, 16", "131, 16"] }
-                    # Windshield, roof boundary, side mirrors and four side windows.
                     - line: { <<: *truck_detail, x: 239, y: 54, points: ["2, 84", "3, 49", "9, 18", "20, 2", "44, 2", "92, 11", "98, 24", "98, 84", "98, 144", "92, 157", "44, 166", "20, 166", "9, 150", "3, 119", "2, 84"] }
-                    - line: { <<: *truck_detail, x: 330, y: 58, points: ["2, 8", "38, 9", "160, 9", "188, 2", "194, 14", "194, 146", "188, 158", "160, 151", "38, 151", "2, 152"] }
                     - line: { <<: *truck_detail, x: 281, y: 14, points: ["2, 30", "15, 7", "29, 2", "33, 7", "27, 26", "15, 33", "2, 30"] }
                     - line: { <<: *truck_detail, x: 281, y: 227, points: ["2, 5", "15, 28", "29, 33", "33, 28", "27, 9", "15, 2", "2, 5"] }
-                    - line: { <<: *truck_detail, x: 308, y: 40, points: ["2, 2", "88, 2", "96, 20", "44, 22", "2, 14", "2, 2"] }
-                    - line: { <<: *truck_detail, x: 308, y: 212, points: ["2, 22", "88, 22", "96, 4", "44, 2", "2, 10", "2, 22"] }
-                    - line: { <<: *truck_detail, x: 412, y: 40, points: ["2, 2", "98, 2", "93, 22", "2, 22", "2, 2"] }
-                    - line: { <<: *truck_detail, x: 412, y: 212, points: ["2, 22", "98, 22", "93, 2", "2, 2", "2, 22"] }
-                    # The short box has distinct rails, wheel tubs and a separate tailgate.
-                    - line: { <<: *truck_detail, x: 532, y: 47, points: ["2, 2", "184, 2", "198, 13", "198, 169", "184, 180", "2, 180", "2, 2"] }
-                    - line: { <<: *truck_detail, x: 542, y: 61, points: ["2, 2", "18, 2", "26, 14", "84, 14", "100, 9", "107, 2", "172, 2", "172, 152", "107, 152", "100, 145", "84, 140", "26, 140", "18, 152", "2, 152", "2, 2"] }
-                    - line: { <<: *truck_detail, x: 716, y: 52, points: ["2, 2", "2, 170"] }
-                    - line: { <<: *truck_detail, x: 557, y: 106, points: ["2, 2", "145, 2"] }
-                    - line: { <<: *truck_detail, x: 557, y: 136, points: ["2, 2", "145, 2"] }
-                    - line: { <<: *truck_detail, x: 557, y: 166, points: ["2, 2", "145, 2"] }
-                    # Sensor leaders and the moving attitude point.
-                    - line: { <<: *truck_detail, x: 42, y: 0, points: ["2, 2", "2, 14", "148, 100"] }
-                    - line: { <<: *truck_detail, x: 340, y: 0, points: ["2, 2", "2, 14", "82, 102"] }
-                    - line: { <<: *truck_detail, x: 637, y: 0, points: ["2, 2", "2, 14", "2, 99"] }
-                    - obj:
-                        id: obj_scan_hood_hot
-                        <<: *terminal_panel
-                        align: top_left
-                        x: 148
-                        y: 96
-                        width: 83
-                        height: 86
-                        bg_color: "${tab5_color_status_hot}"
-                        bg_opa: 18%
-                        border_color: "${tab5_color_status_hot}"
-                        border_width: 2
-                        radius: 8
-                        hidden: true
-                    - obj: { <<: &scan_node { <<: *terminal_panel, align: top_left, width: 8, height: 8, radius: 4, bg_opa: COVER, bg_color: "${tab5_color_accent}" }, id: obj_scan_engine_node, x: 186, y: 96 }
-                    - obj: { <<: *scan_node, x: 418, y: 98 }
-                    - obj: { <<: *scan_node, x: 635, y: 95 }
+                    # Embedded silhouettes are attached before the dashboard is shown.
+                    - image: { <<: &scan_part { <<: *terminal_icon, src: img_scan_engine, image_recolor: "${tab5_color_text_inactive}", image_opa: 30% }, id: widget_img_scan_coolant, x: 118, y: 96 }
+                    - image: { <<: *scan_part, id: widget_img_scan_engine, x: 151, y: 91 }
+                    - image: { <<: *scan_part, id: widget_img_scan_battery, x: 145, y: 174 }
+                    - image: { <<: *scan_part, id: widget_img_scan_transmission, x: 247, y: 113 }
+                    - image: { <<: *scan_part, id: widget_img_scan_cabin, x: 321, y: 65 }
+                    - image: { <<: *scan_part, id: widget_img_scan_cabin_windows, x: 309, y: 40 }
+                    - image: { <<: *scan_part, id: widget_img_scan_fuel, x: 472, y: 190 }
+                    - image: { <<: *scan_part, id: widget_img_scan_bed, x: 534, y: 49 }
+                    # Leaders appear only when their readout enters a warning state.
+                    - line: { <<: *truck_detail, id: line_scan_coolant_leader, x: 42, y: 0, points: ["2, 2", "2, 14", "90, 103"], hidden: true }
+                    - line: { <<: *truck_detail, id: line_scan_cabin_leader, x: 340, y: 0, points: ["2, 2", "2, 14", "82, 102"], hidden: true }
+                    - line: { <<: *truck_detail, id: line_scan_bed_leader, x: 637, y: 0, points: ["2, 2", "2, 14", "2, 99"], hidden: true }
+                    # Moving attitude point.
                     - line: { <<: *truck_detail, x: 373, y: 138, points: ["0, 0", "98, 0"] }
                     - line: { <<: *truck_detail, x: 421, y: 107, points: ["0, 0", "0, 63"] }
                     - obj:
@@ -1846,7 +1876,7 @@ lvgl:
                         radius: 21
                         border_width: 1
                         border_color: "${tab5_color_text_inactive}"
-                    - obj: { <<: *scan_node, id: obj_pose_dot, x: 418, y: 134, hidden: true }
+                    - obj: { <<: *terminal_panel, id: obj_pose_dot, align: top_left, x: 418, y: 134, width: 8, height: 8, radius: 4, bg_opa: COVER, bg_color: "${tab5_color_accent}", hidden: true }
               - obj:
                   <<: *terminal_panel
                   align: top_left
@@ -1910,8 +1940,8 @@ lvgl:
                   widgets:
                     - image: { <<: *terminal_icon, id: widget_img_cabin_co2, src: img_co2_sm }
                     - label: { <<: *terminal_heading, x: 33, y: 3, text: "CO2" }
-                    - label: { <<: *terminal_number, id: lbl_cabin_co2, width: 94 }
-                    - label: { <<: *terminal_heading, text: "ppm", x: 97, y: 44, text_font: notosans16 }
+                    - label: { <<: *terminal_number, id: lbl_cabin_co2, width: 97 }
+                    - label: { <<: *terminal_heading, text: "ppm", x: 101, y: 47, text_font: notosans16 }
               - obj:
                   <<: *terminal_panel
                   align: top_left
@@ -1922,8 +1952,8 @@ lvgl:
                   widgets:
                     - image: { <<: *terminal_icon, id: widget_img_cabin_tvoc, src: img_tvoc_sm }
                     - label: { <<: *terminal_heading, x: 33, y: 3, text: "TVOC" }
-                    - label: { <<: *terminal_number, id: lbl_cabin_tvoc, width: 94 }
-                    - label: { <<: *terminal_heading, text: "ppb", x: 97, y: 44, text_font: notosans16 }
+                    - label: { <<: *terminal_number, id: lbl_cabin_tvoc, width: 97 }
+                    - label: { <<: *terminal_heading, text: "ppb", x: 101, y: 47, text_font: notosans16 }
         # Five lower phosphor gauges
         - obj:
             <<: *terminal_panel
@@ -1960,8 +1990,8 @@ lvgl:
                   widgets:
                     - image: { <<: *terminal_icon, id: widget_img_load, src: img_load }
                     - label: { <<: *terminal_heading, x: 33, y: 3, text: "엔진부하" }
-                    - label: { <<: *terminal_number, id: lbl_engine_load_left, y: 31, width: 58 }
-                    - label: { <<: *terminal_heading, x: 64, y: 44, text: "%", text_font: notosans16 }
+                    - label: { <<: *terminal_number, id: lbl_engine_load_left, y: 31, width: 64 }
+                    - label: { <<: *terminal_heading, x: 70, y: 48, text: "%", text_font: notosans16 }
                     - bar: { <<: *terminal_bar, id: bar_engine_load, align: top_left, y: 79, width: 224, height: 7, min_value: 0, max_value: 100, animated: false }
                     - line: { <<: *terminal_segments }
               - obj:
@@ -1974,7 +2004,7 @@ lvgl:
                   widgets:
                     - image: { <<: *terminal_icon, id: widget_img_oil_pressure, src: img_oil_pressure }
                     - label: { <<: *terminal_heading, x: 33, y: 3, text: "오일압력" }
-                    - label: { <<: *terminal_number, id: lbl_oil_pressure, y: 31, width: 58 }
+                    - label: { <<: *terminal_number, id: lbl_oil_pressure, y: 31, width: 58, text_font: notosans30 }
                     - label: { <<: *terminal_heading, x: 64, y: 44, text: "psi", text_font: notosans16 }
                     - bar: { <<: *terminal_bar, id: bar_oil_pressure, align: top_left, y: 79, width: 224, height: 7, min_value: 0, max_value: 100, animated: false }
                     - line: { <<: *terminal_segments }
@@ -1988,8 +2018,8 @@ lvgl:
                   widgets:
                     - image: { <<: *terminal_icon, id: widget_img_fuel, src: img_fuel }
                     - label: { <<: *terminal_heading, x: 33, y: 3, text: "연료" }
-                    - label: { <<: *terminal_number, id: lbl_fuel_level, y: 31, width: 58 }
-                    - label: { <<: *terminal_heading, x: 64, y: 44, text: "%", text_font: notosans16 }
+                    - label: { <<: *terminal_number, id: lbl_fuel_level, y: 31, width: 64 }
+                    - label: { <<: *terminal_heading, x: 70, y: 48, text: "%", text_font: notosans16 }
                     - bar: { <<: *terminal_bar, id: bar_fuel, align: top_left, y: 79, width: 224, height: 7, min_value: 0, max_value: 100, animated: false }
                     - line: { <<: *terminal_segments }
               - obj:
@@ -2000,10 +2030,10 @@ lvgl:
                   width: 224
                   height: 105
                   widgets:
-                    - image: { <<: *terminal_icon, id: widget_img_battery_soc, src: img_battery_charging }
+                    - image: { <<: *terminal_icon, id: widget_img_battery_soc, src: img_car_battery }
                     - label: { <<: *terminal_heading, id: lbl_battery_title, x: 33, y: 3, text: "잔량" }
-                    - label: { <<: *terminal_number, id: lbl_battery_soc, y: 31, width: 58 }
-                    - label: { <<: *terminal_heading, x: 64, y: 44, text: "%", text_font: notosans16 }
+                    - label: { <<: *terminal_number, id: lbl_battery_soc, y: 31, width: 64 }
+                    - label: { <<: *terminal_heading, x: 70, y: 48, text: "%", text_font: notosans16 }
                     - bar: { <<: *terminal_bar, id: bar_battery_soc, align: top_left, y: 79, width: 224, height: 7, min_value: 0, max_value: 100, animated: false }
                     - line: { <<: *terminal_segments }
 
@@ -2167,8 +2197,12 @@ lvgl:
 font:
   - file: "gfonts://Share+Tech+Mono"
     id: font_terminal_speed
-    size: 150
+    size: 180
     glyphs: "-0123456789"
+  - file: "gfonts://Noto+Sans+KR"
+    id: font_terminal_trip
+    size: 40
+    glyphs: "-:0123456789"
   - file: "gfonts://Gothic+A1"
     id: font_alert_title
     size: 28
@@ -2196,7 +2230,7 @@ font:
   - file: "gfonts://Noto+Sans+KR"
     id: notosans35
     size: 35
-    glyphs: [ "${ui_ascii}", "금목수스시월일작재템토화" ]
+    glyphs: [ "${ui_ascii}", "°", "금목수스시월일작재템토화" ]
   - file: "gfonts://Noto+Sans+KR"
     id: notosans45
     size: 45
@@ -2271,11 +2305,6 @@ image:
     resize: 28x28
     type: binary
   - platform: file
-    file: mdi:battery-charging
-    id: img_battery_charging
-    resize: 28x28
-    type: binary
-  - platform: file
     file: mdi:car-battery
     id: img_car_battery
     resize: 28x28
@@ -2294,6 +2323,11 @@ image:
     file: mdi:engine
     id: img_load
     resize: 28x28
+    type: binary
+  - platform: file
+    file: mdi:engine
+    id: img_scan_engine
+    resize: 80x80
     type: binary
   # 하단 센서 패널 전용 (작은 아이콘, zoom 대신 실제 리사이즈)
   - platform: file
@@ -2324,6 +2358,7 @@ script:
     then:
       - lambda: |-
           const bool valid = std::isfinite(speed);
+          id(g_dashboard_samples)[10] = valid ? esphome::millis() : 0;
           const auto color = id(fn_state_color)(valid ? speed : NAN, 10);
           char text[12] = "--";
           if (valid) snprintf(text, sizeof(text), "%d", static_cast<int>(speed));
@@ -2346,11 +2381,34 @@ script:
           const char *positions = "PRNDL";
           const char *slot = position.size() == 1 ? std::strchr(positions, position[0]) : nullptr;
           auto *selection = id(obj_prnd_selection);
+          const auto move_selection = +[](void *obj, int32_t x) {
+            lv_obj_set_x(static_cast<lv_obj_t *>(obj), x);
+          };
+          lv_anim_delete(selection, move_selection);
           if (slot) {
-            lv_obj_set_x(selection, 43 * (slot - positions));
+            const int32_t target = 43 * (slot - positions);
+            const bool animate = !lv_obj_has_flag(selection, LV_OBJ_FLAG_HIDDEN) &&
+                                 lv_obj_has_flag(id(obj_splash), LV_OBJ_FLAG_HIDDEN) &&
+                                 !id(tab5_motion_notice_active) && !id(g_logs_visible);
             lv_obj_remove_flag(selection, LV_OBJ_FLAG_HIDDEN);
+            if (animate) {
+              lv_obj_update_layout(selection);
+              lv_anim_t motion;
+              lv_anim_init(&motion);
+              lv_anim_set_var(&motion, selection);
+              lv_anim_set_exec_cb(&motion, move_selection);
+              lv_anim_set_values(&motion, lv_obj_get_x(selection), target);
+              lv_anim_set_duration(&motion, 160);
+              lv_anim_set_path_cb(&motion, lv_anim_path_ease_out);
+              lv_anim_set_completed_cb(&motion, +[](lv_anim_t *anim) {
+                id(tab5_motion_outline)(static_cast<lv_obj_t *>(anim->var), 210);
+              });
+              lv_anim_start(&motion);
+            } else {
+              lv_obj_set_x(selection, target);
+            }
           } else {
-            lv_obj_add_flag(selection, LV_OBJ_FLAG_HIDDEN);
+            id(tab5_motion_visible)(selection, false, 0);
           }
           id(tab5_motion_prnd)(label, id(lbl_gear), position.c_str());
           id(script_render_gear).execute(false);
@@ -2437,6 +2495,81 @@ script:
       - delay: 5s
       - lambda: id(script_render_speed).execute(NAN);
 
+  - id: script_dashboard_watchdog
+    parameters:
+      install: bool
+      disconnect: bool
+    then:
+      - lambda: |-
+          const struct {
+            int mode;
+            lv_obj_t *label;
+            lv_obj_t *icon;
+            lv_obj_t *bar;
+            uint32_t timeout;
+            bool obd;
+          } readouts[] = {
+            {2, id(lbl_cabin_temperature), id(widget_img_cabin_temp), nullptr, 90000, false},
+            {3, id(lbl_cabin_humidity), id(widget_img_cabin_humidity), nullptr, 90000, false},
+            {5, id(lbl_engine_coolant_temperature), id(widget_img_coolant), nullptr, 35000, true},
+            {6, id(lbl_fuel_level), id(widget_img_fuel), id(bar_fuel), 100000, true},
+            {7, id(lbl_car_battery), id(widget_img_battery), nullptr, 35000, true},
+            {8, id(lbl_engine_rpm_left), id(widget_img_rpm), id(bar_engine_rpm), 8000, true},
+            {9, id(lbl_engine_load_left), id(widget_img_load), id(bar_engine_load), 8000, true},
+            {12, id(lbl_cabin_tvoc), id(widget_img_cabin_tvoc), nullptr, 8000, false},
+            {13, id(lbl_cabin_co2), id(widget_img_cabin_co2), nullptr, 15000, false},
+            {14, id(lbl_oil_pressure), id(widget_img_oil_pressure), id(bar_oil_pressure), 10000, true},
+            {15, id(lbl_bed_temperature), id(widget_img_bed_temp), nullptr, 90000, false},
+            {16, id(lbl_bed_humidity), id(widget_img_bed_humidity), nullptr, 90000, false},
+            {17, id(lbl_intake_temp_display), id(widget_img_intake), nullptr, 35000, true},
+            {18, id(lbl_transmission_temperature), id(widget_img_trans_temp), nullptr, 35000, true},
+            {19, id(lbl_trip_distance), id(widget_img_trip), nullptr, 100000, true},
+            {20, id(lbl_battery_soc), id(widget_img_battery_soc), id(bar_battery_soc), 35000, true},
+          };
+          if (install) {
+            id(id_bmi270_accel_x).add_on_state_callback([](float value) {
+              id(g_dashboard_samples)[23] = std::isfinite(value) ? esphome::millis() : 0;
+            });
+            const auto focus = +[](lv_event_t *event) {
+              const auto mode = static_cast<int>(reinterpret_cast<intptr_t>(lv_event_get_user_data(event)));
+              id(script_render_scan_status).execute(mode, lv_color_t{}, nullptr, true);
+            };
+            for (const auto &readout : readouts) {
+              if (readout.mode == 19) continue;
+              auto *card = lv_obj_get_parent(readout.label);
+              lv_obj_add_flag(card, LV_OBJ_FLAG_CLICKABLE);
+              lv_obj_add_event_cb(card, focus, LV_EVENT_CLICKED,
+                                  reinterpret_cast<void *>(static_cast<intptr_t>(readout.mode)));
+            }
+            return;
+          }
+
+          auto &samples = id(g_dashboard_samples);
+          if (disconnect) id(alt_low_since_ms) = 0;
+          const uint32_t now = esphome::millis();
+          const auto expired = [&](int mode, uint32_t timeout) {
+            return samples[mode] != 0 && now - samples[mode] >= timeout;
+          };
+          for (const auto &readout : readouts) {
+            if (samples[readout.mode] == 0) continue;
+            if (!(disconnect && readout.obd) && !expired(readout.mode, readout.timeout)) continue;
+            if (readout.bar) {
+              id(script_render_gauge).execute(readout.label, readout.bar, readout.icon, NAN, readout.mode, 0, false);
+            } else {
+              id(script_render_readout).execute(readout.label, readout.icon, NAN, readout.mode, 0, 0);
+            }
+          }
+          if (disconnect || expired(11, 20000)) samples[11] = 0;
+          if (disconnect || expired(21, 8000)) {
+            samples[21] = 0;
+            id(g_dashboard_gear) = NAN;
+            id(script_render_gear).execute(false);
+          }
+          if (disconnect || expired(22, 8000)) {
+            samples[22] = 0;
+            id(script_render_prnd).execute("-");
+          }
+
   - id: script_splash_stage
     parameters:
       progress: int
@@ -2460,6 +2593,232 @@ script:
           lv_anim_set_duration(&reveal, 300);
           lv_anim_start(&reveal);
 
+  - id: script_init_scan_images
+    then:
+      - lambda: |-
+          // Rebuild the SVG-derived 1-bit masks at compile time from filled rectangles.
+          struct MaskRect { uint8_t x, y, width, height; };
+          constexpr auto make_mask = [](auto pixels, int width, std::initializer_list<MaskRect> rectangles) constexpr {
+            const int stride = (width + 7) / 8;
+            for (const auto &rect : rectangles) {
+              for (int y = rect.y; y < rect.y + rect.height; ++y) {
+                for (int x = rect.x; x < rect.x + rect.width; ++x) {
+                  pixels[y * stride + x / 8] |= 0x80 >> (x % 8);
+                }
+              }
+            }
+            return pixels;
+          };
+
+          static constexpr auto coolant_pixels = make_mask(std::array<uint8_t, 340>{}, 28, {
+            {8, 0, 12, 13}, {3, 6, 5, 73}, {20, 6, 5, 73}, {8, 16, 12, 8},
+            {8, 27, 12, 8}, {8, 38, 12, 8}, {8, 49, 12, 8}, {8, 60, 12, 8},
+            {8, 71, 12, 14},
+          });
+          static image::Image coolant(coolant_pixels.data(), 28, 85,
+                                    image::IMAGE_TYPE_BINARY, image::TRANSPARENCY_OPAQUE);
+          lv_image_set_src(id(widget_img_scan_coolant), coolant.get_lv_image_dsc());
+
+          static constexpr auto battery_pixels = make_mask(std::array<uint8_t, 238>{}, 51, {
+            {10, 3, 9, 5}, {32, 3, 9, 5}, {3, 8, 45, 6}, {3, 14, 10, 4},
+            {16, 14, 32, 4}, {3, 18, 6, 3}, {20, 18, 11, 3}, {42, 18, 6, 3},
+            {3, 21, 10, 4}, {16, 21, 32, 4}, {3, 25, 45, 6},
+          });
+          static image::Image battery(battery_pixels.data(), 51, 34,
+                                    image::IMAGE_TYPE_BINARY, image::TRANSPARENCY_OPAQUE);
+          lv_image_set_src(id(widget_img_scan_battery), battery.get_lv_image_dsc());
+
+          static constexpr auto transmission_pixels = make_mask(std::array<uint8_t, 343>{}, 51, {
+            {2, 3, 7, 43}, {9, 3, 3, 8}, {12, 3, 5, 43}, {17, 3, 3, 8},
+            {20, 3, 5, 43}, {25, 4, 1, 11}, {26, 5, 2, 11}, {28, 6, 1, 11},
+            {29, 6, 1, 37}, {30, 7, 1, 35}, {31, 8, 2, 33}, {33, 9, 1, 31},
+            {34, 10, 1, 30}, {35, 10, 1, 29}, {36, 11, 1, 27}, {37, 17, 10, 15},
+            {47, 20, 4, 9}, {28, 32, 1, 11}, {26, 33, 1, 12}, {27, 33, 1, 11},
+            {25, 34, 1, 11}, {9, 38, 3, 8}, {17, 38, 3, 8},
+          });
+          static image::Image transmission(transmission_pixels.data(), 51, 49,
+                                    image::IMAGE_TYPE_BINARY, image::TRANSPARENCY_OPAQUE);
+          lv_image_set_src(id(widget_img_scan_transmission), transmission.get_lv_image_dsc());
+
+          static constexpr auto cabin_pixels = make_mask(std::array<uint8_t, 3094>{}, 203, {
+            {193, 0, 2, 119}, {190, 1, 3, 118}, {195, 1, 1, 118}, {186, 2, 4, 17},
+            {196, 2, 1, 117}, {182, 3, 3, 116}, {185, 3, 1, 16}, {11, 4, 4, 115},
+            {15, 4, 1, 66}, {178, 4, 4, 115}, {197, 4, 1, 115}, {16, 5, 1, 57},
+            {17, 5, 1, 49}, {18, 5, 1, 41}, {19, 5, 1, 33}, {20, 5, 1, 25},
+            {21, 5, 1, 18}, {22, 5, 6, 13}, {175, 5, 3, 114}, {28, 6, 2, 12},
+            {30, 6, 10, 113}, {171, 6, 4, 113}, {198, 6, 1, 113}, {10, 7, 1, 110},
+            {40, 7, 131, 112}, {199, 7, 1, 112}, {200, 9, 1, 110}, {201, 10, 1, 109},
+            {202, 12, 1, 107}, {9, 13, 1, 100}, {8, 19, 1, 90}, {29, 22, 1, 83},
+            {7, 26, 1, 79}, {28, 31, 1, 68}, {6, 32, 1, 68}, {5, 38, 1, 58},
+            {27, 40, 1, 53}, {4, 44, 1, 48}, {26, 49, 1, 39}, {3, 51, 1, 37},
+            {2, 57, 1, 27}, {25, 58, 1, 24}, {1, 63, 1, 16}, {24, 68, 1, 8},
+            {0, 69, 1, 6}, {15, 75, 1, 44}, {16, 80, 1, 39}, {17, 85, 1, 34},
+            {18, 90, 1, 29}, {19, 95, 1, 24}, {20, 99, 1, 20}, {21, 104, 1, 15},
+            {185, 106, 5, 13}, {22, 107, 8, 12},
+          });
+          static image::Image cabin(cabin_pixels.data(), 203, 119,
+                                    image::IMAGE_TYPE_BINARY, image::TRANSPARENCY_OPAQUE);
+          lv_image_set_src(id(widget_img_scan_cabin), cabin.get_lv_image_dsc());
+
+          static constexpr auto cabin_windows_pixels = make_mask(std::array<uint8_t, 5292>{}, 216, {
+            {2, 2, 84, 1}, {105, 2, 96, 2}, {2, 3, 85, 2}, {105, 4, 95, 4},
+            {2, 5, 86, 2}, {2, 7, 87, 2}, {105, 8, 94, 4}, {2, 9, 88, 2},
+            {2, 11, 89, 2}, {105, 12, 93, 3}, {2, 13, 90, 1}, {4, 14, 88, 1},
+            {9, 15, 84, 1}, {105, 15, 92, 4}, {15, 16, 78, 1}, {20, 17, 74, 1},
+            {25, 18, 69, 1}, {30, 19, 65, 1}, {105, 19, 91, 2}, {35, 20, 50, 1},
+            {40, 21, 19, 1}, {41, 174, 12, 1}, {36, 175, 43, 1}, {105, 175, 91, 2},
+            {30, 176, 65, 1}, {25, 177, 69, 1}, {105, 177, 92, 4}, {20, 178, 74, 1},
+            {15, 179, 78, 1}, {10, 180, 83, 1}, {5, 181, 87, 1}, {105, 181, 93, 3},
+            {2, 182, 90, 1}, {2, 183, 89, 2}, {105, 184, 94, 4}, {2, 185, 88, 2},
+            {2, 187, 87, 2}, {105, 188, 95, 4}, {2, 189, 86, 2}, {2, 191, 85, 2},
+            {105, 192, 96, 2}, {2, 193, 84, 1},
+          });
+          static image::Image cabin_windows(cabin_windows_pixels.data(), 216, 196,
+                                    image::IMAGE_TYPE_BINARY, image::TRANSPARENCY_OPAQUE);
+          lv_image_set_src(id(widget_img_scan_cabin_windows), cabin_windows.get_lv_image_dsc());
+
+          static constexpr auto fuel_pixels = make_mask(std::array<uint8_t, 115>{}, 39, {
+            {6, 2, 21, 1}, {5, 3, 23, 1}, {4, 4, 25, 1}, {3, 5, 33, 1},
+            {2, 6, 34, 1}, {1, 7, 35, 1}, {1, 8, 8, 2}, {26, 8, 10, 1},
+            {26, 9, 13, 1}, {1, 10, 38, 4}, {1, 14, 8, 2}, {26, 14, 13, 1},
+            {26, 15, 7, 1}, {2, 16, 30, 1}, {3, 17, 28, 1}, {4, 18, 27, 1},
+            {5, 19, 25, 1}, {6, 20, 23, 1},
+          });
+          static image::Image fuel(fuel_pixels.data(), 39, 23,
+                                    image::IMAGE_TYPE_BINARY, image::TRANSPARENCY_OPAQUE);
+          lv_image_set_src(id(widget_img_scan_fuel), fuel.get_lv_image_dsc());
+
+          static constexpr auto bed_pixels = make_mask(std::array<uint8_t, 4450>{}, 196, {
+            {0, 0, 181, 1}, {0, 1, 182, 1}, {0, 2, 183, 1}, {0, 3, 184, 1},
+            {0, 4, 186, 1}, {0, 5, 187, 1}, {0, 6, 188, 1}, {0, 7, 189, 1},
+            {0, 8, 190, 1}, {0, 9, 192, 1}, {0, 10, 193, 1}, {0, 11, 194, 1},
+            {0, 12, 195, 1}, {0, 13, 12, 152}, {31, 13, 83, 1}, {179, 13, 17, 3},
+            {32, 14, 81, 1}, {33, 15, 79, 1}, {15, 16, 15, 1}, {34, 16, 76, 1},
+            {115, 16, 81, 1}, {15, 17, 16, 1}, {35, 17, 74, 1}, {114, 17, 82, 1},
+            {15, 18, 17, 1}, {35, 18, 73, 1}, {113, 18, 83, 1}, {15, 19, 18, 1},
+            {36, 19, 70, 1}, {111, 19, 85, 1}, {15, 20, 19, 1}, {37, 20, 66, 1},
+            {110, 20, 86, 1}, {15, 21, 20, 2}, {38, 21, 62, 1}, {109, 21, 87, 1},
+            {39, 22, 58, 1}, {107, 22, 89, 1}, {15, 23, 21, 1}, {40, 23, 54, 1},
+            {104, 23, 92, 1}, {15, 24, 22, 1}, {101, 24, 95, 1}, {15, 25, 23, 1},
+            {98, 25, 98, 1}, {15, 26, 24, 1}, {95, 26, 101, 1}, {15, 27, 181, 30},
+            {15, 57, 10, 3}, {171, 57, 25, 3}, {15, 60, 181, 27}, {15, 87, 10, 3},
+            {171, 87, 25, 3}, {15, 90, 181, 27}, {15, 117, 10, 3}, {171, 117, 25, 3},
+            {15, 120, 181, 31}, {15, 151, 24, 1}, {95, 151, 101, 1}, {15, 152, 23, 1},
+            {98, 152, 98, 1}, {15, 153, 22, 1}, {101, 153, 95, 1}, {15, 154, 21, 1},
+            {40, 154, 54, 1}, {104, 154, 92, 1}, {15, 155, 20, 2}, {39, 155, 58, 1},
+            {107, 155, 89, 1}, {38, 156, 62, 1}, {109, 156, 87, 1}, {15, 157, 19, 1},
+            {37, 157, 66, 1}, {110, 157, 86, 1}, {15, 158, 18, 1}, {36, 158, 70, 1},
+            {111, 158, 85, 1}, {15, 159, 17, 1}, {35, 159, 73, 1}, {113, 159, 83, 1},
+            {15, 160, 16, 1}, {35, 160, 74, 1}, {114, 160, 82, 1}, {15, 161, 15, 1},
+            {34, 161, 76, 1}, {115, 161, 81, 1}, {33, 162, 79, 1}, {179, 162, 17, 3},
+            {32, 163, 81, 1}, {31, 164, 83, 1}, {0, 165, 195, 1}, {0, 166, 194, 1},
+            {0, 167, 193, 1}, {0, 168, 192, 1}, {0, 169, 190, 1}, {0, 170, 189, 1},
+            {0, 171, 188, 1}, {0, 172, 187, 1}, {0, 173, 186, 1}, {0, 174, 184, 1},
+            {0, 175, 183, 1}, {0, 176, 182, 1}, {0, 177, 181, 1},
+          });
+          static image::Image bed(bed_pixels.data(), 196, 178,
+                                    image::IMAGE_TYPE_BINARY, image::TRANSPARENCY_OPAQUE);
+          lv_image_set_src(id(widget_img_scan_bed), bed.get_lv_image_dsc());
+
+  - id: script_render_scan_status
+    parameters:
+      color_mode: int
+      color: lv_color_t
+      label: lv_obj_t*
+      focus: bool
+    then:
+      - lambda: |-
+          // Ordered from the neutral silhouette to the highest severity.
+          const lv_color_t colors[] = {
+            lv_color_hex(${tab5_color_text_inactive}),
+            lv_color_hex(${tab5_color_status_cool}),
+            lv_color_hex(${tab5_color_status_cold}),
+            lv_color_hex(${tab5_color_status_warm}),
+            lv_color_hex(${tab5_color_status_hot}),
+          };
+          const lv_opa_t opacities[] = {LV_OPA_30, LV_OPA_40, LV_OPA_40, LV_OPA_50, LV_OPA_60};
+          static uint8_t severity_by_mode[21]{};
+          if (color_mode < 0 || color_mode >= 21) return;
+          const uint8_t previous = severity_by_mode[color_mode];
+          uint8_t severity = 0;
+          for (uint8_t level = 1; level < sizeof(colors) / sizeof(colors[0]); ++level) {
+            if (lv_color_eq(color, colors[level])) {
+              severity = level;
+              break;
+            }
+          }
+          if (!focus) {
+            if (previous == severity) return;
+            severity_by_mode[color_mode] = severity;
+            lv_obj_t *leader = nullptr;
+            switch (color_mode) {
+              case 5: leader = id(line_scan_coolant_leader)->obj; break;
+              case 2: leader = id(line_scan_cabin_leader)->obj; break;
+              case 15: leader = id(line_scan_bed_leader)->obj; break;
+            }
+            if (leader) {
+              if (severity >= 3) lv_obj_set_style_line_color(leader, colors[severity], LV_PART_MAIN);
+              id(tab5_motion_visible)(leader, severity >= 3, 150);
+            }
+          }
+
+          const bool visible = lv_obj_has_flag(id(obj_splash), LV_OBJ_FLAG_HIDDEN) && !id(g_logs_visible);
+          const bool new_warning = !focus && label && severity >= 3 && severity > previous;
+          const auto image_opacity = +[](void *object, int32_t opacity) {
+            lv_obj_set_style_image_opa(static_cast<lv_obj_t *>(object), opacity, LV_PART_MAIN);
+          };
+          const auto label_glow = +[](void *object, int32_t opacity) {
+            lv_obj_set_style_bg_opa(static_cast<lv_obj_t *>(object), opacity, LV_PART_MAIN);
+          };
+          const auto pulse = [](lv_obj_t *object, lv_anim_exec_xcb_t apply, int32_t peak, int32_t rest, uint32_t duration) {
+            lv_anim_delete(object, apply);
+            lv_anim_t animation;
+            lv_anim_init(&animation);
+            lv_anim_set_var(&animation, object);
+            lv_anim_set_exec_cb(&animation, apply);
+            lv_anim_set_values(&animation, peak, rest);
+            lv_anim_set_duration(&animation, duration);
+            lv_anim_set_path_cb(&animation, lv_anim_path_ease_out);
+            lv_anim_start(&animation);
+          };
+
+          const struct {
+            lv_obj_t *object;
+            std::initializer_list<int> modes;
+          } areas[] = {
+            {id(widget_img_scan_coolant), {5}},
+            {id(widget_img_scan_engine), {8, 9, 14, 17}},
+            {id(widget_img_scan_battery), {7, 20}},
+            {id(widget_img_scan_transmission), {18}},
+            {id(widget_img_scan_cabin), {2, 3}},
+            {id(widget_img_scan_cabin_windows), {12, 13}},
+            {id(widget_img_scan_fuel), {6}},
+            {id(widget_img_scan_bed), {15, 16}},
+          };
+          for (const auto &area : areas) {
+            if (std::find(area.modes.begin(), area.modes.end(), color_mode) == area.modes.end()) continue;
+            uint8_t highest = 0, old_highest = 0;
+            for (const int mode : area.modes) {
+              highest = std::max(highest, severity_by_mode[mode]);
+              old_highest = std::max(old_highest, mode == color_mode ? previous : severity_by_mode[mode]);
+            }
+            if (highest != old_highest) {
+              lv_anim_delete(area.object, image_opacity);
+              lv_obj_set_style_image_recolor(area.object, colors[highest], LV_PART_MAIN);
+              image_opacity(area.object, opacities[highest]);
+            }
+            if (visible && (focus || (new_warning && highest > old_highest))) {
+              pulse(area.object, image_opacity, opacities[highest] + LV_OPA_30, opacities[highest], 220);
+            }
+            if (visible && new_warning) {
+              lv_obj_set_style_bg_color(label, color, LV_PART_MAIN);
+              pulse(label, label_glow, LV_OPA_10, LV_OPA_TRANSP, 200);
+            } else if (!focus && label && severity < previous && lv_anim_delete(label, label_glow)) {
+              label_glow(label, LV_OPA_TRANSP);
+            }
+            break;
+          }
+
   - id: script_render_readout
     parameters:
       label: lv_obj_t*
@@ -2472,6 +2831,8 @@ script:
       - lambda: |-
           const auto color = id(fn_state_color)(value, color_mode);
           const auto text = id(fn_readout_text)(value, decimals);
+          id(g_dashboard_samples)[color_mode] = std::isfinite(value) ? esphome::millis() : 0;
+          id(script_render_scan_status).execute(color_mode, color, label, false);
           lv_obj_set_style_text_color(label, color, LV_PART_MAIN);
           const bool accented = id(tab5_motion_icon)(icon, color, color_mode, false);
           id(tab5_motion_label_value)(label, text.c_str(), accented ? 0 : fade_ms);
@@ -2489,6 +2850,8 @@ script:
       - lambda: |-
           const auto color = id(fn_state_color)(value, color_mode);
           const auto text = id(fn_readout_text)(value, 0);
+          id(g_dashboard_samples)[color_mode] = std::isfinite(value) ? esphome::millis() : 0;
+          id(script_render_scan_status).execute(color_mode, color, label, false);
           lv_obj_set_style_text_color(label, color, LV_PART_MAIN);
           id(tab5_motion_label_value)(label, text.c_str(), 0);
           id(tab5_motion_bar)(bar, value, duration);
