@@ -1219,11 +1219,10 @@ text_sensor:
       return std::string(buf);
     on_value:
       then:
-        - lvgl.label.update:
-            id: lbl_engine_run_time
-            text: !lambda return x;
-            text_color: !lambda 'return id(fn_state_color)(x == "--:--" ? NAN : id(engine_run_time).state, 11);'
-        - lambda: 'id(tab5_motion_icon)(id(widget_img_timer), id(fn_state_color)(x == "--:--" ? NAN : id(engine_run_time).state, 11), 11, false);'
+        - lambda: |-
+            const auto color = id(fn_state_color)(x == "--:--" ? NAN : id(engine_run_time).state, 11);
+            id(script_update_sensor_text).execute(id(lbl_engine_run_time), x, color, 11, 0);
+            id(tab5_motion_icon)(id(widget_img_timer), color, 11, false);
   - platform: ble_elm327
     last_error:
       name: "ELM327 Last Error"
@@ -1361,7 +1360,7 @@ lvgl:
                 align: left_mid
                 x: 8
                 y: 0
-                width: 68
+                width: 76
                 height: 48
                 bg_opa: 0%
                 border_width: 0
@@ -1377,10 +1376,13 @@ lvgl:
                     - lambda: |-
                         id(g_logs_visible) = !id(g_logs_visible);
                         id(tab5_motion_visible)(id(obj_log), id(g_logs_visible), 175);
+                        lv_label_set_text(id(lbl_menu_toggle), id(g_logs_visible) ? "BACK" : "MENU");
+                        if (id(g_logs_visible)) id(script_refresh_logs).execute(true);
                 widgets:
                   - label:
+                      id: lbl_menu_toggle
                       align: center
-                      text: "LOG"
+                      text: "MENU"
                       text_font: notosans20
                       text_color: "${tab5_color_accent}"
             - image:
@@ -1700,11 +1702,16 @@ lvgl:
                         hidden: true
                         bg_color: "${tab5_color_accent}"
                         bg_opa: COVER
-                        outline_color: "${tab5_color_accent}"
-                        outline_width: 2
-                        outline_opa: TRANSP
                         widgets:
                           - label: { id: lbl_prnd, text: "-", align: top_mid, y: -7, text_color: "${tab5_color_background}", text_font: notosans35 }
+                          - obj:
+                              id: obj_prnd_confirm
+                              <<: *terminal_panel
+                              align: top_mid
+                              y: 37
+                              width: 28
+                              height: 3
+                              bg_color: "${tab5_color_background}"
               - label: { <<: *terminal_heading, text: "GEAR", x: 213, y: 273, text_font: notosans16 }
               - obj:
                   <<: *terminal_panel
@@ -1863,6 +1870,7 @@ lvgl:
                     - line: { <<: *truck_detail, x: 373, y: 138, points: ["0, 0", "98, 0"] }
                     - line: { <<: *truck_detail, x: 421, y: 107, points: ["0, 0", "0, 63"] }
                     - obj:
+                        id: obj_pose_center
                         <<: *terminal_panel
                         align: top_left
                         x: 401
@@ -1872,6 +1880,9 @@ lvgl:
                         radius: 21
                         border_width: 1
                         border_color: "${tab5_color_text_inactive}"
+                        outline_width: 3
+                        outline_color: "${tab5_color_accent}"
+                        outline_opa: TRANSP
                     - obj: { <<: *terminal_panel, id: obj_pose_dot, align: top_left, x: 418, y: 134, width: 8, height: 8, radius: 4, bg_opa: COVER, bg_color: "${tab5_color_accent}", hidden: true }
               - obj:
                   <<: *terminal_panel
@@ -2044,63 +2055,102 @@ lvgl:
                     - bar: { <<: *terminal_bar, id: bar_battery_soc, align: top_left, y: 79, width: 224, height: 7, min_value: 0, max_value: 100, animated: false }
                     - line: { <<: *terminal_segments }
 
-        # 로그 (개발용, 숨김)
+        # Service screen: event log and device settings.
         - obj:
             id: obj_log
-            hidden: true
-            bg_color: "${tab5_color_panel_bg}"
-            border_width: 0
-            radius: 0
+            <<: *terminal_panel
             align: top_left
-            x: 0
             y: 72
             width: 1280
             height: 648
-            pad_all: 0
-            scrollbar_mode: "OFF"
-            scrollable: false
+            hidden: true
+            clickable: true
+            bg_color: "${tab5_color_panel_bg}"
+            bg_opa: COVER
             widgets:
-              - textarea:
-                  id: textarea_log
-                  align: top_left
-                  x: 0
-                  y: 0
-                  one_line: false
-                  text_color: "${tab5_color_text_secondary}"
-                  text_font: notosans20
-                  width: 1000
-                  height: 100%
-                  bg_color: "${tab5_color_panel_bg}"
-                  border_width: 0
-                  scrollbar_mode: "OFF"
-                  scrollable: false
+              - line: { <<: *terminal_line, x: 845, y: 22, points: ["0, 0", "0, 604"] }
               - obj:
-                  id: obj_log_menu_panel
-                  align: top_right
-                  x: 0
-                  y: 0
-                  width: 275
-                  height: 100%
-                  bg_color: "${tab5_color_panel_bg}"
-                  border_width: 0
-                  radius: 0
-                  pad_all: 15
-                  scrollbar_mode: "OFF"
-                  scrollable: false
+                  <<: *terminal_panel
+                  align: top_left
+                  x: 28
+                  y: 22
+                  width: 790
+                  height: 604
                   widgets:
-                    - label:
-                        text: "화면 밝기"
+                    - label: { <<: &menu_kicker { <<: *terminal_heading, text_font: font_terminal_boot, text_color: "${tab5_color_accent}", text_letter_space: 2 }, text: "01 / EVENT LOG" }
+                    - label: { <<: &menu_title { <<: *terminal_heading, y: 27, text_font: notosans30, text_color: "${tab5_color_text_primary}" }, text: "시스템 로그" }
+                    - label: { <<: *terminal_heading, id: lbl_log_count, x: 380, y: 38, width: 126, text_align: RIGHT, text: "0 / 50" }
+                    - button:
+                        <<: &menu_button { <<: *neutral_button, align: top_left, height: 50, pad_all: 0, shadow_width: 0, scrollable: false }
+                        id: btn_log_latest
+                        x: 526
+                        y: 27
+                        width: 122
+                        on_click:
+                          - script.execute: { id: script_refresh_logs, follow: true }
+                        widgets:
+                          - label: { <<: &menu_button_label { align: center, text_font: notosans20, text_color: "${tab5_color_text_primary}" }, text: "최근으로" }
+                    - button:
+                        <<: *menu_button
+                        id: btn_clear_logs
+                        x: 660
+                        y: 27
+                        width: 130
+                        on_click:
+                          - lambda: |-
+                              id(g_logs).clear();
+                              id(script_logs).execute("Logs cleared");
+                              id(script_refresh_logs).execute(true);
+                        widgets:
+                          - label: { <<: *menu_button_label, text: "로그 지우기" }
+                    - line: { <<: *terminal_line, y: 90, points: ["0, 0", "789, 0"] }
+                    - obj:
+                        <<: *terminal_panel
+                        id: obj_log_scroll
                         align: top_left
-                        x: 10
-                        y: 15
-                        text_color: "${tab5_color_text_muted}"
-                        text_font: notosans25
+                        y: 101
+                        width: 790
+                        height: 503
+                        pad_all: 16
+                        bg_color: "${tab5_color_background}"
+                        bg_opa: COVER
+                        scrollable: true
+                        scroll_dir: VER
+                        scrollbar_mode: AUTO
+                        scrollbar:
+                          bg_color: "${tab5_color_card_border}"
+                          bg_opa: COVER
+                          width: 5
+                          radius: 2
+                        widgets:
+                          - label:
+                              id: lbl_log_text
+                              align: top_left
+                              width: 100%
+                              long_mode: WRAP
+                              text: "아직 기록이 없습니다."
+                              text_font: notosans20
+                              text_color: "${tab5_color_text_secondary}"
+                              text_line_space: 6
+              - obj:
+                  <<: *terminal_panel
+                  align: top_left
+                  x: 872
+                  y: 22
+                  width: 380
+                  height: 604
+                  widgets:
+                    - label: { <<: *menu_kicker, text: "02 / SETTINGS" }
+                    - label: { <<: *menu_title, text: "시스템 설정" }
+                    - line: { <<: &menu_rule { <<: *terminal_line, points: ["0, 0", "379, 0"] }, y: 90 }
+                    - label: { <<: &menu_section { <<: *terminal_heading, text_font: notosans25, text_color: "${tab5_color_text_primary}" }, y: 105, text: "화면 밝기" }
+                    - label: { <<: *menu_section, id: lbl_backlight_value, align: top_right, y: 105, text: "40%", text_color: "${tab5_color_accent}" }
                     - slider:
                         id: slider_backlight
                         align: top_mid
-                        y: 55
-                        width: 240
-                        height: 20
+                        y: 158
+                        width: 350
+                        height: 21
                         min_value: 10
                         max_value: 100
                         value: 40
@@ -2112,94 +2162,48 @@ lvgl:
                         knob:
                           bg_color: "${tab5_color_text_primary}"
                           bg_opa: COVER
+                          pad_all: 5
                         on_value:
                           then:
+                            - lvgl.label.update:
+                                id: lbl_backlight_value
+                                text: !lambda 'return std::to_string(static_cast<int>(x)) + "%";'
                             - light.control:
                                 id: backlight
                                 brightness: !lambda 'return x / 100.0f;'
+                    - line: { <<: *menu_rule, y: 204 }
+                    - label: { <<: *menu_section, y: 216, text: "자세 보정" }
                     - button:
+                        <<: *menu_button
                         id: btn_reset_calibration
-                        align: top_mid
-                        y: 105
-                        width: 250
-                        height: 54
-                        <<: *neutral_button
+                        y: 258
+                        width: 380
                         on_click:
-                          then:
-                            - lambda: |-
-                                id(g_pitch_offset) = 0.0f;
-                                id(g_roll_offset) = 0.0f;
-                                id(script_logs).execute("Pitch/Roll calibration reset");
+                          - lambda: |-
+                              id(script_confirm_tilt_zero).stop();
+                              id(g_pitch_offset) = 0.0f;
+                              id(g_roll_offset) = 0.0f;
+                              id(script_logs).execute("Pitch/Roll calibration reset");
                         widgets:
-                          - label:
-                              text: "기울기 보정 초기화"
-                              align: center
-                              text_color: "${tab5_color_text_primary}"
-                              text_font: notosans25
+                          - label: { <<: *menu_button_label, text: "기울기 보정 초기화" }
+                    - line: { <<: *menu_rule, y: 326 }
+                    - label: { <<: *menu_section, y: 337, text: "펌웨어" }
+                    - label: { <<: *terminal_heading, y: 381, text: "현재 버전" }
+                    - label: { <<: *terminal_heading, align: top_right, width: 240, text_align: RIGHT, long_mode: DOT, text_color: "${tab5_color_text_secondary}", id: lbl_menu_curr_ver, y: 381, text: *version }
+                    - line: { <<: *menu_rule, y: 528 }
                     - button:
-                        id: btn_clear_logs
-                        align: top_mid
-                        y: 175
-                        width: 250
-                        height: 54
-                        <<: *neutral_button
-                        on_click:
-                          then:
-                            - lambda: |-
-                                id(g_logs).clear();
-                                id(script_logs).execute("Logs cleared");
-                        widgets:
-                          - label:
-                              text: "로그 기록 지우기"
-                              align: center
-                              text_color: "${tab5_color_text_primary}"
-                              text_font: notosans25
-                    - obj:
-                        align: top_mid
-                        y: 250
-                        width: 250
-                        height: 60
-                        bg_color: "${tab5_color_card_bg}"
-                        border_width: 1
-                        border_color: "${tab5_color_card_border}"
-                        radius: 8
-                        pad_all: 8
-                        scrollbar_mode: "OFF"
-                        scrollable: false
-                        widgets:
-                          - label:
-                              text: "현재 버전"
-                              align: top_left
-                              x: 8
-                              y: 6
-                              text_color: "${tab5_color_text_muted}"
-                              text_font: notosans20
-                          - label:
-                              id: lbl_menu_curr_ver
-                              text: *version
-                              align: top_right
-                              x: -8
-                              y: 6
-                              text_color: "${tab5_color_text_secondary}"
-                              text_font: notosans20
-                    - button:
+                        <<: *menu_button
                         id: btn_log_restart
-                        align: bottom_mid
-                        y: -20
-                        width: 250
-                        height: 56
-                        <<: *danger_button
+                        y: 546
+                        width: 380
+                        pressed:
+                          bg_color: "${tab5_color_danger_pressed}"
                         on_click:
-                          then:
-                            - lambda: |-
-                                id(tab5_motion_visible)(id(obj_restart_backdrop), true, 185);
-                                id(tab5_motion_visible)(id(obj_restart_popup), true, 185);
+                          - lambda: |-
+                              id(tab5_motion_visible)(id(obj_restart_backdrop), true, 185);
+                              id(tab5_motion_visible)(id(obj_restart_popup), true, 185);
                         widgets:
-                          - label:
-                              text: "시스템 재시작"
-                              align: center
-                              text_color: "${tab5_color_text_primary}"
-                              text_font: notosans25
+                          - label: { <<: *menu_button_label, text: "시스템 재시작", text_color: "${tab5_color_status_hot}" }
 
 font:
   - file: "gfonts://Share+Tech+Mono"
@@ -2225,15 +2229,15 @@ font:
   - file: "gfonts://Noto+Sans+KR"
     id: notosans20
     size: 20
-    glyphs: ${ (ui_ascii + ui_alert_hangul + ui_extra_glyphs + '°각간거기내냉도량력료리미부션수습신실압엔연오온운율있일잔재적전진충최태하함행현흡') | unique(case_sensitive=true) | join }
+    glyphs: ${ (ui_ascii + ui_alert_hangul + ui_extra_glyphs + '°각간거기내냉도량력료리미부션수습신실압엔연오온운율있일잔재적전진충최태하함행현흡그록로아직없습니확근다보우울으인작정중지초템화') | unique(case_sensitive=true) | join }
   - file: "gfonts://Noto+Sans+KR"
     id: notosans25
     size: 25
-    glyphs: [ "${ui_ascii}", "그기내데도로록면밝보상스습시신실업온우울이인작재적정중지초최태템트함행화확" ]
+    glyphs: [ "${ui_ascii}", "그기내데도로록면밝보상스습시신실업온우울이인작재적정중지초최태템트함행화확자세펌웨어" ]
   - file: "gfonts://Noto+Sans+KR"
     id: notosans30
     size: 30
-    glyphs: [ "${ui_ascii}", "°", "각거겠기까냉니도량력료리미부션수스습시아압엔연예오온운율을일작잔재전진충템하행흡" ]
+    glyphs: [ "${ui_ascii}", "°", "각거겠기까냉니도량력료리미부션수스습시아압엔연예오온운율을일작잔재전진충템하행흡로그설정" ]
   - file: "gfonts://Noto+Sans+KR"
     id: notosans35
     size: 35
@@ -2369,8 +2373,7 @@ script:
           const auto color = id(fn_state_color)(valid ? speed : NAN, 10);
           char text[12] = "--";
           if (valid) snprintf(text, sizeof(text), "%d", static_cast<int>(speed));
-          id(tab5_motion_label_value)(id(lbl_speed), text, 0);
-          lv_obj_set_style_text_color(id(lbl_speed), color, LV_PART_MAIN);
+          id(script_update_sensor_text).execute(id(lbl_speed), text, color, 10, 0);
           auto *bar = id(bar_speed);
           lv_obj_set_style_bg_opa(bar, valid ? LV_OPA_COVER : LV_OPA_40, LV_PART_MAIN);
           lv_obj_set_style_bg_color(bar,
@@ -2391,7 +2394,14 @@ script:
           const auto move_selection = +[](void *obj, int32_t x) {
             lv_obj_set_x(static_cast<lv_obj_t *>(obj), x);
           };
+          static const auto flash = +[](void *obj, int32_t strength) {
+            const auto fill = lv_color_mix(lv_color_white(), lv_color_hex(${tab5_color_accent}), strength);
+            lv_obj_set_style_bg_color(static_cast<lv_obj_t *>(obj), fill, LV_PART_MAIN);
+            lv_obj_set_style_bg_opa(id(obj_prnd_confirm), strength, LV_PART_MAIN);
+          };
           lv_anim_delete(selection, move_selection);
+          lv_anim_delete(selection, flash);
+          flash(selection, LV_OPA_TRANSP);
           if (slot) {
             const int32_t target = 43 * (slot - positions);
             const bool animate = !lv_obj_has_flag(selection, LV_OBJ_FLAG_HIDDEN) &&
@@ -2408,7 +2418,14 @@ script:
               lv_anim_set_duration(&motion, 160);
               lv_anim_set_path_cb(&motion, lv_anim_path_ease_out);
               lv_anim_set_completed_cb(&motion, +[](lv_anim_t *anim) {
-                id(tab5_motion_outline)(static_cast<lv_obj_t *>(anim->var), 210);
+                lv_anim_t confirmation;
+                lv_anim_init(&confirmation);
+                lv_anim_set_var(&confirmation, anim->var);
+                lv_anim_set_exec_cb(&confirmation, flash);
+                lv_anim_set_values(&confirmation, LV_OPA_COVER, LV_OPA_TRANSP);
+                lv_anim_set_duration(&confirmation, 340);
+                lv_anim_set_path_cb(&confirmation, lv_anim_path_ease_in);
+                lv_anim_start(&confirmation);
               });
               lv_anim_start(&motion);
             } else {
@@ -2754,6 +2771,9 @@ script:
               break;
             }
           }
+          const bool visible = lv_obj_has_flag(id(obj_splash), LV_OBJ_FLAG_HIDDEN) && !id(g_logs_visible);
+          constexpr uint32_t trace_duration = 200;
+          uint32_t pulse_delay = 0;
           if (!focus) {
             if (previous == severity) return;
             severity_by_mode[color_mode] = severity;
@@ -2771,12 +2791,65 @@ script:
               case 12: leader = id(line_scan_tvoc_leader)->obj; break;
             }
             if (leader) {
-              if (severity >= 3) lv_obj_set_style_line_color(leader, colors[severity], LV_PART_MAIN);
-              id(tab5_motion_visible)(leader, severity >= 3, 150);
+              // LVGL holds a pointer to the points, so keep each animated pair alive.
+              struct LeaderTrace {
+                lv_obj_t *line;
+                const lv_point_precise_t *full;
+                lv_point_precise_t partial[2];
+                int32_t progress;
+              };
+              static LeaderTrace traces[21]{};
+              auto &trace = traces[color_mode];
+              const auto draw = +[](void *state, int32_t progress) {
+                auto &trace = *static_cast<LeaderTrace *>(state);
+                trace.progress = progress;
+                if (progress == 100) {
+                  lv_line_set_points(trace.line, trace.full, 2);
+                  return;
+                }
+                const auto &start = trace.full[0];
+                const auto &end = trace.full[1];
+                trace.partial[0] = start;
+                trace.partial[1].x = start.x + (end.x - start.x) * progress / 100;
+                trace.partial[1].y = start.y + (end.y - start.y) * progress / 100;
+                lv_line_set_points(trace.line, trace.partial, 2);
+              };
+              const bool warning = severity >= 3;
+              if (warning) lv_obj_set_style_line_color(leader, colors[severity], LV_PART_MAIN);
+              if (warning != (previous >= 3)) {
+                if (!trace.full) trace = {leader, lv_line_get_points(leader), {}, 0};
+                const bool interrupted = lv_anim_delete(&trace, draw);
+                const int32_t from = interrupted ? trace.progress : (warning ? 0 : 100);
+                const int32_t to = warning ? 100 : 0;
+                if (visible && from != to) {
+                  const uint32_t duration = warning ? trace_duration : 120;
+                  lv_anim_t motion;
+                  lv_anim_init(&motion);
+                  lv_anim_set_var(&motion, &trace);
+                  lv_anim_set_exec_cb(&motion, draw);
+                  lv_anim_set_values(&motion, from, to);
+                  lv_anim_set_duration(&motion, duration);
+                  lv_anim_set_path_cb(&motion, lv_anim_path_linear);
+                  if (!warning) {
+                    lv_anim_set_completed_cb(&motion, +[](lv_anim_t *anim) {
+                      auto &trace = *static_cast<LeaderTrace *>(anim->var);
+                      lv_obj_add_flag(trace.line, LV_OBJ_FLAG_HIDDEN);
+                      lv_line_set_points(trace.line, trace.full, 2);
+                    });
+                  }
+                  lv_anim_start(&motion);
+                  if (warning) {
+                    id(tab5_motion_visible)(leader, true, 0);
+                    pulse_delay = duration;
+                  }
+                } else {
+                  id(tab5_motion_visible)(leader, warning, 0);
+                  lv_line_set_points(leader, trace.full, 2);
+                }
+              }
             }
           }
 
-          const bool visible = lv_obj_has_flag(id(obj_splash), LV_OBJ_FLAG_HIDDEN) && !id(g_logs_visible);
           const bool new_warning = !focus && label && severity >= 3 && severity > previous;
           const auto image_opacity = +[](void *object, int32_t opacity) {
             lv_obj_set_style_image_opa(static_cast<lv_obj_t *>(object), opacity, LV_PART_MAIN);
@@ -2784,7 +2857,8 @@ script:
           const auto label_glow = +[](void *object, int32_t opacity) {
             lv_obj_set_style_bg_opa(static_cast<lv_obj_t *>(object), opacity, LV_PART_MAIN);
           };
-          const auto pulse = [](lv_obj_t *object, lv_anim_exec_xcb_t apply, int32_t peak, int32_t rest, uint32_t duration) {
+          const auto pulse = [](lv_obj_t *object, lv_anim_exec_xcb_t apply, int32_t peak, int32_t rest,
+                                uint32_t duration, uint32_t delay = 0) {
             lv_anim_delete(object, apply);
             lv_anim_t animation;
             lv_anim_init(&animation);
@@ -2792,6 +2866,8 @@ script:
             lv_anim_set_exec_cb(&animation, apply);
             lv_anim_set_values(&animation, peak, rest);
             lv_anim_set_duration(&animation, duration);
+            lv_anim_set_delay(&animation, delay);
+            lv_anim_set_early_apply(&animation, delay == 0);
             lv_anim_set_path_cb(&animation, lv_anim_path_ease_out);
             lv_anim_start(&animation);
           };
@@ -2821,8 +2897,9 @@ script:
               lv_obj_set_style_image_recolor(area.object, colors[highest], LV_PART_MAIN);
               image_opacity(area.object, opacities[highest]);
             }
-            if (visible && (focus || (new_warning && highest > old_highest))) {
-              pulse(area.object, image_opacity, opacities[highest] + LV_OPA_30, opacities[highest], 220);
+            if (visible && (focus || (new_warning && (pulse_delay || highest > old_highest)))) {
+              image_opacity(area.object, opacities[highest]);
+              pulse(area.object, image_opacity, opacities[highest] + LV_OPA_30, opacities[highest], 220, pulse_delay);
             }
             if (visible && new_warning) {
               lv_obj_set_style_bg_color(label, color, LV_PART_MAIN);
@@ -2832,6 +2909,47 @@ script:
             }
             break;
           }
+
+  - id: script_update_sensor_text
+    parameters:
+      label: lv_obj_t*
+      text: string
+      color: lv_color_t
+      color_mode: int
+      fade_ms: uint32_t
+    then:
+      - lambda: |-
+          struct Recovery {
+            lv_obj_t *seen_label;
+            lv_color_t color;
+          };
+          static Recovery readouts[21]{};
+          auto &readout = readouts[color_mode];
+          const auto tint = +[](void *state, int32_t strength) {
+            const auto &readout = *static_cast<Recovery *>(state);
+            const auto fill = lv_color_mix(lv_color_white(), readout.color, strength);
+            lv_obj_set_style_text_color(readout.seen_label, fill, LV_PART_MAIN);
+          };
+          const auto missing = [](const char *value) {
+            return std::strcmp(value, "--") == 0 || std::strcmp(value, "--:--") == 0;
+          };
+          const bool valid = !missing(text.c_str());
+          const bool recovered = valid && readout.seen_label && missing(lv_label_get_text(label));
+          readout.color = color;
+          if (valid) readout.seen_label = label;
+          else lv_anim_delete(&readout, tint);
+          if (!lv_anim_get(&readout, tint)) lv_obj_set_style_text_color(label, color, LV_PART_MAIN);
+          id(tab5_motion_label_value)(label, text.c_str(), fade_ms);
+          if (!recovered || !lv_obj_has_flag(id(obj_splash), LV_OBJ_FLAG_HIDDEN) ||
+              id(g_logs_visible) || id(tab5_motion_notice_active)) return;
+          lv_anim_t motion;
+          lv_anim_init(&motion);
+          lv_anim_set_var(&motion, &readout);
+          lv_anim_set_exec_cb(&motion, tint);
+          lv_anim_set_values(&motion, LV_OPA_COVER, LV_OPA_TRANSP);
+          lv_anim_set_duration(&motion, 320);
+          lv_anim_set_path_cb(&motion, lv_anim_path_ease_in);
+          lv_anim_start(&motion);
 
   - id: script_render_readout
     parameters:
@@ -2847,9 +2965,8 @@ script:
           const auto text = id(fn_readout_text)(value, decimals);
           id(g_dashboard_samples)[color_mode] = std::isfinite(value) ? esphome::millis() : 0;
           id(script_render_scan_status).execute(color_mode, color, label, false);
-          lv_obj_set_style_text_color(label, color, LV_PART_MAIN);
           const bool accented = id(tab5_motion_icon)(icon, color, color_mode, false);
-          id(tab5_motion_label_value)(label, text.c_str(), accented ? 0 : fade_ms);
+          id(script_update_sensor_text).execute(label, text, color, color_mode, accented ? 0 : fade_ms);
 
   - id: script_render_gauge
     parameters:
@@ -2866,8 +2983,7 @@ script:
           const auto text = id(fn_readout_text)(value, 0);
           id(g_dashboard_samples)[color_mode] = std::isfinite(value) ? esphome::millis() : 0;
           id(script_render_scan_status).execute(color_mode, color, label, false);
-          lv_obj_set_style_text_color(label, color, LV_PART_MAIN);
-          id(tab5_motion_label_value)(label, text.c_str(), 0);
+          id(script_update_sensor_text).execute(label, text, color, color_mode, 0);
           id(tab5_motion_bar)(bar, value, duration);
           lv_obj_set_style_bg_color(bar, color, LV_PART_INDICATOR);
           id(tab5_motion_icon)(icon, color, color_mode, force_accent);
@@ -2881,16 +2997,37 @@ script:
     then:
       - lambda: |-
           if (std::abs(*offset) > 0.0001f) {
+            id(script_confirm_tilt_zero).stop();
             *offset = 0.0f;
             id(script_logs).execute(axis + " calibration cleared");
           } else {
-            if (isnan(angle)) return;
+            if (!std::isfinite(angle)) return;
             *offset = angle;
+            id(script_confirm_tilt_zero).execute(axis == "Pitch");
             char value[20];
             snprintf(value, sizeof(value), "%+.1f°", angle);
             id(script_logs).execute(axis + " calibrated to " + value);
           }
           id(tab5_motion_outline)(button, 205);
+
+  - id: script_confirm_tilt_zero
+    mode: restart
+    parameters:
+      pitch: bool
+    then:
+      - wait_until:
+          condition:
+            lambda: |-
+              const float angle = pitch ? id(id_device_pitch).state : id(id_device_roll).state;
+              auto *dot = id(obj_pose_dot);
+              const int32_t position = pitch ? lv_obj_get_style_translate_x(dot, LV_PART_MAIN)
+                                             : lv_obj_get_style_translate_y(dot, LV_PART_MAIN);
+              return !lv_obj_has_flag(dot, LV_OBJ_FLAG_HIDDEN) && std::abs(angle) <= 0.5f && std::abs(position) <= 1;
+          timeout: 1500ms
+      - lambda: |-
+          if (!id(g_logs_visible) && !lv_obj_has_flag(id(obj_pose_dot), LV_OBJ_FLAG_HIDDEN)) {
+            id(tab5_motion_outline)(id(obj_pose_center), 320);
+          }
 
   - id: script_logs
     parameters:
@@ -2909,15 +3046,28 @@ script:
           }
           logs.emplace_back(std::string(timestamp) + log.substr(0, length));
           if (logs.size() > 50) logs.erase(logs.begin());
-      - lvgl.textarea.update:
-          id: textarea_log
-          text: !lambda |-
-            std::string str;
-            for (const auto &line : id(g_logs)) {
-              str += line;
-              if (!line.ends_with("\r\n")) str += "\r\n";
-            }
-            return str;
+          if (id(g_logs_visible)) id(script_refresh_logs).execute(false);
+
+  - id: script_refresh_logs
+    parameters:
+      follow: bool
+    then:
+      - lambda: |-
+          auto *view = id(obj_log_scroll);
+          const bool at_bottom = !lv_obj_is_scrolling(view) && lv_obj_get_scroll_bottom(view) <= 8;
+          const auto &logs = id(g_logs);
+          std::string text;
+          for (const auto &line : logs) {
+            if (!text.empty()) text += '\n';
+            text += line;
+          }
+          lv_label_set_text(id(lbl_log_text), text.empty() ? "아직 기록이 없습니다." : text.c_str());
+          lv_label_set_text_fmt(id(lbl_log_count), "%u / 50", static_cast<unsigned>(logs.size()));
+          if (follow || at_bottom) {
+            lv_obj_update_layout(view);
+            lv_obj_scroll_to_y(view, lv_obj_get_scroll_y(view) + lv_obj_get_scroll_bottom(view), LV_ANIM_OFF);
+          }
+
 packages:
   tab5_common:
     url: https://github.com/eigger/espcomponents.git
