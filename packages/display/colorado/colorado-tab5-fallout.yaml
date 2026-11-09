@@ -1859,10 +1859,6 @@ lvgl:
                     - image: { <<: *scan_part, id: widget_img_scan_cabin_windows, x: 309, y: 40 }
                     - image: { <<: *scan_part, id: widget_img_scan_fuel, x: 472, y: 190 }
                     - image: { <<: *scan_part, id: widget_img_scan_bed, x: 534, y: 49 }
-                    # Leaders appear only when their readout enters a warning state.
-                    - line: { <<: *truck_detail, id: line_scan_coolant_leader, x: 42, y: 0, points: ["2, 2", "2, 14", "90, 103"], hidden: true }
-                    - line: { <<: *truck_detail, id: line_scan_cabin_leader, x: 340, y: 0, points: ["2, 2", "2, 14", "82, 102"], hidden: true }
-                    - line: { <<: *truck_detail, id: line_scan_bed_leader, x: 637, y: 0, points: ["2, 2", "2, 14", "2, 99"], hidden: true }
                     # Moving attitude point.
                     - line: { <<: *truck_detail, x: 373, y: 138, points: ["0, 0", "98, 0"] }
                     - line: { <<: *truck_detail, x: 421, y: 107, points: ["0, 0", "0, 63"] }
@@ -1954,6 +1950,17 @@ lvgl:
                     - label: { <<: *terminal_heading, x: 33, y: 3, text: "TVOC" }
                     - label: { <<: *terminal_number, id: lbl_cabin_tvoc, width: 97 }
                     - label: { <<: *terminal_heading, text: "ppb", x: 101, y: 47, text_font: notosans16 }
+              # Draw straight warning leaders from the card edges to the silhouettes.
+              - line: { <<: &scan_leader { <<: *truck_detail, hidden: true }, id: line_scan_coolant_leader, x: 73, y: 77, points: ["0, 0", "81, 104"] }
+              - line: { <<: *scan_leader, id: line_scan_intake_leader, x: 214, y: 77, points: ["6, 0", "0, 121"] }
+              - line: { <<: *scan_leader, id: line_scan_cabin_temp_leader, x: 369, y: 77, points: ["0, 0", "14, 84"] }
+              - line: { <<: *scan_leader, id: line_scan_cabin_humidity_leader, x: 475, y: 77, points: ["42, 0", "0, 84"] }
+              - line: { <<: *scan_leader, id: line_scan_bed_temp_leader, x: 633, y: 77, points: ["32, 0", "0, 90"] }
+              - line: { <<: *scan_leader, id: line_scan_bed_humidity_leader, x: 713, y: 77, points: ["100, 0", "0, 90"] }
+              - line: { <<: *scan_leader, id: line_scan_transmission_leader, x: 139, y: 229, points: ["0, 150", "143, 0"] }
+              - line: { <<: *scan_leader, id: line_scan_voltage_leader, x: 151, y: 282, points: ["0, 97", "36, 0"] }
+              - line: { <<: *scan_leader, id: line_scan_co2_leader, x: 465, y: 309, points: ["200, 70", "0, 0"] }
+              - line: { <<: *scan_leader, id: line_scan_tvoc_leader, x: 512, y: 311, points: ["301, 68", "0, 0"] }
         # Five lower phosphor gauges
         - obj:
             <<: *terminal_panel
@@ -2753,8 +2760,15 @@ script:
             lv_obj_t *leader = nullptr;
             switch (color_mode) {
               case 5: leader = id(line_scan_coolant_leader)->obj; break;
-              case 2: leader = id(line_scan_cabin_leader)->obj; break;
-              case 15: leader = id(line_scan_bed_leader)->obj; break;
+              case 17: leader = id(line_scan_intake_leader)->obj; break;
+              case 2: leader = id(line_scan_cabin_temp_leader)->obj; break;
+              case 3: leader = id(line_scan_cabin_humidity_leader)->obj; break;
+              case 15: leader = id(line_scan_bed_temp_leader)->obj; break;
+              case 16: leader = id(line_scan_bed_humidity_leader)->obj; break;
+              case 18: leader = id(line_scan_transmission_leader)->obj; break;
+              case 7: leader = id(line_scan_voltage_leader)->obj; break;
+              case 13: leader = id(line_scan_co2_leader)->obj; break;
+              case 12: leader = id(line_scan_tvoc_leader)->obj; break;
             }
             if (leader) {
               if (severity >= 3) lv_obj_set_style_line_color(leader, colors[severity], LV_PART_MAIN);
