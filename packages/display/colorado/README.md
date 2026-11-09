@@ -16,6 +16,10 @@ ESPHome configuration for a vehicle dashboard based on the M5Stack Core TAB5 (ES
   <img src="../../../docs/images/packages/display/colorado/dash_fallout.jpg" width="720" alt="Colorado Tab5 dashboard with the Fallout theme installed in the vehicle">
 </p>
 
+<p align="center">
+  <img src="../../../docs/images/packages/display/colorado/dash_fallout.gif" width="720" alt="Colorado Tab5 Fallout dashboard animation">
+</p>
+
 Use [`colorado-tab5-fallout.yaml`](colorado-tab5-fallout.yaml) as the package file to install this theme.
 
 ### Hardware Assembly
