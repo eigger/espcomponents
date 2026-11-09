@@ -1686,7 +1686,7 @@ lvgl:
                   width: 216
                   height: 44
                   widgets:
-                    - label: { <<: &shift_letter { align: top_left, width: 40, y: -2, text_align: CENTER, text_color: "${tab5_color_text_muted}", text_font: notosans35 }, text: "P" }
+                    - label: { <<: &shift_letter { align: top_left, width: 40, y: -7, text_align: CENTER, text_color: "${tab5_color_text_muted}", text_font: notosans35 }, text: "P" }
                     - label: { <<: *shift_letter, text: "R", x: 43 }
                     - label: { <<: *shift_letter, text: "N", x: 86 }
                     - label: { <<: *shift_letter, text: "D", x: 129 }
@@ -1704,7 +1704,7 @@ lvgl:
                         outline_width: 2
                         outline_opa: TRANSP
                         widgets:
-                          - label: { id: lbl_prnd, text: "-", align: top_mid, y: -2, text_color: "${tab5_color_background}", text_font: notosans35 }
+                          - label: { id: lbl_prnd, text: "-", align: top_mid, y: -7, text_color: "${tab5_color_background}", text_font: notosans35 }
               - label: { <<: *terminal_heading, text: "GEAR", x: 213, y: 273, text_font: notosans16 }
               - obj:
                   <<: *terminal_panel
