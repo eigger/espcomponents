@@ -667,6 +667,7 @@ sensor:
 | `gm_oil_temp` | `1154` | `°C` | `return a - 40.0f;` | Engine Oil Temperature |
 | `gm_fuel_level_volts` | `1155` | `V` | `return a * 0.02f;` | Fuel Level Sensor Voltage |
 | `gm_oil_pressure` | `115C` | `psi` | `return (a * 0.65f) - 17.5f;` | Engine Oil Pressure |
+| `gm_oil_pressure_calculated` | `1C1B` | `kPa` | `return a * 4.0f;` | Calculated Engine Oil Pressure |
 | `gm_fuel_trim_cell` | `1160` | — | `return a;` | Fuel Trim Cell |
 | `gm_battery_temp` | `1163` | `°C` | `return a - 40.0f;` | Battery Temperature |
 | `gm_battery_soc` | `4028` | `%` | `return a * 100.0f / 255.0f;` | Battery State of Charge |
@@ -687,6 +688,10 @@ sensor:
 | `gm_tpms_rf` | `2814` | `psi` | `return a * 0.145f;` | Tire Pressure Right Front |
 | `gm_tpms_lr` | `2815` | `psi` | `return a * 0.145f;` | Tire Pressure Left Rear |
 | `gm_tpms_rr` | `2816` | `psi` | `return a * 0.145f;` | Tire Pressure Right Rear |
+| `gm_colorado_tpms_lf` | `5005` | `kPa` | `return (a * 256.0f + b) / 16.0f;` | Colorado Tire Pressure Left Front (11-bit CAN) |
+| `gm_colorado_tpms_rf` | `5006` | `kPa` | `return (a * 256.0f + b) / 16.0f;` | Colorado Tire Pressure Right Front (11-bit CAN) |
+| `gm_colorado_tpms_lr` | `5008` | `kPa` | `return (a * 256.0f + b) / 16.0f;` | Colorado Tire Pressure Left Rear (11-bit CAN) |
+| `gm_colorado_tpms_rr` | `5007` | `kPa` | `return (a * 256.0f + b) / 16.0f;` | Colorado Tire Pressure Right Rear (11-bit CAN) |
 | `gm_dpf_distance_since_regen` | `3039` | `km` | `return a * 256.0f + b;` | Distance Since Last DPF Regeneration |
 | `gm_dpf_soot_level` | `336A` | `%` | `return a;` | DPF Soot Load |
 | `gm_dpf_regen_status` | `20F2` | — | `return a;` | DPF Regeneration Active (`0` = OFF, `1` = ON) |
@@ -709,6 +714,8 @@ sensor:
 | `gm_misfire_cyl4` | `1208` | — | `return a;` | Misfire Count Cylinder 4 |
 
 > TCM PIDs (`gm_trans_temp`, `gm_trans_slip_speed`, `gm_trans_output_speed`, `gm_tcc_slip_speed`, etc.) usually require `pre_commands: ["ATSH 7E2"]` on the sensor. ECM PIDs typically use `7E0` when a header is needed.
+
+The `gm_colorado_tpms_*` presets set the 11-bit CAN request header to `241` and filter replies to `641`. When sharing an adapter with sensors that use the default functional address, give those sensors `pre_commands: ["ATSH 7DF", "ATCRA"]` to restore their request header and automatic receive filtering.
 
 ##### Example
 
