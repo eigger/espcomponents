@@ -43,7 +43,7 @@ substitutions:
   oil_temperature_warn_c: "125"
   oil_temperature_hot_c: "140"
   # Invert an axis if the installed display/sensor orientation requires it.
-  tab5_pitch_direction: "1"
+  tab5_pitch_direction: "-1"  # Correct the nose-up/nose-down rotation for this installation.
   tab5_roll_direction: "1"
 
   ui_ascii: ' !"#$%&''()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
@@ -78,7 +78,7 @@ esphome:
   friendly_name: "${friendly_name}"
   project:
     name: "eigger.esp-colorado-tab5-fallout"
-    version: "261111.1"
+    version: "261112.1"
   # This config intentionally uses YAML anchors with per-instance key overrides
   # for the reusable terminal widget styles. ESPHome warns on valid overrides.
   merge_warnings: false
@@ -117,12 +117,12 @@ esphome:
             id: obj_splash
         - lambda: id(tab5_motion_start)();
 
-# Keep display code and constant data accessible during flash writes.
-# Merged with the ESP32 hardware settings supplied by tab5_common.
+# PSRAM execution caused a boot failure on this device; keep it disabled.
+# Normal PSRAM use and the other hardware settings still come from tab5_common.
 esp32:
   framework:
     advanced:
-      execute_from_psram: true
+      execute_from_psram: false
 
 time:
   - platform: sntp
@@ -372,6 +372,9 @@ globals:
     restore_value: yes
     initial_value: '0.0'
   - id: g_logs_visible
+    type: bool
+    initial_value: 'false'
+  - id: g_service_setup
     type: bool
     initial_value: 'false'
   - id: g_log_unread
@@ -1245,7 +1248,7 @@ interval:
           const auto slip_color = lv_color_hex(!tcc_valid ? ${tab5_color_text_muted}
               : tcc_warning ? ${tab5_color_status_warm} : ${tab5_color_accent});
           id(script_update_sensor_text).execute(id(lbl_tcc_slip), id(fn_readout_text)(slip, 0), slip_color, 24, 0);
-          id(tab5_motion_bar)(id(bar_tcc_slip), tcc_valid ? std::min(std::fabs(slip), 300.0f) : NAN, 165);
+          id(tab5_motion_bar)(id(bar_tcc_slip), slip, 165);
           lv_obj_set_style_bg_color(id(bar_tcc_slip), slip_color, LV_PART_INDICATOR);
           id(tab5_motion_icon)(id(widget_img_tcc_slip), slip_color, 24, false);
           id(script_render_scan_status).execute(24, lv_color_hex(tcc_warning
@@ -1628,6 +1631,24 @@ lvgl:
                 <<: *status_icon
                 id: lbl_satellite
                 x: 225
+            - button:
+                <<: &service_tab { <<: *neutral_button, align: left_mid, height: 48, pad_all: 0, radius: 0, border_width: 0, shadow_width: 0, bg_opa: TRANSP, hidden: true }
+                id: btn_service_log_tab
+                x: 300
+                width: 120
+                on_click:
+                  - script.execute: { id: script_select_service_tab, setup: false }
+                widgets:
+                  - label: { id: lbl_service_log_tab, align: center, text: "[ LOG ]", text_font: font_terminal_boot, text_color: "${tab5_color_background}" }
+            - button:
+                <<: *service_tab
+                id: btn_service_setup_tab
+                x: 436
+                width: 156
+                on_click:
+                  - script.execute: { id: script_select_service_tab, setup: true }
+                widgets:
+                  - label: { id: lbl_service_setup_tab, align: center, text: "SETUP", text_font: font_terminal_boot, text_color: "${tab5_color_accent}" }
             - label:
                 id: lbl_date
                 hidden: true
@@ -1985,73 +2006,110 @@ lvgl:
                   align: top_left
                   x: 13
                   y: 0
-                  width: 136
-                  height: 77
+                  width: 145
+                  height: 84
                   widgets:
-                    - image: { <<: *terminal_icon, id: widget_img_coolant, src: img_coolant }
-                    - label: { <<: *terminal_heading, x: 32, y: 3, text_font: notosans20, text: "냉각수" }
-                    - label: { <<: *terminal_number, id: lbl_engine_coolant_temperature, width: 92 }
-                    - label: { <<: *terminal_heading, text: "°C", x: 98, y: 44, text_font: notosans16 }
+                    - obj:
+                        <<: &sensor_heading_row { <<: *terminal_panel, align: top_left, width: 145, height: 32, layout: { type: flex, flex_flow: ROW, flex_align_main: CENTER, flex_align_cross: CENTER, pad_column: 4 } }
+                        widgets:
+                          - image: { <<: *terminal_icon, id: widget_img_coolant, src: img_coolant }
+                          - label: { <<: &sensor_heading { text_font: font_dashboard_label, text_color: "${tab5_color_text_muted}" }, text: "냉각수" }
+                    - obj:
+                        # Reserve the full 40px font line height; short rows clipped digits and units.
+                        <<: &sensor_value_row { <<: *sensor_heading_row, y: 20, height: 60, layout: { type: flex, flex_flow: ROW, flex_align_main: CENTER, flex_align_cross: CENTER, pad_column: 3 } }
+                        widgets:
+                          - label: { <<: &sensor_value { text: "--", text_font: font_terminal_trip, text_color: "${tab5_color_text_muted}" }, id: lbl_engine_coolant_temperature }
+                          - label: { <<: &sensor_unit { text_font: notosans20, text_color: "${tab5_color_text_muted}", translate_y: 8 }, text: "°C" }
               - obj:
                   <<: *terminal_panel
                   align: top_left
                   x: 158
                   y: 0
-                  width: 136
-                  height: 77
+                  width: 145
+                  height: 84
                   widgets:
-                    - image: { <<: *terminal_icon, id: widget_img_oil_temperature, src: img_oil_temp }
-                    - label: { <<: *terminal_heading, x: 32, y: 3, text_font: notosans20, text: "오일온도" }
-                    - label: { <<: *terminal_number, id: lbl_oil_temperature, width: 92, text_font: notosans30 }
-                    - label: { <<: *terminal_heading, text: "°C", x: 98, y: 44, text_font: notosans16 }
+                    - obj:
+                        <<: *sensor_heading_row
+                        widgets:
+                          - image: { <<: *terminal_icon, id: widget_img_oil_temperature, src: img_oil_temp }
+                          - label: { <<: *sensor_heading, text: "오일온도" }
+                    - obj:
+                        <<: *sensor_value_row
+                        widgets:
+                          - label: { <<: *sensor_value, id: lbl_oil_temperature }
+                          - label: { <<: *sensor_unit, text: "°C" }
               - obj:
                   <<: *terminal_panel
                   align: top_left
                   x: 303
                   y: 0
-                  width: 136
-                  height: 77
+                  width: 145
+                  height: 84
                   widgets:
-                    - image: { <<: *terminal_icon, id: widget_img_trans_temp, src: img_oil_temp }
-                    - label: { <<: *terminal_heading, x: 32, y: 3, text_font: notosans20, text: "미션온도" }
-                    - label: { <<: *terminal_number, id: lbl_transmission_temperature, width: 92 }
-                    - label: { <<: *terminal_heading, text: "°C", x: 98, y: 44, text_font: notosans16 }
+                    - obj:
+                        <<: *sensor_heading_row
+                        widgets:
+                          - image: { <<: *terminal_icon, id: widget_img_trans_temp, src: img_oil_temp }
+                          - label: { <<: *sensor_heading, text: "미션온도" }
+                    - obj:
+                        <<: *sensor_value_row
+                        widgets:
+                          - label: { <<: *sensor_value, id: lbl_transmission_temperature }
+                          - label: { <<: *sensor_unit, text: "°C" }
               - obj:
                   <<: *terminal_panel
                   align: top_left
                   x: 448
                   y: 0
-                  width: 136
-                  height: 77
+                  width: 145
+                  height: 84
                   widgets:
-                    - image: { <<: *terminal_icon, id: widget_img_cabin_temp, src: img_thermometer_sm }
-                    - label: { <<: *terminal_heading, x: 32, y: 3, text_font: notosans20, text: "실내온도" }
-                    - label: { <<: *terminal_number, id: lbl_cabin_temperature, width: 92 }
-                    - label: { <<: *terminal_heading, text: "°C", x: 98, y: 44, text_font: notosans16 }
+                    - obj:
+                        <<: *sensor_heading_row
+                        widgets:
+                          - image: { <<: *terminal_icon, id: widget_img_cabin_temp, src: img_thermometer_sm }
+                          - label: { <<: *sensor_heading, text: "실내온도" }
+                    - obj:
+                        <<: *sensor_value_row
+                        widgets:
+                          - label: { <<: *sensor_value, id: lbl_cabin_temperature }
+                          - label: { <<: *sensor_unit, text: "°C" }
               - obj:
                   <<: *terminal_panel
                   align: top_left
                   x: 593
                   y: 0
-                  width: 136
-                  height: 77
+                  width: 145
+                  height: 84
                   widgets:
-                    - image: { <<: *terminal_icon, id: widget_img_cabin_co2, src: img_co2_sm }
-                    - label: { <<: *terminal_heading, x: 32, y: 3, text_font: notosans20, text: "CO2" }
-                    - label: { <<: *terminal_number, id: lbl_cabin_co2, width: 92, text_font: notosans30 }
-                    - label: { <<: *terminal_heading, text: "ppm", x: 98, y: 44, text_font: notosans16 }
+                    - obj:
+                        <<: *sensor_heading_row
+                        widgets:
+                          - image: { <<: *terminal_icon, id: widget_img_cabin_co2, src: img_co2_sm }
+                          - label: { <<: *sensor_heading, text: "CO2" }
+                    - obj:
+                        <<: *sensor_value_row
+                        widgets:
+                          - label: { <<: *sensor_value, id: lbl_cabin_co2 }
+                          - label: { <<: *sensor_unit, text: "ppm" }
               - obj:
                   <<: *terminal_panel
                   align: top_left
                   x: 738
                   y: 0
-                  width: 136
-                  height: 77
+                  width: 145
+                  height: 84
                   widgets:
-                    - image: { <<: *terminal_icon, id: widget_img_bed_temp, src: img_thermometer_sm }
-                    - label: { <<: *terminal_heading, x: 32, y: 3, text_font: notosans20, text: "적재함온도" }
-                    - label: { <<: *terminal_number, id: lbl_bed_temperature, width: 92 }
-                    - label: { <<: *terminal_heading, text: "°C", x: 98, y: 44, text_font: notosans16 }
+                    - obj:
+                        <<: *sensor_heading_row
+                        widgets:
+                          - image: { <<: *terminal_icon, id: widget_img_bed_temp, src: img_thermometer_sm }
+                          - label: { <<: *sensor_heading, text: "적재함온도" }
+                    - obj:
+                        <<: *sensor_value_row
+                        widgets:
+                          - label: { <<: *sensor_value, id: lbl_bed_temperature }
+                          - label: { <<: *sensor_unit, text: "°C" }
               # Warning-only rays keep these plot-local aim points, but stop 2px before the filled part:
               # engine oil (191,131); shared cabin center (423,125); shared bed center (632,138).
               # CO2 targets the upper window center (410,52), TVOC the lower window center (410,224).
@@ -2126,75 +2184,111 @@ lvgl:
                   <<: *terminal_panel
                   align: top_left
                   x: 13
-                  y: 380
-                  width: 136
-                  height: 77
+                  y: 374
+                  width: 145
+                  height: 84
                   widgets:
-                    - image: { <<: *terminal_icon, id: widget_img_intake, src: img_thermometer_lines }
-                    - label: { <<: *terminal_heading, x: 32, y: 3, text_font: notosans20, text: "흡기온도" }
-                    - label: { <<: *terminal_number, id: lbl_intake_temp_display, width: 92 }
-                    - label: { <<: *terminal_heading, text: "°C", x: 98, y: 44, text_font: notosans16 }
+                    - obj:
+                        <<: *sensor_heading_row
+                        widgets:
+                          - image: { <<: *terminal_icon, id: widget_img_intake, src: img_thermometer_lines }
+                          - label: { <<: *sensor_heading, text: "흡기온도" }
+                    - obj:
+                        <<: *sensor_value_row
+                        widgets:
+                          - label: { <<: *sensor_value, id: lbl_intake_temp_display }
+                          - label: { <<: *sensor_unit, text: "°C" }
               - obj:
                   <<: *terminal_panel
                   align: top_left
                   x: 158
-                  y: 380
-                  width: 136
-                  height: 77
+                  y: 374
+                  width: 145
+                  height: 84
                   widgets:
-                    - image: { <<: *terminal_icon, id: widget_img_battery, src: img_car_battery }
-                    - label: { <<: *terminal_heading, x: 32, y: 3, text_font: notosans20, text: "전압" }
-                    - label: { <<: *terminal_number, id: lbl_car_battery, width: 92 }
-                    - label: { <<: *terminal_heading, text: "V", x: 98, y: 44, text_font: notosans16 }
+                    - obj:
+                        <<: *sensor_heading_row
+                        widgets:
+                          - image: { <<: *terminal_icon, id: widget_img_battery, src: img_car_battery }
+                          - label: { <<: *sensor_heading, text: "전압" }
+                    - obj:
+                        <<: *sensor_value_row
+                        widgets:
+                          - label: { <<: *sensor_value, id: lbl_car_battery }
+                          - label: { <<: *sensor_unit, text: "V" }
               - obj:
                   <<: *terminal_panel
                   align: top_left
                   x: 303
-                  y: 380
-                  width: 136
-                  height: 77
+                  y: 374
+                  width: 145
+                  height: 84
                   widgets:
-                    - image: { <<: *terminal_icon, id: widget_img_oil_pressure, src: img_oil_pressure }
-                    - label: { <<: *terminal_heading, x: 32, y: 3, text_font: notosans20, text: "오일압력" }
-                    - label: { <<: *terminal_number, id: lbl_oil_pressure, width: 92, text_font: notosans30 }
-                    - label: { <<: *terminal_heading, text: "kPa", x: 98, y: 44, text_font: notosans16 }
+                    - obj:
+                        <<: *sensor_heading_row
+                        widgets:
+                          - image: { <<: *terminal_icon, id: widget_img_oil_pressure, src: img_oil_pressure }
+                          - label: { <<: *sensor_heading, text: "오일압력" }
+                    - obj:
+                        <<: *sensor_value_row
+                        widgets:
+                          - label: { <<: *sensor_value, id: lbl_oil_pressure }
+                          - label: { <<: *sensor_unit, text: "kPa" }
               - obj:
                   <<: *terminal_panel
                   align: top_left
                   x: 448
-                  y: 380
-                  width: 136
-                  height: 77
+                  y: 374
+                  width: 145
+                  height: 84
                   widgets:
-                    - image: { <<: *terminal_icon, id: widget_img_cabin_humidity, src: img_water_sm }
-                    - label: { <<: *terminal_heading, x: 32, y: 3, text_font: notosans20, text: "실내습도" }
-                    - label: { <<: *terminal_number, id: lbl_cabin_humidity, width: 92 }
-                    - label: { <<: *terminal_heading, text: "%", x: 98, y: 44, text_font: notosans16 }
+                    - obj:
+                        <<: *sensor_heading_row
+                        widgets:
+                          - image: { <<: *terminal_icon, id: widget_img_cabin_humidity, src: img_water_sm }
+                          - label: { <<: *sensor_heading, text: "실내습도" }
+                    - obj:
+                        <<: *sensor_value_row
+                        widgets:
+                          - label: { <<: *sensor_value, id: lbl_cabin_humidity }
+                          - label: { <<: *sensor_unit, text: "%" }
               - obj:
                   <<: *terminal_panel
                   align: top_left
                   x: 593
-                  y: 380
-                  width: 136
-                  height: 77
+                  y: 374
+                  width: 145
+                  height: 84
                   widgets:
-                    - image: { <<: *terminal_icon, id: widget_img_cabin_tvoc, src: img_tvoc_sm }
-                    - label: { <<: *terminal_heading, x: 32, y: 3, text_font: notosans20, text: "TVOC" }
-                    - label: { <<: *terminal_number, id: lbl_cabin_tvoc, width: 92, text_font: notosans30 }
-                    - label: { <<: *terminal_heading, text: "ppb", x: 98, y: 44, text_font: notosans16 }
+                    - obj:
+                        <<: *sensor_heading_row
+                        widgets:
+                          - image: { <<: *terminal_icon, id: widget_img_cabin_tvoc, src: img_tvoc_sm }
+                          - label: { <<: *sensor_heading, text: "TVOC" }
+                    - obj:
+                        <<: *sensor_value_row
+                        widgets:
+                          - label: { <<: *sensor_value, id: lbl_cabin_tvoc }
+                          - label: { <<: *sensor_unit, text: "ppb" }
               # Draw straight warning leaders from the card edges to the silhouettes.
               - obj:
                   <<: *terminal_panel
                   align: top_left
                   x: 738
-                  y: 380
-                  width: 136
-                  height: 77
+                  y: 374
+                  width: 145
+                  height: 84
                   widgets:
-                    - image: { <<: *terminal_icon, id: widget_img_bed_humidity, src: img_water_sm }
-                    - label: { <<: *terminal_heading, x: 32, y: 3, text_font: notosans20, text: "적재함습도" }
-                    - label: { <<: *terminal_number, id: lbl_bed_humidity, width: 92 }
-                    - label: { <<: *terminal_heading, text: "%", x: 98, y: 44, text_font: notosans16 }
+                    - obj:
+                        <<: *sensor_heading_row
+                        widgets:
+                          - image: { <<: *terminal_icon, id: widget_img_bed_humidity, src: img_water_sm }
+                          - label: { <<: *sensor_heading, text: "적재함습도" }
+                    - obj:
+                        <<: *sensor_value_row
+                        widgets:
+                          - label: { <<: *sensor_value, id: lbl_bed_humidity }
+                          - label: { <<: *sensor_unit, text: "%" }
         # Five compact gauges and two side-by-side attitude indicators
         - obj:
             <<: *terminal_panel
@@ -2214,26 +2308,38 @@ lvgl:
                   x: 30
                   y: 17
                   width: 180
-                  height: 105
+                  height: 116
                   widgets:
-                    - image: { <<: *terminal_icon, id: widget_img_rpm, src: img_rpm }
-                    - label: { <<: *terminal_heading, x: 33, y: 3, text: "RPM" }
-                    - label: { <<: *terminal_number, id: lbl_engine_rpm_left, y: 31, text_align: LEFT }
-                    - bar: { <<: *terminal_bar, id: bar_engine_rpm, align: top_left, y: 79, width: 180, height: 7, min_value: 0, max_value: 8000, animated: false }
-                    - line: { <<: &terminal_segments { <<: *terminal_line, line_color: "${tab5_color_panel_bg}", line_width: 7, line_dash_width: 2, line_dash_gap: 17, y: 82, points: ["0, 0", "179, 0"] } }
+                    - obj:
+                        <<: &gauge_heading_row { <<: *sensor_heading_row, width: 180, height: 34 }
+                        widgets:
+                          - image: { <<: *terminal_icon, id: widget_img_rpm, src: img_rpm }
+                          - label: { <<: &gauge_heading { <<: *sensor_heading, text_font: font_dashboard_gauge_label }, text: "RPM" }
+                    - obj:
+                        <<: &gauge_value_row { <<: *sensor_value_row, width: 180, y: 28, height: 60 }
+                        widgets:
+                          - label: { <<: *sensor_value, id: lbl_engine_rpm_left }
+                    - bar: { <<: *terminal_bar, id: bar_engine_rpm, align: top_left, x: 8, y: 99, width: 164, height: 7, min_value: 0, max_value: 8000, animated: false }
+                    - line: { <<: &terminal_segments { <<: *terminal_line, line_color: "${tab5_color_panel_bg}", line_width: 7, line_dash_width: 2, line_dash_gap: 17, x: 8, y: 102, points: ["0, 0", "163, 0"] } }
               - obj:
                   <<: *terminal_panel
                   align: top_left
                   x: 218
                   y: 17
                   width: 180
-                  height: 105
+                  height: 116
                   widgets:
-                    - image: { <<: *terminal_icon, id: widget_img_load, src: img_load }
-                    - label: { <<: *terminal_heading, x: 33, y: 3, text: "엔진부하" }
-                    - label: { <<: *terminal_number, id: lbl_engine_load_left, y: 31, width: 64 }
-                    - label: { <<: *terminal_heading, x: 70, y: 48, text: "%", text_font: notosans16 }
-                    - bar: { <<: *terminal_bar, id: bar_engine_load, align: top_left, y: 79, width: 180, height: 7, min_value: 0, max_value: 100, animated: false }
+                    - obj:
+                        <<: *gauge_heading_row
+                        widgets:
+                          - image: { <<: *terminal_icon, id: widget_img_load, src: img_load }
+                          - label: { <<: *gauge_heading, text: "엔진부하" }
+                    - obj:
+                        <<: *gauge_value_row
+                        widgets:
+                          - label: { <<: *sensor_value, id: lbl_engine_load_left }
+                          - label: { <<: *sensor_unit, text: "%" }
+                    - bar: { <<: *terminal_bar, id: bar_engine_load, align: top_left, x: 8, y: 99, width: 164, height: 7, min_value: 0, max_value: 100, animated: false }
                     - line: { <<: *terminal_segments }
               - obj:
                   <<: *terminal_panel
@@ -2241,27 +2347,41 @@ lvgl:
                   x: 406
                   y: 17
                   width: 180
-                  height: 105
+                  height: 116
                   widgets:
-                    - image: { <<: *terminal_icon, id: widget_img_tcc_slip, src: img_tcc_slip }
-                    - label: { <<: *terminal_heading, x: 33, y: 3, text: "TCC SLIP" }
-                    - label: { <<: *terminal_number, id: lbl_tcc_slip, y: 31, width: 92, long_mode: CLIP, text_font: notosans30 }
-                    - label: { <<: *terminal_heading, x: 98, y: 44, text: "rpm", text_font: notosans16 }
-                    - bar: { <<: *terminal_bar, id: bar_tcc_slip, align: top_left, y: 79, width: 180, height: 7, min_value: 0, max_value: 300, animated: false }
+                    - obj:
+                        <<: *gauge_heading_row
+                        widgets:
+                          - image: { <<: *terminal_icon, id: widget_img_tcc_slip, src: img_tcc_slip }
+                          - label: { <<: *gauge_heading, text: "TCC SLIP" }
+                    - obj:
+                        <<: *gauge_value_row
+                        widgets:
+                          - label: { <<: *sensor_value, id: lbl_tcc_slip }
+                          - label: { <<: *sensor_unit, text: "rpm" }
+                    - bar: { <<: *terminal_bar, id: bar_tcc_slip, align: top_left, x: 8, y: 99, width: 164, height: 7, min_value: -2000, max_value: 2000, animated: false }
                     - line: { <<: *terminal_segments }
+                    # Zero-centered signed slip: negative to the left, positive to the right.
+                    - line: { <<: *terminal_line, x: 90, y: 96, line_color: "${tab5_color_text_muted}", points: ["0, 0", "0, 13"] }
               - obj:
                   <<: *terminal_panel
                   align: top_left
                   x: 594
                   y: 17
                   width: 180
-                  height: 105
+                  height: 116
                   widgets:
-                    - image: { <<: *terminal_icon, id: widget_img_battery_soc, src: img_car_battery }
-                    - label: { <<: *terminal_heading, id: lbl_battery_title, x: 33, y: 3, text: "잔량" }
-                    - label: { <<: *terminal_number, id: lbl_battery_soc, y: 31, width: 64 }
-                    - label: { <<: *terminal_heading, x: 70, y: 48, text: "%", text_font: notosans16 }
-                    - bar: { <<: *terminal_bar, id: bar_battery_soc, align: top_left, y: 79, width: 180, height: 7, min_value: 0, max_value: 100, animated: false }
+                    - obj:
+                        <<: *gauge_heading_row
+                        widgets:
+                          - image: { <<: *terminal_icon, id: widget_img_battery_soc, src: img_gauge_battery }
+                          - label: { <<: *gauge_heading, id: lbl_battery_title, text: "잔량" }
+                    - obj:
+                        <<: *gauge_value_row
+                        widgets:
+                          - label: { <<: *sensor_value, id: lbl_battery_soc }
+                          - label: { <<: *sensor_unit, text: "%" }
+                    - bar: { <<: *terminal_bar, id: bar_battery_soc, align: top_left, x: 8, y: 99, width: 164, height: 7, min_value: 0, max_value: 100, animated: false }
                     - line: { <<: *terminal_segments }
 
               - obj:
@@ -2270,13 +2390,19 @@ lvgl:
                   x: 782
                   y: 17
                   width: 180
-                  height: 105
+                  height: 116
                   widgets:
-                    - image: { <<: *terminal_icon, id: widget_img_fuel, src: img_fuel }
-                    - label: { <<: *terminal_heading, x: 33, y: 3, text: "연료" }
-                    - label: { <<: *terminal_number, id: lbl_fuel_level, y: 31, width: 64 }
-                    - label: { <<: *terminal_heading, x: 70, y: 48, text: "%", text_font: notosans16 }
-                    - bar: { <<: *terminal_bar, id: bar_fuel, align: top_left, y: 79, width: 180, height: 7, min_value: 0, max_value: 100, animated: false }
+                    - obj:
+                        <<: *gauge_heading_row
+                        widgets:
+                          - image: { <<: *terminal_icon, id: widget_img_fuel, src: img_fuel }
+                          - label: { <<: *gauge_heading, text: "연료" }
+                    - obj:
+                        <<: *gauge_value_row
+                        widgets:
+                          - label: { <<: *sensor_value, id: lbl_fuel_level }
+                          - label: { <<: *sensor_unit, text: "%" }
+                    - bar: { <<: *terminal_bar, id: bar_fuel, align: top_left, x: 8, y: 99, width: 164, height: 7, min_value: 0, max_value: 100, animated: false }
                     - line: { <<: *terminal_segments }
               - line: { <<: *terminal_line, x: 970, y: 14, points: ["0, 0", "0, 112"] }
               - button:
@@ -2309,7 +2435,7 @@ lvgl:
                           - line: { <<: *tilt_trim, points: ["97, 39", "133, 39", "133, 49"] }
                           - obj: { <<: &tilt_wheel { <<: *terminal_panel, width: 22, height: 22, radius: 11, border_width: 2, border_color: "${tab5_color_accent}", bg_opa: COVER, bg_color: "${tab5_color_background}" }, x: 23, y: 44 }
                           - obj: { <<: *tilt_wheel, x: 105, y: 44 }
-                    - label: { <<: &tilt_value { align: top_left, y: 82, width: 132, text_align: CENTER, text: "--", text_font: notosans20, text_color: "${tab5_color_text_muted}", clickable: false }, id: lbl_pitch_value }
+                    - label: { <<: &tilt_value { align: top_left, y: 82, width: 132, text_align: CENTER, text: "--", text_font: notosans25, text_color: "${tab5_color_text_muted}", clickable: false }, id: lbl_pitch_value }
               - button:
                   id: btn_roll
                   <<: *scan_tilt
@@ -2376,7 +2502,7 @@ lvgl:
                   text_font: notosans20
                   text_color: "${tab5_color_text_primary}"
 
-        # Service screen: event log and device settings.
+        # Service content: shared 28px margins, 592px columns and 40px gutter.
         - obj:
             id: obj_log
             <<: *terminal_panel
@@ -2386,76 +2512,50 @@ lvgl:
             height: 648
             hidden: true
             clickable: true
-            bg_color: "${tab5_color_panel_bg}"
+            bg_color: "${tab5_color_background}"
             bg_opa: COVER
             widgets:
-              - line: { <<: *terminal_line, x: 845, y: 22, points: ["0, 0", "0, 604"] }
+              - label: { <<: &service_kicker { <<: *terminal_heading, text_font: font_terminal_boot, text_color: "${tab5_color_text_muted}", text_letter_space: 1 }, x: 28, y: 20, text: "ROBCO INDUSTRIES (TM) TERMLINK PROTOCOL" }
+              - label: { <<: *terminal_heading, id: lbl_service_title, x: 28, y: 52, text: "SYSTEM JOURNAL", text_font: font_service_title, text_color: "${tab5_color_accent}" }
+              - label: { <<: *terminal_heading, id: lbl_service_subtitle, x: 420, y: 72, text: "시스템 로그", text_font: font_service_text }
+              - line: { <<: &service_rule { <<: *terminal_line, line_color: "${tab5_color_accent}", line_width: 2 }, x: 28, y: 118, points: ["0, 10", "0, 0", "1223, 0", "1223, 10"] }
               - obj:
                   <<: *terminal_panel
-                  align: top_left
+                  id: obj_service_logs
                   x: 28
-                  y: 22
-                  width: 790
-                  height: 604
+                  y: 136
+                  width: 1224
+                  height: 464
                   widgets:
-                    - label: { <<: &menu_kicker { <<: *terminal_heading, text_font: font_terminal_boot, text_color: "${tab5_color_accent}", text_letter_space: 2 }, text: "01 / EVENT LOG" }
-                    - label: { <<: &menu_title { <<: *terminal_heading, y: 27, text_font: notosans30, text_color: "${tab5_color_text_primary}" }, text: "시스템 로그" }
-                    - label: { <<: *terminal_heading, id: lbl_log_count, x: 380, y: 38, width: 126, text_align: RIGHT, text: "0 / 50" }
-                    - button:
-                        <<: &menu_button { <<: *neutral_button, align: top_left, height: 50, pad_all: 0, radius: 3, shadow_width: 0, scrollable: false }
-                        id: btn_log_latest
-                        x: 526
-                        y: 27
-                        width: 122
-                        on_click:
-                          - script.execute: { id: script_refresh_logs, follow: true, animate: true }
-                        widgets:
-                          - label: { <<: &menu_button_label { align: center, text_font: notosans20, text_color: "${tab5_color_text_primary}" }, id: lbl_log_latest_button, text: "> 최근으로" }
-                    - button:
-                        <<: *menu_button
-                        id: btn_clear_logs
-                        x: 660
-                        y: 27
-                        width: 130
-                        on_click:
-                          - lambda: |-
-                              id(g_logs).clear();
-                              id(script_logs).execute("Logs cleared");
-                              id(script_refresh_logs).execute(true, false);
-                        widgets:
-                          - label: { <<: *menu_button_label, text: "로그 지우기" }
-                    - line: { <<: *terminal_line, y: 90, points: ["0, 0", "789, 0"] }
+                    - label: { <<: &log_column { <<: *terminal_heading, y: 0, text_font: font_service_text }, x: 12, text: "SEQ" }
+                    - label: { <<: *log_column, x: 67, text: "TIME" }
+                    - label: { <<: *log_column, x: 188, text: "TYPE" }
+                    - label: { <<: *log_column, x: 265, text: "EVENT / MESSAGE" }
+                    - line: { <<: *terminal_line, y: 32, points: ["0, 0", "1223, 0"] }
                     - obj:
                         <<: *terminal_panel
                         id: obj_log_scroll
-                        align: top_left
-                        y: 101
-                        width: 790
-                        height: 503
-                        pad_all: 16
+                        x: 0
+                        y: 36
+                        width: 1224
+                        height: 352
+                        pad_all: 12
+                        pad_right: 20
                         bg_color: "${tab5_color_background}"
                         bg_opa: COVER
                         bg_image_tiled: true
-                        bg_image_opa: 5%
+                        bg_image_opa: 4%
                         bg_image_recolor: "${tab5_color_accent}"
                         bg_image_recolor_opa: COVER
                         clickable: true
                         scrollable: true
                         scroll_dir: VER
                         scrollbar_mode: AUTO
-                        layout:
-                          type: flex
-                          flex_flow: COLUMN
-                          pad_row: 6
-                        scrollbar:
-                          bg_color: "${tab5_color_card_border}"
-                          bg_opa: COVER
-                          width: 5
-                          radius: 2
+                        layout: { type: flex, flex_flow: COLUMN, pad_row: 6 }
+                        scrollbar: { bg_color: "${tab5_color_card_border}", bg_opa: COVER, width: 5, radius: 0 }
                         on_boot:
                           - lambda: |-
-                              // One tile spans the viewport width, so only the rows repeat.
-                              constexpr int width = 792;
+                              constexpr int width = 1224;
                               constexpr int height = 64;
                               static constexpr auto pixels = [] {
                                 constexpr int stride = width / 8;
@@ -2469,11 +2569,15 @@ lvgl:
                                                            image::TRANSPARENCY_OPAQUE);
                               lv_obj_set_style_bg_image_src(id(obj_log_scroll), scanlines.get_lv_image_dsc(), LV_PART_MAIN);
                         on_scroll_end:
-                          # LVGL clears its scrolling state after this event.
                           - delay: 1ms
                           - lambda: |-
                               auto *view = id(obj_log_scroll);
-                              if (!id(g_logs_visible) || lv_obj_is_scrolling(view) || lv_obj_get_scroll_bottom(view) > 8) return;
+                              if (!id(g_logs_visible) || id(g_service_setup) || lv_obj_is_scrolling(view)) return;
+                              if (lv_obj_get_scroll_bottom(view) > 8) {
+                                lv_label_set_text(id(lbl_log_follow), "FOLLOW: HOLD");
+                                return;
+                              }
+                              lv_label_set_text(id(lbl_log_follow), "FOLLOW: ON");
                               id(script_refresh_logs).execute(false, false);
                               if (!id(g_log_highlight_pending)) return;
                               id(g_log_highlight_pending) = false;
@@ -2483,92 +2587,156 @@ lvgl:
                               <<: &log_entry
                                 width: 100%
                                 long_mode: WRAP
-                                text_font: notosans20
+                                text_font: font_service_text
                                 text_color: "${tab5_color_text_secondary}"
-                                text_line_space: 6
+                                text_line_space: 4
                               id: lbl_log_text
                               hidden: true
                           - label:
                               <<: *log_entry
                               id: lbl_log_latest_entry
                               text: "아직 기록이 없습니다."
+                              bg_color: "${tab5_color_accent}"
+                              bg_opa: COVER
+                              text_color: "${tab5_color_background}"
+                              radius: 0
                               outline_width: 2
                               outline_color: "${tab5_color_accent}"
                               outline_opa: TRANSP
+                    - line: { <<: *terminal_line, y: 404, points: ["0, 0", "1223, 0"] }
+                    - label: { <<: *log_column, id: lbl_log_count, x: 0, y: 428, width: 240, text: "BUFFER 000 / 050" }
+                    - label: { <<: *log_column, id: lbl_log_follow, x: 300, y: 428, text: "FOLLOW: ON" }
+                    - button:
+                        <<: &menu_button { <<: *neutral_button, align: top_left, height: 48, pad_all: 0, radius: 0, shadow_width: 0, scrollable: false, border_width: 1, border_color: "${tab5_color_card_border}", bg_opa: TRANSP }
+                        id: btn_log_latest
+                        x: 844
+                        y: 416
+                        width: 180
+                        on_click:
+                          - script.execute: { id: script_refresh_logs, follow: true, animate: true }
+                        widgets:
+                          - label: { <<: &menu_button_label { align: center, text_font: font_service_text, text_color: "${tab5_color_accent}" }, id: lbl_log_latest_button, text: "> 최근으로" }
+                    - button:
+                        <<: *menu_button
+                        id: btn_clear_logs
+                        x: 1044
+                        y: 416
+                        width: 180
+                        on_click:
+                          - lambda: |-
+                              id(g_logs).clear();
+                              id(script_logs).execute("Logs cleared");
+                              id(script_refresh_logs).execute(true, false);
+                        widgets:
+                          - label: { <<: *menu_button_label, text: "> 로그 지우기" }
               - obj:
                   <<: *terminal_panel
-                  align: top_left
-                  x: 872
-                  y: 22
-                  width: 380
-                  height: 604
+                  id: obj_service_setup
+                  x: 28
+                  y: 136
+                  width: 1224
+                  height: 448
+                  hidden: true
                   widgets:
-                    - label: { <<: *menu_kicker, text: "02 / SETTINGS" }
-                    - label: { <<: *menu_title, text: "시스템 설정" }
-                    - line: { <<: &menu_rule { <<: *terminal_line, points: ["0, 0", "379, 0"] }, y: 90 }
-                    - label: { <<: &menu_section { <<: *terminal_heading, text_font: notosans25, text_color: "${tab5_color_text_primary}" }, y: 105, text: "화면 밝기" }
-                    - label: { <<: *menu_section, id: lbl_backlight_value, align: top_right, y: 105, text: "40%", text_color: "${tab5_color_accent}" }
-                    - slider:
-                        id: slider_backlight
-                        align: top_mid
-                        y: 158
-                        width: 350
-                        height: 21
-                        min_value: 10
-                        max_value: 100
-                        value: 40
-                        bg_color: "${tab5_color_gauge_track}"
-                        bg_opa: COVER
-                        indicator:
-                          bg_color: "${tab5_color_accent}"
-                          bg_opa: COVER
-                        knob:
-                          bg_color: "${tab5_color_text_primary}"
-                          bg_opa: COVER
-                          pad_all: 5
-                        on_value:
-                          then:
-                            - lvgl.label.update:
-                                id: lbl_backlight_value
-                                text: !lambda 'return std::to_string(static_cast<int>(x)) + "%";'
-                            - light.control:
-                                id: backlight
-                                brightness: !lambda 'return x / 100.0f;'
-                    - line: { <<: *menu_rule, y: 204 }
-                    - label: { <<: *menu_section, y: 216, text: "자세 보정" }
-                    - button:
-                        <<: *menu_button
-                        id: btn_reset_calibration
-                        y: 258
-                        width: 380
-                        on_click:
-                          - lambda: |-
-                              id(script_confirm_tilt_zero).stop();
-                              id(g_pitch_offset) = 0.0f;
-                              id(g_roll_offset) = 0.0f;
-                              id(script_logs).execute("Pitch/Roll calibration reset");
+                    - obj:
+                        <<: &setup_cell { <<: *terminal_panel, width: 592, height: 212 }
+                        x: 0
+                        y: 0
                         widgets:
-                          - label: { <<: *menu_button_label, text: "기울기 보정 초기화" }
-                    - line: { <<: *menu_rule, y: 326 }
-                    - label: { <<: *menu_section, y: 337, text: "펌웨어" }
-                    - label: { <<: *terminal_heading, y: 381, text: "현재 버전" }
-                    - label: { <<: { <<: *terminal_heading, align: top_right, width: 240, text_align: RIGHT, long_mode: DOT, text_color: "${tab5_color_text_secondary}" }, id: lbl_menu_curr_ver, y: 381, text: *version }
-                    - line: { <<: *menu_rule, y: 528 }
-                    - button:
-                        <<: *menu_button
-                        id: btn_log_restart
-                        y: 546
-                        width: 380
-                        pressed:
-                          bg_color: "${tab5_color_danger_pressed}"
-                        on_click:
-                          - lambda: |-
-                              id(tab5_motion_visible)(id(obj_restart_backdrop), true, 185);
-                              id(tab5_motion_visible)(id(obj_restart_popup), true, 185);
+                          - label: { <<: &setup_kicker { <<: *service_kicker, text_color: "${tab5_color_accent}" }, text: "01 / DISPLAY" }
+                          - label: { <<: &setup_heading { <<: *terminal_heading, y: 48, text_font: notosans25, text_color: "${tab5_color_text_primary}" }, text: "화면 밝기" }
+                          - label: { <<: *setup_heading, id: lbl_backlight_value, align: top_right, y: 40, text: "40%", text_font: notosans35, text_color: "${tab5_color_accent}" }
+                          - slider:
+                              id: slider_backlight
+                              x: 10
+                              y: 112
+                              width: 572
+                              height: 20
+                              min_value: 10
+                              max_value: 100
+                              value: 40
+                              bg_color: "${tab5_color_gauge_track}"
+                              bg_opa: COVER
+                              indicator: { bg_color: "${tab5_color_accent}", radius: 0 }
+                              knob: { bg_color: "${tab5_color_text_primary}", bg_opa: COVER, pad_all: 5 }
+                              on_value:
+                                then:
+                                  - lvgl.label.update: { id: lbl_backlight_value, text: !lambda 'return std::to_string(static_cast<int>(x)) + "%";' }
+                                  - light.control: { id: backlight, brightness: !lambda 'return x / 100.0f;' }
+                          - label: { <<: &setup_note { <<: *terminal_heading, y: 160, text_font: font_service_text }, text: "10 / DIM" }
+                          - label: { <<: *setup_note, align: top_right, text: "100 / BRIGHT" }
+                          - line: { <<: &setup_rule { <<: *terminal_line, y: 211, points: ["0, 0", "591, 0"] } }
+                    - obj:
+                        <<: *setup_cell
+                        x: 632
+                        y: 0
                         widgets:
-                          - label: { <<: *menu_button_label, text: "시스템 재시작", text_color: "${tab5_color_status_hot}" }
+                          - label: { <<: *setup_kicker, text: "02 / CALIBRATION" }
+                          - label: { <<: *setup_heading, text: "자세 보정" }
+                          - label: { <<: *setup_note, y: 92, text: "PITCH / ROLL OFFSET" }
+                          - button:
+                              <<: &setup_action_button { <<: *menu_button, y: 136, width: 592, height: 60 }
+                              id: btn_reset_calibration
+                              on_click:
+                                - lambda: |-
+                                    id(script_confirm_tilt_zero).stop();
+                                    id(g_pitch_offset) = 0.0f;
+                                    id(g_roll_offset) = 0.0f;
+                                    id(script_logs).execute("Pitch/Roll calibration reset");
+                              widgets:
+                                - label: { <<: &setup_action_label { <<: *menu_button_label, text_font: notosans20, text_align: CENTER, y: -2, clickable: false }, text: "> 기울기 보정 초기화" }
+                          - line: { <<: *setup_rule }
+                    - obj:
+                        <<: *setup_cell
+                        x: 0
+                        y: 236
+                        widgets:
+                          - label: { <<: *setup_kicker, text: "03 / FIRMWARE" }
+                          - label: { <<: &setup_version_caption { <<: *setup_note, y: 48 }, text: "현재 버전" }
+                          - label: { <<: { <<: *setup_version_caption, align: top_right, width: 360, text_align: RIGHT, long_mode: DOT, text_color: "${tab5_color_text_secondary}" }, id: lbl_menu_curr_ver, text: *version }
+                          - line: { <<: *setup_rule }
+                    - obj:
+                        <<: *setup_cell
+                        x: 632
+                        y: 236
+                        widgets:
+                          - label: { <<: *setup_kicker, text: "04 / SYSTEM" }
+                          - label: { <<: *setup_heading, text: "시스템 재시작" }
+                          - label: { <<: *setup_note, y: 92, text: "CONFIRM BEFORE RESTART" }
+                          - button:
+                              <<: *setup_action_button
+                              id: btn_log_restart
+                              pressed: { bg_color: "${tab5_color_danger_pressed}" }
+                              on_click:
+                                - lambda: |-
+                                    id(tab5_motion_visible)(id(obj_restart_backdrop), true, 185);
+                                    id(tab5_motion_visible)(id(obj_restart_popup), true, 185);
+                              widgets:
+                                - label: { <<: *setup_action_label, text: "> 시스템 재시작", text_color: "${tab5_color_status_hot}" }
+                          - line: { <<: *setup_rule }
+              - label: { <<: *service_kicker, id: lbl_service_status, x: 28, y: 604, text: "> READY / EVENT LOG" }
+
 
 font:
+  - file: "gfonts://Noto+Sans+KR"
+    id: font_dashboard_label
+    size: 22
+    glyphs: "냉각수오일온도미션실내적재함흡기전압력습COTV2"
+  - file: "gfonts://Noto+Sans+KR"
+    id: font_dashboard_gauge_label
+    size: 24
+    glyphs: "RPM엔진부하TC SLI충전율잔량연료"
+  - file: "gfonts://Share+Tech+Mono"
+    id: font_service_title
+    size: 40
+    glyphs: "${ui_ascii}"
+  - file: "gfonts://Share+Tech+Mono"
+    id: font_service_text
+    size: 20
+    glyphs: "${ui_ascii}"
+    extras:
+      - file: "gfonts://Noto+Sans+KR"
+        glyphs: ${ (ui_alert_hangul + ui_extra_glyphs + '°각간거기내냉도량력료리미부션수습신실압엔연오온운율있일잔재적전진충최태하함행현흡그록로아직없습니확근다보우울으인작정중지초템화끊김무응답마막분세면밝울초펌웨어설정최근으로새로그지우기아직기록이없습니다현재버전업데이트미확인화면밝기기울기보정초기화') | unique(case_sensitive=true) | reject('in', ui_ascii) | join }
   - file: "gfonts://Share+Tech+Mono"
     id: font_terminal_speed
     size: 180
@@ -2576,7 +2744,7 @@ font:
   - file: "gfonts://Noto+Sans+KR"
     id: font_terminal_trip
     size: 40
-    glyphs: "-:0123456789"
+    glyphs: "-+.:0123456789"
   - file: "gfonts://Gothic+A1"
     id: font_alert_title
     size: 28
@@ -2596,7 +2764,7 @@ font:
   - file: "gfonts://Noto+Sans+KR"
     id: notosans25
     size: 25
-    glyphs: [ "${ui_ascii}", "그기내데도로록면밝보상스습시신실업온우울이인작재적정중지초최태템트함행화확자세펌웨어" ]
+    glyphs: [ "${ui_ascii}", "°그기내데도로록면밝보상스습시신실업온우울이인작재적정중지초최태템트함행화확자세펌웨어" ]
   - file: "gfonts://Noto+Sans+KR"
     id: notosans30
     size: 30
@@ -2624,9 +2792,14 @@ font:
 
 image:
   - platform: file
+    file: mdi:car-battery
+    id: img_gauge_battery
+    resize: 32x32
+    type: binary
+  - platform: file
     file: mdi:gauge
     id: img_tcc_slip
-    resize: 28x28
+    resize: 32x32
     type: binary
   - platform: file
     file: mdi:oil-temperature
@@ -2691,17 +2864,17 @@ image:
   - platform: file
     file: mdi:gas-station
     id: img_fuel
-    resize: 28x28
+    resize: 32x32
     type: binary
   - platform: file
     file: mdi:piston
     id: img_rpm
-    resize: 28x28
+    resize: 32x32
     type: binary
   - platform: file
     file: mdi:engine
     id: img_load
-    resize: 28x28
+    resize: 32x32
     type: binary
   - platform: file
     file: mdi:engine
@@ -3060,6 +3233,8 @@ script:
   - id: script_init_scan_images
     then:
       - lambda: |-
+          lv_bar_set_mode(id(bar_tcc_slip), LV_BAR_MODE_SYMMETRICAL);
+          lv_bar_set_value(id(bar_tcc_slip), 0, LV_ANIM_OFF);
           for (auto *shape : {id(obj_pitch_shape), id(obj_roll_shape)}) {
             lv_obj_set_style_transform_pivot_x(shape, 75, LV_PART_MAIN);
             lv_obj_set_style_transform_pivot_y(shape, 44, LV_PART_MAIN);
@@ -3373,22 +3548,25 @@ script:
           };
           static Recovery readouts[27]{};
           if (color_mode < 0 || color_mode >= 27) return;
-          // Keep air-quality values large; fit the full five-digit sensor range.
-          if (color_mode == 12 || color_mode == 13) {
-            lv_obj_set_style_text_font(label, text.size() > 4
-                ? id(notosans25).get_lv_font() : id(notosans30).get_lv_font(), LV_PART_MAIN);
-          }
-          // Preserve the existing trip/TCC boxes and units. Measure the full signed
-          // value on one line, shrinking only when it exceeds the available width.
-          // Start from the original font each time so short values regain their size.
-          if (color_mode == 19 || color_mode == 24) {
+          // Start large on every update; fit air-quality and signed slip values
+          // beside their units, while preserving the trip's fixed-width box.
+          if (color_mode == 12 || color_mode == 13 || color_mode == 19 || color_mode == 24) {
             const lv_font_t *fonts[] = {
-              color_mode == 19 ? id(font_terminal_trip).get_lv_font() : id(notosans30).get_lv_font(),
-              id(notosans25).get_lv_font(), id(notosans20).get_lv_font(), id(notosans16).get_lv_font(),
+              id(font_terminal_trip).get_lv_font(), id(notosans35).get_lv_font(),
+              id(notosans30).get_lv_font(), id(notosans25).get_lv_font(),
+              id(notosans20).get_lv_font(), id(notosans16).get_lv_font(),
             };
-            const int32_t max_width = color_mode == 19 ? 117 : 92;
+            int32_t max_width = 117;
+            if (color_mode != 19) {
+              auto *row = lv_obj_get_parent(label);
+              auto *unit = lv_obj_get_child(row, 1);
+              lv_point_t unit_size;
+              lv_text_get_size(&unit_size, lv_label_get_text(unit),
+                  lv_obj_get_style_text_font(unit, LV_PART_MAIN), 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+              max_width = (color_mode == 24 ? 180 : 145) - unit_size.x - 3;
+            }
             const int32_t letter_space = lv_obj_get_style_text_letter_space(label, LV_PART_MAIN);
-            const lv_font_t *selected = fonts[3];
+            const lv_font_t *selected = fonts[5];
             for (const auto *font : fonts) {
               lv_point_t measured;
               lv_text_get_size(&measured, text.c_str(), font, letter_space, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
@@ -3504,6 +3682,37 @@ script:
             id(tab5_motion_outline)(pitch ? id(btn_pitch) : id(btn_roll), 320);
           }
 
+  - id: script_select_service_tab
+    parameters:
+      setup: bool
+    then:
+      - lambda: |-
+          if (!id(g_logs_visible) || !id(fn_service_allowed)()) return;
+          id(g_service_setup) = setup;
+          id(tab5_motion_visible)(id(obj_service_logs), !setup, 0);
+          id(tab5_motion_visible)(id(obj_service_setup), setup, 0);
+          lv_label_set_text(id(lbl_service_title), setup ? "SYSTEM SETUP" : "SYSTEM JOURNAL");
+          lv_label_set_text(id(lbl_service_subtitle), setup ? "시스템 설정" : "시스템 로그");
+          lv_label_set_text(id(lbl_service_status), setup ? "> READY / SYSTEM SETUP" : "> READY / EVENT LOG");
+          const struct { lv_obj_t *button; lv_obj_t *label; bool active; const char *text; } tabs[] = {
+            {id(btn_service_log_tab), id(lbl_service_log_tab), !setup, setup ? "LOG" : "[ LOG ]"},
+            {id(btn_service_setup_tab), id(lbl_service_setup_tab), setup, setup ? "[ SETUP ]" : "SETUP"},
+          };
+          for (const auto &tab : tabs) {
+            lv_label_set_text(tab.label, tab.text);
+            lv_obj_set_style_bg_color(tab.button, lv_color_hex(${tab5_color_accent}), LV_PART_MAIN);
+            lv_obj_set_style_bg_opa(tab.button, tab.active ? LV_OPA_COVER : LV_OPA_TRANSP, LV_PART_MAIN);
+            lv_obj_set_style_text_color(tab.label, lv_color_hex(tab.active
+                ? ${tab5_color_background} : ${tab5_color_accent}), LV_PART_MAIN);
+          }
+          if (!setup) id(script_refresh_logs).execute(true, false);
+          else {
+            lv_label_set_text_fmt(id(lbl_backlight_value), "%d%%",
+                static_cast<int>(std::lround(id(backlight).remote_values.get_brightness() * 100.0f)));
+            lv_slider_set_value(id(slider_backlight),
+                std::clamp(static_cast<int>(std::lround(id(backlight).remote_values.get_brightness() * 100.0f)), 10, 100), LV_ANIM_OFF);
+          }
+
   - id: script_set_service_visible
     parameters:
       show: bool
@@ -3512,10 +3721,12 @@ script:
           if (show && !id(fn_service_allowed)()) return;
           id(g_logs_visible) = show;
           id(tab5_motion_visible)(id(obj_log), show, 175);
+          id(tab5_motion_visible)(id(btn_service_log_tab), show, 0);
+          id(tab5_motion_visible)(id(btn_service_setup_tab), show, 0);
           lv_label_set_text(id(lbl_menu_toggle), show ? "BACK" : "MENU");
           if (show) {
             id(tab5_motion_visible)(id(obj_jaalee_detail), false, 0);
-            id(script_refresh_logs).execute(true, false);
+            id(script_select_service_tab).execute(id(g_service_setup));
           } else {
             id(tab5_motion_visible)(id(obj_restart_backdrop), false, 0);
             id(tab5_motion_visible)(id(obj_restart_popup), false, 0);
@@ -3598,18 +3809,20 @@ script:
       animate: bool
     then:
       - lambda: |-
-          if (!id(g_logs_visible)) return;
+          if (!id(g_logs_visible) || id(g_service_setup)) return;
           auto &unread = id(g_log_unread);
           if (!follow && unread == 0) return;
           auto *view = id(obj_log_scroll);
           auto *latest_button = id(lbl_log_latest_button);
           if (!follow && (lv_obj_is_scrolling(view) || lv_obj_get_scroll_bottom(view) > 8)) {
+            lv_label_set_text(id(lbl_log_follow), "FOLLOW: HOLD");
             // Keep the displayed snapshot stable even if the oldest buffered row was evicted.
             if (unread > 99) lv_label_set_text(latest_button, "새 로그 99+");
             else lv_label_set_text_fmt(latest_button, "새 로그 +%u", static_cast<unsigned>(unread));
             return;
           }
           unread = 0;
+          lv_label_set_text(id(lbl_log_follow), "FOLLOW: ON");
           if (follow) id(g_log_highlight_pending) = false;
           lv_label_set_text(latest_button, "> 최근으로");
 
@@ -3617,13 +3830,17 @@ script:
           std::string text;
           for (size_t i = 0; i + 1 < logs.size(); ++i) {
             if (!text.empty()) text += '\n';
+            char number[8];
+            snprintf(number, sizeof(number), "%03u  ", static_cast<unsigned>(i + 1));
+            text += number;
             text += logs[i];
           }
           lv_label_set_text(id(lbl_log_text), text.c_str());
           id(tab5_motion_visible)(id(lbl_log_text), !text.empty(), 0);
           auto *latest = id(lbl_log_latest_entry);
-          lv_label_set_text(latest, logs.empty() ? "아직 기록이 없습니다." : logs.back().c_str());
-          lv_label_set_text_fmt(id(lbl_log_count), "%u / 50", static_cast<unsigned>(logs.size()));
+          if (logs.empty()) lv_label_set_text(latest, "아직 기록이 없습니다.");
+          else lv_label_set_text_fmt(latest, "%03u  %s", static_cast<unsigned>(logs.size()), logs.back().c_str());
+          lv_label_set_text_fmt(id(lbl_log_count), "BUFFER %03u / 050", static_cast<unsigned>(logs.size()));
 
           lv_obj_update_layout(view);
           const int32_t bottom = lv_obj_get_scroll_bottom(view);

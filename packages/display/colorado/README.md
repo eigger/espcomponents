@@ -24,7 +24,9 @@ Use [`colorado-tab5-fallout.yaml`](colorado-tab5-fallout.yaml) as the package fi
 
 The current Fallout layout uses a large speed/gear area on the left, a centered vehicle diagram between two sensor rows, and five compact gauges with pitch/roll indicators along the bottom. Sensor connection lines stay hidden during normal operation and appear for warnings. Trip distance and signed TCC slip values shrink their font only when needed to fit their existing boxes.
 
-The package enables `esp32.framework.advanced.execute_from_psram` to keep display code and constant data accessible during flash writes. It includes a sample plate and sample BLE addresses; replace them locally and keep Wi-Fi/Home Assistant credentials in `secrets.yaml`. Device-specific firmware update configuration and controls are not included in this theme package.
+The service menu uses `BACK`, `LOG`, and `SETUP` navigation. LOG provides fixed-width event columns and a highlighted latest entry; SETUP aligns brightness, calibration, firmware version, and restart controls in a two-column grid.
+
+The current example leaves `esp32.framework.advanced.execute_from_psram` disabled for boot compatibility; normal PSRAM use remains configured by the shared Tab5 package. It includes a sample plate and sample BLE addresses; replace them locally and keep Wi-Fi/Home Assistant credentials in `secrets.yaml`. Device-specific firmware update configuration and controls are not included in this theme package.
 
 ### Hardware Assembly
 | Front View (Tab5 & GPS Antenna) | Rear View (Module GNSS, Unit HUB, SCD40, SGP30) |
