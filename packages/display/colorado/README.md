@@ -22,6 +22,10 @@ ESPHome configuration for a vehicle dashboard based on the M5Stack Core TAB5 (ES
 
 Use [`colorado-tab5-fallout.yaml`](colorado-tab5-fallout.yaml) as the package file to install this theme.
 
+The current Fallout layout uses a large speed/gear area on the left, a centered vehicle diagram between two sensor rows, and five compact gauges with pitch/roll indicators along the bottom. Sensor connection lines stay hidden during normal operation and appear for warnings. Trip distance and signed TCC slip values shrink their font only when needed to fit their existing boxes.
+
+The package enables `esp32.framework.advanced.execute_from_psram` to keep display code and constant data accessible during flash writes. It includes a sample plate and sample BLE addresses; replace them locally and keep Wi-Fi/Home Assistant credentials in `secrets.yaml`. Device-specific firmware update configuration and controls are not included in this theme package.
+
 ### Hardware Assembly
 | Front View (Tab5 & GPS Antenna) | Rear View (Module GNSS, Unit HUB, SCD40, SGP30) |
 | :---: | :---: |
