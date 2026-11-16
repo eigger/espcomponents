@@ -484,8 +484,10 @@ globals:
     type: "bool (*)()"
     initial_value: |-
       +[]() {
-        return id(obd_client).connected() &&
-               id(fn_sample_live)(10, id(car_speed).state, 5000) == 0.0f;
+        // Allow access before the first speed sample. A known moving speed still locks the menu,
+        // including when that last reading is stale or BLE has disconnected.
+        const float speed = id(car_speed).state;
+        return !std::isfinite(speed) || speed == 0.0f;
       }
   - id: g_ambient_sample_ms
     type: uint32_t
@@ -1826,7 +1828,7 @@ lvgl:
                 shadow_opa: 0%
                 text_color: "${tab5_color_accent}"
                 state:
-                  disabled: true
+                  disabled: false
                 disabled:
                   text_color: "${tab5_color_text_muted}"
                 pressed:
@@ -1882,6 +1884,9 @@ lvgl:
                   - label: { id: lbl_service_setup_tab, align: center, text: "SETUP", text_font: font_terminal_boot, text_color: "${tab5_color_accent}" }
             - label:
                 id: lbl_update_badge
+                clickable: true
+                on_click:
+                  - script.execute: script_open_update_menu
                 align: left_mid
                 x: 280
                 y: 13
@@ -1934,7 +1939,8 @@ lvgl:
                   then:
                     - lambda: |-
                         if (id(g_alert_is_update)) {
-                          id(g_update_alert_dismissed) = true;
+                          if (!id(fn_service_allowed)()) return;
+                          id(script_open_update_menu).execute();
                         } else {
                           id(alert_dismissed) = true;
                         }
@@ -2351,7 +2357,7 @@ lvgl:
                           - label: { <<: *sensor_value, id: lbl_bed_temperature }
                           - label: { <<: *sensor_unit, text: "°C" }
               # Solid leaders preserve their orthogonal routes and stop before entering each part.
-              # Endpoint rings are managed by script_render_scan_status.
+              # Routed leaders animate without endpoint markers.
               - line: { <<: &scan_leader { <<: *terminal_line, line_color: "${tab5_color_text_inactive}", line_width: 2, line_opa: 100%, hidden: true }, id: line_scan_coolant_leader, x: 81, y: 77, points: ["0, 0", "0, 144", "60, 144"] }
               - line: { <<: *scan_leader, id: line_scan_oil_temperature_leader, x: 226, y: 77, points: ["0, 0", "0, 33", "30, 33", "30, 137", "25, 137"] }
               - line: { <<: *scan_leader, id: line_scan_oil_pressure_leader, x: 213, y: 242, points: ["158, 137", "47, 137", "47, 13", "0, 13", "0, 0"] }
@@ -2806,7 +2812,7 @@ lvgl:
             widgets:
               - label: { <<: &service_kicker { <<: *terminal_heading, text_font: font_terminal_boot, text_color: "${tab5_color_text_muted}", text_letter_space: 1 }, x: 28, y: 20, text: "ROBCO INDUSTRIES (TM) TERMLINK PROTOCOL" }
               - label: { <<: *terminal_heading, id: lbl_service_title, x: 28, y: 52, text: "SYSTEM JOURNAL", text_font: font_service_title, text_color: "${tab5_color_accent}" }
-              - label: { <<: *terminal_heading, id: lbl_service_subtitle, x: 420, y: 72, text: "시스템 로그", text_font: font_service_text }
+              - label: { <<: *terminal_heading, id: lbl_service_subtitle, x: 420, y: 64, text: "시스템 로그", text_font: font_service_text }
               - line: { <<: &service_rule { <<: *terminal_line, line_color: "${tab5_color_accent}", line_width: 2 }, x: 28, y: 118, points: ["0, 10", "0, 0", "1223, 0", "1223, 10"] }
               - obj:
                   <<: *terminal_panel
@@ -2893,23 +2899,23 @@ lvgl:
                               outline_color: "${tab5_color_accent}"
                               outline_opa: TRANSP
                     - line: { <<: *terminal_line, y: 404, points: ["0, 0", "1223, 0"] }
-                    - label: { <<: *log_column, id: lbl_log_count, x: 0, y: 428, width: 240, text: "BUFFER 000 / 050" }
-                    - label: { <<: *log_column, id: lbl_log_follow, x: 300, y: 428, text: "FOLLOW: ON" }
+                    - label: { <<: *log_column, id: lbl_log_count, x: 0, y: 420, width: 240, text: "BUFFER 000 / 050" }
+                    - label: { <<: *log_column, id: lbl_log_follow, x: 300, y: 420, text: "FOLLOW: ON" }
                     - button:
                         <<: &menu_button { <<: *neutral_button, align: top_left, height: 48, pad_all: 0, radius: 0, shadow_width: 0, scrollable: false, border_width: 1, border_color: "${tab5_color_card_border}", bg_opa: TRANSP }
                         id: btn_log_latest
                         x: 844
-                        y: 416
+                        y: 408
                         width: 180
                         on_click:
                           - script.execute: { id: script_refresh_logs, follow: true, animate: true }
                         widgets:
-                          - label: { <<: &menu_button_label { align: center, text_font: font_service_text, text_color: "${tab5_color_accent}" }, id: lbl_log_latest_button, text: "> 최근으로" }
+                          - label: { <<: &menu_button_label { align: center, text_font: font_service_text, text_color: "${tab5_color_accent}" }, id: lbl_log_latest_button, y: -4, text: "> 최근으로" }
                     - button:
                         <<: *menu_button
                         id: btn_clear_logs
                         x: 1044
-                        y: 416
+                        y: 408
                         width: 180
                         on_click:
                           - lambda: |-
@@ -2917,7 +2923,7 @@ lvgl:
                               id(script_logs).execute("Logs cleared");
                               id(script_refresh_logs).execute(true, false);
                         widgets:
-                          - label: { <<: *menu_button_label, text: "> 로그 지우기" }
+                          - label: { <<: *menu_button_label, y: -4, text: "> 로그 지우기" }
               - obj:
                   <<: *terminal_panel
                   id: obj_service_setup
@@ -3024,23 +3030,25 @@ lvgl:
 font:
   - file: "gfonts://Noto+Sans+KR"
     id: font_dashboard_label
+    bpp: 4
     size: 22
     glyphs: "냉각수오일온도미션실내적재함흡기전압력습COTV2"
   - file: "gfonts://Noto+Sans+KR"
     id: font_dashboard_gauge_label
+    bpp: 4
     size: 24
-    glyphs: "RPM엔진부하TC SLI충전율잔량연료"
+    glyphs: "RPM엔진부하TC SLI배터리충전율잔량연료"
   - file: "gfonts://Share+Tech+Mono"
     id: font_service_title
     size: 40
     glyphs: "${ui_ascii}"
-  - file: "gfonts://Share+Tech+Mono"
+  # Use one font's metrics for both Hangul and ASCII; mixed extras used the
+  # shorter Latin line height and clipped the lower Hangul strokes.
+  - file: "gfonts://Noto+Sans+KR"
     id: font_service_text
+    bpp: 4
     size: 20
-    glyphs: "${ui_ascii}"
-    extras:
-      - file: "gfonts://Noto+Sans+KR"
-        glyphs: ${ (ui_alert_hangul + ui_extra_glyphs + '°각간거기내냉도량력료리미부션수습신실압엔연오온운율있일잔재적전진충최태하함행현흡그록로아직없습니확근다보우울으인작정중지초템화끊김무응답마막분세면밝울초펌웨어설정최근으로새로그지우기아직기록이없습니다현재버전업데이트미확인화면밝기기울기보정초기화') | unique(case_sensitive=true) | reject('in', ui_ascii) | join }
+    glyphs: ${ (ui_ascii + ui_alert_hangul + ui_extra_glyphs + '°각간거기내냉도량력료리미부션수습신실압엔연오온운율있일잔재적전진충최태하함행현흡그록로아직없습니확근다보우울으인작정중지초템화끊김무응답마막분세면밝울초펌웨어설정최근으로새로그지우기아직기록이없습니다현재버전업데이트미확인화면밝기기울기보정초기화') | unique(case_sensitive=true) | join }
   - file: "gfonts://Share+Tech+Mono"
     id: font_terminal_speed
     size: 180
@@ -3051,30 +3059,37 @@ font:
     glyphs: "-+.:0123456789"
   - file: "gfonts://Gothic+A1"
     id: font_alert_title
+    bpp: 4
     size: 28
     glyphs: "경고주의안내"
   - file: "gfonts://Gothic+A1"
     id: font_alert_msg
+    bpp: 4
     size: 34
     glyphs: ${ (ui_ascii + ui_alert_hangul + ui_extra_glyphs + '°') | unique(case_sensitive=true) | join }
   - file: "gfonts://Noto+Sans+KR"
     id: notosans16
+    bpp: 4
     size: 16
     glyphs: ${ (ui_ascii + '°냉각수오일온도미션실내적재함흡기전압력습보정') | unique(case_sensitive=true) | join }
   - file: "gfonts://Noto+Sans+KR"
     id: notosans20
+    bpp: 4
     size: 20
     glyphs: ${ (ui_ascii + ui_alert_hangul + ui_extra_glyphs + '°각간거기내냉도량력료리미부션수습신실압엔연오온운율있일잔재적전진충최태하함행현흡그록로아직없습니확근다보우울으인작정중지초템화끊김무응답마막분') | unique(case_sensitive=true) | join }
   - file: "gfonts://Noto+Sans+KR"
     id: notosans25
+    bpp: 4
     size: 25
     glyphs: [ "${ui_ascii}", "°그기내데도로록면밝보상스습시신실업온우울이인작재적정중지초최태템트함행화확자세펌웨어" ]
   - file: "gfonts://Noto+Sans+KR"
     id: notosans30
+    bpp: 4
     size: 30
     glyphs: [ "${ui_ascii}", "°", "각거겠기까냉니도량력료리미부션수스습시아압엔연예오온운율을일작잔재전진충템하행흡로그설정" ]
   - file: "gfonts://Noto+Sans+KR"
     id: notosans35
+    bpp: 4
     size: 35
     glyphs: [ "${ui_ascii}", "°", "금목수스시월일작재템토화" ]
   - file: "gfonts://Noto+Sans+KR"
@@ -3091,6 +3106,7 @@ font:
     glyphs: ${ splash_title | unique(case_sensitive=true) | join }
   - file: "gfonts://Noto+Sans+KR"
     id: font_splash_plate
+    bpp: 4
     size: 31
     glyphs: ${ (ui_ascii + number) | unique(case_sensitive=true) | join }
 
@@ -3839,37 +3855,37 @@ script:
             if (previous == severity) return;
             severity_by_mode[color_mode] = severity;
             lv_obj_t *leader = nullptr;
+            uint8_t trace_index = 0;
             switch (color_mode) {
-              case 5: leader = id(line_scan_coolant_leader)->obj; break;
-              case 14: leader = id(line_scan_oil_pressure_leader)->obj; break;
-              case 26: leader = id(line_scan_oil_temperature_leader)->obj; break;
-              case 17: leader = id(line_scan_intake_leader)->obj; break;
-              case 2: leader = id(line_scan_cabin_temp_leader)->obj; break;
-              case 3: leader = id(line_scan_cabin_humidity_leader)->obj; break;
-              case 15: leader = id(line_scan_bed_temp_leader)->obj; break;
-              case 16: leader = id(line_scan_bed_humidity_leader)->obj; break;
-              case 18: leader = id(line_scan_transmission_leader)->obj; break;
-              case 7: leader = id(line_scan_voltage_leader)->obj; break;
-              case 13: leader = id(line_scan_co2_leader)->obj; break;
-              case 12: leader = id(line_scan_tvoc_leader)->obj; break;
+              case 5: trace_index = 0; leader = id(line_scan_coolant_leader)->obj; break;
+              case 14: trace_index = 1; leader = id(line_scan_oil_pressure_leader)->obj; break;
+              case 26: trace_index = 2; leader = id(line_scan_oil_temperature_leader)->obj; break;
+              case 17: trace_index = 3; leader = id(line_scan_intake_leader)->obj; break;
+              case 2: trace_index = 4; leader = id(line_scan_cabin_temp_leader)->obj; break;
+              case 3: trace_index = 5; leader = id(line_scan_cabin_humidity_leader)->obj; break;
+              case 15: trace_index = 6; leader = id(line_scan_bed_temp_leader)->obj; break;
+              case 16: trace_index = 7; leader = id(line_scan_bed_humidity_leader)->obj; break;
+              case 18: trace_index = 8; leader = id(line_scan_transmission_leader)->obj; break;
+              case 7: trace_index = 9; leader = id(line_scan_voltage_leader)->obj; break;
+              case 13: trace_index = 10; leader = id(line_scan_co2_leader)->obj; break;
+              case 12: trace_index = 11; leader = id(line_scan_tvoc_leader)->obj; break;
             }
             if (leader) {
-              // LVGL holds the point array; keep routed traces and endpoint rings alive.
+              // LVGL holds the point array; keep routed traces alive.
               struct LeaderTrace {
                 lv_obj_t *line;
                 const lv_point_precise_t *full;
-                lv_point_precise_t partial[8];
-                int32_t progress;
-                uint32_t count;
-                lv_obj_t *endpoint;
+                lv_point_precise_t partial[5];
+                uint8_t progress;
+                uint8_t count;
               };
-              static LeaderTrace traces[27]{};
-              auto &trace = traces[color_mode];
+              // Twelve leaders, at most five points each. Keep boot-time BSS below the old
+              // 27-entry, two-point implementation without runtime allocation.
+              static LeaderTrace traces[12]{};
+              auto &trace = traces[trace_index];
               const auto draw = +[](void *state, int32_t progress) {
                 auto &trace = *static_cast<LeaderTrace *>(state);
                 trace.progress = progress;
-                // Exterior-only leaders have no endpoint or center marker.
-                lv_obj_add_flag(trace.endpoint, LV_OBJ_FLAG_HIDDEN);
                 if (progress == 100) {
                   lv_line_set_points(trace.line, trace.full, trace.count);
                   return;
@@ -3905,27 +3921,22 @@ script:
                 lv_obj_set_style_line_opa(leader, LV_OPA_COVER, LV_PART_MAIN);
               }
               if (!trace.full) {
+                const auto *points = lv_line_get_points(leader);
+                const auto count = lv_line_get_point_count(leader);
+                if (!points || count < 2 || count > 5) {
+                  ESP_LOGE("scan.trace", "Invalid route: mode=%d points=%u", color_mode,
+                      static_cast<unsigned>(count));
+                  severity_by_mode[color_mode] = previous;
+                  return;
+                }
                 trace.line = leader;
-                trace.full = lv_line_get_points(leader);
-                trace.count = lv_line_get_point_count(leader);
-                if (trace.count < 2 || trace.count > 8) return;
+                trace.full = points;
+                trace.count = static_cast<uint8_t>(count);
+                ESP_LOGD("scan.trace", "Trace storage=%u bytes for 12 routes",
+                    static_cast<unsigned>(sizeof(traces)));
                 // Center-reaching leaders must remain visible over the part masks.
                 lv_obj_move_foreground(leader);
-                trace.endpoint = lv_obj_create(lv_obj_get_parent(leader));
-                lv_obj_remove_style_all(trace.endpoint);
-                lv_obj_remove_flag(trace.endpoint,
-                    static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE));
-                lv_obj_set_size(trace.endpoint, 6, 6);
-                const auto &end = trace.full[trace.count - 1];
-                lv_obj_set_pos(trace.endpoint, lv_obj_get_x(leader) + end.x - 3,
-                               lv_obj_get_y(leader) + end.y - 3);
-                lv_obj_set_style_radius(trace.endpoint, LV_RADIUS_CIRCLE, LV_PART_MAIN);
-                lv_obj_set_style_bg_color(trace.endpoint, lv_color_hex(${tab5_color_background}), LV_PART_MAIN);
-                lv_obj_set_style_bg_opa(trace.endpoint, LV_OPA_COVER, LV_PART_MAIN);
-                lv_obj_set_style_border_width(trace.endpoint, 1, LV_PART_MAIN);
-                lv_obj_add_flag(trace.endpoint, LV_OBJ_FLAG_HIDDEN);
               }
-              if (show_leader) lv_obj_set_style_border_color(trace.endpoint, colors[severity], LV_PART_MAIN);
               if (show_leader != (previous > 0)) {
                 const bool interrupted = lv_anim_delete(&trace, draw);
                 const int32_t from = interrupted ? trace.progress : (show_leader ? 0 : 100);
@@ -4169,6 +4180,14 @@ script:
             id(tab5_motion_outline)(pitch ? id(btn_pitch) : id(btn_roll), 320);
           }
 
+  - id: script_open_update_menu
+    then:
+      - lambda: |-
+          if (!id(fn_service_allowed)()) return;
+          id(g_update_alert_dismissed) = true;
+          id(g_service_setup) = true;
+          id(script_set_service_visible).execute(true);
+
   - id: script_select_service_tab
     parameters:
       setup: bool
@@ -4233,7 +4252,7 @@ script:
             id(tab5_motion_visible)(id(obj_jaalee_detail), false, 0);
           }
 
-          id(tab5_motion_visible)(id(lbl_update_badge), !allowed && id(g_update_available), 0);
+          id(tab5_motion_visible)(id(lbl_update_badge), !id(g_logs_visible) && id(g_update_available), 0);
 
   - id: script_jaalee_detail
     mode: restart
