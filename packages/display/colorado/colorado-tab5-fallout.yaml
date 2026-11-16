@@ -1,4 +1,5 @@
-# Public ESPHome example. Put Wi-Fi and Home Assistant credentials in secrets.yaml.
+# Public Fallout dashboard. Requires hass-esphome-ota and its locally managed package.
+# Keep Wi-Fi, Home Assistant, and generated OTA secrets in local secrets.yaml.
 substitutions:
   name: "esp-colorado-tab5"
   friendly_name: "ESP Colorado TAB5"
@@ -17,8 +18,8 @@ substitutions:
   tab5_color_text_muted: 0x9DC598
   tab5_color_text_inactive: 0x608D63
   tab5_color_accent: 0xAEF799
-  tab5_color_status_cold: 0x83D9C9
-  tab5_color_status_cool: 0x97E2B9
+  tab5_color_status_cold: 0x9BB5DB
+  tab5_color_status_cool: 0xA3CDDB
   tab5_color_status_warm: 0xFFD08A
   tab5_color_status_hot: 0xFF8C84
   tab5_color_status_ok: 0x83CC72
@@ -40,16 +41,35 @@ substitutions:
   oil_pressure_high_kpa: 551.58057
   tpms_low_kpa: "200"
   # Configurable UI advisory thresholds; these are not GM diagnostic limits.
-  oil_temperature_warn_c: "125"
-  oil_temperature_hot_c: "140"
+  # Display thresholds only; these do not determine driving readiness.
+  oil_temperature_cold_c: "50"
+  oil_temperature_cool_c: "60"
+  oil_temperature_warn_c: "95"
+  oil_temperature_hot_c: "110"
+  # Colorado LGZ / 8L45: GM 21-NA-047 uses 50-70 C for a TCC road test,
+  # not as a normal operating range or a minimum driving-ready temperature.
+  transmission_warmup_reference_c: "48"  # User-selected display reference; not a GM limit.
+  # Local UI advisories, NOT verified GM overheat / DTC thresholds.
+  transmission_temperature_warn_c: "110"
+  transmission_temperature_hot_c: "130"
+  # Local warm-up display timing, NOT GM specifications. Ambient affects time only.
+  warmup_ambient_reference_c: "20"
+  warmup_ambient_span_c: "40"  # Full extension at -20 C or colder.
+  coolant_warmup_base_s: "600"
+  coolant_warmup_max_s: "1200"
+  transmission_warmup_base_s: "900"
+  transmission_warmup_max_s: "1800"
   # Invert an axis if the installed display/sensor orientation requires it.
   tab5_pitch_direction: "-1"  # Correct the nose-up/nose-down rotation for this installation.
   tab5_roll_direction: "1"
+  # Visual inclination bands, not vehicle stability or rollover limits.
+  tab5_tilt_warm_deg: "10"
+  tab5_tilt_hot_deg: "20"
 
   ui_ascii: ' !"#$%&''()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
   # Shared by the warning popup and the log. Add characters from external parking text here.
   ui_alert_hangul: "가감경고과급기낮높능데동력료리미발방배버변부상새속스시압업엔연열오요위유음의이일장전족졸주진충치터트필하험환타어저앞뒤왼른쪽"
-  ui_extra_glyphs: ""
+  ui_extra_glyphs: "패응답지연결"
 
 .helpers:
   ver: &version !lambda 'return std::string(ESPHOME_PROJECT_VERSION);'
@@ -76,9 +96,6 @@ substitutions:
 esphome:
   name: "${name}"
   friendly_name: "${friendly_name}"
-  project:
-    name: "eigger.esp-colorado-tab5-fallout"
-    version: "261112.1"
   # This config intentionally uses YAML anchors with per-instance key overrides
   # for the reusable terminal widget styles. ESPHome warns on valid overrides.
   merge_warnings: false
@@ -208,6 +225,7 @@ ws_bridge:
     - source_id: id_bed_battery_level
     - source_id: engine_run_time
     - source_id: gm_fuel_level_liters
+    - source_id: ota_update
     # - source_id: id_pm1_0
     # - source_id: id_pm2_5
     # - source_id: id_pm10_0
@@ -395,6 +413,15 @@ globals:
   - id: g_dashboard_samples
     type: "std::array<uint32_t, 27>"
     initial_value: 'std::array<uint32_t, 27>{}'
+  - id: g_acceleration_previous_speed
+    type: float
+    initial_value: 'NAN'
+  - id: g_acceleration_previous_ms
+    type: uint32_t
+    initial_value: '0'
+  - id: g_acceleration_sample_ms
+    type: uint32_t
+    initial_value: '0'
   - id: g_tcc_slip_warning_at
     type: uint32_t
     initial_value: '0'
@@ -412,12 +439,94 @@ globals:
     type: uint32_t
     restore_value: no
     initial_value: '0'
+  # ── OTA 업데이트 상태 추적 ──
+  - id: g_latest_version
+    type: std::string
+    initial_value: '""'
+  - id: g_update_available
+    type: bool
+    initial_value: 'false'
+  - id: g_update_alert_dismissed
+    type: bool
+    initial_value: 'false'
+  # 현재 표시 중인 팝업이 차량 경고가 아닌 업데이트 안내인지 (닫기 클릭 시 어느 dismiss 플래그를 세울지 판단)
+  - id: g_alert_is_update
+    type: bool
+    initial_value: 'false'
+  - id: g_updating
+    type: bool
+    initial_value: 'false'
+  - id: g_ota_ui_active
+    type: bool
+    initial_value: 'false'
+  - id: g_ota_backlight_was_on
+    type: bool
+    initial_value: 'true'
+  - id: g_ota_backlight_brightness
+    type: float
+    initial_value: '0.4f'
+  - id: g_ota_lvgl_was_paused
+    type: bool
+    initial_value: 'false'
+  # 수동 "업데이트 확인" 진행 중 여부 (버튼 중복 클릭/중복 요청 방지)
+  - id: g_checking
+    type: bool
+    initial_value: 'false'
+  - id: fn_sample_live
+    type: "float (*)(int, float, uint32_t)"
+    initial_value: |-
+      +[](int mode, float value, uint32_t timeout) -> float {
+        if (mode < 0 || mode >= 27 || !std::isfinite(value)) return NAN;
+        const uint32_t sampled_at = id(g_dashboard_samples)[mode];
+        return sampled_at && esphome::millis() - sampled_at < timeout ? value : NAN;
+      }
   - id: fn_service_allowed
     type: "bool (*)()"
     initial_value: |-
       +[]() {
-        return id(obd_client).connected() && id(g_dashboard_samples)[10] != 0 &&
-               id(car_speed).state == 0.0f;
+        return id(obd_client).connected() &&
+               id(fn_sample_live)(10, id(car_speed).state, 5000) == 0.0f;
+      }
+  - id: g_ambient_sample_ms
+    type: uint32_t
+    initial_value: '0'
+  - id: g_warmup_last_runtime
+    type: float
+    initial_value: '-1.0f'
+  - id: g_warmup_completed
+    type: "std::array<bool, 2>"
+    initial_value: 'std::array<bool, 2>{}'
+  - id: fn_warmup_grace_s
+    type: "float (*)(float, int)"
+    initial_value: |-
+      +[](float ambient, int mode) -> float {
+        const float base = mode == 5 ? ${coolant_warmup_base_s} : ${transmission_warmup_base_s};
+        const float maximum = mode == 5 ? ${coolant_warmup_max_s} : ${transmission_warmup_max_s};
+        // Missing / stale / implausible ambient uses the longest grace period.
+        if (!std::isfinite(ambient) || ambient < -40.0f || ambient > 60.0f) return maximum;
+        const float extension = std::clamp(
+            (${warmup_ambient_reference_c} - ambient) / ${warmup_ambient_span_c}, 0.0f, 1.0f);
+        return base + (maximum - base) * extension;
+      }
+  - id: fn_warmup_phase
+    type: "int (*)(int)"
+    initial_value: |-
+      +[](int mode) -> int {
+        // 0 = unknown / engine off; 1 = warm-up display window; 2 = window elapsed.
+        // These phases are display timing only, never a driving-readiness verdict.
+        if (mode != 5 && mode != 18) return 0;
+        const float rt = id(fn_sample_live)(11, id(engine_run_time).state, 20000);
+        const float rpm = id(fn_sample_live)(8, id(engine_rpm).state, 8000);
+        if (!std::isfinite(rt) || rt < 0.0f || !(rpm >= 400.0f)) return 0;
+        const size_t index = mode == 5 ? 0 : 1;
+        if (id(g_warmup_completed)[index]) return 2;
+        const uint32_t sampled_at = id(g_ambient_sample_ms);
+        const float ambient = sampled_at && esphome::millis() - sampled_at < 90000
+            ? id(ambient_air_temperature).state : NAN;
+        if (rt < id(fn_warmup_grace_s)(ambient, mode)) return 1;
+        // Do not re-enter warm-up when ambient changes or its sample expires.
+        id(g_warmup_completed)[index] = true;
+        return 2;
       }
   - id: fn_readout_text
     type: "std::string (*)(float, int)"
@@ -441,125 +550,155 @@ globals:
          const auto danger  = lv_color_hex(${tab5_color_status_hot});
          const auto warning = lv_color_hex(${tab5_color_status_warm});
 
-         if (isnan(val)) return unavailable;
+         const auto classify = [&](float val) -> lv_color_t {
+           if (!std::isfinite(val)) return unavailable;
 
-         if (mode == 1 || mode == 2) { // 실내 온도
-           if (val < 10)  return cold;
-           else if (val < 18) return cool;
-           else if (val <= 26) return normal;
-           else if (val <= 31) return warning;
-           return danger;
-         } else if (mode == 3) { // 실내 습도
-           if (val < 25) return danger;
-           else if (val < 40) return warning;
-           else if (val <= 60) return normal;
-           else if (val <= 75) return cool;
-           return cold;
-         } else if (mode == 15) { // 적재함 온도
-           if (val < 0)  return cold;
-           else if (val < 10) return cool;
-           else if (val <= 30) return normal;
-           else if (val <= 40) return warning;
-           return danger;
-         } else if (mode == 16) { // 적재함 습도
-           if (val < 15) return danger;
-           else if (val < 30) return warning;
-           else if (val <= 70) return normal;
-           else if (val <= 85) return cool;
-           return cold;
-         } else if (mode == 5) { // 냉각수
-           if (val < 60) {
-             // 워밍업 10분 이후 지속 저온만 냉온 표시
-             float rt = id(engine_run_time).state;
-             return (!isnan(rt) && rt >= 600) ? cold : normal;
-           }
-           else if (val < 95) return normal;
-           else if (val < 110) return warning;
-           return danger;
-         } else if (mode == 6) { // 연료
-           if (val > 30) return active;
-           else if (val > 15) return warning;
-           return danger;
-         } else if (mode == 7 || mode == 20) { // 전압과 충전율/잔량 카드의 공통 기준
-           const bool is_soc = mode == 20;
-           const float voltage = is_soc ? id(car_battery).state : val;
-           if (isnan(voltage) || voltage <= 5.0f) return unavailable;
-           const auto normal_color = is_soc ? active : normal;
-           const bool engine_on = id(engine_rpm).state >= 400.0f;
-           if (engine_on) {
-             if (voltage < 12.8f) {
-               // RVC 연비모드의 순간 저전압과 3분 이상 지속되는 미충전을 구분한다.
-               const bool sustained = id(alt_low_since_ms) != 0 &&
-                                      esphome::millis() - id(alt_low_since_ms) >= 180000;
-               return sustained ? danger : warning;
+           if (mode == 1 || mode == 2) { // 실내 온도
+             if (val < 10)  return cold;
+             else if (val < 18) return cool;
+             else if (val <= 26) return normal;
+             else if (val <= 31) return warning;
+             return danger;
+           } else if (mode == 3) { // 실내 습도
+             if (val < 25) return danger;
+             else if (val < 40) return warning;
+             else if (val <= 60) return normal;
+             else if (val <= 75) return cool;
+             return cold;
+           } else if (mode == 15) { // 적재함 온도
+             if (val < 0)  return cold;
+             else if (val < 10) return cool;
+             else if (val <= 30) return normal;
+             else if (val <= 40) return warning;
+             return danger;
+           } else if (mode == 16) { // 적재함 습도
+             if (val < 15) return danger;
+             else if (val < 30) return warning;
+             else if (val <= 70) return normal;
+             else if (val <= 85) return cool;
+             return cold;
+           } else if (mode == 5) { // 냉각수
+             if (val < 60) {
+               // 외기온에 따른 유예시간 이후 저온 정보만 표시 (고장 판정 아님).
+               return id(fn_warmup_phase)(mode) == 2 ? cold : normal;
              }
-             if (voltage < 13.2f) return warning;
-             if (voltage <= 14.85f) return normal_color;
-             return voltage <= 15.0f ? warning : danger;
+             else if (val < 95) return normal;
+             else if (val < 110) return warning;
+             return danger;
+           } else if (mode == 6) { // 연료
+             if (val > 30) return active;
+             else if (val > 15) return warning;
+             return danger;
+           } else if (mode == 7 || mode == 20) { // 전압과 충전율/잔량 카드의 공통 기준
+             const bool is_soc = mode == 20;
+             const float voltage = is_soc ? id(fn_sample_live)(7, id(car_battery).state, 35000) : val;
+             if (isnan(voltage) || voltage <= 5.0f) return unavailable;
+             const auto normal_color = is_soc ? active : normal;
+             const float rpm = id(fn_sample_live)(8, id(engine_rpm).state, 8000);
+             if (!std::isfinite(rpm)) return unavailable;
+             const bool engine_on = rpm >= 400.0f;
+             if (engine_on) {
+               if (voltage < 12.8f) {
+                 // RVC 연비모드의 순간 저전압과 3분 이상 지속되는 미충전을 구분한다.
+                 const bool sustained = id(alt_low_since_ms) != 0 &&
+                                        esphome::millis() - id(alt_low_since_ms) >= 180000;
+                 return sustained ? danger : warning;
+               }
+               if (voltage < 13.2f) return warning;
+               if (voltage <= 14.85f) return normal_color;
+               return voltage <= 15.0f ? warning : danger;
+             }
+             if (voltage < 11.8f) return danger;
+             if (voltage < 12.0f) return warning;
+             return voltage <= 13.5f ? normal_color : danger;
+           } else if (mode == 8) { // RPM
+             if (val > 3500) return danger;
+             else if (val > 2500) return warning;
+             return active;
+           } else if (mode == 9) { // 엔진 부하 %
+             if (val > 95) return danger;
+             else if (val > 75) return warning;
+             return active;
+           } else if (mode == 10) { // Speed (분리 수정)
+             if (val > 120) return danger;
+             else if (val > 110) return warning;
+             else if (val > 100) return active;
+             return normal;
+           } else if (mode == 11) { // 운행시간 (초)
+             if (val < 3600) return normal;
+             if (val < 7200) return warning;
+             return danger;
+           } else if (mode == 12) { // TVOC — 경고 팝업 기준(3333=환기 필요)과 일치, 팝업이 red를 안 쓰므로 카드도 orange까지만
+             if (val > 3333) return warning;
+             return normal;
+           } else if (mode == 13) { // CO2 — 경고 팝업 기준과 일치 (1500=졸음 주의, 2500=졸음 경고)
+             if (val > 2500) return danger;
+             else if (val > 1500) return warning;
+             return normal;
+           } else if (mode == 14) { // 오일 압력 (kPa)
+             const float rpm = id(fn_sample_live)(8, id(engine_rpm).state, 8000);
+             if (!(rpm >= 400.0f)) return unavailable;
+             const bool above_idle = rpm >= 1000.0f;
+             const float low_kpa = above_idle ? ${oil_pressure_low_above_idle_kpa}f : ${oil_pressure_low_idle_kpa}f;
+             const float warn_kpa = above_idle ? ${oil_pressure_warn_above_idle_kpa}f : ${oil_pressure_warn_idle_kpa}f;
+             if (val < low_kpa || val > ${oil_pressure_high_kpa}f) return danger;
+             if (val < warn_kpa) return warning;
+             return active;
+           } else if (mode == 17) { // 흡기온도 — 엔진룸 흡기 공기 기준
+             if (val <= 45) return normal;
+             else if (val <= 60) return warning;
+             return danger;
+           } else if (mode == 18) { // Colorado 3.6L / 8L45 sump temperature.
+             if (val < ${transmission_warmup_reference_c}) {
+               // User-selected display reference; NOT a minimum operating temperature.
+               // Cool is an early warm-up hint only; never flag persistent low TFT.
+               return id(fn_warmup_phase)(mode) == 1 ? cool : normal;
+             }
+             else if (val <= ${transmission_temperature_warn_c}) return normal;
+             else if (val <= ${transmission_temperature_hot_c}) return warning;
+             return danger;
+           } else if (mode == 24) { // TCC slip: large slip alone is normal when unlocked.
+             const uint32_t warned_at = id(g_tcc_slip_warning_at);
+             return warned_at && esphome::millis() - warned_at < 10000 ? warning : active;
+           } else if (mode == 26) { // Calculated engine oil temperature (configurable UI limits).
+             if (val < ${oil_temperature_cold_c}) return cold;
+             if (val < ${oil_temperature_cool_c}) return cool;
+             if (val < ${oil_temperature_warn_c}) return normal;
+             if (val < ${oil_temperature_hot_c}) return warning;
+             return danger;
+           } else if (mode == 19) { // 운행거리 (km)
+             if (val <= 150) return normal;
+             else if (val <= 300) return warning;
+             return danger;
            }
-           if (voltage < 11.8f) return danger;
-           if (voltage < 12.0f) return warning;
-           return voltage <= 13.5f ? normal_color : danger;
-         } else if (mode == 8) { // RPM
-           if (val > 3500) return danger;
-           else if (val > 2500) return warning;
-           return active;
-         } else if (mode == 9) { // 엔진 부하 %
-           if (val > 95) return danger;
-           else if (val > 75) return warning;
-           return active;
-         } else if (mode == 10) { // Speed (분리 수정)
-           if (val > 120) return danger;
-           else if (val > 110) return warning;
-           else if (val > 100) return active;
            return normal;
-         } else if (mode == 11) { // 운행시간 (초)
-           if (val < 3600) return normal;
-           if (val < 7200) return warning;
-           return danger;
-         } else if (mode == 12) { // TVOC — 경고 팝업 기준(3333=환기 필요)과 일치, 팝업이 red를 안 쓰므로 카드도 orange까지만
-           if (val > 3333) return warning;
-           return normal;
-         } else if (mode == 13) { // CO2 — 경고 팝업 기준과 일치 (1500=졸음 주의, 2500=졸음 경고)
-           if (val > 2500) return danger;
-           else if (val > 1500) return warning;
-           return normal;
-         } else if (mode == 14) { // 오일 압력 (kPa)
-           const float rpm = id(engine_rpm).state;
-           if (!(rpm >= 400.0f)) return unavailable;
-           const bool above_idle = rpm >= 1000.0f;
-           const float low_kpa = above_idle ? ${oil_pressure_low_above_idle_kpa}f : ${oil_pressure_low_idle_kpa}f;
-           const float warn_kpa = above_idle ? ${oil_pressure_warn_above_idle_kpa}f : ${oil_pressure_warn_idle_kpa}f;
-           if (val < low_kpa || val > ${oil_pressure_high_kpa}f) return danger;
-           if (val < warn_kpa) return warning;
-           return active;
-         } else if (mode == 17) { // 흡기온도 — 엔진룸 흡기 공기 기준
-           if (val <= 45) return normal;
-           else if (val <= 60) return warning;
-           return danger;
-         } else if (mode == 18) { // 변속기(미션) 오일 온도 — 냉각수보다 정상 운용범위 높음
-           if (val < 50) {
-             // 워밍업 15분 이후 지속 저온만 냉온 표시
-             float rt = id(engine_run_time).state;
-             return (!isnan(rt) && rt >= 900) ? cold : normal;
-           }
-           else if (val <= 110) return normal;
-           else if (val <= 130) return warning;
-           return danger;
-         } else if (mode == 24) { // TCC slip: large slip alone is normal when unlocked.
-           const uint32_t warned_at = id(g_tcc_slip_warning_at);
-           return warned_at && esphome::millis() - warned_at < 10000 ? warning : active;
-         } else if (mode == 26) { // Calculated engine oil temperature (configurable UI limits).
-           if (val < 60.0f) return cool;
-           if (val < ${oil_temperature_warn_c}) return normal;
-           if (val < ${oil_temperature_hot_c}) return warning;
-           return danger;
-         } else if (mode == 19) { // 운행거리 (km)
-           if (val <= 150) return normal;
-           else if (val <= 300) return warning;
-           return danger;
+         };
+         const auto next = classify(val);
+         // Share the stabilized color between readouts, icons and diagram leaders.
+         // Warnings escalate immediately; recovery and low-temperature transitions get 1 degree of slack.
+         const bool stabilize = mode == 1 || mode == 2 || mode == 5 || mode == 15 ||
+                                mode == 17 || mode == 18 || mode == 26;
+         if (!stabilize) return next;
+         static lv_color_t previous[27]{};
+         static bool seen[27]{};
+         if (!std::isfinite(val)) {
+           seen[mode] = false;
+           return unavailable;
          }
-         return normal;
+         if (seen[mode] && !lv_color_eq(next, previous[mode])) {
+           const bool escalation = lv_color_eq(next, danger) ||
+               (lv_color_eq(next, warning) && !lv_color_eq(previous[mode], danger));
+           // End the transmission warm-up hint exactly at its display reference.
+           const bool warmup_reached = mode == 18 && val >= ${transmission_warmup_reference_c} &&
+               lv_color_eq(previous[mode], cool) && lv_color_eq(next, normal);
+           if (!escalation && !warmup_reached && (lv_color_eq(classify(val - 1.0f), previous[mode]) ||
+                               lv_color_eq(classify(val + 1.0f), previous[mode]))) {
+             return previous[mode];
+           }
+         }
+         seen[mode] = true;
+         previous[mode] = next;
+         return next;
       }
 
 binary_sensor:
@@ -647,7 +786,13 @@ sensor:
     internal: true
     on_value:
       then:
-        - lambda: 'id(g_dashboard_samples)[11] = std::isfinite(x) ? esphome::millis() : 0;'
+        - lambda: |-
+            const bool valid = std::isfinite(x) && x >= 0.0f;
+            id(g_dashboard_samples)[11] = valid ? esphome::millis() : 0;
+            if (valid) {
+              if (x < id(g_warmup_last_runtime) || x == 0.0f) id(g_warmup_completed).fill(false);
+              id(g_warmup_last_runtime) = x;
+            }
   - platform: ble_elm327
     id: "engine_coolant_temperature"
     pre_commands: *obd_default_pre_commands
@@ -720,6 +865,11 @@ sensor:
     preset: ambient_temp
     update_interval: 30s
     internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(g_ambient_sample_ms) = std::isfinite(x) && x >= -40.0f && x <= 60.0f
+                ? esphome::millis() : 0;
   - platform: ble_elm327
     id: "car_battery"
     pre_commands: *obd_default_pre_commands
@@ -732,33 +882,7 @@ sensor:
         - lambda: |-
             id(script_render_readout).execute(id(lbl_car_battery), id(widget_img_battery),
                                               x <= 5.0f ? NAN : x, 7, 1, 0);
-        - lambda: |-
-            if (isnan(x) || x <= 5.0f) {
-              id(car_battery_soc).publish_state(NAN);
-              return;
-            }
-            float soc = 0.0f;
-            bool engine_on = !isnan(id(engine_rpm).state) && id(engine_rpm).state >= 400.0f;
-            // 발전기 저전압 지속시간 추적: 시동 중 12.8V 미만이 시작된 시각을 기록, 벗어나면 리셋
-            if (engine_on && x < 12.8f) {
-              if (id(alt_low_since_ms) == 0) id(alt_low_since_ms) = esphome::millis();
-            } else {
-              id(alt_low_since_ms) = 0;
-            }
-            if (engine_on) {
-              // 시동 중: 알터네이터 충전 강도/충전율 (12.8V ~ 15.0V -> 0% ~ 100%, mode 7 정상 상한과 정렬)
-              if (x <= 12.8f) soc = 0.0f;
-              else soc = (x - 12.8f) / 2.2f * 100.0f;
-            } else {
-              // 시동 전: 12V 배터리 자체 잔량 (11.7V ~ 12.7V -> 0% ~ 100%)
-              if (x <= 11.7f) soc = 0.0f;
-              else if (x <= 12.7f) soc = (x - 11.7f) / 1.0f * 100.0f;
-              else if (x <= 13.5f) soc = 100.0f;
-              else soc = 100.0f + (x - 13.5f) * 50.0f;
-            }
-            if (soc > 120.0f) soc = 120.0f;
-            if (soc < 0.0f) soc = 0.0f;
-            id(car_battery_soc).publish_state(soc);
+        - script.execute: script_refresh_engine_dependents
 
   - platform: template
     id: "car_battery_soc"
@@ -772,12 +896,15 @@ sensor:
     on_value:
       then:
         - lambda: |-
-            const bool engine_on = id(engine_rpm).state >= 400.0f;
-            const char *title = engine_on ? "충전율" : "잔량";
+            const float rpm = id(fn_sample_live)(8, id(engine_rpm).state, 8000);
+            const bool engine_on = rpm >= 400.0f;
+            const char *title = !std::isfinite(rpm) ? "배터리" : engine_on ? "충전율" : "잔량";
             const bool changed = std::strcmp(lv_label_get_text(id(lbl_battery_title)), title) != 0;
             if (changed) lv_label_set_text(id(lbl_battery_title), title);
             id(script_render_gauge).execute(id(lbl_battery_soc), id(bar_battery_soc), id(widget_img_battery_soc),
                                             x, 20, 375, changed && engine_on);
+            // A derived value must retain the voltage sample's age, not this redraw's time.
+            id(g_dashboard_samples)[20] = std::isfinite(x) ? id(g_dashboard_samples)[7] : 0;
   - platform: ble_elm327
     id: "engine_rpm"
     pre_commands: *obd_default_pre_commands
@@ -789,6 +916,7 @@ sensor:
       then:
         - lambda: |-
             id(script_render_gauge).execute(id(lbl_engine_rpm_left), id(bar_engine_rpm), id(widget_img_rpm), x, 8, 200, false);
+        - script.execute: script_refresh_engine_dependents
   - platform: ble_elm327
     id: "engine_load"
     pre_commands: *obd_default_pre_commands
@@ -818,17 +946,7 @@ sensor:
             id(script_render_speed).execute(x);
             if (std::isfinite(x)) id(script_speed_expire).execute();
             else id(script_speed_expire).stop();
-        - lambda: |-
-            if (!isnan(x)) {
-              static float old_speed = 0.0f;
-              static uint32_t timer = esphome::millis();
-              if (esphome::millis() - timer > 1000) {
-                float acc = x - old_speed;
-                id(car_acceleration).publish_state(acc);
-                old_speed = x;
-                timer = esphome::millis();
-              }
-            }
+        - lambda: id(script_update_acceleration).execute(x);
 
   - platform: template
     id: "car_acceleration"
@@ -1213,9 +1331,13 @@ interval:
           constexpr uint32_t notice = ${tab5_color_alert_notice};
           std::string msg;
           uint32_t color_hex = warning;
-          const auto set_alert = [&](const char *text, uint32_t color) {
-            msg = text;
-            color_hex = color;
+          const auto set_alert = [&](const std::string &text, uint32_t color) {
+            const auto rank = [&](uint32_t value) { return value == danger ? 2 : value == warning ? 1 : 0; };
+            // First candidate wins ties; a danger always replaces a warning.
+            if (msg.empty() || rank(color) > rank(color_hex)) {
+              msg = text;
+              color_hex = color;
+            }
           };
 
           const auto live = [&](int mode, float value) {
@@ -1230,7 +1352,9 @@ interval:
           const float speed = live(10, id(car_speed).state);
           const float co2 = live(13, id(id_scd40_co2).state);
           const float tvoc = live(12, id(id_sgp30_tvoc).state);
-          const float acceleration = live(10, id(car_acceleration).state);
+          const uint32_t acceleration_at = id(g_acceleration_sample_ms);
+          const float acceleration = acceleration_at && esphome::millis() - acceleration_at < 5000
+              ? live(10, id(car_acceleration).state) : NAN;
           const float load = live(9, id(engine_load).state);
           const float fuel = live(6, id(fuel_level).state);
           const bool engine_on = rpm >= 400.0f;
@@ -1256,65 +1380,89 @@ interval:
 
           const uint8_t low_tires = id(g_tpms_low_tires);
 
-          if (coolant > 110) {
-            set_alert("엔진 과열!", danger);
-          } else if (transmission > 130) {
-            set_alert("변속기 과열!", danger);
-          } else if (engine_on && (oil < oil_low_kpa || oil > ${oil_pressure_high_kpa}f)) {
-            set_alert("오일 압력 위험!", danger);
-          } else if (speed > 120) {
-            set_alert("과속 위험!", danger);
-          } else if (speed > 110) {
-            set_alert("과속 주의!", warning);
-          } else if (co2 > 2500) {
-            set_alert("졸음 경고!", danger);
-          } else if (co2 > 1500) {
-            set_alert("졸음 주의!", warning);
-          } else if (tvoc > 5000) {
-            set_alert("가스 주의!", warning);
-          } else if (tvoc > 3333) {
-            set_alert("환기 필요!", warning);
-          } else if (acceleration > 9.0) {
-            set_alert("급가속!", danger);
-          } else if (acceleration < -9.0) {
-            set_alert("급감속!", danger);
-          } else if (load > 95) {
-            set_alert("엔진 과부하!", warning);
-          } else if (!isnan(id(id_tab5_internal_temperature).state) && id(id_tab5_internal_temperature).state > 70) {
-            set_alert("장치 과열!", danger);
-          } else if (bat_valid && engine_on && bat < 12.8f && id(alt_low_since_ms) != 0 && (esphome::millis() - id(alt_low_since_ms) >= 180000)) {
-            set_alert("발전기 미충전!", danger);
-          } else if (bat_valid && engine_on && bat > 15.0f) {
-            set_alert("배터리 과충전!", danger);
-          } else if (bat_valid && !engine_on && bat < 11.8f) {
-            set_alert("배터리 방전 위험!", danger);
-          } else if (bat_valid && !engine_on && bat > 13.5f) {
-            set_alert("시동전 전압 이상!", danger);
-          } else if (bat_valid && engine_on && bat < 13.2f) {
-            set_alert("충전전압 낮음!", warning);
-          } else if (bat_valid && engine_on && bat > 14.85f) {
-            set_alert("충전전압 높음!", warning);
-          } else if (bat_valid && !engine_on && bat < 12.0f) {
-            set_alert("배터리 전압 낮음!", warning);
-          } else if (fuel < 8) {
-            set_alert("연료 부족 (주유 시급)!", danger);
-          } else if (fuel < 15) {
-            set_alert("주유 필요!", warning);
-          } else if (id(parking_info).has_state() && id(parking_info).state.length() > 0 && id(parking_info).state != "unknown" && id(parking_info).state != "off") {
-            msg = id(parking_info).state;
-            color_hex = notice;
-          }
-
-          if (low_tires && color_hex != danger) {
+          // Preserve the existing tire-warning priority among warnings only.
+          if (low_tires) {
             const char *positions[] = {"앞왼쪽", "앞오른쪽", "뒤왼쪽", "뒤오른쪽"};
-            msg = "타이어 저압";
-            color_hex = warning;
+            std::string tire_msg = "타이어 저압";
             for (size_t i = 0; i < id(g_tpms_samples).size(); ++i) {
               if (low_tires & (1u << i)) {
-                msg += " ";
-                msg += positions[i];
+                tire_msg += " ";
+                tire_msg += positions[i];
               }
             }
+            set_alert(tire_msg, warning);
+          }
+
+          if (std::isfinite(coolant) && lv_color_eq(id(fn_state_color)(coolant, 5),
+              lv_color_hex(${tab5_color_status_hot}))) {
+            set_alert("엔진 과열!", danger);
+          }
+          if (transmission > ${transmission_temperature_hot_c}) {
+            set_alert("변속기 과열!", danger);
+          }
+          if (engine_on && (oil < oil_low_kpa || oil > ${oil_pressure_high_kpa}f)) {
+            set_alert("오일 압력 위험!", danger);
+          }
+          if (speed > 120) {
+            set_alert("과속 위험!", danger);
+          }
+          if (speed > 110) {
+            set_alert("과속 주의!", warning);
+          }
+          if (co2 > 2500) {
+            set_alert("졸음 경고!", danger);
+          }
+          if (co2 > 1500) {
+            set_alert("졸음 주의!", warning);
+          }
+          if (tvoc > 5000) {
+            set_alert("가스 주의!", warning);
+          }
+          if (tvoc > 3333) {
+            set_alert("환기 필요!", warning);
+          }
+          if (acceleration > 9.0) {
+            set_alert("급가속!", danger);
+          }
+          if (acceleration < -9.0) {
+            set_alert("급감속!", danger);
+          }
+          if (load > 95) {
+            set_alert("엔진 과부하!", warning);
+          }
+          if (!isnan(id(id_tab5_internal_temperature).state) && id(id_tab5_internal_temperature).state > 70) {
+            set_alert("장치 과열!", danger);
+          }
+          if (bat_valid && engine_on && bat < 12.8f && id(alt_low_since_ms) != 0 && (esphome::millis() - id(alt_low_since_ms) >= 180000)) {
+            set_alert("발전기 미충전!", danger);
+          }
+          if (bat_valid && engine_on && bat > 15.0f) {
+            set_alert("배터리 과충전!", danger);
+          }
+          if (bat_valid && !engine_on && bat < 11.8f) {
+            set_alert("배터리 방전 위험!", danger);
+          }
+          if (bat_valid && !engine_on && bat > 13.5f) {
+            set_alert("시동전 전압 이상!", danger);
+          }
+          if (bat_valid && engine_on && bat < 13.2f) {
+            set_alert("충전전압 낮음!", warning);
+          }
+          if (bat_valid && engine_on && bat > 14.85f) {
+            set_alert("충전전압 높음!", warning);
+          }
+          if (bat_valid && !engine_on && bat < 12.0f) {
+            set_alert("배터리 전압 낮음!", warning);
+          }
+          if (fuel < 8) {
+            set_alert("연료 부족 (주유 시급)!", danger);
+          }
+          if (fuel < 15) {
+            set_alert("주유 필요!", warning);
+          }
+          if (msg.empty() && id(parking_info).has_state() && id(parking_info).state.length() > 0 && id(parking_info).state != "unknown" && id(parking_info).state != "off") {
+            msg = id(parking_info).state;
+            color_hex = notice;
           }
 
           const bool car_alert = !msg.empty();
@@ -1327,9 +1475,23 @@ interval:
             last_car_msg = msg;
           }
 
-          if (!car_alert) id(alert_dismissed) = false;
-          const bool show_popup = car_alert && !id(alert_dismissed);
-          const bool urgent = show_popup && color_hex != notice;
+          if (!car_alert) {
+            id(alert_dismissed) = false; // 차량 경고 해소 시 dismiss 리셋
+            // 차량 경고가 없을 때만 독립된 플래그(g_update_alert_dismissed)로 업데이트 알림 검사
+            if (id(g_update_available) && !id(g_update_alert_dismissed)) {
+              if (!id(g_latest_version).empty()) {
+                msg = "새 버전 " + id(g_latest_version) + " 업데이트 가능!";
+              } else {
+                msg = "새 업데이트 가능!";
+              }
+              color_hex = notice;
+            }
+          }
+
+          id(g_alert_is_update) = !car_alert && !msg.empty();
+          const bool dismissed = car_alert ? id(alert_dismissed) : id(g_update_alert_dismissed);
+          const bool show_popup = !msg.empty() && !dismissed && (car_alert || id(fn_service_allowed)());
+          const bool urgent = show_popup && car_alert && color_hex != notice;
           id(tab5_motion_notice_active) = urgent;
           const char *level = color_hex == danger ? "경고" : color_hex == notice ? "안내" : "주의";
 
@@ -1361,7 +1523,6 @@ interval:
           id(tab5_motion_visible)(popup, true, urgent ? 0 : 185);
           if (urgent) {
             id(tab5_motion_fade)(popup, LV_OPA_COVER, LV_OPA_COVER, 0);
-            id(tab5_motion_outline)(popup, 200);
           }
 
 text_sensor:
@@ -1484,6 +1645,76 @@ lvgl:
 
   top_layer:
     widgets:
+      # OTA callbacks refresh this overlay directly while the download blocks App.loop().
+      - obj:
+          id: obj_ota_overlay
+          hidden: true
+          align: center
+          width: 1280
+          height: 720
+          bg_color: "${tab5_color_background}"
+          bg_opa: COVER
+          border_width: 0
+          radius: 0
+          pad_all: 0
+          clickable: true
+          scrollable: false
+          widgets:
+            - obj:
+                align: center
+                width: 960
+                height: 420
+                bg_color: "${tab5_color_panel_bg}"
+                bg_opa: COVER
+                border_width: 2
+                border_color: "${tab5_color_accent}"
+                border_opa: 60%
+                radius: 0
+                pad_all: 0
+                clickable: false
+                scrollable: false
+                widgets:
+                  - label: { x: 32, y: 18, width: 896, text: "COLORADO // SERVICE TERMINAL", text_letter_space: 2, text_font: font_terminal_boot, text_color: "${tab5_color_accent}", clickable: false }
+                  - line: { <<: &ota_rule { align: top_left, line_color: "${tab5_color_card_border}", line_width: 1, clickable: false }, x: 32, y: 60, points: ["0, 0", "895, 0"] }
+                  - label: { id: lbl_ota_title, x: 32, y: 82, width: 700, text: "FIRMWARE UPDATE", text_font: notosans35, text_color: "${tab5_color_accent}", clickable: false }
+                  - label: { id: lbl_ota_phase, x: 32, y: 148, width: 700, text: "INITIALIZING LINK...", text_font: font_terminal_boot, text_color: "${tab5_color_text_secondary}", clickable: false }
+                  - label: { id: lbl_ota_percent, x: 760, y: 92, width: 160, text_align: RIGHT, text: "0%", text_font: notosans45, text_color: "${tab5_color_text_primary}", clickable: false }
+                  - bar:
+                      id: bar_ota_progress
+                      x: 32
+                      y: 224
+                      width: 896
+                      height: 18
+                      min_value: 0
+                      max_value: 100
+                      value: 0
+                      animated: false
+                      bg_color: "${tab5_color_gauge_track}"
+                      bg_opa: COVER
+                      radius: 0
+                      border_width: 0
+                      pad_all: 0
+                      clickable: false
+                      indicator: { bg_color: "${tab5_color_accent}", radius: 0 }
+                  # Mask narrow gaps into the real progress bar for terminal-style segments.
+                  - line: { <<: *ota_rule, x: 32, y: 233, line_color: "${tab5_color_panel_bg}", line_width: 18, line_dash_width: 3, line_dash_gap: 25, points: ["0, 0", "895, 0"] }
+                  - label: { id: lbl_ota_hint, x: 32, y: 282, width: 896, text: "DO NOT INTERRUPT POWER.", text_font: font_terminal_boot, text_color: "${tab5_color_text_muted}", clickable: false }
+                  - line: { <<: *ota_rule, x: 32, y: 336, points: ["0, 0", "895, 0"] }
+                  - label: { x: 32, y: 366, text: "COLORADO // OTA", text_font: font_terminal_boot, text_color: "${tab5_color_text_inactive}", clickable: false }
+                  - button:
+                      <<: *neutral_button
+                      id: btn_ota_close
+                      hidden: true
+                      x: 768
+                      y: 350
+                      width: 160
+                      height: 48
+                      radius: 0
+                      pad_all: 0
+                      on_click:
+                        - script.execute: script_ota_close
+                      widgets:
+                        - label: { align: center, text: "[ BACK ]", text_font: font_terminal_boot, text_color: "${tab5_color_text_primary}", clickable: false }
       # ── 재시작 팝업 백드롭 ──
       - obj:
           id: obj_restart_backdrop
@@ -1650,6 +1881,15 @@ lvgl:
                 widgets:
                   - label: { id: lbl_service_setup_tab, align: center, text: "SETUP", text_font: font_terminal_boot, text_color: "${tab5_color_accent}" }
             - label:
+                id: lbl_update_badge
+                align: left_mid
+                x: 280
+                y: 13
+                hidden: true
+                text: "새 버전 있음"
+                text_font: notosans20
+                text_color: "${tab5_color_accent}"
+            - label:
                 id: lbl_date
                 hidden: true
                 text: ""
@@ -1677,27 +1917,27 @@ lvgl:
                 bg_color: "${tab5_color_alert_danger}"
                 bg_opa: COVER
                 radius: 14
-                border_width: 1
-                border_color: "${tab5_color_text_primary}"
-                border_opa: 28%
+                border_width: 0
                 pad_all: 8
-                shadow_width: 16
+                shadow_width: 8
                 shadow_offset_x: 0
-                shadow_offset_y: 6
+                shadow_offset_y: 3
                 shadow_spread: 0
                 shadow_color: "${tab5_color_shadow}"
-                shadow_opa: 42%
-                outline_width: 1
-                outline_color: "${tab5_color_text_primary}"
+                shadow_opa: 24%
+                outline_width: 0
                 outline_opa: 0%
                 pressed:
                   shadow_width: 4
                   shadow_offset_y: 2
-                  border_opa: 18%
                 on_click:
                   then:
                     - lambda: |-
-                        id(alert_dismissed) = true;
+                        if (id(g_alert_is_update)) {
+                          id(g_update_alert_dismissed) = true;
+                        } else {
+                          id(alert_dismissed) = true;
+                        }
                         id(script_logs).execute("ALERT: Dismissed");
                         id(tab5_motion_notice_active) = false;
                         id(tab5_motion_visible)(id(popup_alert), false, 0);
@@ -2110,21 +2350,20 @@ lvgl:
                         widgets:
                           - label: { <<: *sensor_value, id: lbl_bed_temperature }
                           - label: { <<: *sensor_unit, text: "°C" }
-              # Warning-only rays keep these plot-local aim points, but stop 2px before the filled part:
-              # engine oil (191,131); shared cabin center (423,125); shared bed center (632,138).
-              # CO2 targets the upper window center (410,52), TVOC the lower window center (410,224).
-              - line: { <<: &scan_leader { <<: *terminal_line, line_color: "${tab5_color_text_inactive}", line_width: 2, hidden: true }, id: line_scan_coolant_leader, x: 81, y: 77, points: ["0, 0", "61, 119"] }
-              - line: { <<: *scan_leader, id: line_scan_oil_temperature_leader, x: 216, y: 77, points: ["10, 0", "0, 108"] }
-              - line: { <<: *scan_leader, id: line_scan_oil_pressure_leader, x: 234, y: 236, points: ["137, 143", "0, 0"] }
-              - line: { <<: *scan_leader, id: line_scan_cabin_temp_leader, x: 475, y: 77, points: ["41, 0", "0, 76"] }
-              - line: { <<: *scan_leader, id: line_scan_cabin_humidity_leader, x: 470, y: 269, points: ["46, 110", "0, 0"] }
-              - line: { <<: *scan_leader, id: line_scan_bed_temp_leader, x: 744, y: 77, points: ["62, 0", "0, 59"] }
-              - line: { <<: *scan_leader, id: line_scan_intake_leader, x: 81, y: 236, points: ["0, 143", "98, 0"] }
-              - line: { <<: *scan_leader, id: line_scan_transmission_leader, x: 303, y: 77, points: ["68, 0", "0, 126"] }
-              - line: { <<: *scan_leader, id: line_scan_voltage_leader, x: 197, y: 290, points: ["29, 89", "0, 0"] }
-              - line: { <<: *scan_leader, id: line_scan_co2_leader, x: 473, y: 77, points: ["188, 0", "0, 48"] }
-              - line: { <<: *scan_leader, id: line_scan_tvoc_leader, x: 466, y: 318, points: ["195, 61", "0, 0"] }
-              - line: { <<: *scan_leader, id: line_scan_bed_humidity_leader, x: 739, y: 310, points: ["67, 69", "0, 0"] }
+              # Solid leaders preserve their orthogonal routes and stop before entering each part.
+              # Endpoint rings are managed by script_render_scan_status.
+              - line: { <<: &scan_leader { <<: *terminal_line, line_color: "${tab5_color_text_inactive}", line_width: 2, line_opa: 100%, hidden: true }, id: line_scan_coolant_leader, x: 81, y: 77, points: ["0, 0", "0, 144", "60, 144"] }
+              - line: { <<: *scan_leader, id: line_scan_oil_temperature_leader, x: 226, y: 77, points: ["0, 0", "0, 33", "30, 33", "30, 137", "25, 137"] }
+              - line: { <<: *scan_leader, id: line_scan_oil_pressure_leader, x: 213, y: 242, points: ["158, 137", "47, 137", "47, 13", "0, 13", "0, 0"] }
+              - line: { <<: *scan_leader, id: line_scan_cabin_temp_leader, x: 516, y: 77, points: ["0, 0", "34, 0", "34, 131", "31, 131"] }
+              - line: { <<: *scan_leader, id: line_scan_cabin_humidity_leader, x: 516, y: 235, points: ["0, 144", "34, 144", "34, 0", "31, 0"] }
+              - line: { <<: *scan_leader, id: line_scan_bed_temp_leader, x: 753, y: 77, points: ["53, 0", "53, 118", "0, 118"] }
+              - line: { <<: *scan_leader, id: line_scan_intake_leader, x: 81, y: 159, points: ["0, 220", "29, 220", "29, 0", "103, 0"] }
+              - line: { <<: *scan_leader, id: line_scan_transmission_leader, x: 299, y: 77, points: ["72, 0", "72, 23", "0, 23", "0, 128"] }
+              - line: { <<: *scan_leader, id: line_scan_voltage_leader, x: 192, y: 289, points: ["34, 90", "34, 10", "0, 10", "0, 0"] }
+              - line: { <<: *scan_leader, id: line_scan_co2_leader, x: 484, y: 77, points: ["177, 0", "177, 19", "0, 19", "0, 46"] }
+              - line: { <<: *scan_leader, id: line_scan_tvoc_leader, x: 484, y: 318, points: ["177, 61", "177, 32", "0, 32", "0, 0"] }
+              - line: { <<: *scan_leader, id: line_scan_bed_humidity_leader, x: 753, y: 247, points: ["53, 132", "53, 0", "0, 0"] }
 
               - obj:
                   id: obj_vehicle_scan
@@ -2148,19 +2387,19 @@ lvgl:
                     # Front is left; right-side wheels are above the vehicle.
                     - label: { <<: &scan_tpms { align: top_left, width: 90, text_align: CENTER, text: "-- kPa", bg_opa: COVER, bg_color: "${tab5_color_background}", text_font: notosans16, text_color: "${tab5_color_text_muted}", hidden: true, clickable: false }, id: lbl_tpms_front_right, x: 65, y: 12 }
                     - label: { <<: *scan_tpms, id: lbl_tpms_front_left, x: 65, y: 245 }
-                    - label: { <<: *scan_tpms, id: lbl_tpms_rear_right, x: 675, y: 12 }
-                    - label: { <<: *scan_tpms, id: lbl_tpms_rear_left, x: 675, y: 245 }
+                    - label: { <<: *scan_tpms, id: lbl_tpms_rear_right, x: 645, y: 12 }
+                    - label: { <<: *scan_tpms, id: lbl_tpms_rear_left, x: 645, y: 245 }
                     # The front faces left, so the driver's side is at the bottom.
                     # Lengthen tires along the vehicle; keep their inner edges at the body outline.
                     # Use the neutral silhouette opacity until a TPMS warning.
                     - obj:
-                        <<: &scan_tire { <<: *terminal_panel, align: top_left, width: 56, height: 15, radius: 4, bg_color: "${tab5_color_text_inactive}", bg_opa: 30% }
+                        <<: &scan_tire { <<: *terminal_panel, align: top_left, width: 60, height: 18, radius: 4, bg_color: "${tab5_color_text_inactive}", bg_opa: 30% }
                         id: obj_tire_front_right
-                        x: 165
-                        y: 14
-                    - obj: { <<: *scan_tire, id: obj_tire_front_left, x: 165, y: 247 }
-                    - obj: { <<: *scan_tire, id: obj_tire_rear_right, x: 609, y: 14 }
-                    - obj: { <<: *scan_tire, id: obj_tire_rear_left, x: 609, y: 247 }
+                        x: 163
+                        y: 11
+                    - obj: { <<: *scan_tire, id: obj_tire_front_left, x: 163, y: 247 }
+                    - obj: { <<: *scan_tire, id: obj_tire_rear_right, x: 577, y: 11 }
+                    - obj: { <<: *scan_tire, id: obj_tire_rear_left, x: 577, y: 247 }
                     # GM 1/T2M43 crew-cab top view, simplified to the body and visible trim.
                     - line: { <<: &truck_outline { <<: *terminal_line, line_color: "${tab5_color_accent}", line_width: 3 }, x: 98, y: 27, points: ["2, 111", "4, 78", "10, 49", "20, 30", "36, 13", "50, 6", "76, 2", "164, 2", "184, 9", "416, 9", "432, 4", "456, 2", "536, 2", "584, 6", "617, 12", "632, 20", "640, 38", "642, 65", "642, 111", "642, 157", "640, 184", "632, 202", "617, 210", "584, 216", "536, 220", "456, 220", "432, 218", "416, 213", "184, 213", "164, 220", "76, 220", "50, 216", "36, 209", "20, 192", "10, 173", "4, 144", "2, 111"] }
                     # Headlamps, hood contour, windshield and mirrors.
@@ -2171,11 +2410,18 @@ lvgl:
                     - line: { <<: *truck_detail, x: 239, y: 54, points: ["2, 84", "3, 49", "9, 18", "20, 2", "44, 2", "92, 11", "98, 24", "98, 84", "98, 144", "92, 157", "44, 166", "20, 166", "9, 150", "3, 119", "2, 84"] }
                     - line: { <<: *truck_detail, x: 281, y: 14, points: ["2, 30", "15, 7", "29, 2", "33, 7", "27, 26", "15, 33", "2, 30"] }
                     - line: { <<: *truck_detail, x: 281, y: 227, points: ["2, 5", "15, 28", "29, 33", "33, 28", "27, 9", "15, 2", "2, 5"] }
+                    # Keep only crew-cab door divisions; sensor masks provide the interior structure.
+                    - line: { <<: &scan_body_detail { <<: *truck_detail, line_width: 1, line_opa: 50% }, points: ["320, 38", "393, 38", "393, 48"] }
+                    - line: { <<: *scan_body_detail, points: ["412, 38", "499, 38", "510, 48"] }
+                    - line: { <<: *scan_body_detail, points: ["320, 238", "393, 238", "393, 228"] }
+                    - line: { <<: *scan_body_detail, points: ["412, 238", "499, 238", "510, 228"] }
                     # Embedded silhouettes are attached before the dashboard is shown.
                     - image: { <<: &scan_part { <<: *terminal_icon, src: img_scan_engine, image_recolor: "${tab5_color_text_inactive}", image_opa: 30% }, id: widget_img_scan_coolant, x: 118, y: 96 }
                     - image: { <<: *scan_part, id: widget_img_scan_engine, x: 151, y: 91 }
+                    # Schematic airbox and intake duct; highlighted only by intake-air temperature.
+                    - image: { <<: *scan_part, id: widget_img_scan_intake, x: 162, y: 62 }
                     - image: { <<: *scan_part, id: widget_img_scan_battery, x: 145, y: 174 }
-                    - image: { <<: *scan_part, id: widget_img_scan_transmission, x: 247, y: 113 }
+                    - image: { <<: *scan_part, id: widget_img_scan_transmission, x: 239, y: 113 }
                     - image: { <<: *scan_part, id: widget_img_scan_cabin, x: 321, y: 65 }
                     - image: { <<: *scan_part, id: widget_img_scan_cabin_windows, x: 309, y: 40 }
                     - image: { <<: *scan_part, id: widget_img_scan_fuel, x: 472, y: 190 }
@@ -2428,14 +2674,36 @@ lvgl:
                         <<: &tilt_shape { <<: *terminal_panel, x: -9, y: 0, width: 150, height: 88 }
                         id: obj_pitch_shape
                         widgets:
-                          # Pickup side profile: hood, crew cab, open bed and separate round tires.
-                          - line: { <<: &tilt_body { <<: *terminal_line, line_color: "${tab5_color_accent}", line_width: 2 }, id: line_pitch_body, points: ["10, 54", "10, 40", "17, 34", "34, 30", "47, 14", "78, 14", "94, 33", "139, 33", "139, 55", "128, 55", "127, 49", "123, 44", "116, 42", "109, 44", "104, 49", "103, 55", "46, 55", "45, 49", "41, 44", "34, 42", "27, 44", "22, 49", "21, 54", "10, 54"] }
-                          - line: { <<: &tilt_trim { <<: *terminal_line, line_color: "${tab5_color_text_inactive}", line_width: 1 }, points: ["42, 30", "51, 20", "73, 20", "84, 32", "42, 30"] }
-                          - line: { <<: *tilt_trim, points: ["85, 35", "85, 52"] }
-                          - line: { <<: *tilt_trim, points: ["97, 39", "133, 39", "133, 49"] }
-                          - obj: { <<: &tilt_wheel { <<: *terminal_panel, width: 22, height: 22, radius: 11, border_width: 2, border_color: "${tab5_color_accent}", bg_opa: COVER, bg_color: "${tab5_color_background}" }, x: 23, y: 44 }
-                          - obj: { <<: *tilt_wheel, x: 105, y: 44 }
+                          # Second-generation Colorado crew cab / short box; front faces left.
+                          # Stylized suspension lift and larger off-road tires; not a measured lift kit.
+                          # GM 2018 crew-cab drawings: long hood, two doors, 128.3-in wheelbase.
+                          - line: { <<: &tilt_body { <<: *terminal_line, line_color: "${tab5_color_accent}", line_width: 2 }, id: line_pitch_body, points: ["9, 48", "9, 37", "13, 31", "20, 28", "40, 26", "50, 16", "55, 14", "80, 14", "85, 17", "89, 28", "94, 29", "139, 29", "140, 32", "140, 48", "136, 51", "122, 51", "121, 45", "117, 40", "112, 38", "107, 38", "101, 41", "97, 46", "96, 51", "44, 51", "43, 45", "39, 40", "34, 38", "28, 38", "22, 41", "18, 46", "17, 50", "9, 48"] }
+                          # Separate front/rear windows and upright B-pillar identify the crew cab.
+                          - line: { <<: &tilt_trim { <<: *terminal_line, line_color: "${tab5_color_text_inactive}", line_width: 1 }, points: ["44, 27", "53, 19", "63, 19", "63, 29", "44, 29", "44, 27"] }
+                          - line: { <<: *tilt_trim, points: ["67, 19", "79, 19", "82, 21", "85, 29", "67, 29", "67, 19"] }
+                          - line: { <<: *tilt_trim, points: ["43, 32", "44, 47", "65, 47", "65, 32"] }
+                          - line: { <<: *tilt_trim, points: ["67, 47", "87, 47", "87, 32"] }
+                          - line: { <<: *tilt_trim, points: ["57, 33", "61, 33"] }
+                          - line: { <<: *tilt_trim, points: ["78, 33", "82, 33"] }
+                          - line: { <<: *tilt_trim, points: ["39, 27", "38, 24", "43, 24", "45, 27"] }
+                          # Cab/bed gap, straight bed rail and the tall rear lamp.
+                          - line: { <<: *tilt_trim, points: ["92, 31", "92, 48"] }
+                          - line: { <<: *tilt_trim, points: ["96, 32", "135, 32"] }
+                          - line: { <<: *tilt_body, line_width: 1, points: ["136, 35", "139, 35", "139, 43", "136, 43", "136, 35"] }
+                          - line: { <<: *tilt_trim, points: ["11, 33", "19, 32", "18, 36", "10, 37"] }
+                          - line: { <<: *tilt_trim, points: ["8, 44", "14, 44"] }
+                          - line: { <<: *tilt_trim, points: ["128, 50", "141, 50"] }
+                          # Visible frame and short suspension links below the raised body.
+                          - line: { <<: *tilt_trim, points: ["43, 54", "96, 54"] }
+                          - line: { <<: *tilt_trim, points: ["30, 44", "30, 49"] }
+                          - line: { <<: *tilt_trim, points: ["109, 44", "109, 49"] }
+                          - obj: { <<: &tilt_wheel { <<: *terminal_panel, width: 22, height: 22, radius: 11, border_width: 2, border_color: "${tab5_color_accent}", bg_opa: COVER, bg_color: "${tab5_color_background}" }, x: 20, y: 47 }
+                          - obj: { <<: *tilt_wheel, x: 98, y: 47 }
+                          - obj: { <<: &tilt_hub { <<: *terminal_panel, width: 8, height: 8, radius: 4, border_width: 1, border_color: "${tab5_color_text_inactive}" }, x: 27, y: 54 }
+                          - obj: { <<: *tilt_hub, x: 105, y: 54 }
                     - label: { <<: &tilt_value { align: top_left, y: 82, width: 132, text_align: CENTER, text: "--", text_font: notosans25, text_color: "${tab5_color_text_muted}", clickable: false }, id: lbl_pitch_value }
+                    - label: { <<: &tilt_badge { align: top_left, x: 4, y: 0, width: 48, text_font: notosans16, text_color: "${tab5_color_text_secondary}", hidden: true, clickable: false }, id: lbl_pitch_calibrated, text: "보정" }
+                    - label: { <<: *tilt_badge, id: lbl_pitch_range, x: 74, width: 54, text: ">25°", text_color: "${tab5_color_status_hot}" }
               - button:
                   id: btn_roll
                   <<: *scan_tilt
@@ -2449,16 +2717,37 @@ lvgl:
                         <<: *tilt_shape
                         id: obj_roll_shape
                         widgets:
+                          # Colorado rear: narrower cab, upright lamps, bowtie and CornerStep bumper.
                           # Rear view keeps left/right aligned with the driver's view.
-                          - obj: { <<: *tilt_wheel, x: 37, y: 52, width: 15, height: 22, radius: 4 }
-                          - obj: { <<: *tilt_wheel, x: 98, y: 52, width: 15, height: 22, radius: 4 }
-                          - line: { <<: *tilt_body, id: line_roll_body, points: ["35, 59", "35, 36", "42, 18", "108, 18", "115, 36", "115, 59", "35, 59"] }
-                          - line: { <<: *tilt_trim, points: ["44, 32", "48, 23", "102, 23", "106, 32", "44, 32"] }
-                          - line: { <<: *tilt_trim, points: ["44, 39", "106, 39", "106, 54", "44, 54", "44, 39"] }
-                          - line: { <<: *tilt_body, line_width: 1, points: ["38, 41", "41, 41", "41, 52", "38, 52", "38, 41"] }
-                          - line: { <<: *tilt_body, line_width: 1, points: ["109, 41", "112, 41", "112, 52", "109, 52", "109, 41"] }
-                          - line: { <<: *tilt_body, points: ["34, 64", "116, 64"] }
+                          - obj: { <<: *tilt_wheel, x: 39, y: 62, width: 15, height: 15, radius: 3 }
+                          - obj: { <<: *tilt_wheel, x: 96, y: 62, width: 15, height: 15, radius: 3 }
+                          - line: { <<: *tilt_body, id: line_roll_body, points: ["40, 54", "39, 34", "43, 30", "47, 16", "51, 11", "56, 9", "94, 9", "99, 11", "103, 16", "107, 30", "111, 34", "110, 54"] }
+                          - line: { <<: *tilt_trim, points: ["48, 27", "52, 16", "56, 14", "94, 14", "98, 16", "102, 27", "48, 27"] }
+                          - line: { <<: *tilt_trim, points: ["68, 15", "68, 26", "82, 26", "82, 15"] }
+                          - line: { <<: *tilt_body, line_width: 1, points: ["70, 11", "80, 11"] }
+                          - line: { <<: *tilt_trim, points: ["42, 25", "35, 25", "34, 30", "41, 31"] }
+                          - line: { <<: *tilt_trim, points: ["108, 25", "115, 25", "116, 30", "109, 31"] }
+                          # Wide tailgate with recessed handle and Chevrolet bowtie.
+                          - line: { <<: *tilt_body, line_width: 1, points: ["48, 33", "102, 33", "102, 54", "48, 54", "48, 33"] }
+                          - line: { <<: *tilt_trim, points: ["71, 36", "79, 36"] }
+                          - line: { <<: *tilt_body, line_width: 1, points: ["71, 41", "78, 41", "77, 43", "83, 43", "82, 46", "77, 46", "76, 48", "69, 48", "70, 46", "65, 46", "66, 43", "71, 43", "71, 41"] }
+                          - line: { <<: *tilt_body, line_width: 1, points: ["41, 35", "46, 35", "46, 51", "41, 51", "41, 35"] }
+                          - line: { <<: *tilt_body, line_width: 1, points: ["104, 35", "109, 35", "109, 51", "104, 51", "104, 35"] }
+                          - line: { <<: *tilt_trim, points: ["42, 43", "45, 43"] }
+                          - line: { <<: *tilt_trim, points: ["105, 43", "108, 43"] }
+                          # Corner steps flank the centered license-plate recess.
+                          - line: { <<: *tilt_body, points: ["39, 55", "49, 55", "49, 58", "62, 58", "62, 56", "88, 56", "88, 58", "101, 58", "101, 55", "111, 55", "111, 62", "39, 62", "39, 55"] }
+                          - line: { <<: *tilt_trim, points: ["67, 57", "83, 57", "83, 61", "67, 61", "67, 57"] }
+                          - line: { <<: *tilt_trim, points: ["71, 64", "79, 64", "79, 67", "71, 67", "71, 64"] }
+                          # Rear axle, differential and exposed tire tread below the lifted bumper.
+                          - line: { <<: *tilt_trim, points: ["54, 70", "68, 70", "71, 74", "79, 74", "82, 70", "96, 70"] }
+                          - line: { <<: *tilt_trim, points: ["59, 63", "63, 70"] }
+                          - line: { <<: *tilt_trim, points: ["91, 63", "87, 70"] }
+                          - line: { <<: *tilt_trim, points: ["44, 66", "44, 74"] }
+                          - line: { <<: *tilt_trim, points: ["101, 66", "101, 74"] }
                     - label: { <<: *tilt_value, id: lbl_roll_value }
+                    - label: { <<: *tilt_badge, id: lbl_roll_calibrated, text: "보정" }
+                    - label: { <<: *tilt_badge, id: lbl_roll_range, x: 74, width: 54, text: ">25°", text_color: "${tab5_color_status_hot}" }
 
         - obj:
             <<: *terminal_panel
@@ -2693,7 +2982,22 @@ lvgl:
                         widgets:
                           - label: { <<: *setup_kicker, text: "03 / FIRMWARE" }
                           - label: { <<: &setup_version_caption { <<: *setup_note, y: 48 }, text: "현재 버전" }
-                          - label: { <<: { <<: *setup_version_caption, align: top_right, width: 360, text_align: RIGHT, long_mode: DOT, text_color: "${tab5_color_text_secondary}" }, id: lbl_menu_curr_ver, text: *version }
+                          - label: { <<: &menu_version { <<: *setup_version_caption, align: top_right, width: 360, text_align: RIGHT, long_mode: DOT, text_color: "${tab5_color_text_secondary}" }, id: lbl_menu_curr_ver, text: *version }
+                          - label: { <<: *setup_version_caption, y: 92, text: "업데이트" }
+                          - label: { <<: *menu_version, id: lbl_menu_latest_ver, y: 92, text: "미확인", text_color: "${tab5_color_text_muted}" }
+                          - button:
+                              <<: *setup_action_button
+                              id: btn_menu_update
+                              on_click:
+                                - lambda: |-
+                                    if (!id(fn_service_allowed)() || id(g_updating) || id(g_checking)) return;
+                                    if (id(g_update_available)) {
+                                      id(script_perform_update).execute();
+                                    } else {
+                                      id(script_check_update).execute();
+                                    }
+                              widgets:
+                                - label: { <<: *setup_action_label, id: lbl_btn_menu_update, text: "> 업데이트 확인" }
                           - line: { <<: *setup_rule }
                     - obj:
                         <<: *setup_cell
@@ -2756,7 +3060,7 @@ font:
   - file: "gfonts://Noto+Sans+KR"
     id: notosans16
     size: 16
-    glyphs: ${ (ui_ascii + '°냉각수오일온도미션실내적재함흡기전압력습') | unique(case_sensitive=true) | join }
+    glyphs: ${ (ui_ascii + '°냉각수오일온도미션실내적재함흡기전압력습보정') | unique(case_sensitive=true) | join }
   - file: "gfonts://Noto+Sans+KR"
     id: notosans20
     size: 20
@@ -2910,6 +3214,7 @@ script:
     then:
       - lambda: |-
           const bool valid = std::isfinite(speed);
+          if (!valid) id(script_update_acceleration).execute(NAN);
           id(g_dashboard_samples)[10] = valid ? esphome::millis() : 0;
           const auto color = id(fn_state_color)(valid ? speed : NAN, 10);
           char text[12] = "--";
@@ -2922,6 +3227,84 @@ script:
               LV_PART_INDICATOR);
           id(tab5_motion_bar)(bar, valid ? speed : NAN, speed < lv_bar_get_value(bar) ? 165 : 220);
           id(script_sync_service_ui).execute();
+
+  - id: script_update_acceleration
+    parameters:
+      speed: float
+    then:
+      - lambda: |-
+          const uint32_t now = esphome::millis();
+          auto &previous = id(g_acceleration_previous_speed);
+          auto &previous_ms = id(g_acceleration_previous_ms);
+          auto &sampled_at = id(g_acceleration_sample_ms);
+          if (!id(obd_client).connected() || !std::isfinite(speed)) {
+            previous = NAN;
+            previous_ms = sampled_at = 0;
+            id(car_acceleration).publish_state(NAN);
+            return;
+          }
+          const uint32_t elapsed = now - previous_ms;
+          if (!std::isfinite(previous) || elapsed >= 5000) {
+            // The first reading, including after a gap/reconnect, is a baseline only.
+            previous = speed;
+            previous_ms = now;
+            sampled_at = 0;
+            id(car_acceleration).publish_state(NAN);
+            return;
+          }
+          if (elapsed == 0) return;
+          const float acceleration = (speed - previous) * 1000.0f / elapsed;
+          previous = speed;
+          previous_ms = now;
+          sampled_at = now;
+          id(car_acceleration).publish_state(acceleration);
+
+  - id: script_refresh_engine_dependents
+    then:
+      - lambda: |-
+          const float rpm = id(fn_sample_live)(8, id(engine_rpm).state, 8000);
+          const float measured_voltage = id(fn_sample_live)(7, id(car_battery).state, 35000);
+          const float voltage = measured_voltage > 5.0f ? measured_voltage : NAN;
+          const bool engine_on = rpm >= 400.0f;
+          if (std::isfinite(rpm) && std::isfinite(voltage) && engine_on && voltage < 12.8f) {
+            if (id(alt_low_since_ms) == 0) id(alt_low_since_ms) = esphome::millis();
+          } else {
+            id(alt_low_since_ms) = 0;
+          }
+
+          float soc = NAN;
+          if (std::isfinite(rpm) && std::isfinite(voltage)) {
+            if (engine_on) soc = (voltage - 12.8f) / 2.2f * 100.0f;
+            else if (voltage <= 12.7f) soc = (voltage - 11.7f) * 100.0f;
+            else if (voltage <= 13.5f) soc = 100.0f;
+            else soc = 100.0f + (voltage - 13.5f) * 50.0f;
+            soc = std::clamp(soc, 0.0f, 120.0f);
+          }
+          id(car_battery_soc).publish_state(soc);
+
+          const struct {
+            int mode;
+            lv_obj_t *label;
+            lv_obj_t *icon;
+            float value;
+            int decimals;
+          } dependents[] = {
+            {7, id(lbl_car_battery), id(widget_img_battery), voltage, 1},
+            {14, id(lbl_oil_pressure), id(widget_img_oil_pressure),
+                id(fn_sample_live)(14, id(engine_oil_pressure).state, 10000), 0},
+            {5, id(lbl_engine_coolant_temperature), id(widget_img_coolant),
+                id(fn_sample_live)(5, id(engine_coolant_temperature).state, 35000), 0},
+            {18, id(lbl_transmission_temperature), id(widget_img_trans_temp),
+                id(fn_sample_live)(18, id(transmission_temperature).state, 35000), 0},
+          };
+          // Redraw when a dependency changes/expires without making old measurements fresh.
+          for (const auto &item : dependents) {
+            const auto color = id(fn_state_color)(item.value, item.mode);
+            id(script_render_scan_status).execute(item.mode, color, item.label, false);
+            id(tab5_motion_icon)(item.icon, color, item.mode, false);
+            id(script_update_sensor_text).execute(item.label,
+                id(fn_readout_text)(item.value, item.decimals), color, item.mode, 0);
+          }
 
   - id: script_render_tpms
     then:
@@ -3068,19 +3451,53 @@ script:
           const struct {
             lv_obj_t *shape;
             lv_obj_t *value;
+            lv_obj_t *calibrated;
+            lv_obj_t *range;
             float angle;
             float direction;
             float offset;
           } axes[] = {
-            {id(obj_pitch_shape), id(lbl_pitch_value), id(id_device_pitch).state, ${tab5_pitch_direction}, id(g_pitch_offset)},
-            {id(obj_roll_shape), id(lbl_roll_value), id(id_device_roll).state, ${tab5_roll_direction}, id(g_roll_offset)},
+            {id(obj_pitch_shape), id(lbl_pitch_value), id(lbl_pitch_calibrated), id(lbl_pitch_range), id(id_device_pitch).state, ${tab5_pitch_direction}, id(g_pitch_offset)},
+            {id(obj_roll_shape), id(lbl_roll_value), id(lbl_roll_calibrated), id(lbl_roll_range), id(id_device_roll).state, ${tab5_roll_direction}, id(g_roll_offset)},
           };
+          static uint8_t levels[2]{};
+          size_t axis_index = 0;
           for (const auto &axis : axes) {
+            auto &level = levels[axis_index++];
             const bool valid = std::isfinite(axis.angle);
             const int32_t target = valid ? std::lround(std::clamp(axis.angle * axis.direction, -25.0f, 25.0f) * 10.0f) : 0;
             lv_obj_set_style_opa(axis.shape, valid ? LV_OPA_COVER : LV_OPA_30, LV_PART_MAIN);
-            lv_obj_set_style_text_color(axis.value, lv_color_hex(valid && std::abs(axis.offset) > 0.0001f
-                ? ${tab5_color_accent} : ${tab5_color_text_muted}), LV_PART_MAIN);
+            const float magnitude = std::abs(axis.angle);
+            if (std::abs(axis.offset) > 0.0001f) lv_obj_remove_flag(axis.calibrated, LV_OBJ_FLAG_HIDDEN);
+            else lv_obj_add_flag(axis.calibrated, LV_OBJ_FLAG_HIDDEN);
+            if (valid && magnitude > 25.0f) lv_obj_remove_flag(axis.range, LV_OBJ_FLAG_HIDDEN);
+            else lv_obj_add_flag(axis.range, LV_OBJ_FLAG_HIDDEN);
+            // Enter each band at its configured angle; recover 1 degree below it.
+            if (!valid) level = 0;
+            else if (magnitude >= ${tab5_tilt_hot_deg}) level = 2;
+            else if (level == 2 && magnitude >= ${tab5_tilt_hot_deg} - 1.0f) level = 2;
+            else if (magnitude >= ${tab5_tilt_warm_deg}) level = 1;
+            else if (level >= 1 && magnitude >= ${tab5_tilt_warm_deg} - 1.0f) level = 1;
+            else level = 0;
+            const auto color = lv_color_hex(!valid ? ${tab5_color_text_muted}
+                : level == 2 ? ${tab5_color_status_hot}
+                : level == 1 ? ${tab5_color_status_warm}
+                : ${tab5_color_accent});
+            lv_obj_set_style_text_color(axis.value, color, LV_PART_MAIN);
+            const bool tinted = valid && level > 0;
+            for (uint32_t i = 0; i < lv_obj_get_child_count(axis.shape); ++i) {
+              auto *part = lv_obj_get_child(axis.shape, i);
+              // Preserve the quieter trim at small angles; tint the whole vehicle when inclined.
+              if (lv_obj_check_type(part, &lv_line_class)) {
+                const bool detail = lv_obj_get_style_line_width(part, LV_PART_MAIN) == 1;
+                lv_obj_set_style_line_color(part, !tinted && detail
+                    ? lv_color_hex(${tab5_color_text_inactive}) : color, LV_PART_MAIN);
+              } else if (lv_obj_get_style_border_width(part, LV_PART_MAIN) > 0) {
+                const bool hub = lv_obj_get_style_border_width(part, LV_PART_MAIN) == 1;
+                lv_obj_set_style_border_color(part, !tinted && hub
+                    ? lv_color_hex(${tab5_color_text_inactive}) : color, LV_PART_MAIN);
+              }
+            }
             const auto *active = lv_anim_get(axis.shape, rotate);
             const int32_t from = lv_obj_get_style_transform_rotation(axis.shape, LV_PART_MAIN);
             if ((active && active->end_value == target) || (!active && from == target)) continue;
@@ -3141,6 +3558,16 @@ script:
             {26, id(lbl_oil_temperature), id(widget_img_oil_temperature), nullptr, 35000, true},
           };
           if (install) {
+            // A published update state is a completed response, even if its value did not change.
+            const auto sync_update = []() {
+              const auto state = id(ota_update).state;
+              if (state != update::UPDATE_STATE_AVAILABLE && state != update::UPDATE_STATE_NO_UPDATE) return;
+              id(g_checking) = false;
+              id(script_set_update_available).execute(id(ota_update).update_info.latest_version,
+                  state == update::UPDATE_STATE_AVAILABLE);
+            };
+            id(ota_update).add_on_state_callback(sync_update);
+            sync_update();
             id(id_bmi270_accel_x).add_on_state_callback([](float value) {
               id(g_dashboard_samples)[23] = std::isfinite(value) ? esphome::millis() : 0;
             });
@@ -3179,6 +3606,9 @@ script:
           auto &samples = id(g_dashboard_samples);
           if (disconnect) {
             id(alt_low_since_ms) = 0;
+            id(g_ambient_sample_ms) = 0;
+            id(g_warmup_last_runtime) = -1.0f;
+            id(g_warmup_completed).fill(false);
             samples[24] = samples[25] = 0;
             id(g_tcc_slip_warning_at) = 0;
             id(g_tpms_samples).fill(0);
@@ -3206,6 +3636,7 @@ script:
             samples[22] = 0;
             id(script_render_prnd).execute("-");
           }
+          id(script_refresh_engine_dependents).execute();
 
   - id: script_splash_stage
     parameters:
@@ -3264,6 +3695,16 @@ script:
                                     image::IMAGE_TYPE_BINARY, image::TRANSPARENCY_OPAQUE);
           lv_image_set_src(id(widget_img_scan_coolant), coolant.get_lv_image_dsc());
 
+          // Separate airbox / duct mask; keep the inlet temperature independent of engine warnings.
+          static constexpr auto intake_pixels = make_mask(std::array<uint8_t, 322>{}, 56, {
+            {2, 2, 38, 3}, {2, 23, 38, 3}, {2, 5, 3, 18}, {37, 5, 3, 18},
+            {10, 7, 2, 13}, {18, 7, 2, 13}, {26, 7, 2, 13},
+            {40, 11, 14, 7}, {47, 18, 7, 23}, {38, 38, 16, 7},
+          });
+          static image::Image intake(intake_pixels.data(), 56, 46,
+                                    image::IMAGE_TYPE_BINARY, image::TRANSPARENCY_OPAQUE);
+          lv_image_set_src(id(widget_img_scan_intake), intake.get_lv_image_dsc());
+
           static constexpr auto battery_pixels = make_mask(std::array<uint8_t, 238>{}, 51, {
             {10, 3, 9, 5}, {32, 3, 9, 5}, {3, 8, 45, 6}, {3, 14, 10, 4},
             {16, 14, 32, 4}, {3, 18, 6, 3}, {20, 18, 11, 3}, {42, 18, 6, 3},
@@ -3273,15 +3714,14 @@ script:
                                     image::IMAGE_TYPE_BINARY, image::TRANSPARENCY_OPAQUE);
           lv_image_set_src(id(widget_img_scan_battery), battery.get_lv_image_dsc());
 
-          static constexpr auto transmission_pixels = make_mask(std::array<uint8_t, 343>{}, 51, {
-            {2, 3, 7, 43}, {9, 3, 3, 8}, {12, 3, 5, 43}, {17, 3, 3, 8},
-            {20, 3, 5, 43}, {25, 4, 1, 11}, {26, 5, 2, 11}, {28, 6, 1, 11},
-            {29, 6, 1, 37}, {30, 7, 1, 35}, {31, 8, 2, 33}, {33, 9, 1, 31},
-            {34, 10, 1, 30}, {35, 10, 1, 29}, {36, 11, 1, 27}, {37, 17, 10, 15},
-            {47, 20, 4, 9}, {28, 32, 1, 11}, {26, 33, 1, 12}, {27, 33, 1, 11},
-            {25, 34, 1, 11}, {9, 38, 3, 8}, {17, 38, 3, 8},
+          // Top-view automatic transmission: broad bellhousing, tapered case and short output neck.
+          // Two short seam gaps describe the housing sections without internal gear/rib decoration.
+          static constexpr auto transmission_pixels = make_mask(std::array<uint8_t, 490>{}, 76, {
+            {2, 8, 4, 33}, {6, 4, 10, 41}, {16, 6, 4, 37}, {20, 10, 4, 29},
+            {24, 17, 2, 15}, {26, 11, 29, 27}, {55, 17, 2, 15},
+            {57, 16, 6, 17}, {63, 20, 6, 9}, {69, 22, 6, 5},
           });
-          static image::Image transmission(transmission_pixels.data(), 51, 49,
+          static image::Image transmission(transmission_pixels.data(), 76, 49,
                                     image::IMAGE_TYPE_BINARY, image::TRANSPARENCY_OPAQUE);
           lv_image_set_src(id(widget_img_scan_transmission), transmission.get_lv_image_dsc());
 
@@ -3414,38 +3854,84 @@ script:
               case 12: leader = id(line_scan_tvoc_leader)->obj; break;
             }
             if (leader) {
-              // LVGL holds a pointer to the points, so keep each animated pair alive.
+              // LVGL holds the point array; keep routed traces and endpoint rings alive.
               struct LeaderTrace {
                 lv_obj_t *line;
                 const lv_point_precise_t *full;
-                lv_point_precise_t partial[2];
+                lv_point_precise_t partial[8];
                 int32_t progress;
+                uint32_t count;
+                lv_obj_t *endpoint;
               };
               static LeaderTrace traces[27]{};
               auto &trace = traces[color_mode];
               const auto draw = +[](void *state, int32_t progress) {
                 auto &trace = *static_cast<LeaderTrace *>(state);
                 trace.progress = progress;
+                // Exterior-only leaders have no endpoint or center marker.
+                lv_obj_add_flag(trace.endpoint, LV_OBJ_FLAG_HIDDEN);
                 if (progress == 100) {
-                  lv_line_set_points(trace.line, trace.full, 2);
+                  lv_line_set_points(trace.line, trace.full, trace.count);
                   return;
                 }
-                const auto &start = trace.full[0];
-                const auto &end = trace.full[1];
-                trace.partial[0] = start;
-                trace.partial[1].x = start.x + (end.x - start.x) * progress / 100;
-                trace.partial[1].y = start.y + (end.y - start.y) * progress / 100;
-                lv_line_set_points(trace.line, trace.partial, 2);
+                float total = 0.0f;
+                for (uint32_t i = 1; i < trace.count; ++i) {
+                  total += std::hypot(trace.full[i].x - trace.full[i - 1].x,
+                                      trace.full[i].y - trace.full[i - 1].y);
+                }
+                float remaining = total * progress / 100.0f;
+                trace.partial[0] = trace.full[0];
+                for (uint32_t i = 1; i < trace.count; ++i) {
+                  const auto &start = trace.full[i - 1];
+                  const auto &end = trace.full[i];
+                  const float length = std::hypot(end.x - start.x, end.y - start.y);
+                  if (remaining >= length) {
+                    trace.partial[i] = end;
+                    remaining -= length;
+                    continue;
+                  }
+                  const float fraction = length > 0.0f ? remaining / length : 0.0f;
+                  trace.partial[i].x = start.x + (end.x - start.x) * fraction;
+                  trace.partial[i].y = start.y + (end.y - start.y) * fraction;
+                  lv_line_set_points(trace.line, trace.partial, i + 1);
+                  return;
+                }
+                lv_line_set_points(trace.line, trace.partial, trace.count);
               };
-              const bool warning = severity >= 3;
-              if (warning) lv_obj_set_style_line_color(leader, colors[severity], LV_PART_MAIN);
-              if (warning != (previous >= 3)) {
-                if (!trace.full) trace = {leader, lv_line_get_points(leader), {}, 0};
+              // Trace every colored status, including cool and cold.
+              const bool show_leader = severity > 0;
+              if (show_leader) {
+                lv_obj_set_style_line_color(leader, colors[severity], LV_PART_MAIN);
+                lv_obj_set_style_line_opa(leader, LV_OPA_COVER, LV_PART_MAIN);
+              }
+              if (!trace.full) {
+                trace.line = leader;
+                trace.full = lv_line_get_points(leader);
+                trace.count = lv_line_get_point_count(leader);
+                if (trace.count < 2 || trace.count > 8) return;
+                // Center-reaching leaders must remain visible over the part masks.
+                lv_obj_move_foreground(leader);
+                trace.endpoint = lv_obj_create(lv_obj_get_parent(leader));
+                lv_obj_remove_style_all(trace.endpoint);
+                lv_obj_remove_flag(trace.endpoint,
+                    static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE));
+                lv_obj_set_size(trace.endpoint, 6, 6);
+                const auto &end = trace.full[trace.count - 1];
+                lv_obj_set_pos(trace.endpoint, lv_obj_get_x(leader) + end.x - 3,
+                               lv_obj_get_y(leader) + end.y - 3);
+                lv_obj_set_style_radius(trace.endpoint, LV_RADIUS_CIRCLE, LV_PART_MAIN);
+                lv_obj_set_style_bg_color(trace.endpoint, lv_color_hex(${tab5_color_background}), LV_PART_MAIN);
+                lv_obj_set_style_bg_opa(trace.endpoint, LV_OPA_COVER, LV_PART_MAIN);
+                lv_obj_set_style_border_width(trace.endpoint, 1, LV_PART_MAIN);
+                lv_obj_add_flag(trace.endpoint, LV_OBJ_FLAG_HIDDEN);
+              }
+              if (show_leader) lv_obj_set_style_border_color(trace.endpoint, colors[severity], LV_PART_MAIN);
+              if (show_leader != (previous > 0)) {
                 const bool interrupted = lv_anim_delete(&trace, draw);
-                const int32_t from = interrupted ? trace.progress : (warning ? 0 : 100);
-                const int32_t to = warning ? 100 : 0;
+                const int32_t from = interrupted ? trace.progress : (show_leader ? 0 : 100);
+                const int32_t to = show_leader ? 100 : 0;
                 if (visible && from != to) {
-                  const uint32_t duration = warning ? trace_duration : 120;
+                  const uint32_t duration = show_leader ? trace_duration : 120;
                   lv_anim_t motion;
                   lv_anim_init(&motion);
                   lv_anim_set_var(&motion, &trace);
@@ -3453,21 +3939,21 @@ script:
                   lv_anim_set_values(&motion, from, to);
                   lv_anim_set_duration(&motion, duration);
                   lv_anim_set_path_cb(&motion, lv_anim_path_linear);
-                  if (!warning) {
+                  if (!show_leader) {
                     lv_anim_set_completed_cb(&motion, +[](lv_anim_t *anim) {
                       auto &trace = *static_cast<LeaderTrace *>(anim->var);
                       lv_obj_add_flag(trace.line, LV_OBJ_FLAG_HIDDEN);
-                      lv_line_set_points(trace.line, trace.full, 2);
+                      lv_line_set_points(trace.line, trace.full, trace.count);
                     });
                   }
                   lv_anim_start(&motion);
-                  if (warning) {
+                  if (show_leader) {
                     id(tab5_motion_visible)(leader, true, 0);
                     pulse_delay = duration;
                   }
                 } else {
-                  id(tab5_motion_visible)(leader, warning, 0);
-                  lv_line_set_points(leader, trace.full, 2);
+                  id(tab5_motion_visible)(leader, show_leader, 0);
+                  draw(&trace, to);
                 }
               }
             }
@@ -3500,7 +3986,8 @@ script:
             std::initializer_list<int> modes;
           } areas[] = {
             {id(widget_img_scan_coolant), {5}},
-            {id(widget_img_scan_engine), {8, 9, 14, 17, 26}},
+            {id(widget_img_scan_engine), {8, 9, 14, 26}},
+            {id(widget_img_scan_intake), {17}},
             {id(widget_img_scan_battery), {7, 20}},
             {id(widget_img_scan_transmission), {18, 24}},
             {id(widget_img_scan_cabin), {2, 3}},
@@ -3742,9 +4229,11 @@ script:
           } else {
             lv_obj_add_state(menu, LV_STATE_DISABLED);
             if (id(g_logs_visible)) id(script_set_service_visible).execute(false);
+            if (id(g_alert_is_update)) id(tab5_motion_visible)(id(popup_alert), false, 0);
             id(tab5_motion_visible)(id(obj_jaalee_detail), false, 0);
           }
 
+          id(tab5_motion_visible)(id(lbl_update_badge), !allowed && id(g_update_available), 0);
 
   - id: script_jaalee_detail
     mode: restart
@@ -3848,6 +4337,229 @@ script:
           if (scroll_animated) id(g_log_highlight_pending) = true;
           lv_obj_scroll_to_y(view, lv_obj_get_scroll_y(view) + bottom, scroll_animated ? LV_ANIM_ON : LV_ANIM_OFF);
           if (animate && !scroll_animated) id(tab5_motion_outline)(latest, 260);
+  - id: script_check_update
+    # Single mode keeps manual checks serialized until success, error or timeout.
+    then:
+      - if:
+          condition:
+            wifi.connected:
+          then:
+            - lambda: |-
+                id(g_checking) = true;
+                id(ota_update).status_clear_error();
+                id(script_logs).execute("Checking for update...");
+            - lvgl.label.update:
+                id: lbl_btn_menu_update
+                text: "확인 중..."
+                text_color: "${tab5_color_text_muted}"
+            - lambda: id(tab5_motion_fade)(id(lbl_btn_menu_update), 208, LV_OPA_COVER, 80);
+            - update.check: ota_update
+            - wait_until:
+                condition:
+                  lambda: 'return !id(g_checking) || id(ota_update).status_has_error();'
+                timeout: 65s
+            - lambda: |-
+                if (!id(g_checking)) return;
+                id(script_update_check_failed).execute(id(ota_update).status_has_error()
+                    ? "확인 실패" : "응답 지연");
+          else:
+            - script.execute:
+                id: script_update_check_failed
+                reason: "연결 없음"
+
+  - id: script_update_check_failed
+    parameters:
+      reason: string
+    then:
+      - lambda: |-
+          id(g_checking) = false;
+          // Retain any previously known update, but never label a failed check as up to date.
+          id(script_set_update_available).execute(id(g_latest_version), id(g_update_available));
+          lv_label_set_text(id(lbl_menu_latest_ver), reason.c_str());
+          lv_obj_set_style_text_color(id(lbl_menu_latest_ver), lv_color_hex(${tab5_color_status_warm}), LV_PART_MAIN);
+          id(script_logs).execute("Update check failed: " + reason);
+
+  - id: script_set_update_available
+    parameters:
+      latest_ver: string
+      available: bool
+    then:
+      - lambda: |-
+          if (latest_ver != id(g_latest_version)) {
+            id(g_update_alert_dismissed) = false;
+          }
+          id(g_latest_version) = latest_ver;
+          id(g_update_available) = available;
+      - lvgl.label.update:
+          id: lbl_menu_latest_ver
+          text: !lambda |-
+            if (!available) return id(ota_update).state == update::UPDATE_STATE_NO_UPDATE
+                ? std::string("최신 버전") : std::string("미확인");
+            return latest_ver.empty() ? "새 버전 있음" : latest_ver;
+          text_color: !lambda 'return lv_color_hex(available ? ${tab5_color_accent} : ${tab5_color_status_ok});'
+      - lvgl.widget.update:
+          id: btn_menu_update
+          # The setup action style inherits a transparent background; fill it before using dark text.
+          bg_opa: !lambda 'return available ? LV_OPA_COVER : LV_OPA_TRANSP;'
+          bg_color: !lambda 'return lv_color_hex(available ? ${tab5_color_accent} : ${tab5_color_button_bg});'
+          pressed:
+            bg_opa: COVER
+            bg_color: !lambda 'return lv_color_hex(available ? ${tab5_color_status_ok} : ${tab5_color_button_pressed});'
+      - lvgl.label.update:
+          id: lbl_btn_menu_update
+          text: !lambda 'return available ? std::string("업데이트 실행") : std::string("업데이트 확인");'
+          text_color: !lambda 'return lv_color_hex(available ? ${tab5_color_background} : ${tab5_color_text_primary});'
+      - lambda: |-
+          id(tab5_motion_fade)(id(lbl_btn_menu_update), 208, LV_OPA_COVER, 155);
+          if (available) id(script_logs).execute("Update Available: " + latest_ver);
+  - id: script_ota_refresh
+    then:
+      - lambda: |-
+          // OTA blocks the application loop. Update light outputs and render here,
+          // rather than waiting for the ordinary LVGL/component loops to resume.
+          id(backlight).loop();
+          id(lvgl_ui).loop();
+          lv_refr_now(nullptr);
+          App.feed_wdt();
+
+  - id: script_ota_prepare
+    then:
+      - lambda: |-
+          if (!id(g_ota_ui_active)) {
+            id(g_ota_backlight_was_on) = id(backlight).remote_values.is_on();
+            id(g_ota_backlight_brightness) = id(backlight).remote_values.get_brightness();
+            id(g_ota_lvgl_was_paused) = id(lvgl_ui).is_paused();
+          }
+          id(g_ota_ui_active) = true;
+          id(g_updating) = true;
+          id(lvgl_ui).set_paused(false, false);
+          auto light = id(backlight).turn_on();
+          light.set_brightness(id(g_ota_backlight_was_on)
+              ? std::max(id(g_ota_backlight_brightness), 0.1f) : 0.4f);
+          light.set_transition_length(0);
+          light.perform();
+          lv_label_set_text(id(lbl_ota_title), "FIRMWARE UPDATE");
+          lv_obj_set_style_text_color(id(lbl_ota_title), lv_color_hex(${tab5_color_accent}), LV_PART_MAIN);
+          lv_label_set_text(id(lbl_ota_phase), "INITIALIZING LINK...");
+          lv_label_set_text(id(lbl_ota_percent), "0%");
+          lv_label_set_text(id(lbl_ota_hint), "DO NOT INTERRUPT POWER.");
+          lv_bar_set_value(id(bar_ota_progress), 0, LV_ANIM_OFF);
+          lv_obj_set_style_bg_color(id(bar_ota_progress), lv_color_hex(${tab5_color_accent}), LV_PART_INDICATOR);
+          lv_obj_add_flag(id(btn_ota_close), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_remove_flag(id(obj_ota_overlay), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_move_foreground(id(obj_ota_overlay));
+      - script.execute: script_ota_refresh
+
+  - id: script_ota_failed
+    parameters:
+      reason: string
+    then:
+      # Cancel the pending fallback timer so a failed attempt can be retried immediately.
+      - script.stop: script_perform_update
+      - lambda: |-
+          id(g_updating) = false;
+          id(script_logs).execute(reason);
+          lv_label_set_text(id(lbl_ota_title), "UPDATE FAILED");
+          lv_obj_set_style_text_color(id(lbl_ota_title), lv_color_hex(${tab5_color_status_hot}), LV_PART_MAIN);
+          lv_label_set_text(id(lbl_ota_phase), reason.c_str());
+          lv_label_set_text(id(lbl_ota_hint), "LINK ERROR // RETURN AND RETRY");
+          lv_obj_set_style_bg_color(id(bar_ota_progress), lv_color_hex(${tab5_color_status_hot}), LV_PART_INDICATOR);
+          lv_obj_remove_flag(id(btn_ota_close), LV_OBJ_FLAG_HIDDEN);
+          auto light = id(backlight).turn_on();
+          light.set_brightness(id(g_ota_backlight_was_on)
+              ? std::max(id(g_ota_backlight_brightness), 0.1f) : 0.4f);
+          light.set_transition_length(0);
+          light.perform();
+      - script.execute:
+          id: script_set_update_available
+          latest_ver: !lambda 'return id(g_latest_version);'
+          available: !lambda 'return id(g_update_available);'
+      - script.execute: script_ota_refresh
+
+  - id: script_ota_close
+    then:
+      - lambda: |-
+          if (id(g_updating) || !id(g_ota_ui_active)) return;
+          lv_obj_add_flag(id(obj_ota_overlay), LV_OBJ_FLAG_HIDDEN);
+          lv_refr_now(nullptr);
+          auto light = id(backlight).make_call();
+          light.set_state(id(g_ota_backlight_was_on));
+          light.set_brightness(id(g_ota_backlight_brightness));
+          light.set_transition_length(0);
+          light.perform();
+          id(backlight).loop();
+          id(lvgl_ui).set_paused(id(g_ota_lvgl_was_paused), false);
+          id(g_ota_ui_active) = false;
+
+  - id: script_perform_update
+    then:
+      - if:
+          condition:
+            lambda: 'return id(ota_update).state == update::UPDATE_STATE_AVAILABLE;'
+          then:
+            - lambda: id(script_logs).execute("OTA Update Triggered...");
+            - script.execute: script_ota_prepare
+            # Let the normal loop draw once before flash() runs in a deferred callback.
+            - delay: 100ms
+            - update.perform: ota_update
+            # The fallback can run only after the blocking flash call returns.
+            # Normal failures are handled immediately by on_error/on_abort below.
+            - delay: 90s
+            - if:
+                condition:
+                  lambda: 'return id(g_updating);'
+                then:
+                  - script.execute:
+                      id: script_ota_failed
+                      reason: "OTA did not complete. Retry."
+          else:
+            - lambda: id(script_logs).execute("OTA update is no longer available");
+            - script.execute:
+                id: script_set_update_available
+                latest_ver: !lambda 'return id(g_latest_version);'
+                available: !lambda 'return id(ota_update).state == update::UPDATE_STATE_AVAILABLE;'
+
+# Extend the stable OTA ID generated by the external OTA tool.
+# Keep lifecycle/UI callbacks outside its regenerated package.
+ota:
+  - id: !extend ota_http
+    on_begin:
+      then:
+        - script.execute: script_ota_prepare
+        - lambda: lv_label_set_text(id(lbl_ota_phase), "CONNECTING TO UPDATE HOST...");
+        - script.execute: script_ota_refresh
+    on_progress:
+      then:
+        - lambda: |-
+            if (!std::isfinite(x)) return;
+            const int progress = static_cast<int>(std::clamp(x, 0.0f, 100.0f));
+            lv_bar_set_value(id(bar_ota_progress), progress, LV_ANIM_OFF);
+            lv_label_set_text_fmt(id(lbl_ota_percent), "%d%%", progress);
+            // 100% transferred still needs checksum/finalization; it is not success yet.
+            lv_label_set_text(id(lbl_ota_phase), progress < 100 ? "WRITING FIRMWARE..." : "VERIFYING INTEGRITY...");
+        - script.execute: script_ota_refresh
+    on_end:
+      then:
+        - script.stop: script_perform_update
+        - lambda: |-
+            lv_bar_set_value(id(bar_ota_progress), 100, LV_ANIM_OFF);
+            lv_label_set_text(id(lbl_ota_percent), "100%");
+            lv_label_set_text(id(lbl_ota_phase), "COMPLETE // RESTARTING...");
+            lv_label_set_text(id(lbl_ota_hint), "SYSTEM RESTART IN PROGRESS...");
+            id(script_logs).execute("OTA update complete; restarting");
+        - script.execute: script_ota_refresh
+    on_error:
+      then:
+        - lambda: |-
+            char reason[48];
+            snprintf(reason, sizeof(reason), "OTA failed (0x%02X)", static_cast<unsigned>(x));
+            id(script_ota_failed).execute(reason);
+    on_abort:
+      then:
+        - script.execute:
+            id: script_ota_failed
+            reason: "OTA update aborted"
+
 
 packages:
   tab5_common:
@@ -3855,3 +4567,27 @@ packages:
     file: packages/display/tab5_common.yaml
     ref: master
     refresh: 0s
+  esphome_ota:
+    substitutions:
+      ota_base_url: !secret esphome_ota_base_url
+      ota_slug: !secret esphome_ota_cfg_example_device
+    esphome:
+      project:
+        name: "eigger.esp-colorado-tab5-fallout"
+        version: "261116.1"
+    http_request:
+      timeout: 60s
+
+    ota:
+      - platform: http_request
+        id: ota_http
+
+    safe_mode:
+
+    update:
+      - platform: http_request
+        id: ota_update
+        ota_id: ota_http
+        name: "Firmware"
+        source: "${ota_base_url}/local/esphome_ota/${ota_slug}.json"
+        update_interval: 6h
