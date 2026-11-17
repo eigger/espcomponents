@@ -13,7 +13,7 @@ unless selected. Use a pinned Git commit in the raw asset URL.
 | --- | --- | --- |
 | `boot_mechanical_terminal.wav` | Selected: tape deck + HDD | 3300 ms |
 | `boot_turbine_terminal.wav` | Turbine spool-up + terminal details | 3600 ms |
-| `boot_engine_terminal.wav` | Engine starting + terminal details | 3200 ms |
+| `boot_engine_terminal.wav` | Fixed engine-start boot cue + terminal details; not RPM-driven exhaust | 3200 ms |
 | `boot.wav` | Original synthesized boot; retained for existing configurations | 1100 ms |
 
 The composite recordings are adaptations of the user-selected Pixabay sources.

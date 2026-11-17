@@ -4,8 +4,9 @@ substitutions:
   name: "esp-colorado-tab5"
   friendly_name: "ESP Colorado TAB5"
   tab5_panel: ili9881c  # ili9881c, st7123, or st7121; match the rear label.
-  number: "00가 0000"  # Example plate shown at boot.
+  number: "00가 0000"
   splash_title: "COLORADO"
+  ui_sound_base_url: "https://raw.githubusercontent.com/eigger/espcomponents/8b917dbfbbba55215f0622c2a156c096812b386d/packages/display/colorado/sounds"
   tab5_motion_emphasis: 1
   # Local phosphor palette. The shared Tab5 package retains its default colors.
   tab5_color_background: 0x07100B
@@ -30,7 +31,6 @@ substitutions:
   tab5_color_button_pressed: 0x31573B
   tab5_color_danger_pressed: 0x792A25
   tab5_color_panel_pressed: 0x1D3525
-  # Replace these example addresses with local BLE device addresses.
   mac_vlinker: "02:00:00:00:00:01"
   mac_cabin_jht: "02:00:00:00:00:02"
   mac_bed_jht: "02:00:00:00:00:03"
@@ -69,7 +69,7 @@ substitutions:
   ui_ascii: ' !"#$%&''()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
   # Shared by the warning popup and the log. Add characters from external parking text here.
   ui_alert_hangul: "가감경고과급기낮높능데동력료리미발방배버변부상새속스시압업엔연열오요위유음의이일장전족졸주진충치터트필하험환타어저앞뒤왼른쪽"
-  ui_extra_glyphs: "패응답지연결"
+  ui_extra_glyphs: "패응답지연결사운드음량소거켜짐꺼재생테스트"
 
 .helpers:
   ver: &version !lambda 'return std::string(ESPHOME_PROJECT_VERSION);'
@@ -96,24 +96,25 @@ substitutions:
 esphome:
   name: "${name}"
   friendly_name: "${friendly_name}"
+  min_version: 2026.10.2
   # This config intentionally uses YAML anchors with per-instance key overrides
   # for the reusable terminal widget styles. ESPHome warns on valid overrides.
   merge_warnings: false
   on_boot:
+    # Sound player and LVGL objects must exist before applying restored settings.
     - priority: -100
       then:
         - script.execute:
             id: script_logs
             log: *version
+        # ES8388 setup alone leaves its analog outputs powered down.
+        # Tab5's onboard amplifier is wired to LINE1.
         - lambda: |-
             if (!id(tab5_audio_dac).set_dac_output(es8388::DAC_OUTPUT_LINE1)) {
               ESP_LOGE("ui_sound", "Failed to enable ES8388 LINE1 speaker output");
             }
-            auto call = id(ui_sound_player).make_call();
-            call.set_volume(0.4f);
-            call.set_command(media_player::MEDIA_PLAYER_COMMAND_UNMUTE);
-            call.perform();
         - switch.turn_on: speaker_enable
+        - script.execute: script_sound_apply
         - light.turn_on:
             id: backlight
             brightness: 40%
@@ -144,7 +145,8 @@ esphome:
             id: obj_splash
         - lambda: |-
             id(tab5_motion_start)();
-            id(ui_sound_player).play_file(id(sound_boot), true, false);
+            id(g_sound_ready) = true;
+            id(script_sound_play).execute(0);
 
 # Required for this device: enable both PSRAM execution and hosted buffers in PSRAM.
 esp32:
@@ -385,6 +387,98 @@ gps:
     internal: true
 
 globals:
+  - id: g_sound_volume
+    type: float
+    restore_value: yes
+    initial_value: '0.4f'
+  - id: g_sound_muted
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+  - id: g_sound_ready
+    type: bool
+    initial_value: 'false'
+  - id: g_sound_started
+    type: uint32_t
+    initial_value: '0'
+  - id: g_sound_duration
+    type: uint32_t
+    initial_value: '0'
+  - id: g_sound_priority
+    type: int
+    initial_value: '0'
+  - id: g_sound_popup_key
+    type: int
+    initial_value: '-1'
+  # Captureless function pointer keeps alert state local without an external header.
+  - id: fn_sound_alert
+    type: "int (*)(const char *, unsigned, uint8_t, uint32_t)"
+    initial_value: |-
+      +[](const char *operation, unsigned key, uint8_t severity, uint32_t now) -> int {
+        // All state stays inside this YAML function; no custom include is needed.
+        class SoundAlerts {
+         public:
+          constexpr void begin() { for (auto &s : states_) { s.seen = false; s.observed = 0; } }
+          constexpr void observe(unsigned key, uint8_t severity, uint32_t now) {
+            if (key >= states_.size()) return;
+            auto &s = states_[key];
+            if (!s.active) { s = {}; s.active = true; }
+            if (severity > s.observed) s.observed = severity;
+            s.seen = true;
+            s.last_seen = now;
+          }
+          constexpr void end(uint32_t now) {
+            for (auto &s : states_) {
+              if (s.seen) {
+                // A brief danger/caution oscillation must not restart the sound each poll.
+                // Only a previously unseen severity in this active episode bypasses cooldown.
+                if (s.observed > s.peak_severity) {
+                  s.acknowledged = false; s.played = false; s.peak_severity = s.observed;
+                }
+                s.severity = s.observed;
+              } else if (s.active && uint32_t(now - s.last_seen) >= 5000) s = {};
+            }
+          }
+          constexpr int pending(uint32_t now) const {
+            int best = -1;
+            for (unsigned i = 0; i < states_.size(); ++i) {
+              const auto &s = states_[i];
+              const uint32_t interval = s.severity >= 2 ? 20000 : 60000;
+              if (!s.active || !s.seen || s.acknowledged ||
+                  (s.played && uint32_t(now - s.last_played) < interval)) continue;
+              if (best < 0 || s.severity > states_[best].severity ||
+                  (s.severity == states_[best].severity && !s.played && states_[best].played)) best = i;
+            }
+            return best;
+          }
+          constexpr uint8_t severity(unsigned key) const { return key < states_.size() ? states_[key].severity : 0; }
+          // One sound covers all currently pending conditions of equal/lower severity.
+          // This avoids a sequence of redundant alarms when several sensors warn at once.
+          constexpr void played(uint8_t severity, uint32_t now) {
+            for (auto &s : states_) if (s.active && s.seen && s.severity <= severity) {
+              s.played = true; s.last_played = now;
+            }
+          }
+          constexpr void acknowledge(unsigned key) { if (key < states_.size()) states_[key].acknowledged = true; }
+         private:
+          struct State {
+            bool active{false}, seen{false}, played{false}, acknowledged{false};
+            uint8_t severity{0}, observed{0}, peak_severity{0};
+            uint32_t last_seen{0}, last_played{0};
+          };
+          std::array<State, 32> states_{};
+        };
+        static SoundAlerts alerts;
+        if (std::strcmp(operation, "begin") == 0) alerts.begin();
+        else if (std::strcmp(operation, "observe") == 0) alerts.observe(key, severity, now);
+        else if (std::strcmp(operation, "end") == 0) alerts.end(now);
+        else if (std::strcmp(operation, "pending") == 0) return alerts.pending(now);
+        else if (std::strcmp(operation, "severity") == 0) return alerts.severity(key);
+        else if (std::strcmp(operation, "played") == 0) alerts.played(severity, now);
+        else if (std::strcmp(operation, "acknowledge") == 0) alerts.acknowledge(key);
+        else return -1;
+        return 0;
+      }
   - id: alert_dismissed
     type: bool
     initial_value: 'false'
@@ -1347,12 +1441,17 @@ interval:
           constexpr uint32_t notice = ${tab5_color_alert_notice};
           std::string msg;
           uint32_t color_hex = warning;
-          const auto set_alert = [&](const std::string &text, uint32_t color) {
+          const uint32_t sound_now = esphome::millis();
+          id(fn_sound_alert)("begin", 0, 0, 0);
+          int sound_popup_key = -1;
+          const auto set_alert = [&](unsigned key, const std::string &text, uint32_t color) {
+            id(fn_sound_alert)("observe", key, color == danger ? 2 : 1, sound_now);
             const auto rank = [&](uint32_t value) { return value == danger ? 2 : value == warning ? 1 : 0; };
             // First candidate wins ties; a danger always replaces a warning.
             if (msg.empty() || rank(color) > rank(color_hex)) {
               msg = text;
               color_hex = color;
+              sound_popup_key = static_cast<int>(key);
             }
           };
 
@@ -1406,75 +1505,75 @@ interval:
                 tire_msg += positions[i];
               }
             }
-            set_alert(tire_msg, warning);
+            set_alert(0, tire_msg, warning);
           }
 
           if (std::isfinite(coolant) && lv_color_eq(id(fn_state_color)(coolant, 5),
               lv_color_hex(${tab5_color_status_hot}))) {
-            set_alert("엔진 과열!", danger);
+            set_alert(1, "엔진 과열!", danger);
           }
           if (transmission > ${transmission_temperature_hot_c}) {
-            set_alert("변속기 과열!", danger);
+            set_alert(2, "변속기 과열!", danger);
           }
           if (engine_on && (oil < oil_low_kpa || oil > ${oil_pressure_high_kpa}f)) {
-            set_alert("오일 압력 위험!", danger);
+            set_alert(3, "오일 압력 위험!", danger);
           }
           if (speed > 120) {
-            set_alert("과속 위험!", danger);
+            set_alert(4, "과속 위험!", danger);
           }
           if (speed > 110) {
-            set_alert("과속 주의!", warning);
+            set_alert(4, "과속 주의!", warning);
           }
           if (co2 > 2500) {
-            set_alert("졸음 경고!", danger);
+            set_alert(6, "졸음 경고!", danger);
           }
           if (co2 > 1500) {
-            set_alert("졸음 주의!", warning);
+            set_alert(6, "졸음 주의!", warning);
           }
           if (tvoc > 5000) {
-            set_alert("가스 주의!", warning);
+            set_alert(8, "가스 주의!", warning);
           }
           if (tvoc > 3333) {
-            set_alert("환기 필요!", warning);
+            set_alert(8, "환기 필요!", warning);
           }
           if (acceleration > 9.0) {
-            set_alert("급가속!", danger);
+            set_alert(10, "급가속!", danger);
           }
           if (acceleration < -9.0) {
-            set_alert("급감속!", danger);
+            set_alert(11, "급감속!", danger);
           }
           if (load > 95) {
-            set_alert("엔진 과부하!", warning);
+            set_alert(12, "엔진 과부하!", warning);
           }
           if (!isnan(id(id_tab5_internal_temperature).state) && id(id_tab5_internal_temperature).state > 70) {
-            set_alert("장치 과열!", danger);
+            set_alert(13, "장치 과열!", danger);
           }
           if (bat_valid && engine_on && bat < 12.8f && id(alt_low_since_ms) != 0 && (esphome::millis() - id(alt_low_since_ms) >= 180000)) {
-            set_alert("발전기 미충전!", danger);
+            set_alert(14, "발전기 미충전!", danger);
           }
           if (bat_valid && engine_on && bat > 15.0f) {
-            set_alert("배터리 과충전!", danger);
+            set_alert(15, "배터리 과충전!", danger);
           }
           if (bat_valid && !engine_on && bat < 11.8f) {
-            set_alert("배터리 방전 위험!", danger);
+            set_alert(16, "배터리 방전 위험!", danger);
           }
           if (bat_valid && !engine_on && bat > 13.5f) {
-            set_alert("시동전 전압 이상!", danger);
+            set_alert(17, "시동전 전압 이상!", danger);
           }
           if (bat_valid && engine_on && bat < 13.2f) {
-            set_alert("충전전압 낮음!", warning);
+            set_alert(14, "충전전압 낮음!", warning);
           }
           if (bat_valid && engine_on && bat > 14.85f) {
-            set_alert("충전전압 높음!", warning);
+            set_alert(15, "충전전압 높음!", warning);
           }
           if (bat_valid && !engine_on && bat < 12.0f) {
-            set_alert("배터리 전압 낮음!", warning);
+            set_alert(16, "배터리 전압 낮음!", warning);
           }
           if (fuel < 8) {
-            set_alert("연료 부족 (주유 시급)!", danger);
+            set_alert(21, "연료 부족 (주유 시급)!", danger);
           }
           if (fuel < 15) {
-            set_alert("주유 필요!", warning);
+            set_alert(21, "주유 필요!", warning);
           }
           if (msg.empty() && id(parking_info).has_state() && id(parking_info).state.length() > 0 && id(parking_info).state != "unknown" && id(parking_info).state != "off") {
             msg = id(parking_info).state;
@@ -1487,6 +1586,7 @@ interval:
           if (msg != last_car_msg) {
             if (car_alert) {
               id(alert_dismissed) = false;
+              if (color_hex == notice) id(script_sound_play).execute(8);
             }
             last_car_msg = msg;
           }
@@ -1504,6 +1604,12 @@ interval:
             }
           }
 
+          id(fn_sound_alert)("end", 0, 0, sound_now);
+          id(g_sound_popup_key) = sound_popup_key;
+          const int pending_sound = id(fn_sound_alert)("pending", 0, 0, sound_now);
+          if (pending_sound >= 0) {
+            id(script_sound_play).execute(id(fn_sound_alert)("severity", pending_sound, 0, 0) >= 2 ? 6 : 5);
+          }
           id(g_alert_is_update) = !car_alert && !msg.empty();
           const bool dismissed = car_alert ? id(alert_dismissed) : id(g_update_alert_dismissed);
           const bool show_popup = !msg.empty() && !dismissed && (car_alert || id(fn_service_allowed)());
@@ -1851,6 +1957,8 @@ lvgl:
                 on_click:
                   then:
                     - lambda: |-
+                        if (!id(fn_service_allowed)()) return;
+                        id(script_sound_play).execute(id(g_logs_visible) ? 2 : 1);
                         id(script_set_service_visible).execute(!id(g_logs_visible));
                 widgets:
                   - label:
@@ -1884,7 +1992,10 @@ lvgl:
                 x: 300
                 width: 120
                 on_click:
-                  - script.execute: { id: script_select_service_tab, setup: false }
+                  - lambda: |-
+                      if (!id(g_logs_visible) || !id(fn_service_allowed)() || !id(g_service_setup)) return;
+                      id(script_sound_play).execute(3);
+                      id(script_select_service_tab).execute(false);
                 widgets:
                   - label: { id: lbl_service_log_tab, align: center, text: "[ LOG ]", text_font: font_terminal_boot, text_color: "${tab5_color_background}" }
             - button:
@@ -1893,7 +2004,10 @@ lvgl:
                 x: 436
                 width: 156
                 on_click:
-                  - script.execute: { id: script_select_service_tab, setup: true }
+                  - lambda: |-
+                      if (!id(g_logs_visible) || !id(fn_service_allowed)() || id(g_service_setup)) return;
+                      id(script_sound_play).execute(3);
+                      id(script_select_service_tab).execute(true);
                 widgets:
                   - label: { id: lbl_service_setup_tab, align: center, text: "SETUP", text_font: font_terminal_boot, text_color: "${tab5_color_accent}" }
             - label:
@@ -1957,6 +2071,9 @@ lvgl:
                           id(script_open_update_menu).execute();
                         } else {
                           id(alert_dismissed) = true;
+                          if (id(g_sound_popup_key) >= 0)
+                            id(fn_sound_alert)("acknowledge", id(g_sound_popup_key), 0, 0);
+                          if (id(g_sound_priority) >= 3) id(script_sound_stop).execute();
                         }
                         id(script_logs).execute("ALERT: Dismissed");
                         id(tab5_motion_notice_active) = false;
@@ -2375,8 +2492,8 @@ lvgl:
               - line: { <<: &scan_leader { <<: *terminal_line, line_color: "${tab5_color_text_inactive}", line_width: 2, line_opa: 100%, hidden: true }, id: line_scan_coolant_leader, x: 81, y: 77, points: ["0, 0", "0, 144", "60, 144"] }
               - line: { <<: *scan_leader, id: line_scan_oil_temperature_leader, x: 226, y: 77, points: ["0, 0", "0, 23", "30, 23", "30, 137", "25, 137"] }
               - line: { <<: *scan_leader, id: line_scan_oil_pressure_leader, x: 213, y: 242, points: ["158, 137", "158, 107", "47, 107", "47, 13", "0, 13", "0, 0"] }
-              - line: { <<: *scan_leader, id: line_scan_cabin_temp_leader, x: 516, y: 77, points: ["0, 0", "0, 23", "34, 23", "34, 131", "31, 131"] }
-              - line: { <<: *scan_leader, id: line_scan_cabin_humidity_leader, x: 516, y: 235, points: ["0, 144", "0, 104", "34, 104", "34, 0", "31, 0"] }
+              - line: { <<: *scan_leader, id: line_scan_cabin_temp_leader, x: 516, y: 77, points: ["0, 0", "26, 0", "26, 110", "11, 110"] }
+              - line: { <<: *scan_leader, id: line_scan_cabin_humidity_leader, x: 516, y: 257, points: ["0, 122", "26, 122", "26, 0", "11, 0"] }
               - line: { <<: *scan_leader, id: line_scan_bed_temp_leader, x: 753, y: 77, points: ["53, 0", "53, 118", "0, 118"] }
               - line: { <<: *scan_leader, id: line_scan_intake_leader, x: 98, y: 159, points: ["0, 220", "0, 0", "86, 0"] }
               - line: { <<: *scan_leader, id: line_scan_transmission_leader, x: 299, y: 77, points: ["72, 0", "72, 23", "0, 23", "0, 128"] }
@@ -2435,16 +2552,17 @@ lvgl:
                     - line: { <<: *scan_body_detail, points: ["412, 38", "499, 38", "510, 48"] }
                     - line: { <<: *scan_body_detail, points: ["320, 238", "393, 238", "393, 228"] }
                     - line: { <<: *scan_body_detail, points: ["412, 238", "499, 238", "510, 228"] }
-                    # Embedded silhouettes are attached before the dashboard is shown.
+                    # Embedded silhouettes: centered seats and a small bed recess for the fuel tank.
+                    # Masks are attached before the dashboard is shown.
                     - image: { <<: &scan_part { <<: *terminal_icon, src: img_scan_engine, image_recolor: "${tab5_color_text_inactive}", image_opa: 30% }, id: widget_img_scan_coolant, x: 118, y: 96 }
                     - image: { <<: *scan_part, id: widget_img_scan_engine, x: 151, y: 91 }
                     # Schematic airbox and intake duct; highlighted only by intake-air temperature.
                     - image: { <<: *scan_part, id: widget_img_scan_intake, x: 162, y: 62 }
                     - image: { <<: *scan_part, id: widget_img_scan_battery, x: 145, y: 174 }
                     - image: { <<: *scan_part, id: widget_img_scan_transmission, x: 239, y: 113 }
-                    - image: { <<: *scan_part, id: widget_img_scan_cabin, x: 321, y: 65 }
+                    - image: { <<: *scan_part, image_opa: 44%, id: widget_img_scan_cabin, x: 342, y: 82 }
                     - image: { <<: *scan_part, id: widget_img_scan_cabin_windows, x: 309, y: 40 }
-                    - image: { <<: *scan_part, id: widget_img_scan_fuel, x: 472, y: 190 }
+                    - image: { <<: *scan_part, image_opa: 44%, id: widget_img_scan_fuel, x: 539, y: 193 }
                     - image: { <<: *scan_part, id: widget_img_scan_bed, x: 534, y: 49 }
               - obj:
                   <<: *terminal_panel
@@ -2922,6 +3040,7 @@ lvgl:
                         y: 408
                         width: 180
                         on_click:
+                          - script.execute: { id: script_sound_play, cue: 3 }
                           - script.execute: { id: script_refresh_logs, follow: true, animate: true }
                         widgets:
                           - label: { <<: &menu_button_label { align: center, text_font: font_service_text, text_color: "${tab5_color_accent}" }, id: lbl_log_latest_button, y: -4, text: "> 최근으로" }
@@ -2933,6 +3052,7 @@ lvgl:
                         width: 180
                         on_click:
                           - lambda: |-
+                              id(script_sound_play).execute(3);
                               id(g_logs).clear();
                               id(script_logs).execute("Logs cleared");
                               id(script_refresh_logs).execute(true, false);
@@ -2948,19 +3068,19 @@ lvgl:
                   hidden: true
                   widgets:
                     - obj:
-                        <<: &setup_cell { <<: *terminal_panel, width: 592, height: 212 }
+                        <<: &setup_cell { <<: *terminal_panel, width: 592, height: 136 }
                         x: 0
                         y: 0
                         widgets:
                           - label: { <<: &setup_kicker { <<: *service_kicker, text_color: "${tab5_color_accent}" }, text: "01 / DISPLAY" }
-                          - label: { <<: &setup_heading { <<: *terminal_heading, y: 48, text_font: notosans25, text_color: "${tab5_color_text_primary}" }, text: "화면 밝기" }
-                          - label: { <<: *setup_heading, id: lbl_backlight_value, align: top_right, y: 40, text: "40%", text_font: notosans35, text_color: "${tab5_color_accent}" }
+                          - label: { <<: &setup_heading { <<: *terminal_heading, y: 28, text_font: notosans25, text_color: "${tab5_color_text_primary}" }, text: "화면 밝기" }
+                          - label: { <<: *setup_heading, id: lbl_backlight_value, align: top_right, y: 22, text: "40%", text_font: notosans35, text_color: "${tab5_color_accent}" }
                           - slider:
                               id: slider_backlight
                               x: 10
-                              y: 112
+                              y: 78
                               width: 572
-                              height: 20
+                              height: 16
                               min_value: 10
                               max_value: 100
                               value: 40
@@ -2972,46 +3092,79 @@ lvgl:
                                 then:
                                   - lvgl.label.update: { id: lbl_backlight_value, text: !lambda 'return std::to_string(static_cast<int>(x)) + "%";' }
                                   - light.control: { id: backlight, brightness: !lambda 'return x / 100.0f;' }
-                          - label: { <<: &setup_note { <<: *terminal_heading, y: 160, text_font: font_service_text }, text: "10 / DIM" }
+                          - label: { <<: &setup_note { <<: *terminal_heading, y: 104, text_font: font_service_text }, text: "10 / DIM" }
                           - label: { <<: *setup_note, align: top_right, text: "100 / BRIGHT" }
-                          - line: { <<: &setup_rule { <<: *terminal_line, y: 211, points: ["0, 0", "591, 0"] } }
+                          - line: { <<: &setup_rule { <<: *terminal_line, y: 135, points: ["0, 0", "591, 0"] } }
                     - obj:
                         <<: *setup_cell
                         x: 632
                         y: 0
                         widgets:
-                          - label: { <<: *setup_kicker, text: "02 / CALIBRATION" }
+                          - label: { <<: *setup_kicker, text: "02 / AUDIO" }
+                          - label: { <<: *setup_heading, text: "사운드 음량" }
+                          - label: { <<: *setup_heading, id: lbl_sound_value, align: top_right, y: 22, text: "40%", text_font: notosans35, text_color: "${tab5_color_accent}" }
+                          - slider:
+                              id: slider_sound_volume
+                              x: 10
+                              y: 78
+                              width: 572
+                              height: 16
+                              min_value: 0
+                              max_value: 100
+                              value: 40
+                              bg_color: "${tab5_color_gauge_track}"
+                              bg_opa: COVER
+                              indicator: { bg_color: "${tab5_color_accent}", radius: 0 }
+                              knob: { bg_color: "${tab5_color_text_primary}", bg_opa: COVER, pad_all: 5 }
+                              on_value:
+                                - lambda: |-
+                                    id(g_sound_volume) = std::clamp(x / 100.0f, 0.0f, 1.0f);
+                                    id(script_sound_apply).execute();
+                              on_release:
+                                - script.execute: { id: script_sound_play, cue: 3 }
+                          - label: { <<: *setup_note, text: "0 / SILENT" }
+                          - label: { <<: *setup_note, align: top_right, text: "100 / LOUD" }
+                          - line: { <<: *setup_rule }
+                    - obj:
+                        <<: *setup_cell
+                        x: 0
+                        y: 156
+                        widgets:
+                          - label: { <<: *setup_kicker, text: "03 / CALIBRATION" }
                           - label: { <<: *setup_heading, text: "자세 보정" }
-                          - label: { <<: *setup_note, y: 92, text: "PITCH / ROLL OFFSET" }
+                          - label: { <<: *setup_note, y: 60, text: "PITCH / ROLL OFFSET" }
                           - button:
-                              <<: &setup_action_button { <<: *menu_button, y: 136, width: 592, height: 60 }
+                              <<: &setup_action_button { <<: *menu_button, y: 90, width: 592, height: 42 }
                               id: btn_reset_calibration
                               on_click:
                                 - lambda: |-
+                                    if (!id(fn_service_allowed)()) return;
                                     id(script_confirm_tilt_zero).stop();
                                     id(g_pitch_offset) = 0.0f;
                                     id(g_roll_offset) = 0.0f;
                                     id(script_logs).execute("Pitch/Roll calibration reset");
+                                    id(script_sound_play).execute(4);
                               widgets:
                                 - label: { <<: &setup_action_label { <<: *menu_button_label, text_font: notosans20, text_align: CENTER, y: -2, clickable: false }, text: "> 기울기 보정 초기화" }
                           - line: { <<: *setup_rule }
                     - obj:
                         <<: *setup_cell
-                        x: 0
-                        y: 236
+                        x: 632
+                        y: 156
                         widgets:
-                          - label: { <<: *setup_kicker, text: "03 / FIRMWARE" }
-                          - label: { <<: &setup_version_caption { <<: *setup_note, y: 48 }, text: "현재 버전" }
+                          - label: { <<: *setup_kicker, text: "04 / FIRMWARE" }
+                          - label: { <<: &setup_version_caption { <<: *setup_note, y: 28 }, text: "현재 버전" }
                           - label: { <<: &menu_version { <<: *setup_version_caption, align: top_right, width: 360, text_align: RIGHT, long_mode: DOT, text_color: "${tab5_color_text_secondary}" }, id: lbl_menu_curr_ver, text: *version }
-                          - label: { <<: *setup_version_caption, y: 92, text: "업데이트" }
-                          - label: { <<: *menu_version, id: lbl_menu_latest_ver, y: 92, text: "미확인", text_color: "${tab5_color_text_muted}" }
+                          - label: { <<: *setup_version_caption, y: 58, text: "업데이트" }
+                          - label: { <<: *menu_version, id: lbl_menu_latest_ver, y: 58, text: "미확인", text_color: "${tab5_color_text_muted}" }
                           - button:
                               <<: *setup_action_button
                               id: btn_menu_update
                               on_click:
                                 - lambda: |-
                                     if (!id(fn_service_allowed)() || id(g_updating) || id(g_checking)) return;
-                                    if (id(g_update_available)) {
+                                    id(script_sound_play).execute(3);
+                                    if (id(ota_update).state == update::UPDATE_STATE_AVAILABLE) {
                                       id(script_perform_update).execute();
                                     } else {
                                       id(script_check_update).execute();
@@ -3021,22 +3174,55 @@ lvgl:
                           - line: { <<: *setup_rule }
                     - obj:
                         <<: *setup_cell
-                        x: 632
-                        y: 236
+                        x: 0
+                        y: 312
                         widgets:
-                          - label: { <<: *setup_kicker, text: "04 / SYSTEM" }
+                          - label: { <<: *setup_kicker, text: "05 / SYSTEM" }
                           - label: { <<: *setup_heading, text: "시스템 재시작" }
-                          - label: { <<: *setup_note, y: 92, text: "CONFIRM BEFORE RESTART" }
+                          - label: { <<: *setup_note, y: 60, text: "CONFIRM BEFORE RESTART" }
                           - button:
                               <<: *setup_action_button
                               id: btn_log_restart
                               pressed: { bg_color: "${tab5_color_danger_pressed}" }
                               on_click:
                                 - lambda: |-
+                                    if (!id(fn_service_allowed)()) return;
+                                    id(script_sound_play).execute(3);
                                     id(tab5_motion_visible)(id(obj_restart_backdrop), true, 185);
                                     id(tab5_motion_visible)(id(obj_restart_popup), true, 185);
                               widgets:
                                 - label: { <<: *setup_action_label, text: "> 시스템 재시작", text_color: "${tab5_color_status_hot}" }
+                          - line: { <<: *setup_rule }
+                    - obj:
+                        <<: *setup_cell
+                        x: 632
+                        y: 312
+                        widgets:
+                          - label: { <<: *setup_kicker, text: "06 / SOUND CONTROL" }
+                          - label: { <<: *setup_heading, text: "사운드 설정" }
+                          - label: { <<: *setup_note, id: lbl_sound_status, y: 60, text: "ALL SOUNDS / ENABLED" }
+                          - button:
+                              <<: *setup_action_button
+                              id: btn_sound_mute
+                              width: 286
+                              on_click:
+                                - lambda: |-
+                                    if (!id(fn_service_allowed)()) return;
+                                    id(g_sound_muted) = !id(g_sound_muted);
+                                    id(script_sound_apply).execute();
+                                    if (!id(g_sound_muted)) id(script_sound_play).execute(3);
+                              widgets:
+                                - label: { <<: *setup_action_label, id: lbl_sound_mute, text: "음소거: 꺼짐" }
+                          - button:
+                              <<: *setup_action_button
+                              id: btn_sound_test
+                              x: 306
+                              width: 286
+                              on_click:
+                                - lambda: |-
+                                    if (id(fn_service_allowed)()) id(script_sound_play).execute(4);
+                              widgets:
+                                - label: { <<: *setup_action_label, text: "> 테스트 재생" }
                           - line: { <<: *setup_rule }
               - label: { <<: *service_kicker, id: lbl_service_status, x: 28, y: 604, text: "> READY / EVENT LOG" }
 
@@ -3095,7 +3281,7 @@ font:
     id: notosans25
     bpp: 4
     size: 25
-    glyphs: [ "${ui_ascii}", "°그기내데도로록면밝보상스습시신실업온우울이인작재적정중지초최태템트함행화확자세펌웨어" ]
+    glyphs: [ "${ui_ascii}", "°그기내데도로록면밝보상스습시신실업온우울이인작재적정중지초최태템트함행화확자세펌웨어사운드설음량" ]
   - file: "gfonts://Noto+Sans+KR"
     id: notosans30
     bpp: 4
@@ -3238,6 +3424,76 @@ image:
     type: binary
 
 script:
+  # Cue IDs: boot/open/close/click/success/warning/danger/failure/notice.
+  - id: script_sound_stop
+    then:
+      - lambda: |-
+          auto call = id(ui_sound_player).make_call();
+          call.set_command(media_player::MEDIA_PLAYER_COMMAND_STOP);
+          call.set_announcement(true);
+          call.perform();
+          id(g_sound_duration) = 0;
+          id(g_sound_priority) = 0;
+
+  - id: script_sound_apply
+    then:
+      - lambda: |-
+          id(g_sound_volume) = std::clamp(id(g_sound_volume), 0.0f, 1.0f);
+          const bool silent = id(g_sound_muted) || id(g_sound_volume) <= 0.0f;
+          auto call = id(ui_sound_player).make_call();
+          call.set_volume(silent ? 0.0f : id(g_sound_volume));
+          // Override the player's independently restored mute state as well.
+          call.set_command(silent ? media_player::MEDIA_PLAYER_COMMAND_MUTE
+                                  : media_player::MEDIA_PLAYER_COMMAND_UNMUTE);
+          call.perform();
+          // Digital zero is immediate; stop also discards buffered/queued effects.
+          if (silent) {
+            id(tab5_speaker).set_volume(0.0f);
+            id(script_sound_stop).execute();
+          }
+          lv_label_set_text_fmt(id(lbl_sound_value), "%d%%",
+              static_cast<int>(std::lround(id(g_sound_volume) * 100.0f)));
+          lv_label_set_text(id(lbl_sound_mute), id(g_sound_muted) ? "음소거: 켜짐" : "음소거: 꺼짐");
+          lv_label_set_text(id(lbl_sound_status), id(g_sound_muted) ? "ALL SOUNDS / MUTED"
+              : silent ? "ALL SOUNDS / VOLUME ZERO" : "ALL SOUNDS / ENABLED");
+          lv_obj_set_style_bg_color(id(btn_sound_mute), lv_color_hex(id(g_sound_muted)
+              ? ${tab5_color_alert_warning} : ${tab5_color_button_bg}), LV_PART_MAIN);
+          lv_obj_set_style_bg_opa(id(btn_sound_mute), id(g_sound_muted) ? LV_OPA_COVER : LV_OPA_TRANSP, LV_PART_MAIN);
+
+  - id: script_sound_play
+    parameters:
+      cue: int
+    then:
+      - lambda: |-
+          if (!id(g_sound_ready) || id(g_sound_muted) || id(g_sound_volume) <= 0.0f ||
+              id(g_updating) || cue < 0 || cue > 8) return;
+          constexpr uint32_t durations[] = {3300, 650, 600, 180, 650, 750, 1350, 420, 550};
+          constexpr int priorities[] = {1, 1, 1, 1, 2, 3, 4, 2, 2};
+          const uint32_t now = esphome::millis();
+          const uint32_t elapsed = now - id(g_sound_started);
+          const bool playing = id(ui_sound_player).state == media_player::MEDIA_PLAYER_STATE_ANNOUNCING ||
+              id(ui_sound_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING;
+          const bool busy = id(g_sound_duration) != 0 &&
+              (elapsed < id(g_sound_duration) + 120 || (playing && elapsed < 3000));
+          if (busy && priorities[cue] <= id(g_sound_priority)) return;
+          id(g_sound_started) = now;
+          id(g_sound_duration) = durations[cue];
+          id(g_sound_priority) = priorities[cue];
+          // enqueue=false replaces a lower-priority sound instead of building a backlog.
+          // Let the installed ESPHome API determine AudioFile constness.
+          switch (cue) {
+            case 0: id(ui_sound_player).play_file(id(sound_boot), true, false); break;
+            case 1: id(ui_sound_player).play_file(id(sound_menu_open), true, false); break;
+            case 2: id(ui_sound_player).play_file(id(sound_menu_close), true, false); break;
+            case 3: id(ui_sound_player).play_file(id(sound_click), true, false); break;
+            case 4: id(ui_sound_player).play_file(id(sound_success), true, false); break;
+            case 5: id(ui_sound_player).play_file(id(sound_warning), true, false); break;
+            case 6: id(ui_sound_player).play_file(id(sound_danger), true, false); break;
+            case 7: id(ui_sound_player).play_file(id(sound_failure), true, false); break;
+            case 8: id(ui_sound_player).play_file(id(sound_notice), true, false); break;
+          }
+          if (cue == 5 || cue == 6) id(fn_sound_alert)("played", 0, cue == 6 ? 2 : 1, now);
+
   - id: script_render_speed
     parameters:
       speed: float
@@ -3755,23 +4011,28 @@ script:
                                     image::IMAGE_TYPE_BINARY, image::TRANSPARENCY_OPAQUE);
           lv_image_set_src(id(widget_img_scan_transmission), transmission.get_lv_image_dsc());
 
-          static constexpr auto cabin_pixels = make_mask(std::array<uint8_t, 3094>{}, 203, {
-            {193, 0, 2, 119}, {190, 1, 3, 118}, {195, 1, 1, 118}, {186, 2, 4, 17},
-            {196, 2, 1, 117}, {182, 3, 3, 116}, {185, 3, 1, 16}, {11, 4, 4, 115},
-            {15, 4, 1, 66}, {178, 4, 4, 115}, {197, 4, 1, 115}, {16, 5, 1, 57},
-            {17, 5, 1, 49}, {18, 5, 1, 41}, {19, 5, 1, 33}, {20, 5, 1, 25},
-            {21, 5, 1, 18}, {22, 5, 6, 13}, {175, 5, 3, 114}, {28, 6, 2, 12},
-            {30, 6, 10, 113}, {171, 6, 4, 113}, {198, 6, 1, 113}, {10, 7, 1, 110},
-            {40, 7, 131, 112}, {199, 7, 1, 112}, {200, 9, 1, 110}, {201, 10, 1, 109},
-            {202, 12, 1, 107}, {9, 13, 1, 100}, {8, 19, 1, 90}, {29, 22, 1, 83},
-            {7, 26, 1, 79}, {28, 31, 1, 68}, {6, 32, 1, 68}, {5, 38, 1, 58},
-            {27, 40, 1, 53}, {4, 44, 1, 48}, {26, 49, 1, 39}, {3, 51, 1, 37},
-            {2, 57, 1, 27}, {25, 58, 1, 24}, {1, 63, 1, 16}, {24, 68, 1, 8},
-            {0, 69, 1, 6}, {15, 75, 1, 44}, {16, 80, 1, 39}, {17, 85, 1, 34},
-            {18, 90, 1, 29}, {19, 95, 1, 24}, {20, 99, 1, 20}, {21, 104, 1, 15},
-            {185, 106, 5, 13}, {22, 107, 8, 12},
+          static constexpr auto cabin_pixels = make_mask(std::array<uint8_t, 2394>{}, 161, {
+            {3, 0, 34, 1}, {104, 0, 32, 1}, {2, 1, 37, 1}, {50, 1, 5, 1},
+            {102, 1, 34, 1}, {140, 1, 8, 112}, {1, 2, 40, 1}, {48, 2, 9, 1},
+            {101, 2, 35, 2}, {1, 3, 41, 1}, {48, 3, 10, 1}, {0, 4, 42, 1},
+            {48, 4, 11, 1}, {100, 4, 36, 32}, {0, 5, 43, 1}, {49, 5, 10, 1},
+            {0, 6, 44, 3}, {49, 6, 11, 6}, {0, 9, 45, 26}, {63, 11, 9, 1},
+            {152, 11, 8, 1}, {50, 12, 10, 21}, {62, 12, 11, 20}, {151, 12, 10, 21},
+            {63, 32, 9, 1}, {49, 33, 11, 6}, {152, 33, 8, 1}, {0, 35, 44, 3},
+            {100, 36, 1, 3}, {0, 38, 43, 2}, {49, 39, 10, 1}, {100, 39, 36, 36},
+            {1, 40, 41, 1}, {48, 40, 10, 1}, {1, 41, 40, 1}, {48, 41, 9, 1},
+            {2, 42, 37, 1}, {51, 42, 4, 1}, {4, 43, 33, 1}, {3, 70, 34, 1},
+            {2, 71, 37, 1}, {50, 71, 5, 1}, {1, 72, 40, 1}, {48, 72, 9, 1},
+            {1, 73, 41, 1}, {48, 73, 10, 1}, {0, 74, 42, 1}, {48, 74, 11, 1},
+            {0, 75, 43, 1}, {49, 75, 10, 1}, {100, 75, 1, 3}, {0, 76, 44, 3},
+            {49, 76, 11, 6}, {100, 78, 36, 32}, {0, 79, 45, 26}, {63, 81, 9, 1},
+            {152, 81, 8, 1}, {50, 82, 10, 21}, {62, 82, 11, 20}, {151, 82, 10, 21},
+            {63, 102, 9, 1}, {49, 103, 11, 6}, {152, 103, 8, 1}, {0, 105, 44, 3},
+            {0, 108, 43, 2}, {49, 109, 10, 1}, {1, 110, 41, 1}, {48, 110, 10, 1},
+            {101, 110, 35, 2}, {1, 111, 40, 1}, {48, 111, 9, 1}, {2, 112, 37, 1},
+            {51, 112, 4, 1}, {102, 112, 34, 1}, {4, 113, 33, 1}, {104, 113, 32, 1},
           });
-          static image::Image cabin(cabin_pixels.data(), 203, 119,
+          static image::Image cabin(cabin_pixels.data(), 161, 114,
                                     image::IMAGE_TYPE_BINARY, image::TRANSPARENCY_OPAQUE);
           lv_image_set_src(id(widget_img_scan_cabin), cabin.get_lv_image_dsc());
 
@@ -3792,44 +4053,37 @@ script:
                                     image::IMAGE_TYPE_BINARY, image::TRANSPARENCY_OPAQUE);
           lv_image_set_src(id(widget_img_scan_cabin_windows), cabin_windows.get_lv_image_dsc());
 
-          static constexpr auto fuel_pixels = make_mask(std::array<uint8_t, 115>{}, 39, {
-            {6, 2, 21, 1}, {5, 3, 23, 1}, {4, 4, 25, 1}, {3, 5, 33, 1},
-            {2, 6, 34, 1}, {1, 7, 35, 1}, {1, 8, 8, 2}, {26, 8, 10, 1},
-            {26, 9, 13, 1}, {1, 10, 38, 4}, {1, 14, 8, 2}, {26, 14, 13, 1},
-            {26, 15, 7, 1}, {2, 16, 30, 1}, {3, 17, 28, 1}, {4, 18, 27, 1},
-            {5, 19, 25, 1}, {6, 20, 23, 1},
+          static constexpr auto fuel_pixels = make_mask(std::array<uint8_t, 182>{}, 49, {
+            {4, 0, 29, 1}, {3, 1, 32, 1}, {2, 2, 34, 1}, {1, 3, 36, 1},
+            {0, 4, 49, 22},
           });
-          static image::Image fuel(fuel_pixels.data(), 39, 23,
+          static image::Image fuel(fuel_pixels.data(), 49, 26,
                                     image::IMAGE_TYPE_BINARY, image::TRANSPARENCY_OPAQUE);
           lv_image_set_src(id(widget_img_scan_fuel), fuel.get_lv_image_dsc());
 
           static constexpr auto bed_pixels = make_mask(std::array<uint8_t, 4450>{}, 196, {
-            {0, 0, 181, 1}, {0, 1, 182, 1}, {0, 2, 183, 1}, {0, 3, 184, 1},
+            {0, 0, 181, 1}, {0, 1, 183, 1}, {0, 2, 184, 1}, {0, 3, 185, 1},
             {0, 4, 186, 1}, {0, 5, 187, 1}, {0, 6, 188, 1}, {0, 7, 189, 1},
-            {0, 8, 190, 1}, {0, 9, 192, 1}, {0, 10, 193, 1}, {0, 11, 194, 1},
-            {0, 12, 195, 1}, {0, 13, 12, 152}, {31, 13, 83, 1}, {179, 13, 17, 3},
-            {32, 14, 81, 1}, {33, 15, 79, 1}, {15, 16, 15, 1}, {34, 16, 76, 1},
-            {115, 16, 81, 1}, {15, 17, 16, 1}, {35, 17, 74, 1}, {114, 17, 82, 1},
-            {15, 18, 17, 1}, {35, 18, 73, 1}, {113, 18, 83, 1}, {15, 19, 18, 1},
-            {36, 19, 70, 1}, {111, 19, 85, 1}, {15, 20, 19, 1}, {37, 20, 66, 1},
-            {110, 20, 86, 1}, {15, 21, 20, 2}, {38, 21, 62, 1}, {109, 21, 87, 1},
-            {39, 22, 58, 1}, {107, 22, 89, 1}, {15, 23, 21, 1}, {40, 23, 54, 1},
-            {104, 23, 92, 1}, {15, 24, 22, 1}, {101, 24, 95, 1}, {15, 25, 23, 1},
-            {98, 25, 98, 1}, {15, 26, 24, 1}, {95, 26, 101, 1}, {15, 27, 181, 30},
-            {15, 57, 10, 3}, {171, 57, 25, 3}, {15, 60, 181, 27}, {15, 87, 10, 3},
-            {171, 87, 25, 3}, {15, 90, 181, 27}, {15, 117, 10, 3}, {171, 117, 25, 3},
-            {15, 120, 181, 31}, {15, 151, 24, 1}, {95, 151, 101, 1}, {15, 152, 23, 1},
-            {98, 152, 98, 1}, {15, 153, 22, 1}, {101, 153, 95, 1}, {15, 154, 21, 1},
-            {40, 154, 54, 1}, {104, 154, 92, 1}, {15, 155, 20, 2}, {39, 155, 58, 1},
-            {107, 155, 89, 1}, {38, 156, 62, 1}, {109, 156, 87, 1}, {15, 157, 19, 1},
-            {37, 157, 66, 1}, {110, 157, 86, 1}, {15, 158, 18, 1}, {36, 158, 70, 1},
-            {111, 158, 85, 1}, {15, 159, 17, 1}, {35, 159, 73, 1}, {113, 159, 83, 1},
-            {15, 160, 16, 1}, {35, 160, 74, 1}, {114, 160, 82, 1}, {15, 161, 15, 1},
-            {34, 161, 76, 1}, {115, 161, 81, 1}, {33, 162, 79, 1}, {179, 162, 17, 3},
-            {32, 163, 81, 1}, {31, 164, 83, 1}, {0, 165, 195, 1}, {0, 166, 194, 1},
-            {0, 167, 193, 1}, {0, 168, 192, 1}, {0, 169, 190, 1}, {0, 170, 189, 1},
-            {0, 171, 188, 1}, {0, 172, 187, 1}, {0, 173, 186, 1}, {0, 174, 184, 1},
-            {0, 175, 183, 1}, {0, 176, 182, 1}, {0, 177, 181, 1},
+            {0, 8, 191, 1}, {0, 9, 192, 1}, {0, 10, 193, 1}, {0, 11, 194, 1},
+            {0, 12, 195, 1}, {0, 13, 196, 1}, {0, 14, 14, 105}, {30, 14, 82, 1},
+            {179, 14, 17, 2}, {31, 15, 79, 1}, {17, 16, 11, 1}, {32, 16, 76, 1},
+            {114, 16, 82, 1}, {16, 17, 14, 1}, {33, 17, 73, 1}, {112, 17, 84, 1},
+            {16, 18, 15, 1}, {34, 18, 71, 1}, {111, 18, 85, 1}, {16, 19, 16, 1},
+            {35, 19, 68, 1}, {109, 19, 87, 1}, {16, 20, 17, 1}, {36, 20, 65, 1},
+            {107, 20, 89, 1}, {16, 21, 18, 1}, {37, 21, 62, 1}, {105, 21, 91, 1},
+            {16, 22, 19, 1}, {38, 22, 59, 1}, {103, 22, 93, 1}, {16, 23, 20, 1},
+            {39, 23, 57, 1}, {102, 23, 94, 1}, {16, 24, 21, 1}, {41, 24, 53, 1},
+            {100, 24, 96, 1}, {16, 25, 22, 1}, {98, 25, 98, 1}, {16, 26, 23, 1},
+            {96, 26, 100, 1}, {16, 27, 180, 31}, {16, 58, 9, 2}, {171, 58, 25, 2},
+            {16, 60, 180, 28}, {16, 88, 9, 2}, {171, 88, 25, 2}, {16, 90, 180, 28},
+            {16, 118, 9, 1}, {171, 118, 25, 2}, {0, 119, 25, 1}, {0, 120, 196, 10},
+            {1, 130, 195, 2}, {2, 132, 194, 1}, {4, 133, 192, 1}, {56, 134, 140, 1},
+            {58, 135, 138, 1}, {59, 136, 137, 1}, {61, 137, 135, 2}, {62, 139, 134, 3},
+            {63, 142, 133, 20}, {63, 162, 13, 2}, {179, 162, 17, 2}, {63, 164, 133, 1},
+            {63, 165, 132, 1}, {63, 166, 131, 1}, {63, 167, 130, 1}, {63, 168, 129, 1},
+            {63, 169, 128, 1}, {63, 170, 127, 1}, {63, 171, 125, 1}, {63, 172, 124, 1},
+            {63, 173, 123, 1}, {64, 174, 121, 1}, {64, 175, 120, 1}, {65, 176, 118, 1},
+            {67, 177, 115, 1},
           });
           static image::Image bed(bed_pixels.data(), 196, 178,
                                     image::IMAGE_TYPE_BINARY, image::TRANSPARENCY_OPAQUE);
@@ -4027,14 +4281,18 @@ script:
               highest = std::max(highest, severity_by_mode[mode]);
               old_highest = std::max(old_highest, mode == color_mode ? previous : severity_by_mode[mode]);
             }
+            const bool brighter_neutral = area.object == id(widget_img_scan_cabin) ||
+                                          area.object == id(widget_img_scan_fuel);
+            const lv_opa_t rest_opacity = highest == 0 && brighter_neutral
+                ? static_cast<lv_opa_t>(112) : opacities[highest];
             if (highest != old_highest) {
               lv_anim_delete(area.object, image_opacity);
               lv_obj_set_style_image_recolor(area.object, colors[highest], LV_PART_MAIN);
-              image_opacity(area.object, opacities[highest]);
+              image_opacity(area.object, rest_opacity);
             }
             if (visible && (focus || (new_warning && (pulse_delay || highest > old_highest)))) {
-              image_opacity(area.object, opacities[highest]);
-              pulse(area.object, image_opacity, opacities[highest] + LV_OPA_30, opacities[highest], 220, pulse_delay);
+              image_opacity(area.object, rest_opacity);
+              pulse(area.object, image_opacity, rest_opacity + LV_OPA_30, rest_opacity, 220, pulse_delay);
             }
             if (visible && new_warning && label) {
               lv_obj_set_style_bg_color(label, color, LV_PART_MAIN);
@@ -4174,6 +4432,7 @@ script:
             id(script_logs).execute(axis + " calibrated to " + value);
           }
           id(tab5_motion_outline)(button, 205);
+          id(script_sound_play).execute(4);
 
   - id: script_confirm_tilt_zero
     mode: restart
@@ -4198,6 +4457,7 @@ script:
     then:
       - lambda: |-
           if (!id(fn_service_allowed)()) return;
+          id(script_sound_play).execute(1);
           id(g_update_alert_dismissed) = true;
           id(g_service_setup) = true;
           id(script_set_service_visible).execute(true);
@@ -4229,6 +4489,9 @@ script:
           else {
             lv_label_set_text_fmt(id(lbl_backlight_value), "%d%%",
                 static_cast<int>(std::lround(id(backlight).remote_values.get_brightness() * 100.0f)));
+            id(script_sound_apply).execute();
+            lv_slider_set_value(id(slider_sound_volume),
+                static_cast<int>(std::lround(id(g_sound_volume) * 100.0f)), LV_ANIM_OFF);
             lv_slider_set_value(id(slider_backlight),
                 std::clamp(static_cast<int>(std::lround(id(backlight).remote_values.get_brightness() * 100.0f)), 10, 100), LV_ANIM_OFF);
           }
@@ -4411,6 +4674,7 @@ script:
           lv_label_set_text(id(lbl_menu_latest_ver), reason.c_str());
           lv_obj_set_style_text_color(id(lbl_menu_latest_ver), lv_color_hex(${tab5_color_status_warm}), LV_PART_MAIN);
           id(script_logs).execute("Update check failed: " + reason);
+          id(script_sound_play).execute(7);
 
   - id: script_set_update_available
     parameters:
@@ -4418,6 +4682,8 @@ script:
       available: bool
     then:
       - lambda: |-
+          if (available && (!id(g_update_available) || latest_ver != id(g_latest_version)) &&
+              id(fn_service_allowed)()) id(script_sound_play).execute(8);
           if (latest_ver != id(g_latest_version)) {
             id(g_update_alert_dismissed) = false;
           }
@@ -4465,6 +4731,7 @@ script:
           }
           id(g_ota_ui_active) = true;
           id(g_updating) = true;
+          id(script_sound_stop).execute();
           id(lvgl_ui).set_paused(false, false);
           auto light = id(backlight).turn_on();
           light.set_brightness(id(g_ota_backlight_was_on)
@@ -4491,6 +4758,7 @@ script:
       - script.stop: script_perform_update
       - lambda: |-
           id(g_updating) = false;
+          id(script_sound_play).execute(7);
           id(script_logs).execute(reason);
           lv_label_set_text(id(lbl_ota_title), "UPDATE FAILED");
           lv_obj_set_style_text_color(id(lbl_ota_title), lv_color_hex(${tab5_color_status_hot}), LV_PART_MAIN);
@@ -4612,7 +4880,7 @@ packages:
     esphome:
       project:
         name: "eigger.esp-colorado-tab5-fallout"
-        version: "261117.4"
+        version: "261117.5"
     http_request:
       timeout: 60s
 

@@ -1,7 +1,7 @@
-# Boot audio hardware for the public Fallout dashboard.
-# The full local dashboard also uses these pins for its UI sound player.
+# Audio hardware and embedded effects for the public Fallout dashboard.
+# Volume, mute, priority and alert playback are controlled by the parent YAML.
 substitutions:
-  ui_sound_base_url: "https://raw.githubusercontent.com/eigger/espcomponents/d2f5ca339482b34fbd1af5b6a04a461da028ebc8/packages/display/colorado/sounds"
+  ui_sound_base_url: "https://raw.githubusercontent.com/eigger/espcomponents/8b917dbfbbba55215f0622c2a156c096812b386d/packages/display/colorado/sounds"
 
 esphome:
   min_version: 2026.10.2
@@ -37,6 +37,9 @@ media_player:
     internal: true
     buffer_size: 32768
     volume_initial: 40%
+    # ES8388 maps 0..100% to -96..0 dB. Use -48..0 dB for the UI range;
+    # otherwise the default 40% is about -58 dB and barely audible.
+    # The media player still passes an exact zero through for silence.
     volume_min: 50%
     announcement_pipeline:
       speaker: tab5_speaker
@@ -46,3 +49,19 @@ media_player:
     files:
       - id: sound_boot
         file: ${ui_sound_base_url}/boot_mechanical_terminal.wav
+      - id: sound_menu_open
+        file: ${ui_sound_base_url}/ui_menu_open_terminal.wav
+      - id: sound_menu_close
+        file: ${ui_sound_base_url}/ui_menu_close_terminal.wav
+      - id: sound_click
+        file: ${ui_sound_base_url}/ui_click_terminal.wav
+      - id: sound_success
+        file: ${ui_sound_base_url}/ui_success_terminal.wav
+      - id: sound_warning
+        file: ${ui_sound_base_url}/ui_warning_terminal.wav
+      - id: sound_danger
+        file: ${ui_sound_base_url}/ui_danger_terminal.wav
+      - id: sound_failure
+        file: ${ui_sound_base_url}/ui_failure_terminal.wav
+      - id: sound_notice
+        file: ${ui_sound_base_url}/ui_notice_terminal.wav
