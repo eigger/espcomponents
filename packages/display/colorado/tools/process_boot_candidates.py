@@ -30,8 +30,8 @@ SOURCES = {
 # source, source start, source duration, tempo, placement, relative gain
 RECIPES = {
     "boot_mechanical_terminal": (3.3, [
-        ("tape", .02, 2.55, 1.15, 0, .85),
-        ("hdd", .12, 3.6, 1.5, .28, .65),
+        ("tape", .02, 2.55, 1, 0, .85),
+        ("hdd", .12, 3.6, 1.2, .28, .65),
     ]),
     "boot_turbine_terminal": (3.6, [
         ("tape", .41, .19, 1, 0, .55),

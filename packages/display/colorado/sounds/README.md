@@ -98,8 +98,8 @@ Run `python tools/generate_connection_sounds.py` to reproduce them.
 Connections are debounced for 750 ms (Wi-Fi/OBD BLE) and 3 seconds (GPS).
 GPS requires a valid position and at least four satellites with data no older
 than 3 seconds; stale UART data therefore also triggers fix loss. Brief GPS loss
-is suppressed. Initial disconnected states are silent. Changes during boot,
-mute or OTA do not replay later. A short queue lets simultaneous changes finish
+is suppressed. Initial disconnected states are silent. Connections acquired during boot wait until the dashboard is revealed.
+Changes during mute or OTA do not replay later. A short queue lets simultaneous changes finish
 without interrupting another effect; obsolete events are cancelled and queued
 notifications expire after 5 seconds. Vehicle warnings retain higher priority.
 

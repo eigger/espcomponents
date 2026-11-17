@@ -2,13 +2,13 @@
   "boot_mechanical_terminal": {
     "duration_s": 3.3,
     "peak_dbfs": -1.01,
-    "rms_dbfs": -22.44,
+    "rms_dbfs": -21.47,
     "layers": [
       [
         "tape",
         0.02,
         2.55,
-        1.15,
+        1,
         0,
         0.85
       ],
@@ -16,7 +16,7 @@
         "hdd",
         0.12,
         3.6,
-        1.5,
+        1.2,
         0.28,
         0.65
       ]
