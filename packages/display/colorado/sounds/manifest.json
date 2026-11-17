@@ -1,65 +1,209 @@
 [
   {
+    "file": "archive/synthesized/boot.wav",
+    "duration_ms": 1100,
+    "peak": 0.666748046875,
+    "bytes": 105644,
+    "sha256": "3ef6e93e9464469a5f0d1b7ee63def690e203080671b75c36775cf3485739590",
+    "selected_boot": false,
+    "license": "Original synthesized project asset"
+  },
+  {
+    "file": "archive/synthesized/boot_engine_synth.wav",
+    "duration_ms": 2400,
+    "peak": 0.3953857421875,
+    "bytes": 230444,
+    "sha256": "fc69329e749e5b8100941fc775d9746f647d0b575bf6a009c5009174802d8ef1",
+    "selected_boot": false,
+    "license": "Original synthesized project asset"
+  },
+  {
+    "file": "archive/synthesized/boot_terminal_synth.wav",
+    "duration_ms": 1800,
+    "peak": 0.8018798828125,
+    "bytes": 172844,
+    "sha256": "184b2e70fc231346f0a71cf31c3be3a7933d2f640e8122e281ada7f8da1a025f",
+    "selected_boot": false,
+    "license": "Original synthesized project asset"
+  },
+  {
+    "file": "archive/synthesized/click.wav",
+    "duration_ms": 90,
+    "peak": 0.6370849609375,
+    "bytes": 8684,
+    "sha256": "cddaf8d8fcd4c7d3223a25e3882f01705591b7f185cd7e4aa761f8a515bfcdad",
+    "selected_boot": false,
+    "license": "Original synthesized project asset"
+  },
+  {
+    "file": "archive/synthesized/danger.wav",
+    "duration_ms": 920,
+    "peak": 0.739105224609375,
+    "bytes": 88364,
+    "sha256": "5fb88bc87fd6a6b24e82ac2451a2627e0fc12e3cea3ac48c08f982850a2de486",
+    "selected_boot": false,
+    "license": "Original synthesized project asset"
+  },
+  {
+    "file": "archive/synthesized/failure.wav",
+    "duration_ms": 550,
+    "peak": 0.61627197265625,
+    "bytes": 52844,
+    "sha256": "72443a3a3d4382f4ed387c5f66b956b65b6f575dd3c05edd038e1c3740ee8549",
+    "selected_boot": false,
+    "license": "Original synthesized project asset"
+  },
+  {
+    "file": "archive/synthesized/menu_close.wav",
+    "duration_ms": 220,
+    "peak": 0.58477783203125,
+    "bytes": 21164,
+    "sha256": "0aa1649b62238b5d9d5814eba9bd670b719bfbd94206a43966bb57e5d9c142d7",
+    "selected_boot": false,
+    "license": "Original synthesized project asset"
+  },
+  {
+    "file": "archive/synthesized/menu_open.wav",
+    "duration_ms": 220,
+    "peak": 0.613555908203125,
+    "bytes": 21164,
+    "sha256": "27769fbf04f9d25d7e52eb8ed02e1dc2213986a4f539972fb64fcbefb82b72a9",
+    "selected_boot": false,
+    "license": "Original synthesized project asset"
+  },
+  {
+    "file": "archive/synthesized/notice.wav",
+    "duration_ms": 400,
+    "peak": 0.814178466796875,
+    "bytes": 38444,
+    "sha256": "9649f2bcc7e98a9cafeff5ec4ee168384b951d86cf12eee50cfe3dc81f0be3d5",
+    "selected_boot": false,
+    "license": "Original synthesized project asset"
+  },
+  {
+    "file": "archive/synthesized/success.wav",
+    "duration_ms": 520,
+    "peak": 0.75531005859375,
+    "bytes": 49964,
+    "sha256": "9e19e45fbde68e3be0eb47d4e20fe3e0f0bc78e8e47be8e1f04ae06304ecc251",
+    "selected_boot": false,
+    "license": "Original synthesized project asset"
+  },
+  {
+    "file": "archive/synthesized/warning.wav",
+    "duration_ms": 720,
+    "peak": 0.7254638671875,
+    "bytes": 69164,
+    "sha256": "e702dcff847f8a67fda92796569a88acd060fc44d6b8546b61772f42f6a4076e",
+    "selected_boot": false,
+    "license": "Original synthesized project asset"
+  },
+  {
     "file": "boot.wav",
     "duration_ms": 1100,
-    "peak": 0.44,
+    "peak": 0.439971923828125,
     "bytes": 105644,
-    "sha256": "9435f26754ac2cd2be4fad37fe07ce84d5e74a2f981191891d84253b34c9bfe6"
+    "sha256": "9435f26754ac2cd2be4fad37fe07ce84d5e74a2f981191891d84253b34c9bfe6",
+    "selected_boot": false,
+    "license": "Original synthesized project asset"
   },
   {
-    "file": "menu_open.wav",
-    "duration_ms": 220,
-    "peak": 0.24,
-    "bytes": 21164,
-    "sha256": "167a675a19bd17dc9160191c73db5410bce6c94fa9fda621c5fa1a24fec4eb6b"
+    "file": "boot_engine_terminal.wav",
+    "duration_ms": 3200,
+    "peak": 0.889984130859375,
+    "bytes": 307244,
+    "sha256": "95613597b660237e0fba8e9de2e427cf7727131c84a391311f064a818a4c97f6",
+    "selected_boot": false,
+    "license": "Pixabay Content License (adaptation)"
   },
   {
-    "file": "menu_close.wav",
-    "duration_ms": 220,
-    "peak": 0.22,
-    "bytes": 21164,
-    "sha256": "8b4e39bad339d4d0b9a793d656d7500be36f6bf65986adca668490fc39669a4a"
+    "file": "boot_mechanical_terminal.wav",
+    "duration_ms": 3300,
+    "peak": 0.889984130859375,
+    "bytes": 316844,
+    "sha256": "5dcc761ef79116e76dbb24c2a03a581b50a7a5282c1f1786272a68d972e2a3d0",
+    "selected_boot": true,
+    "license": "Pixabay Content License (adaptation)"
+  },
+  {
+    "file": "boot_turbine_terminal.wav",
+    "duration_ms": 3600,
+    "peak": 0.57281494140625,
+    "bytes": 345644,
+    "sha256": "41ad0f7c89af909d97d7045df3a1870a4d40020ab8dfd09342c4fddcb5b41a24",
+    "selected_boot": false,
+    "license": "Pixabay Content License (adaptation)"
   },
   {
     "file": "click.wav",
     "duration_ms": 90,
-    "peak": 0.16000000000000003,
+    "peak": 0.160003662109375,
     "bytes": 8684,
-    "sha256": "a029fa30f5f28f9d99549b686db652662f11b679203b69c186e0c0ff8006d0a9"
-  },
-  {
-    "file": "success.wav",
-    "duration_ms": 520,
-    "peak": 0.36,
-    "bytes": 49964,
-    "sha256": "adb5d61e480c89a170f5f33e56cfcc5a74d9ceb6ce93e279e0983ee67584ac82"
-  },
-  {
-    "file": "warning.wav",
-    "duration_ms": 720,
-    "peak": 0.52,
-    "bytes": 69164,
-    "sha256": "4eb3b6474062ca7604a48b69b87915012d49077d10ac935e64ebea9c49839703"
+    "sha256": "a029fa30f5f28f9d99549b686db652662f11b679203b69c186e0c0ff8006d0a9",
+    "selected_boot": false,
+    "license": "Original synthesized project asset"
   },
   {
     "file": "danger.wav",
     "duration_ms": 920,
-    "peak": 0.68,
+    "peak": 0.67999267578125,
     "bytes": 88364,
-    "sha256": "65c25d78b96570cbd70c620ed8c7407e528f5af3a6885d5ee00d4673312c4f8b"
+    "sha256": "65c25d78b96570cbd70c620ed8c7407e528f5af3a6885d5ee00d4673312c4f8b",
+    "selected_boot": false,
+    "license": "Original synthesized project asset"
   },
   {
     "file": "failure.wav",
     "duration_ms": 550,
-    "peak": 0.42,
+    "peak": 0.41998291015625,
     "bytes": 52844,
-    "sha256": "abb4d35f622e5f8cb292986c56742c27e3deb04fd9893762db4e91332ea5ffbc"
+    "sha256": "abb4d35f622e5f8cb292986c56742c27e3deb04fd9893762db4e91332ea5ffbc",
+    "selected_boot": false,
+    "license": "Original synthesized project asset"
+  },
+  {
+    "file": "menu_close.wav",
+    "duration_ms": 220,
+    "peak": 0.220001220703125,
+    "bytes": 21164,
+    "sha256": "8b4e39bad339d4d0b9a793d656d7500be36f6bf65986adca668490fc39669a4a",
+    "selected_boot": false,
+    "license": "Original synthesized project asset"
+  },
+  {
+    "file": "menu_open.wav",
+    "duration_ms": 220,
+    "peak": 0.239990234375,
+    "bytes": 21164,
+    "sha256": "167a675a19bd17dc9160191c73db5410bce6c94fa9fda621c5fa1a24fec4eb6b",
+    "selected_boot": false,
+    "license": "Original synthesized project asset"
   },
   {
     "file": "notice.wav",
     "duration_ms": 400,
-    "peak": 0.3,
+    "peak": 0.29998779296875,
     "bytes": 38444,
-    "sha256": "2a4f6264566945f141058f1d22441665972a586d309414a8c8974f2beeea1767"
+    "sha256": "2a4f6264566945f141058f1d22441665972a586d309414a8c8974f2beeea1767",
+    "selected_boot": false,
+    "license": "Original synthesized project asset"
+  },
+  {
+    "file": "success.wav",
+    "duration_ms": 520,
+    "peak": 0.3599853515625,
+    "bytes": 49964,
+    "sha256": "adb5d61e480c89a170f5f33e56cfcc5a74d9ceb6ce93e279e0983ee67584ac82",
+    "selected_boot": false,
+    "license": "Original synthesized project asset"
+  },
+  {
+    "file": "warning.wav",
+    "duration_ms": 720,
+    "peak": 0.519989013671875,
+    "bytes": 69164,
+    "sha256": "4eb3b6474062ca7604a48b69b87915012d49077d10ac935e64ebea9c49839703",
+    "selected_boot": false,
+    "license": "Original synthesized project asset"
   }
 ]

@@ -1,0 +1,87 @@
+{
+  "boot_mechanical_terminal": {
+    "duration_s": 3.3,
+    "peak_dbfs": -1.01,
+    "rms_dbfs": -22.44,
+    "layers": [
+      [
+        "tape",
+        0.02,
+        2.55,
+        1.15,
+        0,
+        0.85
+      ],
+      [
+        "hdd",
+        0.12,
+        3.6,
+        1.5,
+        0.28,
+        0.65
+      ]
+    ]
+  },
+  "boot_turbine_terminal": {
+    "duration_s": 3.6,
+    "peak_dbfs": -4.84,
+    "rms_dbfs": -17.08,
+    "layers": [
+      [
+        "tape",
+        0.41,
+        0.19,
+        1,
+        0,
+        0.55
+      ],
+      [
+        "turbine",
+        0.1,
+        9.0,
+        3,
+        0.08,
+        0.85
+      ],
+      [
+        "eightbit",
+        0.12,
+        0.62,
+        1,
+        2.87,
+        0.5
+      ]
+    ]
+  },
+  "boot_engine_terminal": {
+    "duration_s": 3.2,
+    "peak_dbfs": -1.01,
+    "rms_dbfs": -17.15,
+    "layers": [
+      [
+        "engine",
+        2.9,
+        2.9,
+        1,
+        0.02,
+        1
+      ],
+      [
+        "tape",
+        0.41,
+        0.19,
+        1,
+        0,
+        0.25
+      ],
+      [
+        "eightbit",
+        0.12,
+        0.43,
+        1,
+        2.65,
+        0.32
+      ]
+    ]
+  }
+}
