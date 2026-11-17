@@ -1,0 +1,48 @@
+# Boot audio hardware for the public Fallout dashboard.
+# The full local dashboard also uses these pins for its UI sound player.
+substitutions:
+  ui_sound_base_url: "https://raw.githubusercontent.com/eigger/espcomponents/d2f5ca339482b34fbd1af5b6a04a461da028ebc8/packages/display/colorado/sounds"
+
+esphome:
+  min_version: 2026.10.2
+
+i2s_audio:
+  - id: tab5_audio_bus
+    i2s_lrclk_pin: GPIO29
+    i2s_bclk_pin: GPIO27
+    i2s_mclk_pin: GPIO30
+
+audio_dac:
+  - platform: es8388
+    id: tab5_audio_dac
+    i2c_id: bsp_bus
+    address: 0x10
+
+speaker:
+  - platform: i2s_audio
+    id: tab5_speaker
+    i2s_audio_id: tab5_audio_bus
+    i2s_dout_pin: GPIO26
+    audio_dac: tab5_audio_dac
+    dac_type: external
+    channel: mono
+    sample_rate: 48000
+    bits_per_sample: 16bit
+    buffer_duration: 100ms
+    timeout: never
+
+media_player:
+  - platform: speaker
+    id: ui_sound_player
+    internal: true
+    buffer_size: 32768
+    volume_initial: 40%
+    volume_min: 50%
+    announcement_pipeline:
+      speaker: tab5_speaker
+      format: WAV
+      sample_rate: 48000
+      num_channels: 1
+    files:
+      - id: sound_boot
+        file: ${ui_sound_base_url}/boot_mechanical_terminal.wav

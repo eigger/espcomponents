@@ -100,10 +100,20 @@ esphome:
   # for the reusable terminal widget styles. ESPHome warns on valid overrides.
   merge_warnings: false
   on_boot:
-    - then:
+    - priority: -100
+      then:
         - script.execute:
             id: script_logs
             log: *version
+        - lambda: |-
+            if (!id(tab5_audio_dac).set_dac_output(es8388::DAC_OUTPUT_LINE1)) {
+              ESP_LOGE("ui_sound", "Failed to enable ES8388 LINE1 speaker output");
+            }
+            auto call = id(ui_sound_player).make_call();
+            call.set_volume(0.4f);
+            call.set_command(media_player::MEDIA_PLAYER_COMMAND_UNMUTE);
+            call.perform();
+        - switch.turn_on: speaker_enable
         - light.turn_on:
             id: backlight
             brightness: 40%
@@ -132,14 +142,18 @@ esphome:
         - delay: 200ms
         - lvgl.widget.hide:
             id: obj_splash
-        - lambda: id(tab5_motion_start)();
+        - lambda: |-
+            id(tab5_motion_start)();
+            id(ui_sound_player).play_file(id(sound_boot), true, false);
 
-# PSRAM execution caused a boot failure on this device; keep it disabled.
-# Normal PSRAM use and the other hardware settings still come from tab5_common.
+# Required for this device: enable both PSRAM execution and hosted buffers in PSRAM.
 esp32:
   framework:
     advanced:
-      execute_from_psram: false
+      execute_from_psram: true
+
+esp32_hosted:
+  use_psram: true
 
 time:
   - platform: sntp
@@ -4581,6 +4595,11 @@ ota:
 
 
 packages:
+  tab5_audio:
+    url: https://github.com/eigger/espcomponents.git
+    file: packages/display/colorado/colorado-tab5-audio.yaml
+    ref: master
+    refresh: 0s
   tab5_common:
     url: https://github.com/eigger/espcomponents.git
     file: packages/display/tab5_common.yaml
@@ -4593,7 +4612,7 @@ packages:
     esphome:
       project:
         name: "eigger.esp-colorado-tab5-fallout"
-        version: "261116.1"
+        version: "261117.4"
     http_request:
       timeout: 60s
 
