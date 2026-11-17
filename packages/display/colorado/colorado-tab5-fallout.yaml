@@ -3149,10 +3149,10 @@ lvgl:
                           - line: { <<: *setup_rule }
                     - obj:
                         <<: *setup_cell
-                        x: 632
-                        y: 156
+                        x: 0
+                        y: 312
                         widgets:
-                          - label: { <<: *setup_kicker, text: "04 / FIRMWARE" }
+                          - label: { <<: *setup_kicker, text: "05 / FIRMWARE" }
                           - label: { <<: &setup_version_caption { <<: *setup_note, y: 28 }, text: "현재 버전" }
                           - label: { <<: &menu_version { <<: *setup_version_caption, align: top_right, width: 360, text_align: RIGHT, long_mode: DOT, text_color: "${tab5_color_text_secondary}" }, id: lbl_menu_curr_ver, text: *version }
                           - label: { <<: *setup_version_caption, y: 58, text: "업데이트" }
@@ -3174,10 +3174,10 @@ lvgl:
                           - line: { <<: *setup_rule }
                     - obj:
                         <<: *setup_cell
-                        x: 0
+                        x: 632
                         y: 312
                         widgets:
-                          - label: { <<: *setup_kicker, text: "05 / SYSTEM" }
+                          - label: { <<: *setup_kicker, text: "06 / SYSTEM" }
                           - label: { <<: *setup_heading, text: "시스템 재시작" }
                           - label: { <<: *setup_note, y: 60, text: "CONFIRM BEFORE RESTART" }
                           - button:
@@ -3196,9 +3196,9 @@ lvgl:
                     - obj:
                         <<: *setup_cell
                         x: 632
-                        y: 312
+                        y: 156
                         widgets:
-                          - label: { <<: *setup_kicker, text: "06 / SOUND CONTROL" }
+                          - label: { <<: *setup_kicker, text: "04 / SOUND CONTROL" }
                           - label: { <<: *setup_heading, text: "사운드 설정" }
                           - label: { <<: *setup_note, id: lbl_sound_status, y: 60, text: "ALL SOUNDS / ENABLED" }
                           - button:
@@ -4880,7 +4880,7 @@ packages:
     esphome:
       project:
         name: "eigger.esp-colorado-tab5-fallout"
-        version: "261117.5"
+        version: "261117.6"
     http_request:
       timeout: 60s
 
