@@ -1,0 +1,58 @@
+{
+  "link_wifi_connected.wav": {
+    "duration_ms": 460,
+    "pulse_positions_s": [
+      0,
+      0.18
+    ],
+    "source": "ui_notice_terminal.wav",
+    "license": "Pixabay Content License (adaptation; see ui_processing.json)"
+  },
+  "link_wifi_disconnected.wav": {
+    "duration_ms": 460,
+    "pulse_positions_s": [
+      0,
+      0.18
+    ],
+    "source": "ui_failure_terminal.wav",
+    "license": "Pixabay Content License (adaptation; see ui_processing.json)"
+  },
+  "link_bluetooth_connected.wav": {
+    "duration_ms": 380,
+    "pulse_positions_s": [
+      0,
+      0.1
+    ],
+    "source": "ui_notice_terminal.wav",
+    "license": "Pixabay Content License (adaptation; see ui_processing.json)"
+  },
+  "link_bluetooth_disconnected.wav": {
+    "duration_ms": 380,
+    "pulse_positions_s": [
+      0,
+      0.1
+    ],
+    "source": "ui_failure_terminal.wav",
+    "license": "Pixabay Content License (adaptation; see ui_processing.json)"
+  },
+  "link_gps_connected.wav": {
+    "duration_ms": 600,
+    "pulse_positions_s": [
+      0,
+      0.17,
+      0.34
+    ],
+    "source": "ui_notice_terminal.wav",
+    "license": "Pixabay Content License (adaptation; see ui_processing.json)"
+  },
+  "link_gps_disconnected.wav": {
+    "duration_ms": 600,
+    "pulse_positions_s": [
+      0,
+      0.17,
+      0.34
+    ],
+    "source": "ui_failure_terminal.wav",
+    "license": "Pixabay Content License (adaptation; see ui_processing.json)"
+  }
+}

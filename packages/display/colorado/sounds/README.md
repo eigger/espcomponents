@@ -84,3 +84,26 @@ library. The two standalone archived boot sketches are retained WAV renders.
 
 When selecting a different boot file, also update the dashboard's cue 0 duration
 to the WAV duration in milliseconds so another UI cue cannot cut it short.
+
+## Connection notifications
+
+Wi-Fi, OBD BLE and GPS have distinct connected/disconnected pairs:
+`link_wifi_connected.wav` / `link_wifi_disconnected.wav` (460 ms),
+`link_bluetooth_connected.wav` / `link_bluetooth_disconnected.wav` (380 ms), and
+`link_gps_connected.wav` / `link_gps_disconnected.wav` (600 ms).
+These are rhythmic/pitched adaptations of the approved notice/failure composites;
+see `connection_processing.json` and `ui_processing.json` for provenance.
+Run `python tools/generate_connection_sounds.py` to reproduce them.
+
+Connections are debounced for 750 ms (Wi-Fi/OBD BLE) and 3 seconds (GPS).
+GPS requires a valid position and at least four satellites with data no older
+than 3 seconds; stale UART data therefore also triggers fix loss. Brief GPS loss
+is suppressed. Initial disconnected states are silent. Changes during boot,
+mute or OTA do not replay later. A short queue lets simultaneous changes finish
+without interrupting another effect; obsolete events are cancelled and queued
+notifications expire after 5 seconds. Vehicle warnings retain higher priority.
+
+The selected boot cue starts with the splash, before ordinary sound events are
+enabled. The visual sequence waits at most one second for audio startup and then
+runs for the boot WAV's 3300 ms duration. Normal sounds are enabled only after
+the dashboard is revealed. The visual sequence continues when sound is muted.

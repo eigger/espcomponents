@@ -162,6 +162,60 @@
     "license": "Original synthesized project asset"
   },
   {
+    "file": "link_bluetooth_connected.wav",
+    "duration_ms": 380,
+    "peak": 0.54205322265625,
+    "bytes": 36524,
+    "sha256": "ede854650b023f0c522105f485acbbdad38b93fafd418584faad302cb1e7d59d",
+    "selected_boot": false,
+    "license": "Pixabay Content License (adaptation)"
+  },
+  {
+    "file": "link_bluetooth_disconnected.wav",
+    "duration_ms": 380,
+    "peak": 0.511383056640625,
+    "bytes": 36524,
+    "sha256": "93ee0a71cb2911fa4dce96cde0ecc7159d7c4ba54203f859eb2fa3ff93f28884",
+    "selected_boot": false,
+    "license": "Pixabay Content License (adaptation)"
+  },
+  {
+    "file": "link_gps_connected.wav",
+    "duration_ms": 600,
+    "peak": 0.572052001953125,
+    "bytes": 57644,
+    "sha256": "164e35624cd6a7abc903bad9a841f8bcf6501fe1439b985c755f3270faf870b6",
+    "selected_boot": false,
+    "license": "Pixabay Content License (adaptation)"
+  },
+  {
+    "file": "link_gps_disconnected.wav",
+    "duration_ms": 600,
+    "peak": 0.470794677734375,
+    "bytes": 57644,
+    "sha256": "0d21a974019975e111c430b793f0645999485f685129efbde52d6e29d81ee144",
+    "selected_boot": false,
+    "license": "Pixabay Content License (adaptation)"
+  },
+  {
+    "file": "link_wifi_connected.wav",
+    "duration_ms": 460,
+    "peak": 0.594207763671875,
+    "bytes": 44204,
+    "sha256": "73038d407d185fd60f7533baec150ef21fd4494587e39abbc0a6f2bd6ba1665d",
+    "selected_boot": false,
+    "license": "Pixabay Content License (adaptation)"
+  },
+  {
+    "file": "link_wifi_disconnected.wav",
+    "duration_ms": 460,
+    "peak": 0.506744384765625,
+    "bytes": 44204,
+    "sha256": "c5d50d19d88aa35e490aed2aaf8a5277160d21f036ec3b54d58c1dfc166b9822",
+    "selected_boot": false,
+    "license": "Pixabay Content License (adaptation)"
+  },
+  {
     "file": "menu_close.wav",
     "duration_ms": 220,
     "peak": 0.220001220703125,
