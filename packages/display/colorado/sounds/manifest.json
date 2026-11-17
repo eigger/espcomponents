@@ -1,0 +1,65 @@
+[
+  {
+    "file": "boot.wav",
+    "duration_ms": 1100,
+    "peak": 0.44,
+    "bytes": 105644,
+    "sha256": "9435f26754ac2cd2be4fad37fe07ce84d5e74a2f981191891d84253b34c9bfe6"
+  },
+  {
+    "file": "menu_open.wav",
+    "duration_ms": 220,
+    "peak": 0.24,
+    "bytes": 21164,
+    "sha256": "167a675a19bd17dc9160191c73db5410bce6c94fa9fda621c5fa1a24fec4eb6b"
+  },
+  {
+    "file": "menu_close.wav",
+    "duration_ms": 220,
+    "peak": 0.22,
+    "bytes": 21164,
+    "sha256": "8b4e39bad339d4d0b9a793d656d7500be36f6bf65986adca668490fc39669a4a"
+  },
+  {
+    "file": "click.wav",
+    "duration_ms": 90,
+    "peak": 0.16000000000000003,
+    "bytes": 8684,
+    "sha256": "a029fa30f5f28f9d99549b686db652662f11b679203b69c186e0c0ff8006d0a9"
+  },
+  {
+    "file": "success.wav",
+    "duration_ms": 520,
+    "peak": 0.36,
+    "bytes": 49964,
+    "sha256": "adb5d61e480c89a170f5f33e56cfcc5a74d9ceb6ce93e279e0983ee67584ac82"
+  },
+  {
+    "file": "warning.wav",
+    "duration_ms": 720,
+    "peak": 0.52,
+    "bytes": 69164,
+    "sha256": "4eb3b6474062ca7604a48b69b87915012d49077d10ac935e64ebea9c49839703"
+  },
+  {
+    "file": "danger.wav",
+    "duration_ms": 920,
+    "peak": 0.68,
+    "bytes": 88364,
+    "sha256": "65c25d78b96570cbd70c620ed8c7407e528f5af3a6885d5ee00d4673312c4f8b"
+  },
+  {
+    "file": "failure.wav",
+    "duration_ms": 550,
+    "peak": 0.42,
+    "bytes": 52844,
+    "sha256": "abb4d35f622e5f8cb292986c56742c27e3deb04fd9893762db4e91332ea5ffbc"
+  },
+  {
+    "file": "notice.wav",
+    "duration_ms": 400,
+    "peak": 0.3,
+    "bytes": 38444,
+    "sha256": "2a4f6264566945f141058f1d22441665972a586d309414a8c8974f2beeea1767"
+  }
+]
