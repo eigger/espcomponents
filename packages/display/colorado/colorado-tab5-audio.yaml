@@ -1,7 +1,7 @@
 # Audio hardware and embedded effects for the public Fallout dashboard.
 # Volume, mute, priority and alert playback are controlled by the parent YAML.
 substitutions:
-  ui_sound_base_url: "https://raw.githubusercontent.com/eigger/espcomponents/8b917dbfbbba55215f0622c2a156c096812b386d/packages/display/colorado/sounds"
+  ui_sound_base_url: "https://raw.githubusercontent.com/eigger/espcomponents/4d5388c1b858406db87b1cf697cda6eef154a7f7/packages/display/colorado/sounds"
 
 esphome:
   min_version: 2026.10.2
@@ -65,3 +65,15 @@ media_player:
         file: ${ui_sound_base_url}/ui_failure_terminal.wav
       - id: sound_notice
         file: ${ui_sound_base_url}/ui_notice_terminal.wav
+      - id: sound_wifi_connected
+        file: ${ui_sound_base_url}/link_wifi_connected.wav
+      - id: sound_wifi_disconnected
+        file: ${ui_sound_base_url}/link_wifi_disconnected.wav
+      - id: sound_bluetooth_connected
+        file: ${ui_sound_base_url}/link_bluetooth_connected.wav
+      - id: sound_bluetooth_disconnected
+        file: ${ui_sound_base_url}/link_bluetooth_disconnected.wav
+      - id: sound_gps_connected
+        file: ${ui_sound_base_url}/link_gps_connected.wav
+      - id: sound_gps_disconnected
+        file: ${ui_sound_base_url}/link_gps_disconnected.wav

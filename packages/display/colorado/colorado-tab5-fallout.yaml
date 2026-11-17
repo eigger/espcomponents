@@ -6,7 +6,7 @@ substitutions:
   tab5_panel: ili9881c  # ili9881c, st7123, or st7121; match the rear label.
   number: "00가 0000"
   splash_title: "COLORADO"
-  ui_sound_base_url: "https://raw.githubusercontent.com/eigger/espcomponents/8b917dbfbbba55215f0622c2a156c096812b386d/packages/display/colorado/sounds"
+  ui_sound_base_url: "https://raw.githubusercontent.com/eigger/espcomponents/4d5388c1b858406db87b1cf697cda6eef154a7f7/packages/display/colorado/sounds"
   tab5_motion_emphasis: 1
   # Local phosphor palette. The shared Tab5 package retains its default colors.
   tab5_color_background: 0x07100B
@@ -118,6 +118,16 @@ esphome:
         - light.turn_on:
             id: backlight
             brightness: 40%
+        # Cue 0 may play before normal UI/connection sounds are enabled.
+        - script.execute: { id: script_sound_play, cue: 0 }
+        # Align the visual sequence with actual player startup, or continue muted.
+        - wait_until:
+            condition:
+              lambda: |-
+                return id(g_sound_duration) == 0 ||
+                    id(ui_sound_player).state == media_player::MEDIA_PLAYER_STATE_ANNOUNCING ||
+                    id(ui_sound_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING;
+            timeout: 1s
         - lvgl.animation.start: anim_crt_beam
         - delay: 170ms
         - lvgl.animation.start:
@@ -130,7 +140,8 @@ esphome:
         - lambda: id(script_splash_stage).execute(76, id(obj_splash_stage_dash));
         - delay: 650ms
         - lambda: id(script_splash_stage).execute(100, id(obj_splash_stage_ready));
-        - delay: 520ms
+        # Total splash animation time is 3300ms, matching the selected boot WAV.
+        - delay: 770ms
         - script.execute: script_init_scan_images
         - script.execute:
             id: script_dashboard_watchdog
@@ -146,7 +157,6 @@ esphome:
         - lambda: |-
             id(tab5_motion_start)();
             id(g_sound_ready) = true;
-            id(script_sound_play).execute(0);
 
 # Required for this device: enable both PSRAM execution and hosted buffers in PSRAM.
 esp32:
@@ -266,6 +276,7 @@ ws_bridge:
 #   reboot_timeout: 0s
 
 wifi:
+  id: tab5_wifi
   networks:
     - ssid: !secret colorado_wifi_ssid
       password: !secret colorado_wifi_password
@@ -378,9 +389,6 @@ gps:
     name: "GPS Satellites"
     id: id_gps_satellites
     internal: true
-    on_value:
-      then:
-        - lambda: id(tab5_motion_visible)(id(lbl_satellite), x >= 4, 165);
   hdop:
     name: "GPS HDOP"
     id: id_gps_hdop
@@ -410,6 +418,45 @@ globals:
   - id: g_sound_popup_key
     type: int
     initial_value: '-1'
+  # Per-link debounce and short, state-aware notification queue.
+  # Links: 0 = Wi-Fi, 1 = OBD BLE, 2 = fresh GPS position fix.
+  - id: fn_sound_link
+    type: "int (*)(unsigned, bool, uint32_t, bool, bool)"
+    initial_value: |-
+      +[](unsigned link, bool connected, uint32_t now, bool enabled, bool can_play) -> int {
+        struct Link {
+          int stable = -1;
+          int candidate = -1;
+          int pending = -1;
+          uint32_t changed = 0;
+          uint32_t queued = 0;
+        };
+        static std::array<Link, 3> links{};
+        if (link >= links.size()) return -1;
+        auto &state = links[link];
+        const int observed = connected ? 1 : 0;
+        if (state.candidate != observed) {
+          state.candidate = observed;
+          state.changed = now;
+          state.pending = -1;  // Never announce a connection that has already changed.
+        }
+        const uint32_t debounce = link == 2 ? 3000 : 750;
+        if (state.stable != observed && now - state.changed >= debounce) {
+          const int previous = state.stable;
+          state.stable = observed;
+          if (enabled && (previous >= 0 || connected)) {
+            state.pending = observed;
+            state.queued = now;
+          }
+        }
+        // Muting/OTA updates the baseline without replaying old events later.
+        if (!enabled || (state.pending >= 0 && now - state.queued > 5000))
+          state.pending = -1;
+        if (!can_play || state.pending < 0) return -1;
+        const int cue = 9 + static_cast<int>(link) * 2 + (state.pending ? 0 : 1);
+        state.pending = -1;
+        return cue;
+      }
   # Captureless function pointer keeps alert state local without an external header.
   - id: fn_sound_alert
     type: "int (*)(const char *, unsigned, uint8_t, uint32_t)"
@@ -1426,6 +1473,9 @@ sensor:
         - script.execute: script_render_pose
 
 interval:
+  - interval: 250ms
+    then:
+      - script.execute: script_sound_links
   # ── 경고 팝업 제어 (1초 주기) ──
   - interval: 1s
     then:
@@ -3460,15 +3510,38 @@ script:
               ? ${tab5_color_alert_warning} : ${tab5_color_button_bg}), LV_PART_MAIN);
           lv_obj_set_style_bg_opa(id(btn_sound_mute), id(g_sound_muted) ? LV_OPA_COVER : LV_OPA_TRANSP, LV_PART_MAIN);
 
+  - id: script_sound_links
+    then:
+      - lambda: |-
+          const uint32_t now = esphome::millis();
+          auto &gps = id(id_gps).get_tiny_gps();
+          const bool fix = gps.location.isValid() && gps.location.age() <= 3000 &&
+              gps.satellites.isValid() && gps.satellites.age() <= 3000 &&
+              gps.satellites.value() >= 4;
+          id(tab5_motion_visible)(id(lbl_satellite), fix, fix ? 165 : 120);
+          const bool connected[] = {id(tab5_wifi).is_connected(), id(obd_client).connected(), fix};
+          const bool enabled = !id(g_sound_muted) &&
+              id(g_sound_volume) > 0.0f && !id(g_updating);
+          for (unsigned link = 0; link < 3; ++link) {
+            const bool playing = id(ui_sound_player).state == media_player::MEDIA_PLAYER_STATE_ANNOUNCING ||
+                id(ui_sound_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING;
+            const bool busy = playing || (id(g_sound_duration) != 0 &&
+                now - id(g_sound_started) < id(g_sound_duration) + 120);
+            const int cue = id(fn_sound_link)(link, connected[link], now, enabled,
+                                            id(g_sound_ready) && !busy);
+            if (cue >= 0) id(script_sound_play).execute(cue);
+          }
+
   - id: script_sound_play
     parameters:
       cue: int
     then:
       - lambda: |-
-          if (!id(g_sound_ready) || id(g_sound_muted) || id(g_sound_volume) <= 0.0f ||
-              id(g_updating) || cue < 0 || cue > 8) return;
-          constexpr uint32_t durations[] = {3300, 650, 600, 180, 650, 750, 1350, 420, 550};
-          constexpr int priorities[] = {1, 1, 1, 1, 2, 3, 4, 2, 2};
+          if ((!id(g_sound_ready) && cue != 0) || id(g_sound_muted) || id(g_sound_volume) <= 0.0f ||
+              id(g_updating) || cue < 0 || cue > 14) return;
+          constexpr uint32_t durations[] = {3300, 650, 600, 180, 650, 750, 1350, 420, 550,
+                                          460, 460, 380, 380, 600, 600};
+          constexpr int priorities[] = {1, 1, 1, 1, 2, 3, 4, 2, 2, 1, 1, 1, 1, 1, 1};
           const uint32_t now = esphome::millis();
           const uint32_t elapsed = now - id(g_sound_started);
           const bool playing = id(ui_sound_player).state == media_player::MEDIA_PLAYER_STATE_ANNOUNCING ||
@@ -3491,6 +3564,12 @@ script:
             case 6: id(ui_sound_player).play_file(id(sound_danger), true, false); break;
             case 7: id(ui_sound_player).play_file(id(sound_failure), true, false); break;
             case 8: id(ui_sound_player).play_file(id(sound_notice), true, false); break;
+            case 9: id(ui_sound_player).play_file(id(sound_wifi_connected), true, false); break;
+            case 10: id(ui_sound_player).play_file(id(sound_wifi_disconnected), true, false); break;
+            case 11: id(ui_sound_player).play_file(id(sound_bluetooth_connected), true, false); break;
+            case 12: id(ui_sound_player).play_file(id(sound_bluetooth_disconnected), true, false); break;
+            case 13: id(ui_sound_player).play_file(id(sound_gps_connected), true, false); break;
+            case 14: id(ui_sound_player).play_file(id(sound_gps_disconnected), true, false); break;
           }
           if (cue == 5 || cue == 6) id(fn_sound_alert)("played", 0, cue == 6 ? 2 : 1, now);
 
@@ -4880,7 +4959,7 @@ packages:
     esphome:
       project:
         name: "eigger.esp-colorado-tab5-fallout"
-        version: "261117.6"
+        version: "261117.7"
     http_request:
       timeout: 60s
 
