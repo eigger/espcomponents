@@ -1,8 +1,8 @@
-# UI replacement shortlist
+# Approved UI source selections
 
-Research date: 2026-11-17. These are source links for evaluation, not downloaded
-or republished audio assets. The currently approved change is the mechanical
-terminal boot sound; the other dashboard effects retain their existing files.
+Selected and approved on 2026-11-17. The dashboard now embeds custom composites
+from these sources as `ui_*_terminal.wav`. Original MP3s are not republished.
+See `ui_processing.json` for the actual excerpts, duration and processing.
 
 Prefer short effects from one family so menu, success, and failure cues share
 their timbre. RescopicSound's Modern Interface family is a candidate for the

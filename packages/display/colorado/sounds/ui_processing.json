@@ -1,0 +1,107 @@
+{
+  "ui_menu_open_terminal.wav": {
+    "duration_ms": 650,
+    "source": "menu_open",
+    "source_start_s": 0.07,
+    "source_end_s": 1.25,
+    "tempo": 1.8730158730158728,
+    "pulse_positions_s": [
+      0
+    ],
+    "mechanical_layer": "boot_mechanical_terminal.wav transient",
+    "author": "RescopicSound",
+    "source_url": "https://pixabay.com/sound-effects/film-special-effects-ui-movement-menu-modern-interface-window-open-small-230486/"
+  },
+  "ui_menu_close_terminal.wav": {
+    "duration_ms": 600,
+    "source": "menu_close",
+    "source_start_s": 0.01,
+    "source_end_s": 1.53,
+    "tempo": 2.620689655172414,
+    "pulse_positions_s": [
+      0
+    ],
+    "mechanical_layer": "boot_mechanical_terminal.wav transient",
+    "author": "RescopicSound",
+    "source_url": "https://pixabay.com/sound-effects/film-special-effects-ui-movement-menu-modern-interface-window-close-small-230483/"
+  },
+  "ui_click_terminal.wav": {
+    "duration_ms": 180,
+    "source": "click",
+    "source_start_s": 0.01,
+    "source_end_s": 0.33,
+    "tempo": 2.0,
+    "pulse_positions_s": [
+      0
+    ],
+    "mechanical_layer": "boot_mechanical_terminal.wav transient",
+    "author": "RescopicSound",
+    "source_url": "https://pixabay.com/sound-effects/film-special-effects-ui-click-menu-modern-interface-select-small-01-230473/"
+  },
+  "ui_success_terminal.wav": {
+    "duration_ms": 650,
+    "source": "success",
+    "source_start_s": 0.17,
+    "source_end_s": 0.84,
+    "tempo": 1.0634920634920633,
+    "pulse_positions_s": [
+      0
+    ],
+    "mechanical_layer": "boot_mechanical_terminal.wav transient",
+    "author": "RescopicSound",
+    "source_url": "https://pixabay.com/sound-effects/film-special-effects-ui-alert-menu-modern-interface-confirm-small-230482/"
+  },
+  "ui_warning_terminal.wav": {
+    "duration_ms": 750,
+    "source": "warning",
+    "source_start_s": 0,
+    "source_end_s": 0.8,
+    "tempo": 1.142857142857143,
+    "pulse_positions_s": [
+      0
+    ],
+    "mechanical_layer": "boot_mechanical_terminal.wav transient",
+    "author": "RescopicSound",
+    "source_url": "https://pixabay.com/sound-effects/film-special-effects-ui-alert-alarm-modern-interface-warning-01-230492/"
+  },
+  "ui_danger_terminal.wav": {
+    "duration_ms": 1350,
+    "source": "warning",
+    "source_start_s": 0,
+    "source_end_s": 0.8,
+    "tempo": 1.3333333333333335,
+    "pulse_positions_s": [
+      0,
+      0.68
+    ],
+    "mechanical_layer": "boot_mechanical_terminal.wav transient",
+    "author": "RescopicSound",
+    "source_url": "https://pixabay.com/sound-effects/film-special-effects-ui-alert-alarm-modern-interface-warning-01-230492/"
+  },
+  "ui_failure_terminal.wav": {
+    "duration_ms": 420,
+    "source": "failure",
+    "source_start_s": 0.03,
+    "source_end_s": 0.48,
+    "tempo": 1.125,
+    "pulse_positions_s": [
+      0
+    ],
+    "mechanical_layer": "boot_mechanical_terminal.wav transient",
+    "author": "RescopicSound",
+    "source_url": "https://pixabay.com/sound-effects/film-special-effects-ui-alert-menu-modern-interface-deny-small-230476/"
+  },
+  "ui_notice_terminal.wav": {
+    "duration_ms": 550,
+    "source": "notice",
+    "source_start_s": 0.02,
+    "source_end_s": 0.68,
+    "tempo": 1.2452830188679245,
+    "pulse_positions_s": [
+      0
+    ],
+    "mechanical_layer": "boot_mechanical_terminal.wav transient",
+    "author": "RescopicSound",
+    "source_url": "https://pixabay.com/sound-effects/film-special-effects-ui-alert-menu-modern-interface-pop-up-small-230480/"
+  }
+}

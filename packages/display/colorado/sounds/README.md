@@ -21,7 +21,27 @@ See [BOOT_SOURCES.md](BOOT_SOURCES.md) for authors and license links, and
 [boot_processing.json](boot_processing.json) for excerpts, timing and processing.
 Original downloaded recordings are not included.
 
-## Existing UI sounds
+## Active UI sounds
+
+The active set adapts the approved RescopicSound Modern Interface recordings,
+with trimmed tails, pitch-preserving tempo adjustment, speaker-oriented EQ and
+a quiet mechanical transient from the selected boot composite. Caution uses one
+alarm pulse; danger uses two. See [ui_processing.json](ui_processing.json) for
+source links, authors, excerpts and processing. The applicable license is the
+[Pixabay Content License](https://pixabay.com/service/license-summary/).
+
+| File | Event | Duration |
+| --- | --- | --- |
+| `ui_menu_open_terminal.wav` | Menu open | 650 ms |
+| `ui_menu_close_terminal.wav` | Menu close | 600 ms |
+| `ui_click_terminal.wav` | Button selection | 180 ms |
+| `ui_success_terminal.wav` | Success | 650 ms |
+| `ui_warning_terminal.wav` | Caution: single pulse | 750 ms |
+| `ui_danger_terminal.wav` | Danger: double pulse | 1350 ms |
+| `ui_failure_terminal.wav` | Failed operation | 420 ms |
+| `ui_notice_terminal.wav` | Information | 550 ms |
+
+## Legacy UI sounds
 
 | File | Event | Duration |
 | --- | --- | --- |
@@ -34,9 +54,8 @@ Original downloaded recordings are not included.
 | `failure.wav` | Failed operation | 550 ms |
 | `notice.wav` | Information | 400 ms |
 
-These existing files and the archive are original synthesized sounds. The UI
-defaults above are retained while the [replacement shortlist](UI_CANDIDATES.md)
-is evaluated.
+These legacy files and the archive are original synthesized sounds, preserved
+for older pinned configurations. The new active set is listed above.
 
 ## Archived experiments
 
@@ -55,6 +74,7 @@ From the Colorado directory, run:
 ```sh
 python tools/process_boot_candidates.py /path/to/original-mp3s
 python tools/generate_ui_sounds.py
+python tools/process_ui_sounds.py /path/to/preview-mp3s
 ```
 
 The composite tool expects `tape.mp3`, `hdd.mp3`, `turbine.mp3`, `eightbit.mp3`,

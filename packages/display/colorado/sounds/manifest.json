@@ -198,6 +198,78 @@
     "license": "Original synthesized project asset"
   },
   {
+    "file": "ui_click_terminal.wav",
+    "duration_ms": 180,
+    "peak": 0.889984130859375,
+    "bytes": 17324,
+    "sha256": "86566d6fa17550ca69f6f62c38fa79a22900c0962524df5c28b917be5daad9dd",
+    "selected_boot": false,
+    "license": "Pixabay Content License (adaptation)"
+  },
+  {
+    "file": "ui_danger_terminal.wav",
+    "duration_ms": 1350,
+    "peak": 0.626861572265625,
+    "bytes": 129644,
+    "sha256": "6e7a2ec5acdc0c5d557dcd17b6bcd84d1d9eff9e0c80f24e13a6881aa9c20de2",
+    "selected_boot": false,
+    "license": "Pixabay Content License (adaptation)"
+  },
+  {
+    "file": "ui_failure_terminal.wav",
+    "duration_ms": 420,
+    "peak": 0.572723388671875,
+    "bytes": 40364,
+    "sha256": "7ffdd9cc185997fa8f7e75d7eafde311c4b3ce6c75184b5fae6f7e4752a5f080",
+    "selected_boot": false,
+    "license": "Pixabay Content License (adaptation)"
+  },
+  {
+    "file": "ui_menu_close_terminal.wav",
+    "duration_ms": 600,
+    "peak": 0.688507080078125,
+    "bytes": 57644,
+    "sha256": "1dec506e28219c7a4b4164cfac471860e7a61f59cedddcdee8784c745bcc1fc8",
+    "selected_boot": false,
+    "license": "Pixabay Content License (adaptation)"
+  },
+  {
+    "file": "ui_menu_open_terminal.wav",
+    "duration_ms": 650,
+    "peak": 0.875457763671875,
+    "bytes": 62444,
+    "sha256": "488fe302634869f63f26cc9318308c151d3a3a2d12f34dd6116f5084adce5059",
+    "selected_boot": false,
+    "license": "Pixabay Content License (adaptation)"
+  },
+  {
+    "file": "ui_notice_terminal.wav",
+    "duration_ms": 550,
+    "peak": 0.7425537109375,
+    "bytes": 52844,
+    "sha256": "2a70f52fe8b6d4335af080a7de09a5ee3184594ea31eea4d8808ade59ca09e36",
+    "selected_boot": false,
+    "license": "Pixabay Content License (adaptation)"
+  },
+  {
+    "file": "ui_success_terminal.wav",
+    "duration_ms": 650,
+    "peak": 0.889984130859375,
+    "bytes": 62444,
+    "sha256": "4cdab21f7657ca9e22ee9ef615a3b399954327356ca5bae28f503544c59f4ea0",
+    "selected_boot": false,
+    "license": "Pixabay Content License (adaptation)"
+  },
+  {
+    "file": "ui_warning_terminal.wav",
+    "duration_ms": 750,
+    "peak": 0.62322998046875,
+    "bytes": 72044,
+    "sha256": "ce14adcd9ee82d9751b2f6b7b89b8292631df3709f3bb5f4f3364e62af6709bd",
+    "selected_boot": false,
+    "license": "Pixabay Content License (adaptation)"
+  },
+  {
     "file": "warning.wav",
     "duration_ms": 720,
     "peak": 0.519989013671875,
