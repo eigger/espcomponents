@@ -21,9 +21,27 @@ See [BOOT_SOURCES.md](BOOT_SOURCES.md) for authors and license links, and
 [boot_processing.json](boot_processing.json) for excerpts, timing and processing.
 Original downloaded recordings are not included.
 
-## Active UI sounds
+## Retro warning and danger sounds
 
-The active set adapts the approved RescopicSound Modern Interface recordings,
+| File | Event | Duration |
+| --- | --- | --- |
+| [`ui_warning_retro_chime.wav`](ui_warning_retro_chime.wav) | Caution: single vintage car chime | 750 ms |
+| [`ui_danger_retro_buzzer.wav`](ui_danger_retro_buzzer.wav) | Danger: two short buzzes and one long buzz | 1350 ms |
+
+The caution cue adapts [rgjpb's Ford/GM-style door chime recreation](https://freesound.org/people/rgjpb/sounds/686265/).
+The danger cue uses [scruss's recording of a 1940s Signal Electric R-68 Morse practice relay buzzer](https://freesound.org/people/scruss/sounds/687948/).
+Both sources are [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
+The chime is trimmed with a short fade. The recorded buzzer is slowed to
+quarter speed to bring its high-frequency buzz into the speaker's midrange,
+then cut into three pulses. Both cues are band-limited and level-adjusted.
+
+The terminal warning and danger files below are still available with the same
+durations. The two pairs can be exchanged by changing the filenames in the
+dashboard's `media_player.files`.
+
+## Terminal UI sounds
+
+The terminal set adapts the approved RescopicSound Modern Interface recordings,
 with trimmed tails, pitch-preserving tempo adjustment, speaker-oriented EQ and
 a quiet mechanical transient from the selected boot composite. Caution uses one
 alarm pulse; danger uses two. See [ui_processing.json](ui_processing.json) for
@@ -55,7 +73,7 @@ source links, authors, excerpts and processing. The applicable license is the
 | `notice.wav` | Information | 400 ms |
 
 These legacy files and the archive are original synthesized sounds, preserved
-for older pinned configurations. The new active set is listed above.
+for older pinned configurations. The terminal and retro alternatives are listed above.
 
 ## Archived experiments
 
@@ -64,8 +82,8 @@ UI set plus `boot_engine_synth.wav` and `boot_terminal_synth.wav`. They remain
 available for comparison and are not selected by the dashboard.
 
 `manifest.json` records the format, duration, peak, size and SHA-256 of every WAV.
-Third-party-derived recordings retain their applicable Pixabay terms and are not
-relicensed under the repository's software license.
+Third-party-derived recordings keep the license listed for their source in the
+manifest.
 
 ## Rebuilding
 

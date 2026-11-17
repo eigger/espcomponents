@@ -261,6 +261,15 @@
     "license": "Pixabay Content License (adaptation)"
   },
   {
+    "file": "ui_danger_retro_buzzer.wav",
+    "duration_ms": 1350,
+    "peak": 0.65997314453125,
+    "bytes": 129644,
+    "sha256": "325524a1d97c0ff8d5f65aab70d3238c428632c97d2681907b5d93e75429b7b5",
+    "selected_boot": false,
+    "license": "CC0 1.0 Universal (adaptation)"
+  },
+  {
     "file": "ui_danger_terminal.wav",
     "duration_ms": 1350,
     "peak": 0.626861572265625,
@@ -313,6 +322,15 @@
     "sha256": "4cdab21f7657ca9e22ee9ef615a3b399954327356ca5bae28f503544c59f4ea0",
     "selected_boot": false,
     "license": "Pixabay Content License (adaptation)"
+  },
+  {
+    "file": "ui_warning_retro_chime.wav",
+    "duration_ms": 750,
+    "peak": 0.3699951171875,
+    "bytes": 72044,
+    "sha256": "d6437c9f85214bdc6f75029d8d2fc6033e15b3396642b284254ac686a38a41c7",
+    "selected_boot": false,
+    "license": "CC0 1.0 Universal (adaptation)"
   },
   {
     "file": "ui_warning_terminal.wav",
