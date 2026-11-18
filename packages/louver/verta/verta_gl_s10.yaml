@@ -7,6 +7,7 @@ esphome:
     - id: device_mechanical
       area_id: area_mechanical
       name: "${friendly_name} Mechanical"
+      relation: child
         
 esp32:
   board: esp32doit-devkit-v1
