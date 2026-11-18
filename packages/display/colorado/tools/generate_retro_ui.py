@@ -11,7 +11,8 @@ plus the two published retro alert cues (door chime rgjpb 686265, relay buzzer
 scruss 687948; both CC0). The chime motif ties every cue to the alert voice; the
 recordings supply the varied mechanical/electrical character.
 
-Also writes the alert cues with 120 ms of trailing digital silence.
+Also writes the alert cues with 120 ms of trailing digital silence, and a danger
+alternative that strikes the caution chime twice.
 
 Usage: python tools/generate_retro_ui.py SOUNDS_DIR SOURCES_DIR OUT_DIR
 SOURCES_DIR holds the preview MP3s named as above (switch.mp3, ...).
@@ -150,6 +151,12 @@ cues = {
                              'Relay clack, falling semitone, short relay buzz'),
     'ui_notice_retro.wav': (mix([(0, shift(bell, -5)[: int(FS * 0.32)] * 0.8), (200, shift(bell, -5)[: int(FS * 0.32)] * 0.55)], 520),
                             UI - 1.5, 'Two soft lowered typewriter bells'),
+    # Chime-only replacements: the typewriter bell stood out from the chime voice.
+    'ui_success_retro_chime.wav': (mix([(0, note(+4, 120, 0.55)), (70, note(+7, 120, 0.6)),
+                                        (140, note(+12, 420, 0.75))], 570), UI,
+                                   'Quick rising chime major arpeggio'),
+    'ui_notice_retro_chime.wav': (mix([(0, note(+12, 520, 0.8))], 520), UI - 1.5,
+                                  'One light chime an octave up'),
 }
 # Links. Wi-Fi: radio static; Bluetooth: turn-signal relay tick-tock; GPS: dial tuning sweep.
 # Connected: texture resolves into a rising chime fifth. Disconnected: falling fifth dissolving into it.
@@ -179,6 +186,29 @@ for s, d in (('ui_warning_retro_chime.wav', 'ui_warning_retro_chime_padded.wav')
     y = np.concatenate([x, np.zeros(int(FS * 0.12), np.int16)])
     wavfile.write(OUT / d, fs, y)
     manifest.append({'file': d, 'duration_ms': round(len(y) * 1000 / FS), 'description': f'{s} + 120 ms silence'})
+
+# Danger alternative: the caution chime struck twice, 220 ms apart (the second strike rings
+# over the first one's decay), leveled to the buzzer's active RMS so danger stays louder.
+def active_rms(x):
+    w = np.array([np.sqrt(np.mean(b ** 2)) for b in np.array_split(x, max(1, len(x) // 480))])
+    a = np.flatnonzero(w > w.max() * 0.05)
+    return np.sqrt(np.mean(x[a[0] * 480:(a[-1] + 1) * 480] ** 2))
+
+
+chime = wavfile.read(SOUNDS / 'ui_warning_retro_chime.wav')[1] / 32767.0
+buzz = wavfile.read(SOUNDS / 'ui_danger_retro_buzzer.wav')[1] / 32767.0
+double = np.zeros(int(FS * 0.22) + len(chime))
+for at in (0, int(FS * 0.22)):
+    double[at:at + len(chime)] += chime
+double *= active_rms(buzz) / active_rms(double)
+double *= min(1.0, 0.89 / np.max(np.abs(double)))
+double = np.round(double * 32767).astype(np.int16)
+for name, pad in (('ui_danger_retro_chime_double.wav', 0), ('ui_danger_retro_chime_double_padded.wav', 0.12)):
+    y = np.concatenate([double, np.zeros(int(FS * pad), np.int16)])
+    wavfile.write(OUT / name, FS, y)
+    manifest.append({'file': name, 'duration_ms': round(len(y) * 1000 / FS),
+                     'description': 'ui_warning_retro_chime.wav struck twice, 220 ms apart'
+                                    + (' + 120 ms silence' if pad else '')})
 
 (OUT / 'manifest.json').write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
 for m in manifest:

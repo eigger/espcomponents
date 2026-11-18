@@ -27,6 +27,7 @@ Original downloaded recordings are not included.
 | --- | --- | --- |
 | [`ui_warning_retro_chime.wav`](ui_warning_retro_chime.wav) | Caution: single vintage car chime | 750 ms |
 | [`ui_danger_retro_buzzer.wav`](ui_danger_retro_buzzer.wav) | Danger: two short buzzes and one long buzz | 1350 ms |
+| [`ui_danger_retro_chime_double.wav`](ui_danger_retro_chime_double.wav) | Danger (alternative): the caution chime struck twice, 220 ms apart | 970 ms |
 
 The caution cue adapts [rgjpb's Ford/GM-style door chime recreation](https://freesound.org/people/rgjpb/sounds/686265/).
 The danger cue uses [scruss's recording of a 1940s Signal Electric R-68 Morse practice relay buzzer](https://freesound.org/people/scruss/sounds/687948/).
@@ -42,6 +43,9 @@ dashboard's `media_player.files`.
 `ui_warning_retro_chime_padded.wav` (870 ms) and `ui_danger_retro_buzzer_padded.wav`
 (1470 ms) are the same audio followed by 120 ms of digital silence, so a speaker stop that
 drops its final buffer can only cut silence. The unpadded files remain for older pins.
+`ui_danger_retro_chime_double_padded.wav` (1090 ms) pads the double-chime danger cue the
+same way. It reuses the caution chime, so caution and danger share one voice; it is leveled
+to the buzzer's loudness and built by [`tools/generate_retro_ui.py`](../tools/generate_retro_ui.py).
 
 ## Retro UI and connection sounds
 
@@ -56,8 +60,10 @@ See [`retro_ui_spectrograms.png`](retro_ui_spectrograms.png).
 | `ui_menu_open_retro.wav` | Menu open | 440 ms | tape-deck latch, rising chime fourth |
 | `ui_menu_close_retro.wav` | Menu close | 400 ms | falling chime fourth, tape-deck clunk |
 | `ui_success_retro.wav` | Success | 730 ms | switch throw, typewriter bell, chime octave |
+| `ui_success_retro_chime.wav` | Success (chime only) | 650 ms | quick rising chime major arpeggio |
 | `ui_failure_retro.wav` | Failure | 520 ms | relay clack, falling semitone, short relay buzz |
 | `ui_notice_retro.wav` | Information | 600 ms | two soft lowered typewriter bells |
+| `ui_notice_retro_chime.wav` | Information (chime only) | 600 ms | one light chime an octave up |
 | `link_wifi_{connected,disconnected}_retro.wav` | Wi-Fi | 540 / 520 ms | radio static, high fifth |
 | `link_bluetooth_{connected,disconnected}_retro.wav` | Bluetooth | 540 / 520 ms | turn-signal relay tick-tock, middle fifth |
 | `link_gps_{connected,disconnected}_retro.wav` | GPS | 540 / 520 ms | radio-dial tuning sweep, low fifth |

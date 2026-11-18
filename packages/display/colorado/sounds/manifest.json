@@ -391,6 +391,16 @@
     "description": "Switch throw and typewriter bell, chime octave under it"
   },
   {
+    "file": "ui_success_retro_chime.wav",
+    "duration_ms": 650,
+    "peak": 0.336578369140625,
+    "bytes": 62444,
+    "sha256": "f3a9e1aef9a49c1f04eca0facf6f8fea47818dbb8db09722619f624e2a5fe8b8",
+    "selected_boot": false,
+    "license": "CC0 1.0 Universal (adaptation)",
+    "description": "Quick rising chime major arpeggio"
+  },
+  {
     "file": "ui_failure_retro.wav",
     "duration_ms": 520,
     "peak": 0.253997802734375,
@@ -409,6 +419,16 @@
     "selected_boot": false,
     "license": "CC0 1.0 Universal (adaptation)",
     "description": "Two soft lowered typewriter bells"
+  },
+  {
+    "file": "ui_notice_retro_chime.wav",
+    "duration_ms": 600,
+    "peak": 0.22283935546875,
+    "bytes": 57644,
+    "sha256": "474fa4c6ed7b9f12903b459fb3d70063b71a5c9cb4efbf48eeb6c01e8a1a64de",
+    "selected_boot": false,
+    "license": "CC0 1.0 Universal (adaptation)",
+    "description": "One light chime an octave up"
   },
   {
     "file": "link_wifi_connected_retro.wav",
@@ -489,5 +509,25 @@
     "selected_boot": false,
     "license": "CC0 1.0 Universal (adaptation)",
     "description": "ui_danger_retro_buzzer.wav + 120 ms silence"
+  },
+  {
+    "file": "ui_danger_retro_chime_double.wav",
+    "duration_ms": 970,
+    "peak": 0.6182861328125,
+    "bytes": 93164,
+    "sha256": "596e4283b0b322a3673c6586347544143333d2f2fc489962dc6e56e29238217b",
+    "selected_boot": false,
+    "license": "CC0 1.0 Universal (adaptation)",
+    "description": "ui_warning_retro_chime.wav struck twice, 220 ms apart"
+  },
+  {
+    "file": "ui_danger_retro_chime_double_padded.wav",
+    "duration_ms": 1090,
+    "peak": 0.6182861328125,
+    "bytes": 104684,
+    "sha256": "b6f7938ca17ae12c7cf13f8a13e8bb06b581974ab5804277cd793044d7d21137",
+    "selected_boot": false,
+    "license": "CC0 1.0 Universal (adaptation)",
+    "description": "ui_danger_retro_chime_double.wav + 120 ms silence"
   }
 ]
