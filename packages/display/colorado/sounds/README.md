@@ -57,6 +57,7 @@ See [`retro_ui_spectrograms.png`](retro_ui_spectrograms.png).
 | File | Event | Duration | Layers |
 | --- | --- | --- | --- |
 | `ui_click_retro.wav` | Button | 150 ms | toggle-switch snap, faint chime glint |
+| `ui_click_retro_chime.wav` | Button (chime only) | 150 ms | short low-passed chime strike |
 | `ui_menu_open_retro.wav` | Menu open | 440 ms | tape-deck latch, rising chime fourth |
 | `ui_menu_close_retro.wav` | Menu close | 400 ms | falling chime fourth, tape-deck clunk |
 | `ui_success_retro.wav` | Success | 730 ms | switch throw, typewriter bell, chime octave |

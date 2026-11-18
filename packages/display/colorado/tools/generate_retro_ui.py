@@ -157,6 +157,9 @@ cues = {
                                    'Quick rising chime major arpeggio'),
     'ui_notice_retro_chime.wav': (mix([(0, note(+12, 520, 0.8))], 520), UI - 1.5,
                                   'One light chime an octave up'),
+    # Dull "tuk": a 50 ms chime strike a fifth up with the ring low-passed off.
+    'ui_click_retro_chime.wav': (mix([(0, peak1(fade(band(note(+7, 50), hi=3500), 0.5, 30)))], 70), -22.5,
+                                 'Short low-passed chime strike'),
 }
 # Links. Wi-Fi: radio static; Bluetooth: turn-signal relay tick-tock; GPS: dial tuning sweep.
 # Connected: texture resolves into a rising chime fifth. Disconnected: falling fifth dissolving into it.

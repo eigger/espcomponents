@@ -361,6 +361,16 @@
     "description": "Toggle-switch snap with a faint chime glint"
   },
   {
+    "file": "ui_click_retro_chime.wav",
+    "duration_ms": 150,
+    "peak": 0.170562744140625,
+    "bytes": 14444,
+    "sha256": "f3c27a49b7b52f59cbcb0ecbb9780381b2569d45be19dd6b254af66954d319e3",
+    "selected_boot": false,
+    "license": "CC0 1.0 Universal (adaptation)",
+    "description": "Short low-passed chime strike"
+  },
+  {
     "file": "ui_menu_open_retro.wav",
     "duration_ms": 440,
     "peak": 0.32208251953125,
