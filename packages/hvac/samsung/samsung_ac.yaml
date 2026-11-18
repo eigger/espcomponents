@@ -29,21 +29,27 @@ esphome:
     - id: device_livingroom
       area_id: area_livingroom
       name: "${friendly_name} Livingroom"
+      relation: via
     - id: device_livingroom_2
       area_id: area_livingroom
       name: "${friendly_name} Livingroom 2"
+      relation: via
     - id: device_bedroom
       area_id: area_bedroom
       name: "${friendly_name} Bedroom"
+      relation: via
     - id: device_room_1
       area_id: area_room_1
       name: "${friendly_name} Room 1"
+      relation: via
     - id: device_room_2
       area_id: area_room_2
       name: "${friendly_name} Room 2"
+      relation: via
     - id: device_mechanical
       area_id: area_mechanical
       name: "${friendly_name} Mechanical"
+      relation: via
 
 # ------------------------------------------------------------------------------
 # M5Stack AtomS3 Lite + Tail485 통신 핀 및 UART 프로토콜 설정
