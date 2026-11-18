@@ -39,6 +39,42 @@ The terminal warning and danger files below are still available with the same
 durations. The two pairs can be exchanged by changing the filenames in the
 dashboard's `media_player.files`.
 
+`ui_warning_retro_chime_padded.wav` (870 ms) and `ui_danger_retro_buzzer_padded.wav`
+(1470 ms) are the same audio followed by 120 ms of digital silence, so a speaker stop that
+drops its final buffer can only cut silence. The unpadded files remain for older pins.
+
+## Retro UI and connection sounds
+
+Built by [`tools/generate_retro_ui.py`](../tools/generate_retro_ui.py) by layering CC0
+recordings with the retro caution chime, so menus, clicks and connection cues share the
+alert voice while each event keeps its own mechanical/electrical character.
+See [`retro_ui_spectrograms.png`](retro_ui_spectrograms.png).
+
+| File | Event | Duration | Layers |
+| --- | --- | --- | --- |
+| `ui_click_retro.wav` | Button | 150 ms | toggle-switch snap, faint chime glint |
+| `ui_menu_open_retro.wav` | Menu open | 440 ms | tape-deck latch, rising chime fourth |
+| `ui_menu_close_retro.wav` | Menu close | 400 ms | falling chime fourth, tape-deck clunk |
+| `ui_success_retro.wav` | Success | 730 ms | switch throw, typewriter bell, chime octave |
+| `ui_failure_retro.wav` | Failure | 520 ms | relay clack, falling semitone, short relay buzz |
+| `ui_notice_retro.wav` | Information | 600 ms | two soft lowered typewriter bells |
+| `link_wifi_{connected,disconnected}_retro.wav` | Wi-Fi | 540 / 520 ms | radio static, high fifth |
+| `link_bluetooth_{connected,disconnected}_retro.wav` | Bluetooth | 540 / 520 ms | turn-signal relay tick-tock, middle fifth |
+| `link_gps_{connected,disconnected}_retro.wav` | GPS | 540 / 520 ms | radio-dial tuning sweep, low fifth |
+
+Connected cues rise a fifth after the texture; disconnected cues fall a fifth into it.
+All cues are leveled near −21 dB RMS (alerts stay louder), with a zero first sample and at
+least 80 ms of trailing silence.
+
+Sources, all [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (Freesound previews,
+not redistributed): [Light Switch (on / off)](https://freesound.org/people/Breviceps/sounds/457037/) by Breviceps,
+[cassette tape deck open, close + tape handling](https://freesound.org/people/kyles/sounds/450525/) by kyles,
+[Nissan Sentra turning signal](https://freesound.org/people/MPierluissi/sounds/446322/) by MPierluissi,
+[Radio Noise](https://freesound.org/people/RutgerMuller/sounds/50750/) by RutgerMuller,
+[Radio Dial Tuning](https://freesound.org/people/jc144940/sounds/179118/) by jc144940,
+[Typewriter ding](https://freesound.org/people/_stubb/sounds/406243/) by _stubb,
+plus the door chime and relay buzzer credited above.
+
 ## Terminal UI sounds
 
 The terminal set adapts the approved RescopicSound Modern Interface recordings,

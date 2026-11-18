@@ -349,5 +349,145 @@
     "sha256": "4eb3b6474062ca7604a48b69b87915012d49077d10ac935e64ebea9c49839703",
     "selected_boot": false,
     "license": "Original synthesized project asset"
+  },
+  {
+    "file": "ui_click_retro.wav",
+    "duration_ms": 150,
+    "peak": 0.465118408203125,
+    "bytes": 14444,
+    "sha256": "397c41a7935f271939b5b3f3ebb59ae778f6ee401f7baa79d1fcac875c899a49",
+    "selected_boot": false,
+    "license": "CC0 1.0 Universal (adaptation)",
+    "description": "Toggle-switch snap with a faint chime glint"
+  },
+  {
+    "file": "ui_menu_open_retro.wav",
+    "duration_ms": 440,
+    "peak": 0.32208251953125,
+    "bytes": 42284,
+    "sha256": "5a6968f19ea6b81d11a4b4da457699863c7071600e2355912d9e3ab608871fed",
+    "selected_boot": false,
+    "license": "CC0 1.0 Universal (adaptation)",
+    "description": "Tape-deck latch, then rising chime fourth"
+  },
+  {
+    "file": "ui_menu_close_retro.wav",
+    "duration_ms": 400,
+    "peak": 0.273773193359375,
+    "bytes": 38444,
+    "sha256": "298c23afd641ce0c492d82e4337bd1d92b0bf1c8712c4f8ab9466e93dbda4388",
+    "selected_boot": false,
+    "license": "CC0 1.0 Universal (adaptation)",
+    "description": "Falling chime fourth closing on a tape-deck clunk"
+  },
+  {
+    "file": "ui_success_retro.wav",
+    "duration_ms": 730,
+    "peak": 0.682891845703125,
+    "bytes": 70124,
+    "sha256": "5cebcc8abb2c1ae73d29f0931ead97fcfc716c1dd5880ac35789588bb528b9fe",
+    "selected_boot": false,
+    "license": "CC0 1.0 Universal (adaptation)",
+    "description": "Switch throw and typewriter bell, chime octave under it"
+  },
+  {
+    "file": "ui_failure_retro.wav",
+    "duration_ms": 520,
+    "peak": 0.253997802734375,
+    "bytes": 49964,
+    "sha256": "6ebf109ba8ac71e596ae8a665c398bf9f994584a6919a13ec7786586854a6a1f",
+    "selected_boot": false,
+    "license": "CC0 1.0 Universal (adaptation)",
+    "description": "Relay clack, falling semitone, short relay buzz"
+  },
+  {
+    "file": "ui_notice_retro.wav",
+    "duration_ms": 600,
+    "peak": 0.8912353515625,
+    "bytes": 57644,
+    "sha256": "ef09158095d206da350d4ee9a42fa7e689189a83e95cc610c03c5e2eafc73516",
+    "selected_boot": false,
+    "license": "CC0 1.0 Universal (adaptation)",
+    "description": "Two soft lowered typewriter bells"
+  },
+  {
+    "file": "link_wifi_connected_retro.wav",
+    "duration_ms": 540,
+    "peak": 0.370330810546875,
+    "bytes": 51884,
+    "sha256": "f52b4ef0b958cb1ef4aff7b06e96a9e7c6106c7ac9a95b92147a180666e8873c",
+    "selected_boot": false,
+    "license": "CC0 1.0 Universal (adaptation)",
+    "description": "wifi: texture then rising fifth"
+  },
+  {
+    "file": "link_wifi_disconnected_retro.wav",
+    "duration_ms": 520,
+    "peak": 0.2886962890625,
+    "bytes": 49964,
+    "sha256": "802d88655e35a5d4574c4ceee2b2eeb7e08fe65b9f201ff97329477a4edd6393",
+    "selected_boot": false,
+    "license": "CC0 1.0 Universal (adaptation)",
+    "description": "wifi: falling fifth into texture"
+  },
+  {
+    "file": "link_bluetooth_connected_retro.wav",
+    "duration_ms": 540,
+    "peak": 0.303558349609375,
+    "bytes": 51884,
+    "sha256": "61a71de7b882cba4222542ed57f87f837e9e6f49d36fb7e68af61a9b19e34e5b",
+    "selected_boot": false,
+    "license": "CC0 1.0 Universal (adaptation)",
+    "description": "bluetooth: texture then rising fifth"
+  },
+  {
+    "file": "link_bluetooth_disconnected_retro.wav",
+    "duration_ms": 520,
+    "peak": 0.248260498046875,
+    "bytes": 49964,
+    "sha256": "ea0093dd445e495bf1beb27b26a6224514a17c938aa7d067b4c015e779e5313a",
+    "selected_boot": false,
+    "license": "CC0 1.0 Universal (adaptation)",
+    "description": "bluetooth: falling fifth into texture"
+  },
+  {
+    "file": "link_gps_connected_retro.wav",
+    "duration_ms": 540,
+    "peak": 0.293731689453125,
+    "bytes": 51884,
+    "sha256": "9b904260a44d9cb4273fd0e744b5d7f59011c614424aeec4a1b72f04eac3bdb4",
+    "selected_boot": false,
+    "license": "CC0 1.0 Universal (adaptation)",
+    "description": "gps: texture then rising fifth"
+  },
+  {
+    "file": "link_gps_disconnected_retro.wav",
+    "duration_ms": 520,
+    "peak": 0.253387451171875,
+    "bytes": 49964,
+    "sha256": "05c4f98f206106a3a88f02dff49257cc385c793c2717c7aa95173021122f7c85",
+    "selected_boot": false,
+    "license": "CC0 1.0 Universal (adaptation)",
+    "description": "gps: falling fifth into texture"
+  },
+  {
+    "file": "ui_warning_retro_chime_padded.wav",
+    "duration_ms": 870,
+    "peak": 0.3699951171875,
+    "bytes": 83564,
+    "sha256": "fd63e47fbdb2bcc74641476a0de1b5afa139a3ae4d9ab141c46ccb7da3bbc2d2",
+    "selected_boot": false,
+    "license": "CC0 1.0 Universal (adaptation)",
+    "description": "ui_warning_retro_chime.wav + 120 ms silence"
+  },
+  {
+    "file": "ui_danger_retro_buzzer_padded.wav",
+    "duration_ms": 1470,
+    "peak": 0.65997314453125,
+    "bytes": 141164,
+    "sha256": "51c3597457238f1edc2c9877075e6efad4f20adecff66f4a2954733c33da1e8f",
+    "selected_boot": false,
+    "license": "CC0 1.0 Universal (adaptation)",
+    "description": "ui_danger_retro_buzzer.wav + 120 ms silence"
   }
 ]
