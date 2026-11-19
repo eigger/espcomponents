@@ -145,3 +145,23 @@ jobs:
       - name: Compile ESPHome Config
         run: |
           esphome compile "tests/components/${{ matrix.component }}/${{ matrix.file }}"
+
+  # Stable, always-reported check for branch protection. The validate/compile
+  # matrix only exists for changed components, so its check names vary per PR.
+  esphome-ci-result:
+    name: ESPHome CI result
+    needs: [detect-changes, esphome-validate, esphome-compile]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check job results
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Job results: $RESULTS"
+          for r in $RESULTS; do
+            case "$r" in
+              success|skipped) ;;
+              *) echo "::error::A required ESPHome CI job ended with '$r'"; exit 1 ;;
+            esac
+          done
