@@ -78,6 +78,7 @@ lvgl_fx:
       rotation:
     custom:
       - id: gauge_slow
+        policy: always
         value: { duration: slow }
       # `then`: an effect of this file, played when the transition is done
       - id: prnd_move
@@ -141,6 +142,10 @@ lvgl_fx:
     defer_timeout: 2s
 
   effects:
+    - id: image_pulse_test
+      tracks:
+        - image_pulse: { amount: 30%, duration: 220ms, curve: ease_out }
+        - flash: { property: image_recolor, profile: triangle, amount: 29%, duration: 220ms }
     - id: prnd_confirm
       tracks:
         - flash: { property: bg_color, color: white, duration: 340ms, curve: ease_in }

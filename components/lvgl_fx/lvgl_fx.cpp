@@ -1,6 +1,7 @@
 #include "lvgl_fx.h"
 
 #include <algorithm>
+#include <new>
 #include <cmath>
 #include <cstring>
 
@@ -119,7 +120,7 @@ bool transition_allowed(lv_obj_t *obj, bool check_self_hidden, const Opt &opt) {
   if (!c.enabled || c.reduced_motion) return false;
   if (!c.ready) return false;
   if (obj != nullptr && target_hidden(obj, check_self_hidden)) return false;
-  return !suppressed();
+  return opt.always || (opt.transition != nullptr && opt.transition->policy == EffectPolicy::ALWAYS) || !suppressed();
 }
 
 uint32_t resolve_duration(uint16_t duration) {
@@ -236,7 +237,7 @@ int32_t curve_step(Curve curve, int32_t t) {
 namespace detail {
 
 bool start_anim(void *var, lv_anim_exec_xcb_t exec, int32_t from, int32_t to, uint32_t duration, uint32_t delay,
-                Curve curve, lv_anim_completed_cb_t done, void *user_data, bool early_apply) {
+                Curve curve, lv_anim_completed_cb_t done, void *user_data, bool early_apply, lv_anim_deleted_cb_t deleted) {
   lv_anim_t anim;
   lv_anim_init(&anim);
   lv_anim_set_var(&anim, var);
@@ -247,6 +248,7 @@ bool start_anim(void *var, lv_anim_exec_xcb_t exec, int32_t from, int32_t to, ui
   lv_anim_set_path_cb(&anim, curve_path(curve));
   if (done != nullptr) lv_anim_set_completed_cb(&anim, done);
   lv_anim_set_user_data(&anim, user_data);
+  if (deleted != nullptr) lv_anim_set_deleted_cb(&anim, deleted);
   lv_anim_set_early_apply(&anim, early_apply);
   return lv_anim_start(&anim) != nullptr;
 }
@@ -703,17 +705,64 @@ void start() { detail::g_core.ready = true; }
 void set_enabled(bool enabled) { detail::g_core.enabled = enabled; }
 void set_reduced_motion(bool reduced) { detail::g_core.reduced_motion = reduced; }
 
+void set_image_opa(lv_obj_t *obj, uint8_t opacity) {
+  if (obj == nullptr) return;
+  Slot *slot = find_slot(obj);
+  if (slot == nullptr || !(slot->props & PROP_IMAGE_OPA)) {
+    lv_obj_set_style_image_opa(obj, opacity, LV_PART_MAIN);
+    return;
+  }
+  slot->base_image_opa = opacity;
+  compose(*slot, PROP_IMAGE_OPA);
+}
+
 // ---- user channel ------------------------------------------------------------------------------------------------
 
-// An instantly applied tween runs on_done synchronously inside tween(), so on_done may re-enter fx calls.
+// Completion metadata exists only for cross-widget chains and is released on completion or deletion.
+struct TweenCompletion {
+  TweenCompletion *next;
+  void (*on_done)(void *);
+  EffectRef effect;
+  lv_obj_t *target;
+};
+static TweenCompletion *tween_completions = nullptr;
+static void completion_target_deleted(lv_event_t *event) {
+  auto *completion = static_cast<TweenCompletion *>(lv_event_get_user_data(event));
+  completion->target = nullptr;
+  completion->effect = nullptr;
+}
+static void chained_tween_done(lv_anim_t *anim) {
+  auto *completion = static_cast<TweenCompletion *>(anim->user_data);
+  auto callback = completion->on_done;
+  if (callback != nullptr) callback(anim->var);
+  // LVGL unlinks the completed animation before on_done and deletes it afterwards.
+  // A target deleted by on_done disarms this still-live completion via LV_EVENT_DELETE.
+  if (completion->effect != nullptr && completion->target != nullptr)
+    play(completion->target, completion->effect);
+}
+static void release_completion(TweenCompletion *completion) {
+  auto **link = &tween_completions;
+  while (*link != nullptr && *link != completion) link = &(*link)->next;
+  if (*link != nullptr) *link = completion->next;
+  if (completion->target != nullptr)
+    lv_obj_remove_event_cb_with_user_data(completion->target, completion_target_deleted, completion);
+  delete completion;
+}
+static void chained_tween_deleted(lv_anim_t *anim) {
+  release_completion(static_cast<TweenCompletion *>(anim->user_data));
+}
 static void tween_done(lv_anim_t *anim) {
   reinterpret_cast<void (*)(void *)>(anim->user_data)(anim->var);
 }
-
+void cancel_tween_effect(lv_obj_t *target) {
+  for (auto *entry = tween_completions; entry != nullptr; entry = entry->next)
+    if (entry->target == target) entry->effect = nullptr;
+}
 void tween(void *var, lv_anim_exec_xcb_t setter, int32_t from, int32_t to, TweenOpt opt) {
   if (var == nullptr || setter == nullptr) return;
   Opt policy;
   policy.force = opt.force;
+  policy.always = opt.always;
   if (from == to || !transition_allowed(opt.target, true, policy)) {
     lv_anim_delete(var, setter);
     setter(var, to);
@@ -721,10 +770,28 @@ void tween(void *var, lv_anim_exec_xcb_t setter, int32_t from, int32_t to, Tween
     return;
   }
   const uint32_t duration = opt.duration != 0 ? opt.duration : detail::g_core.motion.normal;
-  start_anim(var, setter, from, to, duration, opt.delay, opt.curve, opt.on_done != nullptr ? tween_done : nullptr,
-             reinterpret_cast<void *>(opt.on_done));
+  if (opt.completion_effect == nullptr || opt.completion_target == nullptr) {
+    start_anim(var, setter, from, to, duration, opt.delay, opt.curve, opt.on_done != nullptr ? tween_done : nullptr,
+               reinterpret_cast<void *>(opt.on_done));
+    return;
+  }
+  auto *completion = new (std::nothrow) TweenCompletion{tween_completions, opt.on_done, opt.completion_effect, opt.completion_target};
+  if (completion == nullptr) {
+    start_anim(var, setter, from, to, duration, opt.delay, opt.curve, opt.on_done != nullptr ? tween_done : nullptr,
+               reinterpret_cast<void *>(opt.on_done));
+    return;
+  }
+  tween_completions = completion;
+  if (lv_obj_add_event_cb(completion->target, completion_target_deleted, LV_EVENT_DELETE, completion) == nullptr) {
+    release_completion(completion);
+    start_anim(var, setter, from, to, duration, opt.delay, opt.curve, opt.on_done != nullptr ? tween_done : nullptr,
+               reinterpret_cast<void *>(opt.on_done));
+    return;
+  }
+  if (!start_anim(var, setter, from, to, duration, opt.delay, opt.curve, chained_tween_done, completion, true,
+                  chained_tween_deleted))
+    release_completion(completion);
 }
-
 void cancel_tween(void *var, lv_anim_exec_xcb_t setter) {
   if (var != nullptr && setter != nullptr) lv_anim_delete(var, setter);
 }

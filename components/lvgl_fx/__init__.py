@@ -129,7 +129,7 @@ BUILTIN_EFFECTS = {  # name -> (C++ constant, track kind)
 }
 # `distance` of a nudge preset is direction-relative: the signed (x, y) the track needs.
 NUDGE_DIRECTION = {"nudge_up": (0, -1), "nudge_down": (0, 1), "nudge_left": (-1, 0), "nudge_right": (1, 0)}
-TRACK_KINDS = ("pulse", "nudge", "shake", "flash", "glow", "blink")
+TRACK_KINDS = ("pulse", "nudge", "shake", "flash", "glow", "blink", "image_pulse")
 FLASH_PROPERTIES = {"bg_color": "BG_COLOR", "text_color": "TEXT_COLOR", "image_recolor": "IMAGE_RECOLOR"}
 
 # ---- validators --------------------------------------------------------------------------------------------------
@@ -321,6 +321,7 @@ def _custom_transition(value):
             cv.Required(CONF_ID): cv.All(cv.declare_id(TransitionDef), _not_fx),
             **_PROP_ENTRIES,
             cv.Optional(CONF_THEN): _effect_ref,
+            cv.Optional(CONF_POLICY): cv.one_of("normal", "always", lower=True),
         }
     )(value)
     if not any(key in value for key in (*TRANSITION_PROPS, CONF_THEN)):
@@ -359,6 +360,7 @@ _FLASH_FIELDS = {
     cv.Optional(CONF_PROPERTY): cv.one_of(*FLASH_PROPERTIES, lower=True),
     cv.Optional(CONF_COLOR): _rgb,
     cv.Optional(CONF_AMOUNT): _percent(0, 100),
+    cv.Optional("profile"): cv.one_of("fade_out", "triangle", lower=True),
 }
 _OPACITY_FIELDS = {cv.Optional(CONF_OPACITY): _percent(0, 100)}
 
@@ -367,6 +369,7 @@ _KIND_FIELDS = {
     "nudge": _NUDGE_FIELDS,
     "shake": _SHAKE_FIELDS,
     "flash": _FLASH_FIELDS,
+    "image_pulse": {cv.Optional(CONF_AMOUNT): _percent(0, 100)},
     "glow": _OPACITY_FIELDS,
     "blink": _OPACITY_FIELDS,
 }
@@ -627,6 +630,7 @@ def _track_fields(kind, conf, x=None, y=None):
         ("property", _get(conf, CONF_PROPERTY, lambda v: _cpp("FlashProp", FLASH_PROPERTIES[v]))),
         ("color", _get(conf, CONF_COLOR, _color_cpp)),
         ("amount", _get(conf, CONF_AMOUNT, str)),
+        ("profile", _get(conf, "profile", lambda v: _cpp("FlashProfile", v))),
         ("opacity", _get(conf, CONF_OPACITY, str)),
     ]
     return fields
@@ -790,6 +794,7 @@ async def to_code(config):
         fields = [
             ("props", _transition_table(f"lvgl_fx_id_{id_.id}", transition)),
             ("then", _get(transition, CONF_THEN, _then_cpp)),
+            ("policy", _get(transition, CONF_POLICY, lambda v: _cpp("EffectPolicy", v))),
         ]
         _declare(id_, TransitionDef, _init(fields))
 

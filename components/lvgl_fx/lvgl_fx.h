@@ -51,6 +51,7 @@ struct PropTransition {
 struct TransitionDef {
   const PropTransition *props[PROP_COUNT];
   const EffectDef *then;  // effect played on the same target when the transition completes (not on stop())
+  EffectPolicy policy = EffectPolicy::NORMAL;  // ALWAYS ignores suppress_when only
 };
 using TransitionRef = const TransitionDef *;
 
@@ -62,6 +63,7 @@ extern const TransitionDef BUILTIN_TRANSITIONS;
 struct Opt {
   TransitionRef transition = nullptr;  // named transition; nullptr = per-property default
   bool force = false;                  // ignore policy suppression (boot sequences)
+  bool always = false;                 // ignore suppress_when only
 };
 
 // Motion tokens.  Runtime-changeable, e.g. `fx::motion().intensity = 0.6f;`.
@@ -136,7 +138,7 @@ uint32_t resolve_duration(uint16_t duration);
 // lv_anim_delete(slot, nullptr) on target deletion clears it all.  False when LVGL could not allocate the animation.
 bool start_anim(void *var, lv_anim_exec_xcb_t exec, int32_t from, int32_t to, uint32_t duration, uint32_t delay,
                 Curve curve, lv_anim_completed_cb_t done = nullptr, void *user_data = nullptr,
-                bool early_apply = true);  // false: nothing is applied (and nothing replaced) before `delay` is over
+                bool early_apply = true, lv_anim_deleted_cb_t deleted = nullptr);  // false: nothing is applied (and nothing replaced) before `delay` is over
 // `then` of a call as an anim user_data (nullptr = nothing to play), and its two ways of running.
 void *then_of(const Opt &opt);
 void instant_then(lv_obj_t *obj, const Opt &opt);  // transition applied instantly: it completes at once
@@ -218,6 +220,9 @@ inline void play(lvgl::LvCompound *w, EffectRef effect, Opt opt = {}) { play(w->
 inline void stop(lvgl::LvCompound *w) { stop(w->obj); }
 inline void stop(lvgl::LvCompound *w, EffectRef effect) { stop(w->obj, effect); }
 
+void set_image_opa(lv_obj_t *obj, uint8_t opacity);
+inline void set_image_opa(lvgl::LvCompound *w, uint8_t opacity) { set_image_opa(w->obj, opacity); }
+
 // ---- user channel --------------------------------------------------------------------------------------------
 
 struct TweenOpt {
@@ -227,6 +232,9 @@ struct TweenOpt {
   void (*on_done)(void *var) = nullptr;  // runs when the tween ends, or right away when it is applied instantly
   lv_obj_t *target = nullptr;          // optional widget the tween belongs to: policy row 3 (hidden) applies to it
   bool force = false;
+  bool always = false;
+  EffectRef completion_effect = nullptr;
+  lv_obj_t *completion_target = nullptr;
 };
 
 // Animate `setter(var, v)` from `from` to `to` with the policy applied.  Starting a tween on the same (var, setter)
@@ -236,6 +244,8 @@ struct TweenOpt {
 void tween(void *var, lv_anim_exec_xcb_t setter, int32_t from, int32_t to, TweenOpt opt = {});
 // Cancel a running tween without applying its end value.
 void cancel_tween(void *var, lv_anim_exec_xcb_t setter);
+// Disarm pending cross-widget completion effects while leaving their tweens running.
+void cancel_tween_effect(lv_obj_t *target);
 
 // ---- component -----------------------------------------------------------------------------------------------------
 

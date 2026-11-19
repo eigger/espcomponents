@@ -32,8 +32,8 @@ external_components:
     components: [ lvgl_fx ]
 ```
 
-`lvgl_fx` needs the `lvgl:` component. The only allocation is a fixed pool of `max_targets` x 68 bytes made at setup;
-nothing is allocated per frame or per call. Until the next release tag contains this component (`@latest` follows the
+`lvgl_fx` needs the `lvgl:` component. It allocates a fixed pool of `max_targets` x 68 bytes at setup.
+Cross-widget tween completions also allocate a temporary record; nothing is allocated per frame. Until the next release tag contains this component (`@latest` follows the
 release tag), use `@master` instead of `@latest`.
 
 ## Quick start
@@ -466,3 +466,24 @@ Every transition and one-shot effect is judged once, when it starts. The first r
 Definitions become `static const` tables in flash. RAM is the slot pool (`max_targets` x 68 bytes, 2.2 KB for the
 default 32) plus one LVGL animation per running transition or effect, regardless of the number of tracks. Nothing is
 allocated per frame. The compile test and the demo build on ESP32 with ESP-IDF.
+
+
+### Additional tracks and completion hooks
+
+A flash accepts `profile: triangle` for a base → highlight → base ramp. The default
+`fade_out` keeps the original immediate highlight. An `image_pulse` track adds its
+`amount` (percentage points, default 30%) to the image opacity base and eases back
+to that base over its duration. Use `fx::set_image_opa(widget, opacity)` to update
+that base while effects are active. `fx::stop` restores it. Image pulse amount is
+absolute and is not affected by motion intensity.
+
+Named transitions accept `policy: always`; this bypasses only `suppress_when`,
+while readiness, hidden ancestors, enabled and reduced-motion policy still apply.
+`fx::TweenOpt::always` does the same for user tweens. To follow an actual tween
+completion on another widget, set `completion_effect` and `completion_target`.
+The existing `on_done` runs first; cancellation or an instant application does not
+play the completion effect. `fx::cancel_tween_effect(target)` disarms pending
+completions without stopping the source tween. The target is disarmed on deletion.
+Cross-widget completions allocate a small temporary record and register a deletion
+callback; if allocation fails the source tween and its callback still run, without
+the follow-up effect.

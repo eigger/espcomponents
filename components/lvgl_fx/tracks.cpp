@@ -28,6 +28,7 @@ struct Resolved {
   uint8_t cycles;
   Axis axis;
   FlashProp property;
+  FlashProfile profile;
   lv_color_t color;
   uint8_t amount;          // flash strength / glow peak outline opacity / blink lowest opacity, 0..255
 };
@@ -84,11 +85,15 @@ Resolved resolve_track(const EffectDef &def, const Track &t) {
       break;
     case TrackKind::FLASH: {
       r.property = pick(p.property, t.property, FlashProp::AUTO, FlashProp::AUTO);
+      r.profile = pick(p.profile, t.profile, FlashProfile::DEFAULT, FlashProfile::FADE_OUT);
       const int32_t color = pick<int32_t>(p.color, t.color, UNSET_COLOR, 0xFFFFFF);
       r.color = lv_color_hex(static_cast<uint32_t>(color));
       r.amount = percent_to_255(pick<uint8_t>(p.amount, t.amount, UNSET_U8, 100));
       break;
     }
+    case TrackKind::IMAGE_PULSE:
+      r.amount = percent_to_255(pick<uint8_t>(p.amount, t.amount, UNSET_U8, 30));
+      break;
     case TrackKind::GLOW:
       r.amount = percent_to_255(pick<uint8_t>(p.opacity, t.opacity, UNSET_U8, 50));
       break;
@@ -152,7 +157,12 @@ void contribute_track(const Resolved &r, uint32_t time, uint32_t intensity_q8, O
     case TrackKind::FLASH:
       // Highlight at full strength, fading back to the base color; no onset ramp: a flash is a hit.
       o.color = r.color;
-      o.color_amount = fade_out(r.amount, intensity_q8, p);
+      o.color_amount = r.profile == FlashProfile::TRIANGLE
+          ? static_cast<uint8_t>(std::min<int32_t>(scaled(r.amount, intensity_q8), LV_OPA_COVER) * triangle(p) / ONE)
+          : fade_out(r.amount, intensity_q8, p);
+      break;
+    case TrackKind::IMAGE_PULSE:
+      o.image_opa_add = static_cast<uint8_t>(r.amount * (ONE - p) / ONE);
       break;
     case TrackKind::GLOW:
       o.outline_opa = fade_out(r.amount, intensity_q8, p);
@@ -177,6 +187,8 @@ uint8_t kind_props(TrackKind kind) {
       return PROP_TRANSLATE;
     case TrackKind::FLASH:
       return PROP_COLOR;
+    case TrackKind::IMAGE_PULSE:
+      return PROP_IMAGE_OPA;
     case TrackKind::GLOW:
       return PROP_OUTLINE;
     case TrackKind::BLINK:

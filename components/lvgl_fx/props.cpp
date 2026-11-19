@@ -26,6 +26,7 @@ void Offsets::merge(const Offsets &other) {
   this->translate_x = add_sat(this->translate_x, other.translate_x);
   this->translate_y = add_sat(this->translate_y, other.translate_y);
   this->outline_opa = std::max(this->outline_opa, other.outline_opa);
+  this->image_opa_add = std::max(this->image_opa_add, other.image_opa_add);
   if (other.color_amount == 0) return;
   if (this->color_amount == 0) {
     this->color = other.color;
@@ -230,6 +231,7 @@ void own(Slot &slot, uint8_t props) {
     slot.base_rotation = static_cast<int16_t>(std::clamp<int32_t>(rotation, INT16_MIN, INT16_MAX));
   }
   if (props & PROP_COLOR) take_color(slot, color_target_of(obj));
+  if (props & PROP_IMAGE_OPA) slot.base_image_opa = lv_obj_get_style_image_opa(obj, LV_PART_MAIN);
   if (props & PROP_OUTLINE) {
     slot.base_outline_opa = default_state_outline_opa(obj);
     // Glow only moves the outline's opacity: without a width there is nothing to see.
@@ -269,6 +271,8 @@ void compose(Slot &slot, uint8_t mask) {
   contribute(slot, off);
 
   if (mask & PROP_OPA) lv_obj_set_style_opa(obj, mul_opa(slot.base_opa, off.opa), LV_PART_MAIN);
+  if (mask & PROP_IMAGE_OPA)
+    lv_obj_set_style_image_opa(obj, std::min<int>(slot.base_image_opa + off.image_opa_add, LV_OPA_COVER), LV_PART_MAIN);
   if (mask & PROP_SCALE) {
     const uint32_t scale = (static_cast<uint32_t>(slot.base_scale) * off.scale + 128) >> 8;
     lv_obj_set_style_transform_scale_x(obj, scale, LV_PART_MAIN);
