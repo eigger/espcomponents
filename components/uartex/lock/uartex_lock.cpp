@@ -8,7 +8,7 @@ static const char *TAG = "uartex.lock";
 void UARTExLock::dump_config()
 {
 #ifdef ESPHOME_LOG_HAS_DEBUG
-    log_config(TAG, "Name", get_name().c_str());
+    log_config(TAG, "Name", uartex_entity_name(*this).c_str());
     log_config(TAG, "State Locked", get_state_locked());
     log_config(TAG, "State Unlocked", get_state_unlocked());
     log_config(TAG, "State Jammed", get_state_jammed());

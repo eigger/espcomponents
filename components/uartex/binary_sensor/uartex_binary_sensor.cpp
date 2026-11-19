@@ -8,7 +8,7 @@ static const char *TAG = "uartex.binary_sensor";
 void UARTExBinarySensor::dump_config()
 {
 #ifdef ESPHOME_LOG_HAS_DEBUG
-    log_config(TAG, "Name", get_name().c_str());
+    log_config(TAG, "Name", uartex_entity_name(*this).c_str());
     uartex_dump_config(TAG);
 #endif
 }
