@@ -253,6 +253,7 @@ void count_to(lv_obj_t *obj, double value, const char *final_text, const Resolve
 
 void set_text(lv_obj_t *obj, const char *text, Opt opt) {
   if (obj == nullptr) return;
+  opt = select_transition(obj, Prop::TEXT, opt);
   if (text == nullptr) text = "";
   if (!lv_obj_check_type(obj, &lv_label_class)) {
     detail::warn_once(1, "set_text: target is not a label");

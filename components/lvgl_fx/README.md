@@ -496,3 +496,26 @@ completions without stopping the source tween. The target is disarmed on deletio
 Cross-widget completions allocate a small temporary record and register a deletion
 callback; if allocation fails the source tween and its callback still run, without
 the follow-up effect.
+
+
+### Widget transition bindings
+
+A binding assigns a named transition to a widget and a property. Explicit
+`transition` options still win as a whole; otherwise the binding supplies that
+property's transition, policy and `then`, followed by the normal global and
+built-in field defaults. Other properties on the same widget are unaffected.
+
+```yaml
+lvgl_fx:
+  transitions:
+    custom:
+      - id: needle_motion
+        value: { duration: 220ms }
+    bindings:
+      - { id: needle, value: needle_motion }
+```
+
+Bindings work for YAML actions and C++ setters. `position` applies to both x and
+y; a label value uses `text`, while an image value uses `value`. The widget and
+transition IDs must exist, and a widget/property pair may be bound only once.
+Static records do not consume motion slots; deleting a widget disarms its binding.

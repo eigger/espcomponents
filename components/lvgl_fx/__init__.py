@@ -55,6 +55,7 @@ CONF_SLOTS_IN_PSRAM = "slots_in_psram"
 CONF_TRANSITIONS = "transitions"
 CONF_DEFAULTS = "defaults"
 CONF_CUSTOM = "custom"
+CONF_BINDINGS = "bindings"
 CONF_PRESETS = "presets"
 CONF_EFFECTS = "effects"
 CONF_EFFECT_DEFAULTS = "effect_defaults"
@@ -332,10 +333,33 @@ def _custom_transition(value):
     return value
 
 
+def _binding(value):
+    value = cv.Schema({
+        cv.Required(CONF_ID): cv.use_id(lv_obj_t),
+        **{cv.Optional(prop): cv.use_id(TransitionDef) for prop in TRANSITION_PROPS},
+    })(value)
+    if not any(prop in value for prop in TRANSITION_PROPS):
+        raise cv.Invalid("A transition binding needs at least one property")
+    return value
+
+
+def _unique_bindings(value):
+    seen = set()
+    for binding in value:
+        for prop in TRANSITION_PROPS:
+            key = (binding[CONF_ID].id, prop)
+            if prop in binding and key in seen:
+                raise cv.Invalid(f"Duplicate transition binding for {binding[CONF_ID]} / {prop}")
+            if prop in binding:
+                seen.add(key)
+    return value
+
+
 TRANSITIONS_SCHEMA = cv.Schema(
     {
         cv.Optional(CONF_DEFAULTS): DEFAULTS_SCHEMA,
         cv.Optional(CONF_CUSTOM): cv.ensure_list(_custom_transition),
+        cv.Optional(CONF_BINDINGS): cv.All(cv.ensure_list(_binding), _unique_bindings),
     }
 )
 
@@ -797,6 +821,22 @@ async def to_code(config):
             ("policy", _get(transition, CONF_POLICY, lambda v: _cpp("EffectPolicy", v))),
         ]
         _declare(id_, TransitionDef, _init(fields))
+
+    binding_index = 0
+    for binding in transitions.get(CONF_BINDINGS, []):
+        (widget,) = await get_widgets(binding)
+        getter = f"{widget.var} ? {widget.obj} : nullptr" if widget.type.is_compound() else str(widget.obj)
+        for prop in TRANSITION_PROPS:
+            if prop not in binding:
+                continue
+            transition = await cg.get_variable(binding[prop])
+            name = f"lvgl_fx_binding_{binding_index}"
+            binding_index += 1
+            cg.add(RawStatement(
+                f"static {lvgl_fx_ns}::Binding {name} = "
+                f"{{[]() -> lv_obj_t * {{ return {getter}; }}, {_cpp('Prop', prop)}, {transition}}};"
+            ))
+            cg.add(var.add_binding(RawExpression(f"&{name}")))
 
     for name, conf in config.get(CONF_PRESETS, {}).items():
         _preset_to_code(name, conf)

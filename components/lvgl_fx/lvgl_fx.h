@@ -58,6 +58,15 @@ using TransitionRef = const TransitionDef *;
 // Built-in per-property defaults (builtins.cpp).  Every entry is non-null.
 extern const TransitionDef BUILTIN_TRANSITIONS;
 
+// Statically allocated widget/property binding. The getter is evaluated after widgets are created.
+struct Binding {
+  lv_obj_t *(*get)();
+  Prop prop;
+  TransitionRef transition;
+  lv_obj_t *obj = nullptr;
+  Binding *next = nullptr;
+};
+
 // ---- call options ------------------------------------------------------------------------------------------------
 
 struct Opt {
@@ -75,6 +84,9 @@ struct Motion {
   float intensity = 1.0f;  // scales effect size only, never a transition's target value
 };
 Motion &motion();
+
+// Select a property-specific binding only when the caller did not supply a transition.
+Opt select_transition(lv_obj_t *obj, Prop prop, Opt opt);
 
 // ---- internals shared with the runner, styles and codegen (P2+) -----------------------------------------------------
 
@@ -258,6 +270,7 @@ class LvglFx : public Component {
   void set_slots_in_psram(bool psram) { detail::core().slots_in_psram = psram; }
   // `transitions: defaults:` (a const table emitted by the codegen, never freed).
   void set_transition_defaults(TransitionRef defaults) { detail::core().defaults = defaults; }
+  void add_binding(Binding *binding);
 
   void setup() override;
   void loop() override;

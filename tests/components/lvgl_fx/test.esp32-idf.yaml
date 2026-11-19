@@ -120,6 +120,11 @@ lvgl_fx:
         visible: { style: fade }
         text: { style: roll }
 
+    bindings:
+      - { id: fx_bar, value: gauge_slow }
+      - { id: fx_label, text: gear_roll }
+      - { id: fx_obj, position: prnd_move, visible: card }
+
   # Built-in effects, magnitudes only
   presets:
     pulse: { scale: 112%, duration: slow, curve: ease_out }

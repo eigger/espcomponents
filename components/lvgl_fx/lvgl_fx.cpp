@@ -317,6 +317,37 @@ static void move_slotless(lv_obj_t *obj, lv_anim_exec_xcb_t exec, Prop prop, int
   start_anim(obj, exec, from, to, t.duration, t.delay, t.curve, then != nullptr ? slotless_done : nullptr, then);
 }
 
+// The binding records live in generated static storage, separate from motion slots.
+static Binding *bindings = nullptr;
+static void binding_target_deleted(lv_event_t *event) {
+  auto *binding = static_cast<Binding *>(lv_event_get_user_data(event));
+  if (lv_event_get_target(event) == binding->obj) binding->obj = nullptr;
+}
+void LvglFx::add_binding(Binding *binding) {
+  binding->next = bindings;
+  bindings = binding;
+}
+static void install_binding(Binding *binding) {
+  if (binding->obj != nullptr || binding->get == nullptr) return;
+  auto *target = binding->get();
+  if (target == nullptr) return;  // the widget has not been created yet
+  binding->get = nullptr;  // never retry allocation or bind a recycled address
+  if (lv_obj_add_event_cb(target, binding_target_deleted, LV_EVENT_DELETE, binding) != nullptr)
+    binding->obj = target;
+}
+Opt select_transition(lv_obj_t *obj, Prop prop, Opt opt) {
+  if (obj == nullptr || opt.transition != nullptr) return opt;
+  for (auto *binding = bindings; binding != nullptr; binding = binding->next) {
+    if (binding->prop != prop) continue;
+    install_binding(binding);
+    if (binding->obj == obj) {
+      opt.transition = binding->transition;
+      break;
+    }
+  }
+  return opt;
+}
+
 // ---- opacity / visibility ----------------------------------------------------------------------------------------
 
 // The visible style's offsets (slide / zoom) move with the base opacity, so every opacity step recomposes them too.
@@ -373,6 +404,7 @@ static void kill_opa(Slot *slot) {
 
 void set_visible(lv_obj_t *obj, bool shown, Opt opt) {
   if (obj == nullptr) return;
+  opt = select_transition(obj, Prop::VISIBLE, opt);
   const bool hidden = lv_obj_is_hidden(obj);
   Slot *slot = find_slot(obj);
   const bool hiding = slot != nullptr && (slot->flags & SLOT_HIDING);
@@ -430,6 +462,7 @@ void set_visible(lv_obj_t *obj, bool shown, Opt opt) {
 
 void set_opacity(lv_obj_t *obj, lv_opa_t opa, Opt opt) {
   if (obj == nullptr) return;
+  opt = select_transition(obj, Prop::OPACITY, opt);
   Slot *slot = find_slot(obj);
   if (slot == nullptr || !(slot->props & PROP_OPA)) {
     // Not composed yet: the style value is the base.  Same value or a hidden target need no slot.
@@ -526,6 +559,13 @@ static int32_t wrap_tenth_degrees(int32_t v) { return ((v % 3600) + 3600) % 3600
 
 void set_value(lv_obj_t *obj, float value, Opt opt) {
   if (obj == nullptr) return;
+#if LV_USE_LABEL
+  if (lv_obj_check_type(obj, &lv_label_class)) {
+    detail::set_label_value(obj, value, select_transition(obj, Prop::TEXT, opt));
+    return;
+  }
+#endif
+  opt = select_transition(obj, Prop::VALUE, opt);
   // lv_obj_check_type is an exact class match, so the order of these tests does not matter.
 #if LV_USE_SLIDER
   if (lv_obj_check_type(obj, &lv_slider_class)) {
@@ -560,17 +600,12 @@ void set_value(lv_obj_t *obj, float value, Opt opt) {
     return;
   }
 #endif
-#if LV_USE_LABEL
-  if (lv_obj_check_type(obj, &lv_label_class)) {
-    detail::set_label_value(obj, value, opt);
-    return;
-  }
-#endif
   warn_once(0, "set_value: only bar, arc, slider, image and label targets are supported");
 }
 
 void set_x(lv_obj_t *obj, int32_t x, Opt opt) {
   if (obj == nullptr) return;
+  opt = select_transition(obj, Prop::POSITION, opt);
   const int32_t current = lv_obj_get_style_x(obj, LV_PART_MAIN);
   const lv_anim_t *running = lv_anim_get(obj, exec_x);
   if (!opt.instant && (running != nullptr ? running->end_value == x : current == x)) return;
@@ -580,6 +615,7 @@ void set_x(lv_obj_t *obj, int32_t x, Opt opt) {
 
 void set_y(lv_obj_t *obj, int32_t y, Opt opt) {
   if (obj == nullptr) return;
+  opt = select_transition(obj, Prop::POSITION, opt);
   const int32_t current = lv_obj_get_style_y(obj, LV_PART_MAIN);
   const lv_anim_t *running = lv_anim_get(obj, exec_y);
   if (!opt.instant && (running != nullptr ? running->end_value == y : current == y)) return;
@@ -605,6 +641,7 @@ bool color_transition_running(Slot &slot) { return lv_anim_get(&slot, exec_color
 
 void set_color(lv_obj_t *obj, lv_color_t color, Opt opt) {
   if (obj == nullptr) return;
+  opt = select_transition(obj, Prop::COLOR, opt);
   Slot *slot = find_slot(obj);
   const ColorTarget target = color_target_of(obj);
   if (slot == nullptr || !(slot->props & PROP_COLOR)) {
@@ -665,6 +702,7 @@ static void exec_rotation(void *var, int32_t v) {
 
 void set_rotation(lv_obj_t *obj, float degrees, Opt opt) {
   if (obj == nullptr) return;
+  opt = select_transition(obj, Prop::ROTATION, opt);
   const bool finite = std::isfinite(degrees);
   const int32_t target =
       finite ? static_cast<int32_t>(std::lround(std::clamp(degrees, -3200.0f, 3200.0f) * 10.0f)) : 0;
@@ -833,6 +871,7 @@ void LvglFx::set_motion(uint16_t fast, uint16_t normal, uint16_t slow, float int
 }
 
 void LvglFx::setup() {
+  for (auto *binding = bindings; binding != nullptr; binding = binding->next) install_binding(binding);
   detail::Core &c = detail::g_core;
   detail::ensure_pool(c);
   c.owner = this;
