@@ -62,9 +62,9 @@ void UARTExComponent::setup()
     }
     this->rx_parser_.set_buffer_len(this->parent_->get_rx_buffer_size());
     if (this->error_) this->error_->publish_state("None");
-    if (this->version_) this->version_->publish_state(UARTEX_VERSION);
+    if (this->version_) this->version_->publish_state(this->version_str_);
     ESP_LOGI(TAG, "Initaialize");
-    publish_log(std::string("Boot ") + UARTEX_VERSION);
+    publish_log(std::string("Boot ") + this->version_str_);
 }
 
 void UARTExComponent::loop()

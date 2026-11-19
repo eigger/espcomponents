@@ -1,23 +1,22 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome import pins
-from esphome.components import ble_client, esp32_ble_tracker, display, text_sensor, binary_sensor, select, number, time
-from esphome.components.text_sensor import register_text_sensor
+from esphome.components import ble_client, esp32_ble_tracker, display, binary_sensor, select, number, time
 from esphome.const import (
     CONF_ID,
     CONF_LAMBDA,
     CONF_MODEL,
     CONF_PAGES,
     CONF_TIME_ID,
-    CONF_VERSION, CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, CONF_DEVICE_CLASS, 
-    ICON_NEW_BOX, CONF_STATUS, CONF_CHARACTERISTIC_UUID, CONF_SERVICE_UUID
+    CONF_NAME, CONF_ICON, CONF_ENTITY_CATEGORY, CONF_DEVICE_CLASS, 
+    CONF_STATUS, CONF_CHARACTERISTIC_UUID, CONF_SERVICE_UUID
 )
 
 CONF_TYPE = "type"
 CONF_BRIGHTNESS = "brightness"
 CONF_REQUIRE_RESPONSE = "require_response"
 
-AUTO_LOAD = ["text_sensor", "select", "binary_sensor", "number"]
+AUTO_LOAD = ["select", "binary_sensor", "number"]
 DEPENDENCIES = ["ble_client"]
 CODEOWNERS = ["@eigger"]
 divoom_ns = cg.esphome_ns.namespace("divoom")
@@ -48,10 +47,6 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_REQUIRE_RESPONSE, default=False): cv.boolean,
             cv.Optional(CONF_MODEL, default="ditoo"): Divoom_MODEL,
             cv.Optional(CONF_TIME_ID): cv.use_id(time.RealTimeClock),
-            cv.Optional(CONF_VERSION, default={CONF_NAME: "Version"}): text_sensor.text_sensor_schema(
-                icon=ICON_NEW_BOX,
-                entity_category="diagnostic",
-            ),
             cv.Optional(CONF_STATUS, default={CONF_NAME: "BT Status"}): binary_sensor.binary_sensor_schema(
                 entity_category="diagnostic",
                 device_class="connectivity",
@@ -118,10 +113,6 @@ async def to_code(config):
     if CONF_TIME_ID in config:
         time_ = await cg.get_variable(config[CONF_TIME_ID])
         cg.add(var.set_time(time_))
-    if CONF_VERSION in config:
-        sens = cg.new_Pvariable(config[CONF_VERSION][CONF_ID])
-        await register_text_sensor(sens, config[CONF_VERSION])
-        cg.add(var.set_version(sens))
     if CONF_STATUS in config:
         sens = cg.new_Pvariable(config[CONF_STATUS][CONF_ID])
         await binary_sensor.register_binary_sensor(sens, config[CONF_STATUS])

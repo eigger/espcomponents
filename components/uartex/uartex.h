@@ -6,7 +6,6 @@
 #include "uartex_device.h"
 #include "parser.h"
 #include "checksum.h"
-#include "version.h"
 namespace esphome {
 namespace uartex {
 
@@ -76,6 +75,7 @@ public:
     void set_tx_checksum_2(std::function<std::vector<uint8_t>(const uint8_t *data, const uint16_t len)> &&f);
     void set_rx_priority(PRIORITY priority);
     void set_version(text_sensor::TextSensor *version) { this->version_ = version; }
+    void set_version_str(const char *version_str) { this->version_str_ = version_str; }
     void set_error(text_sensor::TextSensor *error) { this->error_ = error; }
     void set_log(text_sensor::TextSensor *log) { this->log_ = log; }
     void set_log_ascii(bool ascii) { this->log_ascii_ = ascii; }
@@ -165,6 +165,7 @@ protected:
     InternalGPIOPin *tx_ctrl_pin_{nullptr};
     Parser rx_parser_{};
     text_sensor::TextSensor* version_{nullptr};
+    const char *version_str_{"unknown"};
     text_sensor::TextSensor* error_{nullptr};
     text_sensor::TextSensor* log_{nullptr};
     bool log_ascii_{false};

@@ -35,7 +35,6 @@ void DivoomDisplay::setup()
     width_shift_offset_ = -this->width_;
     image_buffer_.resize(this->width_ * this->height_);
     clear_display_buffer();
-    if (this->version_) this->version_->publish_state(VERSION);
     if (this->bt_connected_) this->bt_connected_->publish_state(false);
     if (this->select_time_) 
     {

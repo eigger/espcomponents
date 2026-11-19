@@ -1,3 +1,6 @@
+import subprocess
+from pathlib import Path
+
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import uart, text_sensor
@@ -249,11 +252,33 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     }),
 }).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA), cv.has_at_most_one_key(CONF_RX_LENGTH, CONF_RX_DATA_LENGTH), cv.has_at_most_one_key(CONF_RX_CHECKSUM, CONF_RX_CHECKSUM_2), cv.has_at_most_one_key(CONF_TX_CHECKSUM, CONF_TX_CHECKSUM_2))
 
+def _repo_version():
+    """Version of the espcomponents checkout this component was loaded from.
+
+    external_components clones the repository with --depth=1, so tags are
+    usually absent and this resolves to the short commit hash; a local
+    checkout with tags gives e.g. v261119-3-gabc1234(-dirty).
+    """
+    try:
+        result = subprocess.run(
+            ["git", "describe", "--tags", "--always", "--dirty"],
+            cwd=Path(__file__).resolve().parent,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=True,
+        )
+        return result.stdout.strip() or "unknown"
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+
+
 async def to_code(config):
     cg.add_global(uartex_ns.using)
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
+    cg.add(var.set_version_str(_repo_version()))
 
     if CONF_VERSION in config:
         if not config[CONF_VERSION][CONF_DISABLED]:
