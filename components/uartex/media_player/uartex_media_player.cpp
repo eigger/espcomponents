@@ -8,7 +8,7 @@ static const char *TAG = "uartex.media_player";
 void UARTExMediaPlayer::dump_config()
 {
 #ifdef ESPHOME_LOG_HAS_DEBUG
-    log_config(TAG, "Name", get_name().c_str());
+    log_config(TAG, "Name", uartex_entity_name(*this).c_str());
     log_config(TAG, "State None", get_state_none());
     log_config(TAG, "State Idle", get_state_idle());
     log_config(TAG, "State Playing", get_state_playing());

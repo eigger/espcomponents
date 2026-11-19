@@ -11,6 +11,8 @@
 #include "esphome/core/helpers.h"
 #include "esphome/core/component.h"
 #include "esphome/core/application.h"
+#include "esphome/core/entity_base.h"
+#include "esphome/core/version.h"
 
 
 namespace esphome {
@@ -179,5 +181,17 @@ void log_config(const char* tag, const char* title, const std::vector<uint8_t>& 
 void log_config(const char* tag, const char* title, const state_t* state);
 void log_config(const char* tag, const char* title, const state_num_t* state_num);
 void log_config(const char* tag, const char* title, const cmd_t* cmd);
+
+// Entity name as std::string. ESPHome 2026.11 deprecated EntityBase::get_name()
+// (removed in 2027.5) in favour of get_name_to(); older releases only have get_name().
+inline std::string uartex_entity_name(const EntityBase& e)
+{
+#if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 11, 0)
+    char buf[ENTITY_NAME_BUF_SIZE];
+    return e.get_name_to(buf).str();
+#else
+    return e.get_name().str();
+#endif
+}
 } // namespace uartex
 } // namespace esphome
