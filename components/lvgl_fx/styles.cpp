@@ -11,8 +11,8 @@
 namespace esphome {
 namespace lvgl_fx {
 
-// Transition styles (DESIGN.md 4.2.1).  A style is "base value change + an offset that returns to 0": it never writes
-// a widget property of its own, it only supplies an Instance whose contribution props.cpp merges (6, 8.2):
+// Transition styles.  A style is "base value change + an offset that returns to 0": it never writes
+// a widget property of its own, it only supplies an Instance whose contribution props.cpp merges:
 //
 //   visible slide_* / zoom   Slot::vis    offset derived from the base opacity the visible transition animates
 //   text fade / roll         Slot::style  TEXT_ENTER: progress 0..255 of the lv_anim (opacity + vertical travel)
@@ -204,7 +204,7 @@ void text_instant(lv_obj_t *obj, const char *text, const Opt &opt) {
   apply_instantly(obj, find_slot(obj), opt);
 }
 
-// `count` (4.2.1): the number runs from the one the label shows to `value`.  Without a number to start from (empty or
+// `count`: the number runs from the one the label shows to `value`.  Without a number to start from (empty or
 // text that does not start with the format's literal prefix and a number), without motion, with nothing to count,
 // with a format that is not an %f conversion or numbers too large for the fixed-point range, the new text is applied
 // like any text change (fade): the final text is always exactly what the format gives for `value`.
@@ -270,7 +270,7 @@ void set_text(lv_obj_t *obj, const char *text, Opt opt) {
   }
 
   const ResolvedTransition t = resolve(opt.transition, Prop::TEXT);
-  // roll: from below when the leading number grows, from above when it shrinks; anything else fades (4.2.1).
+  // roll: from below when the leading number grows, from above when it shrinks; anything else fades.
   int32_t travel = 0;
   if (t.style == Style::ROLL) {
     double before = 0.0, after = 0.0;

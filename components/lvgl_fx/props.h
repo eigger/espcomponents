@@ -1,6 +1,6 @@
 #pragma once
 
-// Property composition (DESIGN.md section 6).
+// Property composition.
 //
 // The widget's style is always written as  base value (+) offsets.  Only transitions change the base value.  Offsets
 // are never stored: every contributor (effect, loop, transition-style entry) derives its offset from its own progress
@@ -19,7 +19,7 @@
 namespace esphome {
 namespace lvgl_fx {
 
-// Composed properties.  A slot only rewrites the bits it owns (7.5).
+// Composed properties.  A slot only rewrites the bits it owns.
 enum PropBit : uint8_t {
   PROP_OPA = 1 << 0,        // multiplied                    -> style opa
   PROP_SCALE = 1 << 1,      // multiplied                    -> transform_scale_x/y
@@ -55,14 +55,14 @@ enum class InstanceKind : uint8_t {
   TEXT_ENTER,  // text fade / roll: progress 0..255 = how far the new text has arrived; arg.a = signed travel in px
                // (0 = fade only), arg.b = starting opacity 0..255.  opa offset: arg.b -> 255, translate_y: arg.a -> 0
   COUNT,       // label count: moves no property (the lv_anim callback writes the text); format/state: see Instance
-  SLIDE_UP,    // visible styles (4.2.1): offsets derived from the slot's base opacity, which the visible transition
+  SLIDE_UP,    // visible styles: offsets derived from the slot's base opacity, which the visible transition
   SLIDE_DOWN,  //   animates.  state = the opacity the target has while shown (offset 0), arg.a = distance in px
   SLIDE_LEFT,  //   (zoom: the starting scale in Q8).  The offset is zero at that opacity and full at opacity 0.
   SLIDE_RIGHT,
   ZOOM,
 };
 
-// One running piece of motion on a target (7.3).  An idle instance is all zero.  The first member is a union so that
+// One running piece of motion on a target.  An idle instance is all zero.  The first member is a union so that
 // styles can keep their resolved parameters in the instance itself (the definitions hold unresolved "unset" fields).
 struct Instance {
   union {
@@ -83,14 +83,14 @@ struct TransitionDef;
 
 enum SlotFlag : uint8_t {
   SLOT_HIDING = 1 << 0,        // a hide transition is running; HIDDEN is set when it completes
-  SLOT_LARGE_WARNED = 1 << 1,  // already warned about layer-rendering a large target (7.5)
+  SLOT_LARGE_WARNED = 1 << 1,  // already warned about layer-rendering a large target
   SLOT_LOOP_ON = 1 << 2,       // a loop effect is switched on (slot.loop.def)
-  SLOT_LOOP_PAUSED = 1 << 3,   // the loop is on but at rest: policy, or not allowed to animate yet (5)
+  SLOT_LOOP_PAUSED = 1 << 3,   // the loop is on but at rest: policy, or not allowed to animate yet
   SLOT_LOOP_FORCE = 1 << 4,    // the loop was started with force: policy never pauses it
   SLOT_UNTINTED = 1 << 5,      // image without recolor: a color contribution is the whole tint (see compose)
 };
 
-// Per-target state.  Created only when a transition or effect needs composition (7.3).  No default member
+// Per-target state.  Created only when a transition or effect needs composition.  No default member
 // initializers on purpose: the pool is zero-filled and `Slot{}` resets a slot, which keeps it trivially copyable.
 struct Slot {
   lv_obj_t *obj;                  // target; nullptr = free slot

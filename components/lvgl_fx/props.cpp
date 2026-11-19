@@ -40,7 +40,7 @@ void Offsets::merge(const Offsets &other) {
 
 // Displacement 0..255 of a visible style: 0 at the opacity the target has while shown, 255 at opacity 0.  Derived from
 // the base opacity the visible transition animates, so offset and opacity share one clock and a reversal continues
-// from wherever the opacity is (6).
+// from wherever the opacity is.
 static uint32_t visible_displacement(const Slot &slot, const Instance &instance) {
   const uint32_t shown = instance.state;
   if (shown == 0) return 0;
@@ -239,11 +239,11 @@ void own(Slot &slot, uint8_t props) {
       ESP_LOGW(TAG, "An outline effect needs outline_width and outline_color set on the target");
     }
   }
-  // PROP_TRANSLATE has a base of 0 (6): nothing to read.
+  // PROP_TRANSLATE has a base of 0: nothing to read.
 
   slot.props |= props;
 
-  // Scale and rotation make LVGL render the target through an intermediate layer (7.5); plain opacity does not.
+  // Scale and rotation make LVGL render the target through an intermediate layer; plain opacity does not.
   // Warn once if the target covers a quarter of the screen or more.
   if ((props & (PROP_SCALE | PROP_ROTATION)) && !(slot.flags & SLOT_LARGE_WARNED)) {
     lv_display_t *disp = lv_obj_get_display(obj);

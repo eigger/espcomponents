@@ -1,4 +1,4 @@
-"""lvgl_fx: motion for ESPHome LVGL dashboards.  See DESIGN.md.
+"""lvgl_fx: motion for ESPHome LVGL dashboards.  See README.md.
 
 The definitions in the YAML (`transitions:`, `presets:`, `effects:`, `effect_defaults:`) become `static const` tables
 in flash (7.6).  Only what the YAML says is emitted (designated initializers, in the declaration order of the structs
@@ -270,7 +270,7 @@ def _visible_entry(value):
     if CONF_STYLE in value and (CONF_SHOW in value or CONF_HIDE in value):
         raise cv.Invalid("Use either 'style' (showing and hiding) or 'show' and 'hide', not both")
     if CONF_SHOW in value and CONF_HIDE not in value:
-        # An entry that names the show style but not the hide style would also set the hide style to it (4.2.1).
+        # An entry that names the show style but not the hide style would also set the hide style to it.
         raise cv.Invalid("'show' needs 'hide' next to it; use 'style' to set both")
     return value
 
@@ -470,7 +470,7 @@ EFFECT_DEFAULTS_SCHEMA = cv.Schema(
     }
 )
 
-# `presets:` adjust the magnitudes of a built-in effect (4.3).  The built-in effect has a single track of one kind.
+# `presets:` adjust the magnitudes of a built-in effect.  The built-in effect has a single track of one kind.
 _PRESET_SCHEMAS = {
     name: cv.Schema({**_TRACK_COMMON, **_KIND_FIELDS[kind]}) for name, (_, kind) in BUILTIN_EFFECTS.items()
 }
@@ -701,7 +701,7 @@ def _prop_fields(prop, conf):
         ("delay", _get(conf, CONF_DELAY, _ms)),
         ("curve", _get(conf, CONF_CURVE, lambda v: _cpp("Curve", v))),
         ("style", _cpp("Style", style) if style else None),
-        # `style` alone means both: the C++ side takes the hide style from it when none is given (4.2.1).
+        # `style` alone means both: the C++ side takes the hide style from it when none is given.
         ("hide_style", _get(conf, CONF_HIDE, lambda v: _cpp("Style", v))),
         ("from", _get(conf, CONF_FROM, str)),
         ("distance", _get(conf, CONF_DISTANCE, str)),
@@ -772,7 +772,7 @@ async def to_code(config):
         lam = await cg.process_lambda(config[CONF_SUPPRESS_WHEN], [], return_type=cg.bool_, capture="")
         cg.add(var.set_suppress_when(lam))
 
-    # `fx::set_visible(...)` in user lambdas (DESIGN.md 3.2).
+    # `fx::set_visible(...)` in user lambdas.
     cg.add_global(RawStatement("namespace fx = esphome::lvgl_fx;"))
 
     for effect in _ordered_effects(config.get(CONF_EFFECTS, [])):
