@@ -2,14 +2,12 @@
 
 #include "esphome/core/component.h"
 #include "esphome/components/display/display_buffer.h"
-#include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/select/select.h"
 #include "esphome/components/number/number.h"
 #include "esphome/components/ble_client/ble_client.h"
 #include "esphome/components/esp32_ble_tracker/esp32_ble_tracker.h"
 #include "esphome/components/time/real_time_clock.h"
-#include "version.h"
 
 
 #ifdef USE_ESP32
@@ -61,7 +59,6 @@ public:
     void set_char_uuid128(uint8_t *uuid) { this->char_uuid_ = espbt::ESPBTUUID::from_raw(uuid); }
     void gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param) override;
     void set_require_response(bool response) { this->require_response_ = response; }
-    void set_version(text_sensor::TextSensor *version) { version_ = version; }
     void set_bt_connected(binary_sensor::BinarySensor *bt_connected) { bt_connected_ = bt_connected; } 
     void set_select_time(select::Select *select_time) { select_time_ = select_time; }
     void select_time_callback(size_t index);
@@ -105,7 +102,6 @@ protected:
     bool write_protocol(std::vector<uint8_t> &data);
     std::string to_hex_string(const std::vector<unsigned char> &data);
 
-    text_sensor::TextSensor *version_{nullptr};
     binary_sensor::BinarySensor *bt_connected_{nullptr};
     select::Select *select_time_{nullptr};
     number::Number *brightness_{nullptr};

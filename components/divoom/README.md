@@ -36,7 +36,7 @@ display:
 | `update_interval` | `1s` |
 | `require_response` | `false`; whether BLE writes require a response |
 | `time_id` | Optional ID of an existing time component |
-| `version` / `status` | Version text sensor and BLE connectivity binary sensor |
+| `status` | BLE connectivity binary sensor |
 | `type` / `brightness` | Clock-style selector and brightness number entity |
 
 The default service UUID is `49535343-FE7D-4AE5-8FA9-9FAFD205E455`; the write

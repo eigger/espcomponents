@@ -224,6 +224,13 @@ uartex:
     ascii: false  # Set true for ASCII format
 ```
 
+`version` reports the espcomponents build the firmware was compiled from, read
+with `git describe --tags --always --dirty` at compile time. Because
+`external_components` clones the repository shallowly, this is normally the
+short commit hash (for example `840217c`); look it up on GitHub to find the
+matching release tag. A local checkout with tags shows e.g.
+`v261119-3-gabc1234`, and `unknown` means git was not available.
+
 #### Event Triggers
 
 ```yaml
