@@ -1,4 +1,4 @@
-# Compile test for lvgl_fx phase P1: every C++ API function and the lvgl_fx.start action.
+# Compile test for lvgl_fx phases P1-P2: every C++ API function and the lvgl_fx.start action.
 # No real hardware needed: an SPI ILI9341 with dummy pins gives LVGL a display to build widgets on.
 esphome:
   name: test-lvgl-fx
@@ -186,7 +186,10 @@ interval:
           opt.delay = 20;
           opt.target = id(fx_bar);
           opt.on_done = [](void *var) { ESP_LOGD("test", "tween done %p", var); };
-          fx::tween(id(fx_bar), [](void *var, int32_t v) { lv_bar_set_value(static_cast<lv_obj_t *>(var), v, LV_ANIM_OFF); },
+          fx::tween(id(fx_bar),
+                    [](void *var, int32_t v) {
+                      lv_bar_set_value(static_cast<lv_obj_t *>(var), v, LV_ANIM_OFF);
+                    },
                     0, 100, opt);
           fx::tween(id(fx_bar), [](void *, int32_t) {}, 0, 1);
           fx::cancel_tween(id(fx_bar), [](void *, int32_t) {});
@@ -194,6 +197,157 @@ interval:
           // curve helpers used by later phases
           (void) fx::curve_step(fx::Curve::EASE_OUT, 512);
           (void) fx::curve_path(fx::Curve::EASE_IN);
+  - interval: 2s
+    then:
+      - lambda: |-
+          // ---- P2: built-in effects on every kind of target (lv_obj_t * and compound widgets) ----
+          fx::play(id(fx_obj), fx::PULSE);
+          fx::play(id(fx_obj), fx::SHAKE);
+          fx::play(id(fx_obj), fx::NUDGE_UP);
+          fx::play(id(fx_obj), fx::NUDGE_DOWN);
+          fx::play(id(fx_obj), fx::NUDGE_LEFT);
+          fx::play(id(fx_obj), fx::NUDGE_RIGHT);
+          fx::play(id(fx_label), fx::FLASH);   // label: text color
+          fx::play(id(fx_image), fx::FLASH);   // image: recolor
+          fx::play(id(fx_obj), fx::FLASH);     // anything else: background
+          fx::play(id(fx_obj), fx::GLOW);
+          fx::play(id(fx_label), fx::BLINK);
+          fx::play(id(fx_dropdown), fx::PULSE);
+          fx::play(id(fx_obj), fx::PULSE, fx::Opt{nullptr, true});  // force
+          fx::play(id(fx_obj), fx::PULSE, {.transition = nullptr, .force = true});
+          fx::stop(id(fx_obj), fx::PULSE);
+          fx::stop(id(fx_dropdown), fx::PULSE);
+          fx::stop(id(fx_obj));
+          fx::stop(id(fx_dropdown));
+
+          // ---- user effects: the const-table format a later phase generates ----
+          // Multi-track with delays, curves and a flash property; partial overrides only list what they change.
+          static const fx::Track heat_tracks[] = {
+              {.kind = fx::TrackKind::NUDGE, .duration = 220, .y = -2},
+              {.kind = fx::TrackKind::FLASH, .curve = fx::Curve::EASE_IN, .delay = 60, .duration = fx::DUR_NORMAL,
+               .property = fx::FlashProp::BG_COLOR, .color = 0xFF8800, .amount = 25},
+              {.kind = fx::TrackKind::PULSE, .delay = 20, .scale = 105},
+              {.kind = fx::TrackKind::SHAKE, .distance = 3, .cycles = 3, .axis = fx::Axis::Y},
+              {.kind = fx::TrackKind::GLOW, .opacity = 80},
+              {.kind = fx::TrackKind::BLINK, .curve = fx::Curve::EASE_IN_OUT, .opacity = 40},
+          };
+          // repeat N, cooldown, defer, retrigger ignore
+          static const fx::EffectDef heat = {.tracks = heat_tracks, .track_count = 6,
+                                             .retrigger = fx::Retrigger::IGNORE,
+                                             .when_suppressed = fx::WhenSuppressed::DEFER,
+                                             .repeat = 3, .repeat_delay = 100, .cooldown = 2500,
+                                             .defer_timeout = 1500};
+          // infinite loop (an "on" state), policy always
+          static const fx::Track warn_tracks[] = {{.kind = fx::TrackKind::BLINK, .duration = fx::DUR_SLOW,
+                                                   .opacity = 35}};
+          static const fx::EffectDef warning_blink = {.tracks = warn_tracks, .track_count = 1,
+                                                      .policy = fx::EffectPolicy::ALWAYS,
+                                                      .repeat = fx::REPEAT_INFINITE, .repeat_delay = 400};
+          // effect-level then (not for loops)
+          static const fx::Track confirm_tracks[] = {{.kind = fx::TrackKind::FLASH, .duration = 340}};
+          static const fx::EffectDef confirm = {.tracks = confirm_tracks, .track_count = 1, .then = &heat};
+          // a loop as `then` is refused at run time
+          static const fx::EffectDef bad_then = {.tracks = confirm_tracks, .track_count = 1, .then = &warning_blink};
+
+          fx::play(id(fx_obj), &heat);
+          fx::play(id(fx_obj), &heat);                       // retrigger ignore, cooldown
+          fx::play(id(fx_obj), &heat, {.force = true});
+          fx::play(id(fx_obj), &warning_blink);              // loop on
+          fx::play(id(fx_obj), &warning_blink);              // already on: no-op
+          fx::play(id(fx_dropdown), &warning_blink, {.force = true});
+          fx::play(id(fx_obj), &confirm);
+          fx::play(id(fx_obj), &bad_then);
+          fx::stop(id(fx_obj), &warning_blink);              // loop off, offsets back to rest
+          fx::stop(id(fx_obj), &heat);
+          fx::stop(id(fx_obj));                              // everything, including a deferred effect
+
+          // ---- presets (built-in magnitudes) and effect defaults (option defaults) ----
+          static const fx::Track strong_pulse = {.kind = fx::TrackKind::PULSE, .duration = 300, .scale = 125};
+          static const fx::Track red_flash = {.kind = fx::TrackKind::FLASH, .color = 0xFF0000};
+          fx::set_preset(fx::PULSE, &strong_pulse);
+          fx::set_preset(fx::FLASH, &red_flash);
+          fx::play(id(fx_obj), fx::PULSE);
+          fx::set_preset(fx::PULSE, nullptr);
+          fx::set_preset(fx::FLASH, nullptr);
+          fx::effect_defaults().cooldown = 500;
+          fx::effect_defaults().when_suppressed = fx::WhenSuppressed::DEFER;
+          fx::effect_defaults().retrigger = fx::Retrigger::IGNORE;
+          fx::effect_defaults().policy = fx::EffectPolicy::NORMAL;
+          fx::effect_defaults().defer_timeout = 2000;
+          fx::effect_defaults().repeat = 1;
+          fx::effect_defaults().repeat_delay = 50;
+          fx::play(id(fx_obj), fx::BLINK);
+          fx::effect_defaults() = fx::EffectOptions{};
+          fx::motion().intensity = 0.5f;
+          fx::play(id(fx_obj), fx::SHAKE);
+          fx::motion().intensity = 0.8f;
+          fx::stop(id(fx_obj));
+
+          // ---- transition `then`: every kind of transition ends by playing an effect on the same target ----
+          static const fx::PropTransition quick = {60, 0, fx::Curve::LINEAR, fx::Style::FADE, fx::Style::FADE, 50, 0};
+          static const fx::TransitionDef with_then = {{&quick, &quick, &quick, &quick, &quick, &quick, &quick},
+                                                      &confirm};
+          fx::set_visible(id(fx_obj), false, fx::Opt{&with_then});    // hide, then
+          fx::set_visible(id(fx_obj), true, fx::Opt{&with_then});     // show, then
+          fx::set_opacity(id(fx_obj), 100, fx::Opt{&with_then});      // opacity, then
+          fx::set_color(id(fx_obj), lv_color_hex(0x336699), fx::Opt{&with_then});
+          fx::set_rotation(id(fx_obj), 45.0f, fx::Opt{&with_then});
+          fx::set_x(id(fx_obj), 40, fx::Opt{&with_then});             // slot-less
+          fx::set_y(id(fx_obj), 40, fx::Opt{&with_then});
+          fx::set_value(id(fx_bar), 90.0f, fx::Opt{&with_then});
+          fx::set_text(id(fx_label), "then", fx::Opt{&with_then});    // text fade
+          fx::stop(id(fx_obj));  // finishes the transitions without playing `then`
+
+          // ---- color channel rules ----
+          fx::set_color(id(fx_image), lv_color_hex(0x00ff00));
+          fx::play(id(fx_image), fx::FLASH);                    // the tint survives the flash
+          fx::set_color(id(fx_image), lv_color_hex(0x00ff00));
+          static const fx::Track bg_flash_tracks[] = {{.kind = fx::TrackKind::FLASH,
+                                                       .property = fx::FlashProp::BG_COLOR}};
+          static const fx::EffectDef bg_flash = {.tracks = bg_flash_tracks, .track_count = 1};
+          fx::play(id(fx_label), &bg_flash);                    // label flash through bg_color ...
+          fx::set_color(id(fx_label), lv_color_hex(0xff0000));  // ... set_color still means text color
+          static const fx::Track text_flash_tracks[] = {{.kind = fx::TrackKind::FLASH,
+                                                         .property = fx::FlashProp::TEXT_COLOR}};
+          static const fx::EffectDef text_flash = {.tracks = text_flash_tracks, .track_count = 1};
+          static const fx::Track img_flash_tracks[] = {{.kind = fx::TrackKind::FLASH,
+                                                        .property = fx::FlashProp::IMAGE_RECOLOR}};
+          static const fx::EffectDef img_flash = {.tracks = img_flash_tracks, .track_count = 1};
+          static const fx::Track shake_x_tracks[] = {{.kind = fx::TrackKind::SHAKE, .axis = fx::Axis::X}};
+          static const fx::EffectDef shake_x = {.tracks = shake_x_tracks, .track_count = 1};
+          fx::play(id(fx_label), &text_flash);
+          fx::play(id(fx_image), &img_flash);
+          fx::play(id(fx_obj), &shake_x);
+          fx::stop(id(fx_label));
+          fx::stop(id(fx_image));
+          fx::stop(id(fx_obj));
+
+  # suppress_when is evaluated once per main-loop iteration, so the popup flag must change in a different iteration than
+  # the plays: suppress in one interval, play in the next, release in a later one.
+  - interval: 3s
+    then:
+      - lambda: |-
+          id(popup_open) = true;
+  - interval: 3500ms
+    then:
+      - lambda: |-
+          // suppressed now: the deferred pulse is kept, the loop is remembered but rests, the blink is skipped
+          static const fx::Track pulse_tracks[] = {{.kind = fx::TrackKind::PULSE}};
+          static const fx::EffectDef deferred_pulse = {.tracks = pulse_tracks, .track_count = 1,
+                                                       .when_suppressed = fx::WhenSuppressed::DEFER,
+                                                       .defer_timeout = 1000};
+          static const fx::Track loop_tracks[] = {{.kind = fx::TrackKind::BLINK, .duration = fx::DUR_SLOW,
+                                                   .opacity = 35}};
+          static const fx::EffectDef paused_loop = {.tracks = loop_tracks, .track_count = 1,
+                                                    .repeat = fx::REPEAT_INFINITE};
+          fx::play(id(fx_obj), &deferred_pulse);
+          fx::play(id(fx_obj), &paused_loop);
+          fx::play(id(fx_label), fx::BLINK);
+  - interval: 4s
+    then:
+      - lambda: |-
+          id(popup_open) = false;  // loop() plays the deferred pulse and resumes the loop from phase 0
+          fx::stop(id(fx_obj));    // (the next round starts clean)
   - interval: 5s
     then:
       - lvgl_fx.start: fx_main

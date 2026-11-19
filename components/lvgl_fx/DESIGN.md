@@ -174,11 +174,14 @@ lvgl_fx:
 ### 4.1 모션 토큰 — [확정]
 - `duration`에는 토큰 이름(`fast`) 또는 직접 값(`165ms`)을 쓴다.
 - `intensity`는 effect의 크기에만 곱한다. transition의 목표 값에는 곱하지 않는다.
+- `intensity` 변경은 다음 `play()`부터 적용되며 그때 실행 중인 모든 effect에 같이 적용된다 (값은 전역 하나, 인스턴스별 저장 없음).
 - 런타임 변경 가능: `fx::motion().intensity = 0.6f;`
 
 ### 4.2 Transition 정의
 - 속성별 기본값(`defaults`)이 있고, 이름 붙은 transition(`custom`)은 필요한 속성만 덮어쓴다.
 - 필드: `style`, `duration`, `curve`, `delay`, `then`(완료 후 같은 대상에 재생할 effect), `policy`
+- `then`은 transition이 끝나면 재생된다. 즉시 적용된 경우(duration 0, 정책으로 즉시 적용, NaN)도 끝난 것으로 보고 바로 재생한다
+  (effect 자체의 정책은 그대로 적용). 이미 같은 값이라 아무것도 하지 않은 호출과 `stop`에서는 재생하지 않는다.
 - 위젯에 transition을 묶어 두는 기능(호출 시 매번 지정하지 않도록)은 [보류].
 
 ### 4.2.1 Transition 스타일 — [확정]
@@ -212,7 +215,7 @@ lvgl_fx:
 | 재료 | 필드 (기본값) | 움직이는 것 |
 |---|---|---|
 | `pulse` | `scale` (110%), `duration` (normal) | 크기: 1 → scale → 1 |
-| `nudge` | `x`, `y` (px), `duration` (normal) | 위치 오프셋: 0 → (x, y) → 0 |
+| `nudge` | `x`, `y` (px), `duration` (normal) | 위치 오프셋: 0 → (x, y) → 0 (기본 effect `nudge_*`는 4px) |
 | `shake` | `distance` (2px), `cycles` (2), `axis` (x), `duration` (fast) | 위치 오프셋: 좌우 왕복 |
 | `flash` | `property` (위젯 종류별), `color` (white), `amount` (100%), `duration` (slow) | 색: 강조색 → 원래 색 |
 | `glow` | `opacity` (50%), `duration` (slow) | outline 투명도: opacity → 0 |
@@ -230,7 +233,7 @@ lvgl_fx:
 | `retrigger` | **`restart`** / `ignore` | 재생 중 다시 호출: 처음부터 다시 / 무시 |
 | `when_suppressed` | **`skip`** / `defer` | 억제 중 호출: 버림 / 하나만 보관했다가 억제가 풀리면 재생 |
 | `defer_timeout` | **3s** | `defer`로 보관한 것의 유효 시간 |
-| `cooldown` | **0** | 같은 대상에서 이 effect의 최소 재생 간격 |
+| `cooldown` | **0** | 같은 대상에서 이 effect의 최소 재생 간격. 대상의 **직전 1회성 effect가 같은 effect일 때만** 적용 (A→B→A는 A를 다시 재생) |
 | `policy` | **`normal`** / `always` | `always`면 `suppress_when`을 무시 |
 
 | `repeat` | **1** / N / `infinite` | 반복 횟수. 한 번 = 모든 track이 끝날 때까지 |
@@ -303,7 +306,7 @@ hide 페이드아웃 도중 `blink`가 걸려도 같은 문제가 생긴다.
 | 크기 | 기준 scale | pulse, zoom | 곱 → `transform_scale` |
 | 회전 | 기준 회전 | (1단계 없음) | 합 → `transform_rotation` |
 | 색 | 기준 색 | flash (강조색, 강도) | 혼합 |
-| outline | 0 | glow | 최대값 → `outline_opa` |
+| outline | 위젯의 `outline_opa` (처음 다룰 때 읽음; 보이지 않게 하려면 0으로 설정) | glow | 최대값 → `outline_opa` |
 | 위젯 값, 텍스트 | 기준값 | text 스타일(roll 등)은 위치·투명도 오프셋으로 | 그대로 |
 
 - 위치 기준값은 LVGL의 `x`/`y`를 그대로 쓴다. 오프셋은 `translate`에 합쳐서 쓴다.
@@ -334,7 +337,8 @@ hide 페이드아웃 도중 `blink`가 걸려도 같은 문제가 생긴다.
   - 장점: track이 3개여도 heap 할당·프레임 콜백·삭제가 한 번. `stop`과 `retrigger`가 단순해진다.
   - 반복은 `lv_anim`의 `repeat_count`/`repeat_delay`를 그대로 쓴다.
 - **transition은 (대상, 속성)마다 `lv_anim` 하나.** 스타일의 진입 오프셋도 같은 `lv_anim`의 진행률로 계산한다.
-- `lv_anim`의 `var`는 슬롯 안의 인스턴스 주소다. 인스턴스마다 주소가 달라 키가 겹치지 않는다.
+- `lv_anim`의 `var`는 슬롯 주소이고, 인스턴스마다 `exec_cb`가 다르다 (P2 구현). `(var, exec_cb)` 쌍이 키이므로 겹치지 않고,
+  대상 삭제 시 `lv_anim_delete(slot, nullptr)` 한 번으로 모두 정리된다.
 
 ### 7.2 대상당 동시 재생 수 — [확정]
 대상 하나에 **1회성 effect 1개 + 루프 1개**가 동시에 돌 수 있다.
@@ -348,7 +352,7 @@ hide 페이드아웃 도중 `blink`가 걸려도 같은 문제가 생긴다.
 위젯 값(bar/arc/slider)·텍스트·위치의 transition에서 스타일이 없고, 같은 대상에 effect도 없을 때.
 
 ```cpp
-struct Slot {                          // 약 52 바이트
+struct Slot {                          // 68 바이트 (P2 실측, 32비트 타깃)
   lv_obj_t *obj;                       // 4  대상
   uint16_t generation;                 // 2  visible 세대 (6절)
   uint8_t  props;                      // 1  fx가 소유한 합성 속성 비트
@@ -357,14 +361,16 @@ struct Slot {                          // 약 52 바이트
   uint16_t base_scale;                 // 2
   int16_t  base_rotation;              // 2
   lv_color_t base_color;               // 3 (+1)
+  uint8_t  base_outline_opa;           // 1  glow의 outline 기준 투명도 (P2 추가)
   Instance one_shot, loop, style;      // 3 × 8 = 24  {정의 포인터, 진행 ms, 상태}
   uint32_t last_play_tick;             // 4  cooldown
   const EffectDef *deferred;           // 4  defer 보관분
   uint32_t deferred_tick;              // 4  보관 시각 (defer_timeout)
+  const TransitionDef *opa_then;       // 4  진행 중인 투명도/visible transition의 `then` (P2 추가: 그 anim의 user_data는 세대 번호)
 };
 ```
 - 오프셋은 저장하지 않는다 (6절: 진행률에서 계산). 그래서 슬롯이 작다.
-- 크기 추정: 슬롯 약 52바이트, 대상 32개 ≈ 1.7 KB. `max_targets`로 조정. Tab5처럼 internal RAM이 빠듯하면
+- 크기: 슬롯 68바이트(P2 실측), 대상 32개 ≈ 2.2 KB. `max_targets`로 조정. Tab5처럼 internal RAM이 빠듯하면
   `slots_in_psram: true`로 PSRAM에 둘 수 있다 (프레임당 접근 수가 적어 속도 영향 미미).
 - 정확한 크기는 구현 후 측정해 이 문서에 기록한다.
 - 찾기: 슬롯 수가 작으므로 **선형 탐색 + 마지막 찾은 슬롯 캐시**. 프레임 콜백은 `var`로 슬롯을 바로 알기 때문에 탐색하지 않는다.
@@ -417,7 +423,8 @@ struct Slot {                          // 약 52 바이트
 
 **재료와 스타일 함수의 규칙** (이것만 지키면 정책, 충돌, 중단 규칙이 자동으로 적용된다):
 1. 입력: 정의 데이터, 진행 시간(ms), 모션 토큰. 출력: 오프셋 기여분. 위젯을 직접 건드리지 않는다.
-2. 진행 시간 0과 끝에서 **오프셋 기여분은 0**이어야 한다 (6절 불변식). 진입 스타일은 끝에서 0, 퇴장은 HIDDEN 후 0.
+2. 시작 지연(`delay`) 전과 끝에서부터 **오프셋 기여분은 0**이어야 한다 (6절 불변식). pulse/nudge/shake/blink는 구간 시작도 0이고,
+   flash/glow는 구간 시작에서 최대값으로 시작해 0으로 줄어든다. 진입 스타일은 끝에서 0, 퇴장은 HIDDEN 후 0.
 3. 정수 연산만, 할당 없음.
 
 새 속성이 늘면 슬롯이 커진다. 속성이 많이 늘어나면 "쓰는 속성만 저장"하는 가변 구조로 바꿀 수 있으며, 이는 내부 구현이라 API에 영향이 없다.
@@ -503,18 +510,19 @@ Colorado 적용 중 구조에 맞지 않는 상황이 생기면:
 
 ---
 
-## 13. 파일 구조 (예정)
+## 13. 파일 구조
 
 ```
 components/lvgl_fx/
-  __init__.py      설정 스키마, 정의 테이블 코드 생성, action 등록
-  lvgl_fx.h/.cpp   컴포넌트, 정책, 슬롯 풀, 공개 API
+  __init__.py      설정 스키마, 정의 테이블 코드 생성, action 등록 (P1: 최소 스키마)
+  lvgl_fx.h/.cpp   컴포넌트, 정책, 슬롯 풀, 공개 API, transition (set_*)
+  effects.h        곡선, effect/track 정의 형식(const 테이블), 기본 effect 상수, 재료 계산 선언
+  tracks.cpp       재료 계산 (pulse, nudge, shake, flash, glow, blink), 기본값/preset 해석
+  runner.cpp       effect 실행: play/stop, 1회성/루프 인스턴스, 정책, defer, loop() 처리
   props.h/.cpp     속성별 기준값/오프셋 합성 (LV_USE_* 조건부)
-  runner.h/.cpp    인스턴스 실행 (lv_anim 하나로 track 전체 구동, 반복)
-  tracks.h/.cpp    재료 (pulse, nudge, ...)
-  styles.h/.cpp    transition 스타일 (slide, zoom, roll, count, ...)
   builtins.cpp     기본 effect, 기본 transition 테이블
   automation.h     YAML action
-  README.md
+  styles.h/.cpp    transition 스타일 (P3 예정)
+  README.md        (P5 예정)
   DESIGN.md
 ```
