@@ -1,0 +1,200 @@
+# Compile test for lvgl_fx phase P1: every C++ API function and the lvgl_fx.start action.
+# No real hardware needed: an SPI ILI9341 with dummy pins gives LVGL a display to build widgets on.
+esphome:
+  name: test-lvgl-fx
+  on_boot:
+    - priority: -100
+      then:
+        # Policy row 2: nothing animates before this.
+        - lvgl_fx.start:
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: local
+      path: ../../../components
+    components: [ lvgl_fx ]
+
+logger:
+
+globals:
+  - id: popup_open
+    type: bool
+    initial_value: "false"
+
+spi:
+  clk_pin: GPIO18
+  mosi_pin: GPIO23
+
+display:
+  - platform: ili9xxx
+    id: main_display
+    model: ILI9341
+    cs_pin: GPIO15
+    invert_colors: false
+    dc_pin: GPIO27
+    reset_pin: GPIO33
+    auto_clear_enabled: false
+    update_interval: never
+
+image:
+  - platform: file
+    file: test.png
+    id: test_image
+    type: RGB565
+    resize: 16x16
+
+lvgl_fx:
+  id: fx_main
+  motion:
+    fast: 100ms
+    normal: 180ms
+    slow: 400ms
+    intensity: 0.8
+  max_targets: 8
+  slots_in_psram: true
+  suppress_when: !lambda return id(popup_open);
+
+lvgl:
+  displays: [ main_display ]
+  pages:
+    - id: main_page
+      widgets:
+        - obj:
+            id: fx_obj
+            x: 10
+            y: 10
+            width: 120
+            height: 60
+            widgets:
+              - label:
+                  id: fx_label
+                  text: "0"
+        - bar:
+            id: fx_bar
+            y: 80
+            width: 100
+            height: 12
+            min_value: 0
+            max_value: 100
+            value: 10
+        - arc:
+            id: fx_arc
+            y: 100
+            width: 60
+            height: 60
+            min_value: 0
+            max_value: 200
+        - slider:
+            id: fx_slider
+            y: 170
+            width: 100
+            min_value: 0
+            max_value: 50
+        - image:
+            id: fx_image
+            src: test_image
+            x: 150
+            y: 10
+        # A compound widget: its id is an esphome::lvgl::LvCompound-derived object, accepted by the overloads.
+        - dropdown:
+            id: fx_dropdown
+            y: 200
+            options:
+              - one
+              - two
+
+interval:
+  - interval: 1s
+    then:
+      - lambda: |-
+          // visibility, opacity and the hide/show reversal rules
+          fx::set_visible(id(fx_obj), false);
+          fx::set_visible(id(fx_obj), true);
+          fx::set_visible(id(fx_obj), false, fx::Opt{nullptr, true});
+          fx::set_visible(id(fx_obj), true, {.transition = nullptr, .force = true});
+          fx::set_opacity(id(fx_obj), 128);
+          fx::set_opacity(id(fx_obj), LV_OPA_COVER);
+
+          // value for every widget kind, including NaN -> minimum
+          fx::set_value(id(fx_bar), 42.0f);
+          fx::set_value(id(fx_bar), NAN);
+          fx::set_value(id(fx_arc), 120);
+          fx::set_value(id(fx_slider), 25.5f);
+          fx::set_value(id(fx_image), 45.0f);
+          fx::set_value(id(fx_image), -15.0f);
+
+          // text, color (label -> text color, image -> recolor, obj -> bg color)
+          fx::set_text(id(fx_label), "42");
+          fx::set_text(id(fx_label), nullptr);
+          fx::set_color(id(fx_label), lv_color_hex(0xff0000));
+          fx::set_color(id(fx_image), lv_color_hex(0x00ff00));
+          fx::set_color(id(fx_obj), lv_color_hex(0x0000ff));
+
+          // position and transform rotation
+          fx::set_x(id(fx_obj), 20);
+          fx::set_y(id(fx_obj), 30);
+          fx::set_rotation(id(fx_obj), 90.0f);
+          fx::set_rotation(id(fx_obj), NAN);
+
+          // ESPHome compound widget overloads
+          fx::set_visible(id(fx_dropdown), true);
+          fx::set_opacity(id(fx_dropdown), 200);
+          fx::set_value(id(fx_dropdown), 1.0f);  // not a ranged widget: logged once, no effect
+          fx::set_text(id(fx_dropdown), "x");    // not a label: logged once, no effect
+          fx::set_color(id(fx_dropdown), lv_color_hex(0x123456));
+          fx::set_x(id(fx_dropdown), 5);
+          fx::set_y(id(fx_dropdown), 205);
+          fx::set_rotation(id(fx_dropdown), 0.0f);
+          fx::stop(id(fx_dropdown));
+
+          // stop snaps everything to its final state
+          fx::stop(id(fx_obj));
+          fx::stop(id(fx_bar));
+
+          // policy switches and tokens
+          fx::set_enabled(false);
+          fx::set_value(id(fx_bar), 7.0f);  // applied instantly
+          fx::set_enabled(true);
+          fx::set_reduced_motion(true);
+          fx::set_value(id(fx_bar), 8.0f);
+          fx::set_reduced_motion(false);
+
+          // user-defined transition table: the format the codegen of a later phase emits
+          static const fx::PropTransition slow_value = {fx::DUR_SLOW, 0, fx::Curve::EASE_IN_OUT, fx::Style::NONE,
+                                                        fx::Style::NONE, 0, 0};
+          static const fx::PropTransition quick_text = {60, 10, fx::Curve::LINEAR, fx::Style::FADE,
+                                                        fx::Style::FADE, 50, 0};
+          static const fx::TransitionDef gauge_slow = {{nullptr, nullptr, &slow_value, &quick_text, nullptr, nullptr,
+                                                        nullptr},
+                                                       nullptr};
+          fx::set_value(id(fx_bar), 60.0f, fx::Opt{&gauge_slow});
+          fx::set_text(id(fx_label), "7", fx::Opt{&gauge_slow, false});
+          fx::detail::core().defaults = &gauge_slow;  // per-property defaults override
+          fx::set_value(id(fx_arc), 10.0f);
+          fx::detail::core().defaults = nullptr;
+          fx::motion().intensity = 0.8f;
+
+          // user channel with every option
+          fx::TweenOpt opt;
+          opt.duration = 250;
+          opt.curve = fx::Curve::EASE_IN_OUT;
+          opt.delay = 20;
+          opt.target = id(fx_bar);
+          opt.on_done = [](void *var) { ESP_LOGD("test", "tween done %p", var); };
+          fx::tween(id(fx_bar), [](void *var, int32_t v) { lv_bar_set_value(static_cast<lv_obj_t *>(var), v, LV_ANIM_OFF); },
+                    0, 100, opt);
+          fx::tween(id(fx_bar), [](void *, int32_t) {}, 0, 1);
+          fx::cancel_tween(id(fx_bar), [](void *, int32_t) {});
+
+          // curve helpers used by later phases
+          (void) fx::curve_step(fx::Curve::EASE_OUT, 512);
+          (void) fx::curve_path(fx::Curve::EASE_IN);
+  - interval: 5s
+    then:
+      - lvgl_fx.start: fx_main
+      - lvgl_fx.start:
