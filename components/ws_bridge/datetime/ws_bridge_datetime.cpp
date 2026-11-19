@@ -16,7 +16,7 @@ void WsBridgeDate::setup() { ws_subscribe_date(this, this->source_ != nullptr ? 
 void WsBridgeDate::dump_config() {
   LOG_DATETIME_DATE("", "WS Bridge Date", this);
   if (this->source_ != nullptr)
-    ESP_LOGCONFIG(TAG, "  Wrapped: '%s'", this->source_->get_name().str().c_str());
+    ESP_LOGCONFIG(TAG, "  Wrapped: '%s'", ws_entity_name(*this->source_).c_str());
 }
 
 void WsBridgeDate::control(const datetime::DateCall &call) {
@@ -35,7 +35,7 @@ void WsBridgeDate::ws_bridge_handle_command(const WsCommand &command) {
 
 void WsBridgeDate::ws_bridge_declare() {
   datetime::DateEntity &src = this->source_ != nullptr ? *this->source_ : *this;
-  const std::string own_name = this->has_own_name() ? this->get_name().str() : "";
+  const std::string own_name = this->has_own_name() ? ws_entity_name(*this) : "";
   ws_declare_date(this, src, this, ws_ha_name(src, own_name, this->unique_id_));
   ws_push_state_date(this, src);
 }
@@ -47,7 +47,7 @@ void WsBridgeTime::setup() { ws_subscribe_time(this, this->source_ != nullptr ? 
 void WsBridgeTime::dump_config() {
   LOG_DATETIME_TIME("", "WS Bridge Time", this);
   if (this->source_ != nullptr)
-    ESP_LOGCONFIG(TAG, "  Wrapped: '%s'", this->source_->get_name().str().c_str());
+    ESP_LOGCONFIG(TAG, "  Wrapped: '%s'", ws_entity_name(*this->source_).c_str());
 }
 
 void WsBridgeTime::control(const datetime::TimeCall &call) {
@@ -66,7 +66,7 @@ void WsBridgeTime::ws_bridge_handle_command(const WsCommand &command) {
 
 void WsBridgeTime::ws_bridge_declare() {
   datetime::TimeEntity &src = this->source_ != nullptr ? *this->source_ : *this;
-  const std::string own_name = this->has_own_name() ? this->get_name().str() : "";
+  const std::string own_name = this->has_own_name() ? ws_entity_name(*this) : "";
   ws_declare_time(this, src, this, ws_ha_name(src, own_name, this->unique_id_));
   ws_push_state_time(this, src);
 }
@@ -78,7 +78,7 @@ void WsBridgeDateTime::setup() { ws_subscribe_datetime(this, this->source_ != nu
 void WsBridgeDateTime::dump_config() {
   LOG_DATETIME_DATETIME("", "WS Bridge DateTime", this);
   if (this->source_ != nullptr)
-    ESP_LOGCONFIG(TAG, "  Wrapped: '%s'", this->source_->get_name().str().c_str());
+    ESP_LOGCONFIG(TAG, "  Wrapped: '%s'", ws_entity_name(*this->source_).c_str());
 }
 
 void WsBridgeDateTime::control(const datetime::DateTimeCall &call) {
@@ -103,7 +103,7 @@ void WsBridgeDateTime::ws_bridge_handle_command(const WsCommand &command) {
 
 void WsBridgeDateTime::ws_bridge_declare() {
   datetime::DateTimeEntity &src = this->source_ != nullptr ? *this->source_ : *this;
-  const std::string own_name = this->has_own_name() ? this->get_name().str() : "";
+  const std::string own_name = this->has_own_name() ? ws_entity_name(*this) : "";
   ws_declare_datetime(this, src, this, ws_ha_name(src, own_name, this->unique_id_));
   ws_push_state_datetime(this, src);
 }

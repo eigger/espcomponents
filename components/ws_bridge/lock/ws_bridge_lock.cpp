@@ -25,7 +25,7 @@ void WsBridgeLock::dump_config() {
   if (!this->code_format_.empty())
     ESP_LOGCONFIG(TAG, "  Code Format: '%s'", this->code_format_.c_str());
   if (this->source_ != nullptr)
-    ESP_LOGCONFIG(TAG, "  Wrapped: '%s'", this->source_->get_name().str().c_str());
+    ESP_LOGCONFIG(TAG, "  Wrapped: '%s'", ws_entity_name(*this->source_).c_str());
 }
 
 // Only reached when NOT wrapping — see WsBridgeSwitch::write_state().
@@ -45,7 +45,7 @@ void WsBridgeLock::ws_bridge_handle_command(const WsCommand &command) {
 
 void WsBridgeLock::ws_bridge_declare() {
   lock::Lock &src = this->source_ != nullptr ? *this->source_ : *this;
-  const std::string own_name = this->has_own_name() ? this->get_name().str() : "";
+  const std::string own_name = this->has_own_name() ? ws_entity_name(*this) : "";
   ws_declare_lock(this, src, this, ws_ha_name(src, own_name, this->unique_id_), this->code_format_);
   ws_push_state_lock(this, src);
 }

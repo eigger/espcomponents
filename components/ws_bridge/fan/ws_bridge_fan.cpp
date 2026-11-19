@@ -11,7 +11,7 @@ void WsBridgeFan::setup() { ws_subscribe_fan(this, this->source_ != nullptr ? th
 void WsBridgeFan::dump_config() {
   LOG_FAN("", "WS Bridge Fan", this);
   if (this->source_ != nullptr)
-    ESP_LOGCONFIG(TAG, "  Wrapped: '%s'", this->source_->get_name().str().c_str());
+    ESP_LOGCONFIG(TAG, "  Wrapped: '%s'", ws_entity_name(*this->source_).c_str());
 }
 
 fan::FanTraits WsBridgeFan::get_traits() {
@@ -41,7 +41,7 @@ void WsBridgeFan::ws_bridge_handle_command(const WsCommand &command) {
 
 void WsBridgeFan::ws_bridge_declare() {
   fan::Fan &src = this->source_ != nullptr ? *this->source_ : *this;
-  const std::string own_name = this->has_own_name() ? this->get_name().str() : "";
+  const std::string own_name = this->has_own_name() ? ws_entity_name(*this) : "";
   ws_declare_fan(this, src, this, ws_ha_name(src, own_name, this->unique_id_));
   ws_push_state_fan(this, src);
 }

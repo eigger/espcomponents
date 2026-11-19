@@ -5,6 +5,7 @@
 #include "esphome/core/entity_base.h"
 #include "esphome/core/log.h"
 #include "ws_bridge.h"
+#include "ws_bridge_compat.h"
 #include "ws_bridge_device.h"
 #include "ws_bridge_entity_json.h"
 
@@ -108,7 +109,7 @@ inline std::string ws_ha_name(const EntityBase &src, const std::string &name_ove
   if (!name_override.empty())
     return name_override;
   if (src.has_own_name())
-    return src.get_name().str();
+    return ws_entity_name(src);
   return fallback;
 }
 
