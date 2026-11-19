@@ -2391,7 +2391,7 @@ interval:
             return;
           }
 
-          const bool reopening = lv_obj_has_flag(popup, LV_OBJ_FLAG_HIDDEN);
+          const bool reopening = lv_obj_is_hidden(popup);
           const auto color = lv_color_hex(color_hex);
           if (!reopening && msg == lv_label_get_text(id(lbl_alert_msg)) &&
               std::strcmp(level, lv_label_get_text(id(lbl_alert_title))) == 0 &&
@@ -4484,9 +4484,9 @@ script:
               lv_label_set_text(tire.label, text);
               lv_obj_set_style_text_color(tire.label, lv_color_hex(low
                   ? ${tab5_color_status_warm} : ${tab5_color_text_muted}), LV_PART_MAIN);
-              lv_obj_remove_flag(tire.label, LV_OBJ_FLAG_HIDDEN);
+              lv_obj_set_hidden(tire.label, false);
             } else {
-              lv_obj_add_flag(tire.label, LV_OBJ_FLAG_HIDDEN);
+              lv_obj_set_hidden(tire.label, true);
             }
             if (low != was_low) {
               lv_obj_set_style_bg_color(tire.marker, lv_color_hex(low
@@ -4511,14 +4511,14 @@ script:
           fx::stop(id(obj_prnd_confirm));
           if (slot) {
             // Hidden means the first selection: it appears in place (fx moves visible widgets only).
-            const bool appearing = lv_obj_has_flag(selection, LV_OBJ_FLAG_HIDDEN);
+            const bool appearing = lv_obj_is_hidden(selection);
             fx::set_x(selection, 43 * (slot - positions));
-            lv_obj_remove_flag(selection, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_hidden(selection, false);
             // The dark bar flashes once the move has ended (its effect starts after the move time).
             if (!appearing) fx::play(id(obj_prnd_confirm), id(fx_prnd_bar));
           } else {
             fx::stop(selection);
-            lv_obj_add_flag(selection, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_hidden(selection, true);
           }
           lv_label_set_text(label, position.c_str());
           fx::stop(id(lbl_gear));
@@ -4571,10 +4571,10 @@ script:
             const int32_t target = valid ? std::lround(std::clamp(axis.angle * axis.direction, -25.0f, 25.0f) * 10.0f) : 0;
             lv_obj_set_style_opa(axis.shape, valid ? LV_OPA_COVER : LV_OPA_30, LV_PART_MAIN);
             const float magnitude = std::abs(axis.angle);
-            if (std::abs(axis.offset) > 0.0001f) lv_obj_remove_flag(axis.calibrated, LV_OBJ_FLAG_HIDDEN);
-            else lv_obj_add_flag(axis.calibrated, LV_OBJ_FLAG_HIDDEN);
-            if (valid && magnitude > 25.0f) lv_obj_remove_flag(axis.range, LV_OBJ_FLAG_HIDDEN);
-            else lv_obj_add_flag(axis.range, LV_OBJ_FLAG_HIDDEN);
+            if (std::abs(axis.offset) > 0.0001f) lv_obj_set_hidden(axis.calibrated, false);
+            else lv_obj_set_hidden(axis.calibrated, true);
+            if (valid && magnitude > 25.0f) lv_obj_set_hidden(axis.range, false);
+            else lv_obj_set_hidden(axis.range, true);
             // Enter each band at its configured angle; recover 1 degree below it.
             if (!valid) level = 0;
             else if (magnitude >= ${tab5_tilt_hot_deg}) level = 2;
@@ -4697,7 +4697,7 @@ script:
               const bool bed = mode == 15 || mode == 16;
               if ((!bed && mode != 2 && mode != 3) || !id(fn_service_allowed)()) return;
               auto *detail = id(obj_jaalee_detail);
-              if (!lv_obj_has_flag(detail, LV_OBJ_FLAG_HIDDEN) && id(g_jaalee_detail_bed) == bed) {
+              if (!lv_obj_is_hidden(detail) && id(g_jaalee_detail_bed) == bed) {
                 id(script_jaalee_detail).stop();
                 fx::set_visible(detail, false);
                 return;
@@ -4707,7 +4707,7 @@ script:
             for (const auto &readout : readouts) {
               if (readout.mode == 19) continue;
               auto *card = lv_obj_get_parent(readout.label);
-              lv_obj_add_flag(card, LV_OBJ_FLAG_CLICKABLE);
+              lv_obj_set_clickable(card, true);
               lv_obj_add_event_cb(card, focus, LV_EVENT_CLICKED,
                                   reinterpret_cast<void *>(static_cast<intptr_t>(readout.mode)));
             }
@@ -4813,17 +4813,17 @@ script:
               if (e < s.at || (fired & (1u << i))) continue;
               fired |= 1u << i;
               if (s.action == -1) {
-                lv_obj_remove_flag(id(obj_boot_frame), LV_OBJ_FLAG_HIDDEN);
+                lv_obj_set_hidden(id(obj_boot_frame), false);
               } else if (s.action == -2) {
-                lv_obj_remove_flag(id(lbl_boot_version), LV_OBJ_FLAG_HIDDEN);
+                lv_obj_set_hidden(id(lbl_boot_version), false);
               } else {
-                lv_obj_remove_flag(oks[s.action], LV_OBJ_FLAG_HIDDEN);
+                lv_obj_set_hidden(oks[s.action], false);
                 ok_at[s.action] = s.at;
               }
               if (s.action == 0) {
                 // Trim badge lands as an outline, then fills (see badge stamp below).
                 lv_obj_t *badge = id(obj_boot_badge);
-                lv_obj_remove_flag(badge, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_set_hidden(badge, false);
                 lv_obj_update_layout(badge);
                 lv_obj_set_x(id(lbl_boot_trim), lv_obj_get_x(badge) + lv_obj_get_width(badge) + 18);
               }
@@ -4927,7 +4927,7 @@ script:
 
             // Block cursor follows the line being typed; solid while typing, blinking while waiting.
             if (fired & (1u << 5)) {
-              lv_obj_add_flag(cursor, LV_OBJ_FLAG_HIDDEN);
+              lv_obj_set_hidden(cursor, true);
             } else {
               lv_obj_t *label = lines[active].label;
               const lv_font_t *font = lv_obj_get_style_text_font(label, LV_PART_MAIN);
@@ -4943,9 +4943,9 @@ script:
               if (geometry[0] != x || geometry[1] != y) lv_obj_set_pos(cursor, geometry[0] = x, geometry[1] = y);
               if (geometry[2] != w || geometry[3] != h) lv_obj_set_size(cursor, geometry[2] = w, geometry[3] = h);
               const bool on = typing || (e / 265) % 2 == 0;
-              if (on == lv_obj_has_flag(cursor, LV_OBJ_FLAG_HIDDEN)) {
-                if (on) lv_obj_remove_flag(cursor, LV_OBJ_FLAG_HIDDEN);
-                else lv_obj_add_flag(cursor, LV_OBJ_FLAG_HIDDEN);
+              if (on == lv_obj_is_hidden(cursor)) {
+                if (on) lv_obj_set_hidden(cursor, false);
+                else lv_obj_set_hidden(cursor, true);
               }
             }
 
@@ -5135,7 +5135,7 @@ script:
               break;
             }
           }
-          const bool visible = lv_obj_has_flag(id(obj_splash), LV_OBJ_FLAG_HIDDEN) && !id(g_logs_visible);
+          const bool visible = lv_obj_is_hidden(id(obj_splash)) && !id(g_logs_visible);
           constexpr uint32_t trace_duration = 200;
           if (!focus && previous == severity) return;
           if (!focus) severity_by_mode[color_mode] = severity;
@@ -5302,11 +5302,11 @@ script:
                 if (!show_leader) {
                   tween.on_done = +[](void *state) {
                     auto &trace = *static_cast<LeaderTrace *>(state);
-                    lv_obj_add_flag(trace.line, LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_set_hidden(trace.line, true);
                     lv_line_set_points(trace.line, trace.full, trace.count);
                   };
                 } else {
-                  lv_obj_remove_flag(leader, LV_OBJ_FLAG_HIDDEN);
+                  lv_obj_set_hidden(leader, false);
                 }
                 const bool defer = show_leader && visible && trace.progress != 100;
                 if (auto *image = update_area(defer)) {
@@ -5622,7 +5622,7 @@ script:
           std::string text;
           for (size_t i = 0; i + 1 < logs.size(); ++i) {
             if (!text.empty()) text += '\n';
-            char number[8];
+            char number[16];
             snprintf(number, sizeof(number), "%03u  ", static_cast<unsigned>(i + 1));
             text += number;
             text += logs[i];
@@ -5752,8 +5752,8 @@ script:
           lv_label_set_text(id(lbl_ota_hint), "DO NOT INTERRUPT POWER.");
           lv_bar_set_value(id(bar_ota_progress), 0, LV_ANIM_OFF);
           lv_obj_set_style_bg_color(id(bar_ota_progress), lv_color_hex(${tab5_color_accent}), LV_PART_INDICATOR);
-          lv_obj_add_flag(id(btn_ota_close), LV_OBJ_FLAG_HIDDEN);
-          lv_obj_remove_flag(id(obj_ota_overlay), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_set_hidden(id(btn_ota_close), true);
+          lv_obj_set_hidden(id(obj_ota_overlay), false);
           lv_obj_move_foreground(id(obj_ota_overlay));
       - script.execute: script_ota_refresh
 
@@ -5772,7 +5772,7 @@ script:
           lv_label_set_text(id(lbl_ota_phase), reason.c_str());
           lv_label_set_text(id(lbl_ota_hint), "LINK ERROR // RETURN AND RETRY");
           lv_obj_set_style_bg_color(id(bar_ota_progress), lv_color_hex(${tab5_color_status_hot}), LV_PART_INDICATOR);
-          lv_obj_remove_flag(id(btn_ota_close), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_set_hidden(id(btn_ota_close), false);
           auto light = id(backlight).turn_on();
           light.set_brightness(id(g_ota_backlight_was_on)
               ? std::max(id(g_ota_backlight_brightness), 0.1f) : 0.4f);
@@ -5788,7 +5788,7 @@ script:
     then:
       - lambda: |-
           if (id(g_updating) || !id(g_ota_ui_active)) return;
-          lv_obj_add_flag(id(obj_ota_overlay), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_set_hidden(id(obj_ota_overlay), true);
           lv_refr_now(nullptr);
           auto light = id(backlight).make_call();
           light.set_state(id(g_ota_backlight_was_on));
