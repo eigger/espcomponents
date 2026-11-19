@@ -38,6 +38,8 @@ DEPENDENCIES = ["lvgl"]
 lvgl_fx_ns = cg.esphome_ns.namespace("lvgl_fx")
 LvglFx = lvgl_fx_ns.class_("LvglFx", cg.Component)
 StartAction = lvgl_fx_ns.class_("StartAction", automation.Action)
+SetEnabledAction = lvgl_fx_ns.class_("SetEnabledAction", automation.Action)
+SetReducedMotionAction = lvgl_fx_ns.class_("SetReducedMotionAction", automation.Action)
 TransitionDef = lvgl_fx_ns.struct("TransitionDef")
 EffectDef = lvgl_fx_ns.struct("EffectDef")
 
@@ -589,9 +591,10 @@ def _get(config, key, convert):
 
 
 def _ident(id_, suffix):
-    """Name of a generated table object: `lvgl_fx_id_` keeps user ids apart from `lvgl_fx_defaults_*`/`lvgl_fx_preset_*`.
+    """Name of a generated table object.
 
-    The user-visible id itself is a pointer to the `_def`."""
+    `lvgl_fx_id_` keeps user ids apart from `lvgl_fx_defaults_*` / `lvgl_fx_preset_*`.  The user-visible id itself is a
+    pointer to the `_def`."""
     return f"lvgl_fx_id_{id_.id}_{suffix}"
 
 
@@ -784,7 +787,10 @@ async def to_code(config):
         cg.add(var.set_transition_defaults(RawExpression("&lvgl_fx_defaults_def")))
     for transition in transitions.get(CONF_CUSTOM, []):
         id_ = transition[CONF_ID]
-        fields = [("props", _transition_table(f"lvgl_fx_id_{id_.id}", transition)), ("then", _get(transition, CONF_THEN, _then_cpp))]
+        fields = [
+            ("props", _transition_table(f"lvgl_fx_id_{id_.id}", transition)),
+            ("then", _get(transition, CONF_THEN, _then_cpp)),
+        ]
         _declare(id_, TransitionDef, _init(fields))
 
     for name, conf in config.get(CONF_PRESETS, {}).items():
@@ -813,6 +819,25 @@ def _start_schema(value):
 @automation.register_action("lvgl_fx.start", StartAction, _start_schema, synchronous=True)
 async def lvgl_fx_start_to_code(config, action_id, template_arg, args):
     return cg.new_Pvariable(action_id, template_arg)
+
+
+def _switch_schema():
+    # `- lvgl_fx.set_enabled: false`, or `{value: !lambda ...}`; a lambda gets the trigger arguments.
+    return cv.maybe_simple_value({cv.Required(CONF_VALUE): cv.templatable(cv.boolean)}, key=CONF_VALUE)
+
+
+async def _switch_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    cg.add(var.set_value(await cg.templatable(config[CONF_VALUE], args, bool)))
+    return var
+
+
+automation.register_action("lvgl_fx.set_enabled", SetEnabledAction, _switch_schema(), synchronous=True)(
+    _switch_to_code
+)
+automation.register_action(
+    "lvgl_fx.set_reduced_motion", SetReducedMotionAction, _switch_schema(), synchronous=True
+)(_switch_to_code)
 
 
 # property -> (validator of the value (None: text, see TEXT_SCHEMA), C++ setter)

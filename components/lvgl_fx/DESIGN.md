@@ -5,7 +5,7 @@ ESPHome LVGL 대시보드용 범용 모션 컴포넌트.
 - 기준: ESPHome **2026.11.0** / LVGL **9.6.0**
 - 진행 방식: **컴포넌트 구조를 먼저 설계한다.** Colorado Tab5 대시보드는 첫 적용 대상이자 검증용이다.
   적용 중 생기는 예외는 [10절 규칙](#10-예외-흡수-규칙)에 따라 흡수한다.
-- 상태: P1-P4 구현됨.
+- 상태: P1-P5 구현됨 (README, 데모 `example.yaml`, 슬롯 크기 실측 포함). 다음: Colorado 적용.
 
 표시: **[확정]** 합의됨 (2026-11-19) · **[보류]** 적용 중 결정
 
@@ -64,16 +64,18 @@ fx::play(id(lbl_prnd), fx::PULSE);
 호출 쪽이 넘길 수 있는 것은 **대상, 값, (선택) 이름 붙은 transition/effect, (선택) force** 뿐이다.
 시간, 거리, 곡선 같은 구성 값은 넘길 수 없다 (원칙 1).
 
-### 3.1 YAML action (4개)
+### 3.1 YAML action (6개)
 
 | action | 필드 |
 |---|---|
-| `lvgl_fx.set` | `id`, 속성 하나(`visible`/`opacity`/`value`/`text`/`color`/`x`/`y`/`rotation`), `transition`(선택), `force`(선택) |
+| `lvgl_fx.set` | `id`, 속성 하나(`visible` `opacity` `value` `text` `color` `x` `y` `rotation`), `transition`·`force`(선택) |
 | `lvgl_fx.play` | `id`, `effect`, `force`(선택) |
 | `lvgl_fx.stop` | `id`, `effect`(선택, 없으면 대상의 모든 움직임) |
 | `lvgl_fx.start` | 없음. 준비 완료(ready) 선언 |
+| `lvgl_fx.set_enabled` | bool. 정책 1번 스위치 (`fx::set_enabled`) — P5에서 추가 |
+| `lvgl_fx.set_reduced_motion` | bool. 정책 1번 스위치 (`fx::set_reduced_motion`) — P5에서 추가 |
 
-- 모든 값은 templatable.
+- `set`의 속성 값, `force`, `set_enabled`/`set_reduced_motion`의 값은 templatable. `effect`, `transition`은 id라서 아니다.
 - `id`는 ESPHome 위젯 id를 그대로 받는다.
 - `set`의 속성은 한 번에 하나. 여러 속성은 action을 여러 번 쓴다.
 
@@ -85,7 +87,8 @@ namespace fx = esphome::lvgl_fx;
 // Transition (값 전달)
 fx::set_visible(obj, bool shown, Opt = {});
 fx::set_opacity(obj, lv_opa_t opa, Opt = {});
-fx::set_value(obj, float value, Opt = {});      // bar/arc/slider: 값, image: 회전(도), label: 숫자 (표시 형식은 transition `format`)
+fx::set_value(obj, float value, Opt = {});      // bar/arc/slider: 값, image: 회전(도),
+                                                // label: 숫자 (표시 형식은 transition `format`)
                                                 // NaN → 즉시 최소값 (label은 "--")
 fx::set_text(obj, const char *text, Opt = {});
 fx::set_color(obj, lv_color_t color, Opt = {}); // label→글자색, image→recolor, 그 외→배경색
@@ -236,7 +239,8 @@ lvgl_fx:
 - effect = **track 목록**. track 하나 = 재료 하나(아래 표)가 속성 하나를 움직인다.
 - **모든 track은 동시에 시작**하고, 순서는 track별 `delay`로 만든다 (CSS/영상 편집 타임라인과 같은 방식).
   effect의 길이 = 가장 늦게 끝나는 track.
-- effect 필드: `tracks`, `repeat`, `repeat_delay`, `retrigger`, `when_suppressed`, `defer_timeout`, `cooldown`, `policy`, `then`
+- effect 필드: `tracks`, `repeat`, `repeat_delay`, `retrigger`, `when_suppressed`, `defer_timeout`, `cooldown`, `policy`,
+  `then`
 
 **재료 (track 종류)** — 기본 effect도 이것으로 정의되어 있다.
 
@@ -304,8 +308,9 @@ transition·effect의 이름은 **ESPHome `id`**로 선언한다.
   (`style`은 둘 다, `hide`만은 가능). `style`과 `show`/`hide` 동시 사용. 속성에 없는 필드(예: `value`의 `style`).
 - `format`: `%f` 변환이 정확히 하나(플래그, ASCII 숫자 너비 ≤ 40, 소수 자리 ≤ 6)와 `%%`만 허용. `%d`, `%s`, `*`, 길이 지정자, 변환이
   없거나 둘 이상이면 오류 (`snprintf`에 `double` 하나만 넘기므로 나머지는 정의되지 않은 동작).
-- 범위: pulse `scale` 10–400%, `amount`/`opacity` 0–100%, `distance`/`x`/`y` ≤ 1000px, `from` (visible 1–200%, text 0–100%), `cycles` 1–100 (`cycles: 0`은 "기본값"이 아니라
-  오류), 백분율은 정수 `%`, 시간은 60 s 이하, `repeat` 1–65534 또는 `infinite`(`effect_defaults`에서는 `infinite` 불가),
+- 범위: pulse `scale` 10–400%, `amount`/`opacity` 0–100%, `distance`/`x`/`y` ≤ 1000px,
+  `from` (visible 1–200%, text 0–100%), `cycles` 1–100 (`cycles: 0`은 "기본값"이 아니라 오류), 백분율은 정수 `%`,
+  시간은 60 s 이하, `repeat` 1–65534 또는 `infinite`(`effect_defaults`에서는 `infinite` 불가),
   effect 길이(가장 늦은 track의 `delay + duration`)가 65535 ms를 넘는지 (YAML에 적힌 값으로 계산 가능한 하한).
 - id: `fx`(C++ 별칭 `namespace fx`와 충돌)는 컴포넌트, effect, transition id로 쓸 수 없다. 생성되는 표 이름은
   `lvgl_fx_id_<id>_*`라서 `id: defaults`도 안전하다.
@@ -411,7 +416,7 @@ hide 페이드아웃 도중 `blink`가 걸려도 같은 문제가 생긴다.
 위젯 값(bar/arc/slider)·텍스트·위치의 transition에서 스타일이 없고, 같은 대상에 effect도 없을 때.
 
 ```cpp
-struct Slot {                          // 68 바이트 (레이아웃에서 계산한 값, 32비트 타깃; static_assert로 상한 고정)
+struct Slot {                          // 68 바이트 (ESP32 xtensa 빌드로 실측; static_assert로 상한 고정)
   lv_obj_t *obj;                       // 4  대상
   uint8_t  props;                      // 1  fx가 소유한 합성 속성 비트
   uint8_t  flags;                      // 1  숨기는 중, 루프 켜짐, 루프 멈춤 …
@@ -431,12 +436,13 @@ struct Slot {                          // 68 바이트 (레이아웃에서 계�
 };
 ```
 - 오프셋은 저장하지 않는다 (6절: 진행률에서 계산). 그래서 슬롯이 작다.
-- 크기: 슬롯 68바이트(P3: 레이아웃에서 계산, 실측은 P5에서 기록), 대상 32개 ≈ 2.2 KB.
+- 크기: 슬롯 **68바이트 (실측)**, 대상 32개 ≈ 2.2 KB. P5에서 xtensa(ESP32, ESP-IDF 5.5.6) 컴파일러로 `static_assert(sizeof(Slot) == 68)`을
+  통과시켜 확인했고, 계산값과 같다. 상한 `static_assert(sizeof(Slot) <= 68)`은 그대로 둔다.
   P3는 `vis` 인스턴스 8바이트를 더하는 대신 `generation`(2)과 `opa_then`(4)을 없애고 패딩을 흡수해 크기가 그대로다.
   `Instance`는 `{def | format | arg{a,b}} + progress + kind + state` 8바이트이며, 스타일은 실행 시점에 채운 값
-  (이동 거리, 시작 투명도, 소수 자리 …)을 `arg`/`state`에 직접 담는다. 정의 표의 "비어 있음" 필드를 프레임마다 풀지 않기 위해서다. `max_targets`로 조정. Tab5처럼 internal RAM이 빠듯하면
+  (이동 거리, 시작 투명도, 소수 자리 …)을 `arg`/`state`에 직접 담는다. 정의 표의 "비어 있음" 필드를 프레임마다 풀지 않기 위해서다.
+  `max_targets`로 조정. Tab5처럼 internal RAM이 빠듯하면
   `slots_in_psram: true`로 PSRAM에 둘 수 있다 (프레임당 접근 수가 적어 속도 영향 미미).
-- 정확한 크기는 구현 후 측정해 이 문서에 기록한다 (아직 측정하지 않았다. 계산값만 있다).
 - 찾기: 슬롯 수가 작으므로 **선형 탐색 + 마지막 찾은 슬롯 캐시**. 프레임 콜백은 `var`로 슬롯을 바로 알기 때문에 탐색하지 않는다.
 - 정리: 대상 삭제 시 `LV_EVENT_DELETE`로 슬롯과 `lv_anim`을 정리한다.
   가득 차면 해당 호출은 즉시 적용으로 대체하고 경고 로그 한 번.
@@ -452,8 +458,9 @@ struct Slot {                          // 68 바이트 (레이아웃에서 계�
 - 프레임 콜백은 정수 연산만. 곡선은 LVGL의 `lv_anim_path_*`와 같은 정수 근사를 쓴다 (`float` 없음).
 - 합성은 `props` 비트에 있는 속성만 다시 쓴다.
 - count는 표시되는 텍스트가 바뀔 때만 `lv_label_set_text`를 부른다 (LVGL이 label 텍스트 버퍼를 다시 잡을 수 있다).
-- **렌더링이 비싼 속성 주의**: `transform_scale`/`transform_rotation`과 `opa < 255`는 LVGL이 레이어를 따로 그린다.
-  큰 컨테이너에 걸면 프레임이 떨어진다. 화면 면적의 25% 이상인 대상에 이 속성을 처음 걸 때 경고 로그 한 번.
+- **렌더링이 비싼 속성 주의**: `transform_scale`/`transform_rotation`은 LVGL이 레이어를 따로 그린다 (LVGL 9.6 `calculate_layer_type()`:
+  회전/확대/skew, `opa_layered`, 비트맵 마스크, 블렌드 모드). fx가 쓰는 일반 `opa`는 레이어를 만들지 않는다.
+  큰 컨테이너에 걸면 프레임이 떨어진다. 화면 면적의 25% 이상인 대상에 scale/rotation을 처음 걸 때 경고 로그 한 번.
   README에 "큰 영역은 translate/색 위주로" 가이드를 둔다.
 
 ### 7.6 코드 크기와 정의 데이터
@@ -566,6 +573,12 @@ Colorado 적용 중 구조에 맞지 않는 상황이 생기면:
 ### 11.2 Colorado와 무관한 데모 YAML
 두 번째 사용처 역할. **lambda 없이 YAML만으로** 모든 1단계 기능을 쓸 수 있는지가 범용성 기준.
 
+P5 결과: `example.yaml`은 `suppress_when` 한 줄(정책 lambda, 8.1)을 빼고 lambda 없이 1단계의 모든 호출, 정의, 옵션을 쓴다.
+범용성 판단의 후속으로 `lvgl_fx.set_enabled`/`set_reduced_motion` action을 추가했다 ("동작 줄이기" 스위치가 YAML로 된다).
+YAML로 표현할 수 없는 것: `motion().intensity`, `effect_defaults()`/`set_preset`의 런타임 변경은 C++ 전용이다
+(설정에서는 `motion:`, `effect_defaults:`, `presets:`가 같은 일을 한다). `fx::tween`은 설계상 C++ 전용,
+`flash`의 색은 상수만 된다 (const 테이블). 센서 값을 그대로 넘기는 호출은 `!lambda return x;`가 필요하다 (값은 호출 쪽 몫).
+
 ### 11.3 빌드, 실행
 - `tests/`에 컴파일 테스트 YAML (ESPHome 2026.11.0)
 - Colorado 적용 전/후 internal RAM 비교
@@ -590,9 +603,11 @@ components/lvgl_fx/
   runner.cpp       effect 실행: play/stop, 1회성/루프 인스턴스, 정책, defer, loop() 처리
   props.h/.cpp     속성별 기준값/오프셋 합성 (LV_USE_* 조건부)
   builtins.cpp     기본 effect, 기본 transition 테이블
-  automation.h     YAML action (P4: `lvgl_fx.start`만. set/play/stop은 LVGL의 `ObjUpdateAction` 람다로 생성)
+  automation.h     YAML action (`lvgl_fx.start`, `set_enabled`, `set_reduced_motion`)
+                   (set/play/stop은 LVGL의 `ObjUpdateAction` 람다로 생성)
   styles.cpp       transition 스타일 (P3): visible slide/zoom, text roll/count, label set_value
                    (스타일 계산은 props.cpp의 `contribute()`에서 오프셋으로 합쳐진다)
-  README.md        (P5 예정)
+  README.md        사용자 문서
+  example.yaml     데모 (lambda 없이 전 기능, `suppress_when`만 예외)
   DESIGN.md
 ```

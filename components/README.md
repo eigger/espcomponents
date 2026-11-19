@@ -21,6 +21,7 @@ with a board, networking, and Home Assistant API as needed.
 | [bmi270](bmi270) | I2C accelerometer and gyroscope |
 | [bmm150](bmm150) | I2C magnetometer and calibrated heading |
 | [divoom](divoom) | BLE display |
+| [lvgl_fx](lvgl_fx) | LVGL motion: transitions (fade, slide, count, roll) and effects (pulse, shake, glow) |
 
 Load only the components you use:
 
