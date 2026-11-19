@@ -12,5 +12,18 @@ template<typename... Ts> class StartAction : public Action<Ts...> {
   void play(const Ts &...x) override { start(); }
 };
 
+// lvgl_fx.set_enabled / lvgl_fx.set_reduced_motion: the runtime policy switches (policy row 1).
+template<typename... Ts> class SetEnabledAction : public Action<Ts...> {
+ public:
+  TEMPLATABLE_VALUE(bool, value)
+  void play(const Ts &...x) override { lvgl_fx::set_enabled(this->value_.value(x...)); }
+};
+
+template<typename... Ts> class SetReducedMotionAction : public Action<Ts...> {
+ public:
+  TEMPLATABLE_VALUE(bool, value)
+  void play(const Ts &...x) override { lvgl_fx::set_reduced_motion(this->value_.value(x...)); }
+};
+
 }  // namespace lvgl_fx
 }  // namespace esphome

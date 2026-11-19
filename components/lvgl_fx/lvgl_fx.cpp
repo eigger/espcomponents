@@ -13,8 +13,8 @@ namespace lvgl_fx {
 static const char *const TAG = "lvgl_fx";
 
 #if INTPTR_MAX == INT32_MAX
-// DESIGN.md 7.3 budgets the per-target slot (68 bytes on the 32-bit targets, computed from the layout); keep it from
-// creeping up unnoticed.
+// DESIGN.md 7.3 budgets the per-target slot (measured: 68 bytes on the 32-bit targets); keep it from creeping up
+// unnoticed.
 static_assert(sizeof(Slot) <= 68, "lvgl_fx::Slot grew past its size budget");
 #endif
 

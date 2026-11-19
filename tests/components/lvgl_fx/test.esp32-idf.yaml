@@ -770,6 +770,11 @@ interval:
       - lvgl_fx.start:
       - lvgl_fx.start: fx_main
       - lvgl_fx.start: { id: fx_main }
+      - lvgl_fx.set_enabled: true
+      - lvgl_fx.set_enabled: !lambda return !id(popup_open);
+      - lvgl_fx.set_enabled: { value: true }
+      - lvgl_fx.set_reduced_motion: false
+      - lvgl_fx.set_reduced_motion: !lambda return id(popup_open);
       # ids of effects and transitions are plain C++ values in lambdas
       - lambda: |-
           fx::play(id(fx_obj), id(heat_up));

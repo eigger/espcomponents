@@ -243,9 +243,9 @@ void own(Slot &slot, uint8_t props) {
 
   slot.props |= props;
 
-  // Opacity, scale and rotation make LVGL render the target through an intermediate layer (7.5): warn once if the
-  // target covers a quarter of the screen or more.
-  if ((props & (PROP_OPA | PROP_SCALE | PROP_ROTATION)) && !(slot.flags & SLOT_LARGE_WARNED)) {
+  // Scale and rotation make LVGL render the target through an intermediate layer (7.5); plain opacity does not.
+  // Warn once if the target covers a quarter of the screen or more.
+  if ((props & (PROP_SCALE | PROP_ROTATION)) && !(slot.flags & SLOT_LARGE_WARNED)) {
     lv_display_t *disp = lv_obj_get_display(obj);
     if (disp != nullptr) {
       const int64_t area = static_cast<int64_t>(lv_obj_get_width(obj)) * lv_obj_get_height(obj);
@@ -253,8 +253,8 @@ void own(Slot &slot, uint8_t props) {
                              lv_display_get_vertical_resolution(disp);
       if (screen > 0 && area * 4 >= screen) {
         slot.flags |= SLOT_LARGE_WARNED;
-        ESP_LOGW(TAG, "Opacity/scale/rotation on a target covering >=25%% of the screen is rendered through a layer "
-                      "and may drop frames; prefer translate/color motion for large areas");
+        ESP_LOGW(TAG, "Scale/rotation on a target covering >=25%% of the screen is rendered through a layer "
+                      "and may drop frames; prefer translate/opacity/color motion for large areas");
       }
     }
   }

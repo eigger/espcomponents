@@ -74,6 +74,12 @@ VALID_EFFECT = """
 CASES = [
     ("valid base (positive control)", VALID_EFFECT, "- lvgl_fx.play: { id: fx_label, effect: ok }", None),
     (
+        "empty lvgl_fx: block (quick start)",
+        "  # nothing configured",
+        "- lvgl_fx.play: { id: fx_label, effect: pulse }",
+        None,
+    ),
+    (
         "id defaults is fine (positive control)",
         "  transitions:\n    defaults:\n      value: { duration: 100ms }\n    custom:\n      - id: defaults\n"
         "        value: { duration: 50ms }\n  effects:\n    - id: defaults_def\n      tracks:\n        - pulse:",
@@ -478,6 +484,8 @@ CASES = [
         "- lvgl_fx.set: { id: fx_label, x: 1, y: 2 }",
         "Cannot specify more than one of",
     ),
+    ("set_enabled with a non-bool", VALID_EFFECT, "- lvgl_fx.set_enabled: banana", "Expected boolean value"),
+
     ("play without an effect", VALID_EFFECT, "- lvgl_fx.play: { id: fx_label }", "'effect' is a required option"),
     (
         "set visible with a number",

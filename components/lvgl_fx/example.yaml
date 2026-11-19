@@ -1,0 +1,667 @@
+# lvgl_fx demo: every transition, effect, option and action of the component, driven from YAML.
+# Hardware: ESP32 + ILI9341 (240x320) with an XPT2046 touch panel; change the pins for your board.
+# The only lambda is `suppress_when`, the policy hook (the "busy" flag it reads is set by `globals.set`).
+# The icon is a 16x16 test PNG next to this file; replace it with your own.
+# `@latest` is the newest release tag, which does not contain lvgl_fx yet: until the next release use `@master`.
+#
+# Pages (the last button of each page goes to the next one):
+#   1 values   bar / arc / slider value, label count and roll, text fade, color, image rotation
+#   2 layout   visible styles (slide, zoom, fade), opacity, x / y with a `then`, rotation, color
+#   3 effects  every built-in effect, user effects, a loop, stop
+#   4 policy   suppress_when, skip / defer, cooldown, force, a loop pausing while busy, enabled / reduced motion
+esphome:
+  name: lvgl-fx-demo
+  on_boot:
+    - priority: -100
+      then:
+        # Before `lvgl_fx.start` nothing animates (policy: ready). `force` plays anyway: a boot sequence.
+        - delay: 800ms
+        - lvgl_fx.set: { id: splash, visible: false, transition: splash_out, force: true }
+        - delay: 700ms
+        - lvgl_fx.start: motion_fx
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+external_components:
+  - source: github://eigger/espcomponents@latest
+    components: [ lvgl_fx ]
+
+logger:
+
+globals:
+  - id: busy
+    type: bool
+    initial_value: "false"
+
+spi:
+  clk_pin: GPIO18
+  mosi_pin: GPIO23
+  miso_pin: GPIO19
+
+display:
+  - platform: mipi_spi
+    id: main_display
+    model: ILI9341
+    cs_pin: GPIO21
+    dc_pin: GPIO27
+    reset_pin: GPIO33
+    invert_colors: false
+    update_interval: never
+
+touchscreen:
+  - platform: xpt2046
+    id: main_touch
+    cs_pin: GPIO14
+    interrupt_pin: GPIO36
+    calibration:
+      x_min: 280
+      x_max: 3860
+      y_min: 340
+      y_max: 3860
+
+image:
+  - platform: file
+    file: icon.png
+    id: icon_img
+    type: RGB565
+    resize: 32x32
+
+color:
+  - id: warm
+    red: 100%
+    green: 70%
+    blue: 0%
+
+# ---- lvgl_fx: all of it is optional; this is every section --------------------------------------------------------
+lvgl_fx:
+  id: motion_fx
+  motion:                      # tokens for `duration`; `intensity` scales the size of effects
+    fast: 120ms
+    normal: 200ms
+    slow: 320ms
+    intensity: 1.0
+  max_targets: 24              # widgets that can be animated at once
+  # slots_in_psram: true       # keep the per-widget state in PSRAM (boards with PSRAM)
+  suppress_when: !lambda return id(busy);   # transitions apply instantly and effects are skipped while true
+
+  transitions:
+    defaults:                  # how each property moves when no named transition is given
+      visible: { style: fade, duration: normal, curve: ease_out, delay: 0ms }
+      opacity: { duration: normal }
+      value: { duration: normal, curve: ease_out }
+      text: { style: fade, duration: fast, from: 85% }
+      color: { duration: normal }
+      position: { duration: normal, curve: ease_out }
+      rotation: { duration: normal, curve: ease_out }
+    custom:                    # named transitions: only the properties they list differ from the defaults
+      - id: gauge_slow
+        value: { duration: slow, curve: ease_in_out }
+      - id: counter            # label numbers count up and down; `format` has exactly one %f
+        text: { style: count, format: "%.0f km", duration: 800ms, curve: ease_out }
+      - id: gear_roll          # new text rolls in from below when the number grows, from above when it shrinks
+        text: { style: roll, distance: 14, duration: 140ms }
+      - id: card_up            # `show` and `hide` can differ
+        visible: { show: slide_up, hide: fade, distance: 16 }
+      - id: card_down
+        visible: { style: slide_down, distance: 16 }
+      - id: card_left
+        visible: { show: slide_left, hide: slide_right, distance: 30, duration: 300ms }
+      - id: card_zoom
+        visible: { style: zoom, from: 70% }
+      - id: splash_out
+        visible: { hide: fade, duration: 600ms, curve: ease_in_out }
+      - id: prnd_move          # `then`: an effect that plays on the same widget when the move ends
+        position: { duration: 260ms, curve: ease_in_out }
+        then: confirm
+      - id: tilt
+        rotation: { duration: 400ms, delay: 100ms, curve: ease_in_out }
+      - id: instant_card       # style none: no motion at all
+        visible: { style: none }
+      - id: plain_text
+        text: { style: none }
+      - id: gauge_instant
+        value: { duration: 0ms }
+
+  presets:                     # magnitudes of the built-in effects (pulse, shake, nudge_*, flash, glow, blink)
+    pulse: { scale: 115%, duration: slow, curve: ease_out }
+    shake: { distance: 4, cycles: 3, duration: 200ms }
+    nudge_up: { distance: 6 }
+    nudge_down: { distance: 6 }
+    nudge_left: { distance: 6 }
+    nudge_right: { distance: 6 }
+    flash: { color: white, amount: 80% }
+    glow: { opacity: 70% }
+    blink: { opacity: 25% }
+
+  effect_defaults:             # options of every effect that does not set its own
+    retrigger: restart
+    when_suppressed: skip
+    policy: normal
+    defer_timeout: 4s
+    repeat: 1
+    repeat_delay: 50ms         # also the repeat delay of effects that set none (e.g. alert_always)
+    cooldown: 200ms            # fast repeated taps on the same effect button are dropped on purpose
+
+  effects:
+    - id: confirm
+      tracks:
+        - flash: { property: bg_color, color: white, amount: 70%, duration: 340ms, curve: ease_in }
+    - id: label_hit            # flash on the text color of a label
+      tracks:
+        - flash: { property: text_color, color: 0xD32F2F, amount: 100%, duration: slow }
+    - id: icon_hit             # flash on the recolor of an image
+      tracks:
+        - flash: { property: image_recolor, color: warm, duration: slow }
+    - id: heat                 # tracks start together; `delay` orders them. cooldown and retrigger: see page 3 and 4
+      cooldown: 2500ms
+      retrigger: ignore
+      tracks:
+        - nudge: { y: -3, duration: 220ms }
+        - flash: { property: bg_color, color: warm, amount: 60%, duration: 400ms }
+        - pulse: { scale: 106%, delay: 80ms, curve: ease_out }
+        - shake: { distance: 2, cycles: 2, axis: y, delay: 200ms }
+        - glow: { opacity: 60%, delay: 100ms, duration: slow }
+        - blink: { opacity: 60%, delay: 300ms, duration: fast, curve: ease_in_out }
+    - id: chain                # `then` plays another effect when this one has ended
+      repeat: 2
+      repeat_delay: 80ms
+      then: confirm
+      tracks:
+        - shake: { distance: 3, cycles: 2 }
+    - id: notify               # skipped while suppressed by default; this one is kept (once) and plays afterwards
+      when_suppressed: defer
+      defer_timeout: 8s
+      tracks:
+        - pulse: { scale: 112% }
+        - flash: { property: bg_color, color: warm }
+    - id: alert                # a loop: on until stopped, pauses while suppressed or hidden
+      repeat: infinite
+      repeat_delay: 300ms
+      tracks:
+        - blink: { opacity: 35%, duration: slow }
+        - glow: { opacity: 80%, duration: slow }
+    - id: alert_always         # a loop that ignores suppress_when
+      repeat: infinite
+      policy: always
+      tracks:
+        - blink: { opacity: 50%, duration: slow }
+
+# ---- the UI -----------------------------------------------------------------------------------------------------
+lvgl:
+  displays: [ main_display ]
+  touchscreens: [ main_touch ]
+  style_definitions:
+    - id: btn
+      width: 76
+      height: 26
+      radius: 6
+      pad_all: 0
+    - id: panel
+      bg_opa: TRANSP
+      border_width: 0
+      pad_all: 2
+      pad_row: 2
+      pad_column: 2
+      radius: 0
+    - id: ring               # a glow needs an outline with a width; outline_opa: 0 is set on the widget itself
+      outline_width: 3
+      outline_color: 0xFFB300
+      radius: 6
+      border_width: 0
+  top_layer:
+    widgets:
+      - obj:
+          id: splash
+          width: 100%
+          height: 100%
+          bg_color: 0x101820
+          border_width: 0
+          radius: 0
+          widgets:
+            - label:
+                text: "lvgl_fx"
+                text_color: 0xFFFFFF
+                align: center
+
+  pages:
+    # ---- page 1: values -----------------------------------------------------------------------------------------
+    - id: page_values
+      widgets:
+        - label: { text: "Value transitions", x: 6, y: 2 }
+        - bar: { id: bar_fuel, x: 10, y: 30, width: 140, height: 14, min_value: 0, max_value: 100, value: 40 }
+        - arc: { id: arc_speed, x: 165, y: 22, width: 64, height: 64, min_value: 0, max_value: 100, value: 20 }
+        - slider: { id: sld_level, x: 10, y: 60, width: 140, min_value: 0, max_value: 100, value: 20 }
+        - label: { id: lbl_odo, x: 10, y: 80, text: "0 km" }
+        - label: { id: lbl_gear, x: 130, y: 80, text: "1" }
+        - label: { id: lbl_msg, x: 10, y: 108, text: "Ready" }
+        - image: { id: img_needle, src: icon_img, x: 190, y: 100, pivot_x: 16, pivot_y: 16 }
+        - obj:
+            x: 0
+            y: 146
+            width: 100%
+            height: 174
+            styles: panel
+            layout: { type: flex, flex_flow: row_wrap }
+            widgets:
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: bar_fuel, value: 90, transition: gauge_slow }
+                    - lvgl_fx.set: { id: arc_speed, value: 90 }
+                    - lvgl_fx.set: { id: sld_level, value: 80 }
+                  widgets: [ { label: { text: "Gauge hi", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: bar_fuel, value: 10, transition: gauge_slow }
+                    - lvgl_fx.set: { id: arc_speed, value: 10 }
+                    - lvgl_fx.set: { id: sld_level, value: 20 }
+                  widgets: [ { label: { text: "Gauge lo", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: bar_fuel, value: 100, transition: gauge_instant }   # duration 0ms: no motion
+                  widgets: [ { label: { text: "Bar full", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: lbl_odo, value: 1250, transition: counter }
+                  widgets: [ { label: { text: "Count up", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: lbl_odo, value: 0, transition: counter }
+                  widgets: [ { label: { text: "Count 0", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: lbl_odo, value: 42.5 }   # formatted once with %.0f, fades (text default)
+                  widgets: [ { label: { text: "Set 42", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: lbl_gear, text: "4", transition: gear_roll }
+                  widgets: [ { label: { text: "Gear up", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: lbl_gear, text: "1", transition: gear_roll }
+                  widgets: [ { label: { text: "Gear down", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: lbl_msg, text: "All good" }
+                    - lvgl_fx.set: { id: lbl_msg, color: 0x2E7D32 }
+                  widgets: [ { label: { text: "Msg ok", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: lbl_msg, text: "Check engine" }
+                    - lvgl_fx.set: { id: lbl_msg, color: red }
+                  widgets: [ { label: { text: "Msg warn", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: img_needle, value: 90 }      # an image: rotation in degrees
+                    - lvgl_fx.set: { id: img_needle, color: warm }    # an image: recolor
+                  widgets: [ { label: { text: "Needle 90", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: img_needle, value: 0 }
+                    - lvgl_fx.set: { id: img_needle, color: 0x1565C0 }
+                  widgets: [ { label: { text: "Needle 0", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: lbl_gear, text: "2", transition: plain_text }   # style none: instant
+                  widgets: [ { label: { text: "Gear plain", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set:
+                        id: lbl_msg
+                        text:
+                          format: "%d km/h"
+                          args: [ "88" ]   # each arg is a C++ expression (ESPHome text format), not a string
+                  widgets: [ { label: { text: "Msg fmt", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl.page.next:
+                  widgets: [ { label: { text: "Next >", align: center } } ]
+
+    # ---- page 2: layout -----------------------------------------------------------------------------------------
+    - id: page_layout
+      widgets:
+        - label: { text: "Visibility and motion", x: 6, y: 2 }
+        - obj: { id: card_1, x: 6, y: 26, width: 52, height: 44, bg_color: 0x1565C0, border_width: 0 }
+        - obj: { id: card_2, x: 64, y: 26, width: 52, height: 44, bg_color: 0x2E7D32, border_width: 0 }
+        - obj: { id: card_3, x: 122, y: 26, width: 52, height: 44, bg_color: 0xC62828, border_width: 0 }
+        - obj: { id: card_4, x: 180, y: 26, width: 52, height: 44, bg_color: 0x6A1B9A, border_width: 0 }
+        - obj:
+            id: box_move
+            x: 10
+            y: 90
+            width: 44
+            height: 44
+            bg_color: 0x1565C0
+            border_width: 0
+            transform_pivot_x: 50%
+            transform_pivot_y: 50%
+        - obj:
+            x: 0
+            y: 146
+            width: 100%
+            height: 174
+            styles: panel
+            layout: { type: flex, flex_flow: row_wrap }
+            widgets:
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: card_1, visible: true, transition: card_up }
+                    - lvgl_fx.set: { id: card_2, visible: true, transition: card_down }
+                    - lvgl_fx.set: { id: card_3, visible: true, transition: card_left }
+                    - lvgl_fx.set: { id: card_4, visible: true, transition: card_zoom }
+                  widgets: [ { label: { text: "Show cards", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: card_1, visible: false, transition: card_up }
+                    - lvgl_fx.set: { id: card_2, visible: false, transition: card_down }
+                    - lvgl_fx.set: { id: card_3, visible: false, transition: card_left }
+                    - lvgl_fx.set: { id: card_4, visible: false, transition: card_zoom }
+                  widgets: [ { label: { text: "Hide cards", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: card_1, visible: false }     # the default: fade
+                    - lvgl_fx.set: { id: card_4, visible: false, transition: instant_card }   # style none: no motion
+                  widgets: [ { label: { text: "Fade/none", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: box_move, opacity: 0.3 }
+                  widgets: [ { label: { text: "Dim box", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: box_move, opacity: 100% }
+                  widgets: [ { label: { text: "Bright box", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: box_move, x: 180, transition: prnd_move }   # then: flash
+                  widgets: [ { label: { text: "Move right", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: box_move, x: 10, transition: prnd_move }
+                  widgets: [ { label: { text: "Move left", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: box_move, y: 74 }
+                  widgets: [ { label: { text: "Lift", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: box_move, y: 100 }
+                  widgets: [ { label: { text: "Drop", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: box_move, rotation: 90, transition: tilt }
+                  widgets: [ { label: { text: "Rotate", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: box_move, rotation: 0, transition: tilt }
+                  widgets: [ { label: { text: "Rotate 0", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: box_move, color: 0xC62828 }
+                  widgets: [ { label: { text: "Color red", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: box_move, color: 0x1565C0 }
+                  widgets: [ { label: { text: "Color blue", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.stop: box_move       # snap everything on the box to its final state
+                  widgets: [ { label: { text: "Stop box", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl.page.next:
+                  widgets: [ { label: { text: "Next >", align: center } } ]
+
+    # ---- page 3: effects ----------------------------------------------------------------------------------------
+    - id: page_effects
+      widgets:
+        - label: { text: "Effects", x: 6, y: 2 }
+        - obj:
+            id: fx_box
+            x: 10
+            y: 30
+            width: 90
+            height: 50
+            styles: ring
+            outline_opa: 0
+            bg_color: 0x1565C0
+            widgets:
+              - label: { text: "BOX", text_color: 0xFFFFFF, align: center }
+        - label: { id: fx_text, x: 125, y: 34, text: "ENGINE" }
+        - image: { id: fx_icon, src: icon_img, x: 135, y: 70 }
+        - obj:
+            x: 0
+            y: 146
+            width: 100%
+            height: 174
+            styles: panel
+            layout: { type: flex, flex_flow: row_wrap }
+            widgets:
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.play: { id: fx_box, effect: pulse }
+                  widgets: [ { label: { text: "Pulse", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.play: { id: fx_box, effect: shake }
+                  widgets: [ { label: { text: "Shake", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.play: { id: fx_box, effect: flash }
+                  widgets: [ { label: { text: "Flash", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.play: { id: fx_box, effect: glow }
+                  widgets: [ { label: { text: "Glow", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.play: { id: fx_text, effect: blink }
+                  widgets: [ { label: { text: "Blink text", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.play: { id: fx_box, effect: nudge_up }
+                  widgets: [ { label: { text: "Nudge up", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.play: { id: fx_box, effect: nudge_down }
+                  widgets: [ { label: { text: "Nudge down", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.play: { id: fx_box, effect: nudge_left }
+                  widgets: [ { label: { text: "Nudge left", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.play: { id: fx_box, effect: nudge_right }
+                  widgets: [ { label: { text: "Nudge right", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.play: { id: fx_text, effect: label_hit }    # flash on text_color
+                  widgets: [ { label: { text: "Flash text", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.play: { id: fx_icon, effect: icon_hit }     # flash on image_recolor
+                  widgets: [ { label: { text: "Flash icon", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.play: { id: fx_box, effect: heat }      # every track; 2.5 s cooldown
+                  widgets: [ { label: { text: "Heat", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.play: { id: fx_box, effect: chain }     # repeat 2, then `confirm`
+                  widgets: [ { label: { text: "Chain", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.play: { id: fx_box, effect: alert }     # on until stopped
+                  widgets: [ { label: { text: "Alert on", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.stop: { id: fx_box, effect: alert }
+                  widgets: [ { label: { text: "Alert off", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.stop: { id: fx_box, effect: pulse }   # a built-in effect by name
+                  widgets: [ { label: { text: "Stop pulse", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.stop: fx_box       # everything on the widget, back to its resting look
+                  widgets: [ { label: { text: "Stop all", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl.page.next:
+                  widgets: [ { label: { text: "Next >", align: center } } ]
+
+    # ---- page 4: policy -----------------------------------------------------------------------------------------
+    - id: page_policy
+      widgets:
+        - label: { text: "Policy: suppress_when", x: 6, y: 2 }
+        - label: { id: lbl_busy, x: 150, y: 30, text: "idle" }
+        - obj:
+            id: pol_box
+            x: 10
+            y: 30
+            width: 90
+            height: 50
+            styles: ring
+            outline_opa: 0
+            bg_color: 0x2E7D32
+            widgets:
+              - label: { text: "BOX", text_color: 0xFFFFFF, align: center }
+        - obj:
+            x: 0
+            y: 146
+            width: 100%
+            height: 174
+            styles: panel
+            layout: { type: flex, flex_flow: row_wrap }
+            widgets:
+              - button:
+                  styles: btn
+                  on_click:
+                    - globals.set: { id: busy, value: "true" }
+                    - lvgl.label.update: { id: lbl_busy, text: "BUSY" }
+                  widgets: [ { label: { text: "Busy on", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - globals.set: { id: busy, value: "false" }
+                    - lvgl.label.update: { id: lbl_busy, text: "idle" }
+                  widgets: [ { label: { text: "Busy off", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.play: { id: pol_box, effect: pulse }     # skipped while busy
+                  widgets: [ { label: { text: "Pulse", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.play: { id: pol_box, effect: notify }    # kept while busy, plays when it ends
+                  widgets: [ { label: { text: "Notify", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.play: { id: pol_box, effect: pulse, force: true }   # plays even while busy
+                  widgets: [ { label: { text: "Pulse force", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.play: { id: pol_box, effect: heat }      # cooldown: tap twice quickly
+                  widgets: [ { label: { text: "Heat", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.play: { id: pol_box, effect: alert }     # rests while busy, resumes after
+                  widgets: [ { label: { text: "Alert on", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.play: { id: pol_box, effect: alert_always }   # policy: always
+                  widgets: [ { label: { text: "Always on", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.stop: pol_box
+                  widgets: [ { label: { text: "Stop all", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: pol_box, x: 140, transition: prnd_move }   # instant while busy
+                  widgets: [ { label: { text: "Move right", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set: { id: pol_box, x: 10, transition: prnd_move, force: true }
+                  widgets: [ { label: { text: "Move force", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set_reduced_motion: true
+                  widgets: [ { label: { text: "Reduce on", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set_reduced_motion: false
+                  widgets: [ { label: { text: "Reduce off", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set_enabled: false
+                  widgets: [ { label: { text: "Disable fx", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl_fx.set_enabled: true
+                  widgets: [ { label: { text: "Enable fx", align: center } } ]
+              - button:
+                  styles: btn
+                  on_click:
+                    - lvgl.page.next:
+                  widgets: [ { label: { text: "Next >", align: center } } ]
