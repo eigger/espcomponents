@@ -1,4 +1,5 @@
-# Compile test for lvgl_fx phases P1-P2: every C++ API function and the lvgl_fx.start action.
+# Compile test for lvgl_fx phases P1-P3: every C++ API function, every transition style and the lvgl_fx.start
+# action.
 # No real hardware needed: an SPI ILI9341 with dummy pins gives LVGL a display to build widgets on.
 esphome:
   name: test-lvgl-fx
@@ -74,6 +75,17 @@ lvgl:
               - label:
                   id: fx_label
                   text: "0"
+        - label:
+            id: fx_number
+            y: 40
+            x: 150
+            text: "0"
+        - obj:
+            id: fx_card
+            x: 150
+            y: 60
+            width: 60
+            height: 40
         - bar:
             id: fx_bar
             y: 80
@@ -165,10 +177,9 @@ interval:
           fx::set_reduced_motion(false);
 
           // user-defined transition table: the format the codegen of a later phase emits
-          static const fx::PropTransition slow_value = {fx::DUR_SLOW, 0, fx::Curve::EASE_IN_OUT, fx::Style::NONE,
-                                                        fx::Style::NONE, 0, 0};
-          static const fx::PropTransition quick_text = {60, 10, fx::Curve::LINEAR, fx::Style::FADE,
-                                                        fx::Style::FADE, 50, 0};
+          static const fx::PropTransition slow_value = {.duration = fx::DUR_SLOW, .curve = fx::Curve::EASE_IN_OUT};
+          static const fx::PropTransition quick_text = {.duration = 60, .delay = 10, .style = fx::Style::FADE,
+                                                        .from = 50};
           static const fx::TransitionDef gauge_slow = {{nullptr, nullptr, &slow_value, &quick_text, nullptr, nullptr,
                                                         nullptr},
                                                        nullptr};
@@ -284,7 +295,8 @@ interval:
           fx::stop(id(fx_obj));
 
           // ---- transition `then`: every kind of transition ends by playing an effect on the same target ----
-          static const fx::PropTransition quick = {60, 0, fx::Curve::LINEAR, fx::Style::FADE, fx::Style::FADE, 50, 0};
+          static const fx::PropTransition quick = {.duration = 60, .curve = fx::Curve::LINEAR,
+                                                   .style = fx::Style::FADE, .from = 50};
           static const fx::TransitionDef with_then = {{&quick, &quick, &quick, &quick, &quick, &quick, &quick},
                                                       &confirm};
           fx::set_visible(id(fx_obj), false, fx::Opt{&with_then});    // hide, then
@@ -321,6 +333,221 @@ interval:
           fx::stop(id(fx_label));
           fx::stop(id(fx_image));
           fx::stop(id(fx_obj));
+
+  # ---- P3: transition styles ----
+  - interval: 2500ms
+    then:
+      - lambda: |-
+          // Entries list only what they say; everything else resolves against the defaults and the built-ins.
+          static const fx::PropTransition up = {.style = fx::Style::SLIDE_UP};
+          static const fx::PropTransition down = {.style = fx::Style::SLIDE_DOWN, .distance = 20};
+          static const fx::PropTransition left = {.duration = 300, .delay = 20, .curve = fx::Curve::EASE_IN_OUT,
+                                                  .style = fx::Style::SLIDE_LEFT, .distance = 30};
+          static const fx::PropTransition right = {.style = fx::Style::SLIDE_RIGHT};
+          static const fx::PropTransition zoom = {.style = fx::Style::ZOOM};
+          static const fx::PropTransition zoom_far = {.style = fx::Style::ZOOM, .from = 60};
+          static const fx::PropTransition none = {.style = fx::Style::NONE};
+          static const fx::PropTransition split = {.style = fx::Style::SLIDE_UP, .hide_style = fx::Style::FADE};
+          static const fx::PropTransition split_rev = {.style = fx::Style::FADE, .hide_style = fx::Style::ZOOM};
+          static const fx::PropTransition instant = {.duration = 0, .style = fx::Style::SLIDE_UP};
+          static const fx::TransitionDef t_up = {{&up, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, nullptr};
+          static const fx::TransitionDef t_down = {{&down, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+                                                   nullptr};
+          static const fx::TransitionDef t_left = {{&left, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+                                                   nullptr};
+          static const fx::TransitionDef t_right = {{&right, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+                                                    nullptr};
+          static const fx::TransitionDef t_zoom = {{&zoom, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+                                                   nullptr};
+          static const fx::TransitionDef t_zoom_far = {{&zoom_far, nullptr, nullptr, nullptr, nullptr, nullptr,
+                                                        nullptr}, nullptr};
+          static const fx::TransitionDef t_none = {{&none, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+                                                   nullptr};
+          static const fx::TransitionDef t_split = {{&split, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+                                                    nullptr};
+          static const fx::TransitionDef t_split_rev = {{&split_rev, nullptr, nullptr, nullptr, nullptr, nullptr,
+                                                         nullptr}, nullptr};
+          static const fx::TransitionDef t_instant = {{&instant, nullptr, nullptr, nullptr, nullptr, nullptr,
+                                                       nullptr}, nullptr};
+          lv_obj_t *card = id(fx_card);
+
+          // every visible style, hide then show
+          const fx::TransitionRef styles[] = {&t_up, &t_down, &t_left, &t_right, &t_zoom, &t_zoom_far, &t_none,
+                                              &t_split, &t_split_rev, &t_instant};
+          for (fx::TransitionRef t : styles) {
+            fx::set_visible(card, false, fx::Opt{t});
+            fx::set_visible(card, true, fx::Opt{t});
+          }
+
+          // show/hide split with a reversal in the middle of the hide and of the show
+          fx::set_visible(card, false, fx::Opt{&t_split});
+          fx::set_visible(card, true, fx::Opt{&t_split});
+          fx::set_visible(card, false, fx::Opt{&t_split_rev});
+          fx::set_visible(card, true, fx::Opt{&t_split_rev});
+          fx::set_visible(card, false, fx::Opt{&t_down});    // hide mid-show of another style: keeps the running style
+          fx::set_visible(card, true, fx::Opt{&t_zoom});
+          fx::set_opacity(card, 120, fx::Opt{&t_up});        // set_opacity inside a slide entry ends its offsets
+          fx::set_opacity(card, LV_OPA_COVER);
+          fx::stop(card);                                    // snaps: offsets 0, shown
+
+          // stop() during a hide: HIDDEN is set, offsets are 0, `then` does not play
+          static const fx::Track confirm_tracks[] = {{.kind = fx::TrackKind::PULSE}};
+          static const fx::EffectDef confirm = {.tracks = confirm_tracks, .track_count = 1};
+          static const fx::TransitionDef t_up_then = {{&up, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+                                                      &confirm};
+          fx::set_visible(card, false, fx::Opt{&t_up_then});
+          fx::stop(card);
+          fx::set_visible(card, true, fx::Opt{&t_up_then});   // `then` after a styled transition
+          fx::set_visible(card, false, fx::Opt{&t_instant});  // duration 0: instant, then still plays
+          fx::set_visible(card, true, fx::Opt{&t_up_then, true});
+          fx::stop(card);
+          fx::set_visible(card, true, {.transition = &t_zoom, .force = true});
+          fx::play(card, fx::PULSE);                          // zoom entry and pulse compose
+          fx::set_visible(card, false, fx::Opt{&t_zoom});
+          fx::stop(card);
+
+          // text styles
+          static const fx::PropTransition roll = {.style = fx::Style::ROLL};
+          static const fx::PropTransition roll_far = {.duration = 140, .style = fx::Style::ROLL, .from = 50,
+                                                      .distance = 20};
+          static const fx::PropTransition count = {.style = fx::Style::COUNT};
+          static const fx::PropTransition count_one = {.duration = 400, .curve = fx::Curve::EASE_OUT,
+                                                       .style = fx::Style::COUNT, .format = "%.1f"};
+          static const fx::PropTransition count_unit = {.style = fx::Style::COUNT, .format = "T %.0f C"};
+          static const fx::PropTransition count_g = {.style = fx::Style::COUNT, .format = "%g"};  // not %f: no count
+          static const fx::PropTransition fade_far = {.style = fx::Style::FADE, .from = 20};
+          static const fx::PropTransition text_none = {.style = fx::Style::NONE};
+          static const fx::PropTransition text_slide = {.style = fx::Style::SLIDE_UP};  // not a text style: fade
+          static const fx::PropTransition text_format = {.format = "%05.1f"};            // fade with a format
+          static const fx::TransitionDef t_roll = {{nullptr, nullptr, nullptr, &roll, nullptr, nullptr, nullptr},
+                                                   nullptr};
+          static const fx::TransitionDef t_roll_far = {{nullptr, nullptr, nullptr, &roll_far, nullptr, nullptr,
+                                                        nullptr}, nullptr};
+          static const fx::TransitionDef t_count = {{nullptr, nullptr, nullptr, &count, nullptr, nullptr, nullptr},
+                                                    nullptr};
+          static const fx::TransitionDef t_count_one = {{nullptr, nullptr, nullptr, &count_one, nullptr, nullptr,
+                                                         nullptr}, nullptr};
+          static const fx::TransitionDef t_count_then = {{nullptr, nullptr, nullptr, &count, nullptr, nullptr,
+                                                          nullptr}, &confirm};
+          static const fx::TransitionDef t_count_unit = {{nullptr, nullptr, nullptr, &count_unit, nullptr, nullptr,
+                                                          nullptr}, nullptr};
+          static const fx::TransitionDef t_count_g = {{nullptr, nullptr, nullptr, &count_g, nullptr, nullptr,
+                                                       nullptr}, nullptr};
+          static const fx::TransitionDef t_fade_far = {{nullptr, nullptr, nullptr, &fade_far, nullptr, nullptr,
+                                                        nullptr}, nullptr};
+          static const fx::TransitionDef t_text_none = {{nullptr, nullptr, nullptr, &text_none, nullptr, nullptr,
+                                                         nullptr}, nullptr};
+          static const fx::TransitionDef t_text_slide = {{nullptr, nullptr, nullptr, &text_slide, nullptr, nullptr,
+                                                          nullptr}, nullptr};
+          static const fx::TransitionDef t_text_format = {{nullptr, nullptr, nullptr, &text_format, nullptr, nullptr,
+                                                           nullptr}, nullptr};
+          lv_obj_t *label = id(fx_number);
+
+          fx::set_text(label, "5", fx::Opt{&t_roll});         // roll: number grows -> from below
+          fx::set_text(label, "3", fx::Opt{&t_roll});         // shrinks -> from above
+          fx::set_text(label, "12 km", fx::Opt{&t_roll_far});
+          fx::set_text(label, "12 mi", fx::Opt{&t_roll});     // same number: fade
+          fx::set_text(label, "n/a", fx::Opt{&t_roll});       // not a number: fade
+          fx::set_text(label, "-4.5", fx::Opt{&t_roll});
+          fx::set_text(label, "7", fx::Opt{&t_fade_far});
+          fx::set_text(label, "8", fx::Opt{&t_text_none});    // instant
+          fx::set_text(label, "9", fx::Opt{&t_text_slide});
+          fx::set_text(label, "10", fx::Opt{&t_count});       // `count` through set_text: fade
+          fx::stop(label);
+
+          // set_value on a label: format once (fade by default), roll on a number, count, NaN
+          fx::set_value(label, 12.0f);
+          fx::set_value(label, 12.0f);                        // same text: nothing
+          fx::set_value(label, 41.6f);
+          fx::set_value(label, 7.0f, fx::Opt{&t_roll});
+          fx::set_value(label, 3.14159f, fx::Opt{&t_text_format});
+          fx::set_value(label, NAN);                          // "--" at once
+          fx::set_value(label, NAN);
+          fx::set_value(label, 100.0f, fx::Opt{&t_count});    // no number to start from: fade
+          fx::set_value(label, 250.0f, fx::Opt{&t_count});    // counts 100 -> 250
+          fx::set_value(label, 80.0f, fx::Opt{&t_count});     // retarget mid-count, from the shown number
+          fx::set_value(label, 80.0f, fx::Opt{&t_count});     // same target: nothing
+          fx::stop(label);                                    // snaps to the final number
+          fx::set_value(label, 99.5f, fx::Opt{&t_count_one});
+          fx::set_value(label, -12.25f, fx::Opt{&t_count_one});
+          fx::set_value(label, 1.0e12f, fx::Opt{&t_count_one});  // beyond the fixed-point range: no count
+          fx::set_value(label, 5.0f, fx::Opt{&t_count_then});
+          fx::set_value(label, 0.0f, fx::Opt{&t_count_unit});    // prefix/suffix in the format
+          fx::set_value(label, 55.0f, fx::Opt{&t_count_unit});
+          fx::set_value(label, 2.5f, fx::Opt{&t_count_g});
+          fx::set_text(label, "again", fx::Opt{&t_roll});        // text replaces a running count
+          fx::set_value(label, 8.0f, fx::Opt{&t_count});
+          fx::set_value(label, 1.0f, fx::Opt{&t_roll_far});      // count replaced by a roll
+          fx::set_value(label, 9.0f, {.transition = &t_count, .force = true});
+          fx::set_value(label, 19.0f, fx::Opt{&t_count});
+          fx::set_value(id(fx_label), 3.0f);                     // a label inside a container
+
+          // a label that slides in while its text changes: separate instances, no fight over the offsets
+          fx::set_visible(label, false, fx::Opt{&t_split});
+          fx::set_visible(label, true, fx::Opt{&t_split});
+          fx::set_text(label, "21", fx::Opt{&t_roll});
+          fx::set_text(label, "22", fx::Opt{&t_roll});
+          fx::set_visible(label, false, fx::Opt{&t_left});
+          fx::set_visible(label, true, fx::Opt{&t_zoom});
+          fx::set_value(label, 23.0f, fx::Opt{&t_count});
+          fx::stop(label);
+
+          // count: a delta beyond the lv_anim int32 range is not counted (fade), a count retargeted to the text
+          // that is shown right now ends there
+          fx::set_value(label, 0.0f, fx::Opt{&t_count});
+          fx::set_value(label, 3000000.0f, fx::Opt{&t_count});   // too far for %.0f: plain text change
+          fx::set_value(label, 0.0f, fx::Opt{&t_count_one});
+          fx::set_value(label, 25000.0f, fx::Opt{&t_count_one});
+          fx::set_value(label, 0.0f, fx::Opt{&t_count});
+          fx::set_value(label, 100.0f, fx::Opt{&t_count});       // counting 0 -> 100
+          fx::set_text(label, lv_label_get_text(label), fx::Opt{&t_roll});   // same text: the count ends here
+          fx::set_value(label, 50.0f, fx::Opt{&t_count});
+          fx::set_value(label, 100.0f, fx::Opt{&t_count});
+          fx::set_value(label, 50.0f, fx::Opt{&t_count});        // equals the text on screen: count stops
+          fx::set_text(label, "50", fx::Opt{&t_roll});
+
+          // defaults resolution: an entry that only has hide_style, a text delay, a distance beyond the limit
+          static const fx::PropTransition only_hide = {.hide_style = fx::Style::ZOOM};
+          static const fx::PropTransition delayed_roll = {.delay = 50, .style = fx::Style::ROLL, .distance = 5000};
+          static const fx::TransitionDef defaults_def = {{&only_hide, nullptr, nullptr, &delayed_roll, nullptr,
+                                                          nullptr, nullptr}, nullptr};
+          fx::detail::core().defaults = &defaults_def;
+          fx::set_visible(card, false);                          // zoom hide from the defaults, fade show
+          fx::set_visible(card, true);
+          fx::set_visible(card, false, fx::Opt{&t_up});          // its own style beats the defaults
+          fx::set_visible(card, true, fx::Opt{&t_up});
+          fx::set_text(label, "60");                             // delayed roll with a clamped distance
+          fx::set_text(label, "61");
+          fx::detail::core().defaults = nullptr;
+          fx::stop(card);
+          fx::stop(label);
+
+          // a delayed text animation must not survive a later one (count, undelayed fade)
+          static const fx::PropTransition late_fade = {.delay = 100, .style = fx::Style::FADE};
+          static const fx::TransitionDef t_late = {{nullptr, nullptr, nullptr, &late_fade, nullptr, nullptr, nullptr},
+                                                   nullptr};
+          fx::set_text(label, "5", fx::Opt{&t_late});
+          fx::set_value(label, 80.0f, fx::Opt{&t_count});
+          fx::set_text(label, "6", fx::Opt{&t_late});
+          fx::set_text(label, "7");
+          fx::set_text(label, "8", fx::Opt{&t_late});
+          fx::set_text(label, "9", fx::Opt{&t_roll});
+          fx::stop(label);
+
+          // a plain opacity fade, then a slide hide on top of it (the hide fades only), set_opacity during a hide
+          fx::set_opacity(card, 100);
+          fx::set_visible(card, false, fx::Opt{&t_up});
+          fx::set_opacity(card, 200);
+          fx::set_visible(card, true, fx::Opt{&t_up});
+          fx::stop(card);
+
+          // policy: no motion while disabled, the final state stays exact
+          fx::set_enabled(false);
+          fx::set_visible(card, false, fx::Opt{&t_up});
+          fx::set_visible(card, true, fx::Opt{&t_up});
+          fx::set_text(label, "off", fx::Opt{&t_roll});
+          fx::set_value(label, 123.0f, fx::Opt{&t_count});
+          fx::set_enabled(true);
 
   # suppress_when is evaluated once per main-loop iteration, so the popup flag must change in a different iteration than
   # the plays: suppress in one interval, play in the next, release in a later one.

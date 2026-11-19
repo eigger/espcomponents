@@ -4,17 +4,24 @@ namespace esphome {
 namespace lvgl_fx {
 
 // Built-in per-property transitions (DESIGN.md 4.2).  Same const-table format that P4 codegen emits for user
-// definitions, so the runtime has a single resolution path.  Unspecified curves default to linear.
+// definitions, so the runtime has a single resolution path.  These are the last level of the fallback chain, so every
+// field a property uses is set here (duration, curve, style, and the style parameters of the property).
 namespace {
 
-//                                   duration    delay curve               style        hide_style   from distance
-const PropTransition VISIBLE{DUR_NORMAL, 0, Curve::EASE_OUT, Style::FADE, Style::FADE, 0, 0};
-const PropTransition OPACITY{DUR_NORMAL, 0, Curve::LINEAR, Style::NONE, Style::NONE, 0, 0};
-const PropTransition VALUE{DUR_NORMAL, 0, Curve::EASE_OUT, Style::NONE, Style::NONE, 0, 0};
-const PropTransition TEXT{DUR_FAST, 0, Curve::LINEAR, Style::FADE, Style::FADE, 85, 0};
-const PropTransition COLOR{DUR_NORMAL, 0, Curve::LINEAR, Style::NONE, Style::NONE, 0, 0};
-const PropTransition POSITION{DUR_NORMAL, 0, Curve::EASE_OUT, Style::NONE, Style::NONE, 0, 0};
-const PropTransition ROTATION{DUR_NORMAL, 0, Curve::EASE_OUT, Style::NONE, Style::NONE, 0, 0};
+const PropTransition VISIBLE = {.duration = DUR_NORMAL, .delay = 0, .curve = Curve::EASE_OUT, .style = Style::FADE,
+                                .hide_style = Style::FADE, .from = 90, .distance = 12};
+const PropTransition OPACITY = {.duration = DUR_NORMAL, .delay = 0, .curve = Curve::LINEAR, .style = Style::NONE,
+                                .hide_style = Style::NONE};
+const PropTransition VALUE = {.duration = DUR_NORMAL, .delay = 0, .curve = Curve::EASE_OUT, .style = Style::NONE,
+                              .hide_style = Style::NONE};
+const PropTransition TEXT = {.duration = DUR_FAST, .delay = 0, .curve = Curve::LINEAR, .style = Style::FADE,
+                             .hide_style = Style::FADE, .from = 85, .distance = 14, .format = "%.0f"};
+const PropTransition COLOR = {.duration = DUR_NORMAL, .delay = 0, .curve = Curve::LINEAR, .style = Style::NONE,
+                              .hide_style = Style::NONE};
+const PropTransition POSITION = {.duration = DUR_NORMAL, .delay = 0, .curve = Curve::EASE_OUT, .style = Style::NONE,
+                                 .hide_style = Style::NONE};
+const PropTransition ROTATION = {.duration = DUR_NORMAL, .delay = 0, .curve = Curve::EASE_OUT, .style = Style::NONE,
+                                 .hide_style = Style::NONE};
 
 }  // namespace
 
