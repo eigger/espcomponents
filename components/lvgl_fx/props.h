@@ -48,10 +48,11 @@ struct Offsets {
   void merge(const Offsets &other);
 };
 
-// What a running instance contributes.  P2 adds EFFECT/LOOP, P3 adds the slide/zoom/roll style entries.
+// What a running instance contributes.  P3 adds the slide/zoom/roll style entries.
 enum class InstanceKind : uint8_t {
   NONE = 0,
   FADE_IN,  // text fade style: opa offset = progress (0..255) -> 255
+  EFFECT,   // one-shot or loop effect: progress = ms into the effect, state = PropBit mask its tracks drive
 };
 
 // One running piece of motion on a target: {definition, progress, state} (7.3).  An idle instance is all zero.
@@ -62,11 +63,16 @@ struct Instance {
   uint8_t state;       // kind-specific
 };
 
+struct EffectDef;
+struct TransitionDef;
+
 enum SlotFlag : uint8_t {
   SLOT_HIDING = 1 << 0,        // a hide transition is running; HIDDEN is set when it completes
   SLOT_LARGE_WARNED = 1 << 1,  // already warned about layer-rendering a large target (7.5)
-  SLOT_LOOP_ON = 1 << 2,       // P2: a loop effect is switched on
-  SLOT_LOOP_PAUSED = 1 << 3,   // P2: the loop is paused by policy
+  SLOT_LOOP_ON = 1 << 2,       // a loop effect is switched on (slot.loop.def)
+  SLOT_LOOP_PAUSED = 1 << 3,   // the loop is on but at rest: policy, or not allowed to animate yet (5)
+  SLOT_LOOP_FORCE = 1 << 4,    // the loop was started with force: policy never pauses it
+  SLOT_UNTINTED = 1 << 5,      // image without recolor: a color contribution is the whole tint (see compose)
 };
 
 // Per-target state.  Created only when a transition or effect needs composition (7.3).  No default member
@@ -84,11 +90,20 @@ struct Slot {
   lv_color_t color_from;          // set_color transition endpoints (base_color is mixed between them)
   lv_color_t color_to;
   ColorTarget color_target;
-  Instance one_shot, loop, style;  // P2 fills one_shot/loop; P1 only uses `style` (text fade)
+  uint8_t base_outline_opa;       // outline opacity the widget had when fx took it over (glow adds on top)
+  Instance one_shot, loop, style;  // one_shot keeps its last effect after it ended (cooldown)
+  uint32_t last_play_tick;        // lv_tick of the last one-shot start (cooldown)
+  const EffectDef *deferred;      // effect kept by `when_suppressed: defer` (one per target)
+  uint32_t deferred_tick;         // lv_tick when it was kept (defer_timeout)
+  const TransitionDef *opa_then;  // `then` of the running opacity/visibility transition (user_data: generation)
 };
 
 // Take ownership of a property: read the widget's current value as the base value the first time (6, ownership rule).
 void own(Slot &slot, uint8_t props);
+// Take ownership of the color property through a specific style property (a target has a single color channel).
+// When the slot already carries color through another property: with `busy` (an effect or transition drives it) the
+// call fails and returns false; otherwise the old property gets its base value back and the channel moves to `target`.
+bool own_color(Slot &slot, ColorTarget target, bool busy);
 
 // Recompute the owned properties in `mask` from base values and all contributors, and write them to the widget.
 void compose(Slot &slot, uint8_t mask);

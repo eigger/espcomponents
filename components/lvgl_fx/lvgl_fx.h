@@ -10,20 +10,11 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "effects.h"
 #include "props.h"
 
 namespace esphome {
 namespace lvgl_fx {
-
-// ---- curves ------------------------------------------------------------------------------------------------------
-
-enum class Curve : uint8_t { LINEAR, EASE_IN, EASE_OUT, EASE_IN_OUT };
-
-// LVGL path callback for a curve (used for lv_anim based motion).
-lv_anim_path_cb_t curve_path(Curve curve);
-// Integer curve evaluation for runners that cut sub-ranges out of one lv_anim (7.1).  t and the result are in
-// [0, LV_BEZIER_VAL_MAX]; same control points as lv_anim_path_*.
-int32_t curve_step(Curve curve, int32_t t);
 
 // ---- transition definitions (const tables; P4 codegen emits these into flash) ---------------------------------------
 
@@ -32,14 +23,6 @@ constexpr size_t PROP_COUNT = static_cast<size_t>(Prop::COUNT);
 
 // Transition styles (4.2.1).  P3 adds slide_*, zoom, roll, count.
 enum class Style : uint8_t { NONE, FADE };
-
-// A duration is a plain millisecond value, or one of these tokens resolved against the motion tokens at run time
-// (so `fx::motion()` changes apply to the built-in tables as well).
-constexpr uint16_t DUR_FAST = 0xFFFD;
-constexpr uint16_t DUR_NORMAL = 0xFFFE;
-constexpr uint16_t DUR_SLOW = 0xFFFF;
-
-struct EffectDef;  // P2
 
 // How one property moves to a new value.
 struct PropTransition {
@@ -56,7 +39,7 @@ struct PropTransition {
 // P4 emits `static const TransitionDef` objects and references them from C++ as TransitionRef.
 struct TransitionDef {
   const PropTransition *props[PROP_COUNT];
-  const EffectDef *then;  // P2: effect played on the same target when the transition completes (no-op in P1)
+  const EffectDef *then;  // effect played on the same target when the transition completes (not on stop())
 };
 using TransitionRef = const TransitionDef *;
 
@@ -100,6 +83,11 @@ struct Core {
   Slot *slots = nullptr;
   Slot *last_hit = nullptr;
   TransitionRef defaults = nullptr;  // overrides BUILTIN_TRANSITIONS per property (P4 `transitions.defaults`)
+  EffectOptions effect_defaults;     // `effect_defaults:` (4.4)
+  const Track *presets[BUILTIN_COUNT] = {};  // `presets:` per built-in effect, indexed by EffectDef::builtin - 1
+  uint32_t intensity_q8 = LV_SCALE_NONE;     // motion().intensity as sampled when the last effect started
+  uint8_t watching = 0;             // slots with a deferred effect or a loop on: LvglFx::loop() has work (5)
+  Component *owner = nullptr;       // the component, to wake its loop()
 };
 Core &core();
 
@@ -108,6 +96,10 @@ Slot *find_slot(lv_obj_t *obj);
 // Find or create the slot of a target.  nullptr when the pool is full: callers then apply the final state instantly.
 Slot *acquire_slot(lv_obj_t *obj);
 
+// Policy building blocks (5): the hidden test walks the ancestors; `suppress_when` is cached per main-loop iteration.
+bool target_hidden(lv_obj_t *obj, bool check_self);
+bool suppressed();
+
 // Policy, Transition column of the table in section 5.  `check_self_hidden` is false for set_visible, which changes
 // that very flag.
 bool transition_allowed(lv_obj_t *obj, bool check_self_hidden, const Opt &opt);
@@ -115,6 +107,20 @@ bool transition_allowed(lv_obj_t *obj, bool check_self_hidden, const Opt &opt);
 // Property entry of a transition: opt.transition, then the configured defaults, then the built-ins.
 const PropTransition &resolve(TransitionRef transition, Prop prop);
 uint32_t resolve_duration(uint16_t duration);
+
+// ---- effect runner (runner.cpp) ----
+// A slot is "watched" while LvglFx::loop() has to look at it: a deferred effect, or a loop that is on.
+inline bool slot_watched(const Slot &slot) { return slot.deferred != nullptr || (slot.flags & SLOT_LOOP_ON) != 0; }
+// True while a set_color transition is animating the slot's base color.
+bool color_transition_running(Slot &slot);
+// Stop every effect on the slot: the one-shot and the loop end at rest (offsets 0), a deferred effect is dropped.
+void stop_effects(Slot &slot);
+// Slot teardown: bookkeeping only, the animations are deleted by the caller (they all use the slot as var).
+void release_effects(Slot &slot);
+// `then` of a finished transition or effect: play it on the same target with default policy.
+void play_then(lv_obj_t *obj, EffectRef then);
+// One pass over deferred effects and loops (LvglFx::loop()).
+void service_effects();
 
 }  // namespace detail
 
@@ -134,8 +140,13 @@ void set_y(lv_obj_t *obj, int32_t y, Opt opt = {});
 // transform rotation of any widget.  Non-finite: instantly 0.  Mind transform_pivot.
 void set_rotation(lv_obj_t *obj, float degrees, Opt opt = {});
 
-// Stop all motion on a target and snap to the final state: transitions to their target value.
+// Effects: pass an effect.  The only call-site override is `opt.force` (4.4); `opt.transition` is ignored.
+void play(lv_obj_t *obj, EffectRef effect, Opt opt = {});
+
+// Stop all motion on a target and snap to the final state: transitions to their target value, effects to rest.
 void stop(lv_obj_t *obj);
+// Stop one effect (running one-shot, loop that is on, or deferred) without touching anything else.
+void stop(lv_obj_t *obj, EffectRef effect);
 
 // Declare the UI ready.  Before this, transitions apply instantly (policy row 2).
 void start();
@@ -153,7 +164,9 @@ inline void set_color(lvgl::LvCompound *w, lv_color_t color, Opt opt = {}) { set
 inline void set_x(lvgl::LvCompound *w, int32_t x, Opt opt = {}) { set_x(w->obj, x, opt); }
 inline void set_y(lvgl::LvCompound *w, int32_t y, Opt opt = {}) { set_y(w->obj, y, opt); }
 inline void set_rotation(lvgl::LvCompound *w, float degrees, Opt opt = {}) { set_rotation(w->obj, degrees, opt); }
+inline void play(lvgl::LvCompound *w, EffectRef effect, Opt opt = {}) { play(w->obj, effect, opt); }
 inline void stop(lvgl::LvCompound *w) { stop(w->obj); }
+inline void stop(lvgl::LvCompound *w, EffectRef effect) { stop(w->obj, effect); }
 
 // ---- user channel (8.1) --------------------------------------------------------------------------------------------
 
@@ -167,8 +180,9 @@ struct TweenOpt {
 };
 
 // Animate `setter(var, v)` from `from` to `to` with the policy applied.  Starting a tween on the same (var, setter)
-// replaces the running one; the new tween starts from the caller's `from`, not where the old one stopped.  `var` must outlive the tween (an lv_obj_t * is cleaned
-// up by LVGL when it is deleted).  Instant application calls setter(var, to) and then on_done synchronously, so on_done may re-enter.
+// replaces the running one; the new tween starts from the caller's `from`, not where the old one stopped.  `var` must
+// outlive the tween (an lv_obj_t * is cleaned up by LVGL when it is deleted).  Instant application calls
+// setter(var, to) and then on_done synchronously, so on_done may re-enter.
 void tween(void *var, lv_anim_exec_xcb_t setter, int32_t from, int32_t to, TweenOpt opt = {});
 // Cancel a running tween without applying its end value.
 void cancel_tween(void *var, lv_anim_exec_xcb_t setter);

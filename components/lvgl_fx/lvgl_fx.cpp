@@ -13,8 +13,9 @@ namespace lvgl_fx {
 static const char *const TAG = "lvgl_fx";
 
 #if INTPTR_MAX == INT32_MAX
-// DESIGN.md 7.3 budgets ~52 bytes per target on the 32-bit targets; keep it from creeping up unnoticed.
-static_assert(sizeof(Slot) <= 52, "lvgl_fx::Slot grew past its size budget");
+// DESIGN.md 7.3 budgets the per-target slot (measured: 68 bytes on the 32-bit targets); keep it from creeping up
+// unnoticed.
+static_assert(sizeof(Slot) <= 68, "lvgl_fx::Slot grew past its size budget");
 #endif
 
 // ---- state -------------------------------------------------------------------------------------------------------
@@ -50,14 +51,16 @@ Slot *find_slot(lv_obj_t *obj) {
   return nullptr;
 }
 
-// Frees the slot with its target.  lv_obj_delete only removes animations whose var is the object itself; ours use the
-// slot as var, so they must go here before the slot can be reused.
+// Frees the slot with its target.  lv_obj_delete only removes animations whose var is the object itself; ours (opacity,
+// color, rotation, text fade and both effect instances) use the slot as var, so they must go here before the slot can
+// be reused.
 static void on_target_deleted(lv_event_t *e) {
   Core &c = g_core;
   auto *slot = static_cast<Slot *>(lv_event_get_user_data(e));
   // A child's DELETE can bubble up to a handler registered on its parent: only react to our own target.
   if (slot->obj == nullptr || lv_event_get_target(e) != slot->obj) return;
   lv_anim_delete(slot, nullptr);
+  release_effects(*slot);
   if (c.last_hit == slot) c.last_hit = nullptr;
   *slot = Slot{};
   while (c.used > 0 && c.slots[c.used - 1].obj == nullptr) c.used--;
@@ -91,7 +94,7 @@ Slot *acquire_slot(lv_obj_t *obj) {
 
 // ---- policy ------------------------------------------------------------------------------------------------------
 
-static bool target_hidden(lv_obj_t *obj, bool check_self) {
+bool target_hidden(lv_obj_t *obj, bool check_self) {
   for (lv_obj_t *o = check_self ? obj : lv_obj_get_parent(obj); o != nullptr; o = lv_obj_get_parent(o)) {
     if (lv_obj_is_hidden(o)) return true;
   }
@@ -99,7 +102,7 @@ static bool target_hidden(lv_obj_t *obj, bool check_self) {
 }
 
 // `suppress_when` runs at most once per main-loop iteration (LvglFx::loop() bumps the epoch).
-static bool suppressed() {
+bool suppressed() {
   Core &c = g_core;
   if (c.suppress_fn == nullptr) return false;
   if (c.suppress_epoch != c.loop_epoch) {
@@ -150,6 +153,12 @@ using detail::resolve_duration;
 using detail::transition_allowed;
 
 Motion &motion() { return detail::g_core.motion; }
+EffectOptions &effect_defaults() { return detail::g_core.effect_defaults; }
+
+void set_preset(EffectRef builtin, const Track *adjust) {
+  if (builtin == nullptr || builtin->builtin == 0 || builtin->builtin > BUILTIN_COUNT) return;
+  detail::g_core.presets[builtin->builtin - 1] = adjust;
+}
 
 // ---- curves ------------------------------------------------------------------------------------------------------
 
@@ -162,6 +171,7 @@ lv_anim_path_cb_t curve_path(Curve curve) {
     case Curve::EASE_IN_OUT:
       return lv_anim_path_ease_in_out;
     case Curve::LINEAR:
+    case Curve::DEFAULT:
       break;
   }
   return lv_anim_path_linear;
@@ -176,6 +186,7 @@ int32_t curve_step(Curve curve, int32_t t) {
     case Curve::EASE_IN_OUT:
       return lv_cubic_bezier(t, LV_BEZIER_VAL_FLOAT(0.42), 0, LV_BEZIER_VAL_FLOAT(0.58), LV_BEZIER_VAL_FLOAT(1));
     case Curve::LINEAR:
+    case Curve::DEFAULT:
       break;
   }
   return t;
@@ -202,27 +213,35 @@ static void start_anim(void *var, lv_anim_exec_xcb_t exec, int32_t from, int32_t
   lv_anim_start(&anim);
 }
 
-// Slot-less transitions finish through this hook.  Used for `then` (DESIGN.md 4.2): the effect is played on the same
-// target.  Effects arrive in P2; until then there is nothing to play.
-static void on_transition_done(lv_obj_t *obj, TransitionRef transition) {
-  (void) obj;
-  (void) transition;
-  // P2: if (transition->then != nullptr) play(obj, *transition->then, ...);
+// `then` (4.2): when a transition finishes, its effect plays on the same target.  The anim's user_data carries the
+// TransitionDef (nullptr = nothing to play) for every transition except opacity/visibility, whose user_data is the
+// visible generation (6): that one parks its `then` in Slot::opa_then.
+static void *then_of(const Opt &opt) {
+  return (opt.transition != nullptr && opt.transition->then != nullptr) ? const_cast<TransitionDef *>(opt.transition)
+                                                                        : nullptr;
 }
 
-static void slotless_done(lv_anim_t *anim) {
-  on_transition_done(static_cast<lv_obj_t *>(anim->var), static_cast<TransitionRef>(anim->user_data));
+static void run_then(lv_obj_t *obj, const void *transition) {
+  if (transition != nullptr) detail::play_then(obj, static_cast<TransitionRef>(transition)->then);
 }
+
+// A transition that is applied instantly (duration 0, policy, NaN, ...) still completes: its `then` plays at once.
+// The policy of the effect itself applies as usual.  "Already there" early returns stay silent.
+static void instant_then(lv_obj_t *obj, const Opt &opt) { run_then(obj, then_of(opt)); }
+
+static void slotless_done(lv_anim_t *anim) { run_then(static_cast<lv_obj_t *>(anim->var), anim->user_data); }
+static void slot_done(lv_anim_t *anim) { run_then(static_cast<Slot *>(anim->var)->obj, anim->user_data); }
 
 // Stop one animation and run it to its end state.  Completion callbacks that complete *state* (hide, text fade) run;
-// the `then` hook does not, since stop() should not start new motion.
-static void snap(void *var, lv_anim_exec_xcb_t exec) {
+// `then` does not, since stop() must not start new motion.  `keep_user_data`: the user_data is not a `then` (opacity).
+static void snap(void *var, lv_anim_exec_xcb_t exec, bool keep_user_data = false) {
   lv_anim_t *running = lv_anim_get(var, exec);
   if (running == nullptr) return;
   lv_anim_t copy = *running;
   lv_anim_delete(var, exec);
   exec(var, copy.end_value);
-  if (copy.completed_cb != nullptr && copy.completed_cb != slotless_done) copy.completed_cb(&copy);
+  if (!keep_user_data) copy.user_data = nullptr;
+  if (copy.completed_cb != nullptr) copy.completed_cb(&copy);
 }
 
 static void warn_once(uint8_t id, const char *what) {
@@ -241,11 +260,10 @@ static void move_slotless(lv_obj_t *obj, lv_anim_exec_xcb_t exec, Prop prop, int
   if (instant || duration == 0 || from == to || !transition_allowed(obj, true, opt)) {
     lv_anim_delete(obj, exec);
     exec(obj, final_value);
+    if (from != to) instant_then(obj, opt);
     return;
   }
-  void *then = (opt.transition != nullptr && opt.transition->then != nullptr)
-                   ? const_cast<TransitionDef *>(opt.transition)
-                   : nullptr;
+  void *then = then_of(opt);
   start_anim(obj, exec, from, to, duration, t.delay, t.curve, then != nullptr ? slotless_done : nullptr, then);
 }
 
@@ -268,17 +286,28 @@ static void finish_hide(Slot *slot) {
   // P3: reset slide/zoom entry offsets here; the target is invisible, so the jump back to 0 cannot be seen (6).
 }
 
-static void hide_done(lv_anim_t *anim) {
+// Every opacity animation carries the visible generation: only the one that is still current may complete (a reversal
+// or retarget bumped it otherwise).  A hide completes by hiding; any of them then plays its `then`.
+static void opa_done(lv_anim_t *anim) {
   auto *slot = static_cast<Slot *>(anim->var);
-  // Generation: only the hide that is still current may complete (reversal or retarget bumped it otherwise).
   if (static_cast<uint16_t>(reinterpret_cast<uintptr_t>(anim->user_data)) != slot->generation) return;
-  if (!(slot->flags & SLOT_HIDING)) return;
-  finish_hide(slot);
+  if (slot->flags & SLOT_HIDING) finish_hide(slot);
+  const TransitionDef *then = slot->opa_then;
+  slot->opa_then = nullptr;
+  run_then(slot->obj, then);
 }
 
-static void start_opa(Slot *slot, int32_t from, int32_t to, const PropTransition &t, uint32_t duration, bool hide) {
-  start_anim(slot, exec_opa, from, to, duration, t.delay, t.curve, hide ? hide_done : nullptr,
-             hide ? reinterpret_cast<void *>(static_cast<uintptr_t>(slot->generation)) : nullptr);
+static void start_opa(Slot *slot, int32_t from, int32_t to, const PropTransition &t, uint32_t duration,
+                      const Opt &opt) {
+  slot->opa_then = static_cast<const TransitionDef *>(then_of(opt));
+  start_anim(slot, exec_opa, from, to, duration, t.delay, t.curve, opa_done,
+             reinterpret_cast<void *>(static_cast<uintptr_t>(slot->generation)));
+}
+
+// Drop the running opacity animation without completing it (the caller sets the final state).
+static void kill_opa(Slot *slot) {
+  lv_anim_delete(slot, exec_opa);
+  slot->opa_then = nullptr;
 }
 
 void set_visible(lv_obj_t *obj, bool shown, Opt opt) {
@@ -310,23 +339,25 @@ void set_visible(lv_obj_t *obj, bool shown, Opt opt) {
     slot->flags &= static_cast<uint8_t>(~SLOT_HIDING);
     lv_obj_set_hidden(obj, false);  // visible immediately, even while fading in
     if (!animate) {
-      lv_anim_delete(slot, exec_opa);
+      kill_opa(slot);
       slot->base_opa = slot->visible_opa;
       compose(*slot, PROP_OPA);
+      instant_then(obj, opt);
       return;
     }
     // From a hidden target the fade starts at 0; reversing a hide continues from the current opacity.
-    start_opa(slot, hidden ? 0 : slot->base_opa, slot->visible_opa, t, duration, false);
+    start_opa(slot, hidden ? 0 : slot->base_opa, slot->visible_opa, t, duration, opt);
     return;
   }
 
   if (!animate || slot->base_opa == 0) {
-    lv_anim_delete(slot, exec_opa);
+    kill_opa(slot);
     finish_hide(slot);
+    instant_then(obj, opt);
     return;
   }
   slot->flags |= SLOT_HIDING;
-  start_opa(slot, slot->base_opa, 0, t, duration, true);
+  start_opa(slot, slot->base_opa, 0, t, duration, opt);
 }
 
 void set_opacity(lv_obj_t *obj, lv_opa_t opa, Opt opt) {
@@ -365,12 +396,13 @@ void set_opacity(lv_obj_t *obj, lv_opa_t opa, Opt opt) {
   const PropTransition &t = resolve(opt.transition, Prop::OPACITY);
   const uint32_t duration = resolve_duration(t.duration);
   if (duration == 0 || slot->base_opa == opa || !transition_allowed(obj, true, opt)) {
-    lv_anim_delete(slot, exec_opa);
+    kill_opa(slot);
     slot->base_opa = opa;
     compose(*slot, PROP_OPA);
+    instant_then(obj, opt);
     return;
   }
-  start_opa(slot, slot->base_opa, opa, t, duration, false);
+  start_opa(slot, slot->base_opa, opa, t, duration, opt);
 }
 
 // ---- value (bar / arc / slider / image rotation), x, y --------------------------------------------------------------
@@ -394,8 +426,8 @@ static void exec_y(void *var, int32_t v) { lv_obj_set_y(static_cast<lv_obj_t *>(
 static void set_ranged(lv_obj_t *obj, lv_anim_exec_xcb_t exec, int32_t current, int32_t lo, int32_t hi, float value,
                        const Opt &opt) {
   const bool finite = std::isfinite(value);
-  const int32_t target =
-      finite ? static_cast<int32_t>(std::lround(std::clamp(value, static_cast<float>(lo), static_cast<float>(hi)))) : lo;
+  const float clamped = std::clamp(value, static_cast<float>(lo), static_cast<float>(hi));
+  const int32_t target = finite ? static_cast<int32_t>(std::lround(clamped)) : lo;
   // Same as the running target, or same as the current value with nothing running: nothing to do (7.4).
   const lv_anim_t *running = lv_anim_get(obj, exec);
   if (running != nullptr ? running->end_value == target : current == target) return;
@@ -432,7 +464,8 @@ void set_value(lv_obj_t *obj, float value, Opt opt) {
   if (lv_obj_check_type(obj, &lv_image_class)) {
     const int32_t current = wrap_tenth_degrees(lv_image_get_rotation(obj));
     const bool finite = std::isfinite(value);
-    const int32_t target = finite ? wrap_tenth_degrees(static_cast<int32_t>(std::lround(std::fmod(value, 360.0f) * 10.0f))) : 0;
+    const int32_t tenths = static_cast<int32_t>(std::lround(std::fmod(value, 360.0f) * 10.0f));
+    const int32_t target = finite ? wrap_tenth_degrees(tenths) : 0;
     const lv_anim_t *running = lv_anim_get(obj, exec_image_rotation);
     if (running != nullptr ? wrap_tenth_degrees(running->end_value) == target : current == target) return;
     // LVGL keeps image rotation in [0, 3600): interpolate along the shortest way round.
@@ -476,7 +509,10 @@ static void clear_fade(Slot *slot) {
   compose(*slot, PROP_OPA);
 }
 
-static void fade_done(lv_anim_t *anim) { clear_fade(static_cast<Slot *>(anim->var)); }
+static void fade_done(lv_anim_t *anim) {
+  clear_fade(static_cast<Slot *>(anim->var));
+  slot_done(anim);
+}
 
 void set_text(lv_obj_t *obj, const char *text, Opt opt) {
   if (obj == nullptr) return;
@@ -499,13 +535,14 @@ void set_text(lv_obj_t *obj, const char *text, Opt opt) {
       lv_anim_delete(slot, exec_fade);
       clear_fade(slot);
     }
+    instant_then(obj, opt);
     return;
   }
   if (slot == nullptr) slot = acquire_slot(obj);
   if (slot == nullptr) return;  // pool full: plain text swap
   own(*slot, PROP_OPA);
   slot->style = Instance{&t, from, InstanceKind::FADE_IN, 0};
-  start_anim(slot, exec_fade, from, LV_OPA_COVER, duration, t.delay, t.curve, fade_done);
+  start_anim(slot, exec_fade, from, LV_OPA_COVER, duration, t.delay, t.curve, fade_done, then_of(opt));
 #else
   (void) opt;
   warn_once(1, "set_text: LVGL label support is disabled");
@@ -525,11 +562,15 @@ static void exec_color(void *var, int32_t v) {
   compose(*slot, PROP_COLOR);
 }
 
+namespace detail {
+bool color_transition_running(Slot &slot) { return lv_anim_get(&slot, exec_color) != nullptr; }
+}  // namespace detail
+
 void set_color(lv_obj_t *obj, lv_color_t color, Opt opt) {
   if (obj == nullptr) return;
   Slot *slot = find_slot(obj);
+  const ColorTarget target = color_target_of(obj);
   if (slot == nullptr || !(slot->props & PROP_COLOR)) {
-    const ColorTarget target = color_target_of(obj);
     // An image with recolor opacity 0 shows no tint at all, so "same color" is not yet the requested look.
     const bool untinted = target == ColorTarget::IMAGE && lv_obj_get_style_image_recolor_opa(obj, LV_PART_MAIN) == 0;
     if (!untinted && lv_color_eq(read_color(obj, target), color)) return;
@@ -539,12 +580,22 @@ void set_color(lv_obj_t *obj, lv_color_t color, Opt opt) {
       return;
     }
     own(*slot, PROP_COLOR);
-    if (untinted) {
-      // The LVGL default (black) is not a color anyone asked for: turn the tint on directly at the target color
-      // instead of animating from a black silhouette.
-      slot->base_color = slot->color_from = slot->color_to = color;
-      write_color(obj, target, color);
-    }
+  } else if (slot->color_target != target) {
+    // The base color always belongs to set_color: a channel an effect picked (flash on bg_color of a label) gives way.
+    // The old property is restored and a running flash simply continues on the new one.
+    lv_anim_delete(slot, exec_color);
+    own_color(*slot, target, false);
+  }
+  if (slot->flags & SLOT_UNTINTED) {
+    // The LVGL default (black) is not a color anyone asked for: turn the tint on directly at the target color
+    // instead of animating from a black silhouette.  Any flash running on top keeps composing over it.
+    lv_anim_delete(slot, exec_color);
+    slot->flags &= static_cast<uint8_t>(~SLOT_UNTINTED);
+    slot->base_color = slot->color_from = slot->color_to = color;
+    lv_obj_set_style_image_recolor_opa(obj, LV_OPA_COVER, LV_PART_MAIN);
+    compose(*slot, PROP_COLOR);
+    instant_then(obj, opt);
+    return;
   }
   // Same target: already there, or already moving there (base and target only differ while a transition runs).
   if (lv_color_eq(slot->color_to, color)) return;
@@ -557,9 +608,10 @@ void set_color(lv_obj_t *obj, lv_color_t color, Opt opt) {
     lv_anim_delete(slot, exec_color);
     slot->base_color = color;
     compose(*slot, PROP_COLOR);
+    instant_then(obj, opt);
     return;
   }
-  start_anim(slot, exec_color, 0, LV_OPA_COVER, duration, t.delay, t.curve);
+  start_anim(slot, exec_color, 0, LV_OPA_COVER, duration, t.delay, t.curve, slot_done, then_of(opt));
 }
 
 // ---- rotation (transform) ----------------------------------------------------------------------------------------
@@ -593,9 +645,10 @@ void set_rotation(lv_obj_t *obj, float degrees, Opt opt) {
   if (!finite || duration == 0 || slot->base_rotation == target || !transition_allowed(obj, true, opt)) {
     lv_anim_delete(slot, exec_rotation);
     exec_rotation(slot, target);
+    instant_then(obj, opt);
     return;
   }
-  start_anim(slot, exec_rotation, slot->base_rotation, target, duration, t.delay, t.curve);
+  start_anim(slot, exec_rotation, slot->base_rotation, target, duration, t.delay, t.curve, slot_done, then_of(opt));
 }
 
 // ---- stop / start / policy switches --------------------------------------------------------------------------------
@@ -619,11 +672,12 @@ void stop(lv_obj_t *obj) {
 #endif
   Slot *slot = find_slot(obj);
   if (slot == nullptr) return;
-  snap(slot, exec_opa);  // a running hide completes: HIDDEN is set
+  slot->opa_then = nullptr;      // stop() starts no new motion
+  snap(slot, exec_opa, true);    // a running hide completes: HIDDEN is set
   snap(slot, exec_color);
   snap(slot, exec_rotation);
   snap(slot, exec_fade);
-  // P2: stop effect and loop instances here (offsets back to 0).
+  detail::stop_effects(*slot);   // one-shot and loop end at rest, a deferred effect is dropped
 }
 
 void start() { detail::g_core.ready = true; }
@@ -667,12 +721,23 @@ void LvglFx::set_motion(uint16_t fast, uint16_t normal, uint16_t slow, float int
 }
 
 void LvglFx::setup() {
-  detail::ensure_pool(detail::g_core);
-  // The per-iteration epoch only matters for the suppress_when cache.
-  if (detail::g_core.suppress_fn == nullptr) this->disable_loop();
+  detail::Core &c = detail::g_core;
+  detail::ensure_pool(c);
+  c.owner = this;
+  // loop() has work when suppress_when needs its per-iteration epoch (5, 7.4), or while there are deferred effects or
+  // loops to watch; fx::play() wakes it up otherwise.
+  if (c.suppress_fn == nullptr && c.watching == 0) this->disable_loop();
 }
 
-void LvglFx::loop() { detail::g_core.loop_epoch++; }
+void LvglFx::loop() {
+  detail::Core &c = detail::g_core;
+  c.loop_epoch++;
+  if (c.watching == 0) {
+    if (c.suppress_fn == nullptr) this->disable_loop();
+    return;
+  }
+  detail::service_effects();
+}
 
 void LvglFx::dump_config() {
   const detail::Core &c = detail::g_core;
