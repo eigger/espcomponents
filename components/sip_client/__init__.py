@@ -34,6 +34,10 @@ CODEOWNERS = ["@eigger"]
 DEPENDENCIES = ["network"]
 AUTO_LOAD = ["socket", "md5", "audio"]
 
+# cv.sensitive (ESPHome 2026.11+) masks the field in frontends/dumps; older
+# releases lack it, so fall back to the plain validator.
+_sensitive = getattr(cv, "sensitive", lambda inner: inner)
+
 sip_client_ns = cg.esphome_ns.namespace("sip_client")
 SipClient = sip_client_ns.class_("SipClient", cg.Component)
 
@@ -96,7 +100,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_PORT, default=5060): cv.port,
             cv.Required(CONF_USERNAME): cv.string,
             cv.Optional(CONF_AUTH_USERNAME): cv.string,
-            cv.Required(CONF_PASSWORD): cv.string,
+            cv.Required(CONF_PASSWORD): _sensitive(cv.string),
             cv.Optional(CONF_DOMAIN): cv.string,
             cv.Optional(CONF_CALLER_ID): cv.string,
             cv.Optional(
@@ -192,7 +196,7 @@ DTMF_ACTION_SCHEMA = cv.Schema(
 )
 
 
-@automation.register_action("sip_client.call", CallAction, CALL_ACTION_SCHEMA)
+@automation.register_action("sip_client.call", CallAction, CALL_ACTION_SCHEMA, synchronous=True)
 async def call_action_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg, await cg.get_variable(config[CONF_ID]))
     templ = await cg.templatable(config[CONF_NUMBER], args, cg.std_string)
@@ -200,17 +204,17 @@ async def call_action_to_code(config, action_id, template_arg, args):
     return var
 
 
-@automation.register_action("sip_client.answer", AnswerAction, SIMPLE_ACTION_SCHEMA)
+@automation.register_action("sip_client.answer", AnswerAction, SIMPLE_ACTION_SCHEMA, synchronous=True)
 async def answer_action_to_code(config, action_id, template_arg, args):
     return cg.new_Pvariable(action_id, template_arg, await cg.get_variable(config[CONF_ID]))
 
 
-@automation.register_action("sip_client.hangup", HangupAction, SIMPLE_ACTION_SCHEMA)
+@automation.register_action("sip_client.hangup", HangupAction, SIMPLE_ACTION_SCHEMA, synchronous=True)
 async def hangup_action_to_code(config, action_id, template_arg, args):
     return cg.new_Pvariable(action_id, template_arg, await cg.get_variable(config[CONF_ID]))
 
 
-@automation.register_action("sip_client.send_dtmf", SendDtmfAction, DTMF_ACTION_SCHEMA)
+@automation.register_action("sip_client.send_dtmf", SendDtmfAction, DTMF_ACTION_SCHEMA, synchronous=True)
 async def send_dtmf_action_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg, await cg.get_variable(config[CONF_ID]))
     templ = await cg.templatable(config[CONF_DIGITS], args, cg.std_string)
@@ -218,11 +222,11 @@ async def send_dtmf_action_to_code(config, action_id, template_arg, args):
     return var
 
 
-@automation.register_action("sip_client.start_talking", StartTalkingAction, SIMPLE_ACTION_SCHEMA)
+@automation.register_action("sip_client.start_talking", StartTalkingAction, SIMPLE_ACTION_SCHEMA, synchronous=True)
 async def start_talking_action_to_code(config, action_id, template_arg, args):
     return cg.new_Pvariable(action_id, template_arg, await cg.get_variable(config[CONF_ID]))
 
 
-@automation.register_action("sip_client.stop_talking", StopTalkingAction, SIMPLE_ACTION_SCHEMA)
+@automation.register_action("sip_client.stop_talking", StopTalkingAction, SIMPLE_ACTION_SCHEMA, synchronous=True)
 async def stop_talking_action_to_code(config, action_id, template_arg, args):
     return cg.new_Pvariable(action_id, template_arg, await cg.get_variable(config[CONF_ID]))
