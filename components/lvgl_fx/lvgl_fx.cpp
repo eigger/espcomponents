@@ -1,6 +1,7 @@
 #include "lvgl_fx.h"
 
 #include <algorithm>
+#include <new>
 #include <cmath>
 #include <cstring>
 
@@ -119,7 +120,7 @@ bool transition_allowed(lv_obj_t *obj, bool check_self_hidden, const Opt &opt) {
   if (!c.enabled || c.reduced_motion) return false;
   if (!c.ready) return false;
   if (obj != nullptr && target_hidden(obj, check_self_hidden)) return false;
-  return !suppressed();
+  return opt.always || (opt.transition != nullptr && opt.transition->policy == EffectPolicy::ALWAYS) || !suppressed();
 }
 
 uint32_t resolve_duration(uint16_t duration) {
@@ -236,7 +237,7 @@ int32_t curve_step(Curve curve, int32_t t) {
 namespace detail {
 
 bool start_anim(void *var, lv_anim_exec_xcb_t exec, int32_t from, int32_t to, uint32_t duration, uint32_t delay,
-                Curve curve, lv_anim_completed_cb_t done, void *user_data, bool early_apply) {
+                Curve curve, lv_anim_completed_cb_t done, void *user_data, bool early_apply, lv_anim_deleted_cb_t deleted) {
   lv_anim_t anim;
   lv_anim_init(&anim);
   lv_anim_set_var(&anim, var);
@@ -247,6 +248,7 @@ bool start_anim(void *var, lv_anim_exec_xcb_t exec, int32_t from, int32_t to, ui
   lv_anim_set_path_cb(&anim, curve_path(curve));
   if (done != nullptr) lv_anim_set_completed_cb(&anim, done);
   lv_anim_set_user_data(&anim, user_data);
+  if (deleted != nullptr) lv_anim_set_deleted_cb(&anim, deleted);
   lv_anim_set_early_apply(&anim, early_apply);
   return lv_anim_start(&anim) != nullptr;
 }
@@ -264,7 +266,7 @@ static void run_then(lv_obj_t *obj, const void *transition) {
 
 // A transition that is applied instantly (duration 0, policy, NaN, ...) still completes: its `then` plays at once.
 // The policy of the effect itself applies as usual.  "Already there" early returns stay silent.
-void instant_then(lv_obj_t *obj, const Opt &opt) { run_then(obj, then_of(opt)); }
+void instant_then(lv_obj_t *obj, const Opt &opt) { if (!opt.instant) run_then(obj, then_of(opt)); }
 
 void slot_done(lv_anim_t *anim) { run_then(static_cast<Slot *>(anim->var)->obj, anim->user_data); }
 
@@ -305,7 +307,7 @@ static void slotless_done(lv_anim_t *anim) { run_then(static_cast<lv_obj_t *>(an
 static void move_slotless(lv_obj_t *obj, lv_anim_exec_xcb_t exec, Prop prop, int32_t from, int32_t to,
                           int32_t final_value, bool instant, const Opt &opt) {
   const ResolvedTransition t = resolve(opt.transition, prop);
-  if (instant || t.duration == 0 || from == to || !transition_allowed(obj, true, opt)) {
+  if (opt.instant || instant || t.duration == 0 || from == to || !transition_allowed(obj, true, opt)) {
     lv_anim_delete(obj, exec);
     exec(obj, final_value);
     if (from != to) instant_then(obj, opt);
@@ -313,6 +315,37 @@ static void move_slotless(lv_obj_t *obj, lv_anim_exec_xcb_t exec, Prop prop, int
   }
   void *then = then_of(opt);
   start_anim(obj, exec, from, to, t.duration, t.delay, t.curve, then != nullptr ? slotless_done : nullptr, then);
+}
+
+// The binding records live in generated static storage, separate from motion slots.
+static Binding *bindings = nullptr;
+static void binding_target_deleted(lv_event_t *event) {
+  auto *binding = static_cast<Binding *>(lv_event_get_user_data(event));
+  if (lv_event_get_target(event) == binding->obj) binding->obj = nullptr;
+}
+void LvglFx::add_binding(Binding *binding) {
+  binding->next = bindings;
+  bindings = binding;
+}
+static void install_binding(Binding *binding) {
+  if (binding->obj != nullptr || binding->get == nullptr) return;
+  auto *target = binding->get();
+  if (target == nullptr) return;  // the widget has not been created yet
+  binding->get = nullptr;  // never retry allocation or bind a recycled address
+  if (lv_obj_add_event_cb(target, binding_target_deleted, LV_EVENT_DELETE, binding) != nullptr)
+    binding->obj = target;
+}
+Opt select_transition(lv_obj_t *obj, Prop prop, Opt opt) {
+  if (obj == nullptr || opt.transition != nullptr) return opt;
+  for (auto *binding = bindings; binding != nullptr; binding = binding->next) {
+    if (binding->prop != prop) continue;
+    install_binding(binding);
+    if (binding->obj == obj) {
+      opt.transition = binding->transition;
+      break;
+    }
+  }
+  return opt;
 }
 
 // ---- opacity / visibility ----------------------------------------------------------------------------------------
@@ -371,11 +404,16 @@ static void kill_opa(Slot *slot) {
 
 void set_visible(lv_obj_t *obj, bool shown, Opt opt) {
   if (obj == nullptr) return;
+  opt = select_transition(obj, Prop::VISIBLE, opt);
   const bool hidden = lv_obj_is_hidden(obj);
   Slot *slot = find_slot(obj);
   const bool hiding = slot != nullptr && (slot->flags & SLOT_HIDING);
+  if (opt.instant && (slot == nullptr || !(slot->props & PROP_OPA))) {
+    lv_obj_set_hidden(obj, !shown);
+    return;
+  }
   // Already there (or on the way): nothing to do, and a running transition keeps going.
-  if (shown ? (!hidden && !hiding) : (hidden || hiding)) return;
+  if (!opt.instant && (shown ? (!hidden && !hiding) : (hidden || hiding))) return;
 
   if (slot == nullptr) slot = acquire_slot(obj);
   if (slot == nullptr) {  // pool full: exact final state, no motion
@@ -388,7 +426,7 @@ void set_visible(lv_obj_t *obj, bool shown, Opt opt) {
   const ResolvedTransition t = resolve(opt.transition, Prop::VISIBLE);
   const Style style = shown ? t.style : t.hide_style;
   // Policy row 3 looks at ancestors only: the target's own HIDDEN flag is exactly what this call changes.
-  const bool animate = style != Style::NONE && t.duration != 0 && transition_allowed(obj, false, opt);
+  const bool animate = !opt.instant && style != Style::NONE && t.duration != 0 && transition_allowed(obj, false, opt);
 
   if (shown) {
     slot->flags &= static_cast<uint8_t>(~SLOT_HIDING);
@@ -424,9 +462,14 @@ void set_visible(lv_obj_t *obj, bool shown, Opt opt) {
 
 void set_opacity(lv_obj_t *obj, lv_opa_t opa, Opt opt) {
   if (obj == nullptr) return;
+  opt = select_transition(obj, Prop::OPACITY, opt);
   Slot *slot = find_slot(obj);
   if (slot == nullptr || !(slot->props & PROP_OPA)) {
     // Not composed yet: the style value is the base.  Same value or a hidden target need no slot.
+    if (opt.instant) {
+      lv_obj_set_style_opa(obj, opa, LV_PART_MAIN);
+      return;
+    }
     if (lv_obj_get_style_opa(obj, LV_PART_MAIN) == opa) return;
     if (lv_obj_is_hidden(obj)) {
       lv_obj_set_style_opa(obj, opa, LV_PART_MAIN);  // picked up as the shown opacity when a slot appears
@@ -442,6 +485,16 @@ void set_opacity(lv_obj_t *obj, lv_opa_t opa, Opt opt) {
     own(*slot, PROP_OPA);
   }
 
+  if (opt.instant) {
+    const bool hiding = slot->flags & SLOT_HIDING;
+    kill_opa(slot);
+    slot->visible_opa = slot->base_opa = opa;
+    if (hiding)
+      finish_hide(slot);
+    else
+      compose(*slot, PROP_OPA);
+    return;
+  }
   if (slot->flags & SLOT_HIDING) {
     // Going away: only remember the opacity for the next show.  Leaving the hide untouched keeps the final
     // visibility independent of when this call lands inside the fade; finish_hide restores base_opa = visible_opa.
@@ -496,7 +549,7 @@ static void set_ranged(lv_obj_t *obj, lv_anim_exec_xcb_t exec, int32_t current, 
   const int32_t target = finite ? static_cast<int32_t>(std::lround(clamped)) : lo;
   // Same as the running target, or same as the current value with nothing running: nothing to do.
   const lv_anim_t *running = lv_anim_get(obj, exec);
-  if (running != nullptr ? running->end_value == target : current == target) return;
+  if (!opt.instant && (running != nullptr ? running->end_value == target : current == target)) return;
   move_slotless(obj, exec, Prop::VALUE, current, target, target, !finite, opt);
 }
 
@@ -506,6 +559,13 @@ static int32_t wrap_tenth_degrees(int32_t v) { return ((v % 3600) + 3600) % 3600
 
 void set_value(lv_obj_t *obj, float value, Opt opt) {
   if (obj == nullptr) return;
+#if LV_USE_LABEL
+  if (lv_obj_check_type(obj, &lv_label_class)) {
+    detail::set_label_value(obj, value, select_transition(obj, Prop::TEXT, opt));
+    return;
+  }
+#endif
+  opt = select_transition(obj, Prop::VALUE, opt);
   // lv_obj_check_type is an exact class match, so the order of these tests does not matter.
 #if LV_USE_SLIDER
   if (lv_obj_check_type(obj, &lv_slider_class)) {
@@ -530,19 +590,13 @@ void set_value(lv_obj_t *obj, float value, Opt opt) {
   if (lv_obj_check_type(obj, &lv_image_class)) {
     const int32_t current = wrap_tenth_degrees(lv_image_get_rotation(obj));
     const bool finite = std::isfinite(value);
-    const int32_t tenths = static_cast<int32_t>(std::lround(std::fmod(value, 360.0f) * 10.0f));
+    const int32_t tenths = finite ? static_cast<int32_t>(std::lround(std::fmod(value, 360.0f) * 10.0f)) : 0;
     const int32_t target = finite ? wrap_tenth_degrees(tenths) : 0;
     const lv_anim_t *running = lv_anim_get(obj, exec_image_rotation);
-    if (running != nullptr ? wrap_tenth_degrees(running->end_value) == target : current == target) return;
+    if (!opt.instant && (running != nullptr ? wrap_tenth_degrees(running->end_value) == target : current == target)) return;
     // LVGL keeps image rotation in [0, 3600): interpolate along the shortest way round.
     const int32_t delta = ((target - current + 5400) % 3600 + 3600) % 3600 - 1800;
     move_slotless(obj, exec_image_rotation, Prop::VALUE, current, current + delta, target, !finite, opt);
-    return;
-  }
-#endif
-#if LV_USE_LABEL
-  if (lv_obj_check_type(obj, &lv_label_class)) {
-    detail::set_label_value(obj, value, opt);
     return;
   }
 #endif
@@ -551,18 +605,20 @@ void set_value(lv_obj_t *obj, float value, Opt opt) {
 
 void set_x(lv_obj_t *obj, int32_t x, Opt opt) {
   if (obj == nullptr) return;
+  opt = select_transition(obj, Prop::POSITION, opt);
   const int32_t current = lv_obj_get_style_x(obj, LV_PART_MAIN);
   const lv_anim_t *running = lv_anim_get(obj, exec_x);
-  if (running != nullptr ? running->end_value == x : current == x) return;
+  if (!opt.instant && (running != nullptr ? running->end_value == x : current == x)) return;
   // Percent coordinates are encoded values, not pixels: they cannot be interpolated.
   move_slotless(obj, exec_x, Prop::POSITION, current, x, x, LV_COORD_IS_PCT(current) || LV_COORD_IS_PCT(x), opt);
 }
 
 void set_y(lv_obj_t *obj, int32_t y, Opt opt) {
   if (obj == nullptr) return;
+  opt = select_transition(obj, Prop::POSITION, opt);
   const int32_t current = lv_obj_get_style_y(obj, LV_PART_MAIN);
   const lv_anim_t *running = lv_anim_get(obj, exec_y);
-  if (running != nullptr ? running->end_value == y : current == y) return;
+  if (!opt.instant && (running != nullptr ? running->end_value == y : current == y)) return;
   move_slotless(obj, exec_y, Prop::POSITION, current, y, y, LV_COORD_IS_PCT(current) || LV_COORD_IS_PCT(y), opt);
 }
 
@@ -585,11 +641,16 @@ bool color_transition_running(Slot &slot) { return lv_anim_get(&slot, exec_color
 
 void set_color(lv_obj_t *obj, lv_color_t color, Opt opt) {
   if (obj == nullptr) return;
+  opt = select_transition(obj, Prop::COLOR, opt);
   Slot *slot = find_slot(obj);
   const ColorTarget target = color_target_of(obj);
   if (slot == nullptr || !(slot->props & PROP_COLOR)) {
     // An image with recolor opacity 0 shows no tint at all, so "same color" is not yet the requested look.
     const bool untinted = target == ColorTarget::IMAGE && lv_obj_get_style_image_recolor_opa(obj, LV_PART_MAIN) == 0;
+    if (opt.instant) {
+      write_color(obj, target, color);
+      return;
+    }
     if (!untinted && lv_color_eq(read_color(obj, target), color)) return;
     if (slot == nullptr) slot = acquire_slot(obj);
     if (slot == nullptr) {
@@ -616,12 +677,12 @@ void set_color(lv_obj_t *obj, lv_color_t color, Opt opt) {
     return;
   }
   // Same target: already there, or already moving there (base and target only differ while a transition runs).
-  if (lv_color_eq(slot->color_to, color)) return;
+  if (!opt.instant && lv_color_eq(slot->color_to, color)) return;
 
   slot->color_from = slot->base_color;
   slot->color_to = color;
   const ResolvedTransition t = resolve(opt.transition, Prop::COLOR);
-  if (t.duration == 0 || !transition_allowed(obj, true, opt)) {
+  if (opt.instant || t.duration == 0 || !transition_allowed(obj, true, opt)) {
     lv_anim_delete(slot, exec_color);
     slot->base_color = color;
     compose(*slot, PROP_COLOR);
@@ -641,11 +702,16 @@ static void exec_rotation(void *var, int32_t v) {
 
 void set_rotation(lv_obj_t *obj, float degrees, Opt opt) {
   if (obj == nullptr) return;
+  opt = select_transition(obj, Prop::ROTATION, opt);
   const bool finite = std::isfinite(degrees);
   const int32_t target =
       finite ? static_cast<int32_t>(std::lround(std::clamp(degrees, -3200.0f, 3200.0f) * 10.0f)) : 0;
   Slot *slot = find_slot(obj);
   if (slot == nullptr || !(slot->props & PROP_ROTATION)) {
+    if (opt.instant) {
+      lv_obj_set_style_transform_rotation(obj, target, LV_PART_MAIN);
+      return;
+    }
     if (lv_obj_get_style_transform_rotation(obj, LV_PART_MAIN) == target) return;
     if (slot == nullptr) slot = acquire_slot(obj);
     if (slot == nullptr) {
@@ -656,10 +722,10 @@ void set_rotation(lv_obj_t *obj, float degrees, Opt opt) {
     own(*slot, PROP_ROTATION);
   }
   const lv_anim_t *running = lv_anim_get(slot, exec_rotation);
-  if (running != nullptr ? running->end_value == target : slot->base_rotation == target) return;
+  if (!opt.instant && (running != nullptr ? running->end_value == target : slot->base_rotation == target)) return;
 
   const ResolvedTransition t = resolve(opt.transition, Prop::ROTATION);
-  if (!finite || t.duration == 0 || slot->base_rotation == target || !transition_allowed(obj, true, opt)) {
+  if (opt.instant || !finite || t.duration == 0 || slot->base_rotation == target || !transition_allowed(obj, true, opt)) {
     lv_anim_delete(slot, exec_rotation);
     exec_rotation(slot, target);
     instant_then(obj, opt);
@@ -703,17 +769,64 @@ void start() { detail::g_core.ready = true; }
 void set_enabled(bool enabled) { detail::g_core.enabled = enabled; }
 void set_reduced_motion(bool reduced) { detail::g_core.reduced_motion = reduced; }
 
+void set_image_opa(lv_obj_t *obj, uint8_t opacity) {
+  if (obj == nullptr) return;
+  Slot *slot = find_slot(obj);
+  if (slot == nullptr || !(slot->props & PROP_IMAGE_OPA)) {
+    lv_obj_set_style_image_opa(obj, opacity, LV_PART_MAIN);
+    return;
+  }
+  slot->base_image_opa = opacity;
+  compose(*slot, PROP_IMAGE_OPA);
+}
+
 // ---- user channel ------------------------------------------------------------------------------------------------
 
-// An instantly applied tween runs on_done synchronously inside tween(), so on_done may re-enter fx calls.
+// Completion metadata exists only for cross-widget chains and is released on completion or deletion.
+struct TweenCompletion {
+  TweenCompletion *next;
+  void (*on_done)(void *);
+  EffectRef effect;
+  lv_obj_t *target;
+};
+static TweenCompletion *tween_completions = nullptr;
+static void completion_target_deleted(lv_event_t *event) {
+  auto *completion = static_cast<TweenCompletion *>(lv_event_get_user_data(event));
+  completion->target = nullptr;
+  completion->effect = nullptr;
+}
+static void chained_tween_done(lv_anim_t *anim) {
+  auto *completion = static_cast<TweenCompletion *>(anim->user_data);
+  auto callback = completion->on_done;
+  if (callback != nullptr) callback(anim->var);
+  // LVGL unlinks the completed animation before on_done and deletes it afterwards.
+  // A target deleted by on_done disarms this still-live completion via LV_EVENT_DELETE.
+  if (completion->effect != nullptr && completion->target != nullptr)
+    play(completion->target, completion->effect);
+}
+static void release_completion(TweenCompletion *completion) {
+  auto **link = &tween_completions;
+  while (*link != nullptr && *link != completion) link = &(*link)->next;
+  if (*link != nullptr) *link = completion->next;
+  if (completion->target != nullptr)
+    lv_obj_remove_event_cb_with_user_data(completion->target, completion_target_deleted, completion);
+  delete completion;
+}
+static void chained_tween_deleted(lv_anim_t *anim) {
+  release_completion(static_cast<TweenCompletion *>(anim->user_data));
+}
 static void tween_done(lv_anim_t *anim) {
   reinterpret_cast<void (*)(void *)>(anim->user_data)(anim->var);
 }
-
+void cancel_tween_effect(lv_obj_t *target) {
+  for (auto *entry = tween_completions; entry != nullptr; entry = entry->next)
+    if (entry->target == target) entry->effect = nullptr;
+}
 void tween(void *var, lv_anim_exec_xcb_t setter, int32_t from, int32_t to, TweenOpt opt) {
   if (var == nullptr || setter == nullptr) return;
   Opt policy;
   policy.force = opt.force;
+  policy.always = opt.always;
   if (from == to || !transition_allowed(opt.target, true, policy)) {
     lv_anim_delete(var, setter);
     setter(var, to);
@@ -721,10 +834,28 @@ void tween(void *var, lv_anim_exec_xcb_t setter, int32_t from, int32_t to, Tween
     return;
   }
   const uint32_t duration = opt.duration != 0 ? opt.duration : detail::g_core.motion.normal;
-  start_anim(var, setter, from, to, duration, opt.delay, opt.curve, opt.on_done != nullptr ? tween_done : nullptr,
-             reinterpret_cast<void *>(opt.on_done));
+  if (opt.completion_effect == nullptr || opt.completion_target == nullptr) {
+    start_anim(var, setter, from, to, duration, opt.delay, opt.curve, opt.on_done != nullptr ? tween_done : nullptr,
+               reinterpret_cast<void *>(opt.on_done));
+    return;
+  }
+  auto *completion = new (std::nothrow) TweenCompletion{tween_completions, opt.on_done, opt.completion_effect, opt.completion_target};
+  if (completion == nullptr) {
+    start_anim(var, setter, from, to, duration, opt.delay, opt.curve, opt.on_done != nullptr ? tween_done : nullptr,
+               reinterpret_cast<void *>(opt.on_done));
+    return;
+  }
+  tween_completions = completion;
+  if (lv_obj_add_event_cb(completion->target, completion_target_deleted, LV_EVENT_DELETE, completion) == nullptr) {
+    release_completion(completion);
+    start_anim(var, setter, from, to, duration, opt.delay, opt.curve, opt.on_done != nullptr ? tween_done : nullptr,
+               reinterpret_cast<void *>(opt.on_done));
+    return;
+  }
+  if (!start_anim(var, setter, from, to, duration, opt.delay, opt.curve, chained_tween_done, completion, true,
+                  chained_tween_deleted))
+    release_completion(completion);
 }
-
 void cancel_tween(void *var, lv_anim_exec_xcb_t setter) {
   if (var != nullptr && setter != nullptr) lv_anim_delete(var, setter);
 }
@@ -740,6 +871,7 @@ void LvglFx::set_motion(uint16_t fast, uint16_t normal, uint16_t slow, float int
 }
 
 void LvglFx::setup() {
+  for (auto *binding = bindings; binding != nullptr; binding = binding->next) install_binding(binding);
   detail::Core &c = detail::g_core;
   detail::ensure_pool(c);
   c.owner = this;

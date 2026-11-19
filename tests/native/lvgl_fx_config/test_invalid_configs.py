@@ -72,6 +72,10 @@ VALID_EFFECT = """
 
 # (name, lvgl_fx block, actions, expected part of the error)
 CASES = [
+    ("instant is not a play option", VALID_EFFECT, "- lvgl_fx.play: { id: fx_label, effect: ok, instant: true }", "[instant] is an invalid option"),
+    ("duplicate widget property binding", "  transitions:\n    custom:\n      - id: preset_a\n        text: { duration: 10ms }\n    bindings:\n      - { id: fx_label, text: preset_a }\n      - { id: fx_label, text: preset_a }", "", "Duplicate transition binding"),
+    ("unknown binding widget", "  transitions:\n    custom:\n      - id: preset_a\n        text: { duration: 10ms }\n    bindings:\n      - { id: missing_widget, text: preset_a }", "", "Couldn't find ID 'missing_widget'"),
+    ("unknown binding transition", "  transitions:\n    bindings:\n      - { id: fx_label, text: missing_preset }", "", "Couldn't find ID 'missing_preset'"),
     ("valid base (positive control)", VALID_EFFECT, "- lvgl_fx.play: { id: fx_label, effect: ok }", None),
     (
         "empty lvgl_fx: block (quick start)",

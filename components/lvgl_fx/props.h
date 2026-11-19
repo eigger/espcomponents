@@ -26,6 +26,7 @@ enum PropBit : uint8_t {
   PROP_ROTATION = 1 << 2,   // added (0.1 degree)            -> transform_rotation
   PROP_COLOR = 1 << 3,      // mixed                         -> text color / image recolor / bg color
   PROP_OUTLINE = 1 << 4,    // max (base is 0)               -> outline_opa
+  PROP_IMAGE_OPA = 1 << 6,   // additive image opacity pulse
   PROP_TRANSLATE = 1 << 5,  // summed (base is 0)            -> translate_x/y
 };
 
@@ -42,6 +43,7 @@ struct Offsets {
   int16_t translate_y = 0;              // added
   lv_color_t color = {0, 0, 0};         // mixed on top of the base color ...
   uint8_t color_amount = 0;             // ... by this much (0 = no contribution)
+  uint8_t image_opa_add = 0;           // added to the image opacity base
   uint8_t outline_opa = 0;              // max
 
   // Merge another contributor into this sum.  Contributors are commutative except for color, which blends in order.
@@ -104,6 +106,7 @@ struct Slot {
   lv_color_t color_from;          // set_color transition endpoints (base_color is mixed between them)
   lv_color_t color_to;
   ColorTarget color_target;
+  uint8_t base_image_opa;         // image opacity without effect offsets
   uint8_t base_outline_opa;       // outline opacity the widget had when fx took it over (glow adds on top)
   Instance one_shot, loop;        // effects; one_shot keeps its last effect after it ended (cooldown)
   Instance style;                 // text style entry (fade / roll / count)

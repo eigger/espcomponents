@@ -199,7 +199,7 @@ void apply_instantly(lv_obj_t *obj, Slot *slot, const Opt &opt) {
 
 void text_instant(lv_obj_t *obj, const char *text, const Opt &opt) {
   const char *current = lv_label_get_text(obj);
-  if (current != nullptr && std::strcmp(current, text) == 0) return;
+  if (current != nullptr && std::strcmp(current, text) == 0 && !opt.instant) return;
   lv_label_set_text(obj, text);
   apply_instantly(obj, find_slot(obj), opt);
 }
@@ -253,12 +253,18 @@ void count_to(lv_obj_t *obj, double value, const char *final_text, const Resolve
 
 void set_text(lv_obj_t *obj, const char *text, Opt opt) {
   if (obj == nullptr) return;
+  opt = select_transition(obj, Prop::TEXT, opt);
   if (text == nullptr) text = "";
   if (!lv_obj_check_type(obj, &lv_label_class)) {
     detail::warn_once(1, "set_text: target is not a label");
     return;
   }
   const char *current = lv_label_get_text(obj);
+  if (opt.instant) {
+    if (current == nullptr || std::strcmp(current, text) != 0) lv_label_set_text(obj, text);
+    apply_instantly(obj, find_slot(obj), opt);
+    return;
+  }
   if (current != nullptr && std::strcmp(current, text) == 0) {
     // Already showing it.  A count still running towards another number ends here (its end would overwrite this).
     Slot *counting = find_slot(obj);
@@ -318,7 +324,7 @@ void set_label_value(lv_obj_t *obj, float value, const Opt &opt) {
   const ResolvedTransition t = resolve(opt.transition, Prop::TEXT);
   char text[TEXT_BUF];
   std::snprintf(text, sizeof(text), t.format, static_cast<double>(value));
-  if (t.style == Style::COUNT)
+  if (t.style == Style::COUNT && !opt.instant)
     count_to(obj, static_cast<double>(value), text, t, opt);
   else
     set_text(obj, text, opt);

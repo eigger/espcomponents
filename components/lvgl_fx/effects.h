@@ -41,11 +41,12 @@ constexpr uint16_t DUR_SLOW = 0xFFFF;
 
 // ---- tracks ---------------------------------------------------------------------------------------------------
 
-enum class TrackKind : uint8_t { PULSE, NUDGE, SHAKE, FLASH, GLOW, BLINK, COUNT };
+enum class TrackKind : uint8_t { PULSE, NUDGE, SHAKE, FLASH, GLOW, BLINK, IMAGE_PULSE, COUNT };
 
 enum class Axis : uint8_t { DEFAULT, X, Y };  // DEFAULT = x
 // Which style property a flash drives.  AUTO: text color of a label, recolor of an image, background otherwise.
 enum class FlashProp : uint8_t { AUTO, BG_COLOR, TEXT_COLOR, IMAGE_RECOLOR };
+enum class FlashProfile : uint8_t { DEFAULT, FADE_OUT, TRIANGLE };
 
 constexpr uint16_t UNSET_U16 = 0xFFFF;
 constexpr int16_t UNSET_I16 = INT16_MIN;
@@ -68,6 +69,7 @@ struct Track {
   FlashProp property = FlashProp::AUTO;  // flash
   int32_t color = UNSET_COLOR;        // flash: highlight 0xRRGGBB (white)
   uint8_t amount = UNSET_U8;          // flash: highlight strength in percent (100)
+  FlashProfile profile = FlashProfile::DEFAULT;  // flash: fade_out (default) or triangle
   uint8_t opacity = UNSET_U8;         // glow: peak outline opacity in percent (50); blink: lowest opacity (30)
 };
 

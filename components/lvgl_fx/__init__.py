@@ -55,6 +55,7 @@ CONF_SLOTS_IN_PSRAM = "slots_in_psram"
 CONF_TRANSITIONS = "transitions"
 CONF_DEFAULTS = "defaults"
 CONF_CUSTOM = "custom"
+CONF_BINDINGS = "bindings"
 CONF_PRESETS = "presets"
 CONF_EFFECTS = "effects"
 CONF_EFFECT_DEFAULTS = "effect_defaults"
@@ -129,7 +130,7 @@ BUILTIN_EFFECTS = {  # name -> (C++ constant, track kind)
 }
 # `distance` of a nudge preset is direction-relative: the signed (x, y) the track needs.
 NUDGE_DIRECTION = {"nudge_up": (0, -1), "nudge_down": (0, 1), "nudge_left": (-1, 0), "nudge_right": (1, 0)}
-TRACK_KINDS = ("pulse", "nudge", "shake", "flash", "glow", "blink")
+TRACK_KINDS = ("pulse", "nudge", "shake", "flash", "glow", "blink", "image_pulse")
 FLASH_PROPERTIES = {"bg_color": "BG_COLOR", "text_color": "TEXT_COLOR", "image_recolor": "IMAGE_RECOLOR"}
 
 # ---- validators --------------------------------------------------------------------------------------------------
@@ -321,6 +322,7 @@ def _custom_transition(value):
             cv.Required(CONF_ID): cv.All(cv.declare_id(TransitionDef), _not_fx),
             **_PROP_ENTRIES,
             cv.Optional(CONF_THEN): _effect_ref,
+            cv.Optional(CONF_POLICY): cv.one_of("normal", "always", lower=True),
         }
     )(value)
     if not any(key in value for key in (*TRANSITION_PROPS, CONF_THEN)):
@@ -331,10 +333,33 @@ def _custom_transition(value):
     return value
 
 
+def _binding(value):
+    value = cv.Schema({
+        cv.Required(CONF_ID): cv.use_id(lv_obj_t),
+        **{cv.Optional(prop): cv.use_id(TransitionDef) for prop in TRANSITION_PROPS},
+    })(value)
+    if not any(prop in value for prop in TRANSITION_PROPS):
+        raise cv.Invalid("A transition binding needs at least one property")
+    return value
+
+
+def _unique_bindings(value):
+    seen = set()
+    for binding in value:
+        for prop in TRANSITION_PROPS:
+            key = (binding[CONF_ID].id, prop)
+            if prop in binding and key in seen:
+                raise cv.Invalid(f"Duplicate transition binding for {binding[CONF_ID]} / {prop}")
+            if prop in binding:
+                seen.add(key)
+    return value
+
+
 TRANSITIONS_SCHEMA = cv.Schema(
     {
         cv.Optional(CONF_DEFAULTS): DEFAULTS_SCHEMA,
         cv.Optional(CONF_CUSTOM): cv.ensure_list(_custom_transition),
+        cv.Optional(CONF_BINDINGS): cv.All(cv.ensure_list(_binding), _unique_bindings),
     }
 )
 
@@ -359,6 +384,7 @@ _FLASH_FIELDS = {
     cv.Optional(CONF_PROPERTY): cv.one_of(*FLASH_PROPERTIES, lower=True),
     cv.Optional(CONF_COLOR): _rgb,
     cv.Optional(CONF_AMOUNT): _percent(0, 100),
+    cv.Optional("profile"): cv.one_of("fade_out", "triangle", lower=True),
 }
 _OPACITY_FIELDS = {cv.Optional(CONF_OPACITY): _percent(0, 100)}
 
@@ -367,6 +393,7 @@ _KIND_FIELDS = {
     "nudge": _NUDGE_FIELDS,
     "shake": _SHAKE_FIELDS,
     "flash": _FLASH_FIELDS,
+    "image_pulse": {cv.Optional(CONF_AMOUNT): _percent(0, 100)},
     "glow": _OPACITY_FIELDS,
     "blink": _OPACITY_FIELDS,
 }
@@ -627,6 +654,7 @@ def _track_fields(kind, conf, x=None, y=None):
         ("property", _get(conf, CONF_PROPERTY, lambda v: _cpp("FlashProp", FLASH_PROPERTIES[v]))),
         ("color", _get(conf, CONF_COLOR, _color_cpp)),
         ("amount", _get(conf, CONF_AMOUNT, str)),
+        ("profile", _get(conf, "profile", lambda v: _cpp("FlashProfile", v))),
         ("opacity", _get(conf, CONF_OPACITY, str)),
     ]
     return fields
@@ -790,8 +818,25 @@ async def to_code(config):
         fields = [
             ("props", _transition_table(f"lvgl_fx_id_{id_.id}", transition)),
             ("then", _get(transition, CONF_THEN, _then_cpp)),
+            ("policy", _get(transition, CONF_POLICY, lambda v: _cpp("EffectPolicy", v))),
         ]
         _declare(id_, TransitionDef, _init(fields))
+
+    binding_index = 0
+    for binding in transitions.get(CONF_BINDINGS, []):
+        (widget,) = await get_widgets(binding)
+        getter = f"{widget.var} ? {widget.obj} : nullptr" if widget.type.is_compound() else str(widget.obj)
+        for prop in TRANSITION_PROPS:
+            if prop not in binding:
+                continue
+            transition = await cg.get_variable(binding[prop])
+            name = f"lvgl_fx_binding_{binding_index}"
+            binding_index += 1
+            cg.add(RawStatement(
+                f"static {lvgl_fx_ns}::Binding {name} = "
+                f"{{[]() -> lv_obj_t * {{ return {getter}; }}, {_cpp('Prop', prop)}, {transition}}};"
+            ))
+            cg.add(var.add_binding(RawExpression(f"&{name}")))
 
     for name, conf in config.get(CONF_PRESETS, {}).items():
         _preset_to_code(name, conf)
@@ -866,6 +911,7 @@ SET_SCHEMA = cv.All(
             },
             **TEXT_SCHEMA,
             cv.Optional(CONF_TRANSITION): cv.use_id(TransitionDef),
+            cv.Optional("instant"): lv_bool,
             **_FORCE,
         }
     ),
@@ -888,16 +934,13 @@ async def _bool(value):
 
 
 async def _opt(config):
-    """`fx::Opt{transition, force}` for the call, or None when the call uses neither."""
-    transition = "nullptr"
-    if CONF_TRANSITION in config:
-        transition = str(await cg.get_variable(config[CONF_TRANSITION]))
-    if CONF_FORCE in config:
-        force = await _bool(config[CONF_FORCE])
-        return RawExpression(f"{lvgl_fx_ns}::Opt{{{transition}, {force}}}")
-    if CONF_TRANSITION in config:
-        return RawExpression(f"{lvgl_fx_ns}::Opt{{{transition}}}")
-    return None
+    """Build options only when supplied; instant is available on set actions only."""
+    if not any(key in config for key in (CONF_TRANSITION, CONF_FORCE, "instant")):
+        return None
+    transition = str(await cg.get_variable(config[CONF_TRANSITION])) if CONF_TRANSITION in config else "nullptr"
+    force = await _bool(config[CONF_FORCE]) if CONF_FORCE in config else "false"
+    instant = await _bool(config["instant"]) if "instant" in config else "false"
+    return RawExpression(f"{lvgl_fx_ns}::Opt{{{transition}, {force}, false, {instant}}}")
 
 
 async def _effect_expr(ref):

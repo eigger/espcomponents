@@ -32,8 +32,8 @@ external_components:
     components: [ lvgl_fx ]
 ```
 
-`lvgl_fx` needs the `lvgl:` component. The only allocation is a fixed pool of `max_targets` x 68 bytes made at setup;
-nothing is allocated per frame or per call. Until the next release tag contains this component (`@latest` follows the
+`lvgl_fx` needs the `lvgl:` component. It allocates a fixed pool of `max_targets` x 68 bytes at setup.
+Cross-widget tween completions also allocate a temporary record; nothing is allocated per frame. Until the next release tag contains this component (`@latest` follows the
 release tag), use `@master` instead of `@latest`.
 
 ## Quick start
@@ -273,6 +273,7 @@ Exactly one property per action, plus the optional `transition` (the id of a nam
 - lvgl_fx.set: { id: lbl_gear, text: "4", transition: gear_roll }      # rolls in from below
 - lvgl_fx.set: { id: lbl_odo, value: 1250, transition: odometer }      # counts to "1250 km"
 - lvgl_fx.set: { id: box, x: 170, transition: prnd_move }              # moves, then plays prnd_confirm
+- lvgl_fx.set: { id: bar_fuel, value: 0, instant: true }              # cancel the value glide and apply now
 - lvgl_fx.set: { id: splash, visible: false, force: true }             # even before lvgl_fx.start
 - lvgl_fx.set: { id: img_needle, value: 90 }                           # an image rotates
 - lvgl_fx.set: { id: box, color: 0xC62828 }
@@ -356,7 +357,15 @@ fx::stop(id(icon), id(warning_blink));                 // one effect
 fx::start();
 ```
 
-The first argument is an `lv_obj_t *` or an ESPHome LVGL widget. Every `set_*` and `play` takes a last `fx::Opt`:
+The first argument is an `lv_obj_t *` or an ESPHome LVGL widget. Every `set_*` and `play` takes a last `fx::Opt` (including `instant` for setters):
+
+For a `set` action or C++ setter, `instant: true` / `{.instant = true}` cancels the
+current animation of that property (including a same-target animation), applies
+the requested value immediately, and does not play the transition’s `then`.
+Other properties and effects keep running. Visibility and opacity share an
+animation channel: an instant opacity update cancels a pending show/hide animation
+and completes a pending hide immediately. `instant` can be templated on YAML
+`lvgl_fx.set`; it is not an option for `lvgl_fx.play`. NaN handling is unchanged.
 
 ```cpp
 fx::set_value(id(bar_fuel), x, fx::Opt{id(gauge_slow)});                 // named transition
@@ -466,3 +475,47 @@ Every transition and one-shot effect is judged once, when it starts. The first r
 Definitions become `static const` tables in flash. RAM is the slot pool (`max_targets` x 68 bytes, 2.2 KB for the
 default 32) plus one LVGL animation per running transition or effect, regardless of the number of tracks. Nothing is
 allocated per frame. The compile test and the demo build on ESP32 with ESP-IDF.
+
+
+### Additional tracks and completion hooks
+
+A flash accepts `profile: triangle` for a base → highlight → base ramp. The default
+`fade_out` keeps the original immediate highlight. An `image_pulse` track adds its
+`amount` (percentage points, default 30%) to the image opacity base and eases back
+to that base over its duration. Use `fx::set_image_opa(widget, opacity)` to update
+that base while effects are active. `fx::stop` restores it. Image pulse amount is
+absolute and is not affected by motion intensity.
+
+Named transitions accept `policy: always`; this bypasses only `suppress_when`,
+while readiness, hidden ancestors, enabled and reduced-motion policy still apply.
+`fx::TweenOpt::always` does the same for user tweens. To follow an actual tween
+completion on another widget, set `completion_effect` and `completion_target`.
+The existing `on_done` runs first; cancellation or an instant application does not
+play the completion effect. `fx::cancel_tween_effect(target)` disarms pending
+completions without stopping the source tween. The target is disarmed on deletion.
+Cross-widget completions allocate a small temporary record and register a deletion
+callback; if allocation fails the source tween and its callback still run, without
+the follow-up effect.
+
+
+### Widget transition bindings
+
+A binding assigns a named transition to a widget and a property. Explicit
+`transition` options still win as a whole; otherwise the binding supplies that
+property's transition, policy and `then`, followed by the normal global and
+built-in field defaults. Other properties on the same widget are unaffected.
+
+```yaml
+lvgl_fx:
+  transitions:
+    custom:
+      - id: needle_motion
+        value: { duration: 220ms }
+    bindings:
+      - { id: needle, value: needle_motion }
+```
+
+Bindings work for YAML actions and C++ setters. `position` applies to both x and
+y; a label value uses `text`, while an image value uses `value`. The widget and
+transition IDs must exist, and a widget/property pair may be bound only once.
+Static records do not consume motion slots; deleting a widget disarms its binding.
