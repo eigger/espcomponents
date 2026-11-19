@@ -5,7 +5,7 @@ ESPHome LVGL 대시보드용 범용 모션 컴포넌트.
 - 기준: ESPHome **2026.11.0** / LVGL **9.6.0**
 - 진행 방식: **컴포넌트 구조를 먼저 설계한다.** Colorado Tab5 대시보드는 첫 적용 대상이자 검증용이다.
   적용 중 생기는 예외는 [10절 규칙](#10-예외-흡수-규칙)에 따라 흡수한다.
-- 상태: 설계 검토 중. 코드 없음.
+- 상태: P1-P4 구현됨.
 
 표시: **[확정]** 합의됨 (2026-11-19) · **[보류]** 적용 중 결정
 
@@ -179,7 +179,8 @@ lvgl_fx:
 
 ### 4.2 Transition 정의
 - 속성별 기본값(`defaults`)이 있고, 이름 붙은 transition(`custom`)은 필요한 속성만 덮어쓴다.
-- 필드: `style`, `duration`, `curve`, `delay`, `then`(완료 후 같은 대상에 재생할 effect), `policy`
+- 필드: `style`, `duration`, `curve`, `delay`, `then`(완료 후 같은 대상에 재생할 effect). transition별 `policy`는 두지 않는다
+  (정책은 `suppress_when`과 호출의 `force`가 정하며 `PropTransition`에 해당 필드가 없다 — P4에서 정리).
 - `then`은 transition이 끝나면 재생된다. 즉시 적용된 경우(duration 0, 정책으로 즉시 적용, NaN)도 끝난 것으로 보고 바로 재생한다
   (effect 자체의 정책은 그대로 적용). 이미 같은 값이라 아무것도 하지 않은 호출과 `stop`에서는 재생하지 않는다.
 - 위젯에 transition을 묶어 두는 기능(호출 시 매번 지정하지 않도록)은 [보류].
@@ -252,6 +253,9 @@ lvgl_fx:
 
 **기본 제공 effect**: `pulse`, `shake`, `nudge_up`, `nudge_down`, `nudge_left`, `nudge_right`, `flash`, `glow`, `blink`
 (각각 위 재료 하나로 된 effect). `presets:`로 수치만 조정할 수 있다.
+`nudge_up/down/left/right`의 preset은 방향 기준 `distance`(px, 0 이상)를 받는다: `nudge_up: { distance: 6 }`은 위로 6px
+(`y = -6`), `nudge_left`는 `x = -6`처럼 부호는 코드 생성이 방향에서 정한다. 그 밖의 preset은 해당 재료의 필드와 `duration`,
+`curve`를 받고 `delay`는 받지 않는다.
 
 ### 4.4 Effect 옵션 — [확정]
 
@@ -277,13 +281,39 @@ lvgl_fx:
   - `cooldown`, `defer_timeout`은 루프에 적용하지 않는다.
   - 억제·숨김 중 동작은 5절 표의 "루프" 열을 따른다.
   - `reduced_motion`이면 움직이지 않는다. 루프가 켜져 있다는 사실은 기억한다.
-- `then`은 루프에 쓸 수 없다 (끝나지 않으므로). 설정 검증에서 오류.
+- `then`은 루프에 쓸 수 없다 (끝나지 않으므로). 설정 검증에서 오류. 루프 effect를 다른 effect/transition의 `then` 대상으로
+  쓰는 것도 같은 이유로 오류다.
 
 ### 4.5 이름 참조 방식 — [확정]
 transition·effect의 이름은 **ESPHome `id`**로 선언한다.
 - YAML: `effect: heat` → 존재하지 않으면 **설정 검증 단계에서 오류**.
 - C++: `fx::play(obj, id(heat))` → 오타면 **컴파일 오류**.
 - 기본 effect는 YAML에서 예약어(`pulse`), C++에서 상수(`fx::PULSE`).
+
+---
+
+### 4.6 설정 검증과 코드 생성 (P4) — [확정]
+정의는 `static const` 테이블로 생성되고(`lvgl_fx_<id>_def`), YAML `id`는 그 테이블을 가리키는 `static const T *const`이다
+(`id(heat_up)`은 `EffectRef`, `id(gauge_slow)`는 `TransitionRef`). 사용자가 쓴 필드만 지정 초기화로 내보내고, 나머지는 C++의
+"비어 있음" 값이 실행 시점에 기본값으로 채운다. 파이썬에는 기본값이 없다.
+
+설정 단계에서 막는 것:
+- 루프(`repeat: infinite`)에 `then`, 루프를 가리키는 `then`, 서로를 가리키는 `then` 고리, 존재하지 않는 effect/transition id,
+  내장 effect 이름과 같은 effect id.
+- 속성에 맞지 않는 `style` (예: text의 `slide_up`, visible의 `count`; `typewriter`는 2단계). `show`만 쓰고 `hide`가 없는 경우
+  (`style`은 둘 다, `hide`만은 가능). `style`과 `show`/`hide` 동시 사용. 속성에 없는 필드(예: `value`의 `style`).
+- `format`: `%f` 변환이 정확히 하나(플래그, ASCII 숫자 너비 ≤ 40, 소수 자리 ≤ 6)와 `%%`만 허용. `%d`, `%s`, `*`, 길이 지정자, 변환이
+  없거나 둘 이상이면 오류 (`snprintf`에 `double` 하나만 넘기므로 나머지는 정의되지 않은 동작).
+- 범위: pulse `scale` 10–400%, `amount`/`opacity` 0–100%, `distance`/`x`/`y` ≤ 1000px, `from` (visible 1–200%, text 0–100%), `cycles` 1–100 (`cycles: 0`은 "기본값"이 아니라
+  오류), 백분율은 정수 `%`, 시간은 60 s 이하, `repeat` 1–65534 또는 `infinite`(`effect_defaults`에서는 `infinite` 불가),
+  effect 길이(가장 늦은 track의 `delay + duration`)가 65535 ms를 넘는지 (YAML에 적힌 값으로 계산 가능한 하한).
+- id: `fx`(C++ 별칭 `namespace fx`와 충돌)는 컴포넌트, effect, transition id로 쓸 수 없다. 생성되는 표 이름은
+  `lvgl_fx_id_<id>_*`라서 `id: defaults`도 안전하다.
+- action: `lvgl_fx.set`은 속성을 정확히 하나, `lvgl_fx.play`는 `effect` 필수.
+
+`lvgl_fx.set/play/stop`은 ESPHome LVGL의 `ObjUpdateAction` + 람다 방식으로 생성된다(위젯은 `lv_obj_t` id, 값은 LVGL의
+`lv_bool`/`lv_float`/`lv_int`/`lv_text`/`lv_color`/`opacity` 검증기라 `!lambda`, 색 id, `format:`/`args:` 텍스트 모두 된다).
+색: `flash`의 `color`는 이름, `0xRRGGBB`, `color:` id (상수로 풀린다, 람다 불가).
 
 ---
 
@@ -432,6 +462,10 @@ struct Slot {                          // 68 바이트 (레이아웃에서 계�
 - 위젯 종류별 코드(`bar`, `arc`, `slider`, `image`, `label`)는 `LV_USE_*`로 조건부 컴파일.
 - 재료와 스타일은 설정에서 실제로 쓰인 것만 `USE_LVGL_FX_<NAME>` define으로 켠다.
   C++ 상수(`fx::PULSE` 등)로 참조되는 기본 effect는 설정에서 알 수 없으므로 항상 포함한다 (각각 수십 바이트).
+- P4 구현: define은 `USE_LVGL_FX_<PULSE|NUDGE|SHAKE|FLASH|GLOW|BLINK>`(설정의 effect, preset, `play`한 내장 effect)와
+  `USE_LVGL_FX_STYLE_<STYLE>`(설정에서 쓰인 스타일, show/hide 둘 다)로 내보낸다. 현재 **C++은 이 define으로 가르지 않으며
+  define은 코드 크기를 줄이지 않는다**: 내장 effect가 여섯 재료를 모두 쓰고, C++만 쓰는 사용자도 람다에서 어떤 스타일/재료든
+  표로 지정할 수 있어서, 가르면 조용히 동작이 빠진다. define은 이후 최적화를 위한 자리일 뿐이다.
 
 ---
 
@@ -549,14 +583,14 @@ Colorado 적용 중 구조에 맞지 않는 상황이 생기면:
 
 ```
 components/lvgl_fx/
-  __init__.py      설정 스키마, 정의 테이블 코드 생성, action 등록 (P1: 최소 스키마)
+  __init__.py      설정 스키마, 검증, 정의 테이블 코드 생성(const), action 등록
   lvgl_fx.h/.cpp   컴포넌트, 정책, 슬롯 풀, 공개 API, transition (set_*)
   effects.h        곡선, effect/track 정의 형식(const 테이블), 기본 effect 상수, 재료 계산 선언
   tracks.cpp       재료 계산 (pulse, nudge, shake, flash, glow, blink), 기본값/preset 해석
   runner.cpp       effect 실행: play/stop, 1회성/루프 인스턴스, 정책, defer, loop() 처리
   props.h/.cpp     속성별 기준값/오프셋 합성 (LV_USE_* 조건부)
   builtins.cpp     기본 effect, 기본 transition 테이블
-  automation.h     YAML action
+  automation.h     YAML action (P4: `lvgl_fx.start`만. set/play/stop은 LVGL의 `ObjUpdateAction` 람다로 생성)
   styles.cpp       transition 스타일 (P3): visible slide/zoom, text roll/count, label set_value
                    (스타일 계산은 props.cpp의 `contribute()`에서 오프셋으로 합쳐진다)
   README.md        (P5 예정)

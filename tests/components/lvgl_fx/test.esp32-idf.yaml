@@ -1,6 +1,7 @@
-# Compile test for lvgl_fx phases P1-P3: every C++ API function, every transition style and the lvgl_fx.start
-# action.
+# Compile test for lvgl_fx: the full YAML schema (transitions, presets, effects, effect_defaults), every YAML action,
+# and the C++ API from lambdas (P1-P3: every function, every transition style, the const-table format).
 # No real hardware needed: an SPI ILI9341 with dummy pins gives LVGL a display to build widgets on.
+# Rejected configurations are tested by tests/native/lvgl_fx_config/test_invalid_configs.py, not compiled here.
 esphome:
   name: test-lvgl-fx
   on_boot:
@@ -32,14 +33,13 @@ spi:
   mosi_pin: GPIO23
 
 display:
-  - platform: ili9xxx
+  - platform: mipi_spi
     id: main_display
     model: ILI9341
     cs_pin: GPIO15
-    invert_colors: false
     dc_pin: GPIO27
     reset_pin: GPIO33
-    auto_clear_enabled: false
+    invert_colors: false
     update_interval: never
 
 image:
@@ -48,6 +48,12 @@ image:
     id: test_image
     type: RGB565
     resize: 16x16
+
+color:
+  - id: fx_red
+    red: 100%
+    green: 0%
+    blue: 0%
 
 lvgl_fx:
   id: fx_main
@@ -59,6 +65,134 @@ lvgl_fx:
   max_targets: 8
   slots_in_psram: true
   suppress_when: !lambda return id(popup_open);
+
+  transitions:
+    # Per-property defaults: every field of every property, or only some.
+    defaults:
+      visible: { style: fade, duration: normal, curve: ease_out, delay: 0ms }
+      opacity: { duration: normal, curve: linear }
+      value: { duration: 250ms, curve: ease_in_out }
+      text: { style: fade, duration: fast, from: 85%, format: "%.0f" }
+      color: { duration: normal }
+      position: { duration: normal, curve: ease_out }
+      rotation:
+    custom:
+      - id: gauge_slow
+        value: { duration: slow }
+      # `then`: an effect of this file, played when the transition is done
+      - id: prnd_move
+        position: { duration: 160ms }
+        then: prnd_confirm
+      # a built-in effect works as `then` too; the transition may be about every property at once
+      - id: everything
+        visible: { style: zoom, from: 80%, duration: 300ms, delay: 20ms, curve: ease_in }
+        opacity: { duration: 0ms }
+        value: { duration: 1s, curve: linear }
+        text: { style: roll, distance: 14, from: 70%, duration: 140ms }
+        color: { duration: slow, curve: ease_in_out }
+        position: { duration: fast }
+        rotation: { duration: 500ms, curve: ease_out }
+        then: pulse
+      # visible: separate show and hide styles
+      - id: card
+        visible: { show: slide_up, hide: fade, distance: 12 }
+      - id: card_left
+        visible: { show: slide_left, hide: slide_right, distance: 30 }
+      - id: card_down
+        visible: { style: slide_down }
+      - id: card_right
+        visible: { style: slide_right }
+      - id: card_none
+        visible: { show: none, hide: zoom, from: 60% }
+      - id: hide_only
+        visible: { hide: slide_down }
+      - id: gear_roll
+        text: { style: roll, distance: 14, duration: 140ms }
+      - id: counter
+        text: { style: count, format: "%.1f%%", duration: 600ms, curve: ease_in_out }
+      - id: text_plain
+        text: { style: none, format: "%5.2f" }
+      - id: text_flags
+        text: { format: "[%-+8.3f] %%" }
+      # an id equal to the name of the generated defaults tables must not clash with them
+      - id: defaults
+        visible: { style: fade }
+        text: { style: roll }
+
+  # Built-in effects, magnitudes only
+  presets:
+    pulse: { scale: 112%, duration: slow, curve: ease_out }
+    shake: { distance: 3, cycles: 3, axis: x, duration: 150ms }
+    nudge_up: { distance: 6 }
+    nudge_down: { distance: 5, duration: fast }
+    nudge_left: { distance: 7, curve: ease_in }
+    nudge_right: { distance: 3 }
+    flash: { property: bg_color, color: white, amount: 80%, duration: normal }
+    glow: { opacity: 60% }
+    blink: { opacity: 25%, duration: 0.3s }
+
+  effect_defaults:
+    retrigger: restart
+    when_suppressed: skip
+    policy: normal
+    repeat: 1
+    repeat_delay: 50ms
+    cooldown: 100ms
+    defer_timeout: 2s
+
+  effects:
+    - id: prnd_confirm
+      tracks:
+        - flash: { property: bg_color, color: white, duration: 340ms, curve: ease_in }
+    # every track, every option
+    - id: heat_up
+      cooldown: 2500ms
+      retrigger: ignore
+      when_suppressed: defer
+      defer_timeout: 1500ms
+      policy: normal
+      repeat: 3
+      repeat_delay: 100ms
+      then: prnd_confirm
+      tracks:
+        - nudge: { y: -2, duration: 220ms }
+        - nudge: { x: 3, y: 1, delay: 20ms, curve: linear }
+        - flash: { property: image_recolor, color: 0xFF8800, amount: 25%, duration: normal, delay: 60ms }
+        - flash: { property: text_color, color: fx_red, curve: ease_in }
+        - flash:
+        - pulse: { scale: 105%, delay: 20ms, curve: ease_out }
+        - shake: { distance: 3, cycles: 3, axis: y, duration: fast }
+        - shake: { duration: slow }
+        - glow: { opacity: 80%, duration: slow }
+        - blink: { opacity: 40%, curve: ease_in_out, duration: 1.5s }
+    # a loop: on until stopped
+    - id: warning_blink
+      repeat: infinite
+      repeat_delay: 400ms
+      policy: always
+      tracks:
+        - blink: { opacity: 35%, duration: slow }
+    - id: loop_with_defaults
+      repeat: infinite
+      tracks:
+        - glow:
+    # then chains: built-in effect, effect declared later, effect declared earlier
+    - id: chain_first
+      then: chain_second
+      tracks:
+        - pulse: { scale: 120% }
+    - id: chain_second
+      then: pulse
+      repeat: 2
+      tracks:
+        - nudge: { x: -4 }
+    - id: chain_third
+      then: chain_first
+      tracks:
+        - flash: { amount: 50% }
+    - id: delayed
+      tracks:
+        - blink: { delay: 60s, duration: 5s }
 
 lvgl:
   displays: [ main_display ]
@@ -579,3 +713,85 @@ interval:
     then:
       - lvgl_fx.start: fx_main
       - lvgl_fx.start:
+
+  # ---- P4: the YAML actions (no lambda needed for any of this) ----
+  - interval: 3s
+    then:
+      - lvgl_fx.set: { id: fx_obj, visible: true }
+      - lvgl_fx.set: { id: fx_card, visible: false, transition: card }
+      - lvgl_fx.set: { id: fx_card, visible: true, transition: card, force: true }
+      - lvgl_fx.set:
+          id: fx_card
+          visible: !lambda "return id(popup_open);"
+          force: !lambda "return !id(popup_open);"
+      - lvgl_fx.set: { id: fx_obj, opacity: 50% }
+      - lvgl_fx.set: { id: fx_obj, opacity: 0.25, transition: everything }
+      - lvgl_fx.set: { id: fx_obj, opacity: !lambda "return 128;" }
+      - lvgl_fx.set: { id: fx_bar, value: 42 }
+      - lvgl_fx.set: { id: fx_arc, value: !lambda "return id(popup_open) ? 12.5f : 150.0f;", transition: gauge_slow }
+      - lvgl_fx.set: { id: fx_slider, value: 7.5, force: true }
+      - lvgl_fx.set: { id: fx_image, value: 45 }           # an image: rotation in degrees
+      - lvgl_fx.set: { id: fx_number, value: 12.5, transition: counter }   # a label: a number
+      - lvgl_fx.set: { id: fx_label, text: "hello" }
+      - lvgl_fx.set: { id: fx_label, text: !lambda 'return std::string("x");', transition: gear_roll }
+      - lvgl_fx.set:
+          id: fx_label
+          text:
+            format: "%d"
+            args: [ 'id(popup_open) ? 1 : 0' ]
+          force: true
+      - lvgl_fx.set: { id: fx_label, color: red }
+      - lvgl_fx.set: { id: fx_image, color: fx_red }
+      - lvgl_fx.set: { id: fx_obj, color: 0x336699, transition: everything }
+      - lvgl_fx.set: { id: fx_obj, color: !lambda "return lv_color_hex(0x112233);" }
+      - lvgl_fx.set: { id: fx_obj, x: 20 }
+      - lvgl_fx.set: { id: fx_obj, x: !lambda "return id(popup_open) ? 5 : 15;", transition: prnd_move }
+      - lvgl_fx.set: { id: fx_obj, y: -4, force: true }
+      - lvgl_fx.set: { id: fx_obj, y: !lambda "return 30;" }
+      - lvgl_fx.set: { id: fx_obj, rotation: 90 }
+      - lvgl_fx.set: { id: fx_obj, rotation: !lambda "return 12.5f;", transition: everything }
+      - lvgl_fx.set: { id: fx_dropdown, visible: true }      # a compound widget
+      - lvgl_fx.play: { id: fx_obj, effect: pulse }
+      - lvgl_fx.play: { id: fx_obj, effect: shake, force: true }
+      - lvgl_fx.play: { id: fx_obj, effect: nudge_up }
+      - lvgl_fx.play: { id: fx_obj, effect: nudge_down }
+      - lvgl_fx.play: { id: fx_obj, effect: nudge_left }
+      - lvgl_fx.play: { id: fx_obj, effect: nudge_right }
+      - lvgl_fx.play: { id: fx_label, effect: flash }
+      - lvgl_fx.play: { id: fx_obj, effect: glow }
+      - lvgl_fx.play: { id: fx_obj, effect: blink }
+      - lvgl_fx.play: { id: fx_obj, effect: heat_up }
+      - lvgl_fx.play: { id: fx_obj, effect: warning_blink, force: !lambda "return true;" }
+      - lvgl_fx.play: { id: fx_dropdown, effect: chain_third }
+      - lvgl_fx.stop: { id: fx_obj, effect: warning_blink }
+      - lvgl_fx.stop: { id: fx_obj, effect: pulse }
+      - lvgl_fx.stop: { id: fx_obj }
+      - lvgl_fx.stop: fx_label
+      - lvgl_fx.start:
+      - lvgl_fx.start: fx_main
+      - lvgl_fx.start: { id: fx_main }
+      # ids of effects and transitions are plain C++ values in lambdas
+      - lambda: |-
+          fx::play(id(fx_obj), id(heat_up));
+          fx::stop(id(fx_obj), id(warning_blink));
+          fx::set_value(id(fx_bar), 5.0f, fx::Opt{id(gauge_slow)});
+          fx::set_x(id(fx_obj), 3, {.transition = id(prnd_move), .force = true});
+
+# ---- P4: actions with trigger arguments (`x` is the sensor value in every lambda) ----
+sensor:
+  - platform: template
+    id: fx_sensor
+    update_interval: never
+    on_value:
+      then:
+        - lvgl_fx.set:
+            id: fx_bar
+            value: !lambda return x;
+            force: !lambda return x > 3;
+        - lvgl_fx.set:
+            id: fx_label
+            text:
+              format: "%.1f"
+              args: [ x ]
+            transition: defaults
+        - lvgl_fx.set: { id: fx_obj, opacity: !lambda "return x > 50 ? 255 : 100;" }
