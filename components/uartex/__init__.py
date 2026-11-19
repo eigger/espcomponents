@@ -252,25 +252,78 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     }),
 }).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA), cv.has_at_most_one_key(CONF_RX_LENGTH, CONF_RX_DATA_LENGTH), cv.has_at_most_one_key(CONF_RX_CHECKSUM, CONF_RX_CHECKSUM_2), cv.has_at_most_one_key(CONF_TX_CHECKSUM, CONF_TX_CHECKSUM_2))
 
-def _repo_version():
+def _git(cwd, *args, timeout=5):
+    result = subprocess.run(
+        ["git", *args],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=True,
+    )
+    return result.stdout.strip()
+
+
+def _pick_tag(tags):
+    # "latest" is a moving alias of the newest release; prefer the real name.
+    tags = [t for t in tags if t and t != "latest"]
+    versioned = [t for t in tags if t.startswith("v")]
+    return max(versioned or tags) if (versioned or tags) else None
+
+
+def _repo_version(cwd=None):
     """Version of the espcomponents checkout this component was loaded from.
 
-    external_components clones the repository with --depth=1, so tags are
-    usually absent and this resolves to the short commit hash; a local
-    checkout with tags gives e.g. v261119-3-gabc1234(-dirty).
+    Returns the release tag (e.g. v261119) when HEAD is a tagged commit,
+    otherwise the `git describe` result (v261119-3-gabc1234 in a full
+    checkout, the short commit hash in a shallow one).
+
+    external_components clones with --depth=1 and fetches `ref:` without
+    creating local tags, so for shallow clones the tag is looked up on the
+    remote with `git ls-remote`.
     """
+    cwd = cwd or Path(__file__).resolve().parent
     try:
-        result = subprocess.run(
-            ["git", "describe", "--tags", "--always", "--dirty"],
-            cwd=Path(__file__).resolve().parent,
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=True,
-        )
-        return result.stdout.strip() or "unknown"
+        head = _git(cwd, "rev-parse", "HEAD")
     except (OSError, subprocess.SubprocessError):
         return "unknown"
+
+    try:
+        dirty = _git(cwd, "status", "--porcelain", "--untracked-files=no") != ""
+    except (OSError, subprocess.SubprocessError):
+        dirty = False
+    suffix = "-dirty" if dirty else ""
+
+    try:
+        tag = _pick_tag(_git(cwd, "tag", "--points-at", "HEAD").splitlines())
+    except (OSError, subprocess.SubprocessError):
+        tag = None
+
+    if tag is None:
+        try:
+            shallow = _git(cwd, "rev-parse", "--is-shallow-repository") == "true"
+        except (OSError, subprocess.SubprocessError):
+            shallow = False
+        if shallow:
+            try:
+                remote = _git(cwd, "ls-remote", "--tags", "origin", timeout=15)
+            except (OSError, subprocess.SubprocessError):
+                remote = ""
+            tags = []
+            for line in remote.splitlines():
+                sha, _, ref = line.partition("\t")
+                if sha != head or not ref.startswith("refs/tags/"):
+                    continue
+                tags.append(ref[len("refs/tags/"):].removesuffix("^{}"))
+            tag = _pick_tag(tags)
+
+    if tag is not None:
+        return tag + suffix
+
+    try:
+        return _git(cwd, "describe", "--tags", "--always", "--dirty") or "unknown"
+    except (OSError, subprocess.SubprocessError):
+        return head[:7]
 
 
 async def to_code(config):
