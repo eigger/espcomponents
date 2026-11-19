@@ -13,14 +13,18 @@ static const char *const TAG = "lvgl_fx";
 // x * y / 255 with exact identity for 255 (the rounding term is < 255/2).
 static inline uint8_t mul_opa(uint8_t a, uint8_t b) { return static_cast<uint8_t>((a * b + 127) / 255); }
 
+static inline int16_t add_sat(int16_t a, int16_t b) {
+  return static_cast<int16_t>(std::clamp<int32_t>(static_cast<int32_t>(a) + b, INT16_MIN, INT16_MAX));
+}
+
 void Offsets::merge(const Offsets &other) {
   this->opa = mul_opa(this->opa, other.opa);
   // Q8 multiply; exact identity for 256.
   this->scale = static_cast<uint16_t>(
       std::min<uint32_t>((static_cast<uint32_t>(this->scale) * other.scale + 128) >> 8, UINT16_MAX));
   this->rotation += other.rotation;
-  this->translate_x += other.translate_x;
-  this->translate_y += other.translate_y;
+  this->translate_x = add_sat(this->translate_x, other.translate_x);
+  this->translate_y = add_sat(this->translate_y, other.translate_y);
   this->outline_opa = std::max(this->outline_opa, other.outline_opa);
   if (other.color_amount == 0) return;
   if (this->color_amount == 0) {
@@ -34,27 +38,92 @@ void Offsets::merge(const Offsets &other) {
 
 // ---- contributors ------------------------------------------------------------------------------------------------
 
-static void contribute_one(const Instance &instance, Offsets &out) {
+// Displacement 0..255 of a visible style: 0 at the opacity the target has while shown, 255 at opacity 0.  Derived from
+// the base opacity the visible transition animates, so offset and opacity share one clock and a reversal continues
+// from wherever the opacity is (6).
+static uint32_t visible_displacement(const Slot &slot, const Instance &instance) {
+  const uint32_t shown = instance.state;
+  if (shown == 0) return 0;
+  const uint32_t reached = std::min<uint32_t>((slot.base_opa * 255u + shown / 2) / shown, 255u);
+  return 255u - reached;
+}
+
+static void contribute_one(const Slot &slot, const Instance &instance, Offsets &out) {
   Offsets offset;
   switch (instance.kind) {
     case InstanceKind::NONE:
+    case InstanceKind::COUNT:
       return;
-    case InstanceKind::FADE_IN:
-      offset.opa = static_cast<uint8_t>(std::min<uint16_t>(instance.progress, LV_OPA_COVER));
-      break;
     case InstanceKind::EFFECT:
       // Tracks merge into `out` themselves (several tracks, one pass).
       effect_contribute(*static_cast<const EffectDef *>(instance.def), instance.progress,
                         detail::core().intensity_q8, out);
       return;
+    case InstanceKind::TEXT_ENTER: {
+      const int32_t p = std::min<int32_t>(instance.progress, LV_OPA_COVER);
+      const int32_t from = instance.arg.b;
+      offset.opa = static_cast<uint8_t>(from + ((LV_OPA_COVER - from) * p + 127) / LV_OPA_COVER);
+      offset.translate_y = static_cast<int16_t>(instance.arg.a * (LV_OPA_COVER - p) / LV_OPA_COVER);
+      break;
+    }
+    case InstanceKind::SLIDE_UP:
+    case InstanceKind::SLIDE_DOWN:
+    case InstanceKind::SLIDE_LEFT:
+    case InstanceKind::SLIDE_RIGHT: {
+      // The entry offset points away from the travel direction: slide_up starts below and moves up.
+      const int16_t px = static_cast<int16_t>((instance.arg.a * visible_displacement(slot, instance) + 127) / 255);
+      switch (instance.kind) {
+        case InstanceKind::SLIDE_UP:
+          offset.translate_y = px;
+          break;
+        case InstanceKind::SLIDE_DOWN:
+          offset.translate_y = static_cast<int16_t>(-px);
+          break;
+        case InstanceKind::SLIDE_LEFT:
+          offset.translate_x = px;
+          break;
+        default:
+          offset.translate_x = static_cast<int16_t>(-px);
+          break;
+      }
+      break;
+    }
+    case InstanceKind::ZOOM: {
+      // arg.a = starting scale (Q8): 256 at rest, `from` at full displacement.
+      const int32_t displacement = static_cast<int32_t>(visible_displacement(slot, instance));
+      const int32_t delta = (LV_SCALE_NONE - instance.arg.a) * displacement;
+      offset.scale = static_cast<uint16_t>(LV_SCALE_NONE - (delta + (delta >= 0 ? 127 : -127)) / 255);
+      break;
+    }
   }
   out.merge(offset);
 }
 
 void contribute(const Slot &slot, Offsets &out) {
-  contribute_one(slot.one_shot, out);
-  contribute_one(slot.loop, out);
-  contribute_one(slot.style, out);
+  contribute_one(slot, slot.one_shot, out);
+  contribute_one(slot, slot.loop, out);
+  contribute_one(slot, slot.style, out);
+  contribute_one(slot, slot.vis, out);
+}
+
+uint8_t instance_props(const Instance &instance) {
+  switch (instance.kind) {
+    case InstanceKind::EFFECT:
+      return instance.state;
+    case InstanceKind::TEXT_ENTER:
+      return instance.arg.a != 0 ? (PROP_OPA | PROP_TRANSLATE) : PROP_OPA;
+    case InstanceKind::SLIDE_UP:
+    case InstanceKind::SLIDE_DOWN:
+    case InstanceKind::SLIDE_LEFT:
+    case InstanceKind::SLIDE_RIGHT:
+      return PROP_TRANSLATE;
+    case InstanceKind::ZOOM:
+      return PROP_SCALE;
+    case InstanceKind::NONE:
+    case InstanceKind::COUNT:
+      break;
+  }
+  return 0;
 }
 
 // ---- color access ------------------------------------------------------------------------------------------------

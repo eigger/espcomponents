@@ -204,6 +204,33 @@ lvgl_fx:
 - `roll`은 이전/새 텍스트의 앞쪽 숫자를 비교한다. 둘 중 하나라도 숫자가 아니면 `fade`처럼 동작한다.
 - 스타일 구현은 재료(4.3)와 같은 계층이다. 새 스타일은 새 재료처럼 추가할 수 있다 (8.2).
 
+**구현 규칙 (P3)**
+- `slide_*`의 이름은 나타날 때 움직이는 방향이다: `slide_up`은 아래에서 위로 들어온다 (시작 오프셋 +distance).
+  사라질 때는 같은 오프셋 방향으로 0 → distance, 즉 들어온 길을 되짚어 나간다 (`slide_up` hide는 아래로 나감).
+  `slide_down`은 위에서, `slide_left`는 오른쪽에서, `slide_right`는 왼쪽에서 들어온다.
+- 슬라이드/줌의 오프셋은 **기준 opa에서 계산**한다: 0(투명)에서 최대, "보일 때의 opa"에서 0. visible transition의
+  opa `lv_anim` 하나가 시간을 쥐고 있으므로 오프셋과 투명도가 항상 같은 곡선·같은 진행률이고, 숨기는 도중 되돌려도
+  현재 opa에서 이어지는 만큼 오프셋도 끊김 없이 이어진다. 진행 중에 되돌릴 때는 **시작한 스타일을 유지**한다
+  (fade로 숨기던 중 `slide_up`으로 다시 보여도 오프셋은 생기지 않는다 - 갑자기 튀지 않게).
+- 진행 중인 slide/zoom 진입 도중 `set_opacity`가 오면 그 시점에 오프셋을 끝내고(0) 투명도만 이어간다.
+- `roll`은 새 텍스트의 투명도도 `from`(기본 85%)에서 올라온다. `fade`/`roll`/`count`가 아닌 스타일을 text에 쓰면
+  `fade`로 취급한다 (`none`은 즉시).
+- `count`: `set_value(label, v)`에서만 센다. 시작 값은 label이 지금 보여 주는 숫자(format의 앞쪽 고정 문자열을 건너뛴 뒤의
+  숫자)이며, 읽을 수 없으면(비어 있음, `--`, 숫자 아님) 센 것 없이 새 텍스트를 `fade`로 적용한다. 진행 중 다시 호출하면
+  그 시점에 보이는 숫자에서 새 값으로 이어 간다. 숫자는 `format`의 소수 자리(`%.2f` → 2자리)의 고정소수점 정수로
+  `lv_anim`이 움직이고, 표시되는 숫자가 바뀔 때만 `format`으로 한 번 쓴다 (스택 48바이트 버퍼, 더 긴 텍스트는 잘림).
+  마지막 텍스트가 `format(값)`과 정확히 같도록, `format`이 `%f` 변환이 아니거나(소수 6자리 초과 포함) 값이 고정소수점
+  범위(±2·10⁹)를 넘으면 세지 않고 새 텍스트를 `fade`로 적용한다. `lv_anim` 경로 계산이 `step(0..1024) × (끝 − 시작)`을
+  int32로 하므로 **시작과 끝의 차이가 고정소수점 값으로 2,097,150을 넘어도** 세지 않는다 (`%.0f`: 2,097,150, `%.2f`: 20,971.50).
+  새 텍스트가 이미 보이는 텍스트와 같으면 진행 중인 count는 그 자리에서 끝난다 (`set_text`도 같다).
+- 진입/퇴장 중 `set_opacity`로 보임 opa가 바뀐 채 숨김이 되돌려지면, 되돌림 시점에 오프셋 기준 opa를 새 값으로 옮겨
+  오프셋이 끝에서 정확히 0이 되게 한다 (되돌림 순간에 오프셋이 한 번 조정될 수 있다). `distance`는 1000px까지로 제한한다.
+- text 스타일의 `delay` 동안에는 새 텍스트가 오프셋 없이 그대로 보이고, 움직임은 `delay` 뒤에 시작한다 (`early_apply` 끔).
+- `set_value(label, v)` (count 아님): `format`으로 한 번 쓴 뒤 `set_text`와 똑같이 text 스타일(fade/roll)로 적용한다.
+  NaN/무한대는 `"--"`를 즉시 적용한다 (`then`은 재생). 같은 텍스트면 아무것도 하지 않는다.
+- 스타일 필드가 비어 있으면(`style`, `distance`, `from`, `format`, `duration` ...) 실행 시점에 필드별로 `opt.transition`
+  → 설정 기본값 → 내장 표 순으로 채운다. 한 항목에 `style`만 있고 `hide_style`이 없으면 `hide_style`도 같은 값이다.
+
 ### 4.3 Effect 정의 — [확정]
 - effect = **track 목록**. track 하나 = 재료 하나(아래 표)가 속성 하나를 움직인다.
 - **모든 track은 동시에 시작**하고, 순서는 track별 `delay`로 만든다 (CSS/영상 편집 타임라인과 같은 방식).
@@ -322,8 +349,10 @@ hide 페이드아웃 도중 `blink`가 걸려도 같은 문제가 생긴다.
 ### 보임/숨김 규칙 — [확정]
 - `set_visible(true)`: HIDDEN 플래그를 **즉시** 해제하고 기준 opa를 현재 값 → 100%로.
 - `set_visible(false)`: 기준 opa를 현재 값 → 0으로, **끝나면** HIDDEN 설정.
-- 숨기는 도중 다시 `set_visible(true)`가 오면 현재 opa에서 되돌아온다. 이전 숨김의 완료 콜백은 무효가 된다
-  (대상별 세대 번호로 구분).
+- 숨기는 도중 다시 `set_visible(true)`가 오면 현재 opa에서 되돌아온다. 이전 숨김의 완료 콜백은 무효가 된다.
+  P3 구현: `(슬롯, exec_opa)` `lv_anim`은 대상당 하나뿐이고, `set_visible`/`set_opacity`는 새로 시작하거나(LVGL이 같은 키의
+  기존 anim을 콜백 없이 교체) 직접 지우므로(`kill_opa`) 낡은 숨김의 완료 콜백은 **도착할 수 없다**. 그래서 세대 번호를
+  따로 두지 않는다 (P1/P2의 `generation`과 `opa_then` 제거).
 - `set_opacity`와 `set_visible`은 같은 기준 opa를 쓴다. `set_visible(true)`의 목표는 "마지막으로 설정된 opacity"(기본 100%).
 
 ---
@@ -352,27 +381,32 @@ hide 페이드아웃 도중 `blink`가 걸려도 같은 문제가 생긴다.
 위젯 값(bar/arc/slider)·텍스트·위치의 transition에서 스타일이 없고, 같은 대상에 effect도 없을 때.
 
 ```cpp
-struct Slot {                          // 68 바이트 (P2 실측, 32비트 타깃)
+struct Slot {                          // 68 바이트 (레이아웃에서 계산한 값, 32비트 타깃; static_assert로 상한 고정)
   lv_obj_t *obj;                       // 4  대상
-  uint16_t generation;                 // 2  visible 세대 (6절)
   uint8_t  props;                      // 1  fx가 소유한 합성 속성 비트
-  uint8_t  flags;                      // 1  루프 켜짐, 루프 멈춤, defer 있음 …
+  uint8_t  flags;                      // 1  숨기는 중, 루프 켜짐, 루프 멈춤 …
   uint8_t  base_opa, visible_opa;      // 2
   uint16_t base_scale;                 // 2
   int16_t  base_rotation;              // 2
-  lv_color_t base_color;               // 3 (+1)
-  uint8_t  base_outline_opa;           // 1  glow의 outline 기준 투명도 (P2 추가)
-  Instance one_shot, loop, style;      // 3 × 8 = 24  {정의 포인터, 진행 ms, 상태}
+  lv_color_t base_color, color_from, color_to;  // 9  (3 x 3)
+  ColorTarget color_target;            // 1
+  uint8_t  base_outline_opa;           // 1  glow의 outline 기준 투명도
+  // (패딩 1)
+  Instance one_shot, loop;             // 2 × 8 = 16  effect 인스턴스
+  Instance style;                      // 8  text 스타일 (fade/roll/count)
+  Instance vis;                        // 8  visible 스타일 (slide/zoom), visible transition이 도는 동안만
   uint32_t last_play_tick;             // 4  cooldown
   const EffectDef *deferred;           // 4  defer 보관분
   uint32_t deferred_tick;              // 4  보관 시각 (defer_timeout)
-  const TransitionDef *opa_then;       // 4  진행 중인 투명도/visible transition의 `then` (P2 추가: 그 anim의 user_data는 세대 번호)
 };
 ```
 - 오프셋은 저장하지 않는다 (6절: 진행률에서 계산). 그래서 슬롯이 작다.
-- 크기: 슬롯 68바이트(P2 실측), 대상 32개 ≈ 2.2 KB. `max_targets`로 조정. Tab5처럼 internal RAM이 빠듯하면
+- 크기: 슬롯 68바이트(P3: 레이아웃에서 계산, 실측은 P5에서 기록), 대상 32개 ≈ 2.2 KB.
+  P3는 `vis` 인스턴스 8바이트를 더하는 대신 `generation`(2)과 `opa_then`(4)을 없애고 패딩을 흡수해 크기가 그대로다.
+  `Instance`는 `{def | format | arg{a,b}} + progress + kind + state` 8바이트이며, 스타일은 실행 시점에 채운 값
+  (이동 거리, 시작 투명도, 소수 자리 …)을 `arg`/`state`에 직접 담는다. 정의 표의 "비어 있음" 필드를 프레임마다 풀지 않기 위해서다. `max_targets`로 조정. Tab5처럼 internal RAM이 빠듯하면
   `slots_in_psram: true`로 PSRAM에 둘 수 있다 (프레임당 접근 수가 적어 속도 영향 미미).
-- 정확한 크기는 구현 후 측정해 이 문서에 기록한다.
+- 정확한 크기는 구현 후 측정해 이 문서에 기록한다 (아직 측정하지 않았다. 계산값만 있다).
 - 찾기: 슬롯 수가 작으므로 **선형 탐색 + 마지막 찾은 슬롯 캐시**. 프레임 콜백은 `var`로 슬롯을 바로 알기 때문에 탐색하지 않는다.
 - 정리: 대상 삭제 시 `LV_EVENT_DELETE`로 슬롯과 `lv_anim`을 정리한다.
   가득 차면 해당 호출은 즉시 적용으로 대체하고 경고 로그 한 번.
@@ -387,6 +421,7 @@ struct Slot {                          // 68 바이트 (P2 실측, 32비트 타�
 ### 7.5 프레임 비용
 - 프레임 콜백은 정수 연산만. 곡선은 LVGL의 `lv_anim_path_*`와 같은 정수 근사를 쓴다 (`float` 없음).
 - 합성은 `props` 비트에 있는 속성만 다시 쓴다.
+- count는 표시되는 텍스트가 바뀔 때만 `lv_label_set_text`를 부른다 (LVGL이 label 텍스트 버퍼를 다시 잡을 수 있다).
 - **렌더링이 비싼 속성 주의**: `transform_scale`/`transform_rotation`과 `opa < 255`는 LVGL이 레이어를 따로 그린다.
   큰 컨테이너에 걸면 프레임이 떨어진다. 화면 면적의 25% 이상인 대상에 이 속성을 처음 걸 때 경고 로그 한 번.
   README에 "큰 영역은 translate/색 위주로" 가이드를 둔다.
@@ -418,7 +453,7 @@ struct Slot {                          // 68 바이트 (P2 실측, 32비트 타�
 | 기존 재료를 조합한 새 effect | `effects:`에 track 나열 | YAML만 |
 | 기본 effect 추가 | 재료 하나로 된 정의를 기본 테이블에 추가 | `builtins` 테이블 |
 | 새 재료 (예: `wobble`, `bounce`) | 재료 함수 하나 + YAML 스키마 | `tracks.*`, `__init__.py` |
-| 새 transition 스타일 (예: `flip`, `decode`) | 스타일 함수 하나 + YAML 스키마 | `styles.*`, `__init__.py` |
+| 새 transition 스타일 (예: `flip`, `decode`) | `Style`/`InstanceKind` 값, `props.cpp`의 `contribute_one`·`instance_props`, 시작 지점(visible: `begin_visible_style`의 switch, text: `set_text`/`count_to`), 필요하면 `resolve` + YAML 스키마 | `lvgl_fx.h`, `props.*`, `styles.cpp`, `__init__.py` |
 | 새 속성 (예: 너비, 그림자, 선 진행률) | 기준값 필드 + 합성 규칙 + `set_*` 함수 + YAML `set` 필드 | `props.*`, 슬롯, API |
 
 **재료와 스타일 함수의 규칙** (이것만 지키면 정책, 충돌, 중단 규칙이 자동으로 적용된다):
@@ -522,7 +557,8 @@ components/lvgl_fx/
   props.h/.cpp     속성별 기준값/오프셋 합성 (LV_USE_* 조건부)
   builtins.cpp     기본 effect, 기본 transition 테이블
   automation.h     YAML action
-  styles.h/.cpp    transition 스타일 (P3 예정)
+  styles.cpp       transition 스타일 (P3): visible slide/zoom, text roll/count, label set_value
+                   (스타일 계산은 props.cpp의 `contribute()`에서 오프셋으로 합쳐진다)
   README.md        (P5 예정)
   DESIGN.md
 ```

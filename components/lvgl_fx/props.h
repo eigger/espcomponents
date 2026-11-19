@@ -48,19 +48,34 @@ struct Offsets {
   void merge(const Offsets &other);
 };
 
-// What a running instance contributes.  P3 adds the slide/zoom/roll style entries.
+// What a running instance contributes.
 enum class InstanceKind : uint8_t {
   NONE = 0,
-  FADE_IN,  // text fade style: opa offset = progress (0..255) -> 255
-  EFFECT,   // one-shot or loop effect: progress = ms into the effect, state = PropBit mask its tracks drive
+  EFFECT,      // one-shot or loop effect: progress = ms into the effect, state = PropBit mask its tracks drive
+  TEXT_ENTER,  // text fade / roll: progress 0..255 = how far the new text has arrived; arg.a = signed travel in px
+               // (0 = fade only), arg.b = starting opacity 0..255.  opa offset: arg.b -> 255, translate_y: arg.a -> 0
+  COUNT,       // label count: moves no property (the lv_anim callback writes the text); format/state: see Instance
+  SLIDE_UP,    // visible styles (4.2.1): offsets derived from the slot's base opacity, which the visible transition
+  SLIDE_DOWN,  //   animates.  state = the opacity the target has while shown (offset 0), arg.a = distance in px
+  SLIDE_LEFT,  //   (zoom: the starting scale in Q8).  The offset is zero at that opacity and full at opacity 0.
+  SLIDE_RIGHT,
+  ZOOM,
 };
 
-// One running piece of motion on a target: {definition, progress, state} (7.3).  An idle instance is all zero.
+// One running piece of motion on a target (7.3).  An idle instance is all zero.  The first member is a union so that
+// styles can keep their resolved parameters in the instance itself (the definitions hold unresolved "unset" fields).
 struct Instance {
-  const void *def;     // definition the instance plays (effect / style entry); unused by FADE_IN
-  uint16_t progress;   // kind-specific progress, written by the lv_anim callback
+  union {
+    const void *def;                // EFFECT: the EffectDef it plays
+    const char *format;             // COUNT: printf format of the number (nullptr = "%.0f")
+    struct {
+      int16_t a, b;
+    } arg;                          // style kinds: resolved parameters (see InstanceKind)
+  };
+  uint16_t progress;                // kind-specific progress, written by the lv_anim callback
   InstanceKind kind;
-  uint8_t state;       // kind-specific
+  uint8_t state;                    // EFFECT: PropBit mask; COUNT: decimals of the fixed-point lv_anim values;
+                                    // SLIDE_*/ZOOM: shown opacity
 };
 
 struct EffectDef;
@@ -79,7 +94,6 @@ enum SlotFlag : uint8_t {
 // initializers on purpose: the pool is zero-filled and `Slot{}` resets a slot, which keeps it trivially copyable.
 struct Slot {
   lv_obj_t *obj;                  // target; nullptr = free slot
-  uint16_t generation;            // visible generation: stale hide completions are ignored (6)
   uint8_t props;                  // PropBit mask of properties owned by fx
   uint8_t flags;                  // SlotFlag
   uint8_t base_opa;               // current base opacity (animated by transitions)
@@ -91,11 +105,12 @@ struct Slot {
   lv_color_t color_to;
   ColorTarget color_target;
   uint8_t base_outline_opa;       // outline opacity the widget had when fx took it over (glow adds on top)
-  Instance one_shot, loop, style;  // one_shot keeps its last effect after it ended (cooldown)
+  Instance one_shot, loop;        // effects; one_shot keeps its last effect after it ended (cooldown)
+  Instance style;                 // text style entry (fade / roll / count)
+  Instance vis;                   // visible style entry/exit (slide / zoom), alive while a visible transition runs
   uint32_t last_play_tick;        // lv_tick of the last one-shot start (cooldown)
   const EffectDef *deferred;      // effect kept by `when_suppressed: defer` (one per target)
   uint32_t deferred_tick;         // lv_tick when it was kept (defer_timeout)
-  const TransitionDef *opa_then;  // `then` of the running opacity/visibility transition (user_data: generation)
 };
 
 // Take ownership of a property: read the widget's current value as the base value the first time (6, ownership rule).
@@ -110,6 +125,8 @@ void compose(Slot &slot, uint8_t mask);
 
 // Add every running instance's offset to `out`.  New contributor kinds hook in here (props.cpp).
 void contribute(const Slot &slot, Offsets &out);
+// PropBit mask an instance moves (what to compose when it starts, changes or ends).
+uint8_t instance_props(const Instance &instance);
 
 // Direct (non-composed) color access for widgets without a slot or when composition is bypassed.
 ColorTarget color_target_of(lv_obj_t *obj);

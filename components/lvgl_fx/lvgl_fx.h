@@ -21,18 +21,29 @@ namespace lvgl_fx {
 enum class Prop : uint8_t { VISIBLE, OPACITY, VALUE, TEXT, COLOR, POSITION, ROTATION, COUNT };
 constexpr size_t PROP_COUNT = static_cast<size_t>(Prop::COUNT);
 
-// Transition styles (4.2.1).  P3 adds slide_*, zoom, roll, count.
-enum class Style : uint8_t { NONE, FADE };
+// Transition styles (4.2.1).  Which style applies where: VISIBLE fade / slide_* / zoom / none, TEXT fade / roll /
+// count / none; everything else is ignored for a property (a text entry asking for slide_* behaves as fade).
+enum class Style : uint8_t { DEFAULT, NONE, FADE, SLIDE_UP, SLIDE_DOWN, SLIDE_LEFT, SLIDE_RIGHT, ZOOM, ROLL, COUNT };
 
-// How one property moves to a new value.
+// How one property moves to a new value.  Every field has an "unset" default: a definition only lists what it says
+// (designated initializers, in declaration order), and each unset field falls back, at run time, to the same property
+// in the configured defaults and then to the built-in table (detail::resolve).  P4 codegen can therefore emit
+//
+//   static const fx::PropTransition gear = {.duration = 140, .style = fx::Style::ROLL, .distance = 14};
+//
+// without knowing any default.
 struct PropTransition {
-  uint16_t duration;  // ms or DUR_*; 0 = instant
-  uint16_t delay;     // ms
-  Curve curve;
-  Style style;        // entry style; for VISIBLE the style used when showing
-  Style hide_style;   // VISIBLE only: style used when hiding
-  uint8_t from;       // style start, percent (text fade: opacity the new text starts at)
-  int16_t distance;   // style travel in px (P3: slide, roll)
+  uint16_t duration = DUR_DEFAULT;      // ms or DUR_*; 0 = instant
+  uint16_t delay = UNSET_U16;           // ms (0)
+  Curve curve = Curve::DEFAULT;
+  Style style = Style::DEFAULT;         // entry style; for VISIBLE the style used when showing
+  Style hide_style = Style::DEFAULT;    // VISIBLE: style when hiding.  Unset: the same as `style` when this entry
+                                        // sets `style`, otherwise the next level (defaults, built-ins) decides
+  uint8_t from = UNSET_U8;              // percent.  text fade/roll: opacity the new text starts at (85);
+                                        // zoom: scale the target starts at / goes to when hiding (90)
+  uint16_t distance = UNSET_U16;        // px.  slide_*: travel (12); roll: travel (14)
+  const char *format = nullptr;         // label numbers: printf format with one %f conversion ("%.0f"); count only
+                                        // counts through %f formats (set_value formats anything once)
 };
 
 // A named transition: per-property entries (nullptr = fall back to the defaults) plus an optional follow-up effect.
@@ -104,9 +115,46 @@ bool suppressed();
 // that very flag.
 bool transition_allowed(lv_obj_t *obj, bool check_self_hidden, const Opt &opt);
 
-// Property entry of a transition: opt.transition, then the configured defaults, then the built-ins.
-const PropTransition &resolve(TransitionRef transition, Prop prop);
+// A property entry with every field resolved: opt.transition, then the configured defaults, then the built-ins, field
+// by field.  Durations are in ms.
+struct ResolvedTransition {
+  uint32_t duration;
+  uint16_t delay;
+  Curve curve;
+  Style style;
+  Style hide_style;
+  uint8_t from;       // percent
+  uint16_t distance;  // px
+  const char *format;
+};
+ResolvedTransition resolve(TransitionRef transition, Prop prop);
 uint32_t resolve_duration(uint16_t duration);
+
+// ---- animation plumbing (lvgl_fx.cpp), shared with styles.cpp ----
+// Key rules for lv_anim: (var, exec_cb) identifies an animation and lv_anim_start replaces a running one with the same
+// pair.  Everything slot based uses var = slot with one exec_cb per property or instance, so a single
+// lv_anim_delete(slot, nullptr) on target deletion clears it all.  False when LVGL could not allocate the animation.
+bool start_anim(void *var, lv_anim_exec_xcb_t exec, int32_t from, int32_t to, uint32_t duration, uint32_t delay,
+                Curve curve, lv_anim_completed_cb_t done = nullptr, void *user_data = nullptr,
+                bool early_apply = true);  // false: nothing is applied (and nothing replaced) before `delay` is over
+// `then` of a call as an anim user_data (nullptr = nothing to play), and its two ways of running.
+void *then_of(const Opt &opt);
+void instant_then(lv_obj_t *obj, const Opt &opt);  // transition applied instantly: it completes at once
+void slot_done(lv_anim_t *anim);                   // anim completed: play the `then` in user_data on the slot's target
+// Stop one animation and run it to its end state; completion callbacks that complete state run, `then` does not.
+void snap(void *var, lv_anim_exec_xcb_t exec);
+void warn_once(uint8_t id, const char *what);
+
+// ---- transition styles (styles.cpp) ----
+// Visible slide/zoom: an offset instance (Slot::vis) beside the opacity transition.  `in_flight`: a visible transition
+// is already running (a reversal) - it keeps the style it started with, so the motion continues instead of jumping.
+void begin_visible_style(Slot *slot, Style style, const ResolvedTransition &t, bool in_flight);
+// End the visible style's offsets (offsets 0) and compose them.
+void drop_visible_style(Slot *slot);
+// Label numbers (3.2 set_value on a label) and the text styles' animation.
+void set_label_value(lv_obj_t *obj, float value, const Opt &opt);
+// stop(): run the text style to its end state and drop it.
+void stop_text(Slot *slot);
 
 // ---- effect runner (runner.cpp) ----
 // A slot is "watched" while LvglFx::loop() has to look at it: a deferred effect, or a loop that is on.
@@ -130,7 +178,9 @@ void service_effects();
 // policy decides.
 void set_visible(lv_obj_t *obj, bool shown, Opt opt = {});
 void set_opacity(lv_obj_t *obj, lv_opa_t opa, Opt opt = {});
-// bar/arc/slider: value; image: rotation in degrees.  NaN: instantly the minimum (image: 0).  Label counting is P3.
+// bar/arc/slider: value; image: rotation in degrees; label: the number, formatted with the text transition's `format`
+// and applied like set_text, or counted from the previous number with the `count` style.  NaN: instantly the minimum
+// (image: 0, label: "--").
 void set_value(lv_obj_t *obj, float value, Opt opt = {});
 void set_text(lv_obj_t *obj, const char *text, Opt opt = {});
 // label: text color, image: recolor, anything else: background color.
