@@ -64,6 +64,7 @@ struct Opt {
   TransitionRef transition = nullptr;  // named transition; nullptr = per-property default
   bool force = false;                  // ignore policy suppression (boot sequences)
   bool always = false;                 // ignore suppress_when only
+  bool instant = false;                // cancel this property and apply immediately, without then
 };
 
 // Motion tokens.  Runtime-changeable, e.g. `fx::motion().intensity = 0.6f;`.

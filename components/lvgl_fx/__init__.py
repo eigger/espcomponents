@@ -871,6 +871,7 @@ SET_SCHEMA = cv.All(
             },
             **TEXT_SCHEMA,
             cv.Optional(CONF_TRANSITION): cv.use_id(TransitionDef),
+            cv.Optional("instant"): lv_bool,
             **_FORCE,
         }
     ),
@@ -893,16 +894,13 @@ async def _bool(value):
 
 
 async def _opt(config):
-    """`fx::Opt{transition, force}` for the call, or None when the call uses neither."""
-    transition = "nullptr"
-    if CONF_TRANSITION in config:
-        transition = str(await cg.get_variable(config[CONF_TRANSITION]))
-    if CONF_FORCE in config:
-        force = await _bool(config[CONF_FORCE])
-        return RawExpression(f"{lvgl_fx_ns}::Opt{{{transition}, {force}}}")
-    if CONF_TRANSITION in config:
-        return RawExpression(f"{lvgl_fx_ns}::Opt{{{transition}}}")
-    return None
+    """Build options only when supplied; instant is available on set actions only."""
+    if not any(key in config for key in (CONF_TRANSITION, CONF_FORCE, "instant")):
+        return None
+    transition = str(await cg.get_variable(config[CONF_TRANSITION])) if CONF_TRANSITION in config else "nullptr"
+    force = await _bool(config[CONF_FORCE]) if CONF_FORCE in config else "false"
+    instant = await _bool(config["instant"]) if "instant" in config else "false"
+    return RawExpression(f"{lvgl_fx_ns}::Opt{{{transition}, {force}, false, {instant}}}")
 
 
 async def _effect_expr(ref):

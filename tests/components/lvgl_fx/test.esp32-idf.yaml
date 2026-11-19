@@ -271,6 +271,18 @@ interval:
           fx::set_opacity(id(fx_obj), 128);
           fx::set_opacity(id(fx_obj), LV_OPA_COVER);
 
+          // Interrupt same-target transitions without canceling unrelated effects or running then.
+          fx::set_visible(id(fx_obj), true, {.instant = true});
+          fx::set_opacity(id(fx_obj), 128, {.instant = true});
+          fx::set_value(id(fx_bar), 42, {.instant = true});
+          fx::set_value(id(fx_image), 45, {.instant = true});
+          fx::set_value(id(fx_label), 42, {.instant = true});
+          fx::set_text(id(fx_label), "42", {.instant = true});
+          fx::set_color(id(fx_label), lv_color_hex(0xff0000), {.instant = true});
+          fx::set_x(id(fx_obj), 10, {.instant = true});
+          fx::set_y(id(fx_obj), 10, {.instant = true});
+          fx::set_rotation(id(fx_obj), 0, {.instant = true});
+
           // value for every widget kind, including NaN -> minimum
           fx::set_value(id(fx_bar), 42.0f);
           fx::set_value(id(fx_bar), NAN);
@@ -723,6 +735,8 @@ interval:
   - interval: 3s
     then:
       - lvgl_fx.set: { id: fx_obj, visible: true }
+      - lvgl_fx.set: { id: fx_obj, visible: true, instant: !lambda "return id(popup_open);" }
+      - lvgl_fx.set: { id: fx_bar, value: 42, instant: true }
       - lvgl_fx.set: { id: fx_card, visible: false, transition: card }
       - lvgl_fx.set: { id: fx_card, visible: true, transition: card, force: true }
       - lvgl_fx.set:

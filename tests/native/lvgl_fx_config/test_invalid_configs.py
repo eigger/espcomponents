@@ -72,6 +72,7 @@ VALID_EFFECT = """
 
 # (name, lvgl_fx block, actions, expected part of the error)
 CASES = [
+    ("instant is not a play option", VALID_EFFECT, "- lvgl_fx.play: { id: fx_label, effect: ok, instant: true }", "[instant] is an invalid option"),
     ("valid base (positive control)", VALID_EFFECT, "- lvgl_fx.play: { id: fx_label, effect: ok }", None),
     (
         "empty lvgl_fx: block (quick start)",
