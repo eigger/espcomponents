@@ -224,12 +224,12 @@ uartex:
     ascii: false  # Set true for ASCII format
 ```
 
-`version` reports the espcomponents build the firmware was compiled from, read
-with `git describe --tags --always --dirty` at compile time. Because
-`external_components` clones the repository shallowly, this is normally the
-short commit hash (for example `840217c`); look it up on GitHub to find the
-matching release tag. A local checkout with tags shows e.g.
-`v261119-3-gabc1234`, and `unknown` means git was not available.
+`version` reports the espcomponents release the firmware was compiled from.
+When the built commit is tagged (for example `ref: v261119` or `ref: latest`
+in `external_components`), it shows the tag name such as `v261119`. An
+untagged commit (e.g. tracking the default branch between releases) shows
+the short commit hash, and a local checkout shows `git describe` output such
+as `v261119-3-gabc1234`. `unknown` means git was not available.
 
 #### Event Triggers
 
