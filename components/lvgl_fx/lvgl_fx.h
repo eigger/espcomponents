@@ -245,6 +245,8 @@ class LvglFx : public Component {
   void set_suppress_when(bool (*fn)()) { detail::core().suppress_fn = fn; }
   void set_max_targets(uint8_t count) { detail::core().capacity = count; }
   void set_slots_in_psram(bool psram) { detail::core().slots_in_psram = psram; }
+  // `transitions: defaults:` (a const table emitted by the codegen, never freed).
+  void set_transition_defaults(TransitionRef defaults) { detail::core().defaults = defaults; }
 
   void setup() override;
   void loop() override;
