@@ -12,12 +12,12 @@ void WsBridgeTextSensor::setup() {
 
 void WsBridgeTextSensor::dump_config() {
   LOG_TEXT_SENSOR("", "WS Bridge Text Sensor", this);
-  if (this->source_ != nullptr) ESP_LOGCONFIG(TAG, "  Wrapped: '%s'", this->source_->get_name().str().c_str());
+  if (this->source_ != nullptr) ESP_LOGCONFIG(TAG, "  Wrapped: '%s'", ws_entity_name(*this->source_).c_str());
 }
 
 void WsBridgeTextSensor::ws_bridge_declare() {
   text_sensor::TextSensor &src = this->source_ != nullptr ? *this->source_ : *this;
-  const std::string own_name = this->has_own_name() ? this->get_name().str() : "";
+  const std::string own_name = this->has_own_name() ? ws_entity_name(*this) : "";
   ws_declare_text_sensor(this, src, this, ws_ha_name(src, own_name, this->unique_id_));
   ws_push_state_text_sensor(this, src);
 }

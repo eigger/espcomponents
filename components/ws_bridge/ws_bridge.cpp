@@ -10,6 +10,7 @@
 #include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
 #include "esphome/core/version.h"
+#include "ws_bridge_compat.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -308,7 +309,7 @@ void WsBridgeComponent::dump_config() {
       ESP_LOGW(TAG,
                "Entity '%s' is exposed twice (unique_ids '%s' and '%s') — pick either "
                "`platform: ws_bridge` wrapping (*_id:) or `entities:`, not both",
-               src->get_name().str().c_str(), uid.c_str(),
+               ws_entity_name(*src).c_str(), uid.c_str(),
                this->devices_[j]->get_ws_bridge_unique_id().c_str());
     }
   }

@@ -16,7 +16,7 @@ std::string WsBridgeUpdate::ha_name_() const {
 void WsBridgeUpdate::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge Update '%s'", this->ha_name_().c_str());
   ESP_LOGCONFIG(TAG, "  Unique ID: %s", this->unique_id_.c_str());
-  ESP_LOGCONFIG(TAG, "  Wrapped: '%s'", this->update_->get_name().str().c_str());
+  ESP_LOGCONFIG(TAG, "  Wrapped: '%s'", ws_entity_name(*this->update_).c_str());
 }
 
 void WsBridgeUpdate::ws_bridge_handle_command(const WsCommand &command) {

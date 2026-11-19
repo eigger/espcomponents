@@ -20,7 +20,7 @@ void WsBridgeEvent::setup() {
 void WsBridgeEvent::dump_config() {
   LOG_EVENT("", "WS Bridge Event", this);
   if (this->source_ != nullptr)
-    ESP_LOGCONFIG(TAG, "  Wrapped: '%s'", this->source_->get_name().str().c_str());
+    ESP_LOGCONFIG(TAG, "  Wrapped: '%s'", ws_entity_name(*this->source_).c_str());
 }
 
 // No state push here, unlike every other domain: events are one-shot and HA
@@ -28,7 +28,7 @@ void WsBridgeEvent::dump_config() {
 // (re)declare would replay a doorbell press that already happened.
 void WsBridgeEvent::ws_bridge_declare() {
   event::Event &src = this->source_ != nullptr ? *this->source_ : *this;
-  const std::string own_name = this->has_own_name() ? this->get_name().str() : "";
+  const std::string own_name = this->has_own_name() ? ws_entity_name(*this) : "";
   ws_declare_event(this, src, this, ws_ha_name(src, own_name, this->unique_id_));
 }
 

@@ -16,7 +16,7 @@ std::string WsBridgeLight::ha_name_() const {
 void WsBridgeLight::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge Light '%s'", this->ha_name_().c_str());
   ESP_LOGCONFIG(TAG, "  Unique ID: %s", this->unique_id_.c_str());
-  ESP_LOGCONFIG(TAG, "  Wrapped: '%s'", this->light_->get_name().str().c_str());
+  ESP_LOGCONFIG(TAG, "  Wrapped: '%s'", ws_entity_name(*this->light_).c_str());
 }
 
 void WsBridgeLight::on_light_remote_values_update() { ws_send_state_light(this, *this->light_); }

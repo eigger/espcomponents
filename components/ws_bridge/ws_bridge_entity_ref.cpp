@@ -11,7 +11,7 @@ static const char *const TAG = "ws_bridge.entity_ref";
 void WsBridgeSensorRef::setup() { ws_subscribe_sensor(this, this->source_); }
 void WsBridgeSensorRef::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> sensor '%s'", this->get_ws_bridge_unique_id().c_str(),
-                this->source_->get_name().str().c_str());
+                ws_entity_name(*this->source_).c_str());
 }
 void WsBridgeSensorRef::ws_bridge_declare() {
   ws_declare_sensor(this, *this->source_, nullptr,
@@ -24,7 +24,7 @@ void WsBridgeSensorRef::ws_bridge_declare() {
 void WsBridgeBinarySensorRef::setup() { ws_subscribe_binary_sensor(this, this->source_); }
 void WsBridgeBinarySensorRef::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> binary_sensor '%s'", this->get_ws_bridge_unique_id().c_str(),
-                this->source_->get_name().str().c_str());
+                ws_entity_name(*this->source_).c_str());
 }
 void WsBridgeBinarySensorRef::ws_bridge_declare() {
   ws_declare_binary_sensor(this, *this->source_, nullptr,
@@ -37,7 +37,7 @@ void WsBridgeBinarySensorRef::ws_bridge_declare() {
 void WsBridgeTextSensorRef::setup() { ws_subscribe_text_sensor(this, this->source_); }
 void WsBridgeTextSensorRef::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> text_sensor '%s'", this->get_ws_bridge_unique_id().c_str(),
-                this->source_->get_name().str().c_str());
+                ws_entity_name(*this->source_).c_str());
 }
 void WsBridgeTextSensorRef::ws_bridge_declare() {
   ws_declare_text_sensor(this, *this->source_, nullptr,
@@ -50,7 +50,7 @@ void WsBridgeTextSensorRef::ws_bridge_declare() {
 void WsBridgeSwitchRef::setup() { ws_subscribe_switch(this, this->source_); }
 void WsBridgeSwitchRef::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> switch '%s'", this->get_ws_bridge_unique_id().c_str(),
-                this->source_->get_name().str().c_str());
+                ws_entity_name(*this->source_).c_str());
 }
 void WsBridgeSwitchRef::ws_bridge_declare() {
   ws_declare_switch(this, *this->source_, nullptr,
@@ -66,7 +66,7 @@ void WsBridgeSwitchRef::ws_bridge_handle_command(const WsCommand &command) {
 void WsBridgeNumberRef::setup() { ws_subscribe_number(this, this->source_); }
 void WsBridgeNumberRef::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> number '%s'", this->get_ws_bridge_unique_id().c_str(),
-                this->source_->get_name().str().c_str());
+                ws_entity_name(*this->source_).c_str());
 }
 void WsBridgeNumberRef::ws_bridge_declare() {
   ws_declare_number(this, *this->source_, nullptr,
@@ -82,7 +82,7 @@ void WsBridgeNumberRef::ws_bridge_handle_command(const WsCommand &command) {
 void WsBridgeSelectRef::setup() { ws_subscribe_select(this, this->source_); }
 void WsBridgeSelectRef::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> select '%s'", this->get_ws_bridge_unique_id().c_str(),
-                this->source_->get_name().str().c_str());
+                ws_entity_name(*this->source_).c_str());
 }
 void WsBridgeSelectRef::ws_bridge_declare() {
   ws_declare_select(this, *this->source_, nullptr,
@@ -97,7 +97,7 @@ void WsBridgeSelectRef::ws_bridge_handle_command(const WsCommand &command) {
 #ifdef USE_BUTTON
 void WsBridgeButtonRef::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> button '%s'", this->get_ws_bridge_unique_id().c_str(),
-                this->source_->get_name().str().c_str());
+                ws_entity_name(*this->source_).c_str());
 }
 void WsBridgeButtonRef::ws_bridge_declare() {
   ws_declare_button(this, *this->source_, nullptr,
@@ -112,7 +112,7 @@ void WsBridgeButtonRef::ws_bridge_handle_command(const WsCommand &command) {
 void WsBridgeUpdateRef::setup() { ws_subscribe_update(this, this->source_); }
 void WsBridgeUpdateRef::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> update '%s'", this->get_ws_bridge_unique_id().c_str(),
-                this->source_->get_name().str().c_str());
+                ws_entity_name(*this->source_).c_str());
 }
 void WsBridgeUpdateRef::ws_bridge_declare() {
   ws_declare_update(this, *this->source_,
@@ -128,7 +128,7 @@ void WsBridgeUpdateRef::ws_bridge_handle_command(const WsCommand &command) {
 void WsBridgeLightRef::setup() { ws_subscribe_light(this->source_, this); }
 void WsBridgeLightRef::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> light '%s'", this->get_ws_bridge_unique_id().c_str(),
-                this->source_->get_name().str().c_str());
+                ws_entity_name(*this->source_).c_str());
 }
 void WsBridgeLightRef::ws_bridge_declare() {
   ws_declare_light(this, *this->source_,
@@ -145,7 +145,7 @@ void WsBridgeLightRef::on_light_remote_values_update() { ws_send_state_light(thi
 void WsBridgeCoverRef::setup() { ws_subscribe_cover(this, this->source_); }
 void WsBridgeCoverRef::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> cover '%s'", this->get_ws_bridge_unique_id().c_str(),
-                this->source_->get_name().str().c_str());
+                ws_entity_name(*this->source_).c_str());
 }
 void WsBridgeCoverRef::ws_bridge_declare() {
   ws_declare_cover(this, *this->source_, nullptr,
@@ -161,7 +161,7 @@ void WsBridgeCoverRef::ws_bridge_handle_command(const WsCommand &command) {
 void WsBridgeClimateRef::setup() { ws_subscribe_climate(this, this->source_); }
 void WsBridgeClimateRef::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> climate '%s'", this->get_ws_bridge_unique_id().c_str(),
-                this->source_->get_name().str().c_str());
+                ws_entity_name(*this->source_).c_str());
 }
 void WsBridgeClimateRef::ws_bridge_declare() {
   ws_declare_climate(this, *this->source_, nullptr,
@@ -177,7 +177,7 @@ void WsBridgeClimateRef::ws_bridge_handle_command(const WsCommand &command) {
 void WsBridgeFanRef::setup() { ws_subscribe_fan(this, this->source_); }
 void WsBridgeFanRef::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> fan '%s'", this->get_ws_bridge_unique_id().c_str(),
-                this->source_->get_name().str().c_str());
+                ws_entity_name(*this->source_).c_str());
 }
 void WsBridgeFanRef::ws_bridge_declare() {
   ws_declare_fan(this, *this->source_, nullptr,
@@ -193,7 +193,7 @@ void WsBridgeFanRef::ws_bridge_handle_command(const WsCommand &command) {
 void WsBridgeTextRef::setup() { ws_subscribe_text(this, this->source_); }
 void WsBridgeTextRef::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> text '%s'", this->get_ws_bridge_unique_id().c_str(),
-                this->source_->get_name().str().c_str());
+                ws_entity_name(*this->source_).c_str());
 }
 void WsBridgeTextRef::ws_bridge_declare() {
   ws_declare_text(this, *this->source_, nullptr,
@@ -209,7 +209,7 @@ void WsBridgeTextRef::ws_bridge_handle_command(const WsCommand &command) {
 void WsBridgeLockRef::setup() { ws_subscribe_lock(this, this->source_); }
 void WsBridgeLockRef::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> lock '%s'", this->get_ws_bridge_unique_id().c_str(),
-                this->source_->get_name().str().c_str());
+                ws_entity_name(*this->source_).c_str());
 }
 void WsBridgeLockRef::ws_bridge_declare() {
   // entities: has no per-field overrides at all, and code_format has no ESPHome
@@ -229,7 +229,7 @@ void WsBridgeLockRef::ws_bridge_handle_command(const WsCommand &command) {
 void WsBridgeValveRef::setup() { ws_subscribe_valve(this, this->source_); }
 void WsBridgeValveRef::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> valve '%s'", this->get_ws_bridge_unique_id().c_str(),
-                this->source_->get_name().str().c_str());
+                ws_entity_name(*this->source_).c_str());
 }
 void WsBridgeValveRef::ws_bridge_declare() {
   ws_declare_valve(this, *this->source_, nullptr,
@@ -245,7 +245,7 @@ void WsBridgeValveRef::ws_bridge_handle_command(const WsCommand &command) {
 void WsBridgeEventRef::setup() { ws_subscribe_event(this, this->source_); }
 void WsBridgeEventRef::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> event '%s'", this->get_ws_bridge_unique_id().c_str(),
-                this->source_->get_name().str().c_str());
+                ws_entity_name(*this->source_).c_str());
 }
 // No state push on declare — see ws_subscribe_event()'s comment.
 void WsBridgeEventRef::ws_bridge_declare() {
@@ -258,7 +258,7 @@ void WsBridgeEventRef::ws_bridge_declare() {
 void WsBridgeDateRef::setup() { ws_subscribe_date(this, this->source_); }
 void WsBridgeDateRef::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> date '%s'", this->get_ws_bridge_unique_id().c_str(),
-                this->source_->get_name().str().c_str());
+                ws_entity_name(*this->source_).c_str());
 }
 void WsBridgeDateRef::ws_bridge_declare() {
   ws_declare_date(this, *this->source_, nullptr,
@@ -274,7 +274,7 @@ void WsBridgeDateRef::ws_bridge_handle_command(const WsCommand &command) {
 void WsBridgeTimeRef::setup() { ws_subscribe_time(this, this->source_); }
 void WsBridgeTimeRef::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> time '%s'", this->get_ws_bridge_unique_id().c_str(),
-                this->source_->get_name().str().c_str());
+                ws_entity_name(*this->source_).c_str());
 }
 void WsBridgeTimeRef::ws_bridge_declare() {
   ws_declare_time(this, *this->source_, nullptr,
@@ -290,7 +290,7 @@ void WsBridgeTimeRef::ws_bridge_handle_command(const WsCommand &command) {
 void WsBridgeDateTimeRef::setup() { ws_subscribe_datetime(this, this->source_); }
 void WsBridgeDateTimeRef::dump_config() {
   ESP_LOGCONFIG(TAG, "WS Bridge Entity Ref '%s' -> datetime '%s'", this->get_ws_bridge_unique_id().c_str(),
-                this->source_->get_name().str().c_str());
+                ws_entity_name(*this->source_).c_str());
 }
 void WsBridgeDateTimeRef::ws_bridge_declare() {
   ws_declare_datetime(this, *this->source_, nullptr,

@@ -1,7 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import event, ws_bridge
-from esphome.const import CONF_EVENT_TYPES
+from esphome.const import CONF_EVENT_TYPES, __version__ as ESPHOME_VERSION
 
 from .. import ws_bridge_ns
 from ..const import CONF_EVENT_ID
@@ -14,7 +14,10 @@ WsBridgeEvent = ws_bridge_ns.class_("WsBridgeEvent", event.Event, cg.Component, 
 # ESPHome and 2026.10+, while its std::vector overload was removed in 2026.10.
 # Explicitly select the durable overload for an event_id: wrapper whose real
 # list is copied from its source during setup().
-_NO_EVENT_TYPES = cg.RawExpression("esphome::FixedVector<const char *>{}")
+# ESPHome 2026.11+ takes a real list (it calls len() on it) and skips the setter
+# when it is empty, so a plain [] is correct there.
+_ESPHOME_2026_11 = tuple(int(p) for p in ESPHOME_VERSION.split(".")[:2]) >= (2026, 11)
+_NO_EVENT_TYPES = [] if _ESPHOME_2026_11 else cg.RawExpression("esphome::FixedVector<const char *>{}")
 
 
 def validate_event_types(config):
