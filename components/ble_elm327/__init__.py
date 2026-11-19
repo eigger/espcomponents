@@ -178,6 +178,7 @@ SEND_COMMAND_ACTION_SCHEMA = cv.maybe_simple_value(
     "ble_elm327.send_command",
     BleElm327SendCommandAction,
     SEND_COMMAND_ACTION_SCHEMA,
+    synchronous=True,
 )
 async def ble_elm327_send_command_to_code(config, action_id, template_arg, args):
     parent = await cg.get_variable(config[CONF_ID])
