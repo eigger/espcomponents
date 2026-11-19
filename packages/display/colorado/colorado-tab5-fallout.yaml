@@ -4,11 +4,31 @@ substitutions:
   name: "esp-colorado-tab5"
   friendly_name: "ESP Colorado TAB5"
   tab5_panel: ili9881c  # ili9881c, st7123, or st7121; match the rear label.
+  tab5_display_models:
+    ili9881c: M5STACK-TAB5
+    st7123: M5STACK-TAB5-ST7123
+    st7121: M5STACK-TAB5-ST7121
+  tab5_touch_profiles:
+    gt911:
+      platform: gt911
+      update_interval: never
+      reset_pin: {pi4ioe5v6408: pi4ioe1, number: 5}
+      calibration: {x_min: 0, x_max: 720, y_min: 0, y_max: 1280}
+    st7123:
+      platform: st7123
+      # The first poll initializes the controller before it attaches the interrupt.
+      update_interval: 50ms
+
+  tab5_color_shadow: 0x000000
   number: "00가 0000"
   splash_title: "COLORADO"
-  ui_sound_base_url: "https://raw.githubusercontent.com/eigger/espcomponents/4d5388c1b858406db87b1cf697cda6eef154a7f7/packages/display/colorado/sounds"
+  # Boot identity: badge, trim name and powertrain (ASCII; shown in Share Tech Mono).
+  splash_trim_badge: "Z71"
+  splash_trim: "MIDNIGHT"
+  splash_powertrain: "3.6L V6"
+  ui_sound_base_url: "https://raw.githubusercontent.com/eigger/espcomponents/4378a8291c63775ae8e420bf97d3998537120baf/packages/display/colorado/sounds"
   tab5_motion_emphasis: 1
-  # Local phosphor palette. The shared Tab5 package retains its default colors.
+  # Local phosphor palette.
   tab5_color_background: 0x07100B
   tab5_color_panel_bg: 0x0B160E
   tab5_color_card_bg: 0x122218
@@ -18,11 +38,17 @@ substitutions:
   tab5_color_text_secondary: 0xB9F3AE
   tab5_color_text_muted: 0x9DC598
   tab5_color_text_inactive: 0x608D63
+  tab5_color_link_off: 0x68746C
+  tab5_color_link_search: 0xD4C480
   tab5_color_accent: 0xAEF799
   tab5_color_status_cold: 0x9BB5DB
   tab5_color_status_cool: 0xA3CDDB
   tab5_color_status_warm: 0xFFD08A
   tab5_color_status_hot: 0xFF8C84
+  tab5_color_humidity_dry: 0xB8A687
+  tab5_color_humidity_very_dry: 0xDCC190
+  tab5_color_humidity_humid: 0x83BEB0
+  tab5_color_humidity_very_humid: 0x70E4C2
   tab5_color_status_ok: 0x83CC72
   tab5_color_alert_warning: 0x643B0D
   tab5_color_alert_danger: 0x792A25
@@ -31,7 +57,8 @@ substitutions:
   tab5_color_button_pressed: 0x31573B
   tab5_color_danger_pressed: 0x792A25
   tab5_color_panel_pressed: 0x1D3525
-  mac_vlinker: "02:00:00:00:00:01"
+  mac_vlinker: "02:00:00:00:00:01" #MC+
+  #mac_vlinker: "02:00:00:00:00:04"  #ICAR PRO
   mac_cabin_jht: "02:00:00:00:00:02"
   mac_bed_jht: "02:00:00:00:00:03"
   oil_pressure_low_idle_kpa: 68.94757
@@ -40,6 +67,12 @@ substitutions:
   oil_pressure_warn_above_idle_kpa: 172.36893
   oil_pressure_high_kpa: 551.58057
   tpms_low_kpa: "200"
+  # Engine-off time before >13.5 V is treated as a fault; surface charge decays after shutdown.
+  battery_rest_settle_s: "600"
+  # Delays the boot typing timeline if the speaker starts later than the player state reports.
+  boot_sync_offset_ms: "0"
+  # C6 firmware manifest: {"versions": [{"version", "url", "sha256"}]}; firmware is downloaded from its url.
+  c6_firmware_manifest_url: "https://esphome.github.io/esp-hosted-firmware/manifest/esp32c6.json"
   # Configurable UI advisory thresholds; these are not GM diagnostic limits.
   # Display thresholds only; these do not determine driving readiness.
   oil_temperature_cold_c: "50"
@@ -69,7 +102,7 @@ substitutions:
   ui_ascii: ' !"#$%&''()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
   # Shared by the warning popup and the log. Add characters from external parking text here.
   ui_alert_hangul: "가감경고과급기낮높능데동력료리미발방배버변부상새속스시압업엔연열오요위유음의이일장전족졸주진충치터트필하험환타어저앞뒤왼른쪽"
-  ui_extra_glyphs: "패응답지연결사운드음량소거켜짐꺼재생테스트"
+  ui_extra_glyphs: "패응답지연결사운드음량소거켜짐꺼재생테스트본체무선"
 
 .helpers:
   ver: &version !lambda 'return std::string(ESPHOME_PROJECT_VERSION);'
@@ -101,6 +134,23 @@ esphome:
   # for the reusable terminal widget styles. ESPHome warns on valid overrides.
   merge_warnings: false
   on_boot:
+    # Reset integrated panels after GPIO-expander setup and before display/touch setup.
+    - priority: 850
+      then:
+        - lambda: |-
+            if (std::strcmp("${ tab5_panel | lower }", "ili9881c") == 0) return;
+            constexpr uint8_t lcd_reset = 4;
+            constexpr uint8_t touch_reset = 5;
+            auto *expander = id(pi4ioe1);
+            expander->digital_write(lcd_reset, false);
+            expander->digital_write(touch_reset, false);
+            expander->pin_mode(lcd_reset, gpio::FLAG_OUTPUT);
+            expander->pin_mode(touch_reset, gpio::FLAG_OUTPUT);
+            delay(100);
+            expander->digital_write(touch_reset, true);
+            // Release LCD reset via pull-up, as the M5Stack factory firmware does.
+            expander->pin_mode(lcd_reset, gpio::FLAG_INPUT | gpio::FLAG_PULLUP);
+            delay(100);
     # Sound player and LVGL objects must exist before applying restored settings.
     - priority: -100
       then:
@@ -128,20 +178,10 @@ esphome:
                     id(ui_sound_player).state == media_player::MEDIA_PLAYER_STATE_ANNOUNCING ||
                     id(ui_sound_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING;
             timeout: 1s
-        - lvgl.animation.start: anim_crt_beam
-        - delay: 170ms
-        - lvgl.animation.start:
-            id: [anim_crt_raster, anim_splash_terminal, anim_crt_scan]
-        - delay: 210ms
-        - lambda: id(script_splash_stage).execute(18, id(obj_splash_stage_system));
-        - delay: 650ms
-        - lambda: id(script_splash_stage).execute(42, id(obj_splash_stage_network));
-        - delay: 650ms
-        - lambda: id(script_splash_stage).execute(76, id(obj_splash_stage_dash));
-        - delay: 650ms
-        - lambda: id(script_splash_stage).execute(100, id(obj_splash_stage_ready));
-        # Total splash animation time is 3300ms, matching the selected boot WAV.
-        - delay: 770ms
+        # Terminal typing timeline keyed to the boot WAV's hits (see script_boot_typing).
+        - script.execute: script_boot_typing
+        # Total splash time is 3300ms, matching the selected boot WAV.
+        - delay: !lambda return 3300 + ${boot_sync_offset_ms};
         - script.execute: script_init_scan_images
         - script.execute:
             id: script_dashboard_watchdog
@@ -150,22 +190,279 @@ esphome:
         - lvgl.page.show: main_page
         - lvgl.widget.show:
             id: obj_header
-        - lambda: id(tab5_motion_fade)(id(obj_splash), LV_OPA_COVER, LV_OPA_0, 200);
+        # Before lvgl_fx.start nothing animates; the splash fade is a boot sequence, so it is forced.
+        - lvgl_fx.set: { id: obj_splash, visible: false, force: true }
         - delay: 200ms
         - lvgl.widget.hide:
             id: obj_splash
+        - lvgl_fx.start:
         - lambda: |-
-            id(tab5_motion_start)();
+            id(g_motion_ready) = true;
             id(g_sound_ready) = true;
 
 # Required for this device: enable both PSRAM execution and hosted buffers in PSRAM.
 esp32:
+  board: esp32-p4-evboard
+  cpu_frequency: 360MHz
+  flash_size: 16MB
   framework:
+    type: esp-idf
     advanced:
+      enable_idf_experimental_features: true
       execute_from_psram: true
+    sdkconfig_options:
+      CONFIG_LWIP_TCPIP_TASK_STACK_SIZE: "6144"
+      CONFIG_LWIP_CHECK_THREAD_SAFETY: y
+      CONFIG_LWIP_TCPIP_CORE_LOCKING: n
 
 esp32_hosted:
+  variant: esp32c6
+  active_high: true
+  clk_pin: GPIO12
+  cmd_pin: GPIO13
+  d0_pin: GPIO11
+  d1_pin: GPIO10
+  d2_pin: GPIO9
+  d3_pin: GPIO8
+  reset_pin: GPIO15
+  slot: 1
   use_psram: true
+
+# ESP32-C6 co-processor (Wi-Fi/BLE over ESP-Hosted) firmware. The manifest lists ESPHome's
+# builds; the component installs only versions not newer than the host esp_hosted library.
+update:
+  - platform: esp32_hosted
+    id: c6_update
+    name: "C6 Firmware"
+    type: http
+    source: ${c6_firmware_manifest_url}
+    # Check once after networking is ready at boot; subsequent checks use the C6 button.
+    update_interval: never
+
+
+# Tab5 hardware and system services.
+psram:
+  mode: hex
+  speed: 200MHz
+
+i2c:
+  - id: bsp_bus
+    sda: GPIO31
+    scl: GPIO32
+    frequency: 400kHz
+    scan: false
+  - id: ext_bus
+    sda: GPIO53
+    scl: GPIO54
+    scan: false
+
+pi4ioe5v6408:
+  - id: pi4ioe1
+    i2c_id: bsp_bus
+    address: 0x43
+  - id: pi4ioe2
+    i2c_id: bsp_bus
+    address: 0x44
+
+logger:
+  level: DEBUG
+  baud_rate: 921600
+
+safe_mode:
+
+
+switch:
+  - platform: restart
+    name: "Restart"
+    id: sw_restart
+  - platform: safe_mode
+    name: "Restart Safemode"
+  - platform: gpio
+    id: wifi_power
+    name: "WiFi Power"
+    pin:
+      pi4ioe5v6408: pi4ioe2
+      number: 0
+    restore_mode: ALWAYS_ON
+    internal: true
+  - platform: gpio
+    id: usb_5v_power
+    name: "USB Power"
+    pin:
+      pi4ioe5v6408: pi4ioe2
+      number: 3
+    internal: true
+  - platform: gpio
+    id: quick_charge
+    name: "Quick Charge"
+    pin:
+      pi4ioe5v6408: pi4ioe2
+      number: 5
+      inverted: true
+    internal: true
+  - platform: gpio
+    id: charge_enable
+    name: "Charge Enable"
+    pin:
+      pi4ioe5v6408: pi4ioe2
+      number: 7
+    restore_mode: ALWAYS_OFF
+    internal: true
+  - platform: gpio
+    id: wifi_antenna_int_ext
+    pin:
+      pi4ioe5v6408: pi4ioe1
+      number: 0
+    internal: true
+  - platform: gpio
+    id: speaker_enable
+    name: "Speaker Enable"
+    pin:
+      pi4ioe5v6408: pi4ioe1
+      number: 1
+    restore_mode: ALWAYS_OFF
+    internal: true
+  - platform: gpio
+    id: external_5v_power
+    name: "External 5V Power"
+    pin:
+      pi4ioe5v6408: pi4ioe1
+      number: 2
+    restore_mode: ALWAYS_ON
+    internal: true
+
+select:
+  - platform: template
+    id: wifi_antenna_select
+    name: "WiFi Antenna"
+    options:
+      - "Internal"
+      - "External"
+    optimistic: true
+    on_value:
+      - if:
+          condition:
+            lambda: return i == 0;
+          then:
+            - switch.turn_off: wifi_antenna_int_ext
+          else:
+            - switch.turn_on: wifi_antenna_int_ext
+    internal: true
+
+motion:
+  - platform: bmi270
+    id: tab5_imu
+    i2c_id: bsp_bus
+    address: 0x68
+    update_interval: 200ms
+
+touchscreen:
+  - >-
+    ${ dict(tab5_touch_profiles['gt911' if tab5_panel | lower == 'ili9881c' else 'st7123'],
+            id='touch', i2c_id='bsp_bus', interrupt_pin='GPIO23') }
+
+esp_ldo:
+  - voltage: 2.5V
+    channel: 3
+
+display:
+  - platform: mipi_dsi
+    model: ${ tab5_display_models[tab5_panel | lower] }
+    dimensions:
+      height: 1280
+      width: 720
+    reset_pin:
+      pi4ioe5v6408: pi4ioe1
+      number: 4
+      # The ST712x boot hook drives reset low; display setup keeps the pin released.
+      mode: ${ 'OUTPUT' if tab5_panel | lower == 'ili9881c' else 'INPUT_PULLUP' }
+
+output:
+  - platform: ledc
+    pin: GPIO22
+    id: backlight_pwm
+    frequency: 1000Hz
+
+light:
+  - platform: monochromatic
+    output: backlight_pwm
+    name: "Display Backlight"
+    id: backlight
+    restore_mode: RESTORE_DEFAULT_ON
+    default_transition_length: 250ms
+    internal: true
+
+i2s_audio:
+  - id: tab5_audio_bus
+    i2s_lrclk_pin: GPIO29
+    i2s_bclk_pin: GPIO27
+    i2s_mclk_pin: GPIO30
+
+audio_dac:
+  - platform: es8388
+    id: tab5_audio_dac
+    i2c_id: bsp_bus
+    address: 0x10
+
+speaker:
+  - platform: i2s_audio
+    id: tab5_speaker
+    i2s_audio_id: tab5_audio_bus
+    i2s_dout_pin: GPIO26
+    audio_dac: tab5_audio_dac
+    dac_type: external
+    channel: mono
+    sample_rate: 48000
+    bits_per_sample: 16bit
+    buffer_duration: 100ms
+    timeout: never
+
+media_player:
+  - platform: speaker
+    id: ui_sound_player
+    internal: true
+    buffer_size: 32768
+    volume_initial: 40%
+    # ES8388 maps 0..100% to -96..0 dB. Use -48..0 dB for the UI range;
+    # otherwise the default 40% is about -58 dB and barely audible.
+    # The media player still passes an exact zero through for silence.
+    volume_min: 50%
+    announcement_pipeline:
+      speaker: tab5_speaker
+      format: WAV
+      sample_rate: 48000
+      num_channels: 1
+    files:
+      - id: sound_boot
+        file: ${ui_sound_base_url}/boot_mechanical_terminal.wav
+      - id: sound_menu_open
+        file: ${ui_sound_base_url}/ui_menu_open_retro.wav
+      - id: sound_menu_close
+        file: ${ui_sound_base_url}/ui_menu_close_retro.wav
+      - id: sound_click
+        file: ${ui_sound_base_url}/ui_click_retro_chime.wav
+      - id: sound_success
+        file: ${ui_sound_base_url}/ui_success_retro_chime.wav
+      - id: sound_warning
+        file: ${ui_sound_base_url}/ui_warning_retro_chime_padded.wav
+      - id: sound_danger
+        file: ${ui_sound_base_url}/ui_danger_retro_chime_double_padded.wav
+      - id: sound_failure
+        file: ${ui_sound_base_url}/ui_failure_retro.wav
+      - id: sound_notice
+        file: ${ui_sound_base_url}/ui_notice_retro_chime.wav
+      - id: sound_wifi_connected
+        file: ${ui_sound_base_url}/link_wifi_connected_retro.wav
+      - id: sound_wifi_disconnected
+        file: ${ui_sound_base_url}/link_wifi_disconnected_retro.wav
+      - id: sound_bluetooth_connected
+        file: ${ui_sound_base_url}/link_bluetooth_connected_retro.wav
+      - id: sound_bluetooth_disconnected
+        file: ${ui_sound_base_url}/link_bluetooth_disconnected_retro.wav
+      - id: sound_gps_connected
+        file: ${ui_sound_base_url}/link_gps_connected_retro.wav
+      - id: sound_gps_disconnected
+        file: ${ui_sound_base_url}/link_gps_disconnected_retro.wav
 
 time:
   - platform: sntp
@@ -252,6 +549,7 @@ ws_bridge:
     - source_id: engine_run_time
     - source_id: gm_fuel_level_liters
     - source_id: ota_update
+    - source_id: c6_update
     # - source_id: id_pm1_0
     # - source_id: id_pm2_5
     # - source_id: id_pm10_0
@@ -276,6 +574,9 @@ ws_bridge:
 #   reboot_timeout: 0s
 
 wifi:
+  power_save_mode: none
+  reboot_timeout: 0s
+  fast_connect: true
   id: tab5_wifi
   networks:
     - ssid: !secret colorado_wifi_ssid
@@ -288,16 +589,148 @@ wifi:
   on_connect:
     then:
       - lambda: id(script_logs).execute("Wifi Connected");
-      - lambda: id(tab5_motion_visible)(id(lbl_wifi), true, 165);
   on_disconnect:
     then:
       - lambda: id(script_logs).execute("Wifi Disconnected");
-      - lambda: id(tab5_motion_visible)(id(lbl_wifi), false, 120);
 
 external_components:
-  - source: github://eigger/espcomponents
-    components: [jaalee_jht, ble_elm327, ws_bridge]
+  - source: github://eigger/espcomponents@master
+    components: [jaalee_jht, ble_elm327, ws_bridge, lvgl_fx]
     refresh: always
+
+# Dashboard motion. Sizes are the tab5_motion_emphasis look; intensity scales them when it is 0.
+# Decorative motion is suppressed before boot and while an urgent popup or service view is up.
+lvgl_fx:
+  id: motion_fx
+  motion:
+    fast: 100ms
+    normal: 165ms
+    slow: 320ms
+    intensity: "${ 1.0 if tab5_motion_emphasis | int else 0.7 }"
+  # About 70 animated widgets: 19 icons, 9 scan areas, ~21 readout labels, popups and links, PRND, poses.
+  max_targets: 80
+  slots_in_psram: true
+  suppress_when: !lambda return id(g_notice_active) || id(g_logs_visible);
+
+  transitions:
+    defaults:
+      visible: { show: fade, hide: none, duration: normal, curve: ease_out }   # fade in, hide at once
+      value: { duration: 200ms, curve: ease_out }
+      text: { style: fade, from: "${ 82 if tab5_motion_emphasis | int else 88 }%", duration: 155ms, curve: ease_out }
+      color: { duration: 0ms }
+      position: { duration: 160ms, curve: ease_out }
+      rotation: { duration: 165ms, curve: ease_out }
+    custom:
+      - id: fx_show_130
+        visible: { show: fade, hide: none, duration: 130ms }
+      - id: fx_show_175
+        visible: { show: fade, hide: none, duration: 175ms }
+      - id: fx_show_185
+        visible: { show: fade, hide: none, duration: 185ms }
+      - id: fx_splash_out
+        visible: { show: fade, hide: fade, duration: 200ms }
+      # Gauge glides: the bars of the dashboard.
+      - id: fx_bar_165
+        policy: always
+        value: { duration: 165ms }
+      - id: fx_bar_220
+        policy: always
+        value: { duration: 220ms }
+      - id: fx_bar_375
+        policy: always
+        value: { duration: 375ms }
+      - id: fx_bar_400
+        policy: always
+        value: { duration: 400ms }
+      - id: fx_instrument
+        policy: always
+        value: { duration: 200ms }
+        rotation: { duration: 165ms, curve: ease_out }
+      - id: fx_text_now
+        text: { style: none }
+      - id: fx_text_80
+        text: { duration: 80ms }
+      # The gear digit rolls in from below (up-shift) or above (down-shift) without fading.
+      - id: fx_gear_roll
+        text: { style: roll, distance: 14, from: 100%, duration: 140ms }
+      # PRND selection bar: slides to the letter, then flashes.
+      - id: fx_prnd_move
+        position: { duration: 160ms, curve: ease_out }
+        then: fx_prnd_confirm
+
+    bindings:
+      - { id: obj_splash, visible: fx_splash_out }
+      - { id: popup_alert, visible: fx_show_185 }
+      - { id: obj_restart_backdrop, visible: fx_show_185 }
+      - { id: obj_restart_popup, visible: fx_show_185 }
+      - { id: obj_log, visible: fx_show_175 }
+      - { id: obj_jaalee_detail, visible: fx_show_130 }
+      - { id: bar_tcc_slip, value: fx_bar_165 }
+      - { id: obj_pitch_shape, rotation: fx_instrument }
+      - { id: obj_roll_shape, rotation: fx_instrument }
+      - { id: obj_prnd_selection, position: fx_prnd_move }
+      - { id: lbl_gear, text: fx_gear_roll }
+
+  effects:
+    - id: fx_prnd_confirm
+      tracks:
+        - flash: { property: bg_color, color: white, duration: 340ms, curve: ease_in }
+    # The dark bar under the letter fades into the selection once the move has ended (160 ms).
+    - id: fx_prnd_bar
+      tracks:
+        - flash: { property: bg_color, color: "${tab5_color_background}", duration: 340ms, curve: ease_in, delay: 160ms }
+    - id: fx_prnd_pulse
+      tracks:
+        - pulse: { scale: 120%, duration: 230ms, curve: ease_out }
+
+    # Readout icon accents (which one a color earns is decided by fn_icon_accent).
+    - id: fx_icon_light
+      tracks:
+        - flash: { property: image_recolor, amount: 29%, profile: triangle, duration: "${ 180 + 40 * (tab5_motion_emphasis | int) }ms" }
+    - id: fx_icon_heat
+      tracks:
+        - flash: { property: image_recolor, amount: 29%, profile: triangle, duration: "${ 220 + 40 * (tab5_motion_emphasis | int) }ms" }
+        - nudge: { y: -3, duration: "${ 220 + 40 * (tab5_motion_emphasis | int) }ms" }
+    - id: fx_icon_cold
+      tracks:
+        - flash: { property: image_recolor, amount: 29%, profile: triangle, duration: "${ 160 + 40 * (tab5_motion_emphasis | int) }ms" }
+        - shake: { distance: 2, cycles: 2, axis: x, duration: "${ 160 + 40 * (tab5_motion_emphasis | int) }ms" }
+    - id: fx_icon_drop
+      tracks:
+        - flash: { property: image_recolor, amount: 29%, profile: triangle, duration: "${ 180 + 40 * (tab5_motion_emphasis | int) }ms" }
+        - nudge: { y: 3, duration: "${ 180 + 40 * (tab5_motion_emphasis | int) }ms" }
+    - id: fx_icon_dry
+      tracks:
+        - flash: { property: image_recolor, amount: 29%, profile: triangle, duration: "${ 180 + 40 * (tab5_motion_emphasis | int) }ms" }
+        - pulse: { scale: 92%, duration: "${ 180 + 40 * (tab5_motion_emphasis | int) }ms" }
+    - id: fx_icon_grow
+      tracks:
+        - flash: { property: image_recolor, amount: 29%, profile: triangle, duration: "${ 180 + 40 * (tab5_motion_emphasis | int) }ms" }
+        - pulse: { scale: 106%, duration: "${ 180 + 40 * (tab5_motion_emphasis | int) }ms" }
+
+    - id: fx_scan_pulse
+      policy: always
+      tracks:
+        - image_pulse: { amount: 30%, duration: 220ms, curve: ease_out }
+
+    # A readout that comes back from "--" flashes white into its color.
+    - id: fx_recover
+      tracks:
+        - flash: { property: text_color, color: white, duration: 320ms, curve: ease_in }
+
+    # Outline glows (calibrate, log highlight). They run even while a notice is up, like the old outline fade.
+    - id: fx_glow_205
+      policy: always
+      tracks:
+        - glow: { opacity: 70%, duration: 205ms, curve: ease_out }
+    - id: fx_glow_260
+      policy: always
+      tracks:
+        - glow: { opacity: 70%, duration: 260ms, curve: ease_out }
+    - id: fx_glow_320
+      policy: always
+      tracks:
+        - glow: { opacity: 70%, duration: 320ms, curve: ease_out }
 
 #esp32_ble_tracker:
 #  on_ble_manufacturer_data_advertise:
@@ -323,11 +756,9 @@ ble_client:
     id: obd_client
     on_connect:
       then:
-        - lambda: id(tab5_motion_visible)(id(lbl_bluetooth), true, 165);
         - lambda: id(script_logs).execute("OBD BLE Connected");
     on_disconnect:
       then:
-        - lambda: id(tab5_motion_visible)(id(lbl_bluetooth), false, 120);
         - script.stop: script_speed_expire
         - lambda: id(script_render_speed).execute(NAN);
         - script.execute:
@@ -418,7 +849,7 @@ globals:
   - id: g_sound_popup_key
     type: int
     initial_value: '-1'
-  # Per-link debounce and short, state-aware notification queue.
+  # Per-link debounce and announcement of the last stable state.
   # Links: 0 = Wi-Fi, 1 = OBD BLE, 2 = fresh GPS position fix.
   - id: fn_sound_link
     type: "int (*)(unsigned, bool, uint32_t, bool, bool)"
@@ -427,9 +858,11 @@ globals:
         struct Link {
           int stable = -1;
           int candidate = -1;
+          int announced_state = -1;
           int pending = -1;
           uint32_t changed = 0;
           uint32_t queued = 0;
+          uint32_t announced = 0;
         };
         static std::array<Link, 3> links{};
         if (link >= links.size()) return -1;
@@ -440,20 +873,38 @@ globals:
           state.changed = now;
           state.pending = -1;  // Never announce a connection that has already changed.
         }
-        const uint32_t debounce = link == 2 ? 3000 : 750;
-        if (state.stable != observed && now - state.changed >= debounce) {
-          const int previous = state.stable;
-          state.stable = observed;
-          if (enabled && (previous >= 0 || connected)) {
-            state.pending = observed;
+        // GPS: a fix must hold 5 s and a loss 15 s (tunnels, garages, weak sky view).
+        const uint32_t debounce = link == 2 ? (connected ? 5000 : 15000) : 750;
+        if (state.stable != observed && now - state.changed >= debounce) state.stable = observed;
+        // Muting/OTA updates the baseline without replaying old events later.
+        if (!enabled) {
+          state.announced_state = state.stable;
+          state.pending = -1;
+          return -1;
+        }
+        // GPS speaks at most once per minute. A change held back by the cooldown is
+        // announced afterwards only if it still differs from what was last heard.
+        const uint32_t cooldown = link == 2 ? 60000 : 0;
+        const bool cooled = state.announced_state < 0 || now - state.announced >= cooldown;
+        if (state.pending < 0 && state.stable >= 0 && state.candidate == state.stable &&
+            state.stable != state.announced_state && cooled) {
+          if (state.announced_state < 0 && state.stable == 0) {
+            state.announced_state = 0;  // Starting disconnected is not an event.
+          } else {
+            state.pending = state.stable;
             state.queued = now;
           }
         }
-        // Muting/OTA updates the baseline without replaying old events later.
-        if (!enabled || (state.pending >= 0 && now - state.queued > 5000))
+        // A cue that could not play within 5 s is dropped rather than replayed late.
+        if (state.pending >= 0 && now - state.queued > 5000) {
+          state.announced_state = state.pending;
+          state.announced = now;
           state.pending = -1;
+        }
         if (!can_play || state.pending < 0) return -1;
         const int cue = 9 + static_cast<int>(link) * 2 + (state.pending ? 0 : 1);
+        state.announced_state = state.pending;
+        state.announced = now;
         state.pending = -1;
         return cue;
       }
@@ -471,17 +922,18 @@ globals:
             auto &s = states_[key];
             if (!s.active) { s = {}; s.active = true; }
             if (severity > s.observed) s.observed = severity;
+            // A brief danger/caution oscillation must not restart the sound each poll.
+            // Only a previously unseen severity in this active episode bypasses cooldown.
+            // Cleared here, not in end(), so the popup can show the escalation this poll.
+            if (severity > s.peak_severity) {
+              s.acknowledged = false; s.played = false; s.peak_severity = severity;
+            }
             s.seen = true;
             s.last_seen = now;
           }
           constexpr void end(uint32_t now) {
             for (auto &s : states_) {
               if (s.seen) {
-                // A brief danger/caution oscillation must not restart the sound each poll.
-                // Only a previously unseen severity in this active episode bypasses cooldown.
-                if (s.observed > s.peak_severity) {
-                  s.acknowledged = false; s.played = false; s.peak_severity = s.observed;
-                }
                 s.severity = s.observed;
               } else if (s.active && uint32_t(now - s.last_seen) >= 5000) s = {};
             }
@@ -507,6 +959,12 @@ globals:
             }
           }
           constexpr void acknowledge(unsigned key) { if (key < states_.size()) states_[key].acknowledged = true; }
+          // Dismissing the popup confirms every condition active at that moment.
+          // New conditions and higher severities still sound and re-show the popup.
+          constexpr void acknowledge_all() { for (auto &s : states_) if (s.active) s.acknowledged = true; }
+          constexpr bool acknowledged(unsigned key) const {
+            return key < states_.size() && states_[key].active && states_[key].acknowledged;
+          }
          private:
           struct State {
             bool active{false}, seen{false}, played{false}, acknowledged{false};
@@ -522,6 +980,8 @@ globals:
         else if (std::strcmp(operation, "pending") == 0) return alerts.pending(now);
         else if (std::strcmp(operation, "severity") == 0) return alerts.severity(key);
         else if (std::strcmp(operation, "played") == 0) alerts.played(severity, now);
+        else if (std::strcmp(operation, "acknowledge_all") == 0) alerts.acknowledge_all();
+        else if (std::strcmp(operation, "acknowledged") == 0) return alerts.acknowledged(key) ? 1 : 0;
         else if (std::strcmp(operation, "acknowledge") == 0) alerts.acknowledge(key);
         else return -1;
         return 0;
@@ -547,9 +1007,94 @@ globals:
   - id: g_logs_visible
     type: bool
     initial_value: 'false'
-  - id: g_service_setup
+  # An urgent alert popup is up (lvgl_fx suppress_when).
+  - id: g_notice_active
     type: bool
     initial_value: 'false'
+  # lvgl_fx.start has run (the dashboard may animate).
+  - id: g_motion_ready
+    type: bool
+    initial_value: 'false'
+  # Which accent a readout icon earns when its color changes is decided here; lvgl_fx plays it.
+  # Returns true when an accent started (the readout text then skips its own fade).
+  - id: fn_icon_accent
+    type: "bool (*)(lv_obj_t *, lv_color_t, int, bool)"
+    initial_value: |-
+      +[](lv_obj_t *icon, lv_color_t color, int mode, bool force) -> bool {
+        struct State {
+          lv_obj_t *icon;
+          lv_color_t color;
+          uint32_t last_play;
+          bool played;
+        };
+        static State states[32]{};
+        static uint32_t last_icon = 0;
+        State *state = nullptr;
+        bool first = false;
+        for (auto &entry : states) {
+          if (entry.icon == icon) {
+            state = &entry;
+            break;
+          }
+        }
+        if (!state) {
+          for (auto &entry : states) {
+            if (entry.icon) continue;
+            state = &entry;
+            state->icon = icon;
+            first = true;
+            break;
+          }
+        }
+        if (!state) {
+          lv_obj_set_style_image_recolor(icon, color, LV_PART_MAIN);
+          return false;
+        }
+        if (!first && !force && lv_color_eq(state->color, color)) return false;
+        fx::stop(icon);
+        state->color = color;
+        fx::set_color(icon, color);
+
+        // Use the dashboard's existing color bands, including warm-up and warning thresholds.
+        const uint32_t rgb = lv_color_to_u32(color) & 0xFFFFFF;
+        const bool cool = rgb == ${tab5_color_status_cold} || rgb == ${tab5_color_status_cool};
+        const bool warm = rgb == ${tab5_color_status_warm} || rgb == ${tab5_color_status_hot};
+        fx::EffectRef effect = nullptr;
+        if (force) {
+          effect = &id(fx_icon_light);
+        } else {
+          switch (mode) {
+            case 2: case 5: case 15: case 17: case 18:
+              if (cool) effect = &id(fx_icon_cold);
+              else if (warm || rgb == ${tab5_color_accent}) effect = &id(fx_icon_heat);
+              break;
+            case 3: case 16:
+              if (cool) effect = &id(fx_icon_drop);
+              else if (warm) effect = &id(fx_icon_dry);
+              break;
+            case 6:
+              if (warm) effect = &id(fx_icon_drop);
+              break;
+            case 8: case 13:
+              if (warm) effect = &id(fx_icon_grow);
+              break;
+            default:
+              if (warm) effect = &id(fx_icon_light);
+              break;
+          }
+        }
+        if (!id(g_motion_ready) || id(g_notice_active) || id(g_logs_visible) || (first && !force) || !effect) return false;
+        // At most one accent per icon every 2.5 s, and one anywhere every 230-275 ms.
+        if (state->played && lv_tick_elaps(state->last_play) < 2500) return false;
+        if (last_icon && lv_tick_elaps(last_icon) < (${tab5_motion_emphasis} != 0 ? 275 : 230)) return false;
+        last_icon = state->last_play = lv_tick_get();
+        state->played = true;
+        fx::play(icon, effect);
+        return true;
+      }
+  - id: g_service_setup
+    type: bool
+    initial_value: 'true'
   - id: g_log_unread
     type: uint32_t
     initial_value: '0'
@@ -594,6 +1139,18 @@ globals:
     type: uint32_t
     restore_value: no
     initial_value: '0'
+  # ── 시동 OFF 경과시간 추적 (정지 직후 표면전하로 13.5V를 넘는 과전압 오탐 방지)
+  - id: engine_off_since_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: fn_battery_rested
+    type: "bool (*)()"
+    initial_value: |-
+      +[]() -> bool {
+        const uint32_t since = id(engine_off_since_ms);
+        return since != 0 && esphome::millis() - since >= ${battery_rest_settle_s} * 1000UL;
+      }
   # ── OTA 업데이트 상태 추적 ──
   - id: g_latest_version
     type: std::string
@@ -709,7 +1266,7 @@ globals:
 
          const auto classify = [&](float val) -> lv_color_t {
            if (!std::isfinite(val)) return unavailable;
-
+  
            if (mode == 1 || mode == 2) { // 실내 온도
              if (val < 10)  return cold;
              else if (val < 18) return cool;
@@ -717,11 +1274,11 @@ globals:
              else if (val <= 31) return warning;
              return danger;
            } else if (mode == 3) { // 실내 습도
-             if (val < 25) return danger;
-             else if (val < 40) return warning;
+             if (val < 25) return lv_color_hex(${tab5_color_humidity_very_dry});
+             else if (val < 40) return lv_color_hex(${tab5_color_humidity_dry});
              else if (val <= 60) return normal;
-             else if (val <= 75) return cool;
-             return cold;
+             else if (val <= 75) return lv_color_hex(${tab5_color_humidity_humid});
+             return lv_color_hex(${tab5_color_humidity_very_humid});
            } else if (mode == 15) { // 적재함 온도
              if (val < 0)  return cold;
              else if (val < 10) return cool;
@@ -729,11 +1286,11 @@ globals:
              else if (val <= 40) return warning;
              return danger;
            } else if (mode == 16) { // 적재함 습도
-             if (val < 15) return danger;
-             else if (val < 30) return warning;
+             if (val < 15) return lv_color_hex(${tab5_color_humidity_very_dry});
+             else if (val < 30) return lv_color_hex(${tab5_color_humidity_dry});
              else if (val <= 70) return normal;
-             else if (val <= 85) return cool;
-             return cold;
+             else if (val <= 85) return lv_color_hex(${tab5_color_humidity_humid});
+             return lv_color_hex(${tab5_color_humidity_very_humid});
            } else if (mode == 5) { // 냉각수
              if (val < 60) {
                // 외기온에 따른 유예시간 이후 저온 정보만 표시 (고장 판정 아님).
@@ -767,7 +1324,8 @@ globals:
              }
              if (voltage < 11.8f) return danger;
              if (voltage < 12.0f) return warning;
-             return voltage <= 13.5f ? normal_color : danger;
+             // Surface charge after shutdown is not an overvoltage fault.
+             return voltage <= 13.5f || !id(fn_battery_rested)() ? normal_color : danger;
            } else if (mode == 8) { // RPM
              if (val > 3500) return danger;
              else if (val > 2500) return warning;
@@ -859,6 +1417,24 @@ globals:
       }
 
 binary_sensor:
+  # - platform: status
+  #   name: "Status"
+
+  - platform: gpio
+    id: charging
+    name: "Charging Status"
+    pin:
+      pi4ioe5v6408: pi4ioe2
+      number: 6
+      mode: INPUT_PULLDOWN
+    internal: true
+  - platform: gpio
+    id: headphone_detect
+    name: "Headphone Detect"
+    pin:
+      pi4ioe5v6408: pi4ioe1
+      number: 7
+    internal: true
   - platform: gpio
     id: id_gps_pps
     name: "GPS PPS"
@@ -870,6 +1446,106 @@ binary_sensor:
     internal: true
 
 sensor:
+  - platform: uptime
+    id: uptime_sec
+    name: "System Uptime"
+    update_interval: 1s
+    internal: true
+
+  - platform: wifi_signal
+    name: "WiFi signal"
+    icon: mdi:wifi-arrow-up-down
+    update_interval: 60s
+    internal: true
+    id: wifi_sig
+    filters:
+      - sliding_window_moving_average:
+          window_size: 15
+          send_every: 15
+  - platform: template
+    name: "WiFi Quality"
+    id: wifi_quality
+    internal: true
+    icon: "mdi:wifi"
+    update_interval: 60s
+    unit_of_measurement: '%'
+    entity_category: "diagnostic"
+    state_class: measurement
+    accuracy_decimals: 0
+    lambda: !lambda |-
+      float dBm = id(wifi_sig).state;
+      if (isnan(dBm)) return -1;
+      if (dBm <= -100) return 0;
+      if (dBm >= -50) return 100;
+      return round(2 * (dBm + 100));
+  - platform: ina226
+    i2c_id: bsp_bus
+    address: 0x41
+    adc_averaging: 16
+    max_current: 8.192A
+    shunt_resistance: 0.005ohm
+    bus_voltage:
+      name: Battery Voltage
+      internal: true
+    current:
+      name: Battery Current
+      internal: true
+  - platform: internal_temperature
+    name: "Internal Temperature"
+    id: "id_tab5_internal_temperature"
+    internal: true
+    update_interval: 5min
+    filters:
+      - filter_out: nan
+      - heartbeat: 15s
+      - sliding_window_moving_average:
+          window_size: 30
+          send_every: 1
+          send_first_at: 1
+
+  - platform: motion
+    motion_id: tab5_imu
+    type: acceleration_x
+    name: "BMI270 Accel X"
+    id: id_bmi270_accel_x
+    accuracy_decimals: 4
+    internal: true
+  - platform: motion
+    motion_id: tab5_imu
+    type: acceleration_y
+    name: "BMI270 Accel Y"
+    id: id_bmi270_accel_y
+    accuracy_decimals: 4
+    internal: true
+  - platform: motion
+    motion_id: tab5_imu
+    type: acceleration_z
+    name: "BMI270 Accel Z"
+    id: id_bmi270_accel_z
+    accuracy_decimals: 4
+    internal: true
+  - platform: motion
+    motion_id: tab5_imu
+    type: angular_rate_x
+    name: "BMI270 Gyro X"
+    accuracy_decimals: 3
+    internal: true
+  - platform: motion
+    motion_id: tab5_imu
+    type: angular_rate_y
+    name: "BMI270 Gyro Y"
+    accuracy_decimals: 3
+    internal: true
+  - platform: motion
+    motion_id: tab5_imu
+    type: angular_rate_z
+    name: "BMI270 Gyro Z"
+    accuracy_decimals: 3
+    internal: true
+  - platform: bmi270
+    bmi270_id: tab5_imu
+    name: "BMI270 Temperature"
+    internal: true
   - platform: jaalee_jht
     mac_address: ${mac_cabin_jht}
     temperature:
@@ -1368,7 +2044,7 @@ sensor:
   #   pm_10_0:
   #     name: "PM10.0"
   #     id: id_pm10_0
-  #     internal: true
+  #     internal: true 
 
   # ── GNSS Module (BMP280)
   - platform: bmp280_i2c
@@ -1494,14 +2170,21 @@ interval:
           const uint32_t sound_now = esphome::millis();
           id(fn_sound_alert)("begin", 0, 0, 0);
           int sound_popup_key = -1;
+          int popup_rank = -1;
+          bool popup_acknowledged = false;
           const auto set_alert = [&](unsigned key, const std::string &text, uint32_t color) {
             id(fn_sound_alert)("observe", key, color == danger ? 2 : 1, sound_now);
-            const auto rank = [&](uint32_t value) { return value == danger ? 2 : value == warning ? 1 : 0; };
-            // First candidate wins ties; a danger always replaces a warning.
-            if (msg.empty() || rank(color) > rank(color_hex)) {
+            // Unconfirmed conditions outrank confirmed ones, so a new or escalated alert
+            // re-shows the popup with its own text whenever it sounds.
+            const bool acked = id(fn_sound_alert)("acknowledged", key, 0, 0) != 0;
+            const int rank = (acked ? 0 : 10) + (color == danger ? 2 : 1);
+            // First candidate wins ties; a danger always replaces a warning of equal state.
+            if (msg.empty() || rank > popup_rank) {
               msg = text;
               color_hex = color;
               sound_popup_key = static_cast<int>(key);
+              popup_rank = rank;
+              popup_acknowledged = acked;
             }
           };
 
@@ -1537,9 +2220,13 @@ interval:
           const auto slip_color = lv_color_hex(!tcc_valid ? ${tab5_color_text_muted}
               : tcc_warning ? ${tab5_color_status_warm} : ${tab5_color_accent});
           id(script_update_sensor_text).execute(id(lbl_tcc_slip), id(fn_readout_text)(slip, 0), slip_color, 24, 0);
-          id(tab5_motion_bar)(id(bar_tcc_slip), slip, 165);
+          if (std::isfinite(slip)) {
+            fx::set_value(id(bar_tcc_slip), std::trunc(slip));
+          } else {
+            fx::set_value(id(bar_tcc_slip), 0, {.instant = true});
+          }
           lv_obj_set_style_bg_color(id(bar_tcc_slip), slip_color, LV_PART_INDICATOR);
-          id(tab5_motion_icon)(id(widget_img_tcc_slip), slip_color, 24, false);
+          id(fn_icon_accent)(id(widget_img_tcc_slip), slip_color, 24, false);
           id(script_render_scan_status).execute(24, lv_color_hex(tcc_warning
               ? ${tab5_color_status_warm} : ${tab5_color_text_inactive}), id(lbl_tcc_slip), false);
 
@@ -1607,7 +2294,7 @@ interval:
           if (bat_valid && !engine_on && bat < 11.8f) {
             set_alert(16, "배터리 방전 위험!", danger);
           }
-          if (bat_valid && !engine_on && bat > 13.5f) {
+          if (bat_valid && !engine_on && bat > 13.5f && id(fn_battery_rested)()) {
             set_alert(17, "시동전 전압 이상!", danger);
           }
           if (bat_valid && engine_on && bat < 13.2f) {
@@ -1619,11 +2306,27 @@ interval:
           if (bat_valid && !engine_on && bat < 12.0f) {
             set_alert(16, "배터리 전압 낮음!", warning);
           }
-          if (fuel < 8) {
-            set_alert(21, "연료 부족 (주유 시급)!", danger);
+          // Low fuel: caution, once per level (15%, then 8%) after each engine start.
+          // Each shows for up to 30 s or until dismissed, and is not repeated that drive.
+          static bool fuel_engine_was_on = false;
+          static uint8_t fuel_done_level = 0, fuel_active_level = 0;
+          static uint32_t fuel_shown_at = 0;
+          if (std::isfinite(rpm)) {
+            if (engine_on && !fuel_engine_was_on) fuel_done_level = 0;
+            fuel_engine_was_on = engine_on;
           }
-          if (fuel < 15) {
-            set_alert(21, "주유 필요!", warning);
+          const uint8_t fuel_level = !engine_on || !std::isfinite(fuel) ? 0 : fuel < 8 ? 2 : fuel < 15 ? 1 : 0;
+          if (fuel_level > fuel_done_level) {
+            if (fuel_active_level != fuel_level) {
+              fuel_active_level = fuel_level;
+              fuel_shown_at = now;
+            }
+            const unsigned fuel_key = fuel_level == 2 ? 22 : 21;
+            set_alert(fuel_key, fuel_level == 2 ? "연료 부족 (주유 시급)!" : "주유 필요!", warning);
+            if (now - fuel_shown_at >= 30000 || id(fn_sound_alert)("acknowledged", fuel_key, 0, 0))
+              fuel_done_level = fuel_level;
+          } else {
+            fuel_active_level = 0;
           }
           if (msg.empty() && id(parking_info).has_state() && id(parking_info).state.length() > 0 && id(parking_info).state != "unknown" && id(parking_info).state != "off") {
             msg = id(parking_info).state;
@@ -1634,7 +2337,8 @@ interval:
           // 새 차량 경고 또는 주차 안내가 들어오면 다시 표시한다.
           static std::string last_car_msg = "";
           if (msg != last_car_msg) {
-            if (car_alert) {
+            // A change between already-confirmed conditions stays dismissed.
+            if (car_alert && !popup_acknowledged) {
               id(alert_dismissed) = false;
               if (color_hex == notice) id(script_sound_play).execute(8);
             }
@@ -1642,7 +2346,8 @@ interval:
           }
 
           if (!car_alert) {
-            id(alert_dismissed) = false; // 차량 경고 해소 시 dismiss 리셋
+            // Keep the dismissal through a brief gap: a condition that returns within the
+            // 5 s clearance stays confirmed; a new or re-armed one re-shows the popup itself.
             // 차량 경고가 없을 때만 독립된 플래그(g_update_alert_dismissed)로 업데이트 알림 검사
             if (id(g_update_available) && !id(g_update_alert_dismissed)) {
               if (!id(g_latest_version).empty()) {
@@ -1662,9 +2367,12 @@ interval:
           }
           id(g_alert_is_update) = !car_alert && !msg.empty();
           const bool dismissed = car_alert ? id(alert_dismissed) : id(g_update_alert_dismissed);
-          const bool show_popup = !msg.empty() && !dismissed && (car_alert || id(fn_service_allowed)());
+          // Confirmed conditions never re-appear on their own, even after another alert
+          // re-showed the popup; only new or escalated conditions (unconfirmed) are shown.
+          const bool show_popup = !msg.empty() && !dismissed && !(car_alert && popup_acknowledged) &&
+              (car_alert || id(fn_service_allowed)());
           const bool urgent = show_popup && car_alert && color_hex != notice;
-          id(tab5_motion_notice_active) = urgent;
+          id(g_notice_active) = urgent;
           const char *level = color_hex == danger ? "경고" : color_hex == notice ? "안내" : "주의";
 
           static std::string last_logged_msg = "";
@@ -1679,7 +2387,7 @@ interval:
 
           auto *popup = id(popup_alert);
           if (!show_popup) {
-            id(tab5_motion_visible)(popup, false, 0);
+            fx::set_visible(popup, false);
             return;
           }
 
@@ -1692,10 +2400,8 @@ interval:
           lv_label_set_text(id(lbl_alert_title), level);
           lv_label_set_text(id(lbl_alert_msg), msg.c_str());
           lv_obj_set_style_bg_color(popup, color, LV_PART_MAIN);
-          id(tab5_motion_visible)(popup, true, urgent ? 0 : 185);
-          if (urgent) {
-            id(tab5_motion_fade)(popup, LV_OPA_COVER, LV_OPA_COVER, 0);
-          }
+          // An urgent popup appears at once; a notice fades in.
+          fx::set_visible(popup, true, {.instant = urgent});
 
 text_sensor:
   - platform: wifi_info
@@ -1775,7 +2481,7 @@ text_sensor:
         - lambda: |-
             const auto color = id(fn_state_color)(x == "--:--" ? NAN : id(engine_run_time).state, 11);
             id(script_update_sensor_text).execute(id(lbl_engine_run_time), x, color, 11, 0);
-            id(tab5_motion_icon)(id(widget_img_timer), color, 11, false);
+            id(fn_icon_accent)(id(widget_img_timer), color, 11, false);
   - platform: ble_elm327
     last_error:
       name: "ELM327 Last Error"
@@ -1783,38 +2489,9 @@ text_sensor:
 
 # Focus Drive dashboard, 1280 × 720 after rotation.
 lvgl:
+  byte_order: little_endian
+  rotation: 270°
   id: lvgl_ui
-  animations:
-    - id: anim_crt_beam
-      duration: 170ms
-      timing: ease_in_out
-      widgets:
-        - id: obj_splash_crt
-          min_width: { from: 2, to: 1120 }
-          opa: { from: 0%, to: 85% }
-    - id: anim_crt_raster
-      duration: 250ms
-      timing: ease_in_out
-      widgets:
-        - id: obj_splash_crt
-          min_height: { from: 2, to: 550 }
-          opa: { from: 85%, to: 0% }
-    - id: anim_splash_terminal
-      start_delay: 60ms
-      duration: 390ms
-      timing: ease_in_out
-      widgets:
-        - id: obj_splash_terminal
-          translate_y: { from: 9, to: 0 }
-          opa: { from: 0%, to: 100% }
-    - id: anim_crt_scan
-      start_delay: 170ms
-      duration: 650ms
-      widgets:
-        - id: obj_splash_scan
-          translate_y: { from: 0, to: 504 }
-          opa: { from: 85%, to: 0% }
-
   top_layer:
     widgets:
       # OTA callbacks refresh this overlay directly while the download blocks App.loop().
@@ -1960,8 +2637,8 @@ lvgl:
                 on_click:
                   then:
                     - lambda: |-
-                        id(tab5_motion_visible)(id(obj_restart_backdrop), false, 0);
-                        id(tab5_motion_visible)(id(obj_restart_popup), false, 0);
+                        fx::set_visible(id(obj_restart_backdrop), false);
+                        fx::set_visible(id(obj_restart_popup), false);
                 widgets:
                   - label:
                       text: "아니오"
@@ -2017,41 +2694,28 @@ lvgl:
                       text: "MENU"
                       text_font: notosans20
             - image:
-                src: img_wifi
+                src: img_wifi_off
                 <<: &status_icon
-                  hidden: true
-                  image_recolor: "${tab5_color_accent}"
+                  image_recolor: "${tab5_color_link_off}"
                   image_recolor_opa: 100%
                   align: left_mid
                   y: 0
                 id: lbl_wifi
                 x: 95
             - image:
-                src: img_bluetooth
+                src: img_bluetooth_off
                 <<: *status_icon
                 id: lbl_bluetooth
                 x: 160
             - image:
-                src: img_satellite
+                src: img_gps_searching
                 <<: *status_icon
                 id: lbl_satellite
                 x: 225
             - button:
                 <<: &service_tab { <<: *neutral_button, align: left_mid, height: 48, pad_all: 0, radius: 0, border_width: 0, shadow_width: 0, bg_opa: TRANSP, hidden: true }
-                id: btn_service_log_tab
-                x: 300
-                width: 120
-                on_click:
-                  - lambda: |-
-                      if (!id(g_logs_visible) || !id(fn_service_allowed)() || !id(g_service_setup)) return;
-                      id(script_sound_play).execute(3);
-                      id(script_select_service_tab).execute(false);
-                widgets:
-                  - label: { id: lbl_service_log_tab, align: center, text: "[ LOG ]", text_font: font_terminal_boot, text_color: "${tab5_color_background}" }
-            - button:
-                <<: *service_tab
                 id: btn_service_setup_tab
-                x: 436
+                x: 300
                 width: 156
                 on_click:
                   - lambda: |-
@@ -2059,7 +2723,19 @@ lvgl:
                       id(script_sound_play).execute(3);
                       id(script_select_service_tab).execute(true);
                 widgets:
-                  - label: { id: lbl_service_setup_tab, align: center, text: "SETUP", text_font: font_terminal_boot, text_color: "${tab5_color_accent}" }
+                  - label: { id: lbl_service_setup_tab, align: center, text: "[ SETUP ]", text_font: font_terminal_boot, text_color: "${tab5_color_background}" }
+            - button:
+                <<: *service_tab
+                id: btn_service_log_tab
+                x: 472
+                width: 120
+                on_click:
+                  - lambda: |-
+                      if (!id(g_logs_visible) || !id(fn_service_allowed)() || !id(g_service_setup)) return;
+                      id(script_sound_play).execute(3);
+                      id(script_select_service_tab).execute(false);
+                widgets:
+                  - label: { id: lbl_service_log_tab, align: center, text: "LOG", text_font: font_terminal_boot, text_color: "${tab5_color_accent}" }
             - label:
                 id: lbl_update_badge
                 clickable: true
@@ -2121,13 +2797,13 @@ lvgl:
                           id(script_open_update_menu).execute();
                         } else {
                           id(alert_dismissed) = true;
-                          if (id(g_sound_popup_key) >= 0)
-                            id(fn_sound_alert)("acknowledge", id(g_sound_popup_key), 0, 0);
+                          // Confirm every active condition, not only the one shown.
+                          id(fn_sound_alert)("acknowledge_all", 0, 0, 0);
                           if (id(g_sound_priority) >= 3) id(script_sound_stop).execute();
                         }
                         id(script_logs).execute("ALERT: Dismissed");
-                        id(tab5_motion_notice_active) = false;
-                        id(tab5_motion_visible)(id(popup_alert), false, 0);
+                        id(g_notice_active) = false;
+                        fx::set_visible(id(popup_alert), false);
                 widgets:
                   - image:
                       id: widget_img_alert
@@ -2153,7 +2829,8 @@ lvgl:
                       text_color: "${tab5_color_text_primary}"
                       text_font: font_alert_msg
 
-      # CRT power-on and a staged terminal log. The log describes UI startup stages.
+      # Terminal boot screen. script_boot_typing types the text in time with the boot WAV.
+      # Only small label areas change per frame, so the effect stays smooth at full resolution.
       - obj:
           id: obj_splash
           bg_color: "${tab5_color_background}"
@@ -2165,141 +2842,148 @@ lvgl:
           scrollable: false
           widgets:
             - obj:
-                id: obj_splash_crt
-                align: center
-                width: 2
-                height: 2
-                radius: 0
-                border_width: 0
-                pad_all: 0
-                bg_color: "${tab5_color_accent}"
-                bg_grad_color: "${tab5_color_background}"
-                bg_grad_dir: VER
-                bg_opa: 58%
-                opa: 0%
-                clickable: false
-            - obj:
                 id: obj_splash_terminal
                 align: center
                 width: 1168
                 height: 574
-                radius: 5
+                radius: 0
                 pad_all: 0
-                border_width: 1
-                border_color: "${tab5_color_card_border}"
-                bg_color: "${tab5_color_panel_bg}"
-                opa: 0%
+                border_width: 0
+                bg_opa: TRANSP
                 clickable: false
                 scrollable: false
                 widgets:
-                  - label: { <<: &boot_text { align: top_left, text_color: "${tab5_color_text_muted}", text_font: font_terminal_boot }, x: 32, y: 25, text: "MOBILE SERVICE TERMINAL", text_letter_space: 2 }
-                  - label: { <<: *boot_text, align: top_right, x: -32, y: 25, text: *version }
-                  - line: { <<: &boot_rule { align: top_left, line_color: "${tab5_color_card_border}", line_width: 1, clickable: false }, x: 32, y: 67, points: ["0, 0", "1100, 0"] }
-                  - line: { <<: *boot_rule, x: 560, y: 99, points: ["0, 0", "0, 304"] }
+                  # Frame, rules and captions appear together on the first tape-deck click.
+                  - obj:
+                      id: obj_boot_frame
+                      hidden: true
+                      align: top_left
+                      width: 1168
+                      height: 574
+                      radius: 5
+                      pad_all: 0
+                      border_width: 1
+                      border_color: "${tab5_color_card_border}"
+                      bg_color: "${tab5_color_panel_bg}"
+                      clickable: false
+                      scrollable: false
+                      widgets:
+                        - label: { <<: &boot_text { align: top_left, text_color: "${tab5_color_text_muted}", text_font: font_terminal_boot }, x: 32, y: 109, text: "VEHICLE INTERFACE", text_letter_space: 2 }
+                        - line: { <<: &boot_rule { align: top_left, line_color: "${tab5_color_card_border}", line_width: 1, clickable: false }, x: 32, y: 67, points: ["0, 0", "1100, 0"] }
+                        - line: { <<: *boot_rule, x: 560, y: 99, points: ["0, 0", "0, 304"] }
+                        - label: { <<: *boot_text, x: 32, y: 293, text: "TRIM / POWERTRAIN", text_letter_space: 2 }
+                        - label: { <<: *boot_text, x: 605, y: 109, text: "BOOT SEQUENCE", text_letter_space: 2 }
+                        - line: { <<: *boot_rule, x: 32, y: 436, points: ["0, 0", "1100, 0"] }
+                        - label: { <<: *boot_text, x: 32, y: 467, text: "INITIALIZATION", text_letter_space: 2 }
+                        - label:
+                            id: lbl_splash_percent
+                            <<: *boot_text
+                            align: top_right
+                            x: -32
+                            y: 467
+                            text: "000%"
+                            text_color: "${tab5_color_accent}"
+                        - bar:
+                            id: bar_splash_progress
+                            align: top_left
+                            x: 32
+                            y: 513
+                            width: 1100
+                            height: 12
+                            min_value: 0
+                            max_value: 100
+                            value: 0
+                            bg_color: "${tab5_color_gauge_track}"
+                            indicator: { bg_color: "${tab5_color_accent}", radius: 0 }
+                            border_width: 0
+                            radius: 0
+                            clickable: false
+                        - line: { <<: *boot_rule, x: 32, y: 518, line_color: "${tab5_color_panel_bg}", line_width: 12, line_dash_width: 3, line_dash_gap: 107, points: ["0, 0", "1099, 0"] }
 
-                  - label: { <<: *boot_text, x: 32, y: 109, text: "VEHICLE INTERFACE", text_letter_space: 2 }
+                  # Typed and decoded text. Labels start empty; script_boot_typing fills them.
+                  - label: { <<: *boot_text, id: lbl_boot_header, x: 33, y: 26, text: "", text_letter_space: 2 }
+                  - label: { <<: *boot_text, id: lbl_boot_version, hidden: true, align: top_right, x: -33, y: 26, text: *version }
                   - label:
                       id: lbl_splash_title
-                      text: "${splash_title}"
+                      text: ""
                       align: top_left
-                      x: 29
-                      y: 146
+                      x: 30
+                      y: 147
                       width: 507
                       long_mode: CLIP
                       text_color: "${tab5_color_text_primary}"
                       text_font: font_terminal_title
-                  - line: { <<: *boot_rule, x: 32, y: 259, points: ["0, 0", "476, 0"] }
-                  - label: { <<: *boot_text, x: 32, y: 293, text: "VEHICLE ID", text_letter_space: 2 }
-                  - label:
-                      id: lbl_splash_plate
-                      <<: *boot_text
-                      text: "${number}"
-                      x: 32
-                      y: 329
-                      text_color: "${tab5_color_text_secondary}"
-                      text_font: font_splash_plate
-
-                  - label: { <<: *boot_text, x: 605, y: 109, text: "BOOT SEQUENCE", text_letter_space: 2 }
+                  # Underline drawn left to right after the title lands.
                   - obj:
-                      id: obj_splash_stage_system
-                      <<: &boot_log_row
-                        align: top_left
-                        x: 605
-                        width: 1
-                        height: 39
-                        bg_opa: TRANSP
-                        border_width: 0
-                        pad_all: 0
-                        radius: 0
-                        hidden: true
-                        clickable: false
-                        scrollable: false
-                      y: 156
-                      widgets:
-                        - label: { <<: &boot_log_text { <<: *boot_text, width: SIZE_CONTENT, long_mode: CLIP, text_color: "${tab5_color_text_primary}" }, text: "01  >  WAKE DISPLAY" }
-                  - obj:
-                      <<: *boot_log_row
-                      id: obj_splash_stage_network
-                      y: 217
-                      widgets:
-                        - label: { <<: *boot_log_text, text: "02  >  PREPARE INPUT" }
-                  - obj:
-                      <<: *boot_log_row
-                      id: obj_splash_stage_dash
-                      y: 278
-                      widgets:
-                        - label: { <<: *boot_log_text, text: "03  >  LOAD INSTRUMENTS" }
-                  - obj:
-                      <<: *boot_log_row
-                      id: obj_splash_stage_ready
-                      y: 339
-                      widgets:
-                        - label: { <<: *boot_log_text, text_color: "${tab5_color_accent}", text: "04  >  DISPLAY READY" }
-
-                  - line: { <<: *boot_rule, x: 32, y: 436, points: ["0, 0", "1100, 0"] }
-                  - label: { <<: *boot_text, x: 32, y: 467, text: "INITIALIZATION", text_letter_space: 2 }
-                  - label:
-                      id: lbl_splash_percent
-                      <<: *boot_text
-                      align: top_right
-                      x: -32
-                      y: 467
-                      text: "000%"
-                      text_color: "${tab5_color_accent}"
-                  - bar:
-                      id: bar_splash_progress
+                      id: obj_boot_title_rule
                       align: top_left
-                      x: 32
-                      y: 513
-                      width: 1100
-                      height: 12
-                      min_value: 0
-                      max_value: 100
-                      value: 0
-                      anim_duration: 320ms
-                      bg_color: "${tab5_color_gauge_track}"
-                      indicator: { bg_color: "${tab5_color_accent}", radius: 0 }
-                      border_width: 0
+                      x: 33
+                      y: 260
+                      width: 0
+                      height: 1
                       radius: 0
+                      pad_all: 0
+                      border_width: 0
+                      bg_color: "${tab5_color_card_border}"
                       clickable: false
-                  - line: { <<: *boot_rule, x: 32, y: 518, line_color: "${tab5_color_panel_bg}", line_width: 12, line_dash_width: 3, line_dash_gap: 107, points: ["0, 0", "1099, 0"] }
-            - obj:
-                id: obj_splash_scan
-                align: top_left
-                x: 58
-                y: 94
-                width: 1164
-                height: 27
-                radius: 0
-                border_width: 0
-                pad_all: 0
-                bg_color: "${tab5_color_accent}"
-                bg_grad_color: "${tab5_color_background}"
-                bg_grad_dir: VER
-                bg_opa: 22%
-                opa: 0%
-                clickable: false
-                scrollable: false
+                      scrollable: false
+                  # Trim badge stamps in on the first drive seek; trim and powertrain decode on the next two.
+                  - obj:
+                      id: obj_boot_badge
+                      hidden: true
+                      align: top_left
+                      x: 33
+                      y: 324
+                      width: SIZE_CONTENT
+                      height: SIZE_CONTENT
+                      radius: 3
+                      pad_left: 10
+                      pad_right: 10
+                      pad_top: 0
+                      pad_bottom: 0
+                      border_width: 2
+                      border_color: "${tab5_color_accent}"
+                      bg_color: "${tab5_color_accent}"
+                      bg_opa: TRANSP
+                      clickable: false
+                      scrollable: false
+                      widgets:
+                        - label:
+                            id: lbl_boot_badge
+                            text: "${splash_trim_badge}"
+                            text_font: font_service_title
+                            text_color: "${tab5_color_accent}"
+                  - label:
+                      id: lbl_boot_trim
+                      <<: *boot_text
+                      text: ""
+                      x: 140
+                      y: 326
+                      text_letter_space: 4
+                      text_color: "${tab5_color_text_primary}"
+                      text_font: font_service_title
+                  - label: { <<: *boot_text, id: lbl_boot_power, x: 33, y: 390, text: "", text_letter_space: 3, text_color: "${tab5_color_text_secondary}" }
+                  - label: { <<: &boot_row { <<: *boot_text, x: 606, text: "", text_color: "${tab5_color_text_primary}" }, id: lbl_boot_row1, y: 157 }
+                  - label: { <<: *boot_row, id: lbl_boot_row2, y: 218 }
+                  - label: { <<: *boot_row, id: lbl_boot_row3, y: 279 }
+                  - label: { <<: *boot_row, id: lbl_boot_row4, y: 340 }
+                  - label: { <<: &boot_ok { <<: *boot_text, hidden: true, align: top_right, x: -33, text: "[ OK ]", text_color: "${tab5_color_text_secondary}" }, id: lbl_boot_ok1, y: 157 }
+                  - label: { <<: *boot_ok, id: lbl_boot_ok2, y: 218 }
+                  - label: { <<: *boot_ok, id: lbl_boot_ok3, y: 279 }
+                  - label: { <<: *boot_ok, id: lbl_boot_ok4, y: 340, text: "[ READY ]", text_color: "${tab5_color_accent}" }
+                  # Block cursor. Solid while typing, blinks while waiting for the next hit.
+                  - obj:
+                      id: obj_boot_cursor
+                      hidden: true
+                      align: top_left
+                      width: 12
+                      height: 24
+                      radius: 0
+                      pad_all: 0
+                      border_width: 0
+                      bg_color: "${tab5_color_accent}"
+                      clickable: false
+                      scrollable: false
 
   pages:
     # =============================================================
@@ -2374,7 +3058,9 @@ lvgl:
                               y: 37
                               width: 28
                               height: 3
-                              bg_color: "${tab5_color_background}"
+                              # Same fill as the selection (invisible at rest); fx_prnd_bar flashes it dark.
+                              bg_color: "${tab5_color_accent}"
+                              bg_opa: COVER
               - label: { <<: *terminal_heading, text: "GEAR", x: 213, y: 273, text_font: notosans16 }
               - obj:
                   <<: *terminal_panel
@@ -2542,8 +3228,8 @@ lvgl:
               - line: { <<: &scan_leader { <<: *terminal_line, line_color: "${tab5_color_text_inactive}", line_width: 2, line_opa: 100%, hidden: true }, id: line_scan_coolant_leader, x: 81, y: 77, points: ["0, 0", "0, 144", "60, 144"] }
               - line: { <<: *scan_leader, id: line_scan_oil_temperature_leader, x: 226, y: 77, points: ["0, 0", "0, 23", "30, 23", "30, 137", "25, 137"] }
               - line: { <<: *scan_leader, id: line_scan_oil_pressure_leader, x: 213, y: 242, points: ["158, 137", "158, 107", "47, 107", "47, 13", "0, 13", "0, 0"] }
-              - line: { <<: *scan_leader, id: line_scan_cabin_temp_leader, x: 516, y: 77, points: ["0, 0", "26, 0", "26, 110", "11, 110"] }
-              - line: { <<: *scan_leader, id: line_scan_cabin_humidity_leader, x: 516, y: 257, points: ["0, 122", "26, 122", "26, 0", "11, 0"] }
+              - line: { <<: *scan_leader, id: line_scan_cabin_temp_leader, x: 516, y: 77, points: ["0, 0", "0, 13", "26, 13", "26, 110", "11, 110"] }
+              - line: { <<: *scan_leader, id: line_scan_cabin_humidity_leader, x: 516, y: 257, points: ["0, 122", "0, 108", "26, 108", "26, 0", "11, 0"] }
               - line: { <<: *scan_leader, id: line_scan_bed_temp_leader, x: 753, y: 77, points: ["53, 0", "53, 118", "0, 118"] }
               - line: { <<: *scan_leader, id: line_scan_intake_leader, x: 98, y: 159, points: ["0, 220", "0, 0", "86, 0"] }
               - line: { <<: *scan_leader, id: line_scan_transmission_leader, x: 299, y: 77, points: ["72, 0", "72, 23", "0, 23", "0, 128"] }
@@ -2954,7 +3640,7 @@ lvgl:
             radius: 8
             on_click:
               - script.stop: script_jaalee_detail
-              - lambda: id(tab5_motion_visible)(id(obj_jaalee_detail), false, 0);
+              - lambda: fx::set_visible(id(obj_jaalee_detail), false);
             widgets:
               - label:
                   id: lbl_jaalee_name
@@ -2993,8 +3679,8 @@ lvgl:
             bg_opa: COVER
             widgets:
               - label: { <<: &service_kicker { <<: *terminal_heading, text_font: font_terminal_boot, text_color: "${tab5_color_text_muted}", text_letter_space: 1 }, x: 28, y: 20, text: "ROBCO INDUSTRIES (TM) TERMLINK PROTOCOL" }
-              - label: { <<: *terminal_heading, id: lbl_service_title, x: 28, y: 52, text: "SYSTEM JOURNAL", text_font: font_service_title, text_color: "${tab5_color_accent}" }
-              - label: { <<: *terminal_heading, id: lbl_service_subtitle, x: 420, y: 64, text: "시스템 로그", text_font: font_service_text }
+              - label: { <<: *terminal_heading, id: lbl_service_title, x: 28, y: 52, text: "SYSTEM SETUP", text_font: font_service_title, text_color: "${tab5_color_accent}" }
+              - label: { <<: *terminal_heading, id: lbl_service_subtitle, x: 420, y: 64, text: "시스템 설정", text_font: font_service_text }
               - line: { <<: &service_rule { <<: *terminal_line, line_color: "${tab5_color_accent}", line_width: 2 }, x: 28, y: 118, points: ["0, 10", "0, 0", "1223, 0", "1223, 10"] }
               - obj:
                   <<: *terminal_panel
@@ -3003,6 +3689,7 @@ lvgl:
                   y: 136
                   width: 1224
                   height: 464
+                  hidden: true
                   widgets:
                     - label: { <<: &log_column { <<: *terminal_heading, y: 0, text_font: font_service_text }, x: 12, text: "SEQ" }
                     - label: { <<: *log_column, x: 67, text: "TIME" }
@@ -3058,7 +3745,7 @@ lvgl:
                               id(script_refresh_logs).execute(false, false);
                               if (!id(g_log_highlight_pending)) return;
                               id(g_log_highlight_pending) = false;
-                              id(tab5_motion_outline)(id(lbl_log_latest_entry), 260);
+                              fx::play(id(lbl_log_latest_entry), id(fx_glow_260));
                         widgets:
                           - label:
                               <<: &log_entry
@@ -3115,7 +3802,6 @@ lvgl:
                   y: 136
                   width: 1224
                   height: 448
-                  hidden: true
                   widgets:
                     - obj:
                         <<: &setup_cell { <<: *terminal_panel, width: 592, height: 136 }
@@ -3203,13 +3889,24 @@ lvgl:
                         y: 312
                         widgets:
                           - label: { <<: *setup_kicker, text: "05 / FIRMWARE" }
-                          - label: { <<: &setup_version_caption { <<: *setup_note, y: 28 }, text: "현재 버전" }
-                          - label: { <<: &menu_version { <<: *setup_version_caption, align: top_right, width: 360, text_align: RIGHT, long_mode: DOT, text_color: "${tab5_color_text_secondary}" }, id: lbl_menu_curr_ver, text: *version }
-                          - label: { <<: *setup_version_caption, y: 58, text: "업데이트" }
-                          - label: { <<: *menu_version, id: lbl_menu_latest_ver, y: 58, text: "미확인", text_color: "${tab5_color_text_muted}" }
+                          # Each device owns its version, status and action in the same row.
+                          - label: { <<: &setup_version_caption { <<: *setup_note, y: 28 }, x: 0, y: 40, width: 132, text: "본체 (P4)", text_color: "${tab5_color_text_primary}" }
+                          - label:
+                              <<: &menu_version { <<: *setup_version_caption, align: top_right, width: 360, text_align: RIGHT, long_mode: DOT, text_color: "${tab5_color_text_secondary}" }
+                              id: lbl_menu_curr_ver
+                              align: top_left
+                              x: 142
+                              y: 28
+                              width: 250
+                              text_align: LEFT
+                              text: !lambda 'return std::string("현재 ") + ESPHOME_PROJECT_VERSION;'
+                          - label: { <<: *menu_version, id: lbl_menu_latest_ver, align: top_left, x: 142, y: 50, width: 250, text_align: LEFT, text: "미확인", text_color: "${tab5_color_text_muted}" }
                           - button:
                               <<: *setup_action_button
                               id: btn_menu_update
+                              x: 412
+                              y: 30
+                              width: 180
                               on_click:
                                 - lambda: |-
                                     if (!id(fn_service_allowed)() || id(g_updating) || id(g_checking)) return;
@@ -3220,16 +3917,38 @@ lvgl:
                                       id(script_check_update).execute();
                                     }
                               widgets:
-                                - label: { <<: *setup_action_label, id: lbl_btn_menu_update, text: "> 업데이트 확인" }
+                                - label: { <<: *setup_action_label, id: lbl_btn_menu_update, text: "업데이트 확인" }
+                          - label: { <<: *setup_version_caption, x: 0, y: 94, width: 132, text: "무선 (C6)", text_color: "${tab5_color_text_primary}" }
+                          - label: { <<: *menu_version, id: lbl_c6_curr_ver, align: top_left, x: 142, y: 82, width: 250, text_align: LEFT, text: "현재 --" }
+                          - label: { <<: *menu_version, id: lbl_c6_latest_ver, align: top_left, x: 142, y: 104, width: 250, text_align: LEFT, text: "미확인", text_color: "${tab5_color_text_muted}" }
+                          - button:
+                              <<: *setup_action_button
+                              id: btn_c6_update
+                              x: 412
+                              y: 84
+                              width: 180
+                              on_click:
+                                - lambda: |-
+                                    if (!id(fn_service_allowed)() || id(g_updating)) return;
+                                    id(script_sound_play).execute(3);
+                                    if (id(c6_update).state == update::UPDATE_STATE_AVAILABLE) {
+                                      id(script_c6_perform).execute();
+                                    } else {
+                                      id(script_c6_check).execute();
+                                    }
+                              widgets:
+                                - label: { <<: *setup_action_label, id: lbl_btn_c6_update, text: "업데이트 확인" }
                           - line: { <<: *setup_rule }
                     - obj:
                         <<: *setup_cell
                         x: 632
                         y: 312
                         widgets:
-                          - label: { <<: *setup_kicker, text: "06 / SYSTEM" }
-                          - label: { <<: *setup_heading, text: "시스템 재시작" }
-                          - label: { <<: *setup_note, y: 60, text: "CONFIRM BEFORE RESTART" }
+                          - label: { <<: *setup_kicker, text: "06 / VEHICLE & SYSTEM" }
+                          - label: { <<: *setup_version_caption, text: "차량 번호" }
+                          - label: { <<: *menu_version, id: lbl_menu_plate, text: "${number}" }
+                          - label: { <<: *setup_version_caption, y: 58, text: "모델" }
+                          - label: { <<: *menu_version, y: 58, text: "${splash_title} ${splash_trim_badge} ${splash_trim} ${splash_powertrain}" }
                           - button:
                               <<: *setup_action_button
                               id: btn_log_restart
@@ -3238,8 +3957,9 @@ lvgl:
                                 - lambda: |-
                                     if (!id(fn_service_allowed)()) return;
                                     id(script_sound_play).execute(3);
-                                    id(tab5_motion_visible)(id(obj_restart_backdrop), true, 185);
-                                    id(tab5_motion_visible)(id(obj_restart_popup), true, 185);
+                                    // The service view is open (motion is suppressed there), so force the fade.
+                                    fx::set_visible(id(obj_restart_backdrop), true, {.force = true});
+                                    fx::set_visible(id(obj_restart_popup), true, {.force = true});
                               widgets:
                                 - label: { <<: *setup_action_label, text: "> 시스템 재시작", text_color: "${tab5_color_status_hot}" }
                           - line: { <<: *setup_rule }
@@ -3274,7 +3994,7 @@ lvgl:
                               widgets:
                                 - label: { <<: *setup_action_label, text: "> 테스트 재생" }
                           - line: { <<: *setup_rule }
-              - label: { <<: *service_kicker, id: lbl_service_status, x: 28, y: 604, text: "> READY / EVENT LOG" }
+              - label: { <<: *service_kicker, id: lbl_service_status, x: 28, y: 604, text: "> READY / SYSTEM SETUP" }
 
 
 font:
@@ -3298,7 +4018,7 @@ font:
     id: font_service_text
     bpp: 4
     size: 20
-    glyphs: ${ (ui_ascii + ui_alert_hangul + ui_extra_glyphs + '°각간거기내냉도량력료리미부션수습신실압엔연오온운율있일잔재적전진충최태하함행현흡그록로아직없습니확근다보우울으인작정중지초템화끊김무응답마막분세면밝울초펌웨어설정최근으로새로그지우기아직기록이없습니다현재버전업데이트미확인화면밝기기울기보정초기화') | unique(case_sensitive=true) | join }
+    glyphs: ${ (ui_ascii + ui_alert_hangul + ui_extra_glyphs + '°각간거기내냉도량력료리미부션수습신실압엔연오온운율있일잔재적전진충최태하함행현흡그록로아직없습니확근다보우울으인작정중지초템화끊김무응답마막분세면밝울초펌웨어설정최근으로새로그지우기아직기록이없습니다현재버전업데이트미확인화면밝기기울기보정초기화차량번호모델' + number) | unique(case_sensitive=true) | join }
   - file: "gfonts://Share+Tech+Mono"
     id: font_terminal_speed
     size: 180
@@ -3353,12 +4073,8 @@ font:
   - file: "gfonts://Share+Tech+Mono"
     id: font_terminal_title
     size: 94
-    glyphs: ${ splash_title | unique(case_sensitive=true) | join }
-  - file: "gfonts://Noto+Sans+KR"
-    id: font_splash_plate
-    bpp: 4
-    size: 31
-    glyphs: ${ (ui_ascii + number) | unique(case_sensitive=true) | join }
+    # Title letters plus the symbols the boot decode effect cycles through.
+    glyphs: ${ (splash_title + '#%&*+<>/=0123456789') | unique(case_sensitive=true) | join }
 
 image:
   - platform: file
@@ -3402,8 +4118,28 @@ image:
     resize: 50x50
     type: binary
   - platform: file
+    file: mdi:wifi-off
+    id: img_wifi_off
+    resize: 50x50
+    type: binary
+  - platform: file
     file: mdi:bluetooth
     id: img_bluetooth
+    resize: 50x50
+    type: binary
+  - platform: file
+    file: mdi:bluetooth-off
+    id: img_bluetooth_off
+    resize: 50x50
+    type: binary
+  - platform: file
+    file: mdi:crosshairs
+    id: img_gps_searching
+    resize: 50x50
+    type: binary
+  - platform: file
+    file: mdi:crosshairs-question
+    id: img_gps_question
     resize: 50x50
     type: binary
   - platform: file
@@ -3515,11 +4251,43 @@ script:
       - lambda: |-
           const uint32_t now = esphome::millis();
           auto &gps = id(id_gps).get_tiny_gps();
-          const bool fix = gps.location.isValid() && gps.location.age() <= 3000 &&
-              gps.satellites.isValid() && gps.satellites.age() <= 3000 &&
-              gps.satellites.value() >= 4;
-          id(tab5_motion_visible)(id(lbl_satellite), fix, fix ? 165 : 120);
-          const bool connected[] = {id(tab5_wifi).is_connected(), id(obd_client).connected(), fix};
+          constexpr uint32_t gps_timeout_ms = 3000;
+          static uint32_t last_nmea_count = 0;
+          static uint32_t last_nmea_at = 0;
+          static bool gps_receiving = false;
+          const uint32_t nmea_count = gps.passedChecksum();
+          if (nmea_count != last_nmea_count) {
+            last_nmea_count = nmea_count;
+            last_nmea_at = now;
+            gps_receiving = true;
+          } else if (now - last_nmea_at > gps_timeout_ms) {
+            gps_receiving = false;
+          }
+
+          const auto satellites = gps.satellites.isValid() && gps.satellites.age() <= gps_timeout_ms
+              ? gps.satellites.value() : 0;
+          const bool fix = gps_receiving && satellites >= 4 &&
+              gps.location.isValid() && gps.location.age() <= gps_timeout_ms;
+          const bool wifi_connected = id(tab5_wifi).is_connected();
+          const bool ble_connected = id(obd_client).connected();
+          // Keep all three indicators visible, including when there is no link.
+          const auto set_link_icon = [](lv_obj_t *widget, image::Image *source, uint32_t color) {
+            auto *icon = source->get_lv_image_dsc();
+            if (lv_image_get_src(widget) != icon) lv_image_set_src(widget, icon);
+            const auto recolor = lv_color_hex(color);
+            if (!lv_color_eq(lv_obj_get_style_image_recolor(widget, LV_PART_MAIN), recolor)) {
+              lv_obj_set_style_image_recolor(widget, recolor, LV_PART_MAIN);
+            }
+          };
+          set_link_icon(id(lbl_wifi), wifi_connected ? id(img_wifi) : id(img_wifi_off),
+              wifi_connected ? ${tab5_color_accent} : ${tab5_color_link_off});
+          set_link_icon(id(lbl_bluetooth), ble_connected ? id(img_bluetooth) : id(img_bluetooth_off),
+              ble_connected ? ${tab5_color_accent} : ${tab5_color_link_off});
+          set_link_icon(id(lbl_satellite), fix ? id(img_satellite)
+              : gps_receiving ? id(img_gps_question) : id(img_gps_searching),
+              fix ? ${tab5_color_accent} : gps_receiving ? ${tab5_color_link_search} : ${tab5_color_link_off});
+
+          const bool connected[] = {wifi_connected, ble_connected, fix};
           const bool enabled = !id(g_sound_muted) &&
               id(g_sound_volume) > 0.0f && !id(g_updating);
           for (unsigned link = 0; link < 3; ++link) {
@@ -3539,8 +4307,9 @@ script:
       - lambda: |-
           if ((!id(g_sound_ready) && cue != 0) || id(g_sound_muted) || id(g_sound_volume) <= 0.0f ||
               id(g_updating) || cue < 0 || cue > 14) return;
-          constexpr uint32_t durations[] = {3300, 650, 600, 180, 650, 750, 1350, 420, 550,
-                                          460, 460, 380, 380, 600, 600};
+          // File lengths, including trailing silence (retro set 4378a82).
+          constexpr uint32_t durations[] = {3300, 440, 400, 150, 650, 870, 1090, 520, 600,
+                                          540, 520, 540, 520, 540, 520};
           constexpr int priorities[] = {1, 1, 1, 1, 2, 3, 4, 2, 2, 1, 1, 1, 1, 1, 1};
           const uint32_t now = esphome::millis();
           const uint32_t elapsed = now - id(g_sound_started);
@@ -3590,7 +4359,12 @@ script:
           lv_obj_set_style_bg_color(bar,
               valid && speed <= 110.0f ? lv_color_hex(${tab5_color_accent}) : color,
               LV_PART_INDICATOR);
-          id(tab5_motion_bar)(bar, valid ? speed : NAN, speed < lv_bar_get_value(bar) ? 165 : 220);
+          if (valid) {
+            fx::set_value(bar, std::trunc(speed),
+                {.transition = speed < lv_bar_get_value(bar) ? id(fx_bar_165) : id(fx_bar_220)});
+          } else {
+            fx::set_value(bar, NAN, {.instant = true});
+          }
           id(script_sync_service_ui).execute();
 
   - id: script_update_acceleration
@@ -3636,6 +4410,11 @@ script:
           } else {
             id(alt_low_since_ms) = 0;
           }
+          if (std::isfinite(rpm) && !engine_on) {
+            if (id(engine_off_since_ms) == 0) id(engine_off_since_ms) = std::max<uint32_t>(esphome::millis(), 1);
+          } else {
+            id(engine_off_since_ms) = 0;
+          }
 
           float soc = NAN;
           if (std::isfinite(rpm) && std::isfinite(voltage)) {
@@ -3666,7 +4445,7 @@ script:
           for (const auto &item : dependents) {
             const auto color = id(fn_state_color)(item.value, item.mode);
             id(script_render_scan_status).execute(item.mode, color, item.label, false);
-            id(tab5_motion_icon)(item.icon, color, item.mode, false);
+            id(fn_icon_accent)(item.icon, color, item.mode, false);
             id(script_update_sensor_text).execute(item.label,
                 id(fn_readout_text)(item.value, item.decimals), color, item.mode, 0);
           }
@@ -3727,50 +4506,24 @@ script:
           const char *positions = "PRNDL";
           const char *slot = position.size() == 1 ? std::strchr(positions, position[0]) : nullptr;
           auto *selection = id(obj_prnd_selection);
-          const auto move_selection = +[](void *obj, int32_t x) {
-            lv_obj_set_x(static_cast<lv_obj_t *>(obj), x);
-          };
-          static const auto flash = +[](void *obj, int32_t strength) {
-            const auto fill = lv_color_mix(lv_color_white(), lv_color_hex(${tab5_color_accent}), strength);
-            lv_obj_set_style_bg_color(static_cast<lv_obj_t *>(obj), fill, LV_PART_MAIN);
-            lv_obj_set_style_bg_opa(id(obj_prnd_confirm), strength, LV_PART_MAIN);
-          };
-          lv_anim_delete(selection, move_selection);
-          lv_anim_delete(selection, flash);
-          flash(selection, LV_OPA_TRANSP);
+          // A new selection ends the previous confirmation flash; a move in flight is retargeted from where it is.
+          fx::stop(selection, id(fx_prnd_confirm));
+          fx::stop(id(obj_prnd_confirm));
           if (slot) {
-            const int32_t target = 43 * (slot - positions);
-            const bool animate = !lv_obj_has_flag(selection, LV_OBJ_FLAG_HIDDEN) &&
-                                 lv_obj_has_flag(id(obj_splash), LV_OBJ_FLAG_HIDDEN) &&
-                                 !id(tab5_motion_notice_active) && !id(g_logs_visible);
+            // Hidden means the first selection: it appears in place (fx moves visible widgets only).
+            const bool appearing = lv_obj_has_flag(selection, LV_OBJ_FLAG_HIDDEN);
+            fx::set_x(selection, 43 * (slot - positions));
             lv_obj_remove_flag(selection, LV_OBJ_FLAG_HIDDEN);
-            if (animate) {
-              lv_obj_update_layout(selection);
-              lv_anim_t motion;
-              lv_anim_init(&motion);
-              lv_anim_set_var(&motion, selection);
-              lv_anim_set_exec_cb(&motion, move_selection);
-              lv_anim_set_values(&motion, lv_obj_get_x(selection), target);
-              lv_anim_set_duration(&motion, 160);
-              lv_anim_set_path_cb(&motion, lv_anim_path_ease_out);
-              lv_anim_set_completed_cb(&motion, +[](lv_anim_t *anim) {
-                lv_anim_t confirmation;
-                lv_anim_init(&confirmation);
-                lv_anim_set_var(&confirmation, anim->var);
-                lv_anim_set_exec_cb(&confirmation, flash);
-                lv_anim_set_values(&confirmation, LV_OPA_COVER, LV_OPA_TRANSP);
-                lv_anim_set_duration(&confirmation, 340);
-                lv_anim_set_path_cb(&confirmation, lv_anim_path_ease_in);
-                lv_anim_start(&confirmation);
-              });
-              lv_anim_start(&motion);
-            } else {
-              lv_obj_set_x(selection, target);
-            }
+            // The dark bar flashes once the move has ended (its effect starts after the move time).
+            if (!appearing) fx::play(id(obj_prnd_confirm), id(fx_prnd_bar));
           } else {
-            id(tab5_motion_visible)(selection, false, 0);
+            fx::stop(selection);
+            lv_obj_add_flag(selection, LV_OBJ_FLAG_HIDDEN);
           }
-          id(tab5_motion_prnd)(label, id(lbl_gear), position.c_str());
+          lv_label_set_text(label, position.c_str());
+          fx::stop(id(lbl_gear));
+          if (!position.empty() && position[0] != '-') fx::play(label, id(fx_prnd_pulse));
+          else fx::stop(label);
           id(script_render_gear).execute(false);
 
   - id: script_render_gear
@@ -3789,30 +4542,15 @@ script:
           const bool changed = std::strcmp(previous, text) != 0;
           if (animate && !changed) return;
           const int last = std::atoi(previous);
-          const auto slide = +[](void *obj, int32_t offset) {
-            lv_obj_set_style_translate_y(static_cast<lv_obj_t *>(obj), offset, LV_PART_MAIN);
-          };
-          lv_anim_delete(label, slide);
-          slide(label, 0);
+          fx::stop(label);
           if (!changed) return;
-          lv_label_set_text(label, text);
-          if (!animate || !valid || !last || id(tab5_motion_notice_active) ||
-              !lv_obj_has_flag(id(obj_splash), LV_OBJ_FLAG_HIDDEN) || id(g_logs_visible)) return;
-          lv_anim_t motion;
-          lv_anim_init(&motion);
-          lv_anim_set_var(&motion, label);
-          lv_anim_set_exec_cb(&motion, slide);
-          lv_anim_set_values(&motion, gear > last ? 14 : -14, 0);
-          lv_anim_set_duration(&motion, 140);
-          lv_anim_set_path_cb(&motion, lv_anim_path_ease_out);
-          lv_anim_start(&motion);
+          // The digit rolls in from below when the gear grows and from above when it shrinks.
+          if (animate && valid && last) fx::set_text(label, text);
+          else lv_label_set_text(label, text);
 
   - id: script_render_pose
     then:
       - lambda: |-
-          const auto rotate = +[](void *object, int32_t angle) {
-            lv_obj_set_style_transform_rotation(static_cast<lv_obj_t *>(object), angle, LV_PART_MAIN);
-          };
           const struct {
             lv_obj_t *shape;
             lv_obj_t *value;
@@ -3863,22 +4601,12 @@ script:
                     ? lv_color_hex(${tab5_color_text_inactive}) : color, LV_PART_MAIN);
               }
             }
-            const auto *active = lv_anim_get(axis.shape, rotate);
-            const int32_t from = lv_obj_get_style_transform_rotation(axis.shape, LV_PART_MAIN);
-            if ((active && active->end_value == target) || (!active && from == target)) continue;
-            lv_anim_delete(axis.shape, rotate);
-            if (!valid || !lv_obj_has_flag(id(obj_splash), LV_OBJ_FLAG_HIDDEN)) {
-              rotate(axis.shape, target);
-              continue;
+            // An unreadable angle levels at once; a readable one glides.
+            if (valid) {
+              fx::set_rotation(axis.shape, target / 10.0f);
+            } else {
+              fx::set_rotation(axis.shape, 0, {.instant = true});
             }
-            lv_anim_t motion;
-            lv_anim_init(&motion);
-            lv_anim_set_var(&motion, axis.shape);
-            lv_anim_set_exec_cb(&motion, rotate);
-            lv_anim_set_values(&motion, from, target);
-            lv_anim_set_duration(&motion, 165);
-            lv_anim_set_path_cb(&motion, lv_anim_path_ease_out);
-            lv_anim_start(&motion);
           }
 
   - id: script_speed_expire
@@ -3933,6 +4661,24 @@ script:
             };
             id(ota_update).add_on_state_callback(sync_update);
             sync_update();
+            // The C6 install runs inside one blocking perform() call (no progress callbacks):
+            // INSTALLING opens the shared update overlay, the following state reports the result.
+            id(c6_update).add_on_state_callback([]() {
+              static update::UpdateState last = update::UPDATE_STATE_UNKNOWN;
+              const auto state = id(c6_update).state;
+              if (state == update::UPDATE_STATE_INSTALLING && last != state) {
+                id(script_c6_ota_begin).execute();
+              } else if (last == update::UPDATE_STATE_INSTALLING && state != last) {
+                if (state == update::UPDATE_STATE_NO_UPDATE && !id(c6_update).status_has_error()) {
+                  id(script_c6_ota_done).execute();
+                } else {
+                  id(script_ota_failed).execute("C6 update failed. Check log.");
+                }
+              }
+              last = state;
+              id(script_c6_update_label).execute();
+            });
+            id(script_c6_update_label).execute();
             id(id_bmi270_accel_x).add_on_state_callback([](float value) {
               id(g_dashboard_samples)[23] = std::isfinite(value) ? esphome::millis() : 0;
             });
@@ -3953,7 +4699,7 @@ script:
               auto *detail = id(obj_jaalee_detail);
               if (!lv_obj_has_flag(detail, LV_OBJ_FLAG_HIDDEN) && id(g_jaalee_detail_bed) == bed) {
                 id(script_jaalee_detail).stop();
-                id(tab5_motion_visible)(detail, false, 0);
+                fx::set_visible(detail, false);
                 return;
               }
               id(script_jaalee_detail).execute(bed);
@@ -3971,6 +4717,7 @@ script:
           auto &samples = id(g_dashboard_samples);
           if (disconnect) {
             id(alt_low_since_ms) = 0;
+            id(engine_off_since_ms) = 0;
             id(g_ambient_sample_ms) = 0;
             id(g_warmup_last_runtime) = -1.0f;
             id(g_warmup_completed).fill(false);
@@ -4003,28 +4750,210 @@ script:
           }
           id(script_refresh_engine_dependents).execute();
 
-  - id: script_splash_stage
-    parameters:
-      progress: int
-      row: lv_obj_t*
+  # Boot terminal sequence, keyed to boot_mechanical_terminal.wav. Hit times (ms from WAV start)
+  # were measured from its waveform: 77 click, 415 latch, 1191/1684/2140 drive seeks, 2820 final.
+  # Between hits the log is typed; each hit stamps a result, reveals part of the vehicle identity
+  # (title decode, trim badge, trim name, powertrain) and steps the segmented progress bar.
+  # Only small label areas change per frame, so it stays smooth at full resolution.
+  - id: script_boot_typing
     then:
-      - lvgl.bar.update:
-          id: bar_splash_progress
-          value: !lambda return progress;
       - lambda: |-
-          lv_label_set_text_fmt(id(lbl_splash_percent), "%03d%%", progress);
-          lv_obj_remove_flag(row, LV_OBJ_FLAG_HIDDEN);
-          lv_obj_update_layout(row);
-          const int32_t text_width = lv_obj_get_width(lv_obj_get_child(row, 0));
-          lv_anim_t reveal;
-          lv_anim_init(&reveal);
-          lv_anim_set_var(&reveal, row);
-          lv_anim_set_exec_cb(&reveal, +[](void *obj, int32_t width) {
-            lv_obj_set_width(static_cast<lv_obj_t *>(obj), width);
-          });
-          lv_anim_set_values(&reveal, 1, text_width + 2);
-          lv_anim_set_duration(&reveal, 300);
-          lv_anim_start(&reveal);
+          struct Line { lv_obj_t *label; const char *text; uint16_t start; uint8_t char_ms; };
+          struct Decode { lv_obj_t *label; const char *text; uint16_t start; uint8_t step_ms; };
+          static Line lines[5];
+          static Decode decodes[3];
+          static uint8_t typed[5];
+          static uint16_t decoded[3];
+          static uint32_t t0, fired;
+          static lv_timer_t *timer = nullptr;
+
+          lines[0] = {id(lbl_boot_header), "MOBILE SERVICE TERMINAL", 100, 13};
+          lines[1] = {id(lbl_boot_row1), "01  >  WAKE DISPLAY", 700, 22};
+          lines[2] = {id(lbl_boot_row2), "02  >  PREPARE INPUT", 1260, 18};
+          lines[3] = {id(lbl_boot_row3), "03  >  LOAD INSTRUMENTS", 1740, 15};
+          lines[4] = {id(lbl_boot_row4), "04  >  DISPLAY READY", 2240, 20};
+          decodes[0] = {id(lbl_splash_title), "${splash_title}", 415, 40};
+          decodes[1] = {id(lbl_boot_trim), "${splash_trim}", 1684, 26};
+          decodes[2] = {id(lbl_boot_power), "${splash_powertrain}", 2140, 28};
+          for (auto &line : lines) lv_label_set_text(line.label, "");
+          for (auto &decode : decodes) lv_label_set_text(decode.label, "");
+          std::fill(std::begin(typed), std::end(typed), 0);
+          std::fill(std::begin(decoded), std::end(decoded), 0xFFFF);
+          fired = 0;
+          if (timer != nullptr) lv_timer_delete(timer);
+          t0 = lv_tick_get();
+
+          timer = lv_timer_create(+[](lv_timer_t *self) {
+            const int32_t e = int32_t(lv_tick_elaps(t0)) - ${boot_sync_offset_ms};
+            if (e < 0) return;
+            lv_obj_t *cursor = id(obj_boot_cursor);
+            const lv_color_t accent = lv_color_hex(${tab5_color_accent});
+            const lv_color_t ink = lv_color_hex(${tab5_color_background});
+            // Inverse video (accent block, background-colored text) or plain text.
+            auto inverse = [](lv_obj_t *obj, bool on, lv_color_t block, lv_color_t text) {
+              lv_obj_set_style_bg_color(obj, block, LV_PART_MAIN);
+              lv_obj_set_style_bg_opa(obj, on ? LV_OPA_COVER : LV_OPA_TRANSP, LV_PART_MAIN);
+              lv_obj_set_style_text_color(obj, text, LV_PART_MAIN);
+            };
+
+            // Hits.
+            struct Stamp { int16_t at; uint8_t progress; int8_t action; };
+            static const Stamp kStamps[] = {
+                {77, 0, -1}, {415, 10, -2}, {1191, 30, 0}, {1684, 50, 1}, {2140, 80, 2}, {2820, 100, 3}};
+            static int16_t ok_at[4];
+            static int prog_from, prog_to, prog_shown;
+            static int32_t prog_at;
+            lv_obj_t *const oks[] = {id(lbl_boot_ok1), id(lbl_boot_ok2), id(lbl_boot_ok3), id(lbl_boot_ok4)};
+            if (fired == 0) {
+              prog_from = prog_to = prog_shown = 0;
+              prog_at = 0;
+            }
+            for (size_t i = 0; i < std::size(kStamps); i++) {
+              const Stamp &s = kStamps[i];
+              if (e < s.at || (fired & (1u << i))) continue;
+              fired |= 1u << i;
+              if (s.action == -1) {
+                lv_obj_remove_flag(id(obj_boot_frame), LV_OBJ_FLAG_HIDDEN);
+              } else if (s.action == -2) {
+                lv_obj_remove_flag(id(lbl_boot_version), LV_OBJ_FLAG_HIDDEN);
+              } else {
+                lv_obj_remove_flag(oks[s.action], LV_OBJ_FLAG_HIDDEN);
+                ok_at[s.action] = s.at;
+              }
+              if (s.action == 0) {
+                // Trim badge lands as an outline, then fills (see badge stamp below).
+                lv_obj_t *badge = id(obj_boot_badge);
+                lv_obj_remove_flag(badge, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_update_layout(badge);
+                lv_obj_set_x(id(lbl_boot_trim), lv_obj_get_x(badge) + lv_obj_get_width(badge) + 18);
+              }
+              if (s.action == 3) {
+                lv_obj_t *row = id(lbl_boot_row4);
+                inverse(row, true, accent, ink);
+                lv_obj_set_style_pad_hor(row, 6, LV_PART_MAIN);
+                lv_obj_set_x(row, lv_obj_get_x(row) - 6);
+              }
+              prog_from = prog_shown;
+              prog_to = s.progress;
+              prog_at = s.at;
+            }
+
+            // Stamps flash in inverse for 140 ms, then settle.
+            static int8_t ok_mode[4] = {-1, -1, -1, -1};
+            for (int i = 0; i < 4; i++) {
+              if (!(fired & (1u << (i + 2)))) continue;
+              const int8_t mode = e - ok_at[i] < 140 ? 1 : 0;
+              if (mode == ok_mode[i]) continue;
+              ok_mode[i] = mode;
+              const lv_color_t settled = i == 3 ? accent : lv_color_hex(${tab5_color_text_secondary});
+              inverse(oks[i], mode == 1, accent, mode == 1 ? ink : settled);
+              lv_obj_set_style_pad_hor(oks[i], mode == 1 ? 4 : 0, LV_PART_MAIN);
+            }
+
+            // Badge: outline for 70 ms after its hit, then solid.
+            static int8_t badge_mode = -1;
+            if (fired & (1u << 2)) {
+              const int8_t mode = e - 1191 < 70 ? 0 : 1;
+              if (mode != badge_mode) {
+                badge_mode = mode;
+                inverse(id(obj_boot_badge), mode == 1, accent, accent);
+                lv_obj_set_style_text_color(id(lbl_boot_badge), mode == 1 ? ink : accent, LV_PART_MAIN);
+              }
+            }
+
+            // Segmented progress: one 10% segment snaps on every 45 ms toward the target.
+            const int segs = std::min<int32_t>((e - prog_at) / 45 + 1, 10);
+            const int pct = std::min(prog_to, prog_from + (prog_to > prog_from ? segs * 10 : 0));
+            if (pct != prog_shown) {
+              prog_shown = pct;
+              lv_bar_set_value(id(bar_splash_progress), pct, LV_ANIM_OFF);
+              lv_label_set_text_fmt(id(lbl_splash_percent), "%03d%%", pct);
+            }
+
+            // Title underline sweeps out after the latch.
+            static int32_t rule_shown = 0;
+            const int32_t rule = std::clamp<int32_t>((e - 415) * 476 / 160, 0, 476);
+            if (rule != rule_shown) lv_obj_set_width(id(obj_boot_title_rule), rule_shown = rule);
+
+            // Decode: every position shows changing symbols, then locks left to right.
+            static const char kNoise[] = "#%&*+<>/=0123456789";
+            for (size_t i = 0; i < std::size(decodes); i++) {
+              const Decode &d = decodes[i];
+              if (e < d.start) continue;
+              const uint32_t n = strlen(d.text);
+              const uint32_t locked = std::min<uint32_t>((e - d.start) / d.step_ms, n);
+              const uint32_t tick = (e - d.start) / 50;  // noise changes at 20 Hz
+              const uint16_t key = locked == n ? 0xFFFE : uint16_t(locked * 64 + tick % 64);
+              if (key == decoded[i]) continue;
+              decoded[i] = key;
+              char buf[40];
+              uint32_t k = 0;
+              for (; k < n && k < sizeof(buf) - 1; k++) {
+                const char c = d.text[k];
+                buf[k] = k < locked || c == ' ' ? c : kNoise[(k * 7 + tick * 13 + i * 5) % (sizeof(kNoise) - 1)];
+              }
+              buf[k] = '\0';
+              lv_label_set_text(d.label, buf);
+            }
+
+            // Typing: uneven per-character timing, normalized to char_ms on average.
+            size_t active = 0;
+            bool typing = false;
+            for (size_t i = 0; i < std::size(lines); i++) {
+              const Line &line = lines[i];
+              if (e < line.start) continue;
+              active = i;
+              const uint32_t n = strlen(line.text);
+              uint32_t weights[40], total = 0;
+              for (uint32_t c = 0; c < n; c++) {
+                weights[c] = line.text[c] == ' ' ? 45 : 60 + ((c * 37 + i * 11) % 9) * 10;
+                total += weights[c];
+              }
+              const uint32_t span = n * line.char_ms, elapsed = e - line.start;
+              uint32_t count = 0;
+              for (uint32_t acc = 0; count < n; count++) {
+                acc += weights[count];
+                if (acc * span / total > elapsed) break;
+              }
+              typing = count < n;
+              if (count != typed[i]) {
+                typed[i] = count;
+                char buf[40];
+                memcpy(buf, line.text, count);
+                buf[count] = '\0';
+                lv_label_set_text(line.label, buf);
+              }
+            }
+
+            // Block cursor follows the line being typed; solid while typing, blinking while waiting.
+            if (fired & (1u << 5)) {
+              lv_obj_add_flag(cursor, LV_OBJ_FLAG_HIDDEN);
+            } else {
+              lv_obj_t *label = lines[active].label;
+              const lv_font_t *font = lv_obj_get_style_text_font(label, LV_PART_MAIN);
+              lv_point_t size;
+              lv_text_get_size(&size, lv_label_get_text(label), font,
+                               lv_obj_get_style_text_letter_space(label, LV_PART_MAIN), 0, LV_COORD_MAX,
+                               LV_TEXT_FLAG_NONE);
+              const int32_t x = lv_obj_get_x(label) + size.x + (size.x > 0 ? 4 : 0);
+              const int32_t y = lv_obj_get_y(label) + 2;
+              const int32_t w = lv_font_get_glyph_width(font, 'M', 'M');
+              const int32_t h = lv_font_get_line_height(font) - 4;
+              static int32_t geometry[4] = {-1, -1, -1, -1};
+              if (geometry[0] != x || geometry[1] != y) lv_obj_set_pos(cursor, geometry[0] = x, geometry[1] = y);
+              if (geometry[2] != w || geometry[3] != h) lv_obj_set_size(cursor, geometry[2] = w, geometry[3] = h);
+              const bool on = typing || (e / 265) % 2 == 0;
+              if (on == lv_obj_has_flag(cursor, LV_OBJ_FLAG_HIDDEN)) {
+                if (on) lv_obj_remove_flag(cursor, LV_OBJ_FLAG_HIDDEN);
+                else lv_obj_add_flag(cursor, LV_OBJ_FLAG_HIDDEN);
+              }
+            }
+
+            if (e >= 3300) {
+              lv_timer_delete(self);
+              timer = nullptr;
+            }
+          }, 15, nullptr);
 
   - id: script_init_scan_images
     then:
@@ -4176,31 +5105,109 @@ script:
       focus: bool
     then:
       - lambda: |-
-          // Ordered from the neutral silhouette to the highest severity.
-          const lv_color_t colors[] = {
+          // Both palettes share the same severity and opacity levels.
+          const lv_color_t status_colors[] = {
             lv_color_hex(${tab5_color_text_inactive}),
             lv_color_hex(${tab5_color_status_cool}),
             lv_color_hex(${tab5_color_status_cold}),
             lv_color_hex(${tab5_color_status_warm}),
             lv_color_hex(${tab5_color_status_hot}),
           };
+          const lv_color_t humidity_colors[] = {
+            status_colors[0],
+            lv_color_hex(${tab5_color_humidity_humid}),
+            lv_color_hex(${tab5_color_humidity_very_humid}),
+            lv_color_hex(${tab5_color_humidity_dry}),
+            lv_color_hex(${tab5_color_humidity_very_dry}),
+          };
+          const auto palette_for = [&](int mode) {
+            return mode == 3 || mode == 16 ? humidity_colors : status_colors;
+          };
           const lv_opa_t opacities[] = {LV_OPA_30, LV_OPA_40, LV_OPA_40, LV_OPA_50, LV_OPA_60};
           static uint8_t severity_by_mode[27]{};
           if (color_mode < 0 || color_mode >= 27) return;
           const uint8_t previous = severity_by_mode[color_mode];
           uint8_t severity = 0;
-          for (uint8_t level = 1; level < sizeof(colors) / sizeof(colors[0]); ++level) {
-            if (lv_color_eq(color, colors[level])) {
+          const auto *palette = palette_for(color_mode);
+          for (uint8_t level = 1; level < sizeof(status_colors) / sizeof(status_colors[0]); ++level) {
+            if (lv_color_eq(color, palette[level])) {
               severity = level;
               break;
             }
           }
           const bool visible = lv_obj_has_flag(id(obj_splash), LV_OBJ_FLAG_HIDDEN) && !id(g_logs_visible);
           constexpr uint32_t trace_duration = 200;
-          uint32_t pulse_delay = 0;
+          if (!focus && previous == severity) return;
+          if (!focus) severity_by_mode[color_mode] = severity;
+          const bool new_warning = !focus && label && severity >= 3 && severity > previous;
+          // A label's background glow (opacity of its fill) has no lvgl_fx material, so it is a user tween.
+          const auto label_glow = +[](void *object, int32_t opacity) {
+            lv_obj_set_style_bg_opa(static_cast<lv_obj_t *>(object), opacity, LV_PART_MAIN);
+          };
+
+          const struct {
+            lv_obj_t *object;
+            std::initializer_list<int> modes;
+          } areas[] = {
+            {id(widget_img_scan_coolant), {5}},
+            {id(widget_img_scan_engine), {8, 9, 14, 26}},
+            {id(widget_img_scan_intake), {17}},
+            {id(widget_img_scan_battery), {7, 20}},
+            {id(widget_img_scan_transmission), {18, 24}},
+            {id(widget_img_scan_cabin), {2, 3}},
+            {id(widget_img_scan_cabin_windows), {12, 13}},
+            {id(widget_img_scan_fuel), {6}},
+            {id(widget_img_scan_bed), {15, 16}},
+          };
+          const auto update_area = [&](bool defer_to_trace) -> lv_obj_t * {
+            for (const auto &area : areas) {
+              if (std::find(area.modes.begin(), area.modes.end(), color_mode) == area.modes.end()) continue;
+              uint8_t highest = 0, old_highest = 0;
+              lv_color_t tint = status_colors[0], old_tint = status_colors[0];
+              for (const int mode : area.modes) {
+                const uint8_t level = severity_by_mode[mode];
+                const uint8_t old_level = mode == color_mode ? previous : level;
+                const auto *mode_palette = palette_for(mode);
+                if (level > highest) {
+                  highest = level;
+                  tint = mode_palette[level];
+                }
+                if (old_level > old_highest) {
+                  old_highest = old_level;
+                  old_tint = mode_palette[old_level];
+                }
+              }
+              const bool brighter_neutral = area.object == id(widget_img_scan_cabin) ||
+                                            area.object == id(widget_img_scan_fuel);
+              const lv_opa_t rest_opacity = highest == 0 && brighter_neutral
+                  ? static_cast<lv_opa_t>(112) : opacities[highest];
+              // A temperature and humidity tie can change the tint without changing severity.
+              const bool changed = highest != old_highest || !lv_color_eq(tint, old_tint);
+              const bool pulse = visible && (focus || (new_warning && (defer_to_trace || highest > old_highest)));
+              if (changed || pulse) {
+                fx::cancel_tween_effect(area.object);
+                fx::stop(area.object);
+                if (changed) fx::set_color(area.object, tint);
+                fx::set_image_opa(area.object, rest_opacity);
+              }
+              if (pulse && !defer_to_trace) fx::play(area.object, id(fx_scan_pulse));
+              if (visible && new_warning && label) {
+                lv_obj_set_style_bg_color(label, color, LV_PART_MAIN);
+                fx::TweenOpt glow;
+                glow.duration = 200;
+                glow.target = label;
+                glow.always = true;
+                fx::tween(label, label_glow, LV_OPA_10, LV_OPA_TRANSP, glow);
+              } else if (!focus && label && severity < previous) {
+                fx::cancel_tween(label, label_glow);
+                label_glow(label, LV_OPA_TRANSP);
+              }
+              return pulse && defer_to_trace ? area.object : nullptr;
+            }
+            return nullptr;
+          };
+          bool area_updated = false;
           if (!focus) {
-            if (previous == severity) return;
-            severity_by_mode[color_mode] = severity;
             lv_obj_t *leader = nullptr;
             uint8_t trace_index = 0;
             switch (color_mode) {
@@ -4264,7 +5271,7 @@ script:
               // Trace every colored status, including cool and cold.
               const bool show_leader = severity > 0;
               if (show_leader) {
-                lv_obj_set_style_line_color(leader, colors[severity], LV_PART_MAIN);
+                lv_obj_set_style_line_color(leader, color, LV_PART_MAIN);
                 lv_obj_set_style_line_opa(leader, LV_OPA_COVER, LV_PART_MAIN);
               }
               if (!trace.full) {
@@ -4285,102 +5292,33 @@ script:
                 lv_obj_move_foreground(leader);
               }
               if (show_leader != (previous > 0)) {
-                const bool interrupted = lv_anim_delete(&trace, draw);
-                const int32_t from = interrupted ? trace.progress : (show_leader ? 0 : 100);
-                const int32_t to = show_leader ? 100 : 0;
-                if (visible && from != to) {
-                  const uint32_t duration = show_leader ? trace_duration : 120;
-                  lv_anim_t motion;
-                  lv_anim_init(&motion);
-                  lv_anim_set_var(&motion, &trace);
-                  lv_anim_set_exec_cb(&motion, draw);
-                  lv_anim_set_values(&motion, from, to);
-                  lv_anim_set_duration(&motion, duration);
-                  lv_anim_set_path_cb(&motion, lv_anim_path_linear);
-                  if (!show_leader) {
-                    lv_anim_set_completed_cb(&motion, +[](lv_anim_t *anim) {
-                      auto &trace = *static_cast<LeaderTrace *>(anim->var);
-                      lv_obj_add_flag(trace.line, LV_OBJ_FLAG_HIDDEN);
-                      lv_line_set_points(trace.line, trace.full, trace.count);
-                    });
-                  }
-                  lv_anim_start(&motion);
-                  if (show_leader) {
-                    id(tab5_motion_visible)(leader, true, 0);
-                    pulse_delay = duration;
-                  }
+                // The route is drawn (or erased) by a user tween: it runs from the progress on screen, and is
+                // applied at once when motion is not allowed. Rest progress is 0 or 100.
+                fx::TweenOpt tween;
+                tween.duration = show_leader ? trace_duration : 120;
+                tween.curve = fx::Curve::LINEAR;
+                tween.target = leader;
+                tween.always = visible;
+                if (!show_leader) {
+                  tween.on_done = +[](void *state) {
+                    auto &trace = *static_cast<LeaderTrace *>(state);
+                    lv_obj_add_flag(trace.line, LV_OBJ_FLAG_HIDDEN);
+                    lv_line_set_points(trace.line, trace.full, trace.count);
+                  };
                 } else {
-                  id(tab5_motion_visible)(leader, show_leader, 0);
-                  draw(&trace, to);
+                  lv_obj_remove_flag(leader, LV_OBJ_FLAG_HIDDEN);
                 }
+                const bool defer = show_leader && visible && trace.progress != 100;
+                if (auto *image = update_area(defer)) {
+                  tween.completion_effect = id(fx_scan_pulse);
+                  tween.completion_target = image;
+                }
+                area_updated = true;
+                fx::tween(&trace, draw, trace.progress, show_leader ? 100 : 0, tween);
               }
             }
           }
-
-          const bool new_warning = !focus && label && severity >= 3 && severity > previous;
-          const auto image_opacity = +[](void *object, int32_t opacity) {
-            lv_obj_set_style_image_opa(static_cast<lv_obj_t *>(object), opacity, LV_PART_MAIN);
-          };
-          const auto label_glow = +[](void *object, int32_t opacity) {
-            lv_obj_set_style_bg_opa(static_cast<lv_obj_t *>(object), opacity, LV_PART_MAIN);
-          };
-          const auto pulse = [](lv_obj_t *object, lv_anim_exec_xcb_t apply, int32_t peak, int32_t rest,
-                                uint32_t duration, uint32_t delay = 0) {
-            lv_anim_delete(object, apply);
-            lv_anim_t animation;
-            lv_anim_init(&animation);
-            lv_anim_set_var(&animation, object);
-            lv_anim_set_exec_cb(&animation, apply);
-            lv_anim_set_values(&animation, peak, rest);
-            lv_anim_set_duration(&animation, duration);
-            lv_anim_set_delay(&animation, delay);
-            lv_anim_set_early_apply(&animation, delay == 0);
-            lv_anim_set_path_cb(&animation, lv_anim_path_ease_out);
-            lv_anim_start(&animation);
-          };
-
-          const struct {
-            lv_obj_t *object;
-            std::initializer_list<int> modes;
-          } areas[] = {
-            {id(widget_img_scan_coolant), {5}},
-            {id(widget_img_scan_engine), {8, 9, 14, 26}},
-            {id(widget_img_scan_intake), {17}},
-            {id(widget_img_scan_battery), {7, 20}},
-            {id(widget_img_scan_transmission), {18, 24}},
-            {id(widget_img_scan_cabin), {2, 3}},
-            {id(widget_img_scan_cabin_windows), {12, 13}},
-            {id(widget_img_scan_fuel), {6}},
-            {id(widget_img_scan_bed), {15, 16}},
-          };
-          for (const auto &area : areas) {
-            if (std::find(area.modes.begin(), area.modes.end(), color_mode) == area.modes.end()) continue;
-            uint8_t highest = 0, old_highest = 0;
-            for (const int mode : area.modes) {
-              highest = std::max(highest, severity_by_mode[mode]);
-              old_highest = std::max(old_highest, mode == color_mode ? previous : severity_by_mode[mode]);
-            }
-            const bool brighter_neutral = area.object == id(widget_img_scan_cabin) ||
-                                          area.object == id(widget_img_scan_fuel);
-            const lv_opa_t rest_opacity = highest == 0 && brighter_neutral
-                ? static_cast<lv_opa_t>(112) : opacities[highest];
-            if (highest != old_highest) {
-              lv_anim_delete(area.object, image_opacity);
-              lv_obj_set_style_image_recolor(area.object, colors[highest], LV_PART_MAIN);
-              image_opacity(area.object, rest_opacity);
-            }
-            if (visible && (focus || (new_warning && (pulse_delay || highest > old_highest)))) {
-              image_opacity(area.object, rest_opacity);
-              pulse(area.object, image_opacity, rest_opacity + LV_OPA_30, rest_opacity, 220, pulse_delay);
-            }
-            if (visible && new_warning && label) {
-              lv_obj_set_style_bg_color(label, color, LV_PART_MAIN);
-              pulse(label, label_glow, LV_OPA_10, LV_OPA_TRANSP, 200);
-            } else if (!focus && label && severity < previous && lv_anim_delete(label, label_glow)) {
-              label_glow(label, LV_OPA_TRANSP);
-            }
-            break;
-          }
+          if (!area_updated) update_area(false);
 
   - id: script_update_sensor_text
     parameters:
@@ -4391,11 +5329,8 @@ script:
       fade_ms: uint32_t
     then:
       - lambda: |-
-          struct Recovery {
-            lv_obj_t *seen_label;
-            lv_color_t color;
-          };
-          static Recovery readouts[27]{};
+          // Modes that have shown a real value since boot: only their next return from "--" flashes.
+          static bool seen[27]{};
           if (color_mode < 0 || color_mode >= 27) return;
           // Start large on every update; fit air-quality and signed slip values
           // beside their units, while preserving the trip's fixed-width box.
@@ -4426,32 +5361,20 @@ script:
             }
             lv_obj_set_style_text_font(label, selected, LV_PART_MAIN);
           }
-          auto &readout = readouts[color_mode];
-          const auto tint = +[](void *state, int32_t strength) {
-            const auto &readout = *static_cast<Recovery *>(state);
-            const auto fill = lv_color_mix(lv_color_white(), readout.color, strength);
-            lv_obj_set_style_text_color(readout.seen_label, fill, LV_PART_MAIN);
-          };
           const auto missing = [](const char *value) {
             return std::strcmp(value, "--") == 0 || std::strcmp(value, "--:--") == 0;
           };
           const bool valid = !missing(text.c_str());
-          const bool recovered = valid && readout.seen_label && missing(lv_label_get_text(label));
-          readout.color = color;
-          if (valid) readout.seen_label = label;
-          else lv_anim_delete(&readout, tint);
-          if (!lv_anim_get(&readout, tint)) lv_obj_set_style_text_color(label, color, LV_PART_MAIN);
-          id(tab5_motion_label_value)(label, text.c_str(), fade_ms);
-          if (!recovered || !lv_obj_has_flag(id(obj_splash), LV_OBJ_FLAG_HIDDEN) ||
-              id(g_logs_visible) || id(tab5_motion_notice_active)) return;
-          lv_anim_t motion;
-          lv_anim_init(&motion);
-          lv_anim_set_var(&motion, &readout);
-          lv_anim_set_exec_cb(&motion, tint);
-          lv_anim_set_values(&motion, LV_OPA_COVER, LV_OPA_TRANSP);
-          lv_anim_set_duration(&motion, 320);
-          lv_anim_set_path_cb(&motion, lv_anim_path_ease_in);
-          lv_anim_start(&motion);
+          const bool recovered = valid && seen[color_mode] && missing(lv_label_get_text(label));
+          if (valid) seen[color_mode] = true;
+          // The color changes at once; a recovery flash (below) rides on top of it.
+          fx::set_color(label, color);
+          // Only real values fade; a missing one ("--") is swapped in place. Callers pass 0 or 155 ms.
+          const char *previous = lv_label_get_text(label);
+          const bool both_valid = std::strcmp(previous, "--") != 0 && std::strcmp(text.c_str(), "--") != 0 &&
+                                  std::strcmp(previous, "-") != 0 && std::strcmp(text.c_str(), "-") != 0;
+          fx::set_text(label, text.c_str(), both_valid && fade_ms ? fx::Opt{} : fx::Opt{.transition = id(fx_text_now)});
+          if (recovered) fx::play(label, id(fx_recover));
 
   - id: script_render_readout
     parameters:
@@ -4467,7 +5390,7 @@ script:
           const auto text = id(fn_readout_text)(value, decimals);
           id(g_dashboard_samples)[color_mode] = std::isfinite(value) ? esphome::millis() : 0;
           id(script_render_scan_status).execute(color_mode, color, label, false);
-          const bool accented = id(tab5_motion_icon)(icon, color, color_mode, false);
+          const bool accented = id(fn_icon_accent)(icon, color, color_mode, false);
           id(script_update_sensor_text).execute(label, text, color, color_mode, accented ? 0 : fade_ms);
 
   - id: script_render_gauge
@@ -4486,9 +5409,13 @@ script:
           id(g_dashboard_samples)[color_mode] = std::isfinite(value) ? esphome::millis() : 0;
           id(script_render_scan_status).execute(color_mode, color, label, false);
           id(script_update_sensor_text).execute(label, text, color, color_mode, 0);
-          id(tab5_motion_bar)(bar, value, duration);
+          // Callers pass 200 (default glide), 220, 375, 400 ms or 0 (a missing value, which drops at once).
+          fx::set_value(bar, std::isfinite(value) ? std::trunc(value) : value,
+              {.transition = duration == 400 ? id(fx_bar_400) : duration == 375 ? id(fx_bar_375)
+                  : duration == 220 ? id(fx_bar_220) : id(fx_instrument),
+               .instant = !std::isfinite(value) || duration == 0});
           lv_obj_set_style_bg_color(bar, color, LV_PART_INDICATOR);
-          id(tab5_motion_icon)(icon, color, color_mode, force_accent);
+          id(fn_icon_accent)(icon, color, color_mode, force_accent);
 
   - id: script_calibrate_tilt
     parameters:
@@ -4510,7 +5437,7 @@ script:
             snprintf(value, sizeof(value), "%+.1f°", angle);
             id(script_logs).execute(axis + " calibrated to " + value);
           }
-          id(tab5_motion_outline)(button, 205);
+          fx::play(button, id(fx_glow_205));
           id(script_sound_play).execute(4);
 
   - id: script_confirm_tilt_zero
@@ -4529,7 +5456,7 @@ script:
       - lambda: |-
           const float angle = pitch ? id(id_device_pitch).state : id(id_device_roll).state;
           if (!id(g_logs_visible) && std::isfinite(angle) && std::abs(angle) <= 0.5f) {
-            id(tab5_motion_outline)(pitch ? id(btn_pitch) : id(btn_roll), 320);
+            fx::play(pitch ? id(btn_pitch) : id(btn_roll), id(fx_glow_320));
           }
 
   - id: script_open_update_menu
@@ -4548,8 +5475,8 @@ script:
       - lambda: |-
           if (!id(g_logs_visible) || !id(fn_service_allowed)()) return;
           id(g_service_setup) = setup;
-          id(tab5_motion_visible)(id(obj_service_logs), !setup, 0);
-          id(tab5_motion_visible)(id(obj_service_setup), setup, 0);
+          lv_obj_set_hidden(id(obj_service_logs), setup);
+          lv_obj_set_hidden(id(obj_service_setup), !setup);
           lv_label_set_text(id(lbl_service_title), setup ? "SYSTEM SETUP" : "SYSTEM JOURNAL");
           lv_label_set_text(id(lbl_service_subtitle), setup ? "시스템 설정" : "시스템 로그");
           lv_label_set_text(id(lbl_service_status), setup ? "> READY / SYSTEM SETUP" : "> READY / EVENT LOG");
@@ -4582,16 +5509,17 @@ script:
       - lambda: |-
           if (show && !id(fn_service_allowed)()) return;
           id(g_logs_visible) = show;
-          id(tab5_motion_visible)(id(obj_log), show, 175);
-          id(tab5_motion_visible)(id(btn_service_log_tab), show, 0);
-          id(tab5_motion_visible)(id(btn_service_setup_tab), show, 0);
+          // g_logs_visible suppresses motion, so the journal's own fade is forced.
+          fx::set_visible(id(obj_log), show, {.force = true});
+          lv_obj_set_hidden(id(btn_service_log_tab), !show);
+          lv_obj_set_hidden(id(btn_service_setup_tab), !show);
           lv_label_set_text(id(lbl_menu_toggle), show ? "BACK" : "MENU");
           if (show) {
-            id(tab5_motion_visible)(id(obj_jaalee_detail), false, 0);
-            id(script_select_service_tab).execute(id(g_service_setup));
+            fx::set_visible(id(obj_jaalee_detail), false);
+            id(script_select_service_tab).execute(true);
           } else {
-            id(tab5_motion_visible)(id(obj_restart_backdrop), false, 0);
-            id(tab5_motion_visible)(id(obj_restart_popup), false, 0);
+            fx::set_visible(id(obj_restart_backdrop), false);
+            fx::set_visible(id(obj_restart_popup), false);
           }
 
   - id: script_sync_service_ui
@@ -4604,11 +5532,11 @@ script:
           } else {
             lv_obj_add_state(menu, LV_STATE_DISABLED);
             if (id(g_logs_visible)) id(script_set_service_visible).execute(false);
-            if (id(g_alert_is_update)) id(tab5_motion_visible)(id(popup_alert), false, 0);
-            id(tab5_motion_visible)(id(obj_jaalee_detail), false, 0);
+            if (id(g_alert_is_update)) fx::set_visible(id(popup_alert), false);
+            fx::set_visible(id(obj_jaalee_detail), false);
           }
 
-          id(tab5_motion_visible)(id(lbl_update_badge), !id(g_logs_visible) && id(g_update_available), 0);
+          lv_obj_set_hidden(id(lbl_update_badge), id(g_logs_visible) || !id(g_update_available));
 
   - id: script_jaalee_detail
     mode: restart
@@ -4632,9 +5560,9 @@ script:
             lv_label_set_text_fmt(id(lbl_jaalee_age), seconds < 60 ? "마지막 수신 %u초 전" : "마지막 수신 %u분 전",
                                   static_cast<unsigned>(seconds < 60 ? seconds : seconds / 60));
           }
-          id(tab5_motion_visible)(id(obj_jaalee_detail), true, 130);
+          fx::set_visible(id(obj_jaalee_detail), true);
       - delay: 4s
-      - lambda: id(tab5_motion_visible)(id(obj_jaalee_detail), false, 0);
+      - lambda: fx::set_visible(id(obj_jaalee_detail), false);
 
   - id: script_logs
     parameters:
@@ -4651,7 +5579,7 @@ script:
             tag = "[LINK] ";
           } else if (log.starts_with("Pitch") || log.starts_with("Roll") || log.starts_with("Jaalee ")) {
             tag = "[SENS] ";
-          } else if (id(tab5_motion_notice_active) && log.starts_with("ALERT: ") && log != "ALERT: Dismissed") {
+          } else if (id(g_notice_active) && log.starts_with("ALERT: ") && log != "ALERT: Dismissed") {
             tag = "[WARN] ";
           }
           size_t length = std::min(log.size(), 127 - std::strlen(timestamp));
@@ -4700,7 +5628,7 @@ script:
             text += logs[i];
           }
           lv_label_set_text(id(lbl_log_text), text.c_str());
-          id(tab5_motion_visible)(id(lbl_log_text), !text.empty(), 0);
+          lv_obj_set_hidden(id(lbl_log_text), text.empty());
           auto *latest = id(lbl_log_latest_entry);
           if (logs.empty()) lv_label_set_text(latest, "아직 기록이 없습니다.");
           else lv_label_set_text_fmt(latest, "%03u  %s", static_cast<unsigned>(logs.size()), logs.back().c_str());
@@ -4711,7 +5639,7 @@ script:
           const bool scroll_animated = animate && bottom > 0;
           if (scroll_animated) id(g_log_highlight_pending) = true;
           lv_obj_scroll_to_y(view, lv_obj_get_scroll_y(view) + bottom, scroll_animated ? LV_ANIM_ON : LV_ANIM_OFF);
-          if (animate && !scroll_animated) id(tab5_motion_outline)(latest, 260);
+          if (animate && !scroll_animated) fx::play(latest, id(fx_glow_260));
   - id: script_check_update
     # Single mode keeps manual checks serialized until success, error or timeout.
     then:
@@ -4722,12 +5650,13 @@ script:
             - lambda: |-
                 id(g_checking) = true;
                 id(ota_update).status_clear_error();
+                lv_label_set_text(id(lbl_menu_latest_ver), "확인 중...");
+                lv_obj_set_style_text_color(id(lbl_menu_latest_ver), lv_color_hex(${tab5_color_text_muted}), LV_PART_MAIN);
                 id(script_logs).execute("Checking for update...");
             - lvgl.label.update:
                 id: lbl_btn_menu_update
-                text: "확인 중..."
                 text_color: "${tab5_color_text_muted}"
-            - lambda: id(tab5_motion_fade)(id(lbl_btn_menu_update), 208, LV_OPA_COVER, 80);
+            - lvgl_fx.set: { id: lbl_btn_menu_update, text: "확인 중...", transition: fx_text_80 }
             - update.check: ota_update
             - wait_until:
                 condition:
@@ -4773,7 +5702,7 @@ script:
           text: !lambda |-
             if (!available) return id(ota_update).state == update::UPDATE_STATE_NO_UPDATE
                 ? std::string("최신 버전") : std::string("미확인");
-            return latest_ver.empty() ? "새 버전 있음" : latest_ver;
+            return latest_ver.empty() ? std::string("새 버전 있음") : "새 버전 " + latest_ver;
           text_color: !lambda 'return lv_color_hex(available ? ${tab5_color_accent} : ${tab5_color_status_ok});'
       - lvgl.widget.update:
           id: btn_menu_update
@@ -4785,10 +5714,9 @@ script:
             bg_color: !lambda 'return lv_color_hex(available ? ${tab5_color_status_ok} : ${tab5_color_button_pressed});'
       - lvgl.label.update:
           id: lbl_btn_menu_update
-          text: !lambda 'return available ? std::string("업데이트 실행") : std::string("업데이트 확인");'
           text_color: !lambda 'return lv_color_hex(available ? ${tab5_color_background} : ${tab5_color_text_primary});'
       - lambda: |-
-          id(tab5_motion_fade)(id(lbl_btn_menu_update), 208, LV_OPA_COVER, 155);
+          fx::set_text(id(lbl_btn_menu_update), available ? "업데이트 실행" : "업데이트 확인");
           if (available) id(script_logs).execute("Update Available: " + latest_ver);
   - id: script_ota_refresh
     then:
@@ -4871,6 +5799,98 @@ script:
           id(lvgl_ui).set_paused(id(g_ota_lvgl_was_paused), false);
           id(g_ota_ui_active) = false;
 
+  # ESP32-C6 co-processor update. Reuses the firmware update overlay.
+  - id: script_c6_check
+    then:
+      - if:
+          condition:
+            wifi.connected:
+          then:
+            - lambda: |-
+                lv_label_set_text(id(lbl_btn_c6_update), "확인 중...");
+                lv_label_set_text(id(lbl_c6_latest_ver), "확인 중...");
+                lv_obj_set_style_text_color(id(lbl_c6_latest_ver), lv_color_hex(${tab5_color_text_muted}), LV_PART_MAIN);
+                id(script_logs).execute("Checking C6 firmware...");
+            # Let the label draw before the manifest request blocks the loop.
+            - delay: 50ms
+            - update.check: c6_update
+            - script.execute: script_c6_update_label
+            - lambda: |-
+                if (id(c6_update).status_has_error()) {
+                  id(script_sound_play).execute(7);
+                }
+          else:
+            - lambda: |-
+                lv_label_set_text(id(lbl_c6_latest_ver), "연결 없음");
+                lv_obj_set_style_text_color(id(lbl_c6_latest_ver), lv_color_hex(${tab5_color_status_warm}), LV_PART_MAIN);
+                id(script_sound_play).execute(7);
+
+  - id: script_c6_perform
+    then:
+      - if:
+          condition:
+            lambda: 'return id(c6_update).state == update::UPDATE_STATE_AVAILABLE;'
+          then:
+            - lambda: id(script_logs).execute("C6 Update Triggered...");
+            - update.perform: c6_update
+          else:
+            - script.execute: script_c6_update_label
+
+  - id: script_c6_update_label
+    then:
+      - lambda: |-
+          const auto &u = *id(c6_update);
+          const bool available = u.state == update::UPDATE_STATE_AVAILABLE;
+          const auto &current = u.update_info.current_version;
+          lv_label_set_text_fmt(id(lbl_c6_curr_ver), "현재 %s",
+              current.empty() || current == "unknown" ? "--" : current.c_str());
+          std::string status = "미확인";
+          uint32_t status_color = ${tab5_color_text_muted};
+          if (id(c6_update).status_has_error()) {
+            status = "확인 실패";
+            status_color = ${tab5_color_status_warm};
+          } else if (available) {
+            status = "새 버전 " + u.update_info.latest_version;
+            status_color = ${tab5_color_accent};
+          } else if (u.state == update::UPDATE_STATE_NO_UPDATE) {
+            status = "최신 버전";
+            status_color = ${tab5_color_status_ok};
+          }
+          lv_label_set_text(id(lbl_c6_latest_ver), status.c_str());
+          lv_obj_set_style_text_color(id(lbl_c6_latest_ver), lv_color_hex(status_color), LV_PART_MAIN);
+          lv_label_set_text(id(lbl_btn_c6_update), available ? "업데이트 실행" : "업데이트 확인");
+          lv_obj_set_style_text_color(id(lbl_btn_c6_update),
+              lv_color_hex(available ? ${tab5_color_background} : ${tab5_color_text_primary}), LV_PART_MAIN);
+          lv_obj_set_style_bg_color(id(btn_c6_update),
+              lv_color_hex(available ? ${tab5_color_accent} : ${tab5_color_button_bg}), LV_PART_MAIN);
+          lv_obj_set_style_bg_opa(id(btn_c6_update), available ? LV_OPA_COVER : LV_OPA_TRANSP, LV_PART_MAIN);
+          lv_obj_set_style_bg_color(id(btn_c6_update),
+              lv_color_hex(available ? ${tab5_color_status_ok} : ${tab5_color_button_pressed}), LV_PART_MAIN | LV_STATE_PRESSED);
+
+  - id: script_c6_ota_begin
+    then:
+      - script.execute: script_ota_prepare
+      - lambda: |-
+          lv_label_set_text(id(lbl_ota_title), "CO-PROCESSOR UPDATE");
+          lv_label_set_text(id(lbl_ota_phase), "DOWNLOADING + WRITING ESP32-C6...");
+          lv_label_set_text(id(lbl_ota_percent), "C6");
+          lv_label_set_text(id(lbl_ota_hint), "WI-FI / BLE PAUSED. DO NOT INTERRUPT POWER.");
+          // No progress is reported during the install; show a full dim bar instead.
+          lv_bar_set_value(id(bar_ota_progress), 100, LV_ANIM_OFF);
+          lv_obj_set_style_bg_color(id(bar_ota_progress), lv_color_hex(${tab5_color_gauge_track}), LV_PART_INDICATOR);
+          id(script_logs).execute("C6 update started: " + id(c6_update).update_info.latest_version);
+      - script.execute: script_ota_refresh
+
+  - id: script_c6_ota_done
+    then:
+      - lambda: |-
+          lv_obj_set_style_bg_color(id(bar_ota_progress), lv_color_hex(${tab5_color_accent}), LV_PART_INDICATOR);
+          lv_label_set_text(id(lbl_ota_percent), "100%");
+          lv_label_set_text(id(lbl_ota_phase), "C6 COMPLETE // RESTARTING...");
+          lv_label_set_text(id(lbl_ota_hint), "SYSTEM RESTART IN PROGRESS...");
+          id(script_logs).execute("C6 update complete; restarting");
+      - script.execute: script_ota_refresh
+
   - id: script_perform_update
     then:
       - if:
@@ -4942,16 +5962,6 @@ ota:
 
 
 packages:
-  tab5_audio:
-    url: https://github.com/eigger/espcomponents.git
-    file: packages/display/colorado/colorado-tab5-audio.yaml
-    ref: master
-    refresh: 0s
-  tab5_common:
-    url: https://github.com/eigger/espcomponents.git
-    file: packages/display/tab5_common.yaml
-    ref: master
-    refresh: 0s
   esphome_ota:
     substitutions:
       ota_base_url: !secret esphome_ota_base_url
@@ -4959,7 +5969,7 @@ packages:
     esphome:
       project:
         name: "eigger.esp-colorado-tab5-fallout"
-        version: "261117.7"
+        version: "261119.3"
     http_request:
       timeout: 60s
 
