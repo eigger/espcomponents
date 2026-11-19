@@ -9,7 +9,7 @@ namespace lvgl_fx {
 
 static const char *const TAG = "lvgl_fx";
 
-// Track math (DESIGN.md 4.3, 7.1, 8.2).  Rules every track follows: input is the definition, the time into the effect
+// Track math.  Rules every track follows: input is the definition, the time into the effect
 // and the intensity; output is an offset merged into `out`; the widget is never touched; the offset is zero before
 // the track's delay and from its end on; integer math only, no allocation.
 

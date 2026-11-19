@@ -1,6 +1,6 @@
 #pragma once
 
-// lvgl_fx: motion for ESPHome LVGL dashboards.  See DESIGN.md.
+// lvgl_fx: motion for ESPHome LVGL dashboards.  See README.md.
 //
 // Everything runs on the main loop thread (lv_timer_handler and ESPHome loop share it), so there is no locking.
 
@@ -21,7 +21,7 @@ namespace lvgl_fx {
 enum class Prop : uint8_t { VISIBLE, OPACITY, VALUE, TEXT, COLOR, POSITION, ROTATION, COUNT };
 constexpr size_t PROP_COUNT = static_cast<size_t>(Prop::COUNT);
 
-// Transition styles (4.2.1).  Which style applies where: VISIBLE fade / slide_* / zoom / none, TEXT fade / roll /
+// Transition styles.  Which style applies where: VISIBLE fade / slide_* / zoom / none, TEXT fade / roll /
 // count / none; everything else is ignored for a property (a text entry asking for slide_* behaves as fade).
 enum class Style : uint8_t { DEFAULT, NONE, FADE, SLIDE_UP, SLIDE_DOWN, SLIDE_LEFT, SLIDE_RIGHT, ZOOM, ROLL, COUNT };
 
@@ -64,7 +64,7 @@ struct Opt {
   bool force = false;                  // ignore policy suppression (boot sequences)
 };
 
-// Motion tokens (4.1).  Runtime-changeable, e.g. `fx::motion().intensity = 0.6f;`.
+// Motion tokens.  Runtime-changeable, e.g. `fx::motion().intensity = 0.6f;`.
 struct Motion {
   uint16_t fast = 120;
   uint16_t normal = 200;
@@ -94,10 +94,10 @@ struct Core {
   Slot *slots = nullptr;
   Slot *last_hit = nullptr;
   TransitionRef defaults = nullptr;  // overrides BUILTIN_TRANSITIONS per property (P4 `transitions.defaults`)
-  EffectOptions effect_defaults;     // `effect_defaults:` (4.4)
+  EffectOptions effect_defaults;     // `effect_defaults:`
   const Track *presets[BUILTIN_COUNT] = {};  // `presets:` per built-in effect, indexed by EffectDef::builtin - 1
   uint32_t intensity_q8 = LV_SCALE_NONE;     // motion().intensity as sampled when the last effect started
-  uint8_t watching = 0;             // slots with a deferred effect or a loop on: LvglFx::loop() has work (5)
+  uint8_t watching = 0;             // slots with a deferred effect or a loop on: LvglFx::loop() has work
   Component *owner = nullptr;       // the component, to wake its loop()
 };
 Core &core();
@@ -107,7 +107,7 @@ Slot *find_slot(lv_obj_t *obj);
 // Find or create the slot of a target.  nullptr when the pool is full: callers then apply the final state instantly.
 Slot *acquire_slot(lv_obj_t *obj);
 
-// Policy building blocks (5): the hidden test walks the ancestors; `suppress_when` is cached per main-loop iteration.
+// Policy building blocks: the hidden test walks the ancestors; `suppress_when` is cached per main-loop iteration.
 bool target_hidden(lv_obj_t *obj, bool check_self);
 bool suppressed();
 
@@ -172,7 +172,7 @@ void service_effects();
 
 }  // namespace detail
 
-// ---- C++ API (3.2) -------------------------------------------------------------------------------------------------
+// ---- C++ API -------------------------------------------------------------------------------------------------
 
 // Transitions: pass a value, the motion comes from the definition.  The final state is always exact, whatever the
 // policy decides.
@@ -190,7 +190,7 @@ void set_y(lv_obj_t *obj, int32_t y, Opt opt = {});
 // transform rotation of any widget.  Non-finite: instantly 0.  Mind transform_pivot.
 void set_rotation(lv_obj_t *obj, float degrees, Opt opt = {});
 
-// Effects: pass an effect.  The only call-site override is `opt.force` (4.4); `opt.transition` is ignored.
+// Effects: pass an effect.  The only call-site override is `opt.force`; `opt.transition` is ignored.
 void play(lv_obj_t *obj, EffectRef effect, Opt opt = {});
 
 // Stop all motion on a target and snap to the final state: transitions to their target value, effects to rest.
@@ -218,7 +218,7 @@ inline void play(lvgl::LvCompound *w, EffectRef effect, Opt opt = {}) { play(w->
 inline void stop(lvgl::LvCompound *w) { stop(w->obj); }
 inline void stop(lvgl::LvCompound *w, EffectRef effect) { stop(w->obj, effect); }
 
-// ---- user channel (8.1) --------------------------------------------------------------------------------------------
+// ---- user channel --------------------------------------------------------------------------------------------
 
 struct TweenOpt {
   uint32_t duration = 0;               // ms; 0 = motion().normal

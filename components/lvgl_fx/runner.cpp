@@ -9,7 +9,7 @@ namespace lvgl_fx {
 
 static const char *const TAG = "lvgl_fx";
 
-// Effect runner (DESIGN.md 4.4, 4.4.1, 5, 7.1, 7.2).
+// Effect runner.
 //
 // One lv_anim per running instance: it counts ms from 0 to the effect length and every track cuts its own
 // delay/duration/curve slice out of that time (effect_contribute).  A target has one one-shot and one loop.  The
@@ -23,7 +23,7 @@ using detail::core;
 
 // ---- options -------------------------------------------------------------------------------------------------------
 
-// An effect's options with unset fields resolved against the global defaults (4.4).
+// An effect's options with unset fields resolved against the global defaults.
 struct Options {
   bool ignore_retrigger;
   bool defer;
@@ -102,7 +102,7 @@ void exec_loop(void *var, int32_t v) {
   compose(*slot, slot->loop.state);
 }
 
-// The effect's tracks take ownership of the properties they drive (6).  A target has one color channel: a flash moves
+// The effect's tracks take ownership of the properties they drive.  A target has one color channel: a flash moves
 // it to its own style property unless something else drives it (a color transition, or the other effect instance,
 // `other_state`), in which case it uses the busy channel.
 void own_effect(Slot &slot, const EffectDef &def, uint8_t mask, uint8_t other_state) {
@@ -138,7 +138,7 @@ void own_effect(Slot &slot, const EffectDef &def, uint8_t mask, uint8_t other_st
   }
 }
 
-// One lv_anim counting 0..length ms (7.1).  False when LVGL could not allocate it.
+// One lv_anim counting 0..length ms.  False when LVGL could not allocate it.
 bool start_instance_anim(Slot &slot, lv_anim_exec_xcb_t exec, uint32_t length, uint16_t repeat, uint16_t repeat_delay,
                          lv_anim_completed_cb_t done) {
   lv_anim_t anim;
@@ -177,7 +177,7 @@ void one_shot_done(lv_anim_t *anim) {
   if (def != nullptr) detail::play_then(slot->obj, def->then);
 }
 
-// Replaces whatever one-shot is running (7.2): the old offsets drop, the new one starts at time 0.
+// Replaces whatever one-shot is running: the old offsets drop, the new one starts at time 0.
 void begin_one_shot(Slot &slot, const EffectDef &def, const Options &o, uint32_t length) {
   sample_intensity();
   const uint8_t previous = slot.one_shot.state;
@@ -196,7 +196,7 @@ void begin_one_shot(Slot &slot, const EffectDef &def, const Options &o, uint32_t
 
 // ---- loop ----------------------------------------------------------------------------------------------------------
 
-// The loop stays on but rests: offsets zero, the animation gone.  It resumes from phase 0 (5).
+// The loop stays on but rests: offsets zero, the animation gone.  It resumes from phase 0.
 void rest_loop(Slot &slot) {
   lv_anim_delete(&slot, exec_loop);
   const uint8_t mask = slot.loop.state;
@@ -230,7 +230,7 @@ void begin_loop(Slot &slot, const EffectDef &def, const Options &o, uint32_t len
 
 enum class Verdict : uint8_t { OK, DROP, SUPPRESSED };
 
-// Rows 1-4 of the policy table (5), cheapest first.  Rows 1-3 never defer; row 4 only when the effect is not `always`.
+// Rows 1-4 of the policy table, cheapest first.  Rows 1-3 never defer; row 4 only when the effect is not `always`.
 Verdict judge(lv_obj_t *obj, bool always) {
   const detail::Core &c = core();
   if (!c.enabled || c.reduced_motion || !c.ready) return Verdict::DROP;
@@ -282,7 +282,7 @@ void play_one_shot(lv_obj_t *obj, const EffectDef &def, const Options &o, uint32
 void play_loop(lv_obj_t *obj, const EffectDef &def, const Options &o, uint32_t length, bool force) {
   Slot *slot = detail::find_slot(obj);
   if (slot != nullptr && (slot->flags & SLOT_LOOP_ON) && slot->loop.def == &def) {
-    // Already on: playing it again does nothing (4.4.1) - except that `force` starts a resting loop.
+    // Already on: playing it again does nothing - except that `force` starts a resting loop.
     if (force) slot->flags |= SLOT_LOOP_FORCE;  // from now on policy cannot pause it
     if (!force || !(slot->flags & SLOT_LOOP_PAUSED)) return;
   } else if (slot == nullptr) {
@@ -304,7 +304,7 @@ void play_loop(lv_obj_t *obj, const EffectDef &def, const Options &o, uint32_t l
     slot->flags |= SLOT_LOOP_PAUSED;
 }
 
-// ---- loop() work (5) -----------------------------------------------------------------------------------------------
+// ---- loop() work -----------------------------------------------------------------------------------------------
 
 void service_deferred(Slot &slot) {
   const EffectDef *def = slot.deferred;

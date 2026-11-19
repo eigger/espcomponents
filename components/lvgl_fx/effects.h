@@ -1,6 +1,6 @@
 #pragma once
 
-// Effect definitions (DESIGN.md 4.3, 4.4) and the per-track frame math (7.1, 8.2).
+// Effect definitions and the per-track frame math.
 //
 // An effect is a const table: an array of tracks plus options.  P4 codegen emits these tables into flash; every field
 // has an "unset" default, so a generated definition only lists what the YAML says (designated initializers, in
@@ -28,7 +28,7 @@ enum class Curve : uint8_t { LINEAR, EASE_IN, EASE_OUT, EASE_IN_OUT, DEFAULT };
 
 // LVGL path callback for a curve (used for lv_anim based motion).
 lv_anim_path_cb_t curve_path(Curve curve);
-// Integer curve evaluation for runners that cut sub-ranges out of one lv_anim (7.1).  t and the result are in
+// Integer curve evaluation for runners that cut sub-ranges out of one lv_anim.  t and the result are in
 // [0, LV_BEZIER_VAL_MAX]; same control points as lv_anim_path_*.
 int32_t curve_step(Curve curve, int32_t t);
 
@@ -39,7 +39,7 @@ constexpr uint16_t DUR_FAST = 0xFFFD;
 constexpr uint16_t DUR_NORMAL = 0xFFFE;
 constexpr uint16_t DUR_SLOW = 0xFFFF;
 
-// ---- tracks (4.3) ---------------------------------------------------------------------------------------------------
+// ---- tracks ---------------------------------------------------------------------------------------------------
 
 enum class TrackKind : uint8_t { PULSE, NUDGE, SHAKE, FLASH, GLOW, BLINK, COUNT };
 
@@ -53,7 +53,7 @@ constexpr uint8_t UNSET_U8 = 0xFF;
 constexpr int32_t UNSET_COLOR = -1;  // otherwise 0xRRGGBB
 
 // One material moving one property.  Every motion is an offset that is zero before `delay` and again once `duration`
-// has elapsed (6); fields apply to the kinds noted, the others ignore them.
+// has elapsed; fields apply to the kinds noted, the others ignore them.
 struct Track {
   TrackKind kind;
   Curve curve = Curve::DEFAULT;       // all: shapes the track's own time (linear when unset)
@@ -71,13 +71,13 @@ struct Track {
   uint8_t opacity = UNSET_U8;         // glow: peak outline opacity in percent (50); blink: lowest opacity (30)
 };
 
-// ---- effects (4.3, 4.4) ---------------------------------------------------------------------------------------------
+// ---- effects ---------------------------------------------------------------------------------------------
 
 enum class Retrigger : uint8_t { DEFAULT, RESTART, IGNORE };
 enum class WhenSuppressed : uint8_t { DEFAULT, SKIP, DEFER };
 enum class EffectPolicy : uint8_t { DEFAULT, NORMAL, ALWAYS };  // ALWAYS ignores `suppress_when`
 
-constexpr uint16_t REPEAT_INFINITE = 0xFFFF;  // a loop: "on" until stopped (4.4.1)
+constexpr uint16_t REPEAT_INFINITE = 0xFFFF;  // a loop: "on" until stopped
 
 struct EffectDef;
 using EffectRef = const EffectDef *;
@@ -154,7 +154,7 @@ uint8_t effect_glow_peak(const EffectDef &def);
 // Property of the first flash track, preset-resolved (AUTO when there is none).
 FlashProp effect_flash_property(const EffectDef &def);
 // Add the offsets of every track at `time_ms` into the effect to `out`.  `intensity_q8` is the motion intensity in
-// Q8 (256 = 1.0).  Integer math only, no allocation; zero before a track's delay and from its end on (6).
+// Q8 (256 = 1.0).  Integer math only, no allocation; zero before a track's delay and from its end on.
 void effect_contribute(const EffectDef &def, uint32_t time_ms, uint32_t intensity_q8, Offsets &out);
 
 }  // namespace lvgl_fx

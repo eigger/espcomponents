@@ -3,7 +3,7 @@
 namespace esphome {
 namespace lvgl_fx {
 
-// Built-in per-property transitions (DESIGN.md 4.2).  Same const-table format that P4 codegen emits for user
+// Built-in per-property transitions.  Same const-table format that P4 codegen emits for user
 // definitions, so the runtime has a single resolution path.  These are the last level of the fallback chain, so every
 // field a property uses is set here (duration, curve, style, and the style parameters of the property).
 namespace {
@@ -29,7 +29,7 @@ const PropTransition ROTATION = {.duration = DUR_NORMAL, .delay = 0, .curve = Cu
 const TransitionDef BUILTIN_TRANSITIONS = {{&VISIBLE, &OPACITY, &VALUE, &TEXT, &COLOR, &POSITION, &ROTATION},
                                             nullptr};
 
-// Built-in effects (4.3): one material each, every magnitude left unset so it resolves against the material's built-in
+// Built-in effects: one material each, every magnitude left unset so it resolves against the material's built-in
 // value and the effect's preset (set_preset).  The nudges move 4 px, which the design does not specify.
 namespace {
 

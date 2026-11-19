@@ -13,7 +13,7 @@ namespace lvgl_fx {
 static const char *const TAG = "lvgl_fx";
 
 #if INTPTR_MAX == INT32_MAX
-// DESIGN.md 7.3 budgets the per-target slot (measured: 68 bytes on the 32-bit targets); keep it from creeping up
+// Per-target slot budget (measured: 68 bytes on the 32-bit targets); keep it from creeping up
 // unnoticed.
 static_assert(sizeof(Slot) <= 68, "lvgl_fx::Slot grew past its size budget");
 #endif
@@ -26,7 +26,7 @@ namespace detail {
 static Core g_core;
 Core &core() { return g_core; }
 
-// Allocated once (7.3), never per frame.  PSRAM first when asked for, with the allocator's internal fallback.
+// Allocated once, never per frame.  PSRAM first when asked for, with the allocator's internal fallback.
 static bool ensure_pool(Core &c) {
   if (c.slots != nullptr) return true;
   if (c.pool_failed) return false;  // already logged once; callers fall back to instant application
@@ -112,7 +112,7 @@ bool suppressed() {
   return c.suppress_cached;
 }
 
-// Rows 1-4 of the policy table, cheapest first so the lambda only runs when everything else says "animate" (7.4).
+// Rows 1-4 of the policy table, cheapest first so the lambda only runs when everything else says "animate".
 bool transition_allowed(lv_obj_t *obj, bool check_self_hidden, const Opt &opt) {
   const Core &c = g_core;
   if (opt.force) return true;
@@ -251,7 +251,7 @@ bool start_anim(void *var, lv_anim_exec_xcb_t exec, int32_t from, int32_t to, ui
   return lv_anim_start(&anim) != nullptr;
 }
 
-// `then` (4.2): when a transition finishes, its effect plays on the same target.  The anim's user_data carries the
+// `then`: when a transition finishes, its effect plays on the same target.  The anim's user_data carries the
 // TransitionDef (nullptr = nothing to play).
 void *then_of(const Opt &opt) {
   return (opt.transition != nullptr && opt.transition->then != nullptr) ? const_cast<TransitionDef *>(opt.transition)
@@ -301,7 +301,7 @@ using detail::ResolvedTransition;
 static void slotless_done(lv_anim_t *anim) { run_then(static_cast<lv_obj_t *>(anim->var), anim->user_data); }
 
 // Slot-less transition of an integer property of the widget itself (value, x, y): no base/offset composition is
-// needed, and the widget's own getter is the base value, so external changes cannot desynchronize it (6).
+// needed, and the widget's own getter is the base value, so external changes cannot desynchronize it.
 static void move_slotless(lv_obj_t *obj, lv_anim_exec_xcb_t exec, Prop prop, int32_t from, int32_t to,
                           int32_t final_value, bool instant, const Opt &opt) {
   const ResolvedTransition t = resolve(opt.transition, prop);
@@ -330,8 +330,8 @@ static void finish_hide(Slot *slot) {
   // Restore the shown opacity before hiding (an external un-hide then shows it as set); the next set_visible(true)
   // fades in from 0.
   slot->base_opa = slot->visible_opa;
-  // Slide/zoom exit offsets go back to 0 together with HIDDEN: the target is invisible, so the jump cannot be seen
-  // (6).  Everything is settled before the flag changes, so an event handler may call set_visible(true) re-entrantly.
+  // Slide/zoom exit offsets go back to 0 together with HIDDEN: the target is invisible, so the jump cannot be seen.
+  // Everything is settled before the flag changes, so an event handler may call set_visible(true) re-entrantly.
   const uint8_t offsets = instance_props(slot->vis);
   slot->vis = Instance{};
   compose(*slot, static_cast<uint8_t>(PROP_OPA | offsets));
@@ -374,7 +374,7 @@ void set_visible(lv_obj_t *obj, bool shown, Opt opt) {
   const bool hidden = lv_obj_is_hidden(obj);
   Slot *slot = find_slot(obj);
   const bool hiding = slot != nullptr && (slot->flags & SLOT_HIDING);
-  // Already there (or on the way): nothing to do, and a running transition keeps going (7.4).
+  // Already there (or on the way): nothing to do, and a running transition keeps going.
   if (shown ? (!hidden && !hiding) : (hidden || hiding)) return;
 
   if (slot == nullptr) slot = acquire_slot(obj);
@@ -448,7 +448,7 @@ void set_opacity(lv_obj_t *obj, lv_opa_t opa, Opt opt) {
     slot->visible_opa = opa;
     return;
   }
-  if (lv_obj_is_hidden(obj)) {  // not shown: remember it for the next show (6)
+  if (lv_obj_is_hidden(obj)) {  // not shown: remember it for the next show
     slot->visible_opa = slot->base_opa = opa;
     compose(*slot, PROP_OPA);
     instant_then(obj, opt);
@@ -494,7 +494,7 @@ static void set_ranged(lv_obj_t *obj, lv_anim_exec_xcb_t exec, int32_t current, 
   const bool finite = std::isfinite(value);
   const float clamped = std::clamp(value, static_cast<float>(lo), static_cast<float>(hi));
   const int32_t target = finite ? static_cast<int32_t>(std::lround(clamped)) : lo;
-  // Same as the running target, or same as the current value with nothing running: nothing to do (7.4).
+  // Same as the running target, or same as the current value with nothing running: nothing to do.
   const lv_anim_t *running = lv_anim_get(obj, exec);
   if (running != nullptr ? running->end_value == target : current == target) return;
   move_slotless(obj, exec, Prop::VALUE, current, target, target, !finite, opt);
@@ -743,7 +743,7 @@ void LvglFx::setup() {
   detail::Core &c = detail::g_core;
   detail::ensure_pool(c);
   c.owner = this;
-  // loop() has work when suppress_when needs its per-iteration epoch (5, 7.4), or while there are deferred effects or
+  // loop() has work when suppress_when needs its per-iteration epoch, or while there are deferred effects or
   // loops to watch; fx::play() wakes it up otherwise.
   if (c.suppress_fn == nullptr && c.watching == 0) this->disable_loop();
 }

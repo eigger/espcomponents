@@ -2,7 +2,7 @@
 
 [Installation](#installation) · [Quick start](#quick-start) · [Configuration](#configuration) ·
 [Actions](#actions) · [C++ API](#c-api-for-lambdas) · [Policy](#policy) · [Caveats](#caveats) ·
-[Demo](example.yaml) · [Design notes](DESIGN.md)
+[Demo](example.yaml)
 
 Motion for ESPHome [LVGL](https://esphome.io/components/lvgl/) dashboards: fades, slides, counting numbers, pulses,
 shakes and glows, written the way CSS does it. You say *what* should change (`set` a value, `play` an effect) and the
