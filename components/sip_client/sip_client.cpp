@@ -14,6 +14,7 @@
 #include "sdp_builder.h"
 #include "sip_auth.h"
 #include "sip_transport_udp.h"
+#include "sip_transport_ws.h"
 
 namespace esphome {
 namespace sip_client {
@@ -24,7 +25,21 @@ static const char *const USER_AGENT = "ESPHome-sip_client";
 void SipClient::setup() {
   std::srand(micros());
   if (this->domain_.empty()) this->domain_ = this->server_;
-  this->transport_ = std::make_unique<UdpTransport>();
+#ifdef USE_SIP_CLIENT_WS
+  if (this->transport_kind_ != SIP_TRANSPORT_UDP) {
+    WsTransportConfig cfg;
+    cfg.tls = this->transport_kind_ == SIP_TRANSPORT_WSS;
+    cfg.path = this->ws_path_;
+    cfg.verify_ssl = this->verify_ssl_;
+    cfg.ca_certificate = this->ca_certificate_;
+    this->transport_ = std::make_unique<WsTransport>(cfg);
+  }
+#endif
+  if (!this->transport_) {
+    if (this->transport_kind_ != SIP_TRANSPORT_UDP)
+      ESP_LOGE(TAG, "WebSocket transport requested but not compiled in; falling back to UDP");
+    this->transport_ = std::make_unique<UdpTransport>();
+  }
 
 #ifdef USE_MICROPHONE
   if (this->mic_source_ != nullptr) {
@@ -39,6 +54,17 @@ void SipClient::setup() {
 void SipClient::dump_config() {
   ESP_LOGCONFIG(TAG, "SIP Client:");
   ESP_LOGCONFIG(TAG, "  Server: %s:%u", this->server_.c_str(), this->server_port_);
+  ESP_LOGCONFIG(TAG, "  Transport: %s",
+                this->transport_kind_ == SIP_TRANSPORT_WSS ? "wss"
+                : this->transport_kind_ == SIP_TRANSPORT_WS ? "ws"
+                                                            : "udp");
+  if (this->transport_kind_ != SIP_TRANSPORT_UDP) {
+    ESP_LOGCONFIG(TAG, "  Path: %s", this->ws_path_.c_str());
+    if (this->transport_kind_ == SIP_TRANSPORT_WSS) {
+      ESP_LOGCONFIG(TAG, "  Verify TLS: %s", this->verify_ssl_ ? "yes" : "NO");
+      if (!this->ca_certificate_.empty()) ESP_LOGCONFIG(TAG, "  Custom CA certificate: yes");
+    }
+  }
   ESP_LOGCONFIG(TAG, "  Username: %s", this->username_.c_str());
   if (!this->auth_username_.empty())
     ESP_LOGCONFIG(TAG, "  Auth username: %s", this->auth_username_.c_str());
@@ -79,9 +105,16 @@ void SipClient::dump_config() {
   ESP_LOGCONFIG(TAG, "  Media direction: %s", this->media_direction_());
 }
 
+void SipClient::on_shutdown() {
+  if (this->transport_) this->transport_->close();
+}
+
 void SipClient::send_raw_(const std::string &msg) {
   if (!this->transport_ || !this->transport_->connected()) return;
-  this->transport_->send(msg);
+  if (!this->transport_->send(msg)) {
+    ESP_LOGW(TAG, "SIP send failed (%u bytes)", static_cast<unsigned>(msg.size()));
+    return;
+  }
   ESP_LOGV(TAG, "TX >>>\n%s", msg.c_str());
 }
 
@@ -900,15 +933,41 @@ void SipClient::handle_packet_(const std::string &raw) {
   // responses to BYE/CANCEL/ACK: nothing to do.
 }
 
+void SipClient::handle_link_down_() {
+  this->transport_up_ = false;
+  this->registered_ = false;
+  switch (this->state_) {
+    case SIP_INVITING:
+    case SIP_RINGING_OUT:
+    case SIP_INCOMING:
+    case SIP_ANSWERING:
+    case SIP_IN_CALL:
+      // No BYE/CANCEL can reach the peer; just tear our side down.
+      ESP_LOGW(TAG, "Signaling link lost during a call, ending it");
+      this->stop_media_();
+      this->d_call_id_.clear();
+      this->d_local_.clear();
+      this->d_remote_.clear();
+      this->d_remote_target_.clear();
+      this->dialog_routes_.clear();
+      this->set_state_(SIP_IDLE);
+      this->ended_cb_.call();
+      break;
+    default:
+      break;
+  }
+  this->set_state_(SIP_IDLE);
+  // Re-register after a short pause, not at the (stale) refresh time.
+  this->next_register_ms_ = millis() + 1000;
+}
+
 void SipClient::loop() {
   if (!network::is_connected()) return;
 
   if (!this->transport_->connected()) {
     if (this->transport_up_) {
-      // Link dropped (only reachable with a connection-oriented transport).
-      this->transport_up_ = false;
-      this->registered_ = false;
-      this->set_state_(SIP_IDLE);
+      ESP_LOGW(TAG, "SIP transport disconnected");
+      this->handle_link_down_();
     }
     if (!this->transport_->is_open()) {
       if (millis() < this->next_register_ms_) return;
@@ -919,9 +978,15 @@ void SipClient::loop() {
     }
     // An asynchronous transport may still be connecting; try again next loop.
     if (!this->transport_->connected()) return;
+  } else if (this->transport_up_ && this->transport_->generation() != this->transport_generation_) {
+    // Dropped and reconnected between two loops: the old registration is gone.
+    ESP_LOGW(TAG, "SIP transport reconnected");
+    this->handle_link_down_();
   }
   if (!this->transport_up_) {
+    if (millis() < this->next_register_ms_) return;
     this->transport_up_ = true;
+    this->transport_generation_ = this->transport_->generation();
     this->do_register_();
   }
 

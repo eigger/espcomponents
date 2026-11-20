@@ -102,7 +102,11 @@ sip_client:
 | `microphone` | | - | Microphone to capture from. Either an ID (`microphone: mic_id`) or a [microphone source](#microphone-source) block for per-channel/gain control. Omit for receive-only devices. |
 | `speaker` | | - | ID of the speaker component to use. Omit for send-only devices. |
 | `server` | ✓ | - | PBX address (IP recommended) |
-| `port` | | 5060 | SIP server port |
+| `transport` | | `udp` | Signaling transport: `udp` (plain SIP), `ws` or `wss` (SIP over WebSocket / secure WebSocket, RFC 7118; ESP32 only). See [SIP over WebSocket](#sip-over-websocket-remote-pbx). RTP audio is always plain UDP. |
+| `port` | | 5060 / 8088 / 8089 | SIP server port. The default follows `transport`: `5060` for `udp`, `8088` for `ws`, `8089` for `wss` (FreePBX / Asterisk PJSIP defaults). |
+| `path` | | `/ws` | WebSocket URL path (`ws` / `wss` only). |
+| `verify_ssl` | | `true` | `wss` only. Verify the server certificate against the ESP-IDF CA bundle (or `ca_certificate`). `false` disables all verification (a warning is logged) and makes the connection open to interception; use it only for testing. |
+| `ca_certificate` | | - | `wss` only. PEM text of the CA (or the self-signed server certificate) to trust instead of the built-in bundle, e.g. for a PBX with a self-signed certificate. Cannot be combined with `verify_ssl: false`. |
 | `username` | ✓ | - | SIP account (extension) |
 | `auth_username` | | `username` | Digest authentication user, for PBXs that separate it from the extension number (3CX v20 calls it *Authentication ID*). `From` / `To` / `Contact` keep using `username`, so the device still presents its extension. Omit unless the PBX rejects REGISTER with *credentials don't match*. |
 | `password` | ✓ | - | SIP password |
@@ -113,6 +117,40 @@ sip_client:
 | `channel` | | `stereo` | How call audio is pushed to the `speaker`. `stereo` (default) duplicates the mono call audio to L/R for stereo chains (e.g. a `mixer`/`resampler` feeding a stereo DAC like the Voice PE's AIC3204). Use `mono` for a single-channel codec such as the **es8311** (whose i2s speaker is set `channel: mono` and expects 1-channel input). Must match the channel count the assigned speaker expects. To route mono audio to one physical side, leave this `mono` and use the **speaker's** own `channel: left`/`right`. |
 | `half_duplex` | | `false` | Push-to-talk mode for boards that cannot capture and play at the same time (mic and speaker on a single shared I2S bus, e.g. M5Stack Atom Echo). When `true`, the mic and speaker are never active together: the call starts in **listen** (speaker) mode and you switch to **talk** (mic) with the `start_talking` / `stop_talking` actions. Requires both `microphone` and `speaker`. Leave `false` for full-duplex boards with separate input/output I2S buses (e.g. Voice PE). |
 | `codecs` | | `[pcmu, pcma]` | Ordered list of audio codecs to offer and prefer during negotiation. Allowed values: `pcmu`, `pcma`, `g722`. The first codec in the list that the remote party also supports is chosen. G.722 is **opt-in** — omit it from the list (or leave the default) to stay G.711-only. Example for wideband: `codecs: [g722, pcmu, pcma]`. |
+
+### SIP over WebSocket (remote PBX)
+
+For a device that is not on the PBX's network, `transport: wss` carries SIP over
+a TLS WebSocket (`wss://<server>:8089/ws` on FreePBX / Asterisk). Because the
+connection is outbound and kept open, no port forwarding to the device is
+needed for signaling; only the RTP audio stays plain UDP.
+
+```yaml
+sip_client:
+  transport: wss
+  server: pbx.example.com    # certificate must match this name
+  # port: 8089               # (default for wss; 8088 for ws)
+  # path: /ws
+  # ca_certificate: |        # only for a private / self-signed CA
+  #   -----BEGIN CERTIFICATE-----
+  #   ...
+  #   -----END CERTIFICATE-----
+  username: "1001"
+  password: "secret"
+```
+
+- The connection sends a WebSocket ping every 20 s to keep NAT/proxy state
+  alive and is dropped if no pong arrives within 45 s. A dropped link is
+  reconnected automatically (every ~5 s); an active call is ended and the device
+  registers again once reconnected.
+- The Via/Contact address is a random `<token>.invalid` name per connection
+  (RFC 7118), so enable `rtp_symmetric`, `force_rport` and `rewrite_contact` on
+  the PBX extension. Disable its WebRTC defaults (ICE/DTLS/AVPF): audio is plain
+  RTP.
+- Each SIP message must fit in 8 KB; larger ones are dropped with a warning.
+- `transport: ws` (plain, unencrypted) is supported for debugging only.
+- Not available on non-ESP32 platforms. A complete FreePBX setup guide is
+  planned.
 
 ### Microphone source
 

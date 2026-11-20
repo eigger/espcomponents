@@ -19,7 +19,7 @@ class UdpTransport : public SipTransport {
   std::string via_sent_by() const override;
   std::string contact_host_port() const override { return this->via_sent_by(); }
   const char *contact_transport_param() const override { return ""; }
-  bool reliable() const override { return false; }
+  uint32_t generation() const override { return 0; }
   std::string local_ip() const override { return this->local_ip_; }
 
  protected:

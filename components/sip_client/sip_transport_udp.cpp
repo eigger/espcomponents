@@ -1,7 +1,7 @@
 #include "sip_transport_udp.h"
 #include <cstdio>
 #include "esphome/core/log.h"
-#include "esphome/components/network/util.h"
+#include "sip_net.h"
 
 namespace esphome {
 namespace sip_client {
@@ -52,13 +52,7 @@ bool UdpTransport::open(const std::string &server, uint16_t port) {
   this->socket_->getsockname(reinterpret_cast<struct sockaddr *>(&local), &ll);
   this->local_ip_ = sockaddr_ip(local, &this->local_port_);
   if (this->local_ip_.empty() || this->local_ip_ == "0.0.0.0") {
-    for (auto &addr : network::get_ip_addresses()) {
-      if (addr.is_set() && addr.is_ip4()) {
-        char ip_buf[network::IP_ADDRESS_BUFFER_SIZE];
-        this->local_ip_ = addr.str_to(ip_buf);
-        break;
-      }
-    }
+    this->local_ip_ = local_interface_ipv4();
   }
   ESP_LOGI(TAG, "SIP socket bound, local %s:%u", this->local_ip_.c_str(), this->local_port_);
   return true;

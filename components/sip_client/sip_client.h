@@ -5,7 +5,6 @@
 #include "esphome/core/defines.h"
 #include "esphome/core/component.h"
 #include "esphome/core/automation.h"
-#include "esphome/components/socket/socket.h"
 #ifdef USE_MICROPHONE
 #include "esphome/components/microphone/microphone_source.h"
 #endif
@@ -23,6 +22,12 @@ namespace sip_client {
 enum SipAudioChannel : uint8_t {
   SIP_CH_MONO = 0,    // single-channel output (e.g. es8311 mono codec)
   SIP_CH_STEREO = 1,  // duplicate call audio to L/R (mixer / stereo DAC chains)
+};
+
+enum SipTransportKind : uint8_t {
+  SIP_TRANSPORT_UDP = 0,
+  SIP_TRANSPORT_WS = 1,   // RFC 7118, plain
+  SIP_TRANSPORT_WSS = 2,  // RFC 7118 over TLS
 };
 
 enum SipState {
@@ -46,6 +51,10 @@ class SipClient : public Component {
 #endif
   void set_server(const std::string &server) { this->server_ = server; }
   void set_port(uint16_t port) { this->server_port_ = port; }
+  void set_transport(SipTransportKind t) { this->transport_kind_ = t; }
+  void set_ws_path(const std::string &v) { this->ws_path_ = v; }
+  void set_verify_ssl(bool v) { this->verify_ssl_ = v; }
+  void set_ca_certificate(const std::string &v) { this->ca_certificate_ = v; }
   void set_username(const std::string &v) { this->username_ = v; }
   // Digest authentication user, when the PBX separates it from the extension
   // (3CX calls it the Authentication ID). Empty = authenticate as `username`.
@@ -69,6 +78,7 @@ class SipClient : public Component {
   void setup() override;
   void loop() override;
   void dump_config() override;
+  void on_shutdown() override;
   float get_setup_priority() const override { return setup_priority::AFTER_CONNECTION; }
 
   void set_half_duplex(bool v) { this->half_duplex_ = v; }
@@ -114,6 +124,9 @@ class SipClient : public Component {
 
   // registration
   void do_register_();
+  // The signaling connection went away (TCP/TLS drop or reconnect): end any
+  // call, forget the registration and schedule a fresh REGISTER.
+  void handle_link_down_();
 
   // media
   void start_media_();
@@ -157,6 +170,10 @@ class SipClient : public Component {
 #endif
   std::string server_;
   uint16_t server_port_{5060};
+  SipTransportKind transport_kind_{SIP_TRANSPORT_UDP};
+  std::string ws_path_{"/ws"};
+  bool verify_ssl_{true};
+  std::string ca_certificate_;
   std::string username_;
   std::string auth_username_;
   std::string password_;
@@ -176,6 +193,7 @@ class SipClient : public Component {
   // runtime networking
   std::unique_ptr<SipTransport> transport_;
   bool transport_up_{false};  // loop() saw the transport connected and sent REGISTER on it
+  uint32_t transport_generation_{0};  // transport_->generation() when transport_up_ was set
 
   SipState state_{SIP_IDLE};
   bool registered_{false};

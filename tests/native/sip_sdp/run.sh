@@ -62,3 +62,9 @@ g++ "${CXXFLAGS[@]}" "${INC[@]}" \
   "$ROOT/tests/native/sip_sdp/test_sip_transport.cpp" \
   -o "$OUT/sip_transport_test"
 "$OUT/sip_transport_test"
+
+# WebSocket transport pure helpers: .invalid host, URI, frame reassembly.
+g++ "${CXXFLAGS[@]}" "${INC[@]}" \
+  "$ROOT/tests/native/sip_sdp/test_sip_ws.cpp" \
+  -o "$OUT/sip_ws_test"
+"$OUT/sip_ws_test"
