@@ -28,6 +28,7 @@ CONF_MIN_GAP = "min_gap"
 CONF_START_GRACE = "start_grace"
 CONF_MAX_BUSY = "max_busy"
 CONF_REQUIRE_START = "require_start"
+CONF_SKIP_WHEN_MUTED = "skip_when_muted"
 CONF_CUES = "cues"
 CONF_COOLDOWN = "cooldown"
 CONF_DURATION = "duration"
@@ -68,6 +69,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_START_GRACE, default="300ms"): _TIME,
             cv.Optional(CONF_MAX_BUSY, default="10s"): _TIME,
             cv.Optional(CONF_REQUIRE_START, default=False): cv.boolean,
+            cv.Optional(CONF_SKIP_WHEN_MUTED, default=False): cv.boolean,
             cv.Required(CONF_CUES): cv.All(cv.ensure_list(CUE_SCHEMA), cv.Length(min=1)),
         }
     ).extend(cv.COMPONENT_SCHEMA),
@@ -84,6 +86,7 @@ async def to_code(config):
     cg.add(var.set_start_grace(config[CONF_START_GRACE].total_milliseconds))
     cg.add(var.set_max_busy(config[CONF_MAX_BUSY].total_milliseconds))
     cg.add(var.set_require_start(config[CONF_REQUIRE_START]))
+    cg.add(var.set_skip_when_muted(config[CONF_SKIP_WHEN_MUTED]))
     for cue in config[CONF_CUES]:
         file = await cg.get_variable(cue[CONF_FILE])
         cg.new_Pvariable(

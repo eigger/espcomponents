@@ -5,7 +5,7 @@
 
 Short UI cue sounds (clicks, success, warnings) through an ESPHome
 [speaker media player](https://esphome.io/components/media_player/speaker/), with the policy every UI-sound device
-needs: cue priority, no backlog, per-cue cooldown, a global minimum gap, and silence when the player is muted.
+needs: cue priority, no backlog, per-cue cooldown, a global minimum gap, and an optional drop of cues while the player is muted.
 
 It is general purpose and does not depend on LVGL (or any display): call it from any automation. Tested with ESPHome
 2026.11.0 on ESP32 (ESP-IDF).
@@ -67,6 +67,7 @@ lvgl:
 | `start_grace` | `300ms` | Busy window after a play request, while the player state catches up |
 | `max_busy` | `10s` | Safety cap: a cue is never considered playing longer than this |
 | `require_start` | `false` | `true`: cues are dropped until `ui_sound.start` (boot sequences) |
+| `skip_when_muted` | `false` | `true`: drop cues while the player is muted or at volume 0 (see [Caveats](#caveats)) |
 | `cues` | required | List of cues (at least one) |
 
 Each cue:
@@ -117,7 +118,7 @@ Checked in this order; the first row that applies decides. A dropped cue is neve
 | # | Condition | Result | `force` |
 | --- | --- | --- | --- |
 | 1 | `set_enabled(false)` | `DISABLED` | still dropped |
-| 2 | player muted, or volume 0 | `MUTED` | still dropped |
+| 2 | `skip_when_muted` and the player is muted or at volume 0 | `MUTED` | still dropped |
 | 3 | the media player is not set up yet | `NOT_READY` | still dropped |
 | 4 | `require_start` and `start` not called | `NOT_STARTED` | bypassed |
 | 5 | the cue's `cooldown` since its last start is not over | `COOLDOWN` | bypassed |
@@ -136,5 +137,10 @@ never longer than `max_busy` after it was issued.
   cue (`enqueue=false`) and counts as busy; keep the default for a shared player.
 - `set_enabled(false)` does not cut a cue that is already playing; call `ui_sound.stop` for that.
 - Priority and the busy window only know about cues played through this component.
-- `force` does not override mute / volume 0 / disabled / not ready: a muted device stays silent.
+- By default there is no mute check: a cue issued while the player is muted is handed to the player, which plays it
+  silently, in order, and it takes the busy window like any cue. This keeps "unmute, then play a click" working.
+- `skip_when_muted: true` reads the player's mute / volume. The player applies those commands from a queue, so changes
+  made in the same loop iteration (for example `unmute` followed by `ui_sound.play`) are not seen yet and the cue is
+  dropped with `MUTED`. Use it only if cues are never issued right after a mute / volume change.
+- `force` does not override `skip_when_muted` / disabled / not ready.
 - Cue files are compiled into flash; keep them short and small (16 kHz mono WAV is plenty).

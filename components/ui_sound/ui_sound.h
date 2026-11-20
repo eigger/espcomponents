@@ -28,7 +28,7 @@ enum class PlayResult : uint8_t {
   BUSY,         // dropped: a cue of equal or higher priority is playing
   COOLDOWN,     // dropped: the cue's own cooldown is not over
   MIN_GAP,      // dropped: the global min_gap is not over
-  MUTED,        // dropped: the media player is muted or its volume is 0
+  MUTED,        // dropped: skip_when_muted is set and the player is muted or at volume 0
   DISABLED,     // dropped: set_enabled(false)
   NOT_STARTED,  // dropped: require_start is set and start() has not been called
   NOT_READY,    // dropped: the media player is not set up yet (nothing recorded)
@@ -45,6 +45,7 @@ class UiSound : public Component {
   void set_start_grace(uint32_t ms) { this->start_grace_ms_ = ms; }
   void set_max_busy(uint32_t ms) { this->max_busy_ms_ = ms; }
   void set_require_start(bool require) { this->require_start_ = require; }
+  void set_skip_when_muted(bool skip) { this->skip_when_muted_ = skip; }
 
   void dump_config() override;
   float get_setup_priority() const override { return setup_priority::LATE; }
@@ -69,6 +70,7 @@ class UiSound : public Component {
   uint32_t max_busy_ms_{10000};
   bool announcement_{true};
   bool require_start_{false};
+  bool skip_when_muted_{false};
   bool started_{false};
   bool enabled_{true};
 

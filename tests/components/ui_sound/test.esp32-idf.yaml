@@ -64,6 +64,7 @@ ui_sound:
   start_grace: 300ms
   max_busy: 10s
   require_start: true
+  skip_when_muted: true
   cues:
     - id: click
       file: sound_click
