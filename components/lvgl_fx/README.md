@@ -77,6 +77,8 @@ lvgl_fx:
     intensity: 1.0              # 0 - 4: scales the size of effects (distance, scale, strength), not transitions
   max_targets: 32               # 1 - 255: widgets that can be animated at once (see Caveats)
   slots_in_psram: false         # keep the per-widget state in PSRAM when available
+  max_text_runs: 4              # 1 - 32: labels that can type / decode at once (typewriter, decode)
+  max_text_length: 128          # 16 - 400: bytes (incl. the NUL) of the longest text they animate
   suppress_when: !lambda return id(popup_open);   # bool; no captures (ids of globals, sensors ... work)
 
   transitions:
@@ -100,6 +102,10 @@ lvgl_fx:
         text: { style: roll, distance: 14, duration: 140ms }
       - id: odometer
         text: { style: count, format: "%.0f km", duration: 800ms }
+      - id: terminal_line
+        text: { style: typewriter, char_time: 25ms, jitter: true }   # 25 ms per character, whatever the length
+      - id: title_decode
+        text: { style: decode, char_time: 60ms, noise_period: 50ms }
       - id: card_logged
         visible: { show: slide_up, hide: fade }
         on_start:               # once per `set` that animates; `x` is the widget (lv_obj_t *)
@@ -136,7 +142,7 @@ lvgl_fx:
         - blink: { opacity: 35%, duration: slow }
 ```
 
-### `motion`, `max_targets`, `slots_in_psram`, `suppress_when`
+### `motion`, `max_targets`, `slots_in_psram`, `max_text_runs`, `max_text_length`, `suppress_when`
 
 | Option | Default | |
 | --- | --- | --- |
@@ -144,6 +150,8 @@ lvgl_fx:
 | `motion.intensity` | 1.0 | Multiplies effect sizes (nudge/shake distance, pulse growth, flash/glow strength, blink depth). |
 | `max_targets` | 32 | Size of the slot pool, 68 bytes per slot (measured, 32-bit target; unchanged by `cooldown_scope` and `on_start`, which live in the const tables). |
 | `slots_in_psram` | false | Try PSRAM first and fall back to internal RAM. Accesses per frame are few. |
+| `max_text_runs` | 4 | 1 - 32. Labels that can run `typewriter` / `decode` at the same time (a static pool, not per widget). Each run costs `max_text_length` + 28 bytes of RAM (156 bytes by default). |
+| `max_text_length` | 128 | 16 - 400. Size of one text run in bytes including the terminating NUL, i.e. the longest text (127 bytes, not characters) that is typed or decoded; longer texts are applied at once. Also 128 bytes of shared scratch. |
 | `suppress_when` | none | Lambda returning `bool`. While true, transitions apply instantly and effects follow `when_suppressed`. |
 
 ### Transitions
@@ -157,7 +165,7 @@ value, so a named transition lists only what differs.
 | `visible` | show/hide | `style` (`fade`), `show` / `hide`, `from` (90%, 1 - 200%), `distance` (12 px, 0 - 1000), `duration` (`normal`), `curve` (`ease_out`), `delay` (0) |
 | `opacity` | opacity | `duration` (`normal`), `curve` (`linear`), `delay` |
 | `value` | bar / arc / slider value, image rotation, label number | `duration` (`normal`), `curve` (`ease_out`), `delay` |
-| `text` | label text | `style` (`fade`), `from` (85%, 0 - 100%), `distance` (14 px, 0 - 1000), `format` (`%.0f`), `duration` (`fast`), `curve` (`linear`), `delay` |
+| `text` | label text | `style` (`fade`), `from` (85%, 0 - 100%), `distance` (14 px, 0 - 1000), `format` (`%.0f`), `char_time` (none, 1 ms - 5 s), `jitter` (`false`), `noise` (`#%&*+<>/=0123456789`), `noise_period` (50 ms, 10 ms - 1 s), `duration` (`fast`), `curve` (`linear`), `delay` |
 | `color` | label text color, image recolor, other widgets' background | `duration` (`normal`), `curve` (`linear`), `delay` |
 | `position` | `x` and `y` | `duration` (`normal`), `curve` (`ease_out`), `delay` |
 | `rotation` | transform rotation | `duration` (`normal`), `curve` (`ease_out`), `delay` |
@@ -184,7 +192,42 @@ the style it started with.
 | `fade` | the new text starts at `from` opacity and rises to 100% |
 | `roll` | like `fade`, and the new text moves in `distance` px: from below when the leading number grows, from above when it shrinks. If either text does not start with a number it behaves like `fade` |
 | `count` | `set_value` on a label counts from the number on screen to the new one. The label's text must start with the literal text of `format` before its `%`, then a number, otherwise the new text fades in (see Caveats for the limits) |
+| `typewriter` | the label is typed out: it shows the first characters of the new text, one more at a time, and ends on the exact text. The label text is the partial text while it types (a cursor is up to the app) |
+| `decode` | every character that is not locked yet shows changing noise symbols; the characters lock to the real one from left to right. The label text is the scrambled text while it runs |
 | `none` | instant |
+
+**`typewriter` and `decode` in detail.** `duration` is the time of the whole transition, as for every style. For these two
+styles the time can instead be given per character with `char_time`, so a longer text takes longer and the pace stays
+the same: the duration is `characters x char_time` (at most 60 s). A character is a Unicode code point, never a byte.
+`char_time` and `duration` both time the whole transition, so they cannot be given together in one entry (rejected at
+configuration time). In a named transition on top of `defaults:` the most specific entry that gives either one wins
+(a named `duration` beats the defaults' `char_time` and the other way round); built from C++, `char_time` wins over a
+`duration` of the same entry. `delay` and `curve` work as for the other styles: during `delay` the label keeps its old
+text, `curve` shapes the speed of the reveal (`linear` types at an even pace).
+
+| Field | Style | Meaning |
+| --- | --- | --- |
+| `char_time` | both | time per character (1 ms - 5 s) instead of `duration` |
+| `jitter` | `typewriter` | `true`: uneven, human-like timing, `false` (default): the same time per character. The total time stays what `duration` or `char_time` says; a space is quicker than other characters and the rhythm is a fixed function of the character and its position, so the same text always types the same way |
+| `noise` | `decode` | the symbols that unlocked positions cycle through, default `#%&*+<>/=0123456789`. Non-empty printable ASCII, at most 32 characters |
+| `noise_period` | `decode` | time between two noise changes, default 50 ms (10 ms - 1 s). The noise refreshes on its own clock, independent of `duration` and `curve`; the lock-in follows `curve` |
+
+Behavior of both styles:
+
+- The label shows intermediate text while the animation runs, and ends on the exact final text. `stop`, `instant: true`
+  and the policy (`suppress_when`, hidden widget, before `start`, reduced motion ...) give the final text at once.
+- A new `set` text during the animation **retargets**: the new text starts from scratch (the label restarts from an
+  empty text for `typewriter`, from all noise for `decode`). Setting the text the animation is already heading for does
+  nothing (it keeps running); setting the text that is on screen right now ends the animation there. An empty text is
+  applied at once.
+- `decode` only scrambles printable ASCII characters other than space. Spaces, control characters and multi-byte
+  characters are shown as they are and are never replaced by noise. The lock-in goes left to right, one code point at a
+  time, with equal steps.
+- `typewriter` reveals whole code points: it never cuts inside a multi-byte UTF-8 sequence.
+- They take no opacity or translate offsets (no layer cost). `on_start` and `then` work as for the other text styles;
+  `from`, `distance` are ignored. On other properties `typewriter` and `decode` do not exist (rejected in YAML; from C++
+  they behave as `fade` on `visible`).
+- `set_value` on a label formats the number and then types it like any text.
 
 `format` is a `printf` format with exactly one floating conversion (`%f`, `%.1f`, `%5.2f`, flags allowed, width at most
 40, precision at most 6) and optional `%%` for a literal `%`. Anything else (`%d`, `%s`, `*`, two conversions, none) is
@@ -297,6 +340,10 @@ Besides out-of-range values, these are errors:
 - `show` without `hide`; `style` together with `show` / `hide`; a `style` that does not fit the property (`slide_up`
   for text, `count` for visible, any `style` on `value`);
 - a `format` that is not a single `%f` (with flags, width, precision at most 6, and `%%`);
+- `typewriter` / `decode` on a property other than `text`; `char_time` together with `duration` in one entry, or with a
+  style other than `typewriter` / `decode`; `jitter` on any style but `typewriter`; `noise` / `noise_period` on any style
+  but `decode`; an empty `noise`, one with more than 32 characters or one with anything but printable ASCII;
+  `char_time` outside 1 ms - 5 s, `noise_period` outside 10 ms - 1 s;
 - `repeat: infinite` in `effect_defaults`; an effect longer than 65535 ms;
 - `lvgl_fx.set` with no or several properties, `lvgl_fx.play` without `effect`.
 
@@ -544,14 +591,23 @@ Every transition and one-shot effect is judged once, when it starts. The first r
 - **`then` is played with the default policy**, not with the `force` or transition of the call that triggered it.
 - **Ids named `fx`.** `fx` is the C++ alias of the namespace, so no id in the whole configuration may be `fx` (the
   component, effect and transition ids are rejected at validation; other platforms' ids would fail to compile).
-- **Not yet supported:** a `typewriter` text style, user-defined tracks, stagger over several widgets, binding a
+- **`typewriter` / `decode` limits.** The final text lives in a fixed record while the label shows something else, so
+  there is a small static pool: `max_text_runs` records (4) of `max_text_length` bytes (128: texts up to
+  127 bytes, not characters). At most that many labels can type or decode at once; a longer text, or a label that
+  finds the pool busy, gets the final text at once (logged once) and nothing else changes. Both are
+  YAML options (C++-only users can define `LVGL_FX_TEXT_RUNS` / `LVGL_FX_TEXT_RUN_BYTES`). Each visible change is one `lv_label_set_text`, so LVGL reallocates the label's own buffer
+  (as `count` does); the typewriter changes the text at most once per character and `decode` at most once per
+  `noise_period`. Anything that changes the label with `lv_label_set_text` while one of these runs is overwritten by the
+  next frame; use `lvgl_fx.set` (or `stop` first).
+- **Not yet supported:** user-defined tracks, stagger over several widgets, binding a
   transition to a widget instead of naming it per call.
 
 ## Footprint
 
 Definitions become `static const` tables in flash. RAM is the slot pool (`max_targets` x 68 bytes, 2.2 KB for the
-default 32) plus one LVGL animation per running transition or effect, regardless of the number of tracks. Nothing is
-allocated per frame. The compile test and the demo build on ESP32 with ESP-IDF.
+default 32) plus one LVGL animation per running transition or effect, regardless of the number of tracks. The
+`typewriter` / `decode` styles add a static pool of `max_text_runs` x (`max_text_length` + 28) bytes of text runs, 4 x 156 bytes by default, plus `max_text_length` bytes of scratch, which is not
+part of the slot (still 68 bytes). Nothing is allocated per frame. The compile test and the demo build on ESP32 with ESP-IDF.
 
 
 ### Additional tracks and completion hooks

@@ -22,8 +22,12 @@ enum class Prop : uint8_t { VISIBLE, OPACITY, VALUE, TEXT, COLOR, POSITION, ROTA
 constexpr size_t PROP_COUNT = static_cast<size_t>(Prop::COUNT);
 
 // Transition styles.  Which style applies where: VISIBLE fade / slide_* / zoom / none, TEXT fade / roll /
-// count / none; everything else is ignored for a property (a text entry asking for slide_* behaves as fade).
-enum class Style : uint8_t { DEFAULT, NONE, FADE, SLIDE_UP, SLIDE_DOWN, SLIDE_LEFT, SLIDE_RIGHT, ZOOM, ROLL, COUNT };
+// count / typewriter / decode / none; everything else is ignored for a property (a text entry asking for slide_*
+// behaves as fade, a visible entry asking for typewriter too).  New styles are appended: generated code keeps
+// compiling.
+enum class Style : uint8_t {
+  DEFAULT, NONE, FADE, SLIDE_UP, SLIDE_DOWN, SLIDE_LEFT, SLIDE_RIGHT, ZOOM, ROLL, COUNT, TYPEWRITER, DECODE
+};
 
 // How one property moves to a new value.  Every field has an "unset" default: a definition only lists what it says
 // (designated initializers, in declaration order), and each unset field falls back, at run time, to the same property
@@ -44,6 +48,14 @@ struct PropTransition {
   uint16_t distance = UNSET_U16;        // px.  slide_*: travel (12); roll: travel (14)
   const char *format = nullptr;         // label numbers: printf format with one %f conversion ("%.0f"); count only
                                         // counts through %f formats (set_value formats anything once)
+  // typewriter / decode: the pace can be given per character instead of for the whole text (appended fields).
+  uint16_t char_time = UNSET_U16;       // ms per character (code point): duration = characters * char_time (at most
+                                        // 60 s).  Beats a `duration` of the same or a lower level (the named
+                                        // transition, then defaults, then built-ins); 0 = not set
+  uint8_t jitter = UNSET_U8;            // typewriter: 1 = uneven, human-like pace (same total time); 0 = even (0)
+  const char *noise = nullptr;          // decode: ASCII symbols the unlocked positions cycle through
+                                        // ("#%&*+<>/=0123456789"); the leading printable ASCII, at most 32 bytes
+  uint16_t noise_period = UNSET_U16;    // decode: ms between two noise changes (50)
 };
 
 // A named transition: per-property entries (nullptr = fall back to the defaults) plus an optional follow-up effect.
@@ -144,6 +156,10 @@ struct ResolvedTransition {
   uint8_t from;       // percent
   uint16_t distance;  // px
   const char *format;
+  uint16_t char_time;     // ms per character; 0 = the transition is timed by `duration`
+  bool jitter;
+  const char *noise;      // nullptr = the built-in charset
+  uint16_t noise_period;  // ms
 };
 ResolvedTransition resolve(TransitionRef transition, Prop prop);
 uint32_t resolve_duration(uint16_t duration);

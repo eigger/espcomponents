@@ -177,6 +177,22 @@ ResolvedTransition resolve(TransitionRef transition, Prop prop) {
   r.distance = distance == UNSET_U16 ? 0 : distance;
   const char *format = first_set<const char *>(levels, &PropTransition::format, nullptr);
   r.format = format != nullptr ? format : "%.0f";
+  // `char_time` and `duration` both time the whole transition: the most specific level that sets either one decides
+  // (a named transition's `duration` beats the defaults' `char_time` and the other way round); on the same level, in
+  // C++ only (YAML rejects it), `char_time` wins.  The built-in level always sets a duration, so the walk ends.
+  r.char_time = 0;
+  for (const PropTransition *level : levels) {
+    if (level == nullptr) continue;
+    if (level->char_time != UNSET_U16 && level->char_time != 0) {
+      r.char_time = level->char_time;
+      break;
+    }
+    if (level->duration != DUR_DEFAULT) break;
+  }
+  r.jitter = first_set(levels, &PropTransition::jitter, UNSET_U8) == 1;
+  r.noise = first_set<const char *>(levels, &PropTransition::noise, nullptr);
+  const uint16_t noise_period = first_set(levels, &PropTransition::noise_period, UNSET_U16);
+  r.noise_period = noise_period == UNSET_U16 ? 50 : noise_period;
   return r;
 }
 

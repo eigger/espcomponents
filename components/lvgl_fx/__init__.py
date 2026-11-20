@@ -53,6 +53,8 @@ CONF_INTENSITY = "intensity"
 CONF_SUPPRESS_WHEN = "suppress_when"
 CONF_MAX_TARGETS = "max_targets"
 CONF_SLOTS_IN_PSRAM = "slots_in_psram"
+CONF_MAX_TEXT_RUNS = "max_text_runs"
+CONF_MAX_TEXT_LENGTH = "max_text_length"
 
 CONF_TRANSITIONS = "transitions"
 CONF_DEFAULTS = "defaults"
@@ -72,6 +74,10 @@ CONF_HIDE = "hide"
 CONF_FROM = "from"
 CONF_DISTANCE = "distance"
 CONF_FORMAT = "format"
+CONF_CHAR_TIME = "char_time"
+CONF_JITTER = "jitter"
+CONF_NOISE = "noise"
+CONF_NOISE_PERIOD = "noise_period"
 CONF_SCALE = "scale"
 CONF_X = "x"
 CONF_Y = "y"
@@ -112,6 +118,8 @@ MAX_CYCLES = 100
 # printf output of a number is cut at 48 bytes (styles.cpp TEXT_BUF); a width beyond it is pointless.
 MAX_FORMAT_WIDTH = 40
 MAX_FORMAT_PRECISION = 6  # also what `count` can step through (4.2.1)
+# decode uses at most this many bytes of its charset (styles.cpp MAX_NOISE)
+MAX_NOISE_LEN = 32
 
 DURATION_TOKENS = {CONF_FAST: "DUR_FAST", CONF_NORMAL: "DUR_NORMAL", CONF_SLOW: "DUR_SLOW"}
 CURVES = ("linear", "ease_in", "ease_out", "ease_in_out")
@@ -119,7 +127,8 @@ CURVES = ("linear", "ease_in", "ease_out", "ease_in_out")
 # Order of enum class Prop (lvgl_fx.h): index = slot in TransitionDef::props.
 TRANSITION_PROPS = (CONF_VISIBLE, CONF_OPACITY, CONF_VALUE, CONF_TEXT, CONF_COLOR, CONF_POSITION, CONF_ROTATION)
 VISIBLE_STYLES = ("fade", "slide_up", "slide_down", "slide_left", "slide_right", "zoom", "none")
-TEXT_STYLES = ("fade", "roll", "count", "none")
+TEXT_STYLES = ("fade", "roll", "count", "typewriter", "decode", "none")
+CHAR_STYLES = ("typewriter", "decode")  # the styles whose time can be given per character
 
 BUILTIN_EFFECTS = {  # name -> (C++ constant, track kind)
     "pulse": ("PULSE", "pulse"),
@@ -280,16 +289,59 @@ def _visible_entry(value):
     return value
 
 
+_CHAR_TIME = cv.All(
+    cv.positive_time_period_milliseconds,
+    cv.Range(min=cv.TimePeriod(milliseconds=1), max=cv.TimePeriod(milliseconds=5000)),
+)
+_NOISE_PERIOD = cv.All(
+    cv.positive_time_period_milliseconds,
+    cv.Range(min=cv.TimePeriod(milliseconds=10), max=cv.TimePeriod(milliseconds=1000)),
+)
+
+
+def _noise(value):
+    """The symbols a decode cycles through: printable ASCII only (a multi-byte character cannot replace one byte)."""
+    value = cv.string_strict(value)
+    if not value:
+        raise cv.Invalid("'noise' must not be empty")
+    if len(value) > MAX_NOISE_LEN:
+        raise cv.Invalid(f"'noise' has {len(value)} characters; at most {MAX_NOISE_LEN}")
+    if any(not 0x20 <= ord(char) <= 0x7E for char in value):
+        raise cv.Invalid("'noise' must be printable ASCII (no control characters, no multi-byte characters)")
+    return value
+
+
 def _text_entry(value):
-    return cv.Schema(
+    value = cv.Schema(
         {
             **_TIMING,
             cv.Optional(CONF_STYLE): _style(TEXT_STYLES),
             cv.Optional(CONF_FROM): _percent(0, 100),  # opacity the new text starts at
             cv.Optional(CONF_DISTANCE): _px(0, MAX_DISTANCE_PX),
             cv.Optional(CONF_FORMAT): _format,
+            cv.Optional(CONF_CHAR_TIME): _CHAR_TIME,  # typewriter / decode: ms per character
+            cv.Optional(CONF_JITTER): cv.boolean,  # typewriter: uneven pace
+            cv.Optional(CONF_NOISE): _noise,  # decode: symbols
+            cv.Optional(CONF_NOISE_PERIOD): _NOISE_PERIOD,  # decode: ms between two noise changes
         }
     )(value)
+    # An entry that sets no `style` inherits it from a lower level (the defaults), which cannot be known here: only
+    # a style named in the same entry is checked.
+    style = value.get(CONF_STYLE)
+    if CONF_CHAR_TIME in value:
+        if CONF_DURATION in value:
+            raise cv.Invalid(
+                "'char_time' and 'duration' both time the whole transition: use 'char_time' (ms per character, "
+                "the duration follows the text length) or 'duration', not both"
+            )
+        if style is not None and style not in CHAR_STYLES:
+            raise cv.Invalid(f"'char_time' only applies to the styles {' and '.join(CHAR_STYLES)}, not '{style}'")
+    if CONF_JITTER in value and style is not None and style != "typewriter":
+        raise cv.Invalid(f"'jitter' only applies to the style typewriter, not '{style}'")
+    for key in (CONF_NOISE, CONF_NOISE_PERIOD):
+        if key in value and style is not None and style != "decode":
+            raise cv.Invalid(f"'{key}' only applies to the style decode, not '{style}'")
+    return value
 
 
 _PLAIN_ENTRY = cv.Schema(_TIMING)
@@ -556,6 +608,10 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_SUPPRESS_WHEN): cv.returning_lambda,
         cv.Optional(CONF_MAX_TARGETS, default=32): cv.int_range(min=1, max=255),
         cv.Optional(CONF_SLOTS_IN_PSRAM, default=False): cv.boolean,
+        # typewriter / decode: static pool of text runs (styles.cpp), emitted as the defines the C++ side defaults
+        cv.Optional(CONF_MAX_TEXT_RUNS, default=4): cv.int_range(min=1, max=32),
+        # bytes of a run including the NUL; the character weights of a text must fit a uint16 (127 x 140 ... 399 x 140)
+        cv.Optional(CONF_MAX_TEXT_LENGTH, default=128): cv.int_range(min=16, max=400),
         cv.Optional(CONF_TRANSITIONS): TRANSITIONS_SCHEMA,
         cv.Optional(CONF_PRESETS): PRESETS_SCHEMA,
         cv.Optional(CONF_EFFECTS): cv.ensure_list(_effect),
@@ -774,6 +830,10 @@ def _prop_fields(prop, conf):
         ("from", _get(conf, CONF_FROM, str)),
         ("distance", _get(conf, CONF_DISTANCE, str)),
         ("format", _get(conf, CONF_FORMAT, _cstring)),
+        ("char_time", _get(conf, CONF_CHAR_TIME, _ms)),
+        ("jitter", _get(conf, CONF_JITTER, lambda v: "1" if v else "0")),
+        ("noise", _get(conf, CONF_NOISE, _cstring)),
+        ("noise_period", _get(conf, CONF_NOISE_PERIOD, _ms)),
     ]
 
 
@@ -835,6 +895,8 @@ async def to_code(config):
     )
     cg.add(var.set_max_targets(config[CONF_MAX_TARGETS]))
     cg.add(var.set_slots_in_psram(config[CONF_SLOTS_IN_PSRAM]))
+    cg.add_define("LVGL_FX_TEXT_RUNS", config[CONF_MAX_TEXT_RUNS])
+    cg.add_define("LVGL_FX_TEXT_RUN_BYTES", config[CONF_MAX_TEXT_LENGTH])
     if CONF_SUPPRESS_WHEN in config:
         # A plain function pointer: the lambda must not capture anything.
         lam = await cg.process_lambda(config[CONF_SUPPRESS_WHEN], [], return_type=cg.bool_, capture="")
