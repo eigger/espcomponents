@@ -276,8 +276,77 @@ void *then_of(const Opt &opt) {
                                                                         : nullptr;
 }
 
-static void run_then(lv_obj_t *obj, const void *transition) {
-  if (transition != nullptr) play_then(obj, static_cast<TransitionRef>(transition)->then);
+// ---- completion records ---------------------------------------------------------------------------------------------
+// Cross-widget completion (TweenOpt, and Opt of every set_*): a heap record exists only while such a call is running,
+// never per frame.  It is released through the anim's deleted_cb, which LVGL runs after the completion and on
+// replacement or delete (stop, target deletion), so a cancelled transition never plays the effect.
+struct TweenCompletion {
+  TweenCompletion *next;
+  void (*on_done)(void *);   // tween only
+  EffectRef effect;
+  lv_obj_t *target;
+  TransitionRef transition;  // set_*: the call's named transition, whose `then` plays on the source first
+};
+static TweenCompletion *tween_completions = nullptr;
+static void completion_target_deleted(lv_event_t *event) {
+  auto *completion = static_cast<TweenCompletion *>(lv_event_get_user_data(event));
+  completion->target = nullptr;
+  completion->effect = nullptr;
+}
+static void release_completion(TweenCompletion *completion) {
+  auto **link = &tween_completions;
+  while (*link != nullptr && *link != completion) link = &(*link)->next;
+  if (*link != nullptr) *link = completion->next;
+  if (completion->target != nullptr)
+    lv_obj_remove_event_cb_with_user_data(completion->target, completion_target_deleted, completion);
+  delete completion;
+}
+static void chained_tween_deleted(lv_anim_t *anim) {
+  release_completion(static_cast<TweenCompletion *>(anim->user_data));
+}
+// Registers a record for (effect, target); nullptr when memory or the event hook is not available (the caller then
+// goes on without the follow-up effect).
+static TweenCompletion *new_completion(void (*on_done)(void *), EffectRef effect, lv_obj_t *target,
+                                       TransitionRef transition) {
+  auto *completion = new (std::nothrow) TweenCompletion{tween_completions, on_done, effect, target, transition};
+  if (completion == nullptr) return nullptr;
+  tween_completions = completion;
+  if (lv_obj_add_event_cb(target, completion_target_deleted, LV_EVENT_DELETE, completion) == nullptr) {
+    release_completion(completion);
+    return nullptr;
+  }
+  return completion;
+}
+static const TweenCompletion *find_completion(const void *data) {
+  for (const TweenCompletion *entry = tween_completions; entry != nullptr; entry = entry->next)
+    if (entry == data) return entry;
+  return nullptr;
+}
+
+// What an anim's user_data is: a TransitionDef (`then` only) or a completion record (the registry tells them apart).
+static void run_then(lv_obj_t *obj, const void *data) {
+  if (data == nullptr) return;
+  if (const TweenCompletion *completion = find_completion(data)) {
+    if (completion->transition != nullptr) play_then(obj, completion->transition->then);
+    // `then` may have run user code (an on_start hook): read the (possibly disarmed) record again.
+    if (completion->effect != nullptr && completion->target != nullptr) play(completion->target, completion->effect);
+    return;
+  }
+  play_then(obj, static_cast<TransitionRef>(data)->then);
+}
+
+bool start_transition_anim(void *var, lv_anim_exec_xcb_t exec, int32_t from, int32_t to, const ResolvedTransition &t,
+                           const Opt &opt, lv_anim_completed_cb_t done, bool early_apply) {
+  TweenCompletion *completion = nullptr;
+  if (opt.completion_effect != nullptr && opt.completion_target != nullptr)
+    completion = new_completion(nullptr, opt.completion_effect, opt.completion_target, opt.transition);
+  if (completion == nullptr)
+    return start_anim(var, exec, from, to, t.duration, t.delay, t.curve, done, then_of(opt), early_apply);
+  if (start_anim(var, exec, from, to, t.duration, t.delay, t.curve, done, completion, early_apply,
+                 chained_tween_deleted))
+    return true;
+  release_completion(completion);  // no anim took it over
+  return false;
 }
 
 // A transition that is applied instantly (duration 0, policy, NaN, ...) still completes: its `then` plays at once.
@@ -299,9 +368,9 @@ void snap(void *var, lv_anim_exec_xcb_t exec) {
 }
 
 void warn_once(uint8_t id, const char *what) {
-  static uint8_t warned = 0;
+  static uint16_t warned = 0;  // one bit per message id (0 - 15)
   if (warned & (1u << id)) return;
-  warned |= static_cast<uint8_t>(1u << id);
+  warned |= static_cast<uint16_t>(1u << id);
   ESP_LOGW(TAG, "%s", what);
 }
 
@@ -315,6 +384,12 @@ using detail::start_anim;
 using detail::then_of;
 using detail::warn_once;
 using detail::ResolvedTransition;
+using detail::TweenCompletion;
+using detail::chained_tween_deleted;
+using detail::new_completion;
+using detail::release_completion;
+using detail::start_transition_anim;
+using detail::tween_completions;
 
 static void slotless_done(lv_anim_t *anim) { run_then(static_cast<lv_obj_t *>(anim->var), anim->user_data); }
 
@@ -329,9 +404,7 @@ static void move_slotless(lv_obj_t *obj, lv_anim_exec_xcb_t exec, Prop prop, int
     if (from != to) instant_then(obj, opt);
     return;
   }
-  void *then = then_of(opt);
-  if (start_anim(obj, exec, from, to, t.duration, t.delay, t.curve, then != nullptr ? slotless_done : nullptr, then))
-    detail::notify_start(obj, opt);
+  if (start_transition_anim(obj, exec, from, to, t, opt, slotless_done)) detail::notify_start(obj, opt);
 }
 
 // The binding records live in generated static storage, separate from motion slots.
@@ -402,7 +475,7 @@ static void opa_done(lv_anim_t *anim) {
 }
 
 static void start_opa(Slot *slot, int32_t from, int32_t to, const ResolvedTransition &t, const Opt &opt) {
-  if (start_anim(slot, exec_opa, from, to, t.duration, t.delay, t.curve, opa_done, then_of(opt))) {
+  if (start_transition_anim(slot, exec_opa, from, to, t, opt, opa_done)) {
     detail::notify_start(slot->obj, opt);
     return;
   }
@@ -709,8 +782,7 @@ void set_color(lv_obj_t *obj, lv_color_t color, Opt opt) {
     instant_then(obj, opt);
     return;
   }
-  if (start_anim(slot, exec_color, 0, LV_OPA_COVER, t.duration, t.delay, t.curve, slot_done, then_of(opt)))
-    detail::notify_start(obj, opt);
+  if (start_transition_anim(slot, exec_color, 0, LV_OPA_COVER, t, opt, slot_done)) detail::notify_start(obj, opt);
 }
 
 // ---- rotation (transform) ----------------------------------------------------------------------------------------
@@ -752,8 +824,7 @@ void set_rotation(lv_obj_t *obj, float degrees, Opt opt) {
     instant_then(obj, opt);
     return;
   }
-  if (start_anim(slot, exec_rotation, slot->base_rotation, target, t.duration, t.delay, t.curve, slot_done,
-                 then_of(opt)))
+  if (start_transition_anim(slot, exec_rotation, slot->base_rotation, target, t, opt, slot_done))
     detail::notify_start(obj, opt);
 }
 
@@ -782,6 +853,7 @@ void stop(lv_obj_t *obj) {
   snap(slot, exec_opa);          // a running hide completes: HIDDEN is set, slide/zoom offsets are back at 0
   snap(slot, exec_color);
   snap(slot, exec_rotation);
+  detail::stop_draw(slot);       // a line draw jumps to its target percent
   detail::stop_text(slot);       // text fade/roll/count: the final text, offsets 0
   detail::drop_visible_style(slot);
   detail::stop_effects(*slot);   // one-shot and loop end at rest, a deferred effect is dropped
@@ -805,19 +877,6 @@ void set_image_opa(lv_obj_t *obj, uint8_t opacity) {
 
 // ---- user channel ------------------------------------------------------------------------------------------------
 
-// Completion metadata exists only for cross-widget chains and is released on completion or deletion.
-struct TweenCompletion {
-  TweenCompletion *next;
-  void (*on_done)(void *);
-  EffectRef effect;
-  lv_obj_t *target;
-};
-static TweenCompletion *tween_completions = nullptr;
-static void completion_target_deleted(lv_event_t *event) {
-  auto *completion = static_cast<TweenCompletion *>(lv_event_get_user_data(event));
-  completion->target = nullptr;
-  completion->effect = nullptr;
-}
 static void chained_tween_done(lv_anim_t *anim) {
   auto *completion = static_cast<TweenCompletion *>(anim->user_data);
   auto callback = completion->on_done;
@@ -826,17 +885,6 @@ static void chained_tween_done(lv_anim_t *anim) {
   // A target deleted by on_done disarms this still-live completion via LV_EVENT_DELETE.
   if (completion->effect != nullptr && completion->target != nullptr)
     play(completion->target, completion->effect);
-}
-static void release_completion(TweenCompletion *completion) {
-  auto **link = &tween_completions;
-  while (*link != nullptr && *link != completion) link = &(*link)->next;
-  if (*link != nullptr) *link = completion->next;
-  if (completion->target != nullptr)
-    lv_obj_remove_event_cb_with_user_data(completion->target, completion_target_deleted, completion);
-  delete completion;
-}
-static void chained_tween_deleted(lv_anim_t *anim) {
-  release_completion(static_cast<TweenCompletion *>(anim->user_data));
 }
 static void tween_done(lv_anim_t *anim) {
   reinterpret_cast<void (*)(void *)>(anim->user_data)(anim->var);
@@ -857,20 +905,10 @@ void tween(void *var, lv_anim_exec_xcb_t setter, int32_t from, int32_t to, Tween
     return;
   }
   const uint32_t duration = opt.duration != 0 ? opt.duration : detail::g_core.motion.normal;
-  if (opt.completion_effect == nullptr || opt.completion_target == nullptr) {
-    start_anim(var, setter, from, to, duration, opt.delay, opt.curve, opt.on_done != nullptr ? tween_done : nullptr,
-               reinterpret_cast<void *>(opt.on_done));
-    return;
-  }
-  auto *completion = new (std::nothrow) TweenCompletion{tween_completions, opt.on_done, opt.completion_effect, opt.completion_target};
-  if (completion == nullptr) {
-    start_anim(var, setter, from, to, duration, opt.delay, opt.curve, opt.on_done != nullptr ? tween_done : nullptr,
-               reinterpret_cast<void *>(opt.on_done));
-    return;
-  }
-  tween_completions = completion;
-  if (lv_obj_add_event_cb(completion->target, completion_target_deleted, LV_EVENT_DELETE, completion) == nullptr) {
-    release_completion(completion);
+  const bool plain = opt.completion_effect == nullptr || opt.completion_target == nullptr;
+  TweenCompletion *completion =
+      plain ? nullptr : new_completion(opt.on_done, opt.completion_effect, opt.completion_target, nullptr);
+  if (completion == nullptr) {  // no follow-up effect (or no memory for it): the tween and its on_done still run
     start_anim(var, setter, from, to, duration, opt.delay, opt.curve, opt.on_done != nullptr ? tween_done : nullptr,
                reinterpret_cast<void *>(opt.on_done));
     return;

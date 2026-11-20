@@ -22,12 +22,14 @@ const PropTransition POSITION = {.duration = DUR_NORMAL, .delay = 0, .curve = Cu
                                  .hide_style = Style::NONE};
 const PropTransition ROTATION = {.duration = DUR_NORMAL, .delay = 0, .curve = Curve::EASE_OUT, .style = Style::NONE,
                                  .hide_style = Style::NONE};
+const PropTransition DRAW = {.duration = DUR_NORMAL, .delay = 0, .curve = Curve::LINEAR, .style = Style::NONE,
+                             .hide_style = Style::NONE};
 
 }  // namespace
 
 // Order must match enum class Prop.
-const TransitionDef BUILTIN_TRANSITIONS = {{&VISIBLE, &OPACITY, &VALUE, &TEXT, &COLOR, &POSITION, &ROTATION},
-                                            nullptr};
+const TransitionDef BUILTIN_TRANSITIONS = {
+    {&VISIBLE, &OPACITY, &VALUE, &TEXT, &COLOR, &POSITION, &ROTATION, &DRAW}, nullptr};
 
 // Built-in effects: one material each, every magnitude left unset so it resolves against the material's built-in
 // value and the effect's preset (set_preset).  The nudges move 4 px, which the design does not specify.

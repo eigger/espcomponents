@@ -56,6 +56,8 @@ static void contribute_one(const Slot &slot, const Instance &instance, Offsets &
     case InstanceKind::COUNT:
     case InstanceKind::TYPEWRITER:
     case InstanceKind::DECODE:
+    case InstanceKind::LINE_RUN:
+    case InstanceKind::LINE_REST:
       return;
     case InstanceKind::EFFECT:
       // Tracks merge into `out` themselves (several tracks, one pass).
@@ -126,6 +128,8 @@ uint8_t instance_props(const Instance &instance) {
     case InstanceKind::COUNT:
     case InstanceKind::TYPEWRITER:
     case InstanceKind::DECODE:
+    case InstanceKind::LINE_RUN:
+    case InstanceKind::LINE_REST:
       break;
   }
   return 0;

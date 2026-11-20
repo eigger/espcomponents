@@ -402,7 +402,7 @@ void text_done(lv_anim_t *anim) {
 bool start_text_anim(Slot *slot, int32_t from, int32_t to, const ResolvedTransition &t, const Opt &opt,
                      bool early_apply) {
   lv_anim_delete(slot, exec_text);
-  return start_anim(slot, exec_text, from, to, t.duration, t.delay, t.curve, text_done, then_of(opt), early_apply);
+  return detail::start_transition_anim(slot, exec_text, from, to, t, opt, text_done, early_apply);
 }
 
 // The new text is already in the label (the state is exact first, the motion is decoration); this ends the motion of
@@ -611,7 +611,10 @@ void set_label_value(lv_obj_t *obj, float value, const Opt &opt) {
 
 void stop_text(Slot *slot) {
   snap(slot, exec_text);
-  if (slot->style.kind != InstanceKind::NONE) clear_text_style(slot);
+  // The style instance also holds the draw state of an lv_line (draw.cpp): only text styles are cleared here.
+  const InstanceKind kind = slot->style.kind;
+  if (kind != InstanceKind::LINE_RUN && kind != InstanceKind::LINE_REST && kind != InstanceKind::NONE)
+    clear_text_style(slot);
 }
 
 }  // namespace detail
