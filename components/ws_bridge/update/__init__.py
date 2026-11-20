@@ -11,7 +11,9 @@ DEPENDENCIES = ["ws_bridge"]
 # Wraps an existing ESPHome UpdateEntity (typically `update: platform: http_request`
 # from the esphome_ota add-on) and exposes it to Home Assistant over ws_bridge.
 # The http_request platform must be declared separately so its C++ is compiled;
-# this platform only bridges state/commands.
+# this platform only bridges state/commands. Until the wrapped entity fills
+# current_version, the running ESPHome firmware version is reported, which
+# assumes it updates this device's own firmware.
 WsBridgeUpdate = ws_bridge_ns.class_("WsBridgeUpdate", cg.Component, ws_bridge.WsBridgeDevice)
 
 CONFIG_SCHEMA = (
