@@ -13,9 +13,10 @@ void UiSound::dump_config() {
                 "  Min gap: %" PRIu32 " ms\n"
                 "  Start grace: %" PRIu32 " ms\n"
                 "  Max busy: %" PRIu32 " ms\n"
-                "  Require start: %s",
+                "  Require start: %s\n"
+                "  Skip when muted: %s",
                 YESNO(this->announcement_), this->min_gap_ms_, this->start_grace_ms_, this->max_busy_ms_,
-                YESNO(this->require_start_));
+                YESNO(this->require_start_), YESNO(this->skip_when_muted_));
 }
 
 bool UiSound::busy_(uint32_t now) {
@@ -42,7 +43,8 @@ PlayResult UiSound::play(Cue *cue, bool force) {
     return PlayResult::INVALID;
   if (!this->enabled_)
     return PlayResult::DISABLED;
-  if (this->player_->is_muted() || this->player_->volume <= 0.0f)
+  // Opt-in: the player applies mute / volume commands from a queue, so this state lags behind the automation.
+  if (this->skip_when_muted_ && (this->player_->is_muted() || this->player_->volume <= 0.0f))
     return PlayResult::MUTED;
   // play_file() silently ignores commands before the player is set up: report it, keep all state untouched.
   if (!this->player_->is_ready())

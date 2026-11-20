@@ -67,6 +67,8 @@ OK_CUES = "  cues:\n    - id: click\n      file: sound_click"
 CASES = [
     ("minimal (positive control)", OK_CUES, "- ui_sound.play: click", None),
     ("long form play (positive control)", OK_CUES, "- ui_sound.play: { cue: click, force: true }", None),
+    ("skip_when_muted (positive control)", OK_CUES + "\n  skip_when_muted: true", "- ui_sound.stop:", None),
+    ("skip_when_muted must be boolean", OK_CUES + "\n  skip_when_muted: maybe", "- ui_sound.stop:", "skip_when_muted"),
     ("unknown cue id in play", OK_CUES, "- ui_sound.play: nope", "Couldn't find ID 'nope'"),
     ("a media file id is not a cue id", OK_CUES, "- ui_sound.play: sound_click", "'sound_click' of type"),
     ("unknown media file", "  cues:\n    - id: click\n      file: nope", "- ui_sound.stop:", "Couldn't find ID 'nope'"),
