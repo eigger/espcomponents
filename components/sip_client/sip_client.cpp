@@ -13,6 +13,7 @@
 #include "g722_codec.h"
 #include "sdp_builder.h"
 #include "sip_auth.h"
+#include "sip_transport_udp.h"
 
 namespace esphome {
 namespace sip_client {
@@ -20,23 +21,10 @@ namespace sip_client {
 static const char *const TAG = "sip_client";
 static const char *const USER_AGENT = "ESPHome-sip_client";
 
-// Render an IPv4 sockaddr to dotted-quad without depending on inet_ntop.
-static std::string sockaddr_ip(const struct sockaddr_storage &ss, uint16_t *port) {
-  if (ss.ss_family != AF_INET) return "";
-  const auto *s = reinterpret_cast<const struct sockaddr_in *>(&ss);
-  uint32_t a = ntohl(s->sin_addr.s_addr);
-  if (port != nullptr) *port = ntohs(s->sin_port);
-  char buf[16];
-  snprintf(buf, sizeof(buf), "%u.%u.%u.%u", static_cast<unsigned>((a >> 24) & 0xFF),
-           static_cast<unsigned>((a >> 16) & 0xFF), static_cast<unsigned>((a >> 8) & 0xFF),
-           static_cast<unsigned>(a & 0xFF));
-  return std::string(buf);
-}
-
 void SipClient::setup() {
   std::srand(micros());
   if (this->domain_.empty()) this->domain_ = this->server_;
-  this->recv_buf_.resize(2048);
+  this->transport_ = std::make_unique<UdpTransport>();
 
 #ifdef USE_MICROPHONE
   if (this->mic_source_ != nullptr) {
@@ -91,52 +79,9 @@ void SipClient::dump_config() {
   ESP_LOGCONFIG(TAG, "  Media direction: %s", this->media_direction_());
 }
 
-bool SipClient::open_socket_() {
-  struct sockaddr_storage server_addr;
-  socklen_t sl = socket::set_sockaddr(reinterpret_cast<struct sockaddr *>(&server_addr),
-                                      sizeof(server_addr), this->server_.c_str(),
-                                      this->server_port_);
-  if (sl == 0) {
-    ESP_LOGW(TAG, "Invalid server address '%s' (use an IP)", this->server_.c_str());
-    return false;
-  }
-  // Create the socket to match the server address's actual family rather than
-  // socket::socket_ip(), which is fixed to AF_INET6 whenever ESPHome's global
-  // network::enable_ipv6 is on — that mismatched an IPv4 server (the common
-  // case) against an IPv6-only socket and made connect() fail outright.
-  this->socket_ = socket::socket(server_addr.ss_family, SOCK_DGRAM, IPPROTO_UDP);
-  if (!this->socket_) {
-    ESP_LOGW(TAG, "Could not create SIP socket");
-    return false;
-  }
-  if (this->socket_->connect(reinterpret_cast<struct sockaddr *>(&server_addr), sl) != 0) {
-    ESP_LOGW(TAG, "SIP connect failed");
-    this->socket_.reset();
-    return false;
-  }
-  this->socket_->setblocking(false);
-
-  // Learn our source IP/port (for Via/Contact/SDP) from the connected socket.
-  struct sockaddr_storage local;
-  socklen_t ll = sizeof(local);
-  this->socket_->getsockname(reinterpret_cast<struct sockaddr *>(&local), &ll);
-  this->local_ip_ = sockaddr_ip(local, &this->local_port_);
-  if (this->local_ip_.empty() || this->local_ip_ == "0.0.0.0") {
-    for (auto &addr : network::get_ip_addresses()) {
-      if (addr.is_set() && addr.is_ip4()) {
-        char ip_buf[network::IP_ADDRESS_BUFFER_SIZE];
-        this->local_ip_ = addr.str_to(ip_buf);
-        break;
-      }
-    }
-  }
-  ESP_LOGI(TAG, "SIP socket bound, local %s:%u", this->local_ip_.c_str(), this->local_port_);
-  return true;
-}
-
 void SipClient::send_raw_(const std::string &msg) {
-  if (!this->socket_) return;
-  this->socket_->write(msg.data(), msg.size());
+  if (!this->transport_ || !this->transport_->connected()) return;
+  this->transport_->send(msg);
   ESP_LOGV(TAG, "TX >>>\n%s", msg.c_str());
 }
 
@@ -178,7 +123,7 @@ void SipClient::set_state_(SipState s) {
 // ---------------- registration ----------------
 
 void SipClient::do_register_() {
-  this->reg_call_id_ = gen_call_id(this->local_ip_);
+  this->reg_call_id_ = gen_call_id(this->transport_->local_ip());
   this->reg_tag_ = gen_tag();
   this->reg_branch_ = gen_branch();
   this->reg_cseq_++;
@@ -189,10 +134,12 @@ void SipClient::do_register_() {
 }
 
 std::string SipClient::contact_uri_() {
-  char buf[128];
-  snprintf(buf, sizeof(buf), "<sip:%s@%s:%u>", this->username_.c_str(), this->local_ip_.c_str(),
-           this->local_port_);
-  return buf;
+  return sip_contact_uri(this->username_, this->transport_->contact_host_port(),
+                         this->transport_->contact_transport_param());
+}
+
+std::string SipClient::via_header_(const std::string &branch) {
+  return sip_via_header(this->transport_->via_token(), this->transport_->via_sent_by(), branch);
 }
 
 std::string SipClient::build_register_() {
@@ -201,8 +148,7 @@ std::string SipClient::build_register_() {
   std::string disp = this->caller_id_.empty() ? this->username_ : this->caller_id_;
   std::string msg;
   msg += "REGISTER " + reg_uri + " SIP/2.0\r\n";
-  msg += "Via: SIP/2.0/UDP " + this->local_ip_ + ":" + std::to_string(this->local_port_) +
-         ";branch=" + this->reg_branch_ + ";rport\r\n";
+  msg += this->via_header_(this->reg_branch_);
   msg += "Max-Forwards: 70\r\n";
   msg += "From: \"" + disp + "\" <" + aor + ">;tag=" + this->reg_tag_ + "\r\n";
   msg += "To: <" + aor + ">\r\n";
@@ -279,7 +225,7 @@ void SipClient::call(const std::string &number) {
   this->invite_number_ = number;
   this->outbound_ = true;
   this->invite_auth_tried_ = false;
-  this->d_call_id_ = gen_call_id(this->local_ip_);
+  this->d_call_id_ = gen_call_id(this->transport_->local_ip());
   this->d_local_tag_ = gen_tag();
   this->d_branch_ = gen_branch();
   this->d_cseq_ = 1;
@@ -316,7 +262,7 @@ void SipClient::apply_chosen_codec_(int pt, AudioCodecId id) {
 std::string SipClient::local_sdp_(bool answer) {
   SdpMediaParams p;
   p.session_id = std::to_string(millis());
-  p.local_ip = this->local_ip_;
+  p.local_ip = this->transport_->local_ip();
   p.rtp_port = this->local_rtp_port_;
   p.direction = this->media_direction_();
   p.answer = answer;
@@ -335,8 +281,7 @@ std::string SipClient::build_invite_() {
   std::string sdp = this->local_sdp_();
   std::string msg;
   msg += "INVITE " + this->d_invite_uri_ + " SIP/2.0\r\n";
-  msg += "Via: SIP/2.0/UDP " + this->local_ip_ + ":" + std::to_string(this->local_port_) +
-         ";branch=" + this->d_branch_ + ";rport\r\n";
+  msg += this->via_header_(this->d_branch_);
   msg += "Max-Forwards: 70\r\n";
   msg += "From: " + this->d_local_ + "\r\n";
   msg += "To: " + this->d_remote_ + "\r\n";
@@ -386,8 +331,7 @@ std::string SipClient::build_ack_(const SipMessage &resp) {
 
   std::string msg;
   msg += "ACK " + target + " SIP/2.0\r\n";
-  msg += "Via: SIP/2.0/UDP " + this->local_ip_ + ":" + std::to_string(this->local_port_) +
-         ";branch=" + branch + ";rport\r\n";
+  msg += this->via_header_(branch);
   msg += "Max-Forwards: 70\r\n";
   msg += route_block;
   msg += "From: " + this->d_local_ + "\r\n";
@@ -681,8 +625,7 @@ void SipClient::hangup() {
       // CANCEL the pending INVITE (same branch/cseq).
       std::string msg;
       msg += "CANCEL " + this->d_invite_uri_ + " SIP/2.0\r\n";
-      msg += "Via: SIP/2.0/UDP " + this->local_ip_ + ":" + std::to_string(this->local_port_) +
-             ";branch=" + this->d_branch_ + ";rport\r\n";
+      msg += this->via_header_(this->d_branch_);
       msg += "Max-Forwards: 70\r\n";
       msg += "From: " + this->d_local_ + "\r\n";
       msg += "To: " + this->d_remote_ + "\r\n";
@@ -712,8 +655,7 @@ std::string SipClient::build_request_in_dialog_(const std::string &method) {
   apply_route_set(this->dialog_routes_, target, route_block);
   std::string msg;
   msg += method + " " + target + " SIP/2.0\r\n";
-  msg += "Via: SIP/2.0/UDP " + this->local_ip_ + ":" + std::to_string(this->local_port_) +
-         ";branch=" + gen_branch() + ";rport\r\n";
+  msg += this->via_header_(gen_branch());
   msg += "Max-Forwards: 70\r\n";
   msg += route_block;
   // For BYE the From/To orientation follows who originates: we are always local.
@@ -961,21 +903,32 @@ void SipClient::handle_packet_(const std::string &raw) {
 void SipClient::loop() {
   if (!network::is_connected()) return;
 
-  if (!this->socket_) {
-    if (millis() < this->next_register_ms_) return;
-    if (!this->open_socket_()) {
-      this->next_register_ms_ = millis() + 5000;
-      return;
+  if (!this->transport_->connected()) {
+    if (this->transport_up_) {
+      // Link dropped (only reachable with a connection-oriented transport).
+      this->transport_up_ = false;
+      this->registered_ = false;
+      this->set_state_(SIP_IDLE);
     }
+    if (!this->transport_->is_open()) {
+      if (millis() < this->next_register_ms_) return;
+      if (!this->transport_->open(this->server_, this->server_port_)) {
+        this->next_register_ms_ = millis() + 5000;
+        return;
+      }
+    }
+    // An asynchronous transport may still be connecting; try again next loop.
+    if (!this->transport_->connected()) return;
+  }
+  if (!this->transport_up_) {
+    this->transport_up_ = true;
     this->do_register_();
   }
 
   // receive signaling
+  std::string raw;
   for (int guard = 0; guard < 8; guard++) {
-    ssize_t len = this->socket_->read(this->recv_buf_.data(), this->recv_buf_.size() - 1);
-    if (len <= 0) break;
-    this->recv_buf_[len] = 0;
-    std::string raw(reinterpret_cast<char *>(this->recv_buf_.data()), len);
+    if (!this->transport_->poll(raw)) break;
     this->handle_packet_(raw);
   }
 

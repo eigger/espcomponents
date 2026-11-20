@@ -15,6 +15,7 @@
 #include "codec.h"
 #include "rtp_session.h"
 #include "sip_message.h"
+#include "sip_transport.h"
 
 namespace esphome {
 namespace sip_client {
@@ -90,7 +91,6 @@ class SipClient : public Component {
 
  protected:
   // networking
-  bool open_socket_();
   void send_raw_(const std::string &msg);
   void handle_packet_(const std::string &raw);
   void handle_request_(const SipMessage &m, const std::string &raw);
@@ -109,6 +109,8 @@ class SipClient : public Component {
   std::string local_sdp_(bool answer = false);
   void apply_chosen_codec_(int pt, AudioCodecId id);
   std::string contact_uri_();
+  // Whole "Via: ...\r\n" line built from the transport (token, sent-by, rport).
+  std::string via_header_(const std::string &branch);
 
   // registration
   void do_register_();
@@ -172,10 +174,8 @@ class SipClient : public Component {
   bool talking_{false};  // half-duplex: true = transmitting (mic), false = receiving (speaker)
 
   // runtime networking
-  std::unique_ptr<socket::Socket> socket_{nullptr};
-  std::string local_ip_;
-  uint16_t local_port_{0};
-  std::vector<uint8_t> recv_buf_;
+  std::unique_ptr<SipTransport> transport_;
+  bool transport_up_{false};  // loop() saw the transport connected and sent REGISTER on it
 
   SipState state_{SIP_IDLE};
   bool registered_{false};

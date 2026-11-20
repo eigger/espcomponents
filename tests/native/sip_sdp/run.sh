@@ -56,3 +56,9 @@ g++ "${CXXFLAGS[@]}" "${INC[@]}" \
   "$ROOT/tests/native/sip_sdp/test_codec_silence.cpp" \
   -o "$OUT/sip_codec_silence_test"
 "$OUT/sip_codec_silence_test"
+
+# Transport-derived Via/Contact strings (UDP must stay byte-identical).
+g++ "${CXXFLAGS[@]}" "${INC[@]}" \
+  "$ROOT/tests/native/sip_sdp/test_sip_transport.cpp" \
+  -o "$OUT/sip_transport_test"
+"$OUT/sip_transport_test"
