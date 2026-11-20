@@ -481,6 +481,10 @@ available version), which native `http_request` update cannot do on its own
 when the device is not using ESPHome's native API. This requires
 `hass-ws-bridge` **1.2.0+** (the `update` platform) and **ESPHome 2025.7+**.
 
+Before the wrapped entity's first check, `installed_version` is reported as the
+running ESPHome firmware version (the project version if set). This assumes the
+wrapped entity updates this device's own firmware, such as `http_request`.
+
 The [hass-esphome-ota](https://github.com/eigger/hass-esphome-ota)
 Home Assistant integration is the intended firmware builder and publisher. It
 publishes firmware for HTTP OTA updates and integrates with ESPHome Device

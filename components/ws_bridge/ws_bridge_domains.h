@@ -96,7 +96,7 @@ namespace ws_bridge {
 //
 // Each domain provides up to four helpers:
 //   ws_declare_*         send the ws_bridge/entity declaration
-//   ws_push_state_*      send the current state, if the source has one
+//   ws_push_state_*      send the current state (domains whose source can be stateless skip it until it has one)
 //   ws_subscribe_*       forward every future state change to the hub
 //   ws_handle_command_*  apply an incoming HA command (writable domains only)
 
@@ -310,7 +310,10 @@ inline void ws_handle_command_button(button::Button *target, const WsCommand &co
 #ifdef USE_UPDATE
 // The firmware this image was built as — the same string http_request update
 // reports as current_version, but known from boot rather than only after the
-// first successful manifest fetch.
+// first successful manifest fetch. This assumes the wrapped update entity
+// updates this device's own firmware (e.g. http_request); for an entity updating
+// other firmware (e.g. a coprocessor) the ESPHome image version is reported
+// until that entity fills current_version.
 inline const char *ws_running_firmware_version() {
 #ifdef ESPHOME_PROJECT_VERSION
   return ESPHOME_PROJECT_VERSION;
@@ -323,7 +326,8 @@ inline void ws_fill_state_update(update::UpdateEntity &src, JsonObject value) {
   const auto &info = src.update_info;
   // HA shallow-merges object state and keeps it across reconnects, so an
   // omitted key leaves the pre-OTA installed_version in place. Fall back to the
-  // compiled-in version until the wrapped entity's first check fills it in.
+  // compiled-in version until the wrapped entity's first check fills it in (assumes
+  // the wrapped entity updates this device's own firmware).
   value["installed_version"] = info.current_version.empty() ? ws_running_firmware_version() : info.current_version;
   if (!info.latest_version.empty())
     value["latest_version"] = info.latest_version;
