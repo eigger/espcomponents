@@ -74,3 +74,12 @@ g++ "${CXXFLAGS[@]}" "${INC[@]}" \
   "$ROOT/tests/native/sip_sdp/test_rtp_keepalive.cpp" \
   -o "$OUT/sip_rtp_keepalive_test"
 "$OUT/sip_rtp_keepalive_test"
+
+# In-dialog logic: tag extraction, dialog matching, SDP direction answers,
+# re-offer diffing, RFC 4028 session timers.
+g++ "${CXXFLAGS[@]}" "${INC[@]}" \
+  "$ROOT/components/sip_client/sip_message.cpp" \
+  "$ROOT/components/sip_client/sip_dialog.cpp" \
+  "$ROOT/tests/native/sip_sdp/test_sip_dialog.cpp" \
+  -o "$OUT/sip_dialog_test"
+"$OUT/sip_dialog_test"

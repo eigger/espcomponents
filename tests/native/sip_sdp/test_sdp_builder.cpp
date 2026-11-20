@@ -92,6 +92,53 @@ void test_answer_without_dtmf() {
   require_not_contains(sdp, "telephone-event", "answer no-dtmf: no event");
 }
 
+void test_origin_version_defaults_to_session_id() {
+  SdpMediaParams p;
+  p.session_id = "77";
+  p.local_ip = "10.0.0.5";
+  std::string sdp = build_sdp_body(p);
+  require_contains(sdp, "o=- 77 77 IN IP4 10.0.0.5\r\n", "no explicit version: same as session id");
+}
+
+void test_origin_version_explicit() {
+  SdpMediaParams p;
+  p.session_id = "77";
+  p.session_version = "79";
+  p.local_ip = "10.0.0.5";
+  std::string sdp = build_sdp_body(p);
+  require_contains(sdp, "o=- 77 79 IN IP4 10.0.0.5\r\n", "session id stays, version differs");
+
+  // Same params -> byte-identical body (a stable version means a stable body).
+  require_contains(build_sdp_body(p), sdp, "deterministic body");
+  p.session_version = "80";
+  std::string next = build_sdp_body(p);
+  require_contains(next, "o=- 77 80 IN IP4 10.0.0.5\r\n", "version bumped, id unchanged");
+}
+
+void test_negotiated_direction_in_body() {
+  const char *dirs[] = {"sendrecv", "sendonly", "recvonly", "inactive"};
+  for (const char *d : dirs) {
+    SdpMediaParams p;
+    p.session_id = "1";
+    p.local_ip = "10.0.0.5";
+    p.answer = true;
+    p.answer_pt = 8;
+    p.answer_rtpmap = "PCMA/8000";
+    p.dtmf_pt = 101;
+    p.direction = d;
+    std::string sdp = build_sdp_body(p);
+    require_contains(sdp, std::string("a=") + d + "\r\n", d);
+  }
+  SdpMediaParams hold;
+  hold.session_id = "1";
+  hold.local_ip = "10.0.0.5";
+  hold.answer = true;
+  hold.direction = "inactive";
+  std::string sdp = build_sdp_body(hold);
+  require_not_contains(sdp, "a=sendrecv", "hold answer has no sendrecv");
+  require_contains(sdp, "m=audio 7078 RTP/AVP 0\r\n", "hold answer keeps the media line (port stays open)");
+}
+
 }  // namespace
 
 int main() {
@@ -99,6 +146,9 @@ int main() {
   test_offer_g722_preferred();
   test_answer_single_codec_dynamic_pcma();
   test_answer_without_dtmf();
+  test_origin_version_defaults_to_session_id();
+  test_origin_version_explicit();
+  test_negotiated_direction_in_body();
 
   if (g_failures != 0) {
     std::cerr << g_failures << " failure(s)\n";

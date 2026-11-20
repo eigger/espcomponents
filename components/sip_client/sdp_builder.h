@@ -10,9 +10,12 @@ namespace sip_client {
 // Host-testable SDP body builder (no ESPHome runtime dependency).
 struct SdpMediaParams {
   std::string session_id;
+  // o= <sess-version>. Must stay constant while the SDP body is unchanged and
+  // grow when it changes (RFC 3264 §8). Empty = same as session_id.
+  std::string session_version;
   std::string local_ip;
   uint16_t rtp_port{7078};
-  const char *direction{"sendrecv"};  // sendrecv / recvonly / sendonly
+  const char *direction{"sendrecv"};  // sendrecv / recvonly / sendonly / inactive
   bool answer{false};
   // Answer only: selected audio PT + rtpmap label (e.g. "PCMA/8000").
   int answer_pt{0};

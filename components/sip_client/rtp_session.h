@@ -29,6 +29,17 @@ class RtpSession {
   void set_on_audio(std::function<void(const int16_t *, size_t)> &&cb) { this->on_audio_ = std::move(cb); }
   void set_on_dtmf(std::function<void(char)> &&cb) { this->on_dtmf_ = std::move(cb); }
 
+  // Media direction gates (SDP hold, RFC 3264 §8.4). The socket stays open in
+  // every state so the NAT mapping and the peer's address latching survive.
+  // Send off: no RTP leaves (mic audio, idle silence / keepalive, DTMF). Receive
+  // off: incoming audio is read and dropped (not decoded, not played). Both
+  // default to on and persist across start(): set them before start() when a
+  // session is (re)started in a held state.
+  void set_send_enabled(bool enabled);
+  void set_receive_enabled(bool enabled) { this->receive_enabled_ = enabled; }
+  bool send_enabled() const { return this->send_enabled_; }
+  bool receive_enabled() const { return this->receive_enabled_; }
+
   bool start(uint16_t local_port);
   void stop();
   bool is_running() const { return this->socket_ != nullptr; }
@@ -60,6 +71,8 @@ class RtpSession {
   struct sockaddr_storage remote_addr_;
   socklen_t remote_addr_len_{0};
   bool remote_set_{false};
+  bool send_enabled_{true};
+  bool receive_enabled_{true};
 
   Codec *codec_{nullptr};
   int dtmf_pt_{101};
