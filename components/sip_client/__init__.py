@@ -121,6 +121,10 @@ def validate_transport(config):
             raise cv.Invalid(
                 f"transport '{transport}' (SIP over WebSocket) is only supported on ESP32"
             )
+        if CORE.target_framework != "esp-idf":
+            raise cv.Invalid(
+                "transport ws/wss requires the ESP-IDF framework (esp32: framework: type: esp-idf)"
+            )
         config.setdefault(CONF_PATH, "/ws")
     elif CONF_PATH in config:
         raise cv.Invalid("'path' is only valid with transport 'ws' or 'wss'")

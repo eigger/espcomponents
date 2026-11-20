@@ -936,6 +936,7 @@ void SipClient::handle_packet_(const std::string &raw) {
 void SipClient::handle_link_down_() {
   this->transport_up_ = false;
   this->registered_ = false;
+  bool was_in_call = false;
   switch (this->state_) {
     case SIP_INVITING:
     case SIP_RINGING_OUT:
@@ -944,25 +945,26 @@ void SipClient::handle_link_down_() {
     case SIP_IN_CALL:
       // No BYE/CANCEL can reach the peer; just tear our side down.
       ESP_LOGW(TAG, "Signaling link lost during a call, ending it");
+      was_in_call = true;
       this->stop_media_();
       this->d_call_id_.clear();
       this->d_local_.clear();
       this->d_remote_.clear();
       this->d_remote_target_.clear();
       this->dialog_routes_.clear();
-      this->set_state_(SIP_IDLE);
-      this->ended_cb_.call();
       break;
     default:
       break;
   }
   this->set_state_(SIP_IDLE);
+  if (was_in_call) this->ended_cb_.call();
   // Re-register after a short pause, not at the (stale) refresh time.
   this->next_register_ms_ = millis() + 1000;
 }
 
 void SipClient::loop() {
   if (!network::is_connected()) return;
+  this->transport_->loop();
 
   if (!this->transport_->connected()) {
     if (this->transport_up_) {

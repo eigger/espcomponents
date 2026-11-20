@@ -29,6 +29,10 @@ class SipTransport {
   virtual ~SipTransport() = default;
 
   // Start (or, for UDP, fully complete) connecting to the server.
+  // Periodic housekeeping on the main loop (watchdogs, picking up state from a
+  // background task). Called once per SipClient::loop() before anything else.
+  virtual void loop() {}
+
   virtual bool open(const std::string &server, uint16_t port) = 0;
   // Tear the connection down (WebSocket: close frame, then stop). open() may
   // be called again afterwards. Called on shutdown and from destructors.

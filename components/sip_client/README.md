@@ -101,7 +101,7 @@ sip_client:
 |--------|:--------:|---------|-------------|
 | `microphone` | | - | Microphone to capture from. Either an ID (`microphone: mic_id`) or a [microphone source](#microphone-source) block for per-channel/gain control. Omit for receive-only devices. |
 | `speaker` | | - | ID of the speaker component to use. Omit for send-only devices. |
-| `server` | ✓ | - | PBX address (IP recommended) |
+| `server` | ✓ | - | PBX address. An IP is recommended for `udp`; for `wss` with certificate verification use the hostname that appears in the server certificate (CN/SAN). |
 | `transport` | | `udp` | Signaling transport: `udp` (plain SIP), `ws` or `wss` (SIP over WebSocket / secure WebSocket, RFC 7118; ESP32 only). See [SIP over WebSocket](#sip-over-websocket-remote-pbx). RTP audio is always plain UDP. |
 | `port` | | 5060 / 8088 / 8089 | SIP server port. The default follows `transport`: `5060` for `udp`, `8088` for `ws`, `8089` for `wss` (FreePBX / Asterisk PJSIP defaults). |
 | `path` | | `/ws` | WebSocket URL path (`ws` / `wss` only). |
@@ -128,7 +128,8 @@ needed for signaling; only the RTP audio stays plain UDP.
 ```yaml
 sip_client:
   transport: wss
-  server: pbx.example.com    # certificate must match this name
+  server: pbx.example.com    # hostname in the server certificate (an IP only works with verify_ssl: false
+                             # or a certificate that lists that IP)
   # port: 8089               # (default for wss; 8088 for ws)
   # path: /ws
   # ca_certificate: |        # only for a private / self-signed CA
@@ -141,7 +142,7 @@ sip_client:
 
 - The connection sends a WebSocket ping every 20 s to keep NAT/proxy state
   alive and is dropped if no pong arrives within 45 s. A dropped link is
-  reconnected automatically (every ~5 s); an active call is ended and the device
+  reconnected automatically (every ~5 s, including after the PBX closes the socket; a connection that stays down for ~3 minutes is restarted from scratch); an active call is ended and the device
   registers again once reconnected.
 - The Via/Contact address is a random `<token>.invalid` name per connection
   (RFC 7118), so enable `rtp_symmetric`, `force_rport` and `rewrite_contact` on
@@ -149,8 +150,11 @@ sip_client:
   RTP.
 - Each SIP message must fit in 8 KB; larger ones are dropped with a warning.
 - `transport: ws` (plain, unencrypted) is supported for debugging only.
-- Not available on non-ESP32 platforms. A complete FreePBX setup guide is
-  planned.
+- On FreePBX keep the extension at `max_contacts=1` with `remove_existing=yes`:
+  every reconnect registers a new random `.invalid` contact, and the old
+  one must not linger.
+- Requires an ESP32 with the ESP-IDF framework (rejected otherwise). A complete
+  FreePBX setup guide is planned.
 
 ### Microphone source
 
