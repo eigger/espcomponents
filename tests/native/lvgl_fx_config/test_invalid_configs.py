@@ -480,6 +480,59 @@ CASES = [
     ),
     ("empty preset", "  presets:\n    pulse:", "", "Preset 'pulse' sets nothing"),
     ("unknown retrigger", "  effect_defaults:\n    retrigger: always", "", "Unknown value 'always'"),
+    # ---- cooldown_scope / on_start ----
+    (
+        "cooldown_scope bad value",
+        "  effects:\n    - id: a\n      cooldown_scope: global\n      tracks:\n        - pulse:",
+        "",
+        "Unknown value 'global'",
+    ),
+    (
+        "cooldown_scope bad value in effect_defaults",
+        "  effect_defaults:\n    cooldown_scope: nope",
+        "",
+        "Unknown value 'nope'",
+    ),
+    (
+        "cooldown_scope widget (positive control)",
+        "  effect_defaults:\n    cooldown_scope: effect\n  effects:\n    - id: a\n      cooldown: 1s\n"
+        "      cooldown_scope: WIDGET\n      tracks:\n        - pulse:",
+        "",
+        None,
+    ),
+    (
+        "on_start on a loop",
+        "  effects:\n    - id: a\n      repeat: infinite\n      on_start:\n        - logger.log: hi\n"
+        "      tracks:\n        - blink:",
+        "",
+        "'on_start' cannot be used with 'repeat: infinite'",
+    ),
+    (
+        "on_start in effect_defaults",
+        "  effect_defaults:\n    on_start:\n      - logger.log: hi",
+        "",
+        "[on_start] is an invalid option",
+    ),
+    (
+        "on_start on an effect and a transition (positive control)",
+        "  transitions:\n    custom:\n      - id: t\n        text: { duration: 10ms }\n        on_start:\n"
+        "          - logger.log: hi\n          - lambda: fx::play(x, fx::PULSE);\n"
+        "  effects:\n    - id: a\n      on_start:\n        - logger.log: hi\n      tracks:\n        - pulse:",
+        "- lvgl_fx.play: { id: fx_label, effect: a }",
+        None,
+    ),
+    (
+        "on_start with an unknown action",
+        "  effects:\n    - id: a\n      on_start:\n        - nope.nothing:\n      tracks:\n        - pulse:",
+        "",
+        "nope.nothing",
+    ),
+    (
+        "on_start on a preset",
+        "  presets:\n    pulse: { scale: 112%, on_start: [] }",
+        "",
+        "[on_start] is an invalid option",
+    ),
     # ---- actions ----
     ("set without a property", VALID_EFFECT, "- lvgl_fx.set: { id: fx_label }", "Must contain exactly one of"),
     (

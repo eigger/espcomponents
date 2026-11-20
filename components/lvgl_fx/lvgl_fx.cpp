@@ -314,7 +314,8 @@ static void move_slotless(lv_obj_t *obj, lv_anim_exec_xcb_t exec, Prop prop, int
     return;
   }
   void *then = then_of(opt);
-  start_anim(obj, exec, from, to, t.duration, t.delay, t.curve, then != nullptr ? slotless_done : nullptr, then);
+  if (start_anim(obj, exec, from, to, t.duration, t.delay, t.curve, then != nullptr ? slotless_done : nullptr, then))
+    detail::notify_start(obj, opt);
 }
 
 // The binding records live in generated static storage, separate from motion slots.
@@ -385,7 +386,10 @@ static void opa_done(lv_anim_t *anim) {
 }
 
 static void start_opa(Slot *slot, int32_t from, int32_t to, const ResolvedTransition &t, const Opt &opt) {
-  if (start_anim(slot, exec_opa, from, to, t.duration, t.delay, t.curve, opa_done, then_of(opt))) return;
+  if (start_anim(slot, exec_opa, from, to, t.duration, t.delay, t.curve, opa_done, then_of(opt))) {
+    detail::notify_start(slot->obj, opt);
+    return;
+  }
   // LVGL could not allocate the animation: the state still has to be exact, so complete right away.
   exec_opa(slot, to);
   if (slot->flags & SLOT_HIDING)
@@ -689,7 +693,8 @@ void set_color(lv_obj_t *obj, lv_color_t color, Opt opt) {
     instant_then(obj, opt);
     return;
   }
-  start_anim(slot, exec_color, 0, LV_OPA_COVER, t.duration, t.delay, t.curve, slot_done, then_of(opt));
+  if (start_anim(slot, exec_color, 0, LV_OPA_COVER, t.duration, t.delay, t.curve, slot_done, then_of(opt)))
+    detail::notify_start(obj, opt);
 }
 
 // ---- rotation (transform) ----------------------------------------------------------------------------------------
@@ -731,8 +736,9 @@ void set_rotation(lv_obj_t *obj, float degrees, Opt opt) {
     instant_then(obj, opt);
     return;
   }
-  start_anim(slot, exec_rotation, slot->base_rotation, target, t.duration, t.delay, t.curve, slot_done,
-             then_of(opt));
+  if (start_anim(slot, exec_rotation, slot->base_rotation, target, t.duration, t.delay, t.curve, slot_done,
+                 then_of(opt)))
+    detail::notify_start(obj, opt);
 }
 
 // ---- stop / start / policy switches --------------------------------------------------------------------------------
@@ -766,6 +772,7 @@ void stop(lv_obj_t *obj) {
 }
 
 void start() { detail::g_core.ready = true; }
+bool is_ready() { return detail::g_core.ready; }
 void set_enabled(bool enabled) { detail::g_core.enabled = enabled; }
 void set_reduced_motion(bool reduced) { detail::g_core.reduced_motion = reduced; }
 
