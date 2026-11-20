@@ -38,6 +38,8 @@ hardware, wiring, and configuration. For a complete device setup, start with a
 | [lilygo_t_keyboard](components/lilygo_t_keyboard) | LilyGO T-Keyboard |
 | [tca8418_keyboard](components/tca8418_keyboard) | TCA8418 keypad controller / M5Cardputer ADV keyboard |
 | [m5unit_scales](components/m5unit_scales) | M5Stack Unit Scales and Unit-Mini Scales |
+| [lvgl_fx](components/lvgl_fx) | Motion (transitions/effects) for LVGL dashboards |
+| [ui_sound](components/ui_sound) | UI cue sounds through a speaker media player, with priority and cooldown policy |
 
 ## Device packages
 
