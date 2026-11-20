@@ -102,6 +102,7 @@ bool RtpSession::start(uint16_t local_port) {
   // Treat the session start as "just sent audio" so the grace period applies
   // from here; a session with no microphone starts emitting silence right after.
   this->last_audio_tx_ms_ = this->last_tx_ms_;
+  this->keepalive_.reset(this->last_tx_ms_);
   this->silence_pcm_.assign(this->pcm_samples_per_frame_(), 0);
   this->recv_buf_.resize(1500);
   ESP_LOGI(TAG, "RTP started on port %u (pt=%u %s, dtmf_pt=%d)", local_port,
@@ -212,6 +213,7 @@ void RtpSession::send_audio_packet_() {
   this->timestamp_ += ts_step;
   this->first_packet_ = false;
   this->last_audio_tx_ms_ = millis();
+  this->keepalive_.on_audio(this->last_audio_tx_ms_);
 }
 
 // Sends one frame of digital silence, keeping the RTP stream running when there
@@ -237,6 +239,7 @@ void RtpSession::send_silence_packet_() {
   this->seq_++;
   this->timestamp_ += ts_step;
   this->first_packet_ = false;
+  this->keepalive_.on_sent(millis());
 }
 
 void RtpSession::send_dtmf_packet_() {
@@ -267,6 +270,7 @@ void RtpSession::send_dtmf_packet_() {
                         reinterpret_cast<struct sockaddr *>(&this->remote_addr_),
                         this->remote_addr_len_);
   this->seq_++;
+  this->keepalive_.on_sent(millis());
 
   if (end) {
     this->dtmf_end_packets_++;
@@ -372,6 +376,12 @@ void RtpSession::loop() {
         // boundary mid-speech. Wait for the real samples rather than splicing
         // silence into live audio.
         break;
+      } else if (!this->keepalive_.idle_frame_due(now)) {
+        // Thinned idle stream (rtp_keepalive): skip this slot but keep the RTP
+        // clock running on wall time, and mark the next packet as the start of
+        // a new talkspurt so the far end's jitter buffer resynchronises.
+        this->timestamp_ += this->ts_per_frame_();
+        this->first_packet_ = true;
       } else {
         // Nothing to send for a while: no microphone configured, or half-duplex
         // while listening. Keep the RTP stream running anyway, which is what a

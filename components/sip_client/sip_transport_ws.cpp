@@ -35,6 +35,13 @@ static const uint32_t CLOSE_TIMEOUT_MS = 1000;
 
 WsTransport::~WsTransport() {
   this->close();
+  // The restart helper uses client_; wait for it (bounded) before destroying.
+  for (int i = 0; i < 100 && this->restarting_.load(std::memory_order_acquire); i++)
+    vTaskDelay(pdMS_TO_TICKS(100));
+  if (this->restarting_.load(std::memory_order_acquire)) {
+    ESP_LOGW(TAG, "Restart task still running at shutdown; leaving the WebSocket client alone");
+    return;
+  }
   if (this->client_ != nullptr) {
     // Destroying joins the client task; it is never called from that task.
     esp_websocket_client_destroy(this->client_);
@@ -89,7 +96,7 @@ bool WsTransport::open(const std::string &server, uint16_t port) {
   } else {
     // The client exists (task ended, or close() was called earlier): restart it
     // from the helper task so this call never waits for the old task.
-    if (!this->restarting_.load(std::memory_order_acquire)) this->force_restart_();
+    if (!this->restarting_.load(std::memory_order_acquire) && !this->force_restart_()) return false;
   }
 
   {
@@ -125,9 +132,9 @@ void WsTransport::close() {
     esp_websocket_client_close(this->client_, pdMS_TO_TICKS(CLOSE_TIMEOUT_MS));
 }
 
-void WsTransport::force_restart_() {
+bool WsTransport::force_restart_() {
   bool expected = false;
-  if (!this->restarting_.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) return;
+  if (!this->restarting_.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) return true;
   this->restart_started_ms_ = millis();
   this->restart_warned_ = false;
   this->connected_.store(false, std::memory_order_release);
@@ -136,7 +143,9 @@ void WsTransport::force_restart_() {
     ESP_LOGE(TAG, "Failed to create WebSocket restart task");
     this->restarting_.store(false, std::memory_order_release);
     this->task_gone_.store(true, std::memory_order_release);
+    return false;
   }
+  return true;
 }
 
 // stop() waits (portMAX_DELAY) for the client task, which may sit in a long
@@ -154,6 +163,13 @@ void WsTransport::restart_task_(void *arg) {
   }
   self->restarting_.store(false, std::memory_order_release);
   vTaskDelete(nullptr);
+}
+
+void WsTransport::network_down() {
+  // SipClient::loop() skips loop() while WiFi is down; without this the
+  // outage would count as link downtime and trigger a restart on recovery.
+  this->down_tracking_ = false;
+  this->watchdog_ms_ = WATCHDOG_INITIAL_MS;
 }
 
 void WsTransport::loop() {

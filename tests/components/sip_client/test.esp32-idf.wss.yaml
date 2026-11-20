@@ -54,6 +54,7 @@ sip_client:
   verify_ssl: true          # (default true; uses the ESP-IDF certificate bundle)
   username: "1001"
   password: "secret"
+  rtp_keepalive: 10s
   domain: "pbx.example.com"
   register_expiration: 300s
   local_rtp_port: 7078

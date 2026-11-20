@@ -32,6 +32,10 @@ class SipTransport {
   // Periodic housekeeping on the main loop (watchdogs, picking up state from a
   // background task). Called once per SipClient::loop() before anything else.
   virtual void loop() {}
+  // Called instead of loop() while the device has no network (WiFi down), so
+  // implementations can pause liveness tracking that would otherwise count the
+  // outage against the link.
+  virtual void network_down() {}
 
   virtual bool open(const std::string &server, uint16_t port) = 0;
   // Tear the connection down (WebSocket: close frame, then stop). open() may

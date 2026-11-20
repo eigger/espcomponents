@@ -38,6 +38,7 @@ sip_client:
   server: 192.168.0.10
   username: "1001"
   password: "secret"
+  rtp_keepalive: 5s
   domain: "192.168.0.10"
 
   on_incoming_call:

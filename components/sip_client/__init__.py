@@ -21,6 +21,7 @@ from .const import (
     CONF_CALLER_ID,
     CONF_REGISTER_EXPIRATION,
     CONF_LOCAL_RTP_PORT,
+    CONF_RTP_KEEPALIVE,
     CONF_CA_CERTIFICATE,
     CONF_CHANNEL,
     CONF_TRANSPORT,
@@ -100,6 +101,15 @@ def validate_audio(config):
     return config
 
 
+def validate_rtp_keepalive(value):
+    # 0 = continuous silence while idle; otherwise one frame per period, 1 s - 60 s.
+    value = cv.positive_time_period_milliseconds(value)
+    ms = value.total_milliseconds
+    if ms != 0 and not 1000 <= ms <= 60000:
+        raise cv.Invalid("'rtp_keepalive' must be 0s or between 1s and 60s")
+    return value
+
+
 def validate_ws_path(value):
     value = cv.string_strict(value)
     if not value.startswith("/"):
@@ -171,6 +181,7 @@ CONFIG_SCHEMA = cv.All(
                 CONF_REGISTER_EXPIRATION, default="300s"
             ): cv.positive_time_period_seconds,
             cv.Optional(CONF_LOCAL_RTP_PORT, default=7078): cv.port,
+            cv.Optional(CONF_RTP_KEEPALIVE, default="0s"): validate_rtp_keepalive,
             cv.Optional(CONF_CHANNEL, default="stereo"): cv.enum(CHANNEL_MODES, lower=True),
             cv.Optional(CONF_HALF_DUPLEX, default=False): cv.boolean,
             cv.Optional(CONF_CODECS, default=["pcmu", "pcma"]): cv.ensure_list(
@@ -258,6 +269,7 @@ async def to_code(config):
         cg.add(var.set_caller_id(config[CONF_CALLER_ID]))
     cg.add(var.set_register_expiration(config[CONF_REGISTER_EXPIRATION]))
     cg.add(var.set_local_rtp_port(config[CONF_LOCAL_RTP_PORT]))
+    cg.add(var.set_rtp_keepalive(config[CONF_RTP_KEEPALIVE].total_milliseconds))
     cg.add(var.set_channel(config[CONF_CHANNEL]))
     cg.add(var.set_half_duplex(config[CONF_HALF_DUPLEX]))
     cg.add(var.set_codecs([CODEC_MODES[c] for c in config[CONF_CODECS]]))
