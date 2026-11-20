@@ -78,6 +78,8 @@ struct Track {
 enum class Retrigger : uint8_t { DEFAULT, RESTART, IGNORE };
 enum class WhenSuppressed : uint8_t { DEFAULT, SKIP, DEFER };
 enum class EffectPolicy : uint8_t { DEFAULT, NORMAL, ALWAYS };  // ALWAYS ignores `suppress_when`
+// What a `cooldown` is measured against: the last start of the same effect on the widget, or of any one-shot effect.
+enum class CooldownScope : uint8_t { DEFAULT, EFFECT, WIDGET };
 
 constexpr uint16_t REPEAT_INFINITE = 0xFFFF;  // a loop: "on" until stopped
 
@@ -96,6 +98,11 @@ struct EffectDef {
   uint16_t cooldown = UNSET_U16;               // ms (0)
   uint16_t defer_timeout = UNSET_U16;          // ms (3000)
   const EffectDef *then = nullptr;             // played on the same target when a one-shot ends; not for loops
+  // New fields go at the end: generated tables are designated initializers in declaration order.
+  CooldownScope cooldown_scope = CooldownScope::DEFAULT;  // effect
+  // `on_start:` hook, called with the target once per play of a one-shot, after the motion has started and the runner's
+  // state is consistent (so it may call play / stop).  Not called for loops.  A captureless function.
+  void (*on_start)(lv_obj_t *) = nullptr;
 };
 
 // Global defaults for the options above (`lvgl_fx: effect_defaults:`); also the hook for C++ users:
@@ -108,6 +115,7 @@ struct EffectOptions {
   uint16_t repeat_delay = 0;
   uint16_t cooldown = 0;
   uint16_t defer_timeout = 3000;
+  CooldownScope cooldown_scope = CooldownScope::EFFECT;  // DEFAULT is read as EFFECT
 };
 EffectOptions &effect_defaults();
 

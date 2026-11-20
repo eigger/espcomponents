@@ -100,6 +100,10 @@ lvgl_fx:
         text: { style: roll, distance: 14, duration: 140ms }
       - id: odometer
         text: { style: count, format: "%.0f km", duration: 800ms }
+      - id: card_logged
+        visible: { show: slide_up, hide: fade }
+        on_start:               # once per `set` that animates; `x` is the widget (lv_obj_t *)
+          - logger.log: { format: "card moving on %p", args: [ x ] }
 
   presets:                      # magnitudes of the built-in effects
     pulse: { scale: 112% }
@@ -111,6 +115,7 @@ lvgl_fx:
     when_suppressed: skip
     policy: normal
     defer_timeout: 3s
+    cooldown_scope: effect
 
   effects:
     - id: prnd_confirm
@@ -118,6 +123,9 @@ lvgl_fx:
         - flash: { property: bg_color, color: white, duration: 340ms, curve: ease_in }
     - id: heat
       cooldown: 2500ms
+      cooldown_scope: widget    # counts from any one-shot effect on the widget, not only `heat`
+      on_start:                 # once per play, when the motion starts; `x` is the widget (lv_obj_t *)
+        - script.execute: log_heat
       tracks:
         - nudge: { y: -2, duration: 220ms }
         - flash: { property: image_recolor, amount: 25%, duration: 220ms }
@@ -134,7 +142,7 @@ lvgl_fx:
 | --- | --- | --- |
 | `motion.fast` / `normal` / `slow` | 120 ms / 200 ms / 320 ms | The duration tokens (they also follow `fx::motion()` at run time). |
 | `motion.intensity` | 1.0 | Multiplies effect sizes (nudge/shake distance, pulse growth, flash/glow strength, blink depth). |
-| `max_targets` | 32 | Size of the slot pool, 68 bytes per slot (measured, 32-bit target). |
+| `max_targets` | 32 | Size of the slot pool, 68 bytes per slot (measured, 32-bit target; unchanged by `cooldown_scope` and `on_start`, which live in the const tables). |
 | `slots_in_psram` | false | Try PSRAM first and fall back to internal RAM. Accesses per frame are few. |
 | `suppress_when` | none | Lambda returning `bool`. While true, transitions apply instantly and effects follow `when_suppressed`. |
 
@@ -226,13 +234,55 @@ Options of an effect (an effect's own value beats `effect_defaults`):
 | `retrigger` | `restart` / `ignore` | `play` while the same effect runs: start over / do nothing |
 | `when_suppressed` | `skip` / `defer` | `play` during `suppress_when`: drop it / keep one (a later one replaces it) and play it when suppression ends |
 | `defer_timeout` | time (3s) | how long a deferred effect stays valid |
-| `cooldown` | time (0) | minimum time between two plays of this effect on a widget (see Caveats) |
+| `cooldown` | time (0) | minimum time between two plays on a widget (see `cooldown_scope` and Caveats) |
+| `cooldown_scope` | `effect` / `widget` (`effect`) | what a `cooldown` counts from: the last start of the *same effect* on the widget / the last start of *any* one-shot effect on the widget |
 | `policy` | `normal` / `always` | `always` ignores `suppress_when` |
 | `then` | effect | played on the same widget when this effect has ended (all repeats). Not for loops |
+| `on_start` | automation | runs when a play of this effect starts moving (see [`on_start`](#on_start)). Effects of your own only; not for loops. Not available in `effect_defaults` |
 
 A widget runs at most one one-shot effect and one loop at a time. Playing a second one-shot ends the first (at rest) and
 starts the new one; playing a different loop replaces the loop. `cooldown`, `defer_timeout` and `then` do not apply to
 loops. Playing a loop that is already on does nothing, so it is safe to repeat the call.
+
+### `on_start`
+
+An `on_start:` automation can be given to an effect (`effects:`) and to a named transition (`transitions: custom:`).
+The trigger argument is the target widget, an `lv_obj_t *` named **`x`** in lambdas (like `x` in `on_value`):
+
+```yaml
+lvgl_fx:
+  effects:
+    - id: heat
+      tracks:
+        - nudge: { y: -2, duration: 220ms }
+      on_start:
+        - logger.log: { format: "heat started on %p", args: [ x ] }
+        - script.execute: count_alert        # or: - lambda: fx::play(x, fx::BLINK);
+  transitions:
+    custom:
+      - id: card
+        visible: { show: slide_up, hide: fade }
+        on_start:
+          - lambda: ESP_LOGD("app", "card %s", lv_obj_is_hidden(x) ? "is hidden" : "is shown");
+```
+
+Exactly when it runs:
+
+- **Effect.** Once per play, at the moment the motion starts: after the effect's state is set up, before the first frame.
+  Not when the play is dropped (policy), in cooldown, ignored by `retrigger: ignore`, or finds no free slot (see
+  `PlayResult` below), and not once per `repeat`. A play kept by `when_suppressed: defer` runs it when it really plays
+  later. An effect played through `then` runs its own `on_start` like any other play. `retrigger: restart` (the default)
+  starts over, so it runs again.
+- **Transition.** Once per `set` call that really animates: not when the change is applied instantly (policy, `duration:
+  0`, `style: none`, `instant: true`, the pool is full), nor when the call changes nothing because the property is already
+  at (or on its way to) the value. It runs when the animation is started, so a `delay` is still ahead of it. For
+  `visible` it runs for showing and for hiding. A `then` effect plays when the transition ends, with its own `on_start`.
+- It runs after the runner's bookkeeping is done, so the automation may call `lvgl_fx.play`, `lvgl_fx.stop` or `lvgl_fx.set`
+  on the same widget. Keep it short: it runs inside the call that started the motion, on the main loop.
+- Do not play the *same* effect from its own `on_start`: with `retrigger: restart` that starts it again, runs the hook
+  again, and recurses without bound. The same goes for a transition whose `on_start` sets the same property with that
+  same transition.
+- `on_start` on a loop (`repeat: infinite`) is rejected at configuration time (hooks on loops are not supported yet).
 
 ### Checked at configuration time
 
@@ -240,6 +290,8 @@ Besides out-of-range values, these are errors:
 - `then` on a loop, `then` pointing at a loop (from an effect or a transition), a `then` cycle;
 - an unknown effect or transition id; an effect id equal to a built-in effect name; the id `fx` for the component, an
   effect or a transition;
+- `on_start` on a loop (`repeat: infinite`); `on_start` in `effect_defaults` or a preset; a `cooldown_scope` other than
+  `effect` / `widget`;
 - a transition that sets nothing (give it a property or `then`); a preset that sets nothing; a `nudge` without `x` and `y`;
   `cycles: 0`;
 - `show` without `hide`; `style` together with `show` / `hide`; a `style` that does not fit the property (`slide_up`
@@ -355,6 +407,7 @@ fx::play(id(icon), id(heat));                          // an effect of your conf
 fx::stop(id(icon));                                    // everything
 fx::stop(id(icon), id(warning_blink));                 // one effect
 fx::start();
+bool ready = fx::is_ready();                           // true once start() (or `lvgl_fx.start`) has run
 ```
 
 The first argument is an `lv_obj_t *` or an ESPHome LVGL widget. Every `set_*` and `play` takes a last `fx::Opt` (including `instant` for setters):
@@ -372,6 +425,26 @@ fx::set_value(id(bar_fuel), x, fx::Opt{id(gauge_slow)});                 // name
 fx::set_x(id(box), 170, {.transition = id(prnd_move), .force = true});
 fx::play(id(icon), fx::PULSE, {.force = true});
 ```
+
+**`play` tells what happened.** It returns an `fx::PlayResult`; ignoring it is fine (the YAML action does):
+
+```cpp
+fx::PlayResult r = fx::play(id(icon), id(heat));
+if (r == fx::PlayResult::DROPPED) ESP_LOGD("app", "no motion: the screen is not ready or is hidden");
+```
+
+| Value | Meaning |
+| --- | --- |
+| `STARTED` | the effect is moving now (one-shot started, or loop switched on and moving) |
+| `DEFERRED` | `suppress_when` is true and the effect has `when_suppressed: defer`: it is kept and plays later |
+| `REMEMBERED` | a loop is now on but at rest because policy forbids motion for the moment (disabled, reduced motion, before `start`, hidden, suppressed); it starts by itself |
+| `IGNORED` | already running: `retrigger: ignore` on a one-shot that is running, or the same loop is already on |
+| `DROPPED` | policy dropped a one-shot: disabled, reduced motion, before `start`, hidden widget or ancestor, `suppress_when` with `skip` |
+| `COOLDOWN` | the `cooldown` is not over |
+| `NO_SLOT` | the slot pool is full (`max_targets`), or LVGL could not allocate the animation |
+| `INVALID` | no widget or effect given, or an effect without any motion (no track has a duration) |
+
+`force` skips `DROPPED`, `DEFERRED` and `COOLDOWN`. `fx::is_ready()` tells whether `start()` has been called.
 
 `id(heat)` / `id(gauge_slow)` are the ids of your `effects:` / `transitions: custom:` entries (a mistyped id is a compile
 error).
@@ -403,7 +476,9 @@ Starting a tween on the same `(var, setter)` replaces the running one; it starts
 outlive the tween. `fx::cancel_tween(var, setter)` stops it without applying the end value.
 
 Effects and transitions can also be written as `static const` tables (`fx::EffectDef`, `fx::Track`,
-`fx::TransitionDef`, `fx::PropTransition`) in a lambda; fields you leave out take the defaults. See
+`fx::TransitionDef`, `fx::PropTransition`) in a lambda; fields you leave out take the defaults. `cooldown_scope` and
+`on_start` are fields of `fx::EffectDef` (`on_start` also of `fx::TransitionDef`): a plain function pointer
+`void (*)(lv_obj_t *)`, so a captureless lambda fits. See
 `tests/components/lvgl_fx/test.esp32-idf.yaml` for the full form.
 
 ## Policy
@@ -416,7 +491,7 @@ Every transition and one-shot effect is judged once, when it starts. The first r
 | 2 | before `lvgl_fx.start` | applied instantly | dropped | remembered, starts at `start` |
 | 3 | the widget or an ancestor is hidden | applied instantly | dropped | rests; resumes when shown |
 | 4 | `suppress_when` is true (not for `policy: always`) | applied instantly | `when_suppressed`: dropped or deferred | rests; resumes when released |
-| 5 | `cooldown` not over | n/a | dropped | n/a |
+| 5 | `cooldown` not over (see `cooldown_scope`) | n/a | dropped | n/a |
 
 - `force: true` skips rows 1 - 5. A loop started with `force` is never paused by policy.
 - "Applied instantly" always lands on the exact final value, so nothing is lost; `set_visible` only looks at the
@@ -460,8 +535,10 @@ Every transition and one-shot effect is judged once, when it starts. The first r
   point, and the difference between start and end must be at most 2,097,150 fixed-point units (`%.0f`: 2,097,150;
   `%.2f`: 20,971.50). Otherwise the new text fades in (the final text is the same). A label with no readable number
   (empty, `--`, text) also fades instead of counting. Formatted label numbers are cut at 47 characters.
-- **`cooldown`** compares with the last one-shot effect on the same widget, and only when that was the same effect:
-  `heat`, `pulse`, `heat` plays `heat` again. It counts from the start of that play, and `force` ignores it.
+- **`cooldown`** counts from the start of the last one-shot effect on the same widget; `force` ignores it, loops are not
+  affected. With `cooldown_scope: effect` (the default) it only counts when that was the same effect: `heat`, `pulse`,
+  `heat` plays `heat` again. With `cooldown_scope: widget` any effect counts: `heat`, `pulse` (cooldown 2500 ms) is
+  dropped. The cooldown that applies is the one of the effect being played. A `then` follow-up is not subject to cooldown (it is part of the same play); the other policy rows still apply to it.
 - **`intensity`** is global and sampled when an effect starts: changing it applies at the next `play()` to all effects
   that are running as well.
 - **`then` is played with the default policy**, not with the `force` or transition of the call that triggered it.

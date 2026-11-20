@@ -23,6 +23,11 @@ external_components:
 
 logger:
 
+script:
+  - id: started_script
+    then:
+      - logger.log: "an effect started"
+
 globals:
   - id: popup_open
     type: bool
@@ -119,6 +124,16 @@ lvgl_fx:
       - id: defaults
         visible: { style: fade }
         text: { style: roll }
+      # on_start: once per set call that animates (`x` is the target lv_obj_t *)
+      - id: announce_set
+        visible: { show: slide_up, hide: fade }
+        text: { style: roll }
+        on_start:
+          - logger.log:
+              format: "transition started on %p"
+              args: [ x ]
+          - lambda: |-
+              fx::play(x, fx::PULSE);
 
     bindings:
       - { id: fx_bar, value: gauge_slow }
@@ -144,6 +159,7 @@ lvgl_fx:
     repeat: 1
     repeat_delay: 50ms
     cooldown: 100ms
+    cooldown_scope: effect
     defer_timeout: 2s
 
   effects:
@@ -203,6 +219,38 @@ lvgl_fx:
     - id: delayed
       tracks:
         - blink: { delay: 60s, duration: 5s }
+    # on_start: once per play (not per repeat), the target is `x`; also fires for an effect played through `then`
+    - id: started_hook
+      repeat: 2
+      cooldown: 300ms
+      cooldown_scope: widget
+      then: started_chained
+      on_start:
+        - logger.log:
+            format: "effect started on %p"
+            args: [ x ]
+        - lambda: |-
+            ESP_LOGD("test", "play result %d", static_cast<int>(fx::play(x, fx::BLINK)));
+      tracks:
+        - pulse: { scale: 106% }
+    # a `then` chain under a widget-scope cooldown: the follow-up is not rate-limited by its predecessor
+    - id: chain_widget_cd
+      cooldown: 2s
+      cooldown_scope: widget
+      then: chain_widget_cd_next
+      tracks:
+        - pulse:
+    - id: chain_widget_cd_next
+      cooldown: 2s
+      cooldown_scope: widget
+      tracks:
+        - blink:
+    - id: started_chained
+      cooldown_scope: effect
+      on_start:
+        - script.execute: started_script
+      tracks:
+        - blink:
 
 lvgl:
   displays: [ main_display ]
@@ -267,6 +315,9 @@ lvgl:
 interval:
   - interval: 1s
     then:
+      - lvgl_fx.play: { id: fx_obj, effect: started_hook }
+      - lvgl_fx.play: { id: fx_obj, effect: chain_widget_cd }
+      - lvgl_fx.set: { id: fx_label, text: "9", transition: announce_set }
       - lambda: |-
           // visibility, opacity and the hide/show reversal rules
           fx::set_visible(id(fx_obj), false);
@@ -448,6 +499,44 @@ interval:
           fx::motion().intensity = 0.5f;
           fx::play(id(fx_obj), fx::SHAKE);
           fx::motion().intensity = 0.8f;
+          fx::stop(id(fx_obj));
+
+          // ---- play() result, is_ready(), cooldown_scope, on_start in a const table ----
+          static void (*const log_start)(lv_obj_t *) = [](lv_obj_t *target) {
+            ESP_LOGD("test", "started %p", target);
+            fx::play(target, fx::BLINK);  // re-entrant play from the hook
+          };
+          static const fx::Track hook_tracks[] = {{.kind = fx::TrackKind::PULSE, .duration = 100}};
+          static const fx::EffectDef hooked = {.tracks = hook_tracks, .track_count = 1, .cooldown = 400,
+                                               .cooldown_scope = fx::CooldownScope::WIDGET, .on_start = log_start};
+          static const fx::EffectDef per_effect = {.tracks = hook_tracks, .track_count = 1, .cooldown = 400,
+                                                   .cooldown_scope = fx::CooldownScope::EFFECT};
+          static const fx::PropTransition hook_prop = {.duration = 100};
+          static const fx::TransitionDef hooked_transition = {{nullptr, nullptr, &hook_prop}, nullptr,
+                                                              fx::EffectPolicy::NORMAL, log_start};
+          if (fx::is_ready()) {
+            fx::PlayResult r = fx::play(id(fx_obj), &hooked);
+            switch (r) {
+              case fx::PlayResult::STARTED:
+              case fx::PlayResult::DEFERRED:
+              case fx::PlayResult::REMEMBERED:
+              case fx::PlayResult::IGNORED:
+              case fx::PlayResult::DROPPED:
+              case fx::PlayResult::COOLDOWN:
+              case fx::PlayResult::NO_SLOT:
+              case fx::PlayResult::INVALID:
+                break;
+            }
+            if (fx::play(id(fx_obj), &per_effect) == fx::PlayResult::COOLDOWN) fx::stop(id(fx_obj));
+            if (fx::play(id(fx_dropdown), &hooked, {.force = true}) != fx::PlayResult::STARTED)  // LvCompound overload
+              fx::stop(id(fx_dropdown));
+            if (fx::play(static_cast<lv_obj_t *>(nullptr), &hooked) != fx::PlayResult::INVALID) fx::stop(id(fx_obj));
+            fx::set_value(id(fx_bar), 77, {.transition = &hooked_transition});
+          }
+          fx::effect_defaults().cooldown_scope = fx::CooldownScope::WIDGET;
+          fx::effect_defaults() = fx::EffectOptions{};
+          fx::play(id(fx_obj), id(started_hook));
+          fx::set_text(id(fx_label), "7", {.transition = id(announce_set)});
           fx::stop(id(fx_obj));
 
           // ---- transition `then`: every kind of transition ends by playing an effect on the same target ----

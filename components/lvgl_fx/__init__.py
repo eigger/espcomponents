@@ -27,7 +27,7 @@ from esphome.components.lvgl.schemas import TEXT_SCHEMA
 from esphome.components.lvgl.types import ObjUpdateAction, lv_obj_t
 from esphome.components.lvgl.widgets import get_widgets
 import esphome.config_validation as cv
-from esphome.const import CONF_ID
+from esphome.const import CONF_ID, CONF_TRIGGER_ID
 from esphome.core import CORE
 from esphome import automation
 from esphome.cpp_generator import AssignmentExpression, MockObj, RawExpression, RawStatement
@@ -42,6 +42,8 @@ SetEnabledAction = lvgl_fx_ns.class_("SetEnabledAction", automation.Action)
 SetReducedMotionAction = lvgl_fx_ns.class_("SetReducedMotionAction", automation.Action)
 TransitionDef = lvgl_fx_ns.struct("TransitionDef")
 EffectDef = lvgl_fx_ns.struct("EffectDef")
+# `on_start:` hooks pass the target widget; in lambdas it is `x`.
+OnStartTrigger = automation.Trigger.template(lv_obj_t.operator("ptr"))
 
 CONF_MOTION = "motion"
 CONF_FAST = "fast"
@@ -83,6 +85,8 @@ CONF_RETRIGGER = "retrigger"
 CONF_WHEN_SUPPRESSED = "when_suppressed"
 CONF_DEFER_TIMEOUT = "defer_timeout"
 CONF_COOLDOWN = "cooldown"
+CONF_COOLDOWN_SCOPE = "cooldown_scope"
+CONF_ON_START = "on_start"
 CONF_POLICY = "policy"
 CONF_REPEAT = "repeat"
 CONF_REPEAT_DELAY = "repeat_delay"
@@ -316,6 +320,11 @@ _PROP_ENTRIES = {cv.Optional(prop): _entry(prop) for prop in TRANSITION_PROPS}
 DEFAULTS_SCHEMA = cv.Schema(_PROP_ENTRIES)
 
 
+_ON_START = automation.validate_automation(
+    {cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(OnStartTrigger)}
+)
+
+
 def _custom_transition(value):
     value = cv.Schema(
         {
@@ -323,6 +332,7 @@ def _custom_transition(value):
             **_PROP_ENTRIES,
             cv.Optional(CONF_THEN): _effect_ref,
             cv.Optional(CONF_POLICY): cv.one_of("normal", "always", lower=True),
+            cv.Optional(CONF_ON_START): _ON_START,
         }
     )(value)
     if not any(key in value for key in (*TRANSITION_PROPS, CONF_THEN)):
@@ -439,6 +449,7 @@ _OPTIONS = {
     cv.Optional(CONF_WHEN_SUPPRESSED): cv.one_of("skip", "defer", lower=True),
     cv.Optional(CONF_DEFER_TIMEOUT): _time,
     cv.Optional(CONF_COOLDOWN): _time,
+    cv.Optional(CONF_COOLDOWN_SCOPE): cv.one_of("effect", "widget", lower=True),
     cv.Optional(CONF_POLICY): cv.one_of("normal", "always", lower=True),
     cv.Optional(CONF_REPEAT_DELAY): _time,
 }
@@ -471,6 +482,7 @@ def _effect(value):
             cv.Required(CONF_TRACKS): cv.All(cv.ensure_list(_track), cv.Length(min=1, max=MAX_TRACKS)),
             cv.Optional(CONF_REPEAT): _repeat,
             cv.Optional(CONF_THEN): _effect_ref,
+            cv.Optional(CONF_ON_START): _ON_START,
             **_OPTIONS,
         }
     )(value)
@@ -484,6 +496,11 @@ def _effect(value):
         raise cv.Invalid(
             "'then' cannot be used with 'repeat: infinite': a loop never ends, so nothing could follow it",
             [CONF_THEN],
+        )
+    if value.get(CONF_REPEAT) == "infinite" and CONF_ON_START in value:
+        raise cv.Invalid(
+            "'on_start' cannot be used with 'repeat: infinite': hooks are not supported on loops",
+            [CONF_ON_START],
         )
     return value
 
@@ -674,6 +691,7 @@ def _option_fields(conf):
         ("repeat_delay", _get(conf, CONF_REPEAT_DELAY, _ms)),
         ("cooldown", _get(conf, CONF_COOLDOWN, _ms)),
         ("defer_timeout", _get(conf, CONF_DEFER_TIMEOUT, _ms)),
+        ("cooldown_scope", _get(conf, CONF_COOLDOWN_SCOPE, lambda v: _cpp("CooldownScope", v))),
     ]
 
 
@@ -685,7 +703,24 @@ def _use_track(kind):
     cg.add_define(f"USE_LVGL_FX_{kind.upper()}")
 
 
-def _effect_to_code(effect):
+async def _on_start_to_code(id_, config):
+    """Emit a captureless function that fires the `on_start:` automation; return its name (None without a hook).
+
+    The Trigger is a global pointer, so the function needs no capture and fits the plain pointer in the const table.
+    `on_start:` is a list of automations like any ESPHome trigger; each gets its own Trigger, all fired in order."""
+    if CONF_ON_START not in config:
+        return None
+    triggers = []
+    for conf in config[CONF_ON_START]:
+        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID])
+        await automation.build_automation(trigger, [(lv_obj_t.operator("ptr"), "x")], conf)
+        triggers.append(f"{conf[CONF_TRIGGER_ID]}->trigger(target);")
+    name = _ident(id_, "on_start")
+    cg.add_global(RawStatement(f"static void {name}(lv_obj_t *target) {{ {' '.join(triggers)} }}"))
+    return name
+
+
+async def _effect_to_code(effect):
     id_ = effect[CONF_ID]
     tracks = []
     for track in effect[CONF_TRACKS]:
@@ -694,11 +729,16 @@ def _effect_to_code(effect):
     cg.add_global(
         RawStatement(f"static const {lvgl_fx_ns}::Track {_ident(id_, 'tracks')}[] = {{" + ", ".join(tracks) + "};")
     )
+    # Declaration order of EffectDef: the options, then `then`, then the fields added later.
+    options = dict(_option_fields(effect))
+    scope = options.pop("cooldown_scope")
     fields = [
         ("tracks", _ident(id_, "tracks")),
         ("track_count", str(len(tracks))),
-        *_option_fields(effect),
+        *options.items(),
         ("then", _get(effect, CONF_THEN, _then_cpp)),
+        ("cooldown_scope", scope),
+        ("on_start", await _on_start_to_code(id_, effect)),
     ]
     _declare(id_, EffectDef, _init(fields))
 
@@ -804,7 +844,7 @@ async def to_code(config):
     cg.add_global(RawStatement("namespace fx = esphome::lvgl_fx;"))
 
     for effect in _ordered_effects(config.get(CONF_EFFECTS, [])):
-        _effect_to_code(effect)
+        await _effect_to_code(effect)
 
     transitions = config.get(CONF_TRANSITIONS, {})
     if CONF_DEFAULTS in transitions:
@@ -819,6 +859,7 @@ async def to_code(config):
             ("props", _transition_table(f"lvgl_fx_id_{id_.id}", transition)),
             ("then", _get(transition, CONF_THEN, _then_cpp)),
             ("policy", _get(transition, CONF_POLICY, lambda v: _cpp("EffectPolicy", v))),
+            ("on_start", await _on_start_to_code(id_, transition)),
         ]
         _declare(id_, TransitionDef, _init(fields))
 
