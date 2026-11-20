@@ -9,8 +9,7 @@ namespace {
 int g_failures = 0;
 void require_true(bool cond, const char *message) {
   if (!cond) {
-    std::cerr << "FAIL: " << message << "
-";
+    std::cerr << "FAIL: " << message << "\n";
     g_failures++;
   }
 }
@@ -70,11 +69,9 @@ int main() {
     require_true(k.idle_frame_due(0xFFFFFF00u + 10000u), "wrap: due after the period across the wrap");
   }
   if (g_failures != 0) {
-    std::cerr << g_failures << " failure(s)
-";
+    std::cerr << g_failures << " failure(s)\n";
     return 1;
   }
-  std::cout << "rtp_keepalive tests passed
-";
+  std::cout << "rtp_keepalive tests passed\n";
   return 0;
 }
