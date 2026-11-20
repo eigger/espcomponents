@@ -40,6 +40,7 @@ hardware, wiring, and configuration. For a complete device setup, start with a
 | [m5unit_scales](components/m5unit_scales) | M5Stack Unit Scales and Unit-Mini Scales |
 | [lvgl_fx](components/lvgl_fx) | Motion (transitions/effects) for LVGL dashboards |
 | [ui_sound](components/ui_sound) | UI cue sounds through a speaker media player, with priority and cooldown policy |
+| [gps_compass](components/gps_compass) | True-north heading from magnetometer + accelerometer + GPS, calibrated by driving (no figure-8) |
 
 ## Device packages
 
