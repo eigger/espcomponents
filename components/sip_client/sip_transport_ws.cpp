@@ -35,10 +35,14 @@ static const uint32_t CLOSE_TIMEOUT_MS = 1000;
 
 WsTransport::~WsTransport() {
   this->close();
-  // The restart helper uses client_; wait for it (bounded) before destroying.
+  // The restart helper uses `this` and client_; wait for it (bounded) before
+  // destroying.
   for (int i = 0; i < 100 && this->restarting_.load(std::memory_order_acquire); i++)
     vTaskDelay(pdMS_TO_TICKS(100));
   if (this->restarting_.load(std::memory_order_acquire)) {
+    // The helper task still dereferences `this` after we return, so this is a
+    // use-after-free in that corner case. Acceptable: ESPHome components live
+    // for the whole firmware run and are never destroyed.
     ESP_LOGW(TAG, "Restart task still running at shutdown; leaving the WebSocket client alone");
     return;
   }

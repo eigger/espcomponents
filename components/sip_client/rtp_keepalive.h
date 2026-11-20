@@ -15,9 +15,13 @@ namespace sip_client {
 // device's public address. Pure logic, no I/O, wrap-safe for millis().
 class RtpKeepalive {
  public:
-  // Frames sent back-to-back at the start of idle (call start, and every time
-  // the stream goes idle again after a gap), so the PBX learns the address fast.
-  static constexpr uint8_t BURST_FRAMES = 5;
+  // Continuous silence (every 20 ms slot) after reset() and after real audio,
+  // before the thinned period applies. Asterisk's strict RTP needs `probation`
+  // (default 4) consecutive packets from the new public source before it
+  // latches, so this is deliberately generous: it survives packet loss and an
+  // inbound call whose first packets arrive before the PBX processed the SDP.
+  static constexpr uint32_t START_BURST_MS = 2000;
+  static constexpr uint32_t AUDIO_BURST_MS = 750;
 
   void configure(uint32_t period_ms) { this->period_ms_ = period_ms; }
   uint32_t period_ms() const { return this->period_ms_; }
@@ -26,33 +30,32 @@ class RtpKeepalive {
   // Call when the session starts.
   void reset(uint32_t now) {
     this->last_sent_ms_ = now;
-    this->burst_left_ = BURST_FRAMES;
+    this->burst_start_ms_ = now;
+    this->burst_len_ms_ = START_BURST_MS;
   }
 
   // Any RTP packet left the socket (audio, silence, DTMF).
   void on_sent(uint32_t now) { this->last_sent_ms_ = now; }
 
-  // Real audio was sent; the next idle phase starts with a fresh burst.
+  // Real audio was sent; the next idle phase starts with a short burst.
   void on_audio(uint32_t now) {
     this->last_sent_ms_ = now;
-    this->burst_left_ = BURST_FRAMES;
+    this->burst_start_ms_ = now;
+    this->burst_len_ms_ = AUDIO_BURST_MS;
   }
 
   // True when an idle silence frame should be sent for this 20 ms slot.
-  // Consumes one burst frame when it answers true because of the burst.
-  bool idle_frame_due(uint32_t now) {
+  bool idle_frame_due(uint32_t now) const {
     if (this->period_ms_ == 0) return true;
-    if (this->burst_left_ > 0) {
-      this->burst_left_--;
-      return true;
-    }
+    if (static_cast<uint32_t>(now - this->burst_start_ms_) < this->burst_len_ms_) return true;
     return static_cast<uint32_t>(now - this->last_sent_ms_) >= this->period_ms_;
   }
 
  private:
   uint32_t period_ms_{0};
   uint32_t last_sent_ms_{0};
-  uint8_t burst_left_{0};
+  uint32_t burst_start_ms_{0};
+  uint32_t burst_len_ms_{0};
 };
 
 }  // namespace sip_client

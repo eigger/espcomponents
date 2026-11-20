@@ -114,7 +114,7 @@ sip_client:
 | `caller_id` | | username | Outgoing display name |
 | `register_expiration` | | 300s | Registration refresh interval |
 | `local_rtp_port` | | 7078 | Local UDP port the device binds for RTP audio and advertises in SDP. Usually left at the default; change it only to avoid a port clash or to pin a firewall/NAT forward. |
-| `rtp_keepalive` | | `0s` | How often a silence frame is sent while there is no audio to transmit (no microphone, half-duplex listening, or a quiet start of call). `0s` keeps a continuous 20 ms silence stream (about 80 kbit/s upstream for G.711); `10s` sends a short burst at start and then one frame per period, which still holds the router's UDP mapping and lets the PBX learn the public RTP address. Allowed: `0s` or `1s`-`60s`. See [RTP and NAT](#rtp-and-nat-remote-device). |
+| `rtp_keepalive` | | `0s` | How often a silence frame is sent while there is no audio to transmit (no microphone, half-duplex listening, or a quiet start of call). `0s` keeps a continuous 20 ms silence stream (about 80 kbit/s upstream for G.711); `10s` sends continuous silence for the first ~2 s of a call and then one frame per period, which still holds the router's UDP mapping. Recommended `5s`-`15s`: keep it below the router's UDP timeout (often ~30 s) and any PBX `rtp_timeout`. Allowed: `0s` or `1s`-`60s`. See [RTP and NAT](#rtp-and-nat-remote-device). |
 | `channel` | | `stereo` | How call audio is pushed to the `speaker`. `stereo` (default) duplicates the mono call audio to L/R for stereo chains (e.g. a `mixer`/`resampler` feeding a stereo DAC like the Voice PE's AIC3204). Use `mono` for a single-channel codec such as the **es8311** (whose i2s speaker is set `channel: mono` and expects 1-channel input). Must match the channel count the assigned speaker expects. To route mono audio to one physical side, leave this `mono` and use the **speaker's** own `channel: left`/`right`. |
 | `half_duplex` | | `false` | Push-to-talk mode for boards that cannot capture and play at the same time (mic and speaker on a single shared I2S bus, e.g. M5Stack Atom Echo). When `true`, the mic and speaker are never active together: the call starts in **listen** (speaker) mode and you switch to **talk** (mic) with the `start_talking` / `stop_talking` actions. Requires both `microphone` and `speaker`. Leave `false` for full-duplex boards with separate input/output I2S buses (e.g. Voice PE). |
 | `codecs` | | `[pcmu, pcma]` | Ordered list of audio codecs to offer and prefer during negotiation. Allowed values: `pcmu`, `pcma`, `g722`. The first codec in the list that the remote party also supports is chosen. G.722 is **opt-in** — omit it from the list (or leave the default) to stay G.711-only. Example for wideband: `codecs: [g722, pcmu, pcma]`. |
@@ -150,10 +150,13 @@ Menu names are approximate and differ slightly between FreePBX 16 and 17.
   hostname (Let's Encrypt) and set it as the default certificate, so the
   HTTP/TLS server on 8089 uses it. Restart/reload Asterisk afterwards.
 - *Settings > Asterisk SIP Settings > SIP Settings [chan_pjsip]*: enable the
-  `0.0.0.0-wss` transport; set *External Address* (public IP/hostname) and
-  *Local Networks* (your LAN ranges) so the SDP the PBX sends is correct.
+  `0.0.0.0-wss` transport. *External Address* and *Local Networks* are under
+  *General SIP Settings > NAT Settings* (FreePBX 16/17): set the public
+  IP/hostname and your LAN ranges so the SDP the PBX sends is correct.
 - Router/firewall in front of the PBX: forward **TCP 8089** and **UDP 10000-20000**
-  (the RTP range, *Asterisk SIP Settings > RTP Settings*) to FreePBX.
+  (the RTP range, *Asterisk SIP Settings > RTP Settings*) to FreePBX. If the
+  FreePBX Firewall module is enabled, also allow TCP 8089 and the RTP UDP range
+  from the Internet zone.
 
 **2. Extension (PJSIP, *Advanced* tab)**
 
@@ -167,6 +170,11 @@ Menu names are approximate and differ slightly between FreePBX 16 and 17.
 | Rewrite Contact / RTP Symmetric / Force rport | Yes |
 | Max Contacts / Remove Existing | `1` / Yes |
 | Codecs | `ulaw`, `alaw`, `g722` (match `codecs:`) |
+| Session Timers | No (see note) |
+
+Known limitation: in-dialog re-INVITEs (session-timer refresh, hold, transfer)
+are currently answered `486`, so set *Session Timers* to No on the extension;
+otherwise a long call can be torn down at the first refresh.
 
 **3. ESPHome**
 
@@ -202,12 +210,18 @@ only works if the device sends first and keeps sending:
 - While there is no audio to send (receive-only build, half-duplex while
   listening, start of a call before the microphone delivers data), the device
   sends silence frames in the negotiated codec, keeping the session's
-  sequence numbers, timestamps and SSRC consistent. A burst of 5 frames goes
-  out immediately, so the PBX latches at once.
-- By default (`rtp_keepalive: 0s`) this silence is continuous (20 ms cadence).
-  Set `rtp_keepalive: 10s` (or any `1s`-`60s`) to send one frame per period
-  instead; keep it well below the router's UDP timeout (often 30 s or more).
-  Real audio and DTMF always go out normally and also refresh the mapping.
+  sequence numbers, timestamps and SSRC consistent.
+- With strict RTP (Asterisk default) the PBX needs a few consecutive packets
+  (`probation`, default 4) from the device's public address before it switches
+  to it. By default (`rtp_keepalive: 0s`) the silence is continuous (20 ms
+  cadence), so this always completes.
+- With `rtp_keepalive` set (`1s`-`60s`), the idle stream is thinned to one frame
+  per period, but the device still sends continuous silence for the first ~2 s
+  of a call (and ~0.75 s after each stretch of real audio), so latching
+  completes even with some packet loss. Choose 5s-15s: below the router's UDP
+  mapping timeout (many consumer routers use ~30 s) and below any
+  per-extension *RTP Timeout* (`rtp_timeout`) set on the PBX, or an idle
+  receive-only call may be hung up. Real audio and DTMF also refresh the mapping.
 
 #### Troubleshooting
 
