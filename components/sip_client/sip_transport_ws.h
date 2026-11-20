@@ -44,6 +44,7 @@ class WsTransport : public SipTransport {
   bool open(const std::string &server, uint16_t port) override;
   void close() override;
   void loop() override;
+  void network_down() override;
   // False once the client task is gone, so SipClient calls open() again (which
   // restarts it on a later loop iteration).
   bool is_open() const override {
@@ -53,7 +54,10 @@ class WsTransport : public SipTransport {
   bool connected() const override {
     return this->started_.load(std::memory_order_acquire) && this->connected_.load(std::memory_order_acquire);
   }
-  uint32_t generation() const override { return this->generation_.load(std::memory_order_acquire); }
+  // The generation loop() has adopted (main loop only), not the raw counter:
+  // SipClient reads it right after loop(), and the sent-by in the first REGISTER
+  // of a new connection must already be the new one.
+  uint32_t generation() const override { return this->sent_by_gen_; }
   bool send(const std::string &msg) override;
   bool poll(std::string &out) override;
   const char *via_token() const override { return this->cfg_.tls ? "WSS" : "WS"; }
@@ -67,7 +71,8 @@ class WsTransport : public SipTransport {
  protected:
   static void event_handler_(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data);
   void on_data_(const esp_websocket_event_data_t *data);
-  void force_restart_();
+  // False when the helper task could not be created (the caller backs off).
+  bool force_restart_();
   static void restart_task_(void *arg);
 
   static constexpr size_t MAX_MESSAGE = 8192;

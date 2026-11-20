@@ -70,6 +70,10 @@ void SipClient::dump_config() {
     ESP_LOGCONFIG(TAG, "  Auth username: %s", this->auth_username_.c_str());
   ESP_LOGCONFIG(TAG, "  Domain: %s", this->domain_.c_str());
   ESP_LOGCONFIG(TAG, "  Local RTP port: %u", this->local_rtp_port_);
+  if (this->rtp_keepalive_ms_ != 0)
+    ESP_LOGCONFIG(TAG, "  RTP keepalive: %u ms while idle", static_cast<unsigned>(this->rtp_keepalive_ms_));
+  else
+    ESP_LOGCONFIG(TAG, "  RTP keepalive: continuous silence while idle");
   ESP_LOGCONFIG(TAG, "  Channel: %s", this->channel_ == SIP_CH_MONO ? "mono" : "stereo");
   ESP_LOGCONFIG(TAG, "  Half-duplex (PTT): %s", this->half_duplex_ ? "yes" : "no");
   {
@@ -724,6 +728,7 @@ void SipClient::start_media_() {
   this->rtp_.set_codec(this->active_codec_.get());
   this->rtp_.set_dtmf_payload_type(this->remote_dtmf_pt_);
   this->rtp_.set_remote(this->remote_rtp_ip_, this->remote_rtp_port_);
+  this->rtp_.set_keepalive_ms(this->rtp_keepalive_ms_);
 #ifdef USE_SPEAKER
   if (this->speaker_ != nullptr) {
     this->rtp_.set_on_audio([this](const int16_t *pcm, size_t n) {
@@ -963,7 +968,10 @@ void SipClient::handle_link_down_() {
 }
 
 void SipClient::loop() {
-  if (!network::is_connected()) return;
+  if (!network::is_connected()) {
+    this->transport_->network_down();
+    return;
+  }
   this->transport_->loop();
 
   if (!this->transport_->connected()) {

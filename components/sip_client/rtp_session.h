@@ -7,6 +7,7 @@
 #include <vector>
 #include "codec.h"
 #include "dtmf.h"
+#include "rtp_keepalive.h"
 #include "esphome/components/socket/socket.h"
 
 namespace esphome {
@@ -22,6 +23,8 @@ class RtpSession {
   void set_codec(Codec *codec) { this->codec_ = codec; }
   void set_dtmf_payload_type(int pt) { this->dtmf_pt_ = pt; }
   void set_remote(const std::string &ip, uint16_t port);
+  // Idle silence interval in ms (0 = continuous 20 ms silence while idle).
+  void set_keepalive_ms(uint32_t ms) { this->keepalive_.configure(ms); }
 
   void set_on_audio(std::function<void(const int16_t *, size_t)> &&cb) { this->on_audio_ = std::move(cb); }
   void set_on_dtmf(std::function<void(char)> &&cb) { this->on_dtmf_ = std::move(cb); }
@@ -69,6 +72,7 @@ class RtpSession {
   std::vector<int16_t> tx_buffer_;
   std::mutex tx_mutex_;
   uint32_t last_tx_ms_{0};
+  RtpKeepalive keepalive_{};
   uint32_t last_audio_tx_ms_{0};   // last real (non-silence) frame sent
   std::vector<int16_t> silence_pcm_;  // one frame of zeroed PCM, sized on start()
 

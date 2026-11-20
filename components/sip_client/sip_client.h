@@ -64,6 +64,8 @@ class SipClient : public Component {
   void set_caller_id(const std::string &v) { this->caller_id_ = v; }
   void set_register_expiration(uint32_t s) { this->expiration_ = s; }
   void set_local_rtp_port(uint16_t p) { this->local_rtp_port_ = p; }
+  // Idle RTP silence interval in ms (0 = continuous 20 ms silence while idle).
+  void set_rtp_keepalive(uint32_t ms) { this->rtp_keepalive_ms_ = ms; }
   void set_channel(SipAudioChannel c) { this->channel_ = c; }
   void set_codecs(const std::vector<AudioCodecId> &codecs) { this->configured_codecs_ = codecs; }
 
@@ -185,6 +187,7 @@ class SipClient : public Component {
   }
   uint32_t expiration_{300};
   uint16_t local_rtp_port_{7078};
+  uint32_t rtp_keepalive_ms_{0};
   SipAudioChannel channel_{SIP_CH_STEREO};
   uint8_t output_channels_() const { return this->channel_ == SIP_CH_MONO ? 1 : 2; }
   bool half_duplex_{false};

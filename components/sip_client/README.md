@@ -114,6 +114,7 @@ sip_client:
 | `caller_id` | | username | Outgoing display name |
 | `register_expiration` | | 300s | Registration refresh interval |
 | `local_rtp_port` | | 7078 | Local UDP port the device binds for RTP audio and advertises in SDP. Usually left at the default; change it only to avoid a port clash or to pin a firewall/NAT forward. |
+| `rtp_keepalive` | | `0s` | How often a silence frame is sent while there is no audio to transmit (no microphone, half-duplex listening, or a quiet start of call). `0s` keeps a continuous 20 ms silence stream (about 80 kbit/s upstream for G.711); `10s` sends continuous silence for the first ~2 s of a call and then one frame per period, which still holds the router's UDP mapping. Recommended `5s`-`15s`: keep it below the router's UDP timeout (often ~30 s) and any PBX `rtp_timeout`. Allowed: `0s` or `1s`-`60s`. See [RTP and NAT](#rtp-and-nat-remote-device). |
 | `channel` | | `stereo` | How call audio is pushed to the `speaker`. `stereo` (default) duplicates the mono call audio to L/R for stereo chains (e.g. a `mixer`/`resampler` feeding a stereo DAC like the Voice PE's AIC3204). Use `mono` for a single-channel codec such as the **es8311** (whose i2s speaker is set `channel: mono` and expects 1-channel input). Must match the channel count the assigned speaker expects. To route mono audio to one physical side, leave this `mono` and use the **speaker's** own `channel: left`/`right`. |
 | `half_duplex` | | `false` | Push-to-talk mode for boards that cannot capture and play at the same time (mic and speaker on a single shared I2S bus, e.g. M5Stack Atom Echo). When `true`, the mic and speaker are never active together: the call starts in **listen** (speaker) mode and you switch to **talk** (mic) with the `start_talking` / `stop_talking` actions. Requires both `microphone` and `speaker`. Leave `false` for full-duplex boards with separate input/output I2S buses (e.g. Voice PE). |
 | `codecs` | | `[pcmu, pcma]` | Ordered list of audio codecs to offer and prefer during negotiation. Allowed values: `pcmu`, `pcma`, `g722`. The first codec in the list that the remote party also supports is chosen. G.722 is **opt-in** — omit it from the list (or leave the default) to stay G.711-only. Example for wideband: `codecs: [g722, pcmu, pcma]`. |
@@ -121,40 +122,122 @@ sip_client:
 ### SIP over WebSocket (remote PBX)
 
 For a device that is not on the PBX's network, `transport: wss` carries SIP over
-a TLS WebSocket (`wss://<server>:8089/ws` on FreePBX / Asterisk). Because the
-connection is outbound and kept open, no port forwarding to the device is
-needed for signaling; only the RTP audio stays plain UDP.
+a TLS WebSocket (`wss://<server>:8089/ws` on FreePBX / Asterisk). The connection
+is outbound and kept open, so signaling needs no port forwarding to the device;
+only the RTP audio stays plain UDP (no SRTP/DTLS/ICE).
+
+- A WebSocket ping every 20 s keeps NAT/proxy state alive; the link is dropped
+  if no pong arrives within 45 s. A dropped link is reconnected automatically
+  (every ~5 s, also after the PBX closes the socket; a link that stays down
+  for ~3 minutes is restarted from scratch, and time without WiFi is not
+  counted). An active call is ended and the device registers again.
+- The Via/Contact address is a random `<token>.invalid` name per connection
+  (RFC 7118), so the extension needs `rtp_symmetric`, `force_rport` and
+  `rewrite_contact`.
+- Each SIP message must fit in 8 KB; larger ones are dropped with a warning.
+- `transport: ws` (plain, unencrypted) is for debugging only.
+- Requires an ESP32 with the ESP-IDF framework (rejected otherwise).
+
+#### FreePBX over WSS (remote device)
+
+Menu names are approximate and differ slightly between FreePBX 16 and 17.
+
+**1. PBX side (once)**
+
+- *Settings > Advanced Settings*: enable the built-in HTTP server's TLS
+  (`HTTPS Bind Port` 8089; "Enable TLS for the mini-HTTP Server").
+- *Admin > Certificate Management*: get a valid certificate for the PBX's public
+  hostname (Let's Encrypt) and set it as the default certificate, so the
+  HTTP/TLS server on 8089 uses it. Restart/reload Asterisk afterwards.
+- *Settings > Asterisk SIP Settings > SIP Settings [chan_pjsip]*: enable the
+  `0.0.0.0-wss` transport. *External Address* and *Local Networks* are under
+  *General SIP Settings > NAT Settings* (FreePBX 16/17): set the public
+  IP/hostname and your LAN ranges so the SDP the PBX sends is correct.
+- Router/firewall in front of the PBX: forward **TCP 8089** and **UDP 10000-20000**
+  (the RTP range, *Asterisk SIP Settings > RTP Settings*) to FreePBX. If the
+  FreePBX Firewall module is enabled, also allow TCP 8089 and the RTP UDP range
+  from the Internet zone.
+
+**2. Extension (PJSIP, *Advanced* tab)**
+
+| Setting | Value |
+|---------|-------|
+| Transport | `0.0.0.0-wss` |
+| Enable WebRTC Defaults | No (ICE, DTLS, AVPF, RTCP mux all off) |
+| Media Encryption | None |
+| ICE Support / AVPF / RTCP Mux | No |
+| Direct Media | No |
+| Rewrite Contact / RTP Symmetric / Force rport | Yes |
+| Max Contacts / Remove Existing | `1` / Yes |
+| Codecs | `ulaw`, `alaw`, `g722` (match `codecs:`) |
+| Session Timers | No (see note) |
+
+Known limitation: in-dialog re-INVITEs (session-timer refresh, hold, transfer)
+are currently answered `486`, so set *Session Timers* to No on the extension;
+otherwise a long call can be torn down at the first refresh.
+
+**3. ESPHome**
 
 ```yaml
 sip_client:
   transport: wss
-  server: pbx.example.com    # hostname in the server certificate (an IP only works with verify_ssl: false
-                             # or a certificate that lists that IP)
-  # port: 8089               # (default for wss; 8088 for ws)
+  server: pbx.example.com    # public hostname that is in the certificate
+  # port: 8089               # defaults: 8089 (wss), 8088 (ws)
   # path: /ws
+  # verify_ssl: true         # default; false only for testing
   # ca_certificate: |        # only for a private / self-signed CA
   #   -----BEGIN CERTIFICATE-----
   #   ...
   #   -----END CERTIFICATE-----
   username: "1001"
-  password: "secret"
+  password: !secret sip_password
+  rtp_keepalive: 10s         # optional, saves upstream while idle (see below)
+  microphone: mic_id
+  speaker: spk_id
 ```
 
-- The connection sends a WebSocket ping every 20 s to keep NAT/proxy state
-  alive and is dropped if no pong arrives within 45 s. A dropped link is
-  reconnected automatically (every ~5 s, including after the PBX closes the socket; a connection that stays down for ~3 minutes is restarted from scratch); an active call is ended and the device
-  registers again once reconnected.
-- The Via/Contact address is a random `<token>.invalid` name per connection
-  (RFC 7118), so enable `rtp_symmetric`, `force_rport` and `rewrite_contact` on
-  the PBX extension. Disable its WebRTC defaults (ICE/DTLS/AVPF): audio is plain
-  RTP.
-- Each SIP message must fit in 8 KB; larger ones are dropped with a warning.
-- `transport: ws` (plain, unencrypted) is supported for debugging only.
-- On FreePBX keep the extension at `max_contacts=1` with `remove_existing=yes`:
-  every reconnect registers a new random `.invalid` contact, and the old
-  one must not linger.
-- Requires an ESP32 with the ESP-IDF framework (rejected otherwise). A complete
-  FreePBX setup guide is planned.
+#### RTP and NAT (remote device)
+
+The device advertises its private LAN IP in the SDP `c=` line. That is fine
+with `rtp_symmetric` + `force_rport` + `rewrite_contact`: Asterisk ignores the
+advertised address and sends RTP to the source address/port it sees on the
+first packet from the device. Nothing STUN-like is used or needed. This
+only works if the device sends first and keeps sending:
+
+- RTP is sent from the same UDP socket that is bound to `local_rtp_port` and
+  advertised in the SDP, so the source port the PBX sees is the one the router
+  mapped.
+- While there is no audio to send (receive-only build, half-duplex while
+  listening, start of a call before the microphone delivers data), the device
+  sends silence frames in the negotiated codec, keeping the session's
+  sequence numbers, timestamps and SSRC consistent.
+- With strict RTP (Asterisk default) the PBX needs a few consecutive packets
+  (`probation`, default 4) from the device's public address before it switches
+  to it. By default (`rtp_keepalive: 0s`) the silence is continuous (20 ms
+  cadence), so this always completes.
+- With `rtp_keepalive` set (`1s`-`60s`), the idle stream is thinned to one frame
+  per period, but the device still sends continuous silence for the first ~2 s
+  of a call (and ~0.75 s after each stretch of real audio), so latching
+  completes even with some packet loss. Choose 5s-15s: below the router's UDP
+  mapping timeout (many consumer routers use ~30 s) and below any
+  per-extension *RTP Timeout* (`rtp_timeout`) set on the PBX, or an idle
+  receive-only call may be hung up. Real audio and DTMF also refresh the mapping.
+
+#### Troubleshooting
+
+- **401 / 403 on REGISTER**: wrong password or `username`; for 403 check the
+  extension's *Max Contacts* / the PBX's `fail2ban` list (your public IP may be
+  blocked), and that the transport is `0.0.0.0-wss`.
+- **One-way or no audio, call otherwise connects**: UDP 10000-20000 not
+  forwarded/open to the PBX, *Direct Media* on, *RTP Symmetric* / *Force rport*
+  off, or the router drops the idle UDP mapping (lower `rtp_keepalive`).
+  Check the *Media started* log line and `rtp set debug on` on the PBX.
+- **Certificate / TLS errors in the log**: `server` must be the hostname in
+  the certificate (an IP only works with `verify_ssl: false`), the PBX must
+  serve the full chain, and a private CA needs `ca_certificate`. Check
+  the device clock and that TCP 8089 is reachable.
+- **Registers, but the call is dropped after a reconnect**: expected; the
+  device registers again on the new connection (keep *Remove Existing* = Yes).
 
 ### Microphone source
 
@@ -273,7 +356,7 @@ In-band audio tones (no telephone-event, no INFO) are **not** decoded.
   playback.
 - **Silence TX:** whenever there is nothing to transmit — no microphone
   configured, or half-duplex while listening — the device keeps the RTP stream
-  running by sending encoded silence at the normal 20 ms cadence, as a hardware
+  running by sending encoded silence at the normal 20 ms cadence (or one frame per `rtp_keepalive` period when set), as a hardware
   SIP phone does. This is what makes receive-only work in practice: with no
   outbound packets at all, a NAT/firewall never opens the return path for the
   RTP port, and PBXs that latch onto the source address (symmetric RTP /

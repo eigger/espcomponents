@@ -68,3 +68,9 @@ g++ "${CXXFLAGS[@]}" "${INC[@]}" \
   "$ROOT/tests/native/sip_sdp/test_sip_ws.cpp" \
   -o "$OUT/sip_ws_test"
 "$OUT/sip_ws_test"
+
+# RTP idle keepalive scheduler (thinned silence for NAT / symmetric-RTP latching).
+g++ "${CXXFLAGS[@]}" "${INC[@]}" \
+  "$ROOT/tests/native/sip_sdp/test_rtp_keepalive.cpp" \
+  -o "$OUT/sip_rtp_keepalive_test"
+"$OUT/sip_rtp_keepalive_test"
