@@ -69,6 +69,8 @@ lvgl_fx:
     intensity: 0.8
   max_targets: 8
   slots_in_psram: true
+  max_text_runs: 6
+  max_text_length: 160
   suppress_when: !lambda return id(popup_open);
 
   transitions:
@@ -118,6 +120,27 @@ lvgl_fx:
         text: { style: count, format: "%.1f%%", duration: 600ms, curve: ease_in_out }
       - id: text_plain
         text: { style: none, format: "%5.2f" }
+      # typewriter / decode: `duration` times the whole text, `char_time` makes it follow the text length
+      - id: type_plain
+        text: { style: typewriter, duration: 400ms, curve: ease_out, delay: 20ms }
+      - id: type_chars
+        text: { style: typewriter, char_time: 20ms, jitter: true }
+      - id: type_even
+        text: { style: typewriter, char_time: 1ms, jitter: false }
+      - id: decode_plain
+        text: { style: decode, duration: fast }
+      - id: decode_full
+        text: { style: decode, char_time: 40ms, noise: "#%&*+<>/=0123456789", noise_period: 50ms, curve: ease_in_out }
+      - id: decode_small
+        text: { style: decode, char_time: 5s, noise: "01", noise_period: 1s, delay: 100ms, format: "%.1f" }
+      # only the pace: the style comes from the defaults (a named entry overrides the defaults per field)
+      - id: pace_only
+        text: { char_time: 15ms, jitter: true, noise: "x.", noise_period: 10ms }
+      - id: type_then
+        text: { style: typewriter, char_time: 10ms }
+        then: pulse
+        on_start:
+          - logger.log: { format: "typing on %p", args: [ x ] }
       - id: text_flags
         text: { format: "[%-+8.3f] %%" }
       # an id equal to the name of the generated defaults tables must not clash with them
@@ -318,6 +341,9 @@ interval:
       - lvgl_fx.play: { id: fx_obj, effect: started_hook }
       - lvgl_fx.play: { id: fx_obj, effect: chain_widget_cd }
       - lvgl_fx.set: { id: fx_label, text: "9", transition: announce_set }
+      - lvgl_fx.set: { id: fx_label, text: "typed line", transition: type_chars }
+      - lvgl_fx.set: { id: fx_label, text: "DECODED TITLE", transition: decode_full }
+      - lvgl_fx.stop: fx_label
       - lambda: |-
           // visibility, opacity and the hide/show reversal rules
           fx::set_visible(id(fx_obj), false);
@@ -699,6 +725,71 @@ interval:
           fx::set_text(label, "9", fx::Opt{&t_text_slide});
           fx::set_text(label, "10", fx::Opt{&t_count});       // `count` through set_text: fade
           fx::stop(label);
+
+          // typewriter / decode as const tables.  Every option, and the precedence of char_time and duration.
+          static const fx::PropTransition type_a = {.duration = 300, .style = fx::Style::TYPEWRITER};
+          static const fx::PropTransition type_b = {.delay = 30, .style = fx::Style::TYPEWRITER, .char_time = 25,
+                                                    .jitter = 1};
+          static const fx::PropTransition type_c = {.curve = fx::Curve::EASE_OUT, .style = fx::Style::TYPEWRITER,
+                                                    .char_time = 10, .jitter = 0};
+          static const fx::PropTransition dec_a = {.duration = 300, .style = fx::Style::DECODE};
+          static const fx::PropTransition dec_b = {.style = fx::Style::DECODE, .char_time = 30,
+                                                   .noise = "#%&*+<>/=0123456789", .noise_period = 50};
+          static const fx::PropTransition dec_c = {.style = fx::Style::DECODE, .noise = "", .noise_period = 1};
+          static const fx::PropTransition dec_d = {.style = fx::Style::DECODE, .noise = "\xc3\xa9"};  // not ASCII
+          static const fx::PropTransition dec_zero = {.duration = 0, .style = fx::Style::DECODE};
+          static const fx::PropTransition pace = {.char_time = 12};   // style from the defaults
+          static const fx::TransitionDef t_type_a = {{nullptr, nullptr, nullptr, &type_a, nullptr, nullptr, nullptr},
+                                                     nullptr};
+          static const fx::TransitionDef t_type_b = {{nullptr, nullptr, nullptr, &type_b, nullptr, nullptr, nullptr},
+                                                     &confirm};
+          static const fx::TransitionDef t_type_c = {{nullptr, nullptr, nullptr, &type_c, nullptr, nullptr, nullptr},
+                                                     nullptr};
+          static const fx::TransitionDef t_dec_a = {{nullptr, nullptr, nullptr, &dec_a, nullptr, nullptr, nullptr},
+                                                    nullptr};
+          static const fx::TransitionDef t_dec_b = {{nullptr, nullptr, nullptr, &dec_b, nullptr, nullptr, nullptr},
+                                                    nullptr};
+          static const fx::TransitionDef t_dec_c = {{nullptr, nullptr, nullptr, &dec_c, nullptr, nullptr, nullptr},
+                                                    nullptr};
+          static const fx::TransitionDef t_dec_d = {{nullptr, nullptr, nullptr, &dec_d, nullptr, nullptr, nullptr},
+                                                    nullptr};
+          static const fx::TransitionDef t_dec_zero = {{nullptr, nullptr, nullptr, &dec_zero, nullptr, nullptr,
+                                                        nullptr}, nullptr};
+          static const fx::TransitionDef t_pace = {{nullptr, nullptr, nullptr, &pace, nullptr, nullptr, nullptr},
+                                                   nullptr};
+          fx::set_text(label, "typed", fx::Opt{&t_type_a});
+          fx::set_text(label, "typed", fx::Opt{&t_type_a});             // same final text: keeps running
+          fx::set_text(label, "type\xc3\xa9 \xe2\x82\xac \xf0\x9f\x98\x80", fx::Opt{&t_type_b});  // UTF-8
+          fx::set_text(label, "retarget", fx::Opt{&t_type_c});          // starts from scratch
+          fx::set_text(label, lv_label_get_text(label), fx::Opt{&t_type_c});  // text on screen: the typing ends
+          fx::set_text(label, "", fx::Opt{&t_type_a});                  // nothing to type: at once
+          fx::set_text(label, "abc", fx::Opt{&t_type_a});
+          fx::stop(label);                                              // the final text
+          fx::set_text(label, "DECODE ME", fx::Opt{&t_dec_a});
+          fx::set_text(label, "m\xc3\xbcnchen \xe2\x82\xac 42", fx::Opt{&t_dec_b});
+          fx::set_text(label, "empty charset", fx::Opt{&t_dec_c});        // built-in charset
+          fx::set_text(label, "non-ascii charset", fx::Opt{&t_dec_d});   // built-in charset
+          fx::set_text(label, "instant", fx::Opt{&t_dec_zero});         // duration 0
+          fx::set_text(label, "forced", {.transition = &t_dec_a, .force = true});
+          fx::set_text(label, "instant", {.transition = &t_type_a, .instant = true});
+          fx::set_text(label, "a text that is quite a bit longer than one hundred and twenty seven bytes, so it "
+                              "does not fit a text run and is applied at once, with the same final text",
+                       fx::Opt{&t_type_a});
+          fx::set_value(label, 3.5f, fx::Opt{&t_type_b});               // a formatted number is typed too
+          fx::set_text(label, "faded", fx::Opt{&t_roll});               // a typed text replaced by another style
+          fx::set_text(label, "typed again", fx::Opt{&t_type_a});
+          fx::set_text(label, "faded again", fx::Opt{&t_fade_far});
+          fx::set_text(label, "pace", fx::Opt{&t_pace});                 // fade (the default style) ignores char_time
+          fx::set_visible(label, false);
+          fx::set_text(label, "hidden", fx::Opt{&t_type_a});             // policy: instantly
+          fx::set_visible(label, true);
+          fx::stop(label);
+          lv_obj_t *label_b = id(fx_number);
+          fx::set_text(id(fx_label), "one", fx::Opt{&t_type_b});         // several runs at the same time
+          fx::set_text(label_b, "two", fx::Opt{&t_dec_b});
+          fx::set_text(id(fx_dropdown), "x", fx::Opt{&t_type_a});        // not a label: logged once
+          fx::stop(id(fx_label));
+          fx::stop(label_b);
 
           // set_value on a label: format once (fade by default), roll on a number, count, NaN
           fx::set_value(label, 12.0f);

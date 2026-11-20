@@ -103,6 +103,10 @@ lvgl_fx:
         text: { style: count, format: "%.0f km", duration: 800ms, curve: ease_out }
       - id: gear_roll          # new text rolls in from below when the number grows, from above when it shrinks
         text: { style: roll, distance: 14, duration: 140ms }
+      - id: typed_line         # types the text one character at a time, 25 ms each (any length)
+        text: { style: typewriter, char_time: 25ms, jitter: true }
+      - id: decoded_title      # noise symbols that lock to the real characters from left to right
+        text: { style: decode, char_time: 60ms, noise_period: 50ms }
       - id: card_up            # `show` and `hide` can differ
         visible: { show: slide_up, hide: fade, distance: 16 }
       - id: card_down

@@ -57,6 +57,8 @@ enum class InstanceKind : uint8_t {
   TEXT_ENTER,  // text fade / roll: progress 0..255 = how far the new text has arrived; arg.a = signed travel in px
                // (0 = fade only), arg.b = starting opacity 0..255.  opa offset: arg.b -> 255, translate_y: arg.a -> 0
   COUNT,       // label count: moves no property (the lv_anim callback writes the text); format/state: see Instance
+  TYPEWRITER,  // label typewriter / decode: move no property either, the lv_anim callback writes the text from the
+  DECODE,      //   working record in `run` (styles.cpp)
   SLIDE_UP,    // visible styles: offsets derived from the slot's base opacity, which the visible transition
   SLIDE_DOWN,  //   animates.  state = the opacity the target has while shown (offset 0), arg.a = distance in px
   SLIDE_LEFT,  //   (zoom: the starting scale in Q8).  The offset is zero at that opacity and full at opacity 0.
@@ -73,6 +75,7 @@ struct Instance {
     struct {
       int16_t a, b;
     } arg;                          // style kinds: resolved parameters (see InstanceKind)
+    void *run;                      // TYPEWRITER / DECODE: the text run it plays (styles.cpp)
   };
   uint16_t progress;                // kind-specific progress, written by the lv_anim callback
   InstanceKind kind;
