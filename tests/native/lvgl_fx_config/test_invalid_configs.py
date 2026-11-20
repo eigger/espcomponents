@@ -55,6 +55,12 @@ lvgl:
             text: "0"
         - bar:
             id: fx_bar
+        - line:
+            id: fx_line
+            points:
+              - {{ x: 0, y: 0 }}
+              - {{ x: 40, y: 0 }}
+              - {{ x: 40, y: 30 }}
 lvgl_fx:
 {fx}
 interval:
@@ -737,6 +743,58 @@ CASES = [
         "",
         "[on_start] is an invalid option",
     ),
+    # ---- line draw ----
+    (
+        "draw (positive control)",
+        "  max_line_runs: 32\n  max_line_points: 64\n  transitions:\n    defaults:\n      draw: { duration: 100ms, curve: ease_in, delay: 10ms }\n"
+        "    custom:\n      - id: trace\n        draw: { duration: fast }\n        then: pulse\n"
+        "    bindings:\n      - { id: fx_line, draw: trace }",
+        "- lvgl_fx.set: { id: fx_line, draw: 100% }\n- lvgl_fx.set: { id: fx_line, draw: 33.3%, transition: trace, instant: true }\n"
+        "- lvgl_fx.set: { id: fx_line, draw: !lambda 'return 12.5f;', force: true }",
+        None,
+    ),
+    ("draw 101%", VALID_EFFECT, "- lvgl_fx.set: { id: fx_line, draw: 101% }", "must be between 0% and 100%"),
+    ("draw negative", VALID_EFFECT, "- lvgl_fx.set: { id: fx_line, draw: -1% }", "must be between 0% and 100%"),
+    ("draw nan", VALID_EFFECT, "- lvgl_fx.set: { id: fx_line, draw: nan% }", "must be between 0% and 100%"),
+    ("draw bare number", VALID_EFFECT, "- lvgl_fx.set: { id: fx_line, draw: 50 }", "write the draw amount as a percentage"),
+    ("draw fraction", VALID_EFFECT, "- lvgl_fx.set: { id: fx_line, draw: 0.5 }", "write the draw amount as a percentage"),
+    ("draw on a label", VALID_EFFECT, "- lvgl_fx.set: { id: fx_label, draw: 50% }", "doesn't inherit from LvLineType"),
+    ("draw on a bar", VALID_EFFECT, "- lvgl_fx.set: { id: fx_bar, draw: 50% }", "doesn't inherit from LvLineType"),
+    (
+        "draw binding on a label",
+        "  transitions:\n    custom:\n      - id: trace\n        draw: { duration: 50ms }\n    bindings:\n      - { id: fx_label, draw: trace }",
+        "",
+        "doesn't inherit from LvLineType",
+    ),
+    (
+        "draw binding twice",
+        "  transitions:\n    custom:\n      - id: trace\n        draw: { duration: 50ms }\n    bindings:\n      - { id: fx_line, draw: trace }\n      - { id: fx_line, draw: trace }",
+        "",
+        "Duplicate transition binding",
+    ),
+    (
+        "draw style",
+        "  transitions:\n    defaults:\n      draw: { style: fade }",
+        "",
+        "[style] is an invalid option for [draw]",
+    ),
+    (
+        "draw format",
+        "  transitions:\n    defaults:\n      draw: { format: '%.0f' }",
+        "",
+        "[format] is an invalid option for [draw]",
+    ),
+    (
+        "draw duration above 60 s",
+        "  transitions:\n    defaults:\n      draw: { duration: 61s }",
+        "",
+        "must be at most",
+    ),
+    ("draw unknown curve", "  transitions:\n    defaults:\n      draw: { curve: bounce }", "", "Unknown value 'bounce'"),
+    ("max_line_runs 0", "  max_line_runs: 0", "", "must be at least 1"),
+    ("max_line_runs 33", "  max_line_runs: 33", "", "must be at most 32"),
+    ("max_line_points 1", "  max_line_points: 1", "", "must be at least 2"),
+    ("max_line_points 65", "  max_line_points: 65", "", "must be at most 64"),
     # ---- actions ----
     ("set without a property", VALID_EFFECT, "- lvgl_fx.set: { id: fx_label }", "Must contain exactly one of"),
     (

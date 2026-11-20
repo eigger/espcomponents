@@ -22,10 +22,12 @@ from esphome.components.lvgl.lv_validation import (
     lv_text,
     opacity as lv_opacity,
 )
+from esphome.components.lvgl.defines import LValidator
 from esphome.components.lvgl.lvcode import LambdaContext, lv_add
 from esphome.components.lvgl.schemas import TEXT_SCHEMA
 from esphome.components.lvgl.types import ObjUpdateAction, lv_obj_t
 from esphome.components.lvgl.widgets import get_widgets
+from esphome.components.lvgl.widgets.line import line_spec
 import esphome.config_validation as cv
 from esphome.const import CONF_ID, CONF_TRIGGER_ID
 from esphome.core import CORE
@@ -55,6 +57,8 @@ CONF_MAX_TARGETS = "max_targets"
 CONF_SLOTS_IN_PSRAM = "slots_in_psram"
 CONF_MAX_TEXT_RUNS = "max_text_runs"
 CONF_MAX_TEXT_LENGTH = "max_text_length"
+CONF_MAX_LINE_RUNS = "max_line_runs"
+CONF_MAX_LINE_POINTS = "max_line_points"
 
 CONF_TRANSITIONS = "transitions"
 CONF_DEFAULTS = "defaults"
@@ -104,6 +108,7 @@ CONF_VALUE = "value"
 CONF_TEXT = "text"
 CONF_ROTATION = "rotation"
 CONF_POSITION = "position"
+CONF_DRAW = "draw"
 
 # Durations are stored as uint16 milliseconds; the top values are reserved for the duration tokens (effects.h).
 MAX_DURATION_MS = 60000
@@ -125,7 +130,9 @@ DURATION_TOKENS = {CONF_FAST: "DUR_FAST", CONF_NORMAL: "DUR_NORMAL", CONF_SLOW: 
 CURVES = ("linear", "ease_in", "ease_out", "ease_in_out")
 
 # Order of enum class Prop (lvgl_fx.h): index = slot in TransitionDef::props.
-TRANSITION_PROPS = (CONF_VISIBLE, CONF_OPACITY, CONF_VALUE, CONF_TEXT, CONF_COLOR, CONF_POSITION, CONF_ROTATION)
+TRANSITION_PROPS = (
+    CONF_VISIBLE, CONF_OPACITY, CONF_VALUE, CONF_TEXT, CONF_COLOR, CONF_POSITION, CONF_ROTATION, CONF_DRAW
+)
 VISIBLE_STYLES = ("fade", "slide_up", "slide_down", "slide_left", "slide_right", "zoom", "none")
 TEXT_STYLES = ("fade", "roll", "count", "typewriter", "decode", "none")
 CHAR_STYLES = ("typewriter", "decode")  # the styles whose time can be given per character
@@ -354,6 +361,7 @@ _ENTRY_VALIDATORS = {
     CONF_COLOR: _PLAIN_ENTRY,
     CONF_POSITION: _PLAIN_ENTRY,
     CONF_ROTATION: _PLAIN_ENTRY,
+    CONF_DRAW: _PLAIN_ENTRY,
 }
 
 
@@ -402,7 +410,7 @@ def _binding(value):
     })(value)
     if not any(prop in value for prop in TRANSITION_PROPS):
         raise cv.Invalid("A transition binding needs at least one property")
-    return value
+    return _draw_needs_line(value)
 
 
 def _unique_bindings(value):
@@ -612,6 +620,9 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_MAX_TEXT_RUNS, default=4): cv.int_range(min=1, max=32),
         # bytes of a run including the NUL; the character weights of a text must fit a uint16 (127 x 140 ... 399 x 140)
         cv.Optional(CONF_MAX_TEXT_LENGTH, default=128): cv.int_range(min=16, max=400),
+        # line draw: static pool of partial point buffers (draw.cpp), emitted as the defines the C++ side defaults
+        cv.Optional(CONF_MAX_LINE_RUNS, default=4): cv.int_range(min=1, max=32),
+        cv.Optional(CONF_MAX_LINE_POINTS, default=16): cv.int_range(min=2, max=64),
         cv.Optional(CONF_TRANSITIONS): TRANSITIONS_SCHEMA,
         cv.Optional(CONF_PRESETS): PRESETS_SCHEMA,
         cv.Optional(CONF_EFFECTS): cv.ensure_list(_effect),
@@ -897,6 +908,8 @@ async def to_code(config):
     cg.add(var.set_slots_in_psram(config[CONF_SLOTS_IN_PSRAM]))
     cg.add_define("LVGL_FX_TEXT_RUNS", config[CONF_MAX_TEXT_RUNS])
     cg.add_define("LVGL_FX_TEXT_RUN_BYTES", config[CONF_MAX_TEXT_LENGTH])
+    cg.add_define("LVGL_FX_LINE_RUNS", config[CONF_MAX_LINE_RUNS])
+    cg.add_define("LVGL_FX_LINE_POINTS", config[CONF_MAX_LINE_POINTS])
     if CONF_SUPPRESS_WHEN in config:
         # A plain function pointer: the lambda must not capture anything.
         lam = await cg.process_lambda(config[CONF_SUPPRESS_WHEN], [], return_type=cg.bool_, capture="")
@@ -928,7 +941,12 @@ async def to_code(config):
     binding_index = 0
     for binding in transitions.get(CONF_BINDINGS, []):
         (widget,) = await get_widgets(binding)
-        getter = f"{widget.var} ? {widget.obj} : nullptr" if widget.type.is_compound() else str(widget.obj)
+        # A compound widget's `obj` stays null until the widget is created.  The pointer goes through a local so that a
+        # statically allocated widget (whose address is never null) does not trigger -Waddress.
+        if widget.type.is_compound():
+            getter = f"[]() -> lv_obj_t * {{ auto *w = {widget.var}; return w != nullptr ? w->obj : nullptr; }}"
+        else:
+            getter = f"[]() -> lv_obj_t * {{ return {widget.obj}; }}"
         for prop in TRANSITION_PROPS:
             if prop not in binding:
                 continue
@@ -937,7 +955,7 @@ async def to_code(config):
             binding_index += 1
             cg.add(RawStatement(
                 f"static {lvgl_fx_ns}::Binding {name} = "
-                f"{{[]() -> lv_obj_t * {{ return {getter}; }}, {_cpp('Prop', prop)}, {transition}}};"
+                f"{{{getter}, {_cpp('Prop', prop)}, {transition}}};"
             ))
             cg.add(var.add_binding(RawExpression(f"&{name}")))
 
@@ -988,6 +1006,20 @@ automation.register_action(
 )(_switch_to_code)
 
 
+def _draw_percent(value):
+    """`draw: 100%` / `33.3%`: the share of the line's path length, 0 - 100 (a lambda returns the number 0 - 100).
+
+    Bare numbers are refused: `0.5` and `50` would be read differently by every other property."""
+    if isinstance(value, str) and value.strip().endswith("%"):
+        number = cv.float_(value.strip()[:-1])
+        if not math.isfinite(number) or not 0 <= number <= 100:
+            raise cv.Invalid(f"{value!r} must be between 0% and 100%")
+        return number
+    raise cv.Invalid(f"{value!r}: write the draw amount as a percentage ('100%', '33.3%') or a lambda returning 0 - 100")
+
+
+lv_draw_percent = LValidator(_draw_percent, cg.float_)
+
 # property -> (validator of the value (None: text, see TEXT_SCHEMA), C++ setter)
 SET_PROPERTIES = {
     CONF_VISIBLE: (lv_bool, "set_visible"),
@@ -998,10 +1030,18 @@ SET_PROPERTIES = {
     CONF_X: (lv_int, "set_x"),
     CONF_Y: (lv_int, "set_y"),
     CONF_ROTATION: (lv_float, "set_rotation"),
+    CONF_DRAW: (lv_draw_percent, "set_draw"),
 }
 
 _WIDGET = {cv.Required(CONF_ID): cv.use_id(lv_obj_t)}
 _FORCE = {cv.Optional(CONF_FORCE): lv_bool}
+
+def _draw_needs_line(value):
+    """`draw` only exists for `line` widgets: the id is checked against the line type (a clear error, not a log line)."""
+    if CONF_DRAW in value:
+        value = {**value, CONF_ID: cv.use_id(line_spec.w_type)(value[CONF_ID].id)}
+    return value
+
 
 SET_SCHEMA = cv.All(
     cv.Schema(
@@ -1019,6 +1059,7 @@ SET_SCHEMA = cv.All(
         }
     ),
     cv.has_exactly_one_key(*SET_PROPERTIES),
+    _draw_needs_line,
 )
 
 PLAY_SCHEMA = cv.Schema({**_WIDGET, cv.Required(CONF_EFFECT): _effect_ref, **_FORCE})

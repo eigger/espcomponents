@@ -16,7 +16,7 @@ There are two kinds of motion, like `transition` and `animation` in CSS:
 | | **Transition** | **Effect** |
 | --- | --- | --- |
 | Meaning | a property goes to a new value and stays | a short movement that returns to where it was |
-| Examples | show/hide, opacity, gauge value, text, color, x/y, rotation | pulse, shake, nudge, flash, glow, blink |
+| Examples | show/hide, opacity, gauge value, text, color, x/y, rotation, drawing a line | pulse, shake, nudge, flash, glow, blink |
 | Call | `lvgl_fx.set` with the new **value** | `lvgl_fx.play` with the effect **name** |
 | Defined in | `transitions:` | `effects:` (a list of `tracks`) |
 | Repeats | no | once, N times, or `infinite` (a loop, until `stop`) |
@@ -33,7 +33,7 @@ external_components:
 ```
 
 `lvgl_fx` needs the `lvgl:` component. It allocates a fixed pool of `max_targets` x 68 bytes at setup.
-Cross-widget tween completions also allocate a temporary record; nothing is allocated per frame. Until the next release tag contains this component (`@latest` follows the
+Cross-widget completions (`fx::tween`, and the `completion_*` fields of `fx::Opt`) also allocate a temporary record while they run; line draw uses a static pool (see [Line draw](#line-draw)). Nothing is allocated per frame. Until the next release tag contains this component (`@latest` follows the
 release tag), use `@master` instead of `@latest`.
 
 ## Quick start
@@ -79,6 +79,8 @@ lvgl_fx:
   slots_in_psram: false         # keep the per-widget state in PSRAM when available
   max_text_runs: 4              # 1 - 32: labels that can type / decode at once (typewriter, decode)
   max_text_length: 128          # 16 - 400: bytes (incl. the NUL) of the longest text they animate
+  max_line_runs: 4              # 1 - 32: lines that can be partially drawn at once (draw)
+  max_line_points: 16           # 2 - 64: points of the longest line that can be partially drawn
   suppress_when: !lambda return id(popup_open);   # bool; no captures (ids of globals, sensors ... work)
 
   transitions:
@@ -90,6 +92,7 @@ lvgl_fx:
       color:    { duration: normal }
       position: { duration: normal, curve: ease_out }   # x and y
       rotation: { duration: normal, curve: ease_out }
+      draw:     { duration: normal, curve: linear }     # an lv_line, drawn along its points
     custom:                     # named transitions: list only what differs from the defaults
       - id: gauge_slow
         value: { duration: slow }
@@ -106,6 +109,10 @@ lvgl_fx:
         text: { style: typewriter, char_time: 25ms, jitter: true }   # 25 ms per character, whatever the length
       - id: title_decode
         text: { style: decode, char_time: 60ms, noise_period: 50ms }
+      - id: trace_in
+        draw: { duration: 200ms }
+      - id: trace_out
+        draw: { duration: 120ms }
       - id: card_logged
         visible: { show: slide_up, hide: fade }
         on_start:               # once per `set` that animates; `x` is the widget (lv_obj_t *)
@@ -142,7 +149,7 @@ lvgl_fx:
         - blink: { opacity: 35%, duration: slow }
 ```
 
-### `motion`, `max_targets`, `slots_in_psram`, `max_text_runs`, `max_text_length`, `suppress_when`
+### `motion`, `max_targets`, `slots_in_psram`, `max_text_runs`, `max_text_length`, `max_line_runs`, `max_line_points`, `suppress_when`
 
 | Option | Default | |
 | --- | --- | --- |
@@ -152,6 +159,8 @@ lvgl_fx:
 | `slots_in_psram` | false | Try PSRAM first and fall back to internal RAM. Accesses per frame are few. |
 | `max_text_runs` | 4 | 1 - 32. Labels that can run `typewriter` / `decode` at the same time (a static pool, not per widget). Each run costs `max_text_length` + 28 bytes of RAM (156 bytes by default). |
 | `max_text_length` | 128 | 16 - 400. Size of one text run in bytes including the terminating NUL, i.e. the longest text (127 bytes, not characters) that is typed or decoded; longer texts are applied at once. Also 128 bytes of shared scratch. |
+| `max_line_runs` | 4 | 1 - 32. Lines that can be *partially drawn* (animating, or resting between 0 and 100 %) at the same time: a static pool, not per widget. A run costs 16 + 8 x `max_line_points` bytes (144 by default). Lines at 0 % or 100 % use no run. |
+| `max_line_points` | 16 | 2 - 64. Points of the longest line that can be partially drawn. A longer line, or a line that finds the pool busy, is drawn in whole segments at once (logged once, see [Line draw](#line-draw)). |
 | `suppress_when` | none | Lambda returning `bool`. While true, transitions apply instantly and effects follow `when_suppressed`. |
 
 ### Transitions
@@ -169,6 +178,7 @@ value, so a named transition lists only what differs.
 | `color` | label text color, image recolor, other widgets' background | `duration` (`normal`), `curve` (`linear`), `delay` |
 | `position` | `x` and `y` | `duration` (`normal`), `curve` (`ease_out`), `delay` |
 | `rotation` | transform rotation | `duration` (`normal`), `curve` (`ease_out`), `delay` |
+| `draw` | how much of an `lv_line` is drawn | `duration` (`normal`), `curve` (`linear`), `delay` |
 
 `duration: 0ms` applies instantly.
 
@@ -345,6 +355,8 @@ Besides out-of-range values, these are errors:
   but `decode`; an empty `noise`, one with more than 32 characters or one with anything but printable ASCII;
   `char_time` outside 1 ms - 5 s, `noise_period` outside 10 ms - 1 s;
 - `repeat: infinite` in `effect_defaults`; an effect longer than 65535 ms;
+- `draw` outside 0% - 100%, written as a bare number (`50`, `0.5`; write `50%`) or on a widget that is not a `line` (also in a
+  binding); `max_line_runs` outside 1 - 32, `max_line_points` outside 2 - 64; a `style`, `format` ... on `draw`;
 - `lvgl_fx.set` with no or several properties, `lvgl_fx.play` without `effect`.
 
 ## Actions
@@ -363,6 +375,7 @@ Exactly one property per action, plus the optional `transition` (the id of a nam
 | `value` | number | bar, arc, slider (clamped to the range); image: rotation in degrees (the short way round); label: the number, through `format` / `count` |
 | `text` | string, or `format` + `args` | label |
 | `color` | name, `0xRRGGBB`, `color:` id | label: text color; image: recolor; others: background |
+| `draw` | percentage `0%` - `100%` (float allowed: `33.3%`), or a lambda returning 0 - 100 | line (see [Line draw](#line-draw)) |
 | `x`, `y` | integer pixels | any. If the widget's current `x`/`y` is a percentage (or C++ passes `lv_pct()`), the change is instant: percentages cannot be interpolated |
 | `rotation` | degrees | any (transform rotation; set `transform_pivot_x/y` yourself) |
 
@@ -375,6 +388,8 @@ Exactly one property per action, plus the optional `transition` (the id of a nam
 - lvgl_fx.set: { id: bar_fuel, value: 0, instant: true }              # cancel the value glide and apply now
 - lvgl_fx.set: { id: splash, visible: false, force: true }             # even before lvgl_fx.start
 - lvgl_fx.set: { id: img_needle, value: 90 }                           # an image rotates
+- lvgl_fx.set: { id: route, draw: 100%, transition: trace_in }          # a line is drawn along its points
+- lvgl_fx.set: { id: route, draw: 0%, transition: trace_out }           # ... and erased again
 - lvgl_fx.set: { id: box, color: 0xC62828 }
 ```
 
@@ -448,6 +463,7 @@ fx::set_color(id(lbl_speed), lv_color_hex(0xFF0000));
 fx::set_x(id(box), 170);
 fx::set_y(id(box), 20);
 fx::set_rotation(id(box), 90.0f);
+fx::set_draw(id(route), 100.0f);                       // percent of the line's path length (an lv_line)
 
 fx::play(id(lbl_prnd), fx::PULSE);                     // fx::SHAKE, NUDGE_UP/DOWN/LEFT/RIGHT, FLASH, GLOW, BLINK
 fx::play(id(icon), id(heat));                          // an effect of your configuration
@@ -472,6 +488,32 @@ fx::set_value(id(bar_fuel), x, fx::Opt{id(gauge_slow)});                 // name
 fx::set_x(id(box), 170, {.transition = id(prnd_move), .force = true});
 fx::play(id(icon), fx::PULSE, {.force = true});
 ```
+
+**Completion on another widget.** `fx::Opt` has the two fields of `fx::TweenOpt`, `completion_effect` and `completion_target`,
+for **every** `set_*` (not for `play`, which has no transition). When the transition really completes, the effect
+plays on the target with the default policy, after the transition's own `then` (which plays on the widget itself):
+
+```cpp
+// the route is drawn; when the last point is reached the end marker pulses
+fx::set_draw(id(route), 100.0f, {.transition = id(trace_in), .completion_effect = fx::PULSE,
+                                 .completion_target = id(end_marker)});
+fx::set_value(id(bar_fuel), 20.0f, {.completion_effect = id(heat), .completion_target = id(icon)});
+```
+
+| What happens to the transition | Completion effect |
+| --- | --- |
+| it ends by itself (the animation reaches its end) | **plays** |
+| applied instantly: policy (disabled, hidden, before `start`, `suppress_when`), `duration: 0`, `instant: true`, no free slot or run | does not play (unlike `then`, which plays after an instant application: nothing *moved* here, so nothing completed) |
+| `stop()`, replaced by another `set` of the same property, cancelled | does not play |
+| the call changed nothing (already at that value) | nothing is armed; a running transition keeps the completion it started with |
+| the target widget is deleted | disarmed (no crash, no effect); the transition itself goes on |
+| the source widget is deleted | gone with it |
+
+Both fields must be set; one alone is ignored. The effect is played with the default policy (not `force`, not the
+call's transition), so it can be dropped like any `play`. Each call that sets both allocates one small record (a few
+words) for as long as the transition runs and registers a delete hook on the target; if that fails the transition
+runs without the follow-up effect. `fx::cancel_tween_effect(target)` also disarms the pending `Opt` completions that
+target a widget. C++ only: in YAML use `then:` (same widget) or `on_start:`.
 
 **`play` tells what happened.** It returns an `fx::PlayResult`; ignoring it is fine (the YAML action does):
 
@@ -528,6 +570,132 @@ Effects and transitions can also be written as `static const` tables (`fx::Effec
 `void (*)(lv_obj_t *)`, so a captureless lambda fits. See
 `tests/components/lvgl_fx/test.esp32-idf.yaml` for the full form.
 
+## Line draw
+
+`draw` progressively draws or erases an `lv_line` along its points, by **path length**: `0%` draws nothing, `100%` is the
+whole polyline, `50%` is half of the total length (the last visible segment is cut part-way). It is a transition like any
+other, with its own entry in `transitions:` (`duration`, `delay`, `curve`; `linear` by default so the tip moves at an even
+speed), named transitions, bindings, `instant`, `force`, `on_start`, `then` and the policy table.
+
+```yaml
+lvgl_fx:
+  transitions:
+    defaults:
+      draw: { duration: 200ms }
+    custom:
+      - id: trace_in
+        draw: { duration: 200ms, curve: linear }
+      - id: trace_out
+        draw: { duration: 120ms }
+    bindings:
+      - { id: route, draw: trace_in }          # `lvgl_fx.set draw` and fx::set_draw on `route` use trace_in by default
+
+lvgl:
+  pages:
+    - widgets:
+        - line:
+            id: route
+            points: [ { x: 0, y: 0 }, { x: 40, y: 0 }, { x: 40, y: 30 }, { x: 80, y: 30 } ]
+# ...
+- lvgl_fx.set: { id: route, draw: 100% }                                   # drawn in
+- lvgl_fx.set: { id: route, draw: 0%, transition: trace_out }              # erased
+- lvgl_fx.set: { id: route, draw: !lambda "return x;" }                    # any 0 - 100 number
+```
+
+```cpp
+fx::set_draw(id(route), 62.5f);                                            // lv_obj_t * or an ESPHome line widget
+fx::set_draw(id(route), 100.0f, {.transition = id(trace_in), .completion_effect = fx::PULSE,
+                                 .completion_target = id(end_marker)});    // pulse another widget when it is drawn
+```
+
+**What it does, exactly.**
+
+- **Final state.** The state after a `set draw` is exact and independent of the motion: at `100%` the line shows its own
+  full points array again (the array the app gave LVGL, untouched), at `0%` it shows nothing, in between it shows the polyline up to that
+  length. `stop()` jumps to the target percent. A tiny percentage shows a tiny segment (with `line_rounded` a dot).
+- **Independent of `visible`.** Erasing to `0%` does not hide the line, and showing a hidden line does not draw it. The
+  line is merely invisible at 0 %; the app decides about `hidden`, see the recipe below. `draw` on a hidden line is
+  applied instantly (policy row 3), so set `visible` first.
+- **Not a line.** `fx::set_draw` on any other widget logs once and does nothing (YAML rejects it at configuration time).
+- **NaN / non-finite.** Instantly 0 (erased), like `value` goes to its minimum. Values outside 0 - 100 are clamped.
+- **Same value.** Setting the percentage the line has (or is heading for) does nothing; a running draw keeps going.
+  A new target while drawing continues from the percentage on screen. `instant` cancels the motion and applies the value.
+- **Fewer than 2 points** (or more than 255): logged once, nothing to draw, nothing changes.
+
+**The full points.** fx never owns the line's points. The first time a line is drawn it reads them back with
+`lv_line_get_points` / `lv_line_get_point_count` and keeps only the pointer. LVGL's own rule applies: **the array must
+outlive the line** (a `static` array, or the widget's own storage). If the app later calls `lv_line_set_points` with a
+different array - also while the line is erased, partially drawn or animating - fx notices (the line's points pointer is neither fx's
+partial buffer nor the array it captured), drops its state, ends a running draw without a completion, and
+captures the new array as the full line (100%). A new array at the same address *and* with the same point count as
+the old one cannot be told apart; the percentage fx remembers then still applies.
+
+**YAML `line` widgets.** ESPHome's `line` keeps its points in a `FixedVector` inside the widget (`LvLineType::points_`) and
+passes its storage to `lv_line_set_points`, so `lv_line_get_points` returns that storage and it lives as long as the
+widget: nothing needs to be done. `lvgl.line.update: { id: route, points: [...] }` replaces the vector and calls
+`lv_line_set_points` with the new storage, which is the re-capture case above. Point coordinates written as percentages
+(`x: 50%`) are measured against the line's size when it is drawn.
+
+**The partial array.** LVGL draws exactly the array it is given, so a partly drawn line is a partial array, in a static
+pool like the text runs of `typewriter`/`decode`: `max_line_runs` records of `max_line_points` points (BSS, no heap).
+
+| State of the line | Points LVGL has | Costs |
+| --- | --- | --- |
+| `100%` (at rest) | the app's full array | nothing: not tracked |
+| animating, or resting at `0% < p < 100%` | fx's buffer in a run (the run stays bound to the line) | one run |
+| `0%` (at rest) | the full array with **one** point (LVGL draws nothing for fewer than 2) | no run; the full pointer and point count are kept in the slot |
+
+A run is free as soon as the line is no longer partially drawn: at exactly 100 % the line gets its full points back, at 0 %
+the run is released too, and deleting the line frees it, so erased and complete lines use no run. A line that is **erased
+or partly drawn needs a target slot** (`max_targets`, 68 bytes like every animated widget): a pool of slots in use makes the
+call do nothing, logged once.
+
+**When the pool cannot serve a line** (every run is busy, or the line has more than `max_line_points` points) the call
+still applies its final state at once, without motion, and logs once: `0%` and `100%` stay exact, anything in between shows
+the **whole segments** that fit into that length (no interpolated tip). Its `then` plays, its completion effect does not
+(nothing moved). Raise `max_line_runs` / `max_line_points` if this log appears.
+
+**Layout.** LVGL sizes a line with the default `width`/`height: size_content` from the points it is given, so a partly
+drawn line is smaller than the full one. Drawing itself is unaffected (it uses absolute coordinates), but if the line is
+aligned, centered or laid out in a container, give it a fixed `width` and `height` so that its place does not change
+while it is drawn.
+
+**Recipe: draw in on show, erase then hide.** `draw` and `visible` are separate, so chain them yourself. Drawing needs
+the line to be shown (a hidden widget applies instantly), and the line must start at 0 % to draw in:
+
+```yaml
+lvgl_fx:
+  transitions:
+    custom:
+      - id: trace_in
+        draw: { duration: 250ms }
+      - id: trace_out
+        draw: { duration: 120ms }
+        then: line_hide              # played on the line when the erase is done
+  effects:
+    - id: line_hide                  # a 1 ms effect whose hook does the hiding
+      on_start:
+        - lvgl_fx.set: { id: route, visible: false, instant: true }
+      tracks:
+        - blink: { duration: 1ms }
+
+script:
+  - id: show_route
+    then:
+      - lvgl_fx.set: { id: route, draw: 0%, instant: true }               # start empty (a hidden line: instantly)
+      - lvgl_fx.set: { id: route, visible: true, instant: true }
+      - lvgl_fx.set: { id: route, draw: 100%, transition: trace_in }      # the tip runs along the route
+  - id: hide_route
+    then:
+      - lvgl_fx.set: { id: route, draw: 0%, transition: trace_out }       # erased, then `line_hide` hides it
+```
+
+The same from C++: `fx::set_draw(line, 0, {.instant = true}); fx::set_visible(line, true, {.instant = true});
+fx::set_draw(line, 100, {.transition = id(trace_in)});`. A `then` effect is played with the normal policy, so it is dropped
+while motion is not allowed (reduced motion, `suppress_when`); the erased line is invisible anyway and only stays unhidden.
+To get the draw timing per direction use one named transition per direction, as above. To pulse *another* widget when the
+route is complete, use `completion_effect` / `completion_target` (see the C++ API).
+
 ## Policy
 
 Every transition and one-shot effect is judged once, when it starts. The first row that applies wins:
@@ -550,6 +718,8 @@ Every transition and one-shot effect is judged once, when it starts. The first r
 - A transition that is replaced by another on the same property continues from where it is.
 - Once fx has taken over opacity, scale, rotation, color or outline of a widget, change them through fx only. Value,
   text and x/y are read again on every call, so changing them elsewhere is fine.
+  A line's points are the exception to "read again": fx notices a new array given with `lv_line_set_points` and
+  captures it (see [Line draw](#line-draw)); leave a partly drawn line's array alone otherwise.
 
 ## Caveats
 
@@ -599,6 +769,11 @@ Every transition and one-shot effect is judged once, when it starts. The first r
   (as `count` does); the typewriter changes the text at most once per character and `decode` at most once per
   `noise_period`. Anything that changes the label with `lv_label_set_text` while one of these runs is overwritten by the
   next frame; use `lvgl_fx.set` (or `stop` first).
+- **`draw` limits.** One draw per line; the state lives in `Slot::style`, so `draw` on a line and the text styles never
+  meet (a line is not a label). Lines of 2 - 255 points; partial drawing needs a run (`max_line_runs` /
+  `max_line_points`), otherwise whole segments are shown. Points are read when the line is first drawn: change a
+  line's points through `lv_line_set_points` (fx re-captures) and never edit a captured array in place while the line is
+  partly drawn. `lv_line_set_points_mutable` arrays are restored as mutable at 100 %.
 - **Not yet supported:** user-defined tracks, stagger over several widgets, binding a
   transition to a widget instead of naming it per call.
 
@@ -607,7 +782,9 @@ Every transition and one-shot effect is judged once, when it starts. The first r
 Definitions become `static const` tables in flash. RAM is the slot pool (`max_targets` x 68 bytes, 2.2 KB for the
 default 32) plus one LVGL animation per running transition or effect, regardless of the number of tracks. The
 `typewriter` / `decode` styles add a static pool of `max_text_runs` x (`max_text_length` + 28) bytes of text runs, 4 x 156 bytes by default, plus `max_text_length` bytes of scratch, which is not
-part of the slot (still 68 bytes). Nothing is allocated per frame. The compile test and the demo build on ESP32 with ESP-IDF.
+part of the slot (still 68 bytes). Line draw adds a static pool of `max_line_runs` x (16 + 8 x `max_line_points`) bytes (4 x 144
+by default, 576 bytes) and keeps its per-line state in the existing slot (`Slot::style`, which a line does not
+otherwise use): the slot stays 68 bytes. Nothing is allocated per frame. The compile test and the demo build on ESP32 with ESP-IDF.
 
 
 ### Additional tracks and completion hooks
@@ -628,7 +805,8 @@ play the completion effect. `fx::cancel_tween_effect(target)` disarms pending
 completions without stopping the source tween. The target is disarmed on deletion.
 Cross-widget completions allocate a small temporary record and register a deletion
 callback; if allocation fails the source tween and its callback still run, without
-the follow-up effect.
+the follow-up effect. The same two fields exist on `fx::Opt` for every `set_*`
+(see the C++ API).
 
 
 ### Widget transition bindings

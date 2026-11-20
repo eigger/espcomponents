@@ -18,9 +18,10 @@ namespace lvgl_fx {
 
 // ---- transition definitions (const tables; P4 codegen emits these into flash) ---------------------------------------
 
-enum class Prop : uint8_t { VISIBLE, OPACITY, VALUE, TEXT, COLOR, POSITION, ROTATION, COUNT };
+enum class Prop : uint8_t { VISIBLE, OPACITY, VALUE, TEXT, COLOR, POSITION, ROTATION, DRAW, COUNT };
 constexpr size_t PROP_COUNT = static_cast<size_t>(Prop::COUNT);
 
+// DRAW has no styles: it is a plain timed entry (duration, delay, curve) like VALUE.
 // Transition styles.  Which style applies where: VISIBLE fade / slide_* / zoom / none, TEXT fade / roll /
 // count / typewriter / decode / none; everything else is ignored for a property (a text entry asking for slide_*
 // behaves as fade, a visible entry asking for typewriter too).  New styles are appended: generated code keeps
@@ -89,6 +90,13 @@ struct Opt {
   bool force = false;                  // ignore policy suppression (boot sequences)
   bool always = false;                 // ignore suppress_when only
   bool instant = false;                // cancel this property and apply immediately, without then
+  // Cross-widget completion (every set_*; ignored by play()): when the transition really ends - not after instant
+  // application (policy, duration 0, `instant`, a full pool), stop(), or when it is replaced or cancelled - this
+  // effect is played on `completion_target` with the default policy, after the transition's own `then`.  Same fields and
+  // semantics as TweenOpt.  A completion record is allocated per call that sets both (nothing per frame); the target is
+  // disarmed when it is deleted.
+  EffectRef completion_effect = nullptr;
+  lv_obj_t *completion_target = nullptr;
 };
 
 // Motion tokens.  Runtime-changeable, e.g. `fx::motion().intensity = 0.6f;`.
@@ -178,6 +186,11 @@ bool start_anim(void *var, lv_anim_exec_xcb_t exec, int32_t from, int32_t to, ui
                 bool early_apply = true, lv_anim_deleted_cb_t deleted = nullptr);  // false: nothing is applied (and nothing replaced) before `delay` is over
 // `then` of a call as an anim user_data (nullptr = nothing to play), and its two ways of running.
 void *then_of(const Opt &opt);
+// start_anim() for a transition of the call `opt`: timing from `t`, and the anim carries what has to happen when it ends
+// (the transition's `then` and a cross-widget completion, released when the anim goes away).  false: LVGL could not
+// allocate the animation (nothing was started or replaced).
+bool start_transition_anim(void *var, lv_anim_exec_xcb_t exec, int32_t from, int32_t to, const ResolvedTransition &t,
+                           const Opt &opt, lv_anim_completed_cb_t done, bool early_apply = true);
 void instant_then(lv_obj_t *obj, const Opt &opt);  // transition applied instantly: it completes at once
 void slot_done(lv_anim_t *anim);                   // anim completed: play the `then` in user_data on the slot's target
 // Stop one animation and run it to its end state; completion callbacks that complete state run, `then` does not.
@@ -194,6 +207,8 @@ void drop_visible_style(Slot *slot);
 void set_label_value(lv_obj_t *obj, float value, const Opt &opt);
 // stop(): run the text style to its end state and drop it.
 void stop_text(Slot *slot);
+// stop(): a running line draw jumps to its target percent (draw.cpp).
+void stop_draw(Slot *slot);
 
 // ---- effect runner (runner.cpp) ----
 // A slot is "watched" while LvglFx::loop() has to look at it: a deferred effect, or a loop that is on.
@@ -228,6 +243,10 @@ void set_x(lv_obj_t *obj, int32_t x, Opt opt = {});
 void set_y(lv_obj_t *obj, int32_t y, Opt opt = {});
 // transform rotation of any widget.  Non-finite: instantly 0.  Mind transform_pivot.
 void set_rotation(lv_obj_t *obj, float degrees, Opt opt = {});
+// lv_line: draw the polyline progressively by path length, 0 = nothing, 100 = all of it (clamped; float allowed).
+// Non-finite: instantly 0.  Other targets: logged once, no effect.  The line's points array must outlive the line
+// (LVGL's own rule); see README "Line draw".
+void set_draw(lv_obj_t *obj, float percent, Opt opt = {});
 
 // What play() did.  Exactly one value per call.
 enum class PlayResult : uint8_t {
@@ -268,6 +287,7 @@ inline void set_color(lvgl::LvCompound *w, lv_color_t color, Opt opt = {}) { set
 inline void set_x(lvgl::LvCompound *w, int32_t x, Opt opt = {}) { set_x(w->obj, x, opt); }
 inline void set_y(lvgl::LvCompound *w, int32_t y, Opt opt = {}) { set_y(w->obj, y, opt); }
 inline void set_rotation(lvgl::LvCompound *w, float degrees, Opt opt = {}) { set_rotation(w->obj, degrees, opt); }
+inline void set_draw(lvgl::LvCompound *w, float percent, Opt opt = {}) { set_draw(w->obj, percent, opt); }
 inline PlayResult play(lvgl::LvCompound *w, EffectRef effect, Opt opt = {}) {
   return play(w == nullptr ? nullptr : w->obj, effect, opt);
 }

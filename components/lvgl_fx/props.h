@@ -64,6 +64,10 @@ enum class InstanceKind : uint8_t {
   SLIDE_LEFT,  //   (zoom: the starting scale in Q8).  The offset is zero at that opacity and full at opacity 0.
   SLIDE_RIGHT,
   ZOOM,
+  LINE_RUN,    // lv_line draw (draw.cpp): Slot::style.run = the line run (partial point buffer) bound to the line while
+               //   it is animating or partially drawn at rest.  Moves no property.  (Appended: values stay stable)
+  LINE_REST,   // lv_line draw at rest without a run (0 %, or a degraded partial): def = the full points array,
+               //   state = its point count, progress = percent in 1/100 % (bits 0-13) | 0x8000 = the array was mutable
 };
 
 // One running piece of motion on a target.  An idle instance is all zero.  The first member is a union so that
@@ -75,7 +79,8 @@ struct Instance {
     struct {
       int16_t a, b;
     } arg;                          // style kinds: resolved parameters (see InstanceKind)
-    void *run;                      // TYPEWRITER / DECODE: the text run it plays (styles.cpp)
+    void *run;                      // TYPEWRITER / DECODE: the text run it plays (styles.cpp); LINE_RUN: the line run
+                                    // LINE_REST: the full points array (`def`)
   };
   uint16_t progress;                // kind-specific progress, written by the lv_anim callback
   InstanceKind kind;
@@ -112,7 +117,7 @@ struct Slot {
   uint8_t base_image_opa;         // image opacity without effect offsets
   uint8_t base_outline_opa;       // outline opacity the widget had when fx took it over (glow adds on top)
   Instance one_shot, loop;        // effects; one_shot keeps its last effect after it ended (cooldown)
-  Instance style;                 // text style entry (fade / roll / count)
+  Instance style;                 // text style entry (fade / roll / count); on an lv_line: the draw state (LINE_RUN / LINE_REST)
   Instance vis;                   // visible style entry/exit (slide / zoom), alive while a visible transition runs
   uint32_t last_play_tick;        // lv_tick of the last one-shot start (cooldown)
   const EffectDef *deferred;      // effect kept by `when_suppressed: defer` (one per target)

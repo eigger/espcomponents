@@ -71,6 +71,8 @@ lvgl_fx:
   slots_in_psram: true
   max_text_runs: 6
   max_text_length: 160
+  max_line_runs: 3
+  max_line_points: 12
   suppress_when: !lambda return id(popup_open);
 
   transitions:
@@ -83,6 +85,7 @@ lvgl_fx:
       color: { duration: normal }
       position: { duration: normal, curve: ease_out }
       rotation:
+      draw: { duration: 250ms, curve: ease_in_out, delay: 0ms }
     custom:
       - id: gauge_slow
         policy: always
@@ -158,8 +161,23 @@ lvgl_fx:
           - lambda: |-
               fx::play(x, fx::PULSE);
 
+      # line draw: a named transition per direction (the draw timing is one entry, the direction picks the transition)
+      - id: trace_in
+        draw: { duration: 200ms, curve: linear }
+      - id: trace_out
+        draw: { duration: 120ms, curve: linear, delay: 10ms }
+        then: line_hide             # recipe: erase, then hide (the effect's on_start hides the line it is played on)
+      - id: trace_slow
+        policy: always
+        draw: { duration: slow, curve: ease_out }
+        on_start:
+          - logger.log: { format: "line draw started on %p", args: [ x ] }
+      - id: trace_instant
+        draw: { duration: 0ms }
+
     bindings:
       - { id: fx_bar, value: gauge_slow }
+      - { id: fx_line, draw: trace_in }
       - { id: fx_label, text: gear_roll }
       - { id: fx_obj, position: prnd_move, visible: card }
 
@@ -186,6 +204,13 @@ lvgl_fx:
     defer_timeout: 2s
 
   effects:
+    # the second half of "erase, then hide": a 1 ms effect whose hook does the hiding on the line it is played on
+    - id: line_hide
+      on_start:
+        - lambda: |-
+            fx::set_visible(x, false, {.instant = true});
+      tracks:
+        - blink: { duration: 1ms }
     - id: image_pulse_test
       tracks:
         - image_pulse: { amount: 30%, duration: 220ms, curve: ease_out }
@@ -327,6 +352,28 @@ lvgl:
             src: test_image
             x: 150
             y: 10
+        # A line with YAML points: ESPHome keeps the points array in the widget (LvLineType::points_) and tells LVGL.
+        - line:
+            id: fx_line
+            x: 150
+            y: 130
+            line_width: 3
+            line_rounded: true
+            points:
+              - { x: 0, y: 0 }
+              - { x: 40, y: 0 }
+              - { x: 40, y: 30 }
+              - { x: 80, y: 30 }
+        - line:
+            id: fx_line_pct
+            x: 150
+            y: 170
+            width: 60
+            height: 20
+            points:
+              - { x: 0, y: 0 }
+              - { x: 50%, y: 100% }
+              - { x: 100%, y: 0 }
         # A compound widget: its id is an esphome::lvgl::LvCompound-derived object, accepted by the overloads.
         - dropdown:
             id: fx_dropdown
@@ -604,6 +651,118 @@ interval:
           fx::stop(id(fx_label));
           fx::stop(id(fx_image));
           fx::stop(id(fx_obj));
+
+  # ---- line draw: the C++ API, re-capture, pool limits and the completion options of every set_* ----
+  - interval: 2200ms
+    then:
+      - lambda: |-
+          lv_obj_t *line = id(fx_line)->obj;
+          fx::set_draw(id(fx_line), 100.0f);                     // LvCompound overload; already complete: nothing
+          fx::set_draw(line, 0.0f);                              // erase: draws nothing, the line stays visible
+          fx::set_draw(line, 33.3f);                             // float percent
+          fx::set_draw(line, 33.3f);                             // same target: nothing
+          fx::set_draw(line, 100.0f, fx::Opt{id(trace_in)});     // named transition; a retarget continues from there
+          fx::set_draw(line, 150.0f);                            // clamped to 100
+          fx::set_draw(line, -5.0f);                             // clamped to 0
+          fx::set_draw(line, 50.0f, {.transition = id(trace_slow), .force = true});
+          fx::set_draw(line, 75.0f, {.always = true});
+          fx::set_draw(line, 20.0f, {.instant = true});          // cancels the motion, no then
+          fx::set_draw(line, NAN);                               // non-finite: instantly 0
+          fx::set_draw(line, 100.0f, {.instant = true});
+          fx::stop(line);                                        // snaps to the target percent
+          fx::set_draw(line, 60.0f);
+          fx::stop(line);                                        // the line rests at 60 %: a partially drawn line
+          fx::set_draw(line, 100.0f, fx::Opt{id(trace_instant)});  // duration 0: instant, then plays at once
+
+          // draw and visible are independent: erase, then hide with the transition's `then`
+          fx::set_draw(line, 0.0f, {.transition = id(trace_out), .instant = true});
+          fx::set_visible(line, true, {.instant = true});
+          fx::set_draw(line, 100.0f, fx::Opt{id(trace_in)});
+          fx::set_draw(line, 0.0f, fx::Opt{id(trace_out)});      // `then` = line_hide hides it when the erase is done
+          fx::stop(line);
+          fx::set_visible(line, true, {.instant = true});
+          fx::set_draw(line, 100.0f, {.instant = true});
+
+          // a line with percentage coordinates
+          fx::set_draw(id(fx_line_pct), 40.0f);
+          fx::set_draw(id(fx_line_pct), 100.0f);
+
+          // re-capture: the app gives the line another array (it must outlive the line)
+          static const lv_point_precise_t other[] = {{0, 0}, {30, 0}, {30, 30}, {0, 30}, {0, 0}};
+          static const lv_point_precise_t single[] = {{0, 0}};
+          fx::set_draw(line, 50.0f);                             // partial: the line shows fx's buffer
+          lv_line_set_points(line, other, 5);                    // the app takes the line over mid-way
+          fx::set_draw(line, 30.0f);                             // captured as the new full array
+          fx::set_draw(line, 100.0f);
+          lv_line_set_points(line, other, 5);
+          fx::set_draw(line, 0.0f);                              // erased: the line shows `other` with one point
+          lv_line_set_points(line, other, 3);                    // a different count: re-captured, not erased any more
+          fx::set_draw(line, 100.0f);
+          lv_line_set_points(line, single, 1);                   // fewer than 2 points: logged once, nothing to draw
+          fx::set_draw(line, 50.0f);
+          lv_line_set_points(line, other, 5);
+          fx::set_draw(line, 100.0f, {.instant = true});
+
+          // wrong targets: logged once, no effect
+          fx::set_draw(id(fx_label), 50.0f);
+          fx::set_draw(id(fx_dropdown), 50.0f);
+          fx::set_draw(static_cast<lv_obj_t *>(nullptr), 50.0f);
+
+          // pool limits (3 runs of 12 points): more partial lines than runs apply whole segments, logged once
+          static const lv_point_precise_t longer[] = {{0, 0}, {5, 0}, {10, 0}, {15, 0}, {20, 0}, {25, 0}, {30, 0},
+                                                      {35, 0}, {40, 0}, {45, 0}, {50, 0}, {55, 0}, {60, 0}};
+          lv_obj_t *crowd[5];
+          for (lv_obj_t *&l : crowd) {
+            l = lv_line_create(lv_screen_active());
+            lv_line_set_points(l, longer, 13);               // 13 points: more than max_line_points
+            fx::set_draw(l, 50.0f);                          // no buffer fits: whole segments, final state at once
+            fx::set_draw(l, 0.0f);
+            fx::set_draw(l, 100.0f);
+          }
+          static const lv_point_precise_t small[] = {{0, 0}, {10, 10}, {20, 0}};
+          for (lv_obj_t *&l : crowd) {
+            lv_line_set_points(l, small, 3);
+            fx::set_draw(l, 50.0f);                          // 3 runs bound, the 4th and 5th line find the pool busy
+          }
+          for (lv_obj_t *&l : crowd) {
+            fx::set_draw(l, 100.0f, {.instant = true});
+            lv_obj_delete(l);                                // deleting a line frees its run and slot
+          }
+
+          // cross-widget completion on every set_*: the effect plays on the target when the transition completes
+          lv_obj_t *target = id(fx_image);
+          const fx::Opt done_pulse = {.completion_effect = fx::PULSE, .completion_target = target};
+          fx::set_draw(line, 0.0f, {.transition = id(trace_in), .completion_effect = id(prnd_confirm),
+                                    .completion_target = target});
+          fx::set_draw(line, 100.0f, done_pulse);
+          fx::set_draw(line, 100.0f, {.instant = true, .completion_effect = fx::PULSE, .completion_target = target});
+          fx::set_value(id(fx_bar), 20.0f, done_pulse);
+          fx::set_value(id(fx_image), 90.0f, done_pulse);
+          fx::set_value(id(fx_label), 21.0f, done_pulse);
+          fx::set_text(id(fx_label), "done", done_pulse);
+          fx::set_visible(id(fx_card), false, done_pulse);
+          fx::set_visible(id(fx_card), true, done_pulse);
+          fx::set_opacity(id(fx_card), 90, done_pulse);
+          fx::set_color(id(fx_card), lv_color_hex(0x112233), done_pulse);
+          fx::set_x(id(fx_card), 160, done_pulse);
+          fx::set_y(id(fx_card), 70, done_pulse);
+          fx::set_rotation(id(fx_card), 15.0f, done_pulse);
+          fx::set_x(id(fx_card), 150, {.transition = id(prnd_move), .completion_effect = fx::BLINK,
+                                       .completion_target = id(fx_obj)});  // then first, then the completion effect
+          fx::set_value(id(fx_bar), 30.0f, {.force = true, .completion_effect = fx::PULSE, .completion_target = line});
+          fx::set_value(id(fx_bar), 0.0f, {.instant = true, .completion_effect = fx::PULSE, .completion_target = target});
+          fx::set_value(id(fx_bar), 50.0f, done_pulse);
+          fx::stop(id(fx_bar));                                  // stop: no completion effect
+          fx::set_value(id(fx_bar), 60.0f, done_pulse);
+          fx::set_value(id(fx_bar), 70.0f);                      // replaced by a call without completion: no effect
+          fx::set_value(id(fx_bar), 80.0f, {.completion_effect = fx::PULSE});  // no target: ignored
+          fx::set_value(id(fx_bar), 90.0f, {.completion_target = target});     // no effect: ignored
+          fx::cancel_tween_effect(target);                       // also disarms Opt completions (same records)
+          fx::stop(id(fx_bar));
+          fx::stop(id(fx_card));
+          fx::stop(id(fx_label));
+          fx::stop(id(fx_image));
+          fx::stop(line);
 
   # ---- P3: transition styles ----
   - interval: 2500ms
@@ -955,6 +1114,25 @@ interval:
       - lvgl_fx.set: { id: fx_obj, rotation: 90 }
       - lvgl_fx.set: { id: fx_obj, rotation: !lambda "return 12.5f;", transition: everything }
       - lvgl_fx.set: { id: fx_dropdown, visible: true }      # a compound widget
+      # line draw: percentage (float allowed), lambda, named transition, force, instant
+      - lvgl_fx.set: { id: fx_line, draw: 0% }
+      - lvgl_fx.set: { id: fx_line, draw: 100% }
+      - lvgl_fx.set: { id: fx_line, draw: 33.3%, transition: trace_in }
+      - lvgl_fx.set: { id: fx_line, draw: 0%, transition: trace_out }
+      - lvgl_fx.set: { id: fx_line, draw: 50%, transition: trace_slow, force: true }
+      - lvgl_fx.set: { id: fx_line, draw: !lambda "return id(popup_open) ? 10.0f : 90.0f;", instant: !lambda "return id(popup_open);" }
+      - lvgl_fx.set: { id: fx_line, draw: 100%, instant: true }
+      - lvgl_fx.set: { id: fx_line_pct, draw: 60%, transition: trace_instant }
+      - lvgl_fx.set: { id: fx_line_pct, draw: 100% }
+      # a new points array through ESPHome: fx captures it as the full line the next time it draws
+      - lvgl.line.update:
+          id: fx_line
+          points:
+            - { x: 0, y: 0 }
+            - { x: 20, y: 40 }
+            - { x: 60, y: 40 }
+      - lvgl_fx.set: { id: fx_line, draw: 25% }
+      - lvgl_fx.set: { id: fx_line, draw: 100% }
       - lvgl_fx.play: { id: fx_obj, effect: pulse }
       - lvgl_fx.play: { id: fx_obj, effect: shake, force: true }
       - lvgl_fx.play: { id: fx_obj, effect: nudge_up }
