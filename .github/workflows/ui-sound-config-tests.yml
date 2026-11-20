@@ -1,0 +1,32 @@
+name: ui_sound Config Tests
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'components/ui_sound/**'
+      - 'tests/native/ui_sound_config/**'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'components/ui_sound/**'
+      - 'tests/native/ui_sound_config/**'
+  workflow_dispatch:
+
+jobs:
+  ui-sound-config-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Install ESPHome
+        run: pip install esphome
+
+      - name: Run config validation tests
+        run: python tests/native/ui_sound_config/test_invalid_configs.py

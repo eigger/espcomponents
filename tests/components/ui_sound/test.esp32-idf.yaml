@@ -1,0 +1,127 @@
+# Compile test for ui_sound: full schema, every action and condition, and the C++ API from lambdas.
+# No hardware needed: an I2S speaker on dummy pins feeds a speaker media_player with three tiny local WAV files.
+# Rejected configurations are tested by tests/native/ui_sound_config/test_invalid_configs.py.
+esphome:
+  name: test-ui-sound
+  on_boot:
+    - priority: -100
+      then:
+        - ui_sound.start:
+        - ui_sound.start: ui_sounds
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: local
+      path: ../../../components
+    components: [ ui_sound ]
+
+logger:
+
+# The speaker media_player depends on `network`.
+wifi:
+  ssid: test
+  password: testtest123
+
+i2s_audio:
+  i2s_lrclk_pin: GPIO25
+  i2s_bclk_pin: GPIO26
+
+speaker:
+  - platform: i2s_audio
+    id: ui_speaker
+    dac_type: external
+    i2s_dout_pin: GPIO22
+    channel: mono
+    sample_rate: 16000
+
+media_player:
+  - platform: speaker
+    id: ui_sound_player
+    name: UI sound player
+    announcement_pipeline:
+      speaker: ui_speaker
+      format: WAV
+      sample_rate: 16000
+      num_channels: 1
+    files:
+      - id: sound_click
+        file: click.wav
+      - id: sound_ok
+        file: ok.wav
+      - id: sound_warn
+        file: warn.wav
+
+ui_sound:
+  id: ui_sounds
+  media_player: ui_sound_player
+  announcement: true
+  min_gap: 20ms
+  start_grace: 300ms
+  max_busy: 10s
+  require_start: true
+  cues:
+    - id: click
+      file: sound_click
+      priority: 1
+      cooldown: 50ms
+      duration: 100ms
+    - id: success
+      file: sound_ok
+      priority: 2
+    - id: warning
+      file: sound_warn
+      priority: 255
+      cooldown: 1s
+      duration: 50ms
+
+globals:
+  - id: last_result
+    type: int
+    initial_value: "0"
+
+interval:
+  - interval: 5s
+    then:
+      # Short form, long form, templatable force, every other action.
+      - ui_sound.play: click
+      - ui_sound.play:
+          cue: success
+          force: true
+      - ui_sound.play:
+          id: ui_sounds
+          cue: warning
+          force: !lambda "return id(last_result) > 5;"
+      - if:
+          condition:
+            ui_sound.is_playing:
+          then:
+            - ui_sound.stop:
+      - if:
+          condition:
+            not:
+              ui_sound.is_playing: ui_sounds
+          then:
+            - ui_sound.set_enabled: false
+            - ui_sound.set_enabled: !lambda "return id(last_result) == 0;"
+            - ui_sound.set_enabled:
+                value: true
+            - ui_sound.stop: ui_sounds
+      - lambda: |-
+          // C++ API
+          auto r = id(ui_sounds).play(id(click));
+          r = id(ui_sounds).play(id(success), true);
+          id(last_result) = static_cast<int>(r);
+          if (ui_sound::played(r) || r == ui_sound::PlayResult::BUSY || r == ui_sound::PlayResult::COOLDOWN ||
+              r == ui_sound::PlayResult::MIN_GAP || r == ui_sound::PlayResult::MUTED ||
+              r == ui_sound::PlayResult::DISABLED || r == ui_sound::PlayResult::NOT_STARTED ||
+              r == ui_sound::PlayResult::INTERRUPTED || r == ui_sound::PlayResult::NOT_READY || r == ui_sound::PlayResult::INVALID) {
+            id(ui_sounds).set_enabled(id(ui_sounds).is_enabled());
+          }
+          if (id(ui_sounds).is_playing())
+            id(ui_sounds).stop();
+          id(ui_sounds).start();
