@@ -1,0 +1,45 @@
+name: gps_compass Native Tests
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'components/gps_compass/**'
+      - 'tests/native/gps_compass_math/**'
+      - 'tests/native/gps_compass_config/**'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'components/gps_compass/**'
+      - 'tests/native/gps_compass_math/**'
+      - 'tests/native/gps_compass_config/**'
+  workflow_dispatch:
+
+jobs:
+  gps-compass-math-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Build and run the compass math tests
+        run: |
+          chmod +x tests/native/gps_compass_math/run.sh
+          tests/native/gps_compass_math/run.sh
+
+  gps-compass-config-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Install ESPHome
+        run: pip install esphome
+
+      - name: Run config validation tests
+        run: python tests/native/gps_compass_config/test_invalid_configs.py

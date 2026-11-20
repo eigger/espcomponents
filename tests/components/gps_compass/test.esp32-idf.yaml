@@ -1,0 +1,166 @@
+# Compile test for gps_compass: the full schema, every sensor / action / trigger, and the C++ API from lambdas.
+# No hardware needed: a gps on a uart with dummy pins, template sensors standing in for the magnetometer and the
+# accelerometer.  Rejected configurations are tested by tests/native/gps_compass_config/test_invalid_configs.py and
+# the math by tests/native/gps_compass_math/run.sh.
+esphome:
+  name: test-gps-compass
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: local
+      path: ../../../components
+    components: [ gps_compass ]
+
+logger:
+
+uart:
+  id: uart_gps
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 9600
+
+gps:
+  id: id_gps
+  uart_id: uart_gps
+
+globals:
+  - id: reverse_gear
+    type: bool
+    initial_value: "false"
+
+sensor:
+  # Stand-ins for a magnetometer and an accelerometer (any sensor ids work).
+  - platform: template
+    id: mag_x
+    lambda: "return 20.0f;"
+    update_interval: 100ms
+  - platform: template
+    id: mag_y
+    lambda: "return -10.0f;"
+    update_interval: 100ms
+  - platform: template
+    id: mag_z
+    lambda: "return 35.0f;"
+    update_interval: 100ms
+  - platform: template
+    id: acc_x
+    lambda: "return 0.0f;"
+    update_interval: 100ms
+  - platform: template
+    id: acc_y
+    lambda: "return 0.0f;"
+    update_interval: 100ms
+  - platform: template
+    id: acc_z
+    lambda: "return 1.0f;"
+    update_interval: 100ms
+
+gps_compass:
+  id: compass
+  gps_id: id_gps
+  magnetometer:
+    x: mag_x
+    y: mag_y
+    z: mag_z
+  accelerometer:
+    x: acc_x
+    y: acc_y
+    z: acc_z
+  forward_axis: "-Z"
+  right_axis: Y
+  pitch_offset: 1.5°
+  roll_offset: -0.5
+  reverse: !lambda "return id(reverse_gear);"
+  min_learning_speed: 20 km/h
+  moving_speed: 8
+  stopped_speed: 3 kph
+  max_hdop: 2.5
+  min_satellites: 5
+  field_filter: 0.35
+  min_field_strength: 2.0
+  sensor_timeout: 1500ms
+  gps_timeout: 3s
+  observation_interval: 900ms
+  fit_interval: 3s
+  min_sectors: 5
+  max_sector_gap: 3
+  min_new_samples: 4
+  heading:
+    name: Heading
+    id: compass_heading
+  magnetic_heading:
+    name: Magnetic heading
+  gps_heading:
+    name: GPS heading
+  pitch:
+    name: Pitch
+    id: compass_pitch
+  roll:
+    name: Roll
+  samples:
+    name: Samples
+  source:
+    name: Heading source
+  status:
+    name: Compass status
+  calibrated:
+    name: Compass calibrated
+  on_calibrated:
+    - logger.log:
+        format: "calibrated first=%d samples=%u"
+        args: ['first', '(unsigned) samples']
+    - if:
+        condition:
+          lambda: "return first;"
+        then:
+          - logger.log: "first fit"
+
+interval:
+  - interval: 5s
+    then:
+      - gps_compass.set_level:
+      - gps_compass.set_level:
+          id: compass
+          pitch: 1.0
+      - gps_compass.set_level:
+          pitch: !lambda "return id(compass_pitch).state;"
+          roll: -0.25
+      - gps_compass.clear_level:
+      - gps_compass.clear_level: compass
+      - gps_compass.reset_calibration:
+      - gps_compass.reset_calibration: compass
+      - lambda: |-
+          // C++ API
+          auto *c = id(compass);
+          c->update_field(20.0f, -10.0f, 35.0f);  // for sources that only expose a callback
+          c->update_accel(0.0f, 0.0f, 1.0f);
+          float heading = c->heading();          // NAN without a source
+          auto source = c->source();             // NONE / GPS / MAGNETIC / LAST_GPS
+          const char *name = c->source_name();
+          float mag = c->magnetic_heading(), gps_h = c->gps_heading(), stopped = c->stopped_heading();
+          bool flags = c->has_fix() && c->is_moving() && c->is_stopped() && c->hdop_ok() && c->is_reverse() &&
+                       c->field_fresh() && c->pose_valid() && c->is_calibrated() && c->learning_done();
+          float speed = c->speed_kmh();
+          uint32_t samples = c->sample_count() + c->fit_sample_count();
+          uint8_t sectors = c->sector_count();
+          auto status = c->status();
+          bool collecting = status == gps_compass::Status::COLLECTING || status == gps_compass::Status::SAVED_FIT ||
+                            status == gps_compass::Status::CALIBRATED ||
+                            status == gps_compass::Status::WAITING_FOR_FIX ||
+                            status == gps_compass::Status::WAITING_FOR_MOTION ||
+                            status == gps_compass::Status::CHECK_RECEPTION ||
+                            status == gps_compass::Status::WAITING_FOR_MAGNETOMETER;
+          const char *status_text = c->status_name();
+          float pitch = c->pitch(), roll = c->roll(), po = c->pitch_offset(), ro = c->roll_offset();
+          c->level_to_current();
+          c->set_level_offsets(1.0f, {});
+          c->clear_level();
+          c->reset_calibration();
+          ESP_LOGD("test", "%.1f %d %s %.1f %.1f %.1f %d %.1f %u %u %d %s %.1f %.1f %.1f %.1f", heading,
+                   static_cast<int>(source), name, mag, gps_h, stopped, flags, speed, (unsigned) samples,
+                   (unsigned) sectors, collecting, status_text, pitch, roll, po, ro);
