@@ -32,6 +32,7 @@ struct Options {
   uint16_t repeat_delay;
   uint16_t cooldown;
   uint16_t defer_timeout;
+  bool cooldown_per_widget;
 };
 
 Options resolve_options(const EffectDef &d) {
@@ -45,6 +46,8 @@ Options resolve_options(const EffectDef &d) {
   o.repeat_delay = d.repeat_delay != UNSET_U16 ? d.repeat_delay : g.repeat_delay;
   o.cooldown = d.cooldown != UNSET_U16 ? d.cooldown : g.cooldown;
   o.defer_timeout = d.defer_timeout != UNSET_U16 ? d.defer_timeout : g.defer_timeout;
+  o.cooldown_per_widget =
+      (d.cooldown_scope != CooldownScope::DEFAULT ? d.cooldown_scope : g.cooldown_scope) == CooldownScope::WIDGET;
   return o;
 }
 
@@ -245,49 +248,57 @@ void clear_deferred(Slot &slot) {
 }
 
 // 4.4: one deferred effect per target, a later one replaces it.
-void defer_effect(lv_obj_t *obj, const EffectDef &def) {
+PlayResult defer_effect(lv_obj_t *obj, const EffectDef &def) {
   Slot *slot = detail::acquire_slot(obj);
-  if (slot == nullptr) return;
+  if (slot == nullptr) return PlayResult::NO_SLOT;
   WatchGuard watch(*slot);
   slot->deferred = &def;
   slot->deferred_tick = lv_tick_get();
+  return PlayResult::DEFERRED;
 }
 
-void play_one_shot(lv_obj_t *obj, const EffectDef &def, const Options &o, uint32_t length, bool force) {
+// `follow_up`: a `then` of a finished effect or transition: part of the same play, so the cooldown (row 5) does not
+// rate-limit it; the other policy rows still apply.
+PlayResult play_one_shot(lv_obj_t *obj, const EffectDef &def, const Options &o, uint32_t length, bool force,
+                         bool follow_up) {
   Slot *slot = detail::find_slot(obj);
   // The same effect is already running: `retrigger: ignore`.
   if (o.ignore_retrigger && slot != nullptr && slot->one_shot.kind == InstanceKind::EFFECT &&
       slot->one_shot.def == &def)
-    return;
+    return PlayResult::IGNORED;
   if (!force) {
     switch (judge(obj, o.always)) {
       case Verdict::OK:
         break;
       case Verdict::SUPPRESSED:
-        if (o.defer) defer_effect(obj, def);
-        return;
+        return o.defer ? defer_effect(obj, def) : PlayResult::DROPPED;
       case Verdict::DROP:
-        return;
+        return PlayResult::DROPPED;
     }
-    // Row 5: the cooldown counts from the last time this effect started on this target.
-    if (o.cooldown != 0 && slot != nullptr && slot->one_shot.def == &def &&
-        lv_tick_elaps(slot->last_play_tick) < o.cooldown)
-      return;
+    // Row 5: the cooldown counts from the last time this effect (`cooldown_scope: effect`) or any one-shot effect
+    // (`widget`) started on this target.  one_shot.def keeps the last effect after it ended.
+    if (!follow_up && o.cooldown != 0 && slot != nullptr && slot->one_shot.def != nullptr &&
+        (o.cooldown_per_widget || slot->one_shot.def == &def) && lv_tick_elaps(slot->last_play_tick) < o.cooldown)
+      return PlayResult::COOLDOWN;
   }
   if (slot == nullptr) slot = detail::acquire_slot(obj);
-  if (slot == nullptr) return;  // pool full: the effect is decoration, the state is unaffected
+  if (slot == nullptr) return PlayResult::NO_SLOT;  // pool full: the effect is decoration, the state is unaffected
   begin_one_shot(*slot, def, o, length);
+  if (slot->one_shot.kind != InstanceKind::EFFECT) return PlayResult::NO_SLOT;  // LVGL could not allocate the anim
+  // The runner is consistent now: the hook may play / stop on this very widget.
+  if (def.on_start != nullptr) def.on_start(obj);
+  return PlayResult::STARTED;
 }
 
-void play_loop(lv_obj_t *obj, const EffectDef &def, const Options &o, uint32_t length, bool force) {
+PlayResult play_loop(lv_obj_t *obj, const EffectDef &def, const Options &o, uint32_t length, bool force) {
   Slot *slot = detail::find_slot(obj);
   if (slot != nullptr && (slot->flags & SLOT_LOOP_ON) && slot->loop.def == &def) {
     // Already on: playing it again does nothing - except that `force` starts a resting loop.
     if (force) slot->flags |= SLOT_LOOP_FORCE;  // from now on policy cannot pause it
-    if (!force || !(slot->flags & SLOT_LOOP_PAUSED)) return;
+    if (!force || !(slot->flags & SLOT_LOOP_PAUSED)) return PlayResult::IGNORED;
   } else if (slot == nullptr) {
     slot = detail::acquire_slot(obj);
-    if (slot == nullptr) return;
+    if (slot == nullptr) return PlayResult::NO_SLOT;
   }
   WatchGuard watch(*slot);
   if ((slot->flags & SLOT_LOOP_ON) && slot->loop.def != &def) clear_loop(*slot);  // a different loop replaces it
@@ -302,6 +313,7 @@ void play_loop(lv_obj_t *obj, const EffectDef &def, const Options &o, uint32_t l
     begin_loop(*slot, def, o, length);
   else
     slot->flags |= SLOT_LOOP_PAUSED;
+  return (slot->flags & SLOT_LOOP_PAUSED) ? PlayResult::REMEMBERED : PlayResult::STARTED;
 }
 
 // ---- loop() work -----------------------------------------------------------------------------------------------
@@ -339,6 +351,10 @@ void service_loop(Slot &slot) {
 
 // ---- internals shared with lvgl_fx.cpp ------------------------------------------------------------------------------
 
+namespace {
+PlayResult play_impl(lv_obj_t *obj, EffectRef effect, Opt opt, bool follow_up);
+}
+
 namespace detail {
 
 void stop_effects(Slot &slot) {
@@ -360,7 +376,7 @@ void play_then(lv_obj_t *obj, EffectRef then) {
     warn_once(warned, "`then` must not be a loop effect: ignored");
     return;
   }
-  play(obj, then);
+  play_impl(obj, then, {}, true);  // a follow-up is not rate-limited by its predecessor's cooldown
 }
 
 void service_effects() {
@@ -377,16 +393,18 @@ void service_effects() {
 
 // ---- API -----------------------------------------------------------------------------------------------------------
 
-void play(lv_obj_t *obj, EffectRef effect, Opt opt) {
-  if (obj == nullptr || effect == nullptr) return;
+namespace {
+PlayResult play_impl(lv_obj_t *obj, EffectRef effect, Opt opt, bool follow_up) {
+  if (obj == nullptr || effect == nullptr) return PlayResult::INVALID;
   const uint32_t length = effect_length(*effect);
-  if (length == 0) return;  // no tracks, or nothing with a duration
+  if (length == 0) return PlayResult::INVALID;  // no tracks, or nothing with a duration
   const Options o = resolve_options(*effect);
-  if (o.repeat == REPEAT_INFINITE)
-    play_loop(obj, *effect, o, length, opt.force);
-  else
-    play_one_shot(obj, *effect, o, length, opt.force);
+  return o.repeat == REPEAT_INFINITE ? play_loop(obj, *effect, o, length, opt.force)
+                                     : play_one_shot(obj, *effect, o, length, opt.force, follow_up);
 }
+}  // namespace
+
+PlayResult play(lv_obj_t *obj, EffectRef effect, Opt opt) { return play_impl(obj, effect, opt, false); }
 
 void stop(lv_obj_t *obj, EffectRef effect) {
   if (obj == nullptr || effect == nullptr) return;

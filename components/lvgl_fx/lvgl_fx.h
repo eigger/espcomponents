@@ -52,6 +52,9 @@ struct TransitionDef {
   const PropTransition *props[PROP_COUNT];
   const EffectDef *then;  // effect played on the same target when the transition completes (not on stop())
   EffectPolicy policy = EffectPolicy::NORMAL;  // ALWAYS ignores suppress_when only
+  // `on_start:` hook, called with the target once per set call that starts an animation (not when the change is
+  // applied instantly or is a no-op), after the animation is running.  A captureless function.
+  void (*on_start)(lv_obj_t *) = nullptr;
 };
 using TransitionRef = const TransitionDef *;
 
@@ -145,6 +148,11 @@ struct ResolvedTransition {
 ResolvedTransition resolve(TransitionRef transition, Prop prop);
 uint32_t resolve_duration(uint16_t duration);
 
+// Run the named transition's `on_start` hook (call after the animation has started and the bookkeeping is done).
+inline void notify_start(lv_obj_t *obj, const Opt &opt) {
+  if (opt.transition != nullptr && opt.transition->on_start != nullptr) opt.transition->on_start(obj);
+}
+
 // ---- animation plumbing (lvgl_fx.cpp), shared with styles.cpp ----
 // Key rules for lv_anim: (var, exec_cb) identifies an animation and lv_anim_start replaces a running one with the same
 // pair.  Everything slot based uses var = slot with one exec_cb per property or instance, so a single
@@ -205,8 +213,21 @@ void set_y(lv_obj_t *obj, int32_t y, Opt opt = {});
 // transform rotation of any widget.  Non-finite: instantly 0.  Mind transform_pivot.
 void set_rotation(lv_obj_t *obj, float degrees, Opt opt = {});
 
-// Effects: pass an effect.  The only call-site override is `opt.force`; `opt.transition` is ignored.
-void play(lv_obj_t *obj, EffectRef effect, Opt opt = {});
+// What play() did.  Exactly one value per call.
+enum class PlayResult : uint8_t {
+  STARTED,     // the effect is running now (a loop that was switched on and moves)
+  DEFERRED,    // `when_suppressed: defer`: kept, plays when suppression ends (if within defer_timeout)
+  REMEMBERED,  // a loop that is now on but at rest because policy does not allow motion yet; it starts by itself
+  IGNORED,     // already running: `retrigger: ignore` for a one-shot, or the same loop is already on
+  DROPPED,     // policy: disabled, reduced motion, before start(), hidden widget or ancestor, `suppress_when` + skip
+  COOLDOWN,    // `cooldown` not over
+  NO_SLOT,     // the slot pool is full (or LVGL could not allocate the animation): the effect is skipped
+  INVALID,     // null widget or effect, or an effect without any motion (no track has a duration)
+};
+
+// Effects: pass an effect.  The only call-site override is `opt.force`; `opt.transition` is ignored.  The result says
+// what happened; ignoring it is fine.
+PlayResult play(lv_obj_t *obj, EffectRef effect, Opt opt = {});
 
 // Stop all motion on a target and snap to the final state: transitions to their target value, effects to rest.
 void stop(lv_obj_t *obj);
@@ -215,6 +236,8 @@ void stop(lv_obj_t *obj, EffectRef effect);
 
 // Declare the UI ready.  Before this, transitions apply instantly (policy row 2).
 void start();
+// True once start() has been called (policy row 2).
+bool is_ready();
 
 // Policy switches (policy row 1).
 void set_enabled(bool enabled);
@@ -229,7 +252,9 @@ inline void set_color(lvgl::LvCompound *w, lv_color_t color, Opt opt = {}) { set
 inline void set_x(lvgl::LvCompound *w, int32_t x, Opt opt = {}) { set_x(w->obj, x, opt); }
 inline void set_y(lvgl::LvCompound *w, int32_t y, Opt opt = {}) { set_y(w->obj, y, opt); }
 inline void set_rotation(lvgl::LvCompound *w, float degrees, Opt opt = {}) { set_rotation(w->obj, degrees, opt); }
-inline void play(lvgl::LvCompound *w, EffectRef effect, Opt opt = {}) { play(w->obj, effect, opt); }
+inline PlayResult play(lvgl::LvCompound *w, EffectRef effect, Opt opt = {}) {
+  return play(w == nullptr ? nullptr : w->obj, effect, opt);
+}
 inline void stop(lvgl::LvCompound *w) { stop(w->obj); }
 inline void stop(lvgl::LvCompound *w, EffectRef effect) { stop(w->obj, effect); }
 

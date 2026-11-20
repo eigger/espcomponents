@@ -246,7 +246,9 @@ void count_to(lv_obj_t *obj, double value, const char *final_text, const Resolve
     clear_text_style(slot);
     lv_label_set_text(obj, final_text);
     detail::instant_then(obj, opt);
+    return;
   }
+  detail::notify_start(obj, opt);
 }
 
 }  // namespace
@@ -311,7 +313,9 @@ void set_text(lv_obj_t *obj, const char *text, Opt opt) {
   if (!start_text_anim(slot, 0, LV_OPA_COVER, t, opt, !delayed)) {
     clear_text_style(slot);
     detail::instant_then(obj, opt);
+    return;
   }
+  detail::notify_start(obj, opt);
 }
 
 namespace detail {
