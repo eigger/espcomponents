@@ -170,11 +170,13 @@ Menu names are approximate and differ slightly between FreePBX 16 and 17.
 | Rewrite Contact / RTP Symmetric / Force rport | Yes |
 | Max Contacts / Remove Existing | `1` / Yes |
 | Codecs | `ulaw`, `alaw`, `g722` (match `codecs:`) |
-| Session Timers | No (see note) |
+| Session Timers | Default (see note) |
 
-Known limitation: in-dialog re-INVITEs (session-timer refresh, hold, transfer)
-are currently answered `486`, so set *Session Timers* to No on the extension;
-otherwise a long call can be torn down at the first refresh.
+Session Timers can stay at the FreePBX default. The client answers the PBX's
+in-dialog re-INVITE / UPDATE refreshes, and treats the PBX as the refresher: if
+no refresh arrives before the session expires (minus the RFC 4028 safety
+margin) it ends the call with a BYE. The client never refreshes the session
+itself. Intervals below 90 s are answered `422` with `Min-SE: 90`.
 
 **3. ESPHome**
 
@@ -442,13 +444,38 @@ In-band audio tones (no telephone-event, no INFO) are **not** decoded.
 - Designed for a PBX (registrar/proxy) scenario. Pure peer-to-peer (server-less
   direct calls) is out of scope.
 - Only one call at a time is supported.
-- **No mid-dialog re-INVITE.** An inbound `INVITE` is accepted only in the
-  registered (idle) state; while a call is up the client answers `486 Busy
-  Here`. That means call hold, unhold, and PBX **Direct Media** / re-INVITE
-  session refreshes that renegotiate SDP are not supported. Keep the ESP
-  extension on the PBX with Direct Media **disabled** (FreePBX / Asterisk:
-  `directmedia=no`; Grandstream and similar: Direct Media / media relay off)
-  so RTP stays hairpinned through the PBX for the whole call.
+- **Mid-dialog re-INVITE / UPDATE are supported** (RFC 3261 §14, RFC 3311)
+  while a call is up:
+  - *Session timers* (RFC 4028): the PBX refreshes with re-INVITE or UPDATE
+    and the client answers `200 OK` (with `Session-Expires` / `Supported:
+    timer`). The PBX has to be the refresher; if a peer insists on
+    `refresher=uas` (the ESP would have to refresh) the client leaves the
+    header out of its answer, like a UA without timer support. The client
+    never sends a refresh of its own.
+  - *Hold / unhold*: `a=sendonly` / `recvonly` / `inactive` and the legacy
+    `c=0.0.0.0` form. While the peer holds the call the client stops sending
+    RTP (microphone audio and the idle silence) and drops received audio, but
+    keeps the RTP socket open; unhold restores both. The `o=` version of its
+    SDP increases only when the SDP changes.
+  - *Media re-anchoring* (Direct Media / PBX transfer): a new remote RTP
+    address or port is picked up without interrupting the call. A different
+    codec or an IPv4/IPv6 change restarts the audio, which leaves a brief gap.
+    An offer without a common codec is refused with `488` and the call
+    continues unchanged.
+  - *Offer-less re-INVITE* (RFC 6337): the `200 OK` carries an offer with the
+    negotiated codec and the SDP answer is taken from the `ACK`.
+  - A re-INVITE before the initial call is ACKed gets `500` with `Retry-After`;
+    a request for an unknown dialog gets `481`; an out-of-order CSeq gets `500`;
+    a new offer while the answer to our own offer (offer-less re-INVITE) is
+    still outstanding gets `491`. A body-less `UPDATE` before the call is
+    confirmed (ringing or waiting for the ACK) is simply answered `200`.
+  - Not covered: the device cannot initiate a transfer, hold or re-INVITE
+    itself, and it does not process `REFER`.
+  - Even though re-anchoring works, keep *Direct Media* **off** (FreePBX /
+    Asterisk: `directmedia=no`; Grandstream and similar: Direct Media / media
+    relay off) for a device behind NAT or reached over WSS from the internet:
+    the ESP's RTP must reach the peer, which only works reliably when it stays
+    hairpinned through the PBX.
 
 ## Third-party codecs
 

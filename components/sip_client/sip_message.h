@@ -26,6 +26,14 @@ struct SipMessage {
   bool has_header(const std::string &name) const;
 };
 
+// RFC 4566 §6 media direction attribute.
+enum class SdpDirection : uint8_t {
+  SENDRECV = 0,
+  SENDONLY = 1,
+  RECVONLY = 2,
+  INACTIVE = 3,
+};
+
 // Parsed SDP media description (audio only).
 struct SdpInfo {
   bool valid{false};
@@ -39,6 +47,14 @@ struct SdpInfo {
   int pcma_pt{-1};
   int g722_pt{-1};
   int telephone_event_pt{-1};  // dynamic PT for RFC2833, -1 if absent
+  // Direction the *sender of this SDP* wants for the audio stream. The
+  // media-level attribute overrides the session-level one; default sendrecv
+  // (RFC 3264 §5.1).
+  SdpDirection direction{SdpDirection::SENDRECV};
+  // Legacy hold (RFC 2543 style): connection address 0.0.0.0 (or ::). The
+  // peer does not want media sent to it and the address is not a valid RTP
+  // destination (RFC 3264 §8.4).
+  bool on_hold{false};
 
   bool has_payload_type(int pt) const;
 };

@@ -59,6 +59,24 @@ void RtpSession::set_remote(const std::string &ip, uint16_t port) {
   this->remote_set_ = this->remote_addr_len_ > 0;
 }
 
+void RtpSession::set_send_enabled(bool enabled) {
+  if (enabled == this->send_enabled_) return;
+  this->send_enabled_ = enabled;
+  if (!enabled) {
+    std::lock_guard<std::mutex> lock(this->tx_mutex_);
+    this->tx_buffer_.clear();
+    return;
+  }
+  // Resuming: treat it like a fresh start of sending. The grace period and the
+  // keepalive burst apply from now, and the next packet opens a new talkspurt.
+  if (this->socket_) {
+    this->last_tx_ms_ = millis();
+    this->last_audio_tx_ms_ = this->last_tx_ms_;
+    this->keepalive_.reset(this->last_tx_ms_);
+    this->first_packet_ = true;
+  }
+}
+
 bool RtpSession::start(uint16_t local_port) {
   this->stop();
   if (this->codec_ == nullptr) {
@@ -129,7 +147,7 @@ void RtpSession::stop() {
 }
 
 void RtpSession::push_tx_audio(const int16_t *pcm, size_t samples) {
-  if (!this->socket_) return;
+  if (!this->socket_ || !this->send_enabled_) return;
   // ~1 s of PCM at the codec sample rate (8000 for G.711).
   const size_t tx_max =
       this->codec_ != nullptr ? static_cast<size_t>(this->codec_->desc().pcm_rate) : 8000;
@@ -146,6 +164,10 @@ void RtpSession::push_tx_audio(const int16_t *pcm, size_t samples) {
 }
 
 void RtpSession::queue_dtmf(const std::string &digits) {
+  if (!this->send_enabled_) {
+    ESP_LOGW(TAG, "Media is on hold (not sending); DTMF dropped");
+    return;
+  }
   if (this->dtmf_pt_ < 0) {
     ESP_LOGW(TAG, "Remote did not offer telephone-event; DTMF dropped");
     return;
@@ -322,7 +344,7 @@ void RtpSession::receive_() {
       }
       continue;
     }
-    if (!this->on_audio_) continue;  // send-only / no speaker: skip decode
+    if (!this->on_audio_ || !this->receive_enabled_) continue;  // send-only / no speaker / held: skip decode
 
     size_t n = len - header_len;
     const size_t pcm_cap = this->codec_->desc().max_pcm_samples_for_payload(n);
@@ -339,6 +361,17 @@ void RtpSession::loop() {
   this->receive_();
 
   uint32_t now = millis();
+  if (!this->send_enabled_) {
+    // Held: send nothing, but keep the RTP clock on wall time so the stream
+    // resumes with a consistent timestamp (the next packet carries the marker).
+    this->dtmf_queue_.clear();
+    this->dtmf_active_ = false;
+    const uint32_t frames = (now - this->last_tx_ms_) / FRAME_MS;
+    this->timestamp_ += frames * this->ts_per_frame_();
+    this->last_tx_ms_ += frames * FRAME_MS;
+    this->first_packet_ = true;
+    return;
+  }
   if (now - this->last_tx_ms_ > 500) {
     bool tx_empty = true;
     {

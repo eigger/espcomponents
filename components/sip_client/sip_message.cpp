@@ -34,6 +34,7 @@ static std::string resolve_header_name(const std::string &name) {
   if (name == "t") return "to";
   if (name == "u") return "allow-events";
   if (name == "v") return "via";
+  if (name == "x") return "session-expires";  // RFC 4028 §3
   return name;
 }
 
@@ -281,6 +282,12 @@ SdpInfo parse_sdp(const std::string &body) {
   // audio fmt / rtpmap / media-level c= fields.
   bool seen_m_line = false;
   bool in_audio_section = false;
+  // Direction: a session-level a=<dir> applies to every stream unless the
+  // audio section carries its own (RFC 4566 §6).
+  bool session_dir_set = false;
+  bool media_dir_set = false;
+  SdpDirection session_dir = SdpDirection::SENDRECV;
+  SdpDirection media_dir = SdpDirection::SENDRECV;
   size_t pos = 0;
   while (pos < body.size()) {
     size_t eol = body.find('\n', pos);
@@ -321,8 +328,30 @@ SdpInfo parse_sdp(const std::string &body) {
       size_t sp = line.find(' ');
       if (sp == std::string::npos) continue;
       info.rtpmap[pt] = to_lower(trim(line.substr(sp + 1)));
+    } else if (line.compare(0, 2, "a=") == 0) {
+      const std::string attr = to_lower(line.substr(2));
+      SdpDirection dir;
+      if (attr == "sendrecv")
+        dir = SdpDirection::SENDRECV;
+      else if (attr == "sendonly")
+        dir = SdpDirection::SENDONLY;
+      else if (attr == "recvonly")
+        dir = SdpDirection::RECVONLY;
+      else if (attr == "inactive")
+        dir = SdpDirection::INACTIVE;
+      else
+        continue;
+      if (!seen_m_line) {
+        session_dir = dir;
+        session_dir_set = true;
+      } else if (in_audio_section) {
+        media_dir = dir;
+        media_dir_set = true;
+      }  // else: a video / other stream's direction must not leak into audio
     }
   }
+  info.direction = media_dir_set ? media_dir : (session_dir_set ? session_dir : SdpDirection::SENDRECV);
+  info.on_hold = info.connection_ip == "0.0.0.0" || info.connection_ip == "::";
   derive_codec_pts_(info);
   return info;
 }

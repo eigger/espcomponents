@@ -38,7 +38,8 @@ std::vector<AudioCodecId> default_offer_codecs() {
 std::string build_sdp_body(const SdpMediaParams &p) {
   std::string sdp;
   sdp += "v=0\r\n";
-  sdp += "o=- " + p.session_id + " " + p.session_id + " IN IP4 " + p.local_ip + "\r\n";
+  const std::string &version = p.session_version.empty() ? p.session_id : p.session_version;
+  sdp += "o=- " + p.session_id + " " + version + " IN IP4 " + p.local_ip + "\r\n";
   sdp += "s=esphome\r\n";
   sdp += "c=IN IP4 " + p.local_ip + "\r\n";
   sdp += "t=0 0\r\n";
@@ -77,6 +78,8 @@ std::string build_sdp_body(const SdpMediaParams &p) {
   }
 
   sdp += "a=ptime:20\r\n";
+  // The negotiated direction (hold: sendonly / recvonly / inactive), not only
+  // the device capability (RFC 3264 §8.4).
   sdp += std::string("a=") + (p.direction != nullptr ? p.direction : "sendrecv") + "\r\n";
   return sdp;
 }

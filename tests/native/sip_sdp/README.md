@@ -24,6 +24,12 @@ tests/native/sip_sdp/run.sh
 | `non_numeric_fmt_token_skipped` | `*` etc. must not become PT 0 via `atoi` |
 | `rejected_audio_stream_port_zero` | `m=audio 0` still parses |
 | `port_with_number_of_ports_suffix` | `m=audio 12345/2` → port 12345 |
+| `direction_default_sendrecv` | no `a=` direction → `sendrecv`, not on hold |
+| `direction_session_level` | session-level `a=sendonly` applies to the audio stream |
+| `direction_media_level_overrides_session` | media-level direction beats the session-level one (both ways) |
+| `direction_all_values_and_case` | `sendrecv` / `sendonly` / `recvonly` / `inactive`; value case-insensitive |
+| `video_direction_does_not_leak_into_audio` | a video section's `a=inactive` / `a=sendonly` must not change audio's direction |
+| `connection_zero_is_hold` | `c=IN IP4 0.0.0.0` (session or audio level) and `::` = legacy hold; media-level address overrides; video `c=` ignored |
 
 ### SIP header parsing / routing helpers (`test_sip_message.cpp`)
 
@@ -52,6 +58,36 @@ tests/native/sip_sdp/run.sh
 | `offer_g722_preferred` | offer with `[g722, pcmu]` → `9 0 101` |
 | `answer_single_codec_dynamic_pcma` | answer PT 97 + `PCMA/8000` (not PCMU) |
 | `answer_without_dtmf` | no telephone-event when dtmf_pt < 0 |
+| `origin_version_defaults_to_session_id` | no explicit version → `o=- <id> <id>` as before |
+| `origin_version_explicit` | session id stays, version differs and is deterministic (RFC 3264 §8) |
+| `negotiated_direction_in_body` | `a=` carries the given direction incl. `inactive`; hold answer keeps the m= line |
+
+### In-dialog logic (`test_sip_dialog.cpp`)
+
+| Test | Intent |
+|------|--------|
+| `header_tag_variants` | tag from name-addr / addr-spec, case-insensitive name, spaces around `=` |
+| `header_tag_ignores_lookalikes` | `tag=` inside a quoted display name or URI parameters is not the header tag |
+| `parse_cseq` | `"6 INVITE"` → number + method; malformed values rejected |
+| `dialog_match` | Call-ID + To tag (= ours) + From tag (= peer's) must match; no To tag = new dialog; wrong tag/Call-ID → 481 verdict |
+| `dialog_cseq_rules` | lower / equal CSeq → 500 verdict; same CSeq + method as the stored response → retransmission; next CSeq OK; outbound starts at 0 |
+| `direction_names` | name ↔ enum ↔ send/receive flags |
+| `answer_direction_full_duplex` | RFC 3264 §6.1: sendonly→recvonly, recvonly→sendonly, sendrecv→sendrecv, inactive→inactive |
+| `answer_direction_capability` | speaker-only / mic-only / no endpoint intersect the answer |
+| `answer_direction_legacy_hold` | `c=0.0.0.0` means we must not send |
+| `diff_media` | codec / PT change and IPv4↔IPv6 need a restart; port / address / DTMF PT change are live |
+| `usable_audio` | port 0 or empty body is not a usable re-offer |
+| `parse_session_expires` | delta, `refresher=uac` or `uas`, whitespace / case, garbage |
+| `compact_session_expires_header` | `x:` → Session-Expires, `k:` → Supported, Min-SE |
+| `parse_min_se_and_lists` | Min-SE value; `timer` in Supported / Require lists (case, params, prefix) |
+| `decide_*` | RFC 4028 decision: no header → none; < 90 s → 422 + Min-SE 90; named `uac` kept; unnamed + UAC supports timer → `uac`; UAC without support or `refresher=uas` → no Session-Expires (we never refresh); `Require: timer` only when the UAC supports it |
+| `decide_refresh_without_header_ends_timer` | a refresh without Session-Expires (or with `refresher=uas`) ends an agreed timer; no echo of the old interval (RFC 4028 §9) |
+| `ack_matches` | ACK must carry the dialog's Call-ID and the expected CSeq (ACK of another call's 486 is ignored) |
+| `offer_collides` | 491 only for a new offer (re-INVITE, UPDATE with SDP) while our offer-less 200 is unanswered |
+| `early_outbound_dialog_match` | UPDATE in the early dialog of our own INVITE matches on Call-ID + our tag |
+| `codec_choice_keeps_current` | a re-offer that still has the codec/PT in use keeps it; otherwise preference order; unconfigured/no-common handled |
+| `peer_refreshes_in_response` | 2xx `refresher=uas` means the peer refreshes |
+| `session_watchdog_ms` | expiry − min(32 s, interval/3); overflow-safe |
 
 ### DTMF receive (`test_dtmf.cpp`)
 

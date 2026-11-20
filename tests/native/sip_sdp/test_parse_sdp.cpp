@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 
+using esphome::sip_client::SdpDirection;
 using esphome::sip_client::SdpInfo;
 using esphome::sip_client::parse_sdp;
 
@@ -193,6 +194,97 @@ void test_port_with_number_of_ports_suffix() {
   require_eq(sdp.pcmu_pt, 0, "port/count: codec still parsed");
 }
 
+void test_direction_default_sendrecv() {
+  SdpInfo sdp = parse_sdp("c=IN IP4 10.0.0.1\r\nm=audio 4000 RTP/AVP 0\r\n");
+  require(sdp.direction == SdpDirection::SENDRECV, "no attribute -> sendrecv");
+  require(!sdp.on_hold, "no hold");
+}
+
+void test_direction_session_level() {
+  SdpInfo sdp = parse_sdp(
+      "v=0\r\n"
+      "c=IN IP4 10.0.0.1\r\n"
+      "t=0 0\r\n"
+      "a=sendonly\r\n"
+      "m=audio 4000 RTP/AVP 0\r\n"
+      "a=rtpmap:0 PCMU/8000\r\n");
+  require(sdp.direction == SdpDirection::SENDONLY, "session-level sendonly applies to audio");
+}
+
+void test_direction_media_level_overrides_session() {
+  SdpInfo sdp = parse_sdp(
+      "c=IN IP4 10.0.0.1\r\n"
+      "a=sendonly\r\n"
+      "m=audio 4000 RTP/AVP 0\r\n"
+      "a=inactive\r\n");
+  require(sdp.direction == SdpDirection::INACTIVE, "media-level inactive wins");
+  sdp = parse_sdp(
+      "c=IN IP4 10.0.0.1\r\n"
+      "a=inactive\r\n"
+      "m=audio 4000 RTP/AVP 0\r\n"
+      "a=sendrecv\r\n");
+  require(sdp.direction == SdpDirection::SENDRECV, "media-level sendrecv overrides session inactive");
+}
+
+void test_direction_all_values_and_case() {
+  const char *names[] = {"a=sendrecv", "a=sendonly", "a=recvonly", "a=inactive"};
+  const SdpDirection want[] = {SdpDirection::SENDRECV, SdpDirection::SENDONLY, SdpDirection::RECVONLY,
+                               SdpDirection::INACTIVE};
+  for (int i = 0; i < 4; i++) {
+    std::string body = std::string("c=IN IP4 10.0.0.1\r\nm=audio 4000 RTP/AVP 0\r\n") + names[i] + "\r\n";
+    require(parse_sdp(body).direction == want[i], names[i]);
+  }
+  SdpInfo up = parse_sdp("c=IN IP4 10.0.0.1\r\nm=audio 4000 RTP/AVP 0\r\na=SendOnly\r\n");
+  require(up.direction == SdpDirection::SENDONLY, "attribute value is case-insensitive");
+}
+
+void test_video_direction_does_not_leak_into_audio() {
+  SdpInfo sdp = parse_sdp(
+      "c=IN IP4 10.0.0.1\r\n"
+      "m=audio 4000 RTP/AVP 0\r\n"
+      "a=sendrecv\r\n"
+      "m=video 5000 RTP/AVP 96\r\n"
+      "a=inactive\r\n");
+  require(sdp.direction == SdpDirection::SENDRECV, "video inactive does not touch audio");
+
+  // Video before audio, audio without its own attribute: still the default.
+  sdp = parse_sdp(
+      "c=IN IP4 10.0.0.1\r\n"
+      "m=video 5000 RTP/AVP 96\r\n"
+      "a=sendonly\r\n"
+      "m=audio 4000 RTP/AVP 0\r\n");
+  require(sdp.direction == SdpDirection::SENDRECV, "earlier video sendonly does not leak");
+  require_eq(sdp.audio_port, 4000, "audio port after video");
+}
+
+void test_connection_zero_is_hold() {
+  SdpInfo sdp = parse_sdp(
+      "c=IN IP4 0.0.0.0\r\n"
+      "m=audio 4000 RTP/AVP 0\r\n");
+  require(sdp.on_hold, "session-level 0.0.0.0 is hold");
+  require_eq_str(sdp.connection_ip, "0.0.0.0", "address kept as seen");
+  require(sdp.direction == SdpDirection::SENDRECV, "legacy hold carries no direction attribute");
+
+  sdp = parse_sdp(
+      "c=IN IP4 10.0.0.1\r\n"
+      "m=audio 4000 RTP/AVP 0\r\n"
+      "c=IN IP4 0.0.0.0\r\n");
+  require(sdp.on_hold, "media-level 0.0.0.0 is hold");
+
+  sdp = parse_sdp(
+      "c=IN IP4 0.0.0.0\r\n"
+      "m=audio 4000 RTP/AVP 0\r\n"
+      "c=IN IP4 10.0.0.7\r\n");
+  require(!sdp.on_hold, "media-level address overrides a session-level 0.0.0.0");
+  require_eq_str(sdp.connection_ip, "10.0.0.7", "media-level address used");
+
+  sdp = parse_sdp("c=IN IP4 10.0.0.1\r\nm=audio 4000 RTP/AVP 0\r\nm=video 5000 RTP/AVP 96\r\nc=IN IP4 0.0.0.0\r\n");
+  require(!sdp.on_hold, "video section's 0.0.0.0 is not audio hold");
+
+  sdp = parse_sdp("c=IN IP6 ::\r\nm=audio 4000 RTP/AVP 0\r\n");
+  require(sdp.on_hold, "IPv6 unspecified address is hold too");
+}
+
 }  // namespace
 
 int main() {
@@ -206,6 +298,12 @@ int main() {
   test_non_numeric_fmt_token_skipped();
   test_rejected_audio_stream_port_zero();
   test_port_with_number_of_ports_suffix();
+  test_direction_default_sendrecv();
+  test_direction_session_level();
+  test_direction_media_level_overrides_session();
+  test_direction_all_values_and_case();
+  test_video_direction_does_not_leak_into_audio();
+  test_connection_zero_is_hold();
 
   if (g_failures != 0) {
     std::cerr << g_failures << " failure(s)\n";
