@@ -331,7 +331,13 @@ state_number:
   signed: true       # Signed integer
   endian: big        # Byte order: big, little
   decode: none       # Decode: none, bcd, ascii
+  mask: [0x7F]       # Optional per-byte AND mask
 ```
+
+Mask bytes apply in received order starting at `offset`, before binary, BCD,
+or ASCII conversion. The mask may contain at most `length` bytes; omitted
+mask bytes default to `0xFF`. For signed binary, the masked most significant
+byte determines the sign, using the full configured byte width.
 
 Binary and BCD fields use all configured bytes (up to 16). Binary signed
 values use two's complement; BCD stops at the first byte with an invalid

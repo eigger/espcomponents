@@ -60,6 +60,7 @@ struct state_num_t
     bool is_signed;
     ENDIAN endian;
     DECODE decode;
+    std::vector<uint8_t> mask;
     state_num_t() = default;
     state_num_t(
         uint16_t offset, 
@@ -67,8 +68,9 @@ struct state_num_t
         uint16_t precision = 0, 
         bool is_signed = true, 
         ENDIAN endian = ENDIAN_BIG, 
-        DECODE decode = DECODE_NONE)
-    : offset(offset), length(length), precision(precision), is_signed(is_signed), endian(endian), decode(decode) {}
+        DECODE decode = DECODE_NONE,
+        const std::vector<uint8_t>& mask = {})
+    : offset(offset), length(length), precision(precision), is_signed(is_signed), endian(endian), decode(decode), mask(mask) {}
 };
 
 struct cmd_t
@@ -160,7 +162,7 @@ bool equal(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2,
 bool equal_cmd(const cmd_t& a, const cmd_t& b);
 std::vector<uint8_t> apply_mask(const std::vector<uint8_t>& data, const state_t* state);
 bool verify_state(const std::vector<uint8_t>& data, const state_t* state);
-float state_to_float(const std::vector<uint8_t>& data, const state_num_t state);
+float state_to_float(const std::vector<uint8_t>& data, const state_num_t& state);
 uint8_t float_to_bcd(const float val);
 std::string to_hex_string(const std::vector<unsigned char>& data);
 std::string to_ascii_string(const std::vector<unsigned char>& data);

@@ -488,10 +488,14 @@ STATE_NUM_SCHEMA = cv.Schema({
     cv.Optional(CONF_SIGNED, default=True): cv.boolean,
     cv.Optional(CONF_ENDIAN, default="big"): validate_endian,
     cv.Optional(CONF_DECODE, default="none"): validate_decode,
+    cv.Optional(CONF_MASK, default=[]): validate_hex_data,
 })
 
 def state_num_schema(value):
-    return STATE_NUM_SCHEMA(value)
+    value = STATE_NUM_SCHEMA(value)
+    if len(value[CONF_MASK]) > value[CONF_LENGTH]:
+        raise cv.Invalid("Numeric mask cannot be longer than length")
+    return value
 
 HEX_SCHEMA_REGISTRY = SimpleRegistry()
 
@@ -556,7 +560,7 @@ def state_num_hex_expression(conf):
     signed = conf[CONF_SIGNED]
     endian = conf[CONF_ENDIAN]
     decode = conf[CONF_DECODE]
-    return state_num_t(offset, length, precision, signed, endian, decode)
+    return state_num_t(offset, length, precision, signed, endian, decode, conf[CONF_MASK])
 
 async def state_num_expression(conf):
     if cg.is_template(conf):

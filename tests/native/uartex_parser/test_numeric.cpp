@@ -31,4 +31,11 @@ int main() {
   assert(state_to_float({'1', '2', '3', '4', '5'}, state_num_t(0, 5, 1, true, ENDIAN_BIG, DECODE_ASCII)) == 1234.5f);
   assert(state_to_float({0xFF}, state_num_t(0, 2, 0, true)) == 255); // Missing high-order bytes remain zero.
   assert(state_to_float({}, state_num_t(0, 1, 0, true)) == 0);
+  assert(state_to_float({0x00, 0xFF, 0x23}, state_num_t(1, 2, 0, false, ENDIAN_BIG, DECODE_NONE, {0x7F})) == 0x7F23);
+  assert(state_to_float({0xFF, 0x82}, state_num_t(0, 2, 0, true, ENDIAN_LITTLE, DECODE_NONE, {0x0F, 0x7F})) == 0x020F);
+  assert(state_to_float({0xFF, 0xFF}, state_num_t(0, 2, 0, true, ENDIAN_BIG, DECODE_NONE, {0xFF, 0x0F})) == -241);
+  assert(state_to_float({0xF1, 0x23, 0x45}, state_num_t(0, 3, 1, false, ENDIAN_BIG, DECODE_BCD, {0x0F})) == 1234.5f);
+  assert(state_to_float({0xF1, 0xFA}, state_num_t(0, 2, 0, false, ENDIAN_BIG, DECODE_BCD, {0x0F})) == 1);
+  assert(state_to_float({0xB1, 0xB2}, state_num_t(0, 2, 0, false, ENDIAN_BIG, DECODE_ASCII, {0x7F, 0x7F})) == 12);
+  assert(state_to_float({0xFF}, state_num_t(0, 2, 0, true, ENDIAN_BIG, DECODE_NONE, {0x7F})) == 127);
 }
