@@ -23,14 +23,7 @@ packages:
 `substitutions`·`esp32` 등 나머지는 [기본 구성](../README.md#기본-구성)과 같습니다.
 보드·RS-485 모듈이 Atom Lite + Atomic RS485 Base가 아니라면 [하드웨어와 UART 핀](../README.md#하드웨어와-uart-핀)에 따라 `uart:` 핀을 추가하세요.
 
-월패드 패키지의 가변 길이 수신에는 커밋 `cc6c625` 이상에 포함된 UARTEx가 필요합니다. 이 개발 패키지는 필요한 기능이 `latest`에 반영되기 전에도 사용할 수 있도록 기본적으로 `master` 컴포넌트를 사용합니다. 특정 호환 커밋 또는 해당 기능을 포함하는 릴리스로 고정하려면 ref를 변경하세요. 예를 들어:
-
-```yaml
-substitutions:
-  samsung_sds_component_ref: cc6c625ea3df67f9ce722726039605e5a438e1e3
-```
-
-이 설정은 단독 월패드와 공용 패키지에 적용됩니다.
+단독 월패드와 공용 패키지는 가변 길이 수신을 지원하는 UARTEx `latest`를 사용합니다. `samsung_sds_component_ref`로 이 기능을 포함한 버전을 지정할 수 있습니다.
 
 ## 월패드와 가상 인터폰을 같은 회선에서 사용하기
 

@@ -36,7 +36,7 @@ esp32:
 packages:
   remote:
     url: https://github.com/eigger/espcomponents
-    ref: master
+    ref: latest
     files:
       - packages/device_base.yaml
       - packages/wallpad/kocom/kocom.yaml           # 범용
@@ -62,7 +62,7 @@ esp32:
 packages:
   remote:
     url: https://github.com/eigger/espcomponents
-    ref: master
+    ref: latest
     files:
       - packages/device_base.yaml
       - packages/wallpad/kocom/kocom_door.yaml
@@ -99,7 +99,7 @@ packages:
 
 각 조명 명령은 마지막으로 수신한 같은 방의 전체 조명 상태에서 다른 등 바이트를 유지합니다. 전체 상태를 수신하기 전과 명령을 보낸 후 새로운 상태가 올 때까지 다음 명령은 대기합니다. 상태 필터는 조명에서 월패드로 향하는 패킷 중 명령 바이트가 `00`이고 세 조명 바이트를 포함한 패킷을 받습니다. `30 DC`도 전체 상태 패킷이면 수신합니다. 패킷 방향과 명령 바이트는 [Kocom RS485 파서](https://github.com/zooil/kocomRS485/blob/master/rs485.py)를 참고했습니다.
 
-범용·Thinks·Theart 패키지는 `preserve_state`를 지원하는 UARTEx `master`를 기본으로 사용합니다. `kocom_uartex_ref` substitution으로 지원 버전을 지정할 수 있습니다.
+범용·Thinks·Theart 패키지는 `preserve_state`를 지원하는 UARTEx `latest`를 기본으로 사용합니다. `kocom_uartex_ref` substitution으로 지원 버전을 지정할 수 있습니다.
 
 ### 우리 집에 맞게 바꾸기
 
@@ -112,12 +112,12 @@ GitHub의 fragment에 `vars`를 넘겨서 방 단위로 조립합니다.
 packages:
   base:
     url: https://github.com/eigger/espcomponents
-    ref: master
+    ref: latest
     files:
       - packages/device_base.yaml
   rooms:
     url: https://github.com/eigger/espcomponents
-    ref: master
+    ref: latest
     files:
       - path: packages/wallpad/kocom/fragments/room.yaml
         vars:

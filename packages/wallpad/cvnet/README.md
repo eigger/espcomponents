@@ -12,7 +12,7 @@
 packages:
   remote:
     url: https://github.com/eigger/espcomponents
-    ref: master
+    ref: latest
     files:
       - packages/device_base.yaml
       - packages/wallpad/cvnet/cvnet.yaml
@@ -21,7 +21,7 @@ packages:
 `substitutions`·`esp32` 등 나머지는 [기본 구성](../README.md#기본-구성)과 같습니다.
 보드·RS-485 모듈이 Atom Lite + Atomic RS485 Base가 아니라면 [하드웨어와 UART 핀](../README.md#하드웨어와-uart-핀)에 따라 `uart:` 핀을 추가하세요.
 
-CVnet 난방 제어는 같은 요청의 모드와 목표 온도를 함께 처리하는 UARTEx가 필요합니다. 개발 패키지는 기본적으로 `master`를 사용하며, `substitutions`의 `cvnet_component_ref`로 해당 수정이 포함된 릴리스나 커밋을 지정할 수 있습니다.
+CVnet 난방은 같은 요청의 모드와 목표 온도를 처리하는 UARTEx `latest`를 사용합니다. `cvnet_component_ref`로 이 기능을 포함한 버전을 지정할 수 있습니다.
 
 ## 제보하기
 
