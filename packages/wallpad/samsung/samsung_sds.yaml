@@ -1,5 +1,5 @@
 substitutions:
-  samsung_sds_component_ref: latest
+  samsung_sds_component_ref: master
 
 uart:
   baud_rate: 9600

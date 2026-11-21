@@ -18,6 +18,10 @@ uartex:
   tx_retry_cnt: 3
 
   rx_header: [0xf7]
+  rx_data_length:
+    offset: 0
+    length: 1
+    adjust: -4  # The length includes header, length byte, checksum and footer.
   rx_footer: [0xee]
   tx_header: [0xf7]
   tx_footer: [0xee]

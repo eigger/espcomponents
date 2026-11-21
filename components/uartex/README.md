@@ -98,9 +98,9 @@ uartex:
 | `rx_timeout` | time | `10ms` | Receive timeout (max: 2000ms) |
 | `rx_length` | int or lambda | - | Total packet length (1-256) |
 | `rx_data_length` | schema | - | Dynamic length parsing (see below) |
-| `tx_delay` | time | `50ms` | Delay between transmissions (max: 2000ms) |
+| `tx_delay` | time | `50ms` | Minimum quiet time after the latest received byte or transmission (max: 2000ms) |
 | `tx_timeout` | time | `50ms` | ACK response timeout (max: 2000ms) |
-| `tx_retry_cnt` | int | `3` | Retry count on ACK failure (1-10) |
+| `tx_retry_cnt` | int | `3` | Number of retries after the initial transmission on ACK failure (1-10) |
 | `tx_command_queue_size` | int | `10` | Deprecated, no effect (accepted for compatibility) |
 | `tx_ctrl_pin` | pin | - | RS485 direction control pin |
 | `rx_header` | bytes, header schema, or list of headers | - | Receive packet header candidates (see below) |
@@ -279,7 +279,7 @@ prefix ambiguity. On a mismatch, the parser retains any suffix that can start
 a header. UARTEx requires at least one data byte in a received frame.
 
 `rx_reply` commands are queued ahead of ordinary commands and use the same
-`tx_delay` gap after the latest received or transmitted frame. A reply waits
+`tx_delay` gap after the latest received byte or transmitted frame, including bytes from malformed or incomplete frames. A reply waits
 while a command is awaiting its acknowledgment. With `tx_delay: 0ms`, an
 eligible reply can be sent in the same loop as the received frame. Continuous
 receive traffic can delay replies until the bus has been quiet for `tx_delay`.
@@ -707,6 +707,13 @@ text:
 
 ### Climate
 
+If a mode command also encodes the target temperature, use
+`id(thermostat).use_command_target_temperature()` for that packet field.
+During a combined request it returns the requested temperature. Otherwise it
+returns the current target. Once the combined packet is queued, UARTEx updates
+the target and skips the separate temperature command. Devices with distinct
+mode and temperature packets continue to send both.
+
 **Packet Example**:
 ```
 RX OFF:  [0x02][0x01][0x00][0x18][0x16][chk][0x0D][0x0A]
@@ -1047,7 +1054,7 @@ These options are available for all UARTEx platforms:
 | `state` | state | - | Base state filter |
 | `state_response` | state | - | Response state match |
 | `command_update` | command | - | Polling command |
-| `optimistic` | bool | `false` | Optimistic state updates |
+| `optimistic` | bool | `false` | For switches, publish the requested state immediately when enabled. Otherwise, publish on matching `state_on` or `state_off` feedback. Enable this for switches that have no state feedback. |
 | `update_interval` | time | `60s` | Polling interval |
 
 ---

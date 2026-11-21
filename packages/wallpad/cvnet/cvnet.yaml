@@ -1,3 +1,6 @@
+substitutions:
+  cvnet_component_ref: master
+
 uart:
   baud_rate: 9600
   data_bits: 8
@@ -7,7 +10,7 @@ uart:
   tx_pin: GPIO19
 
 external_components:
-  - source: github://eigger/espcomponents@latest
+  - source: github://eigger/espcomponents@${cvnet_component_ref}
     components: [ uartex ]
     refresh: always
 
@@ -149,7 +152,8 @@ climate:
       max_temperature: 30 °C
       temperature_step: 1 °C
     state:
-      data: [0x20, 0x01, 0x4A]
+      data: [0x20, 0x01, 0x4A, 0x00, 0x00, 0x00]
+      mask: [0xff, 0xff, 0xff, 0x00, 0x00, 0x00]
     state_temperature_current:
       offset: 5
     state_temperature_target: !lambda |-
@@ -163,15 +167,17 @@ climate:
       data: [0x80]
       mask: [0x80]
     command_off: !lambda |-
-      if (!(id(heater_1).target_temperature >= 6 && id(heater_1).target_temperature <= 30)) return {};
-      uint8_t target = id(heater_1).target_temperature;
+      float setpoint = id(heater_1).use_command_target_temperature();
+      if (!(setpoint >= 6 && setpoint <= 30)) return {};
+      uint8_t target = static_cast<uint8_t>(setpoint);
       return {{0x20, 0x41, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x41, 0x91}};
     command_heat: !lambda |-
-      if (!(id(heater_1).target_temperature >= 6 && id(heater_1).target_temperature <= 30)) return {};
-      uint8_t target = id(heater_1).target_temperature + 0x80;
+      float setpoint = id(heater_1).use_command_target_temperature();
+      if (!(setpoint >= 6 && setpoint <= 30)) return {};
+      uint8_t target = static_cast<uint8_t>(setpoint) + 0x80;
       return {{0x20, 0x41, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x41, 0x91}};
     command_temperature: !lambda |-
-      uint8_t target = x + 0x80;
+      uint8_t target = (uint8_t)x | (id(heater_1).mode == climate::CLIMATE_MODE_HEAT ? 0x80 : 0x00);
       return {{0x20, 0x41, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x41, 0x91}};
 
   - platform: uartex
@@ -182,7 +188,8 @@ climate:
       max_temperature: 30 °C
       temperature_step: 1 °C
     state:
-      data: [0x20, 0x01, 0x4A]
+      data: [0x20, 0x01, 0x4A, 0x00, 0x00, 0x00, 0x00, 0x00]
+      mask: [0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00]
     state_temperature_current:
       offset: 7
     state_temperature_target: !lambda |-
@@ -196,15 +203,17 @@ climate:
       data: [0x80]
       mask: [0x80]
     command_off: !lambda |-
-      if (!(id(heater_2).target_temperature >= 6 && id(heater_2).target_temperature <= 30)) return {};
-      uint8_t target = id(heater_2).target_temperature;
+      float setpoint = id(heater_2).use_command_target_temperature();
+      if (!(setpoint >= 6 && setpoint <= 30)) return {};
+      uint8_t target = static_cast<uint8_t>(setpoint);
       return {{0x20, 0x42, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x42, 0x91}};
     command_heat: !lambda |-
-      if (!(id(heater_2).target_temperature >= 6 && id(heater_2).target_temperature <= 30)) return {};
-      uint8_t target = id(heater_2).target_temperature + 0x80;
+      float setpoint = id(heater_2).use_command_target_temperature();
+      if (!(setpoint >= 6 && setpoint <= 30)) return {};
+      uint8_t target = static_cast<uint8_t>(setpoint) + 0x80;
       return {{0x20, 0x42, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x42, 0x91}};
     command_temperature: !lambda |-
-      uint8_t target = x + 0x80;
+      uint8_t target = (uint8_t)x | (id(heater_2).mode == climate::CLIMATE_MODE_HEAT ? 0x80 : 0x00);
       return {{0x20, 0x42, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x42, 0x91}};
 
   - platform: uartex
@@ -215,7 +224,8 @@ climate:
       max_temperature: 30 °C
       temperature_step: 1 °C
     state:
-      data: [0x20, 0x01, 0x4A]
+      data: [0x20, 0x01, 0x4A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+      mask: [0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
     state_temperature_current:
       offset: 9
     state_temperature_target: !lambda |-
@@ -229,15 +239,17 @@ climate:
       data: [0x80]
       mask: [0x80]
     command_off: !lambda |-
-      if (!(id(heater_3).target_temperature >= 6 && id(heater_3).target_temperature <= 30)) return {};
-      uint8_t target = id(heater_3).target_temperature;
+      float setpoint = id(heater_3).use_command_target_temperature();
+      if (!(setpoint >= 6 && setpoint <= 30)) return {};
+      uint8_t target = static_cast<uint8_t>(setpoint);
       return {{0x20, 0x43, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x43, 0x91}};
     command_heat: !lambda |-
-      if (!(id(heater_3).target_temperature >= 6 && id(heater_3).target_temperature <= 30)) return {};
-      uint8_t target = id(heater_3).target_temperature + 0x80;
+      float setpoint = id(heater_3).use_command_target_temperature();
+      if (!(setpoint >= 6 && setpoint <= 30)) return {};
+      uint8_t target = static_cast<uint8_t>(setpoint) + 0x80;
       return {{0x20, 0x43, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x43, 0x91}};
     command_temperature: !lambda |-
-      uint8_t target = x + 0x80;;
+      uint8_t target = (uint8_t)x | (id(heater_3).mode == climate::CLIMATE_MODE_HEAT ? 0x80 : 0x00);
       return {{0x20, 0x43, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x43, 0x91}};
 
   - platform: uartex
@@ -248,7 +260,8 @@ climate:
       max_temperature: 30 °C
       temperature_step: 1 °C
     state:
-      data: [0x20, 0x01, 0x4A]
+      data: [0x20, 0x01, 0x4A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+      mask: [0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
     state_temperature_current:
       offset: 11
     state_temperature_target: !lambda |-
@@ -262,15 +275,17 @@ climate:
       data: [0x80]
       mask: [0x80]
     command_off: !lambda |-
-      if (!(id(heater_4).target_temperature >= 6 && id(heater_4).target_temperature <= 30)) return {};
-      uint8_t target = id(heater_4).target_temperature;
+      float setpoint = id(heater_4).use_command_target_temperature();
+      if (!(setpoint >= 6 && setpoint <= 30)) return {};
+      uint8_t target = static_cast<uint8_t>(setpoint);
       return {{0x20, 0x44, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x44, 0x91}};
     command_heat: !lambda |-
-      if (!(id(heater_4).target_temperature >= 6 && id(heater_4).target_temperature <= 30)) return {};
-      uint8_t target = id(heater_4).target_temperature + 0x80;
+      float setpoint = id(heater_4).use_command_target_temperature();
+      if (!(setpoint >= 6 && setpoint <= 30)) return {};
+      uint8_t target = static_cast<uint8_t>(setpoint) + 0x80;
       return {{0x20, 0x44, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x44, 0x91}};
     command_temperature: !lambda |-
-      uint8_t target = x + 0x80;
+      uint8_t target = (uint8_t)x | (id(heater_4).mode == climate::CLIMATE_MODE_HEAT ? 0x80 : 0x00);
       return {{0x20, 0x44, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x44, 0x91}};
 
 sensor:

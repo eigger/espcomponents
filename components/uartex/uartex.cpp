@@ -118,7 +118,12 @@ bool UARTExComponent::rx_available()
 
 bool UARTExComponent::read_rx_byte(uint8_t &byte)
 {
-    if (this->rx_replay_.empty()) return this->read_byte(&byte);
+    if (this->rx_replay_.empty())
+    {
+        if (!this->read_byte(&byte)) return false;
+        this->rx_time_ = get_time();
+        return true;
+    }
     byte = this->rx_replay_.back();
     this->rx_replay_.pop_back();
     return true;
@@ -179,7 +184,6 @@ void UARTExComponent::publish_to_devices()
     verify_ack();
     process_rx_reply();
     publish_data();
-    this->rx_time_ = get_time();
     if (!this->tx_queue_reply_.empty() && !is_tx_cmd_pending())
     {
         // Use the normal bus-gap checks. With tx_delay == 0 this still sends
@@ -271,6 +275,7 @@ bool UARTExComponent::retry_tx_data()
         this->error_callback_.call(ERROR_TX_TIMEOUT);
         return false;
     }
+    ++this->tx_retry_cnt_;
     ESP_LOGD(TAG, "Retry count: %d", this->tx_retry_cnt_);
     write_tx_cmd();
     return true;
@@ -325,7 +330,6 @@ void UARTExComponent::write_tx_cmd()
     if (!this->current_tx_data_.copy_source.empty())
         for (auto *device : devices_) device->invalidate_matching_state(this->current_tx_data_.copy_source);
     const auto frame = transmit_frame(current_tx_cmd()->data);
-    this->tx_retry_cnt_++;
     this->tx_command_time_ = this->tx_time_;
     if (current_tx_cmd()->ack.empty()) tx_cmd_result(true);
     publish_tx_frame(frame);

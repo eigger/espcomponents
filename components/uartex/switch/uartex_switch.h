@@ -11,8 +11,12 @@ public:
     void dump_config() override;
 
 protected:
-    void publish(const bool state) override { publish_state(state); }
+    void publish(bool state) override {
+        this->has_published_state_ = true;
+        this->publish_state(state);
+    }
     void write_state(bool state) override;
+    bool has_published_state_{false};
 };
 
 }  // namespace uartex

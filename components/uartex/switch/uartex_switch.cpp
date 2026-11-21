@@ -14,12 +14,11 @@ void UARTExSwitch::dump_config()
 
 void UARTExSwitch::write_state(bool state)
 {
-    if(state == this->state) return;
-    if (enqueue_tx_cmd(state ? get_command_on() : get_command_off()) || this->optimistic_)
-    {
-        this->state = state;
-    }
-    publish_state(this->state);
+    if (this->optimistic_ && this->has_published_state_ && this->state == (state != this->is_inverted())) return;
+    // A previous request may still be pending or may have timed out. In
+    // feedback mode, always accept an explicit command and let RX publish.
+    enqueue_tx_cmd(state ? get_command_on() : get_command_off());
+    if (this->optimistic_) publish(state);
 }
 
 }  // namespace uartex
