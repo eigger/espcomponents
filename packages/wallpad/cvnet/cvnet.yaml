@@ -1,5 +1,5 @@
 substitutions:
-  cvnet_component_ref: master
+  cvnet_component_ref: latest
 
 uart:
   baud_rate: 9600

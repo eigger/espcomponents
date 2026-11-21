@@ -1,5 +1,5 @@
 substitutions:
-  kocom_uartex_ref: master
+  kocom_uartex_ref: latest
 
 uart:
   baud_rate: 9600

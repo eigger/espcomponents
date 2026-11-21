@@ -13,7 +13,7 @@
 packages:
   remote:
     url: https://github.com/eigger/espcomponents
-    ref: master
+    ref: latest
     files:
       - packages/device_base.yaml
       - packages/wallpad/hyundai/hyundai_imazu.yaml
