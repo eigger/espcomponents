@@ -22,6 +22,7 @@ public:
     const std::vector<unsigned char> header();
     const std::vector<unsigned char> data(const std::vector<unsigned char>& mask = {});
     const std::vector<unsigned char> buffer();
+    const std::vector<unsigned char>& buffer_view() const { return buffer_; }
     const std::vector<unsigned char> apply_mask(const std::vector<unsigned char>& data, const std::vector<unsigned char>& mask) const;
     bool parse_header();
     bool header_provisional() const { return header_provisional_; }

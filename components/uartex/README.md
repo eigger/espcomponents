@@ -96,7 +96,7 @@ uartex:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `rx_timeout` | time | `10ms` | Receive timeout (max: 2000ms) |
-| `rx_length` | int | - | Fixed packet length (1-256) |
+| `rx_length` | int or lambda | - | Total packet length (1-256) |
 | `rx_data_length` | schema | - | Dynamic length parsing (see below) |
 | `tx_delay` | time | `50ms` | Delay between transmissions (max: 2000ms) |
 | `tx_timeout` | time | `50ms` | ACK response timeout (max: 2000ms) |
@@ -136,6 +136,16 @@ A flat list is interpreted as a single byte list. For multiple ASCII headers,
 use `data` mappings so the list is unambiguously a list of candidates. All
 candidates share the configured frame length, footer, and checksum rules.
 For overlapping headers, see the priority rules below.
+
+Use an `rx_length` lambda for protocols where a header or opcode determines
+the total frame length. The lambda receives `data` and `len` for the bytes
+received so far, including the header. Return a positive total length to
+set the frame boundary, zero while waiting for more bytes, or a negative
+value to discard the current candidate.
+
+For device emulation, `write_immediate_reply(data)` sends a reply from an
+`on_read` lambda using the configured TX header, checksum, footer, and
+direction pin. The reply leaves any pending command and its ACK timer in place.
 
 #### `rx_priority`: `data` vs `loop`
 

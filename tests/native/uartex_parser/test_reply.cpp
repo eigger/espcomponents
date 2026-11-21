@@ -84,4 +84,61 @@ int main() {
   pending.receive(2); // ACK clears the pending command; reply precedes ordinary command
   assert(pending_sent.size() == 2 && pending_sent[1] == std::vector<uint8_t>{0xA4});
   pending.poll(); assert(pending_sent.size() == 3 && pending_sent[2] == std::vector<uint8_t>{0xB3});
+
+  fake_millis = 1000;
+  TestComponent shared;
+  shared.set_rx_priority(PRIORITY_LOOP);
+  shared.set_tx_delay(5);
+  shared.set_tx_timeout(50);
+  shared.set_rx_checksum(CHECKSUM_XOR);
+  shared.set_tx_checksum(CHECKSUM_XOR_NO_HEADER);
+  shared.add_rx_header({{0xA0}, {}});
+  shared.add_rx_header({{0xB0}, {}});
+  shared.set_rx_length([](const uint8_t *data, uint16_t len) -> int16_t {
+    if (len < 2) return 0;
+    if (data[1] == 0xFF) return -1;
+    return data[0] == 0xA0 ? 4 : 5;
+  });
+  shared.setup();
+
+  std::vector<std::vector<uint8_t>> shared_rx;
+  std::vector<std::vector<uint8_t>> shared_tx;
+  shared.add_on_read_callback([&](const uint8_t *data, uint16_t len) {
+    shared_rx.emplace_back(data, data + len);
+    if (data[0] == 0xA0) shared.write_immediate_reply({0xC0, data[1]});
+  });
+  shared.add_on_write_callback([&](const uint8_t *data, uint16_t len) {
+    shared_tx.emplace_back(data, data + len);
+  });
+
+  // A queued command can use the idle gap between polls, even when the polls
+  // are less than 50 ms apart.
+  for (uint8_t byte : {0xA0, 1, 2, 0xA3}) shared.bytes.push_back(byte);
+  shared.loop();
+  shared.write_command(cmd_t({0xD0}, {0x10}));
+  fake_millis = 1004;
+  shared.loop();
+  assert(shared_tx.size() == 1);
+  fake_millis = 1005;
+  shared.loop();
+  assert((shared_tx == std::vector<std::vector<uint8_t>>{{0xC0, 1, 0xC1}, {0xD0, 0xD0}}));
+  fake_millis = 1010;
+  // The extra A0 gives a bad checksum at the first proposed boundary. Its
+  // suffix contains the next valid frame and must survive the rejection.
+  for (uint8_t byte : {0xA0, 0xA0, 1, 2, 0xA3, 0xB0, 3, 4, 5, 0xB2})
+    shared.bytes.push_back(byte);
+  shared.loop();
+  shared.loop();
+  fake_millis = 1025;
+  for (uint8_t byte : {0xA0, 0xFF, 0xA0, 1, 2, 0xA3}) shared.bytes.push_back(byte);
+  shared.loop();
+  assert(shared_rx.size() == 4 && shared_rx[1] == shared_rx[0] && shared_rx[2].size() == 5 && shared_rx[3] == shared_rx[0]);
+  assert((shared_tx == std::vector<std::vector<uint8_t>>{{0xC0, 1, 0xC1}, {0xD0, 0xD0}, {0xC0, 1, 0xC1}, {0xC0, 1, 0xC1}}));
+
+  fake_millis = 1054;
+  shared.loop();
+  assert(shared_tx.size() == 4);
+  fake_millis = 1055;
+  shared.loop();
+  assert(shared_tx.size() == 5 && shared_tx.back() == shared_tx[1]);
 }

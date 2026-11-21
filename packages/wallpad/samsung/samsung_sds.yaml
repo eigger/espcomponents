@@ -17,7 +17,8 @@ uartex:
   tx_timeout: 500ms
   tx_retry_cnt: 3
   rx_length: 4
-  rx_header: [0xB0]
+  rx_header:
+    - [0xB0]
   rx_checksum: !lambda |-
     uint8_t crc = header[0];
     for (size_t i = 0; i < len; i++)
