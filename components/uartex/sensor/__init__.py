@@ -33,3 +33,6 @@ async def to_code(config):
         cg.add(var.set_state(CONF_STATE_NUMBER, state))
 
     
+
+# Validate cross-field requirements after the platform schema is applied.
+CONFIG_SCHEMA = cv.All(CONFIG_SCHEMA, uartex.validate_entity_copy_state)

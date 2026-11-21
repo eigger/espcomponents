@@ -44,3 +44,5 @@ async def to_code(config):
 
     if CONF_RESTORE_VALUE in config:
         cg.add(var.set_restore_value(config[CONF_RESTORE_VALUE]))
+# Validate cross-field requirements after the platform schema is applied.
+CONFIG_SCHEMA = cv.All(CONFIG_SCHEMA, uartex.validate_entity_copy_state)

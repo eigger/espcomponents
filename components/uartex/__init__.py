@@ -154,11 +154,35 @@ def validate_rx_header(value):
         return [header_schema(value)]
     return [header_schema(value)]
 
-COMMAND_SCHEMA = cv.Schema({
+CONF_COPY_STATE = "copy_state"
+CONF_SOURCE_OFFSET = "source_offset"
+CONF_TARGET_OFFSET = "target_offset"
+
+COPY_STATE_SCHEMA = cv.Schema({
+    cv.Required(CONF_SOURCE_OFFSET): cv.int_range(min=0, max=65535),
+    cv.Required(CONF_TARGET_OFFSET): cv.int_range(min=0, max=65535),
+    cv.Required(CONF_LENGTH): cv.int_range(min=1, max=65535),
+})
+
+def validate_command_ranges(config):
+    targets = set()
+    for item in config.get(CONF_COPY_STATE, []):
+        if item[CONF_TARGET_OFFSET] + item[CONF_LENGTH] > len(config[CONF_DATA]):
+            raise cv.Invalid("copy_state target range exceeds command data")
+        if item[CONF_SOURCE_OFFSET] + item[CONF_LENGTH] > 65536:
+            raise cv.Invalid("copy_state source range exceeds maximum payload")
+        current = set(range(item[CONF_TARGET_OFFSET], item[CONF_TARGET_OFFSET] + item[CONF_LENGTH]))
+        if targets.intersection(current):
+            raise cv.Invalid("copy_state target ranges cannot overlap")
+        targets.update(current)
+    return config
+
+COMMAND_SCHEMA = cv.All(cv.Schema({
     cv.Required(CONF_DATA): validate_hex_data,
     cv.Optional(CONF_ACK, default=[]): validate_hex_data,
-    cv.Optional(CONF_MASK, default=[]): validate_hex_data
-})
+    cv.Optional(CONF_MASK, default=[]): validate_hex_data,
+    cv.Optional(CONF_COPY_STATE, default=[]): cv.ensure_list(COPY_STATE_SCHEMA),
+}), validate_command_ranges)
 
 def shorthand_command_hex(value):
     value = validate_hex_data(value)
@@ -179,9 +203,14 @@ RX_DATA_LENGTH_SCHEMA = cv.Schema({
 def rx_data_length_schema(value):
     return RX_DATA_LENGTH_SCHEMA(value)
 
+def reject_reply_copy(config):
+    if config.get(CONF_COPY_STATE):
+        raise cv.Invalid("copy_state requires an entity command")
+    return config
+
 RX_REPLY_SCHEMA = cv.Schema({
     cv.Required(CONF_STATE): state_schema,
-    cv.Required(CONF_COMMAND): cv.templatable(command_hex_schema),
+    cv.Required(CONF_COMMAND): cv.templatable(lambda value: reject_reply_copy(command_hex_schema(value))),
 })
 
 # UARTEx Schema
@@ -468,6 +497,20 @@ async def to_code(config):
     if CONF_RX_PRIORITY in config:
         cg.add(var.set_rx_priority(config[CONF_RX_PRIORITY]))
 
+def reject_update_copy(config):
+    if config.get(CONF_COPY_STATE):
+        raise cv.Invalid("copy_state is not supported for command_update")
+    return config
+
+
+def validate_entity_copy_state(config):
+    for key, value in config.items():
+        if key.startswith("command_") and isinstance(value, dict) and value.get(CONF_COPY_STATE):
+            if CONF_STATE not in config:
+                raise cv.Invalid("copy_state requires an entity state filter", [key, CONF_COPY_STATE])
+    return config
+
+
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
 UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_UARTEX_ID): uartex_declare_type,
@@ -476,7 +519,7 @@ UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.Optional(CONF_STATE_OFF): state_schema,
     cv.Optional(CONF_COMMAND_ON): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
-    cv.Optional(CONF_COMMAND_UPDATE): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_UPDATE): cv.templatable(lambda value: reject_update_copy(command_hex_schema(value))),
     cv.Optional(CONF_STATE_RESPONSE): state_schema,
     cv.Optional(CONF_OPTIMISTIC, default=False): cv.boolean,
 }).extend(cv.polling_component_schema('60s'))
@@ -574,7 +617,8 @@ def command_hex_expression(conf):
     data = conf[CONF_DATA]
     ack = conf[CONF_ACK]
     mask = conf[CONF_MASK]
-    return cmd_t(data, ack, mask)
+    copies = [[x[CONF_SOURCE_OFFSET], x[CONF_TARGET_OFFSET], x[CONF_LENGTH]] for x in conf.get(CONF_COPY_STATE, [])]
+    return cmd_t(data, ack, mask, copies)
 
 async def command_expression(conf):
     if cg.is_template(conf):

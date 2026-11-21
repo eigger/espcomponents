@@ -285,22 +285,45 @@ void UARTExComponent::write_tx_data()
         this->tx_queue_reply_.pop();
         write_tx_cmd();
     }
-    else if (!this->tx_queue_.empty())
+    else if (select_ready_tx(this->tx_queue_))
     {
-        this->current_tx_data_ = this->tx_queue_.front();
-        this->tx_queue_.pop();
         write_tx_cmd();
     }
-    else if (!this->tx_queue_low_priority_.empty())
+    else if (select_ready_tx(this->tx_queue_low_priority_))
     {
-        this->current_tx_data_ = this->tx_queue_low_priority_.front();
-        this->tx_queue_low_priority_.pop();
         write_tx_cmd();
     }
 }
 
+bool UARTExComponent::select_ready_tx(std::deque<tx_data_t> &queue)
+{
+    std::vector<UARTExDevice *> blocked;
+    for (auto it = queue.begin(); it != queue.end(); ++it)
+    {
+        if (it->device && std::find(blocked.begin(), blocked.end(), it->device) != blocked.end()) continue;
+        if (it->cmd && !it->cmd->copy_state.empty())
+        {
+            cmd_t rendered;
+            if (!it->device || !it->device->render_command(*it->cmd, rendered))
+            {
+                if (it->device) blocked.push_back(it->device);
+                continue;
+            }
+            it->copy_source = it->device->last_state();
+            it->owned = std::make_shared<const cmd_t>(std::move(rendered));
+            it->cmd = it->owned.get();
+        }
+        this->current_tx_data_ = std::move(*it);
+        queue.erase(it);
+        return true;
+    }
+    return false;
+}
+
 void UARTExComponent::write_tx_cmd()
 {
+    if (!this->current_tx_data_.copy_source.empty())
+        for (auto *device : devices_) device->invalidate_matching_state(this->current_tx_data_.copy_source);
     const auto frame = transmit_frame(current_tx_cmd()->data);
     this->tx_retry_cnt_++;
     this->tx_command_time_ = this->tx_time_;
@@ -358,8 +381,8 @@ void UARTExComponent::write_data(const std::vector<uint8_t> &data)
 
 void UARTExComponent::enqueue_tx_data(const tx_data_t data, bool low_priority)
 {
-    if (low_priority) this->tx_queue_low_priority_.push(data);
-    else this->tx_queue_.push(data);
+    if (low_priority) this->tx_queue_low_priority_.push_back(data);
+    else this->tx_queue_.push_back(data);
 }
 
 bool UARTExComponent::enqueue_tx_reply(const tx_data_t data)
@@ -449,6 +472,7 @@ void UARTExComponent::clear_tx_data()
     this->current_tx_data_.device = nullptr;
     this->current_tx_data_.cmd = nullptr;
     this->current_tx_data_.owned.reset();
+    this->current_tx_data_.copy_source.clear();
     this->tx_retry_cnt_ = 0;
 }
 

@@ -17,3 +17,6 @@ async def to_code(config):
     var = await binary_sensor.new_binary_sensor(config)
     await cg.register_component(var, config)
     await uartex.register_uartex_device(var, config)
+
+# Validate cross-field requirements after the platform schema is applied.
+CONFIG_SCHEMA = cv.All(CONFIG_SCHEMA, uartex.validate_entity_copy_state)

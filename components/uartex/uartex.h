@@ -1,5 +1,6 @@
 #pragma once
 #include <memory>
+#include <deque>
 #include "esphome/core/automation.h"
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/text_sensor/text_sensor.h"
@@ -30,6 +31,7 @@ struct tx_data_t
     const cmd_t* cmd{nullptr};
     // Own snapshots through queueing, transmission, and retries.
     std::shared_ptr<const cmd_t> owned{};
+    std::vector<uint8_t> copy_source{};
 };
 
 struct header_t
@@ -129,6 +131,7 @@ protected:
     void write_to_uart();
     bool retry_tx_data();
     void write_tx_data();
+    bool select_ready_tx(std::deque<tx_data_t> &queue);
     void dequeue_tx_data_from_devices();
 protected:
     std::vector<UARTExDevice *> devices_{};
@@ -158,11 +161,11 @@ protected:
     CallbackManager<void(const uint8_t *data, const uint16_t len)> read_callback_{};
     ERROR error_code_{ERROR_NONE};
     CallbackManager<void(const ERROR)> error_callback_{};
-    std::queue<tx_data_t> tx_queue_{};
+    std::deque<tx_data_t> tx_queue_{};
     // Bound reply backlog independently of the deprecated command queue setting.
     static constexpr size_t MAX_QUEUED_REPLIES = 10;
     std::queue<tx_data_t> tx_queue_reply_{};
-    std::queue<tx_data_t> tx_queue_low_priority_{};
+    std::deque<tx_data_t> tx_queue_low_priority_{};
     tx_data_t current_tx_data_{nullptr, nullptr};
     bool rx_processing_{false};
     std::vector<uint8_t> rx_replay_{};

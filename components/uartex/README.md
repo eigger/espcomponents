@@ -390,6 +390,34 @@ command:
 
 **Shorthand**: `command_on: [0x01, 0x02, 0x01]`
 
+An entity command can copy bytes from its latest accepted RX payload just before
+transmission. For example, this preserves the third byte while setting the
+second byte:
+
+```yaml
+state: [0x10]
+command_on:
+  data: [0x30, 0xff, 0x00]
+  ack: [0x40]
+  copy_state:
+    - source_offset: 2
+      target_offset: 2
+      length: 1
+```
+
+Offsets are zero-based and exclude UART headers, checksums, and footers. The
+entity must have a `state` filter. The target range must fit `data`, and length
+must be positive. A command waits for an accepted payload long enough for every
+source range; other ready commands and update polls can still transmit. After
+such a command is sent, entities whose `state` filters match the source frame
+wait for another matching RX payload before sending their next copy command.
+This avoids reconstructing a second command from the same old state. If no new
+state arrives those commands remain queued. Retries reuse the first transmitted
+bytes and require another matching state frame afterward. `copy_state` is available on entity commands, except `command_update`;
+it is not available for `rx_reply` or `uartex.write`. Lambda commands retain
+their existing behavior.
+
+
 #### Command Lambda Types
 
 Commands support lambda expressions for dynamic data. The lambda signature varies by command type:

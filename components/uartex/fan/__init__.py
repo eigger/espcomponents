@@ -46,3 +46,6 @@ async def to_code(config):
         command = await command_string_expression(config[CONF_COMMAND_PRESET])
         cg.add(var.set_command(CONF_COMMAND_PRESET, command))
 
+
+# Validate cross-field requirements after the platform schema is applied.
+CONFIG_SCHEMA = cv.All(CONFIG_SCHEMA, uartex.validate_entity_copy_state)
