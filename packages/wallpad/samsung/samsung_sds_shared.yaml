@@ -14,7 +14,9 @@ uartex:
   rx_checksum: !lambda |-
     uint8_t checksum = header[0];
     for (size_t i = 0; i < len; ++i) checksum ^= data[i];
-    return checksum & 0x7F;
+    if (header[0] == 0xA4) return checksum & 0x7F;
+    if (len && data[0] < 0x7C) checksum ^= 0x80;
+    return checksum;
   tx_checksum: !lambda |-
     uint8_t checksum = 0;
     for (size_t i = 0; i < len; ++i) checksum ^= data[i];

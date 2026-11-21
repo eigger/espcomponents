@@ -43,13 +43,23 @@ class WallpadPackets(unittest.TestCase):
             self.assertEqual(block.count('<= 30)) return {};'), 2)
         self.assertIn('offset: 10\n      length: 2\n      decode: ascii', text)
 
-    def test_kocom_light_commands_require_complete_state(self):
-        guard = 'if (id(room_${room_num}_light_${light_num}).Output.last_state().size() < 11) return {};'
+    def test_kocom_light_commands_preserve_sibling_channels(self):
         for fragment in ('light.yaml', 'light_with_update.yaml'):
             text = package('kocom/fragments/' + fragment)
-            for action in ('on', 'off'):
-                body = text.split(f'command_{action}: !lambda |-\n', 1)[1]
-                self.assertTrue(body.lstrip().startswith(guard))
+            self.assertEqual(text.count('preserve_state:'), 2)
+            self.assertNotIn('last_state(', text)
+        for name, count in (('kocom.yaml', 16), ('kocom_thinks.yaml', 6)):
+            text = package('kocom/' + name).split('\n#Heater', 1)[0]
+            self.assertEqual(text.count('preserve_state:'), count)
+            self.assertNotIn('current_values.is_on()', text)
+
+    def test_kocom_heater_targets_checked_before_conversion(self):
+        for name in ('kocom.yaml', 'kocom_thinks.yaml', 'fragments/heater.yaml'):
+            text = package('kocom/' + name)
+            targets = re.findall(r'float target = (?:id\([^\n]+\)\.target_temperature|x);\n(\s+)([^\n]+)', text)
+            self.assertTrue(targets)
+            for _, guard in targets:
+                self.assertEqual(guard, 'if (!(target >= 5 && target <= 30)) return {};')
 
     def test_samsung_common_framing(self):
         standalone = package('samsung/samsung_sds.yaml')

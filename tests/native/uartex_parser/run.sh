@@ -45,3 +45,10 @@ g++ -std=c++17 -I"$ROOT/tests/native/uartex_parser/stubs" "${INC[@]}" \
   "$ROOT/tests/native/uartex_parser/test_preserve_state.cpp" \
   -o "${TMPDIR:-/tmp}/uartex_preserve_state_test"
 "${TMPDIR:-/tmp}/uartex_preserve_state_test"
+
+g++ -std=c++17 -I"$ROOT/tests/native/uartex_parser/stubs" "${INC[@]}" \
+  "$ROOT/components/uartex/uartex.cpp" "${SRC[@]}" "$ROOT/components/uartex/uartex_device.cpp" \
+  "$ROOT/components/uartex/switch/uartex_switch.cpp" \
+  "$ROOT/tests/native/uartex_parser/test_switch.cpp" \
+  -o "${TMPDIR:-/tmp}/uartex_switch_test"
+"${TMPDIR:-/tmp}/uartex_switch_test"

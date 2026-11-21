@@ -15,6 +15,8 @@ class TestComponent : public UARTExComponent {
   void poll() { write_to_uart(); }
   bool feed_raw() { return parse_bytes(); }
   void set_last_tx(unsigned long t) { tx_time_ = t; }
+  void replay(uint8_t byte) { rx_replay_.push_back(byte); }
+  bool read_raw(uint8_t &byte) { return read_rx_byte(byte); }
 };
 
 int main() {
@@ -84,6 +86,68 @@ int main() {
   pending.receive(2); // ACK clears the pending command; reply precedes ordinary command
   assert(pending_sent.size() == 2 && pending_sent[1] == std::vector<uint8_t>{0xA4});
   pending.poll(); assert(pending_sent.size() == 3 && pending_sent[2] == std::vector<uint8_t>{0xB3});
+
+  // Even an incomplete or rejected frame keeps the bus busy until the last
+  // physical byte's quiet period has elapsed.
+  fake_millis = 600;
+  TestComponent malformed;
+  malformed.set_rx_priority(PRIORITY_LOOP);
+  malformed.set_rx_length(2); malformed.set_rx_timeout(10); malformed.set_tx_delay(50);
+  malformed.add_rx_header({{0xAA}, {}}); malformed.setup();
+  int malformed_sent = 0;
+  malformed.add_on_write_callback([&](const uint8_t *, uint16_t) { ++malformed_sent; });
+  malformed.write_command(cmd_t({0xCC}));
+  fake_millis = 650; malformed.bytes.push_back(0xAA); malformed.loop();
+  fake_millis = 670; malformed.loop(); // incomplete candidate times out
+  assert(malformed_sent == 0);
+  fake_millis = 699; malformed.loop(); assert(malformed_sent == 0);
+  fake_millis = 700; malformed.loop(); assert(malformed_sent == 1);
+
+  // A fully received but checksum-invalid frame also restarts the quiet
+  // period, in both blocking-data and incremental-loop receive modes.
+  for (auto priority : {PRIORITY_DATA, PRIORITY_LOOP}) {
+    fake_millis = 2000;
+    TestComponent bad_checksum;
+    bad_checksum.set_rx_priority(priority);
+    bad_checksum.set_rx_length([](const uint8_t *, uint16_t) -> int16_t { return 3; });
+    bad_checksum.set_rx_checksum(CHECKSUM_XOR);
+    bad_checksum.set_tx_delay(50); bad_checksum.add_rx_header({{0xAA}, {}});
+    bad_checksum.setup();
+    int writes = 0, checksum_errors = 0;
+    bad_checksum.add_on_write_callback([&](const uint8_t *, uint16_t) { ++writes; });
+    bad_checksum.add_on_error_callback([&](ERROR error) { if (error == ERROR_CHECKSUM) ++checksum_errors; });
+    bad_checksum.write_command(cmd_t({0xCC}));
+    fake_millis = 2050;
+    for (uint8_t byte : {0xAA, 0x01, 0x00}) bad_checksum.bytes.push_back(byte);
+    bad_checksum.loop();
+    assert(checksum_errors == 1 && writes == 0);
+    fake_millis = 2099; bad_checksum.loop(); assert(writes == 0);
+    fake_millis = 2100; bad_checksum.loop(); assert(writes == 1);
+  }
+
+  // Reprocessing a buffered byte must not count as new physical bus traffic.
+  fake_millis = 2200;
+  TestComponent replayed;
+  replayed.set_tx_delay(50); replayed.setup();
+  int replay_writes = 0;
+  replayed.add_on_write_callback([&](const uint8_t *, uint16_t) { ++replay_writes; });
+  replayed.write_command(cmd_t({0xCC}));
+  uint8_t raw;
+  fake_millis = 2250; replayed.bytes.push_back(0xAA); assert(replayed.read_raw(raw));
+  fake_millis = 2299; replayed.replay(raw); assert(replayed.read_raw(raw));
+  fake_millis = 2300; replayed.poll(); assert(replay_writes == 1);
+
+  fake_millis = 800;
+  TestComponent retries;
+  retries.set_tx_delay(0); retries.set_tx_timeout(10); retries.set_tx_retry_cnt(2); retries.setup();
+  int attempts = 0, timeouts = 0;
+  retries.add_on_write_callback([&](const uint8_t *, uint16_t) { ++attempts; });
+  retries.add_on_error_callback([&](ERROR error) { if (error == ERROR_TX_TIMEOUT) ++timeouts; });
+  retries.write_command(cmd_t({0xDD}, {0xEE})); retries.poll();
+  assert(attempts == 1 && timeouts == 0);
+  fake_millis = 810; retries.poll(); assert(attempts == 2 && timeouts == 0);
+  fake_millis = 820; retries.poll(); assert(attempts == 3 && timeouts == 0);
+  fake_millis = 830; retries.poll(); assert(attempts == 3 && timeouts == 1);
 
   fake_millis = 1000;
   TestComponent shared;

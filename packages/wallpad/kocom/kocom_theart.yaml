@@ -1,3 +1,6 @@
+substitutions:
+  kocom_uartex_ref: master
+
 uart:
   baud_rate: 9600
   data_bits: 8
@@ -7,7 +10,7 @@ uart:
   tx_pin: GPIO19
 
 external_components:
-  - source: github://eigger/espcomponents@latest
+  - source: github://eigger/espcomponents@${kocom_uartex_ref}
     components: [ uartex ]
     refresh: always
 

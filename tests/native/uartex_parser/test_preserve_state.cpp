@@ -39,7 +39,7 @@ int main() {
   peer.set_state("state", state_t({0x10, 0xA0}, {0xFF, 0xF0}));
   unrelated.set_state("state", state_t({0x10, 0xB0}, {0xFF, 0xF0}));
   bus.register_device(&first); bus.register_device(&peer); bus.register_device(&unrelated);
-  bus.set_tx_delay(0); bus.set_tx_timeout(10); bus.set_tx_retry_cnt(2);
+  bus.set_tx_delay(0); bus.set_tx_timeout(10); bus.set_tx_retry_cnt(1);
   std::vector<std::vector<uint8_t>> sent;
   bus.add_on_write_callback([&](const uint8_t *p, uint16_t n) { sent.emplace_back(p, p+n); });
   const std::vector<uint8_t> initial{0x10, 0xA1, 0x22, 0x33, 0x44};
