@@ -88,7 +88,7 @@ uart:
 1. `esphome config`(또는 Device Builder의 Save)로 설정 오류가 없는지 확인합니다.
 2. 장치 YAML에 `logger:` → `level: DEBUG`를 임시로 추가하고 패킷이 들어오는지 확인합니다.
 3. 보드·모듈 조합에 맞는 `uart:` 핀을 넣었는지, RS-485 A/B 결선이 바뀌지 않았는지 확인합니다.
-4. 수신 패킷의 방·장치 주소를 확인한 뒤 엔티티별 패킷을 수정합니다. 패킷을 모아 분석하려면 [월패드 패킷 로그](https://github.com/eigger/espcomponents/wiki/ESPHome-%EC%9B%94%ED%8C%A8%EB%93%9C-%ED%8C%A8%ED%82%B7-%EB%A1%9C%EA%B7%B8)를 참고하세요.
+4. 수신 패킷의 방·장치 주소를 확인한 뒤 엔티티별 패킷을 수정합니다. 패킷을 모으려면 Home Assistant의 **기록 → 데이터 다운로드**에서 UARTEx 로그를 CSV로 저장합니다. 자세한 순서는 [월패드 패킷 로그](https://github.com/eigger/espcomponents/wiki/ESPHome-%EC%9B%94%ED%8C%A8%EB%93%9C-%ED%8C%A8%ED%82%B7-%EB%A1%9C%EA%B7%B8)를 참고하세요.
 
 ## 제보하기
 
