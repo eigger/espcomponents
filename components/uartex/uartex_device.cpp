@@ -195,14 +195,17 @@ bool verify_state(const std::vector<uint8_t>& data, const state_t* state)
     return equal(apply_mask(data, state), state->data, state->offset) ? !state->inverted : state->inverted;
 }
 
-float state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
+float state_to_float(const std::vector<uint8_t>& data, const state_num_t& state)
 {
     const size_t available = state.offset < data.size() ? data.size() - state.offset : 0;
     const size_t length = std::min(static_cast<size_t>(state.length), available);
+    const auto byte_at = [&](size_t i) {
+        return static_cast<uint8_t>(data[state.offset + i] & (i < state.mask.size() ? state.mask[i] : 0xFF));
+    };
     if (state.decode == DECODE_ASCII)
     {
         std::string str;
-        for (size_t i = 0; i < length; ++i) str.push_back(static_cast<char>(data[state.offset + i]));
+        for (size_t i = 0; i < length; ++i) str.push_back(static_cast<char>(byte_at(i)));
         return static_cast<float>(atof(str.c_str())) / powf(10, state.precision);
     }
 
@@ -211,7 +214,7 @@ float state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
     {
         for (size_t i = 0; i < length; ++i)
         {
-            uint8_t byte = data[state.offset + i];
+            uint8_t byte = byte_at(i);
             uint8_t tens = byte >> 4;
             uint8_t ones = byte & 0x0F;
             if (tens > 9 || ones > 9) break;
@@ -223,11 +226,11 @@ float state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
         // Interpret signed binary as two's complement without integer shifts
         // or a subtract-after-rounding step that loses small negative values.
         const size_t high = state.endian == ENDIAN_BIG ? 0 : length - 1;
-        if (state.is_signed && length == state.length && (data[state.offset + high] & 0x80)) value = -1;
+        if (state.is_signed && length == state.length && (byte_at(high) & 0x80)) value = -1;
         for (size_t i = 0; i < length; ++i)
         {
             const size_t index = state.endian == ENDIAN_BIG ? i : length - 1 - i;
-            value = value * 256 + data[state.offset + index];
+            value = value * 256 + byte_at(index);
         }
     }
     value /= pow(10.0, state.precision);

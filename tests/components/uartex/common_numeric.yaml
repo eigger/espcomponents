@@ -29,6 +29,7 @@ sensor:
       offset: 0
       length: 16
       signed: true
+      mask: [0x7F, 0xFF]
   - platform: uartex
     name: Wide BCD
     uartex_id: adjust_minus
@@ -36,3 +37,4 @@ sensor:
       offset: 0
       length: 16
       decode: bcd
+      mask: [0x0F]
