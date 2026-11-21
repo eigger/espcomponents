@@ -71,21 +71,19 @@ struct state_num_t
     : offset(offset), length(length), precision(precision), is_signed(is_signed), endian(endian), decode(decode) {}
 };
 
-struct state_preserve_t { uint16_t source; uint16_t target; uint16_t length; };
-
 struct cmd_t
 {
     std::vector<uint8_t> data;
     std::vector<uint8_t> ack;
     std::vector<uint8_t> mask;
-    std::vector<state_preserve_t> preserve_state;
+    std::vector<uint16_t> preserve_state;
 
     cmd_t() = default;
     cmd_t(
         std::initializer_list<uint8_t> data, 
         std::initializer_list<uint8_t> ack = {}, 
         std::initializer_list<uint8_t> mask = {},
-        std::initializer_list<state_preserve_t> preserve_state = {})
+        std::initializer_list<uint16_t> preserve_state = {})
     : data(data), ack(ack), mask(mask), preserve_state(preserve_state) {}
     cmd_t(
         const std::vector<uint8_t>& data,

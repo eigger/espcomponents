@@ -155,33 +155,28 @@ def validate_rx_header(value):
     return [header_schema(value)]
 
 CONF_PRESERVE_STATE = "preserve_state"
-CONF_RX_OFFSET = "rx_offset"
 
-PRESERVE_STATE_SCHEMA = cv.Schema({
-    cv.Required(CONF_OFFSET): cv.int_range(min=0, max=65535),
-    cv.Optional(CONF_RX_OFFSET): cv.int_range(min=0, max=65535),
-    cv.Optional(CONF_LENGTH, default=1): cv.int_range(min=1, max=65535),
-})
 
-def validate_command_ranges(config):
-    targets = set()
-    for item in config.get(CONF_PRESERVE_STATE, []):
-        if item[CONF_OFFSET] + item[CONF_LENGTH] > len(config[CONF_DATA]):
-            raise cv.Invalid("preserve_state target range exceeds command data")
-        if item.get(CONF_RX_OFFSET, item[CONF_OFFSET]) + item[CONF_LENGTH] > 65536:
-            raise cv.Invalid("preserve_state source range exceeds maximum payload")
-        current = set(range(item[CONF_OFFSET], item[CONF_OFFSET] + item[CONF_LENGTH]))
-        if targets.intersection(current):
-            raise cv.Invalid("preserve_state target ranges cannot overlap")
-        targets.update(current)
+def validate_preserve_state_offset(value):
+    if isinstance(value, bool):
+        raise cv.Invalid("preserve_state offsets must be integers, not booleans")
+    return cv.int_range(min=0, max=65535)(value)
+
+
+def validate_preserve_state_offsets(config):
+    offsets = config.get(CONF_PRESERVE_STATE, [])
+    if len(offsets) != len(set(offsets)):
+        raise cv.Invalid("preserve_state offsets cannot contain duplicates")
+    if any(offset >= len(config[CONF_DATA]) for offset in offsets):
+        raise cv.Invalid("preserve_state offset exceeds command data")
     return config
 
 COMMAND_SCHEMA = cv.All(cv.Schema({
     cv.Required(CONF_DATA): validate_hex_data,
     cv.Optional(CONF_ACK, default=[]): validate_hex_data,
     cv.Optional(CONF_MASK, default=[]): validate_hex_data,
-    cv.Optional(CONF_PRESERVE_STATE, default=[]): cv.ensure_list(PRESERVE_STATE_SCHEMA),
-}), validate_command_ranges)
+    cv.Optional(CONF_PRESERVE_STATE, default=[]): cv.Schema([validate_preserve_state_offset]),
+}), validate_preserve_state_offsets)
 
 def shorthand_command_hex(value):
     value = validate_hex_data(value)
@@ -616,8 +611,8 @@ def command_hex_expression(conf):
     data = conf[CONF_DATA]
     ack = conf[CONF_ACK]
     mask = conf[CONF_MASK]
-    copies = [[x.get(CONF_RX_OFFSET, x[CONF_OFFSET]), x[CONF_OFFSET], x[CONF_LENGTH]] for x in conf.get(CONF_PRESERVE_STATE, [])]
-    return cmd_t(data, ack, mask, copies)
+    offsets = conf.get(CONF_PRESERVE_STATE, [])
+    return cmd_t(data, ack, mask, offsets)
 
 async def command_expression(conf):
     if cg.is_template(conf):

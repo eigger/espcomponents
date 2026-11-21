@@ -390,43 +390,31 @@ command:
 
 **Shorthand**: `command_on: [0x01, 0x02, 0x01]`
 
-An entity command can copy bytes from its latest accepted RX payload just before
-transmission. For example, this preserves the third byte while setting the
-second byte:
+An entity command can preserve other lights' last received state when changing
+one light in a whole-room command. In this shortened example, bytes 1, 2 and 3
+represent three lights. The command turns on the first light and keeps the
+second and third at their last received values:
 
 ```yaml
 state: [0x10]
 command_on:
-  data: [0x30, 0xff, 0x00]
+  data: [0x30, 0xff, 0x00, 0x00]
   ack: [0x40]
-  preserve_state:
-    - offset: 2
+  preserve_state: [2, 3]
 ```
 
-By default, `offset` selects the same position in the RX and TX payloads and
-`length` defaults to 1. Both `length` and `rx_offset` are independently
-optional: set `length` to preserve multiple bytes, or set `rx_offset` to read
-from a different RX position. This example sets both:
-
-```yaml
-preserve_state:
-  - offset: 2       # TX position
-    rx_offset: 4    # RX position
-    length: 2
-```
-
-Offsets are zero-based and exclude UART headers, checksums, and footers. The
-entity must have a `state` filter. The target range must fit `data`, and length
-must be positive. A command waits for an accepted payload long enough for every
-source range; other ready commands and update polls can still transmit. After
-such a command is sent, entities whose `state` filters match the source frame
-wait for another matching RX payload before sending their next state-preserving command.
-This avoids reconstructing a second command from the same old state. If no new
-state arrives those commands remain queued. Retries reuse the first transmitted
-bytes and require another matching state frame afterward. `preserve_state` is available on entity commands, except `command_update`;
-it is not available for `rx_reply` or `uartex.write`. Lambda commands retain
-their existing behavior.
-
+Each offset identifies one byte at the same position in the RX and TX payloads.
+Offsets are zero-based and exclude UART headers, checksums, and footers. They
+must be unique and fit the command data. The entity must have a `state` filter.
+A command waits until an accepted payload contains every preserved byte; other
+ready commands and update polls can still transmit. After such a command is
+sent, entities whose `state` filters match the source frame wait for another
+matching RX payload before sending their next state-preserving command. If no
+new state arrives those commands remain queued. Retries reuse the first
+transmitted bytes and require another matching state frame afterward.
+`preserve_state` is available on entity commands, except `command_update`; it
+is not available for `rx_reply` or `uartex.write`. Lambda commands retain their
+existing behavior.
 
 #### Command Lambda Types
 

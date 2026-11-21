@@ -61,14 +61,11 @@ bool UARTExDevice::parse_data(const std::vector<uint8_t>& data)
 bool UARTExDevice::render_command(const cmd_t &input, cmd_t &output) const
 {
     if (!input.preserve_state.empty() && (!preserve_state_ready_ || state_map_.find("state") == state_map_.end())) return false;
-    for (const auto &copy : input.preserve_state)
-    {
-        if (static_cast<size_t>(copy.source) + copy.length > last_state_.size() ||
-            static_cast<size_t>(copy.target) + copy.length > input.data.size()) return false;
-    }
+    for (const auto offset : input.preserve_state)
+        if (offset >= last_state_.size() || offset >= input.data.size()) return false;
     output = input;
-    for (const auto &copy : input.preserve_state)
-        std::copy_n(last_state_.begin() + copy.source, copy.length, output.data.begin() + copy.target);
+    for (const auto offset : input.preserve_state)
+        output.data[offset] = last_state_[offset];
     return true;
 }
 

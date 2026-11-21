@@ -16,7 +16,7 @@ int main() {
   a.set_state("state", state_t({0x10}));
   b.set_state("state", state_t({0x20}));
   order.register_device(&a); order.register_device(&b);
-  auto a1 = std::make_shared<const cmd_t>(cmd_t{{0x30, 0, 0}, {}, {}, {{1, 1, 2}}});
+  auto a1 = std::make_shared<const cmd_t>(cmd_t{{0x30, 0, 0}, {}, {}, {1, 2}});
   auto b1 = std::make_shared<const cmd_t>(cmd_t({0x55}));
   auto a2 = std::make_shared<const cmd_t>(cmd_t({0x66}));
   order.enqueue_tx_data({&a, a1.get(), a1});
@@ -42,18 +42,18 @@ int main() {
   bus.set_tx_delay(0); bus.set_tx_timeout(10); bus.set_tx_retry_cnt(2);
   std::vector<std::vector<uint8_t>> sent;
   bus.add_on_write_callback([&](const uint8_t *p, uint16_t n) { sent.emplace_back(p, p+n); });
-  const std::vector<uint8_t> initial{0x10, 0xA1, 0x22, 0x33};
+  const std::vector<uint8_t> initial{0x10, 0xA1, 0x22, 0x33, 0x44};
   first.parse_data(initial); peer.parse_data(initial);
-  unrelated.parse_data({0x10, 0xB1, 0x44, 0x55});
-  auto cmd = std::make_shared<const cmd_t>(cmd_t{{0x30, 0, 0}, {0x40}, {}, {{2, 1, 1}, {3, 2, 1}}});
+  unrelated.parse_data({0x10, 0xB1, 0x44, 0x55, 0x66});
+  auto cmd = std::make_shared<const cmd_t>(cmd_t{{0x30, 0xF1, 0, 0xF3, 0}, {0x40}, {}, {2, 4}});
   bus.enqueue_tx_data({&first, cmd.get(), cmd});
   bus.enqueue_tx_data({&peer, cmd.get(), cmd});
   fake_millis = 100;
   bus.poll();
-  assert((sent == std::vector<std::vector<uint8_t>>{{0x30, 0x22, 0x33}}));
+  assert((sent == std::vector<std::vector<uint8_t>>{{0x30, 0xF1, 0x22, 0xF3, 0x44}}));
   // An RX after the first attempt rearms both, but retry must invalidate them again.
-  first.parse_data({0x10, 0xA2, 0x66, 0x77});
-  peer.parse_data({0x10, 0xA2, 0x66, 0x77});
+  first.parse_data({0x10, 0xA2, 0x66, 0x77, 0x88});
+  peer.parse_data({0x10, 0xA2, 0x66, 0x77, 0x88});
   fake_millis = 110; bus.poll();
   assert(sent.size() == 2 && sent[0] == sent[1]);
   fake_millis = 120; bus.poll(); // timeout; peer remains deferred
@@ -61,9 +61,9 @@ int main() {
   cmd_t rendered;
   assert(!peer.render_command(*cmd, rendered));
   assert(unrelated.render_command(*cmd, rendered));
-  first.parse_data({0x10, 0xA3, 0x88, 0x99});
-  peer.parse_data({0x10, 0xA3, 0x88, 0x99});
+  first.parse_data({0x10, 0xA3, 0x88, 0x99, 0xAA});
+  peer.parse_data({0x10, 0xA3, 0x88, 0x99, 0xAA});
   bus.poll();
-  assert((sent.back() == std::vector<uint8_t>{0x30, 0x88, 0x99}));
-  assert((cmd->data == std::vector<uint8_t>{0x30, 0, 0}));
+  assert((sent.back() == std::vector<uint8_t>{0x30, 0xF1, 0x88, 0xF3, 0xAA}));
+  assert((cmd->data == std::vector<uint8_t>{0x30, 0xF1, 0, 0xF3, 0}));
 }
