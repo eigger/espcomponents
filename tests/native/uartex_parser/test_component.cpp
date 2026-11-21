@@ -43,6 +43,19 @@ int main() {
   shared_header.set_rx_footer({0xEE}); shared_header.set_rx_checksum(CHECKSUM_ADD); shared_header.setup();
   for (uint8_t b : {0xA1, 0xA2, 0x2F, 0x33, 0x04}) assert(!shared_header.feed(b));
   assert(shared_header.feed(0xEE)); assert(shared_header.validate() == ERROR_NONE);
+  // Two different headers in consecutive frames must both reach the component
+  // callback, even when their bytes are already queued in the UART buffer.
+  for (auto priority : {PRIORITY_DATA, PRIORITY_LOOP}) {
+    TestComponent consecutive;
+    consecutive.add_rx_header({{0xA0}, {}});
+    consecutive.add_rx_header({{0xB0}, {0xF0}});
+    consecutive.set_rx_length(2); consecutive.set_rx_priority(priority); consecutive.setup();
+    std::vector<std::vector<uint8_t>> received;
+    consecutive.add_on_read_callback([&](const uint8_t *p, uint16_t n) { received.emplace_back(p, p + n); });
+    for (uint8_t b : {0xA0, 1, 0xB2, 2}) consecutive.bytes.push_back(b);
+    consecutive.loop(); consecutive.loop();
+    assert((received == std::vector<std::vector<uint8_t>>{{0xA0, 1}, {0xB2, 2}}));
+  }
   TestComponent short_fixed;
   short_fixed.add_rx_header({{0xAA, 0xBB, 0xCC, 0xDD}, {}});
   short_fixed.add_rx_header({{0xAA}, {}}); short_fixed.set_rx_length(3); short_fixed.setup();

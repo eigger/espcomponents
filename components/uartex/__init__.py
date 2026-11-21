@@ -149,7 +149,7 @@ def validate_rx_header(value):
     if isinstance(value, list):
         if not value:
             raise cv.Invalid("rx_header cannot be empty")
-        if isinstance(value[0], (list, dict)):
+        if any(isinstance(candidate, (list, dict)) for candidate in value):
             return [header_schema(h) for h in value]
         return [header_schema(value)]
     return [header_schema(value)]
