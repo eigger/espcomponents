@@ -743,6 +743,48 @@ CASES = [
         "",
         "[on_start] is an invalid option",
     ),
+    # ---- on_end ----
+    (
+        "on_end on a loop",
+        "  effects:\n    - id: a\n      repeat: infinite\n      on_end:\n        - logger.log: hi\n"
+        "      tracks:\n        - blink:",
+        "",
+        "'on_end' cannot be used with 'repeat: infinite'",
+    ),
+    (
+        "on_end in effect_defaults",
+        "  effect_defaults:\n    on_end:\n      - logger.log: hi",
+        "",
+        "[on_end] is an invalid option",
+    ),
+    (
+        "on_end on a preset",
+        "  presets:\n    pulse: { scale: 112%, on_end: [] }",
+        "",
+        "[on_end] is an invalid option",
+    ),
+    (
+        "on_end with an unknown action",
+        "  effects:\n    - id: a\n      on_end:\n        - nope.nothing:\n      tracks:\n        - pulse:",
+        "",
+        "nope.nothing",
+    ),
+    (
+        "on_end alone does not make a transition",
+        "  transitions:\n    custom:\n      - id: t\n        on_end:\n          - logger.log: hi",
+        "",
+        "sets nothing",
+    ),
+    (
+        "on_end on an effect and a transition (positive control)",
+        "  transitions:\n    custom:\n      - id: t\n        draw: { duration: 10ms }\n        on_start:\n"
+        "          - logger.log: hi\n        on_end:\n          - logger.log: hi\n"
+        "          - lambda: lv_obj_set_hidden(x, true);\n"
+        "  effects:\n    - id: a\n      repeat: 2\n      then: pulse\n      on_end:\n        - logger.log: hi\n"
+        "      tracks:\n        - pulse:",
+        "- lvgl_fx.play: { id: fx_label, effect: a }",
+        None,
+    ),
     # ---- line draw ----
     (
         "draw (positive control)",

@@ -68,6 +68,11 @@ struct TransitionDef {
   // `on_start:` hook, called with the target once per set call that starts an animation (not when the change is
   // applied instantly or is a no-op), after the animation is running.  A captureless function.
   void (*on_start)(lv_obj_t *) = nullptr;
+  // `on_end:` hook, called with the target at exactly the moments `then` would play, just before it: when an animation
+  // completes, and when the change is applied at once (policy, duration 0, style none, full pool, LVGL allocation
+  // failure).  Not called for a no-op set, stop(), `instant`, a superseded animation or a line the app took over.
+  // May call play / stop / set on the same widget.  A captureless function.
+  void (*on_end)(lv_obj_t *) = nullptr;
 };
 using TransitionRef = const TransitionDef *;
 
@@ -185,7 +190,9 @@ bool start_anim(void *var, lv_anim_exec_xcb_t exec, int32_t from, int32_t to, ui
                 Curve curve, lv_anim_completed_cb_t done = nullptr, void *user_data = nullptr,
                 bool early_apply = true, lv_anim_deleted_cb_t deleted = nullptr);  // false: nothing is applied (and nothing replaced) before `delay` is over
 // `then` of a call as an anim user_data (nullptr = nothing to play), and its two ways of running.
-void *then_of(const Opt &opt);
+void *then_of(const Opt &opt);  // the transition (carried as user_data) when it has a `then` or an `on_end`
+// The one place a transition ends: its `on_end` hook, then its `then` effect.  Every completion path goes through it.
+void finish_transition(lv_obj_t *obj, TransitionRef transition);
 // start_anim() for a transition of the call `opt`: timing from `t`, and the anim carries what has to happen when it ends
 // (the transition's `then` and a cross-widget completion, released when the anim goes away).  false: LVGL could not
 // allocate the animation (nothing was started or replaced).

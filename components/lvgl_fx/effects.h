@@ -103,6 +103,10 @@ struct EffectDef {
   // `on_start:` hook, called with the target once per play of a one-shot, after the motion has started and the runner's
   // state is consistent (so it may call play / stop).  Not called for loops.  A captureless function.
   void (*on_start)(lv_obj_t *) = nullptr;
+  // `on_end:` hook, called with the target when a one-shot has ended naturally after all its repeats, at the moment
+  // its `then` would play and just before it (the runner is consistent, so it may call play / stop).  Not called on
+  // stop(), replacement by another one-shot or widget deletion.  Not for loops.  A captureless function.
+  void (*on_end)(lv_obj_t *) = nullptr;
 };
 
 // Global defaults for the options above (`lvgl_fx: effect_defaults:`); also the hook for C++ users:

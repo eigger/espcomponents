@@ -117,6 +117,8 @@ lvgl_fx:
         visible: { show: slide_up, hide: fade }
         on_start:               # once per `set` that animates; `x` is the widget (lv_obj_t *)
           - logger.log: { format: "card moving on %p", args: [ x ] }
+        on_end:                 # when `then` would play (also when applied at once); `x` is the widget
+          - logger.log: { format: "card done on %p", args: [ x ] }
 
   presets:                      # magnitudes of the built-in effects
     pulse: { scale: 112% }
@@ -139,6 +141,8 @@ lvgl_fx:
       cooldown_scope: widget    # counts from any one-shot effect on the widget, not only `heat`
       on_start:                 # once per play, when the motion starts; `x` is the widget (lv_obj_t *)
         - script.execute: log_heat
+      on_end:                   # once, after the last repeat, just before `then`
+        - script.execute: heat_done
       tracks:
         - nudge: { y: -2, duration: 220ms }
         - flash: { property: image_recolor, amount: 25%, duration: 220ms }
@@ -155,7 +159,7 @@ lvgl_fx:
 | --- | --- | --- |
 | `motion.fast` / `normal` / `slow` | 120 ms / 200 ms / 320 ms | The duration tokens (they also follow `fx::motion()` at run time). |
 | `motion.intensity` | 1.0 | Multiplies effect sizes (nudge/shake distance, pulse growth, flash/glow strength, blink depth). |
-| `max_targets` | 32 | Size of the slot pool, 68 bytes per slot (measured, 32-bit target; unchanged by `cooldown_scope` and `on_start`, which live in the const tables). |
+| `max_targets` | 32 | Size of the slot pool, 68 bytes per slot (measured, 32-bit target; unchanged by `cooldown_scope`, `on_start` and `on_end`, which live in the const tables). |
 | `slots_in_psram` | false | Try PSRAM first and fall back to internal RAM. Accesses per frame are few. |
 | `max_text_runs` | 4 | 1 - 32. Labels that can run `typewriter` / `decode` at the same time (a static pool, not per widget). Each run costs `max_text_length` + 28 bytes of RAM (156 bytes by default). |
 | `max_text_length` | 128 | 16 - 400. Size of one text run in bytes including the terminating NUL, i.e. the longest text (127 bytes, not characters) that is typed or decoded; longer texts are applied at once. Also 128 bytes of shared scratch. |
@@ -292,6 +296,7 @@ Options of an effect (an effect's own value beats `effect_defaults`):
 | `policy` | `normal` / `always` | `always` ignores `suppress_when` |
 | `then` | effect | played on the same widget when this effect has ended (all repeats). Not for loops |
 | `on_start` | automation | runs when a play of this effect starts moving (see [`on_start`](#on_start)). Effects of your own only; not for loops. Not available in `effect_defaults` |
+| `on_end` | automation | runs when a one-shot has ended naturally after all its repeats, at the moment its `then` would play and before it (see [`on_end`](#on_end)). Effects of your own only; not for loops. Not available in `effect_defaults` |
 
 A widget runs at most one one-shot effect and one loop at a time. Playing a second one-shot ends the first (at rest) and
 starts the new one; playing a different loop replaces the loop. `cooldown`, `defer_timeout` and `then` do not apply to
@@ -337,15 +342,58 @@ Exactly when it runs:
   same transition.
 - `on_start` on a loop (`repeat: infinite`) is rejected at configuration time (hooks on loops are not supported yet).
 
+### `on_end`
+
+`on_end:` takes the same schema as `on_start:` (a list of automations; `x` is the target `lv_obj_t *`) and can be given to
+an effect and to a named transition. It runs **at exactly the moments the `then` would be played, and before it**, so
+"the thing is over" has one hook that policy cannot drop (a `then` *effect* is judged by effect policy and may be dropped;
+`on_end` is not an effect, so it always runs):
+
+```yaml
+lvgl_fx:
+  transitions:
+    custom:
+      - id: erase
+        draw: { duration: 200ms }
+        on_end:
+          - lambda: lv_obj_set_hidden(x, true);
+```
+
+| | `on_start` | `on_end` | `then` |
+| --- | --- | --- | --- |
+| The change **animates**, then completes | at the start | at completion | at completion (after `on_end`) |
+| Applied **at once by policy** (reduced motion, disabled, before start, hidden ancestor, `suppress_when`), `duration: 0`, `style: none`, a full slot / run pool, or LVGL could not allocate the animation | no | **yes** | yes (its own effect policy applies) |
+| `instant: true` | no | no | no |
+| **No-op** set (already at, or already moving to, the value) | no | no | no |
+| `stop()` | no | no | no |
+| **Superseded** by another set on the same property (the old animation is replaced) | no (the new one runs its own) | no (the new set runs its own) | no |
+| The app **takes the line over** (`draw`, `lv_line_set_points`) | no | no | no |
+| Effect ends after all `repeat`s | at the play's start | **yes** | yes |
+| Effect `stop()`, replaced by another one-shot, widget deleted | no | no | no |
+
+- **Transition.** The hook and `then` go through one shared function, so they cannot diverge: whenever a transition
+  completes, `on_end` runs first and then `then` is played, and a `completion_effect` of the call (see the C++ API) after
+  both. For `visible` it runs after a hide has hidden the widget and after a show. A change that has nothing to
+  move (the property already has the value) is a no-op and fires nothing. A `set_draw` that cannot be applied at all (no
+  slot, logged) fires nothing either.
+- **Effect.** After the last repeat, once the instance has ended (its offsets are gone). A deferred effect fires it when it
+  finally plays and ends. A loop never ends, so `on_end` on `repeat: infinite` is rejected at configuration time.
+- It runs after the runner's bookkeeping is done, so the automation may call `lvgl_fx.play`, `lvgl_fx.stop` or `lvgl_fx.set`
+  on the same widget.
+- Recursion caveat (as for `on_start`): a `set` inside `on_end` that ends *instantly* on the *same* transition runs that
+  transition's `on_end` again, and recurses without bound; use `instant: true` there (it fires nothing) or another
+  transition. Do not play the same effect from its own `on_end` with a `then` back to it either.
+- `on_end` alone does not make a transition valid: "a transition that sets nothing" still needs a property or `then`.
+
 ### Checked at configuration time
 
 Besides out-of-range values, these are errors:
 - `then` on a loop, `then` pointing at a loop (from an effect or a transition), a `then` cycle;
 - an unknown effect or transition id; an effect id equal to a built-in effect name; the id `fx` for the component, an
   effect or a transition;
-- `on_start` on a loop (`repeat: infinite`); `on_start` in `effect_defaults` or a preset; a `cooldown_scope` other than
+- `on_start` / `on_end` on a loop (`repeat: infinite`); `on_start` / `on_end` in `effect_defaults` or a preset; a `cooldown_scope` other than
   `effect` / `widget`;
-- a transition that sets nothing (give it a property or `then`); a preset that sets nothing; a `nudge` without `x` and `y`;
+- a transition that sets nothing (give it a property or `then`; `on_start` / `on_end` alone do not count); a preset that sets nothing; a `nudge` without `x` and `y`;
   `cycles: 0`;
 - `show` without `hide`; `style` together with `show` / `hide`; a `style` that does not fit the property (`slide_up`
   for text, `count` for visible, any `style` on `value`);
@@ -566,8 +614,8 @@ outlive the tween. `fx::cancel_tween(var, setter)` stops it without applying the
 
 Effects and transitions can also be written as `static const` tables (`fx::EffectDef`, `fx::Track`,
 `fx::TransitionDef`, `fx::PropTransition`) in a lambda; fields you leave out take the defaults. `cooldown_scope` and
-`on_start` are fields of `fx::EffectDef` (`on_start` also of `fx::TransitionDef`): a plain function pointer
-`void (*)(lv_obj_t *)`, so a captureless lambda fits. See
+`on_start` / `on_end` are fields of `fx::EffectDef` and of `fx::TransitionDef` (`on_end` is the last field of both,
+after `on_start`): a plain function pointer `void (*)(lv_obj_t *)`, so a captureless lambda fits. See
 `tests/components/lvgl_fx/test.esp32-idf.yaml` for the full form.
 
 ## Line draw
@@ -575,7 +623,7 @@ Effects and transitions can also be written as `static const` tables (`fx::Effec
 `draw` progressively draws or erases an `lv_line` along its points, by **path length**: `0%` draws nothing, `100%` is the
 whole polyline, `50%` is half of the total length (the last visible segment is cut part-way). It is a transition like any
 other, with its own entry in `transitions:` (`duration`, `delay`, `curve`; `linear` by default so the tip moves at an even
-speed), named transitions, bindings, `instant`, `force`, `on_start`, `then` and the policy table.
+speed), named transitions, bindings, `instant`, `force`, `on_start`, `on_end`, `then` and the policy table.
 
 ```yaml
 lvgl_fx:
@@ -671,13 +719,8 @@ lvgl_fx:
         draw: { duration: 250ms }
       - id: trace_out
         draw: { duration: 120ms }
-        then: line_hide              # played on the line when the erase is done
-  effects:
-    - id: line_hide                  # a 1 ms effect whose hook does the hiding
-      on_start:
-        - lvgl_fx.set: { id: route, visible: false, instant: true }
-      tracks:
-        - blink: { duration: 1ms }
+        on_end:                      # runs when the erase is over
+          - lambda: lv_obj_set_hidden(x, true);
 
 script:
   - id: show_route
@@ -687,13 +730,18 @@ script:
       - lvgl_fx.set: { id: route, draw: 100%, transition: trace_in }      # the tip runs along the route
   - id: hide_route
     then:
-      - lvgl_fx.set: { id: route, draw: 0%, transition: trace_out }       # erased, then `line_hide` hides it
+      - lvgl_fx.set: { id: route, draw: 0%, transition: trace_out }       # erased, then `on_end` hides it
 ```
 
 The same from C++: `fx::set_draw(line, 0, {.instant = true}); fx::set_visible(line, true, {.instant = true});
-fx::set_draw(line, 100, {.transition = id(trace_in)});`. A `then` effect is played with the normal policy, so it is dropped
-while motion is not allowed (reduced motion, `suppress_when`); the erased line is invisible anyway and only stays unhidden.
-To get the draw timing per direction use one named transition per direction, as above. To pulse *another* widget when the
+fx::set_draw(line, 100, {.transition = id(trace_in)});`.
+
+**Why this is exact.** `on_end` fires when the erase animation completes, and also when the erase is applied at once
+(motion disabled, before `lvgl_fx.start`, a hidden ancestor, `suppress_when`, `duration: 0`, a full run pool): the line is
+hidden exactly when the erase is over, in every case. It does not fire when the call changes nothing (the line is already
+empty), on `stop()`, with `instant: true`, when another `draw` call replaces the erase, or when the app takes the line
+over, so none of those hides a line that was not erased. A `then` effect cannot do this job: it is played with the normal
+effect policy and is dropped while motion is not allowed, so the line would stay visible. To pulse *another* widget when the
 route is complete, use `completion_effect` / `completion_target` (see the C++ API).
 
 ## Policy

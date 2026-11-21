@@ -166,7 +166,7 @@ lvgl_fx:
         draw: { duration: 200ms, curve: linear }
       - id: trace_out
         draw: { duration: 120ms, curve: linear, delay: 10ms }
-        then: line_hide             # recipe: erase, then hide (the effect's on_start hides the line it is played on)
+        then: line_hide             # the old workaround: still valid, but an effect `then` is dropped by effect policy
       - id: trace_slow
         policy: always
         draw: { duration: slow, curve: ease_out }
@@ -174,6 +174,20 @@ lvgl_fx:
           - logger.log: { format: "line draw started on %p", args: [ x ] }
       - id: trace_instant
         draw: { duration: 0ms }
+      # on_end: exactly when `then` would play, also when the change is applied at once (`x` is the target lv_obj_t *)
+      - id: trace_erase
+        draw: { duration: 120ms, curve: linear }
+        on_end:
+          - lambda: lv_obj_set_hidden(x, true);
+      - id: ended_set
+        visible: { show: fade, hide: fade }
+        text: { style: fade }
+        then: ended_chained
+        on_end:
+          - logger.log: { format: "transition ended on %p", args: [ x ] }
+          - lambda: |-
+              fx::set_text(x, "re-entrant", {.instant = true});
+          - script.execute: started_script
 
     bindings:
       - { id: fx_bar, value: gauge_slow }
@@ -291,6 +305,23 @@ lvgl_fx:
     - id: chain_widget_cd_next
       cooldown: 2s
       cooldown_scope: widget
+      tracks:
+        - blink:
+    # on_end: when a one-shot has ended after all its repeats, just before its `then`; `x` is the target
+    - id: ended_hook
+      repeat: 2
+      then: started_chained
+      on_end:
+        - logger.log:
+            format: "effect ended on %p"
+            args: [ x ]
+        - lambda: |-
+            fx::play(x, fx::BLINK);  // re-entrant: the runner is consistent when the hook runs
+      tracks:
+        - pulse: { scale: 106% }
+    - id: ended_chained
+      on_end:
+        - script.execute: started_script
       tracks:
         - blink:
     - id: started_chained
@@ -587,6 +618,21 @@ interval:
           static const fx::PropTransition hook_prop = {.duration = 100};
           static const fx::TransitionDef hooked_transition = {{nullptr, nullptr, &hook_prop}, nullptr,
                                                               fx::EffectPolicy::NORMAL, log_start};
+          // on_end in const tables: an effect, and a transition (a draw transition too) whose hook sets re-entrantly
+          static void (*const log_end)(lv_obj_t *) = [](lv_obj_t *target) {
+            ESP_LOGD("test", "ended %p", target);
+            fx::play(target, fx::BLINK);
+            fx::set_value(target, 5, {.instant = true});  // a set on the same widget from inside on_end
+          };
+          static const fx::EffectDef ended = {.tracks = hook_tracks, .track_count = 1, .on_start = log_start,
+                                              .on_end = log_end};
+          static const fx::PropTransition end_prop = {.duration = 100};
+          static const fx::TransitionDef ended_transition = {{nullptr, nullptr, &end_prop}, nullptr,
+                                                             fx::EffectPolicy::NORMAL, nullptr, log_end};
+          static const fx::PropTransition end_draw_prop = {.duration = 80};
+          static const fx::TransitionDef ended_draw = {{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
+                                                        &end_draw_prop},
+                                                       nullptr, fx::EffectPolicy::NORMAL, nullptr, log_end};
           if (fx::is_ready()) {
             fx::PlayResult r = fx::play(id(fx_obj), &hooked);
             switch (r) {
@@ -605,11 +651,20 @@ interval:
               fx::stop(id(fx_dropdown));
             if (fx::play(static_cast<lv_obj_t *>(nullptr), &hooked) != fx::PlayResult::INVALID) fx::stop(id(fx_obj));
             fx::set_value(id(fx_bar), 77, {.transition = &hooked_transition});
+            fx::play(id(fx_obj), &ended);                           // on_end after the one repeat, re-entrant play
+            fx::set_value(id(fx_bar), 78, {.transition = &ended_transition});
+            fx::set_value(id(fx_bar), 78, {.transition = &ended_transition});  // no-op: no on_end
+            fx::set_value(id(fx_bar), 79, {.transition = &ended_transition, .instant = true});  // instant: none
+            fx::set_draw(id(fx_line)->obj, 0.0f, {.transition = &ended_draw});  // a draw transition
           }
           fx::effect_defaults().cooldown_scope = fx::CooldownScope::WIDGET;
           fx::effect_defaults() = fx::EffectOptions{};
           fx::play(id(fx_obj), id(started_hook));
           fx::set_text(id(fx_label), "7", {.transition = id(announce_set)});
+          fx::play(id(fx_obj), id(ended_hook));
+          fx::set_text(id(fx_label), "8", {.transition = id(ended_set)});
+          fx::set_visible(id(fx_label), false, {.transition = id(ended_set)});
+          fx::set_visible(id(fx_label), true, {.transition = id(ended_set), .instant = true});
           fx::stop(id(fx_obj));
 
           // ---- transition `then`: every kind of transition ends by playing an effect on the same target ----
@@ -680,6 +735,10 @@ interval:
           fx::set_draw(line, 100.0f, fx::Opt{id(trace_in)});
           fx::set_draw(line, 0.0f, fx::Opt{id(trace_out)});      // `then` = line_hide hides it when the erase is done
           fx::stop(line);
+          fx::set_visible(line, true, {.instant = true});
+          fx::set_draw(line, 100.0f, fx::Opt{id(trace_in)});
+          fx::set_draw(line, 0.0f, fx::Opt{id(trace_erase)});    // on_end hides the line exactly when the erase is over
+          fx::stop(line);                                        // (no on_end after stop)
           fx::set_visible(line, true, {.instant = true});
           fx::set_draw(line, 100.0f, {.instant = true});
 
