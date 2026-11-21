@@ -8,14 +8,14 @@
 
 ## 제조사 선택
 
-| 제조사 | 파일 | 상태 |
+| 제조사 | 파일 | 비고 |
 | --- | --- | --- |
 | [코콤](kocom) | 범용 · Thinks · Theart · 현관문 | |
-| [현대](hyundai) | Imazu · 현관문 | 현관문 실기기 검증 전 |
-| [삼성 SDS](samsung) | 월패드 · 현관문 | 현관문 실기기 검증 전 |
-| [코맥스](commax) | 월패드 | 실기기 검증 전 |
-| [CVnet](cvnet) | 월패드 | 작성 중 · 실기기 검증 전 |
-| [이지빌](ezville) | 월패드 | 작성 중 · 실기기 검증 전 |
+| [현대](hyundai) | Imazu · 현관문 | |
+| [삼성 SDS](samsung) | 월패드 · 현관문 | |
+| [코맥스](commax) | 월패드 | |
+| [CVnet](cvnet) | 월패드 | 작성 중 |
+| [이지빌](ezville) | 월패드 | 작성 중 |
 
 같은 제조사라도 단지·모델에 따라 패킷과 방 주소가 다를 수 있으므로, 설치 후 수신 로그와 YAML을 비교해 확인하세요.
 
@@ -89,5 +89,14 @@ uart:
 2. 장치 YAML에 `logger:` → `level: DEBUG`를 임시로 추가하고 패킷이 들어오는지 확인합니다.
 3. 보드·모듈 조합에 맞는 `uart:` 핀을 넣었는지, RS-485 A/B 결선이 바뀌지 않았는지 확인합니다.
 4. 수신 패킷의 방·장치 주소를 확인한 뒤 엔티티별 패킷을 수정합니다. 패킷을 모아 분석하려면 [월패드 패킷 로그](https://github.com/eigger/espcomponents/wiki/ESPHome-%EC%9B%94%ED%8C%A8%EB%93%9C-%ED%8C%A8%ED%82%B7-%EB%A1%9C%EA%B7%B8)를 참고하세요.
+
+## 제보하기
+
+구성이 **잘 동작했거나**, 새 단지·장치 **구성을 추가했거나**, **오류가 발생했다면** 제보해 주세요. 같은 월패드를 쓰는 다른 분들께 큰 도움이 됩니다.
+
+- [이슈 등록](https://github.com/eigger/espcomponents/issues/new) — 동작 확인, 오류, 구성 추가 (Pull Request도 환영합니다)
+- [질문·토론](https://github.com/eigger/espcomponents/discussions/new?category=q-a)
+
+제보할 때 **제조사·단지(모델)**, **사용한 파일**, 가능하면 **수신 로그**를 함께 적어 주시면 확인이 빠릅니다.
 
 [패키지 목록](../README.md) · [위키: 월패드 시작하기](https://github.com/eigger/espcomponents/wiki/ESPHome-%EC%9B%94%ED%8C%A8%EB%93%9C-%EC%8B%9C%EC%9E%91%ED%95%98%EA%B8%B0)
