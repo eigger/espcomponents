@@ -24,22 +24,22 @@ void UARTExDevice::uartex_dump_config(const char* TAG)
 #endif
 }
 
-const cmd_t *UARTExDevice::dequeue_tx_cmd()
+std::shared_ptr<const cmd_t> UARTExDevice::dequeue_tx_cmd()
 {
     if (this->tx_cmd_queue_.empty()) return nullptr;
     if (get_state_response() && !this->rx_response_) return nullptr;
     this->rx_response_ = false;
-    const cmd_t *cmd = this->tx_cmd_queue_.front();
+    auto cmd = std::move(this->tx_cmd_queue_.front());
     this->tx_cmd_queue_.pop();
     return cmd;
 }
 
-const cmd_t *UARTExDevice::dequeue_tx_cmd_low_priority()
+std::shared_ptr<const cmd_t> UARTExDevice::dequeue_tx_cmd_low_priority()
 {
     if (this->tx_cmd_queue_low_priority_.empty()) return nullptr;
     if (get_state_response() && !this->rx_response_) return nullptr;
     this->rx_response_ = false;
-    const cmd_t *cmd = this->tx_cmd_queue_low_priority_.front();
+    auto cmd = std::move(this->tx_cmd_queue_low_priority_.front());
     this->tx_cmd_queue_low_priority_.pop();
     return cmd;
 }
@@ -71,8 +71,9 @@ bool UARTExDevice::enqueue_tx_cmd(const cmd_t* cmd, bool low_priority)
 {
     if (cmd == nullptr) return false;
     if (cmd->data.empty()) return false;
-    if (low_priority) this->tx_cmd_queue_low_priority_.push(cmd);
-    else this->tx_cmd_queue_.push(cmd);
+    auto snapshot = std::make_shared<const cmd_t>(*cmd);
+    if (low_priority) this->tx_cmd_queue_low_priority_.push(std::move(snapshot));
+    else this->tx_cmd_queue_.push(std::move(snapshot));
     return true;
 }
 

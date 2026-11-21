@@ -28,10 +28,8 @@ struct tx_data_t
 {
     UARTExDevice* device{nullptr};
     const cmd_t* cmd{nullptr};
-    // Optional owner for ad-hoc commands built at runtime (write_command, the
-    // templated write action). Keeps the cmd_t alive from enqueue until the
-    // command is sent so `cmd` never dangles or gets overwritten in place.
-    std::shared_ptr<cmd_t> owned{};
+    // Own snapshots through queueing, transmission, and retries.
+    std::shared_ptr<const cmd_t> owned{};
 };
 
 struct header_t
