@@ -92,6 +92,94 @@ void test_multi_header_candidates()
     require_eq(parser.header(), {0xA0}, "multi header: first candidate matched");
 }
 
+void test_shared_headers_and_overlap()
+{
+    Parser shared;
+    shared.add_header_candidate({0xAA, 0x10});
+    shared.add_header_candidate({0xAA, 0x20});
+    shared.set_total_len(3);
+    require(!shared.parse_byte(0xAA), "shared header: first byte does not complete");
+    require(shared.header().empty(), "shared header: partial candidate not committed");
+    require(!shared.parse_byte(0x20), "shared header: second candidate selected");
+    require(shared.parse_byte(0x42), "shared header: second frame completes");
+    require_eq(shared.header(), {0xAA, 0x20}, "shared header: second header retained");
+    require_eq(shared.data(), {0x42}, "shared header: second payload");
+    shared.clear();
+    require(feed(shared, {0xAA, 0x10, 0x43}), "shared header: first candidate completes");
+
+    Parser overlap;
+    overlap.add_header_candidate({0xAA, 0x55});
+    overlap.set_total_len(3);
+    require(feed(overlap, {0xAA, 0xAA, 0x55, 0x77}), "overlap: suffix recovers header");
+    require_eq(overlap.buffer(), {0xAA, 0x55, 0x77}, "overlap: discard only invalid prefix");
+
+    Parser masked;
+    masked.add_header_candidate({0xA0, 0x10}, {0xF0, 0xF0});
+    masked.add_header_candidate({0xA0, 0x20}, {0xF0, 0xF0});
+    masked.set_checksum_len(1);
+    masked.add_footer(0xEE);
+    require(feed(masked, {0xAB, 0xAC, 0x2D, 0x33, 0x44, 0xEE}), "masked overlap: second candidate completes");
+    require_eq(masked.header(), {0xAC, 0x2D}, "masked overlap: actual header bytes retained");
+    require_eq(masked.data(), {0x33}, "masked overlap: payload excludes complete header");
+    require(masked.verify_checksum({0x44}), "masked overlap: checksum position preserved");
+}
+
+void test_prefix_header_priority()
+{
+    Parser short_first;
+    short_first.add_header_candidate({0xAA});
+    short_first.add_header_candidate({0xAA, 0x55});
+    short_first.set_total_len(3);
+    require(feed(short_first, {0xAA, 0x55, 0x44}), "short priority: completes");
+    require_eq(short_first.header(), {0xAA}, "short priority: first candidate wins");
+    require_eq(short_first.data(), {0x55, 0x44}, "short priority: second byte is data");
+
+    Parser long_first;
+    long_first.add_header_candidate({0xAA, 0x55});
+    long_first.add_header_candidate({0xAA});
+    long_first.set_total_len(3);
+    require(!long_first.parse_byte(0xAA), "long priority: first byte is not a frame");
+    require(long_first.header_provisional(), "long priority: shorter candidate is provisional");
+    require(feed(long_first, {0x55, 0x44}), "long priority: long frame completes");
+    require_eq(long_first.header(), {0xAA, 0x55}, "long priority: earlier completed candidate wins");
+    long_first.clear();
+    require(feed(long_first, {0xAA, 0x44, 0x33}), "long priority: short candidate after mismatch");
+    require_eq(long_first.header(), {0xAA}, "long priority: short candidate selected");
+
+    Parser boundary;
+    boundary.add_header_candidate({0xAA, 0xBB, 0xCC, 0xDD});
+    boundary.add_header_candidate({0xAA});
+    boundary.set_total_len(3);
+    require(feed(boundary, {0xAA, 0xBB, 0xCC}), "long priority: short frame completes at fixed boundary");
+    require_eq(boundary.header(), {0xAA}, "long priority: short header retained at boundary");
+
+    Parser tied;
+    tied.add_header_candidate({0xA0}, {0xF0});
+    tied.add_header_candidate({0xAB});
+    tied.set_total_len(2);
+    require(feed(tied, {0xAB, 0x44}), "same-length match: completes");
+    require_eq(tied.header(), {0xAB}, "same-length match: actual header retained");
+
+}
+
+void test_header_frame_capacity()
+{
+    Parser header_only;
+    header_only.add_header_candidate({0xAA, 0xBB});
+    header_only.set_total_len(2);
+    require(feed(header_only, {0xAA, 0xBB}), "capacity: standalone parser supports header-only frames");
+
+    Parser dynamic;
+    dynamic.add_header_candidate({0xAA, 0xBB, 0xCC});
+    dynamic.add_header_candidate({0xAA});
+    dynamic.set_buffer_len(4);
+    dynamic.set_data_length(0, 1, true, 0);
+    dynamic.set_checksum_len(1);
+    require(!feed(dynamic, {0xAA, 1, 0xCC}), "capacity: short dynamic frame awaits checksum");
+    require(dynamic.parse_byte(0xDD), "capacity: dynamic length and checksum fit after short header");
+    require_eq(dynamic.header(), {0xAA}, "capacity: header without room for dynamic field and checksum excluded");
+}
+
 void test_header_mismatch_clears_buffer()
 {
     Parser parser;
@@ -277,6 +365,9 @@ int main()
     test_single_header_fixed_length();
     test_single_header_with_checksum_no_auto_complete();
     test_multi_header_candidates();
+    test_shared_headers_and_overlap();
+    test_prefix_header_priority();
+    test_header_frame_capacity();
     test_header_mismatch_clears_buffer();
     test_header_with_mask();
     test_header_footer_checksum();

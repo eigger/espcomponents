@@ -61,6 +61,7 @@ void UARTExComponent::setup()
         this->rx_parser_.set_data_length(dl.offset, dl.length, dl.endian == ENDIAN_BIG, dl.adjust);
     }
     this->rx_parser_.set_buffer_len(this->parent_->get_rx_buffer_size());
+    this->rx_parser_.set_min_data_len(1);
     if (this->error_) this->error_->publish_state("None");
     if (this->version_) this->version_->publish_state(this->version_str_);
     ESP_LOGI(TAG, "Initaialize");
@@ -115,7 +116,12 @@ bool UARTExComponent::parse_bytes()
     uint8_t byte = 0x00;
     if (this->read_byte(&byte))
     {
-        if (this->rx_parser_.parse_byte(byte)) return true;
+        if (this->rx_parser_.parse_byte(byte))
+        {
+            // A shorter header is tentative while an earlier longer one still
+            // matches. Commit only a frame that validates under that header.
+            if (!this->rx_parser_.header_provisional() || validate_data() == ERROR_NONE) return true;
+        }
         if (!this->conf_rx_data_length_.has_value() && !this->rx_parser_.has_footer() && validate_data() == ERROR_NONE) return true;
         this->rx_timer_ = get_time();
     }

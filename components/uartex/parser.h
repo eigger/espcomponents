@@ -24,12 +24,14 @@ public:
     const std::vector<unsigned char> buffer();
     const std::vector<unsigned char> apply_mask(const std::vector<unsigned char>& data, const std::vector<unsigned char>& mask) const;
     bool parse_header();
+    bool header_provisional() const { return header_provisional_; }
     bool parse_footer();
     bool parse_length();
     bool available();
     void set_checksum_len(size_t len);
     void set_total_len(size_t len);
     void set_buffer_len(size_t len);
+    void set_min_data_len(size_t len) { min_data_len_ = len; }
     void set_data_length(uint8_t offset, uint8_t length, bool big_endian, int8_t adjust);
 private:
     struct header_candidate_t
@@ -37,16 +39,19 @@ private:
         std::vector<unsigned char> data;
         std::vector<unsigned char> mask;
     };
+    bool header_candidate_fits(const header_candidate_t& candidate) const;
     bool header_prefix_matches(const std::vector<unsigned char>& buffer, const header_candidate_t& candidate) const;
     bool calculate_dynamic_length();
     std::vector<header_candidate_t> header_candidates_;
     std::vector<unsigned char> active_header_;
     int matched_header_index_{-1};
+    bool header_provisional_{false};
     std::vector<unsigned char> footer_;
     std::vector<unsigned char> buffer_;
     size_t checksum_len_;
     size_t total_len_;
     size_t buffer_len_;
+    size_t min_data_len_{0};
     bool has_data_length_{false};
     uint8_t data_length_offset_{0};
     uint8_t data_length_size_{1};

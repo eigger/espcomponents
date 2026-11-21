@@ -231,6 +231,16 @@ untagged commit (e.g. tracking the default branch between releases) shows
 the short commit hash, and a local checkout shows `git describe` output such
 as `v261119-3-gabc1234`. `unknown` means git was not available.
 
+When receive headers share a prefix, configured order determines priority.
+The parser considers the first complete matching header and may treat it as
+provisional while an earlier, longer header remains possible. That provisional
+header can complete a valid frame; otherwise the earlier header may take
+priority as more bytes arrive. Other complete candidates are not tested in
+parallel. If the same bytes form a valid shorter frame and the start of a
+longer frame, the shorter frame wins at its boundary. Prefer headers without
+prefix ambiguity. On a mismatch, the parser retains any suffix that can start
+a header. UARTEx requires at least one data byte in a received frame.
+
 #### Event Triggers
 
 In `on_read` and `on_write`, `data` points to `len` bytes for that event.

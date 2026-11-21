@@ -58,12 +58,29 @@ bool Parser::add_footers(const std::vector<unsigned char>& footer)
     return true;
 }
 
+bool Parser::header_candidate_fits(const header_candidate_t& candidate) const
+{
+    size_t remaining = total_len_ > 0 ? std::min(total_len_, buffer_len_) : buffer_len_;
+    const size_t dynamic_min = has_data_length_ ? static_cast<size_t>(data_length_offset_) + data_length_size_ : 0;
+    const size_t parts[] = {candidate.data.size(), std::max(min_data_len_, dynamic_min), checksum_len_, footer_.size()};
+    for (size_t part : parts)
+    {
+        if (part > remaining) return false;
+        remaining -= part;
+    }
+    return true;
+}
+
 bool Parser::header_prefix_matches(const std::vector<unsigned char>& buffer, const header_candidate_t& candidate) const
 {
     if (candidate.data.empty() || buffer.empty()) return false;
-    std::vector<unsigned char> masked_buffer = apply_mask(buffer, candidate.mask);
-    size_t size = masked_buffer.size() < candidate.data.size() ? masked_buffer.size() : candidate.data.size();
-    return std::equal(masked_buffer.begin(), masked_buffer.begin() + size, candidate.data.begin());
+    const size_t size = std::min(buffer.size(), candidate.data.size());
+    for (size_t i = 0; i < size; ++i)
+    {
+        const unsigned char byte = i < candidate.mask.size() ? buffer[i] & candidate.mask[i] : buffer[i];
+        if (byte != candidate.data[i]) return false;
+    }
+    return true;
 }
 
 bool Parser::parse_byte(const unsigned char byte)
@@ -74,17 +91,39 @@ bool Parser::parse_byte(const unsigned char byte)
         buffer_.erase(buffer_.begin());
         dynamic_total_len_ = 0;
         invalid_dynamic_length_ = false;
+        matched_header_index_ = -1;
+        header_provisional_ = false;
+        active_header_.clear();
     }
-    if (parse_header() == false)
+    if (!header_candidates_.empty())
     {
-        clear();
-        return false;
+        while (!buffer_.empty() && !parse_header())
+        {
+            // A matching prefix is not yet a complete header: wait for more
+            // bytes before choosing a candidate or attempting frame parsing.
+            bool prefix = false;
+            for (const auto &candidate : header_candidates_)
+            {
+                if (header_candidate_fits(candidate) && header_prefix_matches(buffer_, candidate)) { prefix = true; break; }
+            }
+            if (prefix) return false;
+
+            // Keep the longest suffix that could start a header. This also
+            // handles repeated start bytes, e.g. AA AA 55 for header AA 55.
+            buffer_.erase(buffer_.begin());
+            dynamic_total_len_ = 0;
+            invalid_dynamic_length_ = false;
+            matched_header_index_ = -1;
+            header_provisional_ = false;
+            active_header_.clear();
+        }
+        if (buffer_.empty()) return false;
     }
     if (parse_footer() == true) return true;
     if (parse_length() == true) return true;
     // A length outside the receive buffer can never form a valid frame.
     // Discard it now so the next header can start a new frame.
-    if (invalid_dynamic_length_) clear();
+    if (invalid_dynamic_length_ && !header_provisional_) clear();
     return false;
 }
 
@@ -111,26 +150,43 @@ void Parser::clear()
     dynamic_total_len_ = 0;
     invalid_dynamic_length_ = false;
     matched_header_index_ = -1;
+    header_provisional_ = false;
     active_header_.clear();
 }
 
 bool Parser::parse_header()
 {
     if (header_candidates_.empty()) return true;
-
-    if (matched_header_index_ >= 0)
-    {
+    if (matched_header_index_ >= 0 && !header_provisional_)
         return this->header_prefix_matches(buffer_, header_candidates_[matched_header_index_]);
-    }
 
+    bool earlier_incomplete = false;
     for (size_t i = 0; i < header_candidates_.size(); i++)
     {
-        if (this->header_prefix_matches(buffer_, header_candidates_[i]))
+        const auto &candidate = header_candidates_[i];
+        if (!header_candidate_fits(candidate) || !this->header_prefix_matches(buffer_, candidate)) continue;
+        if (buffer_.size() < candidate.data.size())
         {
-            matched_header_index_ = (int) i;
-            active_header_ = header_candidates_[i].data;
-            return true;
+            earlier_incomplete = true;
+            continue;
         }
+        if (matched_header_index_ != static_cast<int>(i))
+        {
+            dynamic_total_len_ = 0;
+            invalid_dynamic_length_ = false;
+        }
+        matched_header_index_ = static_cast<int>(i);
+        header_provisional_ = earlier_incomplete;
+        active_header_ = candidate.data;
+        return true;
+    }
+    if (matched_header_index_ >= 0)
+    {
+        matched_header_index_ = -1;
+        header_provisional_ = false;
+        active_header_.clear();
+        dynamic_total_len_ = 0;
+        invalid_dynamic_length_ = false;
     }
     return false;
 }
