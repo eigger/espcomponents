@@ -1,4 +1,5 @@
 #include "uartex_device.h"
+#include <limits>
 
 namespace esphome {
 namespace uartex {
@@ -196,42 +197,44 @@ bool verify_state(const std::vector<uint8_t>& data, const state_t* state)
 
 float state_to_float(const std::vector<uint8_t>& data, const state_num_t state)
 {
-    uint32_t val = 0;
-    std::string str;
-    uint16_t byte_length = state.length < 4 ? state.length : 4;
-    uint16_t length = state.length;
-    if (state.decode != DECODE_ASCII && length > 4) length = 4;
-    for (size_t i = 0; i < length && (state.offset + i) < data.size(); i++)
-    {
-        if (state.decode == DECODE_BCD)
-        {
-            uint8_t byte = data[state.offset + i];
-            uint8_t tens = (byte >> 4) & 0x0F;
-            uint8_t ones = byte & 0x0F;
-            if (tens > 9 || ones > 9) break;
-            val = val * 100 + (tens * 10 + ones);
-        }
-        else if(state.decode == DECODE_ASCII)
-        {
-            str.push_back((char)data[state.offset + i]);
-        }
-        else
-        {
-            if (state.endian == ENDIAN_BIG) val = (val << 8) | data[state.offset + i];
-            else val |= static_cast<uint32_t>(data[state.offset + i]) << (8 * i);
-        }
-    }
+    const size_t available = state.offset < data.size() ? data.size() - state.offset : 0;
+    const size_t length = std::min(static_cast<size_t>(state.length), available);
     if (state.decode == DECODE_ASCII)
     {
-        return (float)atof(str.c_str()) / powf(10, state.precision);
-    } 
-    if (state.is_signed)
-    {
-        int shift = 32 - byte_length * 8;
-        int32_t signed_val = (static_cast<int32_t>(val) << shift) >> shift;
-        return signed_val / powf(10, state.precision);
+        std::string str;
+        for (size_t i = 0; i < length; ++i) str.push_back(static_cast<char>(data[state.offset + i]));
+        return static_cast<float>(atof(str.c_str())) / powf(10, state.precision);
     }
-    return val / powf(10, state.precision);
+
+    double value = 0;
+    if (state.decode == DECODE_BCD)
+    {
+        for (size_t i = 0; i < length; ++i)
+        {
+            uint8_t byte = data[state.offset + i];
+            uint8_t tens = byte >> 4;
+            uint8_t ones = byte & 0x0F;
+            if (tens > 9 || ones > 9) break;
+            value = value * 100 + tens * 10 + ones;
+        }
+    }
+    else if (length > 0)
+    {
+        // Interpret signed binary as two's complement without integer shifts
+        // or a subtract-after-rounding step that loses small negative values.
+        const size_t high = state.endian == ENDIAN_BIG ? 0 : length - 1;
+        if (state.is_signed && length == state.length && (data[state.offset + high] & 0x80)) value = -1;
+        for (size_t i = 0; i < length; ++i)
+        {
+            const size_t index = state.endian == ENDIAN_BIG ? i : length - 1 - i;
+            value = value * 256 + data[state.offset + index];
+        }
+    }
+    value /= pow(10.0, state.precision);
+    const double float_max = std::numeric_limits<float>::max();
+    if (value > float_max) return std::numeric_limits<float>::infinity();
+    if (value < -float_max) return -std::numeric_limits<float>::infinity();
+    return static_cast<float>(value);
 }
 
 uint8_t float_to_bcd(const float val)

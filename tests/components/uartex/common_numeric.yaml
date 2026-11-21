@@ -1,0 +1,38 @@
+external_components:
+  - source:
+      type: local
+      path: ../../../components
+    components: [uartex]
+esphome:
+  name: test-uartex-numeric-${target}
+uart:
+  id: uart_numeric
+  baud_rate: 9600
+  rx_pin: ${rx_pin}
+  tx_pin: ${tx_pin}
+uartex:
+  - id: adjust_plus
+    uart_id: uart_numeric
+    rx_data_length:
+      offset: 0
+      adjust: 128
+  - id: adjust_minus
+    uart_id: uart_numeric
+    rx_data_length:
+      offset: 0
+      adjust: -128
+sensor:
+  - platform: uartex
+    name: Wide Binary
+    uartex_id: adjust_plus
+    state_number:
+      offset: 0
+      length: 16
+      signed: true
+  - platform: uartex
+    name: Wide BCD
+    uartex_id: adjust_minus
+    state_number:
+      offset: 0
+      length: 16
+      decode: bcd

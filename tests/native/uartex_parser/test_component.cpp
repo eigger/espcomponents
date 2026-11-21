@@ -80,6 +80,14 @@ int main() {
   longer_checksum.add_rx_header({{0xAA}, {}}); longer_checksum.set_rx_checksum(CHECKSUM_ADD); longer_checksum.setup();
   for (uint8_t b : {0xAA, 1, 0xFF, 0xDD, 2}) assert(!longer_checksum.feed(b));
   assert(longer_checksum.feed(0x89)); assert(longer_checksum.validate() == ERROR_NONE);
+  TestComponent adjust_positive;
+  adjust_positive.set_rx_data_length(0, 1, ENDIAN_BIG, 128); adjust_positive.setup();
+  assert(!adjust_positive.feed(0));
+  for (int i = 0; i < 127; ++i) assert(!adjust_positive.feed(0x55));
+  assert(adjust_positive.feed(0x55)); assert(adjust_positive.validate() == ERROR_NONE);
+  TestComponent adjust_negative;
+  adjust_negative.set_rx_data_length(0, 1, ENDIAN_BIG, -128); adjust_negative.setup();
+  assert(adjust_negative.feed(128)); assert(adjust_negative.validate() == ERROR_NONE);
   TestComponent fixed;
   fixed.set_rx_length(2); fixed.setup(); assert(!fixed.feed(1)); assert(fixed.feed(4)); assert(fixed.validate() == ERROR_NONE);
   TestComponent checksum_only;

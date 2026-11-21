@@ -334,7 +334,7 @@ void Parser::set_buffer_len(size_t len)
     buffer_.reserve(len + 1);
 }
 
-void Parser::set_data_length(uint8_t offset, uint8_t length, bool big_endian, int8_t adjust)
+void Parser::set_data_length(uint8_t offset, uint8_t length, bool big_endian, int16_t adjust)
 {
     has_data_length_ = true;
     data_length_offset_ = offset;

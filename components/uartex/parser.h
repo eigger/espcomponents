@@ -32,7 +32,7 @@ public:
     void set_total_len(size_t len);
     void set_buffer_len(size_t len);
     void set_min_data_len(size_t len) { min_data_len_ = len; }
-    void set_data_length(uint8_t offset, uint8_t length, bool big_endian, int8_t adjust);
+    void set_data_length(uint8_t offset, uint8_t length, bool big_endian, int16_t adjust);
 private:
     struct header_candidate_t
     {
@@ -56,7 +56,7 @@ private:
     uint8_t data_length_offset_{0};
     uint8_t data_length_size_{1};
     bool data_length_big_endian_{true};
-    int8_t data_length_adjust_{0};
+    int16_t data_length_adjust_{0};
     size_t dynamic_total_len_{0};
     bool invalid_dynamic_length_{false};
 };

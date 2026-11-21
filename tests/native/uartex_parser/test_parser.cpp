@@ -321,6 +321,18 @@ void test_dynamic_length_bounds_and_recovery()
     require(feed(shifted, {0xA2, 1, 0x33}), "dynamic bounds: discarded frame does not retain cached length");
 }
 
+void test_adjust_extremes()
+{
+    Parser positive;
+    positive.set_data_length(0, 1, true, 128);
+    require(!positive.parse_byte(0), "adjust +128: length byte is not a complete frame");
+    for (int i = 0; i < 127; ++i) require(!positive.parse_byte(0x55), "adjust +128: waits for all payload");
+    require(positive.parse_byte(0x55), "adjust +128: completes after 128 extra bytes");
+    Parser negative;
+    negative.set_data_length(0, 1, true, -128);
+    require(negative.parse_byte(128), "adjust -128: zero adjusted payload completes");
+}
+
 void test_no_footer_no_length_incomplete()
 {
     Parser parser;
@@ -376,6 +388,7 @@ int main()
     test_dynamic_data_length_little_endian();
     test_dynamic_length_boundaries();
     test_dynamic_length_bounds_and_recovery();
+    test_adjust_extremes();
     test_no_footer_no_length_incomplete();
     test_apply_mask();
     test_clear_resets_state();

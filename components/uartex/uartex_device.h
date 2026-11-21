@@ -55,7 +55,7 @@ struct state_t
 struct state_num_t
 {
     uint16_t offset;
-    uint16_t length;    // 1~4
+    uint16_t length;    // 1~16
     uint16_t precision; // 0~5
     bool is_signed;
     ENDIAN endian;

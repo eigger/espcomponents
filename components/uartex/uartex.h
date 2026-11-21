@@ -43,7 +43,7 @@ struct rx_data_length_t
     uint8_t offset{0};
     uint8_t length{1};
     ENDIAN endian{ENDIAN_BIG};
-    int8_t adjust{0};
+    int16_t adjust{0};
 };
 
 struct rx_reply_t
@@ -95,7 +95,7 @@ public:
     void set_tx_retry_cnt(uint16_t tx_retry_cnt);
     void set_tx_command_queue_size(uint16_t size);
     void set_rx_length(uint16_t rx_length);
-    void set_rx_data_length(uint8_t offset, uint8_t length, ENDIAN endian, int8_t adjust);
+    void set_rx_data_length(uint8_t offset, uint8_t length, ENDIAN endian, int16_t adjust);
     void set_rx_timeout(uint16_t timeout);
     void set_tx_ctrl_pin(InternalGPIOPin *pin);
     void enqueue_tx_data(const tx_data_t data, bool low_priority = false);

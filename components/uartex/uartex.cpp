@@ -353,7 +353,7 @@ void UARTExComponent::set_rx_length(uint16_t rx_length)
     this->conf_rx_length_ = rx_length;
 }
 
-void UARTExComponent::set_rx_data_length(uint8_t offset, uint8_t length, ENDIAN endian, int8_t adjust)
+void UARTExComponent::set_rx_data_length(uint8_t offset, uint8_t length, ENDIAN endian, int16_t adjust)
 {
     this->conf_rx_data_length_ = rx_data_length_t{offset, length, endian, adjust};
 }

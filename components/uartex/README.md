@@ -303,6 +303,13 @@ state_number:
   decode: none       # Decode: none, bcd, ascii
 ```
 
+Binary and BCD fields use all configured bytes (up to 16). Binary signed
+values use two's complement; BCD stops at the first byte with an invalid
+decimal nibble. Wide numeric fields are accumulated with double precision and
+returned as `float`, so large values are rounded and may become positive or
+negative infinity after scaling by precision. ASCII fields retain their
+string-to-number conversion behavior.
+
 #### Understanding Offset
 
 The `offset` value indicates the byte position **after the header**. The header bytes are excluded from offset counting.
