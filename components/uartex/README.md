@@ -241,6 +241,14 @@ longer frame, the shorter frame wins at its boundary. Prefer headers without
 prefix ambiguity. On a mismatch, the parser retains any suffix that can start
 a header. UARTEx requires at least one data byte in a received frame.
 
+`rx_reply` commands are queued ahead of ordinary commands and use the same
+`tx_delay` gap after the latest received or transmitted frame. A reply waits
+while a command is awaiting its acknowledgment. With `tx_delay: 0ms`, an
+eligible reply can be sent in the same loop as the received frame. Continuous
+receive traffic can delay replies until the bus has been quiet for `tx_delay`.
+The reply queue holds at most 10 waiting commands; when full, newly generated
+replies are dropped and the already queued replies keep their order.
+
 #### Event Triggers
 
 In `on_read` and `on_write`, `data` points to `len` bytes for that event.

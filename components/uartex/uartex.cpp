@@ -136,11 +136,13 @@ void UARTExComponent::publish_to_devices()
     verify_ack();
     process_rx_reply();
     publish_data();
+    this->rx_time_ = get_time();
     if (!this->tx_queue_reply_.empty() && !is_tx_cmd_pending())
     {
-        write_tx_data();
+        // Use the normal bus-gap checks. With tx_delay == 0 this still sends
+        // the reply in the same loop as the received frame.
+        write_to_uart();
     }
-    this->rx_time_ = get_time();
 }
 
 bool UARTExComponent::verify_ack()
@@ -169,10 +171,12 @@ void UARTExComponent::process_rx_reply()
         {
             cmd = entry.command;
         }
-        if (cmd.data.empty()) break;
+        if (cmd.data.empty() || this->tx_queue_reply_.size() >= MAX_QUEUED_REPLIES) break;
         auto owned = std::make_shared<cmd_t>(std::move(cmd));
-        enqueue_tx_reply({nullptr, owned.get(), owned});
-        ESP_LOGD(TAG, "Rx reply: %s", to_hex_string(owned->data).c_str());
+        if (enqueue_tx_reply({nullptr, owned.get(), owned}))
+        {
+            ESP_LOGD(TAG, "Rx reply: %s", to_hex_string(owned->data).c_str());
+        }
         break;
     }
 }
@@ -298,9 +302,11 @@ void UARTExComponent::enqueue_tx_data(const tx_data_t data, bool low_priority)
     else this->tx_queue_.push(data);
 }
 
-void UARTExComponent::enqueue_tx_reply(const tx_data_t data)
+bool UARTExComponent::enqueue_tx_reply(const tx_data_t data)
 {
+    if (this->tx_queue_reply_.size() >= MAX_QUEUED_REPLIES) return false;
     this->tx_queue_reply_.push(data);
+    return true;
 }
 
 void UARTExComponent::write_command(cmd_t cmd)
