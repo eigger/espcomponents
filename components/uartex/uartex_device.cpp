@@ -54,20 +54,20 @@ bool UARTExDevice::parse_data(const std::vector<uint8_t>& data)
     if (verify_state(data, get_state_on())) publish(true);
     publish(data);
     last_state_ = data;
-    state_copy_ready_ = true;
+    preserve_state_ready_ = true;
     return true;
 }
 
 bool UARTExDevice::render_command(const cmd_t &input, cmd_t &output) const
 {
-    if (!input.copy_state.empty() && (!state_copy_ready_ || state_map_.find("state") == state_map_.end())) return false;
-    for (const auto &copy : input.copy_state)
+    if (!input.preserve_state.empty() && (!preserve_state_ready_ || state_map_.find("state") == state_map_.end())) return false;
+    for (const auto &copy : input.preserve_state)
     {
         if (static_cast<size_t>(copy.source) + copy.length > last_state_.size() ||
             static_cast<size_t>(copy.target) + copy.length > input.data.size()) return false;
     }
     output = input;
-    for (const auto &copy : input.copy_state)
+    for (const auto &copy : input.preserve_state)
         std::copy_n(last_state_.begin() + copy.source, copy.length, output.data.begin() + copy.target);
     return true;
 }
@@ -75,7 +75,7 @@ bool UARTExDevice::render_command(const cmd_t &input, cmd_t &output) const
 void UARTExDevice::invalidate_matching_state(const std::vector<uint8_t> &data)
 {
     auto state = state_map_.find("state");
-    if (state != state_map_.end() && verify_state(data, &state->second)) state_copy_ready_ = false;
+    if (state != state_map_.end() && verify_state(data, &state->second)) preserve_state_ready_ = false;
 }
 
 std::vector<uint8_t> UARTExDevice::last_state()

@@ -399,10 +399,20 @@ state: [0x10]
 command_on:
   data: [0x30, 0xff, 0x00]
   ack: [0x40]
-  copy_state:
-    - source_offset: 2
-      target_offset: 2
-      length: 1
+  preserve_state:
+    - offset: 2
+```
+
+By default, `offset` selects the same position in the RX and TX payloads and
+`length` defaults to 1. Both `length` and `rx_offset` are independently
+optional: set `length` to preserve multiple bytes, or set `rx_offset` to read
+from a different RX position. This example sets both:
+
+```yaml
+preserve_state:
+  - offset: 2       # TX position
+    rx_offset: 4    # RX position
+    length: 2
 ```
 
 Offsets are zero-based and exclude UART headers, checksums, and footers. The
@@ -410,10 +420,10 @@ entity must have a `state` filter. The target range must fit `data`, and length
 must be positive. A command waits for an accepted payload long enough for every
 source range; other ready commands and update polls can still transmit. After
 such a command is sent, entities whose `state` filters match the source frame
-wait for another matching RX payload before sending their next copy command.
+wait for another matching RX payload before sending their next state-preserving command.
 This avoids reconstructing a second command from the same old state. If no new
 state arrives those commands remain queued. Retries reuse the first transmitted
-bytes and require another matching state frame afterward. `copy_state` is available on entity commands, except `command_update`;
+bytes and require another matching state frame afterward. `preserve_state` is available on entity commands, except `command_update`;
 it is not available for `rx_reply` or `uartex.write`. Lambda commands retain
 their existing behavior.
 

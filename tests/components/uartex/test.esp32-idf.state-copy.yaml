@@ -19,8 +19,9 @@ light:
     command_on:
       data: [0x30, 0xff, 0x00]
       ack: [0x40]
-      copy_state:
-        - source_offset: 2
-          target_offset: 2
+      preserve_state:
+        - offset: 1
+        - offset: 2
+          rx_offset: 3
           length: 1
     command_off: [0x30, 0x00, 0x00]

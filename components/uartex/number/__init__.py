@@ -68,4 +68,4 @@ async def to_code(config):
         
 
 # Validate cross-field requirements after the platform schema is applied.
-CONFIG_SCHEMA = cv.All(CONFIG_SCHEMA, uartex.validate_entity_copy_state)
+CONFIG_SCHEMA = cv.All(CONFIG_SCHEMA, uartex.validate_entity_preserve_state)

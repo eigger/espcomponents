@@ -301,7 +301,7 @@ bool UARTExComponent::select_ready_tx(std::deque<tx_data_t> &queue)
     for (auto it = queue.begin(); it != queue.end(); ++it)
     {
         if (it->device && std::find(blocked.begin(), blocked.end(), it->device) != blocked.end()) continue;
-        if (it->cmd && !it->cmd->copy_state.empty())
+        if (it->cmd && !it->cmd->preserve_state.empty())
         {
             cmd_t rendered;
             if (!it->device || !it->device->render_command(*it->cmd, rendered))
