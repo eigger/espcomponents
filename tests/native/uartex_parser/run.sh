@@ -42,6 +42,6 @@ g++ -std=c++17 -I"$ROOT/tests/native/uartex_parser/stubs" "${INC[@]}" \
 
 g++ -std=c++17 -I"$ROOT/tests/native/uartex_parser/stubs" "${INC[@]}" \
   "$ROOT/components/uartex/uartex.cpp" "$ROOT/components/uartex/uartex_device.cpp" "${SRC[@]}" \
-  "$ROOT/tests/native/uartex_parser/test_state_copy.cpp" \
-  -o "${TMPDIR:-/tmp}/uartex_state_copy_test"
-"${TMPDIR:-/tmp}/uartex_state_copy_test"
+  "$ROOT/tests/native/uartex_parser/test_preserve_state.cpp" \
+  -o "${TMPDIR:-/tmp}/uartex_preserve_state_test"
+"${TMPDIR:-/tmp}/uartex_preserve_state_test"

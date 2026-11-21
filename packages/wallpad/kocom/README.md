@@ -95,6 +95,31 @@ packages:
 | `gas` | — | — | `device_kitchen` | 가스 |
 | `elevator` | — | — | `device_entrance` | 엘리베이터 |
 
+### 같은 방 조명 상태 유지하기
+
+다음 예시는 기본 Theart 구성의 거실 1번 등(`room_0_light_1`)을 확장합니다.
+기본 거실에는 조명이 3개 있으며, 1번 등의 명령은 8번 바이트를 바꾸고
+9번·10번 바이트에는 2번·3번 등의 마지막 수신 상태를 유지합니다.
+
+이 예시를 사용하려면 `preserve_state`를 지원하는 UARTEx 버전이 필요합니다.
+기본 패키지가 지정하는 `@latest`가 이 기능을 지원하지 않는다면, 해당 기능이
+포함된 버전의 컴포넌트를 별도로 선택한 뒤 내 YAML에 다음을 추가하세요.
+이 설정은 1번 등의 켜기·끄기 명령만 바꾸며, 기존 상태 필터, 상태 조회 및
+ACK 설정을 유지합니다. 유효한 상태를 수신하기 전에는 명령이 대기합니다.
+
+```yaml
+light:
+  - id: !extend room_0_light_1
+    command_on:
+      data: [0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+      ack: [0x30, 0xdc, 0x00, 0x0e, 0x00]
+      preserve_state: [9, 10]
+    command_off:
+      data: [0x30, 0xbc, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+      ack: [0x30, 0xdc, 0x00, 0x0e, 0x00]
+      preserve_state: [9, 10]
+```
+
 ### 우리 집에 맞게 바꾸기
 
 GitHub의 fragment에 `vars`를 넘겨서 방 단위로 조립합니다.
