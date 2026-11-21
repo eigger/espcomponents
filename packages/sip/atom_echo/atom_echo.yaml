@@ -336,7 +336,7 @@ media_player:
         file: ${ringtone_sound_file}
 
 external_components:
-  - source: github://eigger/espcomponents
+  - source: github://eigger/espcomponents@latest
     components: [ sip_client ]
     refresh: always
 
