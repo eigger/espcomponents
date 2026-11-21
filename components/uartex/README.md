@@ -117,6 +117,13 @@ uartex:
 > - Use either `rx_length` or `rx_data_length`, not both.
 > - Use either `rx_checksum` or `rx_checksum2`, not both. Same applies to `tx_checksum` and `tx_checksum2`.
 
+ESPHome configuration validation warns about impossible masked header, entity
+state, and ACK values, and entity or `rx_reply` definitions that cannot fit the
+payload of a fixed-length receive frame. Numeric fields that would be truncated
+or missing also produce warnings. These warnings do not prevent configuration
+builds. Payload-size checks are skipped when the receive length is dynamic.
+Nested automation actions are not checked.
+
 #### Receive headers (`rx_header`)
 
 A single header can be a byte list, an ASCII string, or a mapping with `data`

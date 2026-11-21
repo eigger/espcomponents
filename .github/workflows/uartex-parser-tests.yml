@@ -26,6 +26,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      - name: Run packet validation tests
+        run: python3 -m unittest discover -s tests/components/uartex/python -v
+
       - name: Build and run parser native tests
         run: |
           chmod +x tests/native/uartex_parser/run.sh
