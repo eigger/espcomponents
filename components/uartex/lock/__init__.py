@@ -72,5 +72,3 @@ async def to_code(config):
         
     if CONF_UNLOCK_TIMEOUT in config:
         cg.add(var.set_unlock_timeout(config[CONF_UNLOCK_TIMEOUT]))
-# Validate cross-field requirements after the platform schema is applied.
-CONFIG_SCHEMA = cv.All(CONFIG_SCHEMA, uartex.validate_entity_preserve_state)

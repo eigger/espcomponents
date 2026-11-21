@@ -497,7 +497,7 @@ def reject_update_copy(config):
     return config
 
 
-def validate_entity_preserve_state(config):
+def _validate_entity_preserve_state(config):
     for key, value in config.items():
         if key.startswith("command_") and isinstance(value, dict) and value.get(CONF_PRESERVE_STATE):
             if CONF_STATE not in config:
@@ -516,7 +516,7 @@ UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.Optional(CONF_COMMAND_UPDATE): cv.templatable(lambda value: reject_update_copy(command_hex_schema(value))),
     cv.Optional(CONF_STATE_RESPONSE): state_schema,
     cv.Optional(CONF_OPTIMISTIC, default=False): cv.boolean,
-}).extend(cv.polling_component_schema('60s'))
+}).extend(cv.polling_component_schema('60s')).add_extra(_validate_entity_preserve_state)
 
 STATE_NUM_SCHEMA = cv.Schema({
     cv.Required(CONF_OFFSET): cv.int_range(min=0, max=128),

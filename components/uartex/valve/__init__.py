@@ -52,5 +52,3 @@ async def to_code(config):
     if CONF_COMMAND_STOP in config:
         command = await command_expression(config[CONF_COMMAND_STOP])
         cg.add(var.set_command(CONF_COMMAND_STOP, command))
-# Validate cross-field requirements after the platform schema is applied.
-CONFIG_SCHEMA = cv.All(CONFIG_SCHEMA, uartex.validate_entity_preserve_state)
