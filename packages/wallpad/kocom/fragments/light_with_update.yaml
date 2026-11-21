@@ -18,11 +18,13 @@ state_off:
   offset: ${ 7 + light_num | int }
   data: [0x00]
 command_on: !lambda |-
+  if (id(room_${room_num}_light_${light_num}).Output.last_state().size() < 11) return {};
   ${ "uint8_t b8 = 0xff;" if (light_num | int) == 1 else "uint8_t b8 = id(room_${room_num}_light_${light_num}).last_state(8);" }
   ${ "uint8_t b9 = 0xff;" if (light_num | int) == 2 else "uint8_t b9 = id(room_${room_num}_light_${light_num}).last_state(9);" }
   ${ "uint8_t b10 = 0xff;" if (light_num | int) == 3 else "uint8_t b10 = id(room_${room_num}_light_${light_num}).last_state(10);" }
   return {{0x30, 0xbc, 0x00, 0x0e, $room_num, 0x01, 0x00, 0x00, b8, b9, b10, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x30, 0xdc, 0x00, 0x0e, $room_num}};
 command_off: !lambda |-
+  if (id(room_${room_num}_light_${light_num}).Output.last_state().size() < 11) return {};
   ${ "uint8_t b8 = 0x00;" if (light_num | int) == 1 else "uint8_t b8 = id(room_${room_num}_light_${light_num}).last_state(8);" }
   ${ "uint8_t b9 = 0x00;" if (light_num | int) == 2 else "uint8_t b9 = id(room_${room_num}_light_${light_num}).last_state(9);" }
   ${ "uint8_t b10 = 0x00;" if (light_num | int) == 3 else "uint8_t b10 = id(room_${room_num}_light_${light_num}).last_state(10);" }

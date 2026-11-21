@@ -7,12 +7,16 @@ on:
       - 'components/uartex/**'
       - 'tests/components/uartex/**'
       - 'tests/native/uartex_parser/**'
+      - 'packages/wallpad/**'
+      - 'tests/packages/wallpad/protocol/**'
   pull_request:
     branches: [ main, master ]
     paths:
       - 'components/uartex/**'
       - 'tests/components/uartex/**'
       - 'tests/native/uartex_parser/**'
+      - 'packages/wallpad/**'
+      - 'tests/packages/wallpad/protocol/**'
   workflow_dispatch:
 
 jobs:
@@ -26,3 +30,6 @@ jobs:
         run: |
           chmod +x tests/native/uartex_parser/run.sh
           tests/native/uartex_parser/run.sh
+
+      - name: Run wallpad protocol regression tests
+        run: python3 -m unittest discover -s tests/packages/wallpad/protocol -v

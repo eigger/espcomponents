@@ -11,19 +11,6 @@ uartex:
   tx_delay: 5ms
   rx_header:
     - [0xA4]
-  rx_length: !lambda |-
-    if (len < 2) return 0;
-    if (data[0] == 0xA4) return 4;
-    switch (data[1]) {
-      case 0x01: case 0x08: case 0x09: case 0x0A: case 0x0C:
-      case 0x10: case 0x12: case 0x13: case 0x1C:
-      case 0x79: case 0x7A: return 5;
-      case 0x4E: case 0x4F: return 6;
-      case 0x6F: return 7;
-      case 0x7C: case 0x7D: case 0x7F: return 8;
-      case 0x4A: case 0x4B: case 0x6E: return 10;
-      default: return 4;
-    }
   rx_checksum: !lambda |-
     uint8_t checksum = header[0];
     for (size_t i = 0; i < len; ++i) checksum ^= data[i];

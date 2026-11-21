@@ -1,3 +1,6 @@
+substitutions:
+  samsung_sds_component_ref: latest
+
 uart:
   baud_rate: 9600
   data_bits: 8
@@ -7,7 +10,7 @@ uart:
   tx_pin: GPIO19
 
 external_components:
-  - source: github://eigger/espcomponents@latest
+  - source: github://eigger/espcomponents@${samsung_sds_component_ref}
     components: [ uartex ]
     refresh: always
 
@@ -16,7 +19,19 @@ uartex:
   tx_delay: 50ms
   tx_timeout: 500ms
   tx_retry_cnt: 3
-  rx_length: 4
+  rx_length: !lambda |-
+    if (len < 2) return 0;
+    if (data[0] == 0xA4) return 4;
+    switch (data[1]) {
+      case 0x01: case 0x08: case 0x09: case 0x0A: case 0x0C:
+      case 0x10: case 0x12: case 0x13: case 0x1C:
+      case 0x79: case 0x7A: return 5;
+      case 0x4E: case 0x4F: return 6;
+      case 0x6F: return 7;
+      case 0x7C: case 0x7D: case 0x7F: return 8;
+      case 0x4A: case 0x4B: case 0x6E: return 10;
+      default: return 4;
+    }
   rx_header:
     - [0xB0]
   rx_checksum: !lambda |-
