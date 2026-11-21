@@ -4,7 +4,13 @@
 
 A custom ESPHome component that extends UART communication to easily integrate various serial protocols with Home Assistant.
 
-Related: [wallpad presets](../../packages/wallpad) · [TCP forwarding](../tcp_server).
+[한국어 README](README.ko.md) · [AI 에이전트용 패킷 구성 지침 / Packet configuration guide](PACKET_GUIDE.ko.md) · [Wallpad presets](../../packages/wallpad) · [TCP forwarding](../tcp_server).
+
+## Documentation baseline
+
+This README describes UARTEx at espcomponents commit `e3b1d72` (reviewed 2026-11-21). The Quick Start examples passed `esphome config` with ESPHome `2026.11.0` and the component from that commit. [UARTEx source at the documented revision](https://github.com/eigger/espcomponents/tree/e3b1d72680e30377b1ddc3c4fa3116beb0a968a0/components/uartex)
+
+The installation example tracks the moving `latest` tag. To reproduce the examples, replace `latest` in the source URL with the documented commit. For another revision, use its common and platform Python schemas for accepted YAML keys and defaults, and its C++ implementation for packet handling.
 
 ## Table of Contents
 
@@ -40,6 +46,8 @@ external_components:
 
 ## Quick Start
 
+Choose pins and baud rate for your board and device. This example protocol uses the same payloads for switch commands and state reports. UARTEx adds the configured framing when sending and removes it before matching a received payload.
+
 ```yaml
 uart:
   id: uart_bus
@@ -59,15 +67,26 @@ uartex:
 switch:
   - platform: uartex
     name: "My Switch"
-    state_on:
-      data: [0x01, 0x01]
-    state_off:
-      data: [0x01, 0x00]
-    command_on:
-      data: [0x01, 0x01]
-    command_off:
-      data: [0x01, 0x00]
+    state_on: [0x01, 0x01]
+    state_off: [0x01, 0x00]
+    command_on: [0x01, 0x01]
+    command_off: [0x01, 0x00]
 ```
+
+With these settings, the ON frame on the wire is `02 01 | 01 01 | 05 | 0D 0A` (header, payload, additive checksum, footer). The state pattern matches the start of the payload by default.
+
+For a device that reports a channel and a separate status byte, consider the frame `02 01 | 02 03 01 | 09 | 0D 0A`. Here the first two payload bytes identify the report and the third carries its state. The following entity uses the same bus settings:
+
+```yaml
+binary_sensor:
+  - platform: uartex
+    name: "Channel Status"
+    state: [0x02, 0x03]
+    state_on: {offset: 2, data: [0x01]}
+    state_off: {offset: 2, data: [0x00]}
+```
+
+Count `offset` from the first payload byte. Matching `state` leaves that origin in place. Use the mapping form when you need an offset, a mask, or an ACK pattern for a command.
 
 ---
 
@@ -82,7 +101,6 @@ uartex:
   tx_delay: 50ms
   tx_timeout: 500ms
   tx_retry_cnt: 3
-  tx_command_queue_size: 10
   rx_header: [0x02, 0x01]
   rx_footer: [0x0D, 0x0A]
   tx_header: [0x02, 0x01]
@@ -207,7 +225,7 @@ uartex:
 **Packet Structure Example**:
 ```
 Packet: [Header:2][Length:1][Data:N][Checksum:1]
-        [0xAA][0xBB][0x03][0x11][0x22][0x33][0xCC]
+        [0xAA][0xBB][0x03][0x11][0x22][0x33][0xCE]
                      ↑
                      Length field = 3 (data bytes)
 
@@ -1025,7 +1043,7 @@ media_player:
 
 ### uartex.write
 
-Send raw data through UART.
+Send a payload using the configured TX header, checksum, and footer.
 
 ```yaml
 on_...:
