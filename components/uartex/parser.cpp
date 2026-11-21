@@ -58,12 +58,29 @@ bool Parser::add_footers(const std::vector<unsigned char>& footer)
     return true;
 }
 
+bool Parser::header_candidate_fits(const header_candidate_t& candidate) const
+{
+    size_t remaining = total_len_ > 0 ? std::min(total_len_, buffer_len_) : buffer_len_;
+    const size_t dynamic_min = has_data_length_ ? static_cast<size_t>(data_length_offset_) + data_length_size_ : 0;
+    const size_t parts[] = {candidate.data.size(), std::max(min_data_len_, dynamic_min), checksum_len_, footer_.size()};
+    for (size_t part : parts)
+    {
+        if (part > remaining) return false;
+        remaining -= part;
+    }
+    return true;
+}
+
 bool Parser::header_prefix_matches(const std::vector<unsigned char>& buffer, const header_candidate_t& candidate) const
 {
     if (candidate.data.empty() || buffer.empty()) return false;
-    std::vector<unsigned char> masked_buffer = apply_mask(buffer, candidate.mask);
-    size_t size = masked_buffer.size() < candidate.data.size() ? masked_buffer.size() : candidate.data.size();
-    return std::equal(masked_buffer.begin(), masked_buffer.begin() + size, candidate.data.begin());
+    const size_t size = std::min(buffer.size(), candidate.data.size());
+    for (size_t i = 0; i < size; ++i)
+    {
+        const unsigned char byte = i < candidate.mask.size() ? buffer[i] & candidate.mask[i] : buffer[i];
+        if (byte != candidate.data[i]) return false;
+    }
+    return true;
 }
 
 bool Parser::parse_byte(const unsigned char byte)
@@ -72,16 +89,41 @@ bool Parser::parse_byte(const unsigned char byte)
     if ((total_len_ > 0 && buffer_.size() > total_len_) || buffer_.size() > buffer_len_)
     {
         buffer_.erase(buffer_.begin());
-    }
-    if (parse_header() == false)
-    {
-        buffer_.clear();
+        dynamic_total_len_ = 0;
+        invalid_dynamic_length_ = false;
         matched_header_index_ = -1;
+        header_provisional_ = false;
         active_header_.clear();
-        return false;
+    }
+    if (!header_candidates_.empty())
+    {
+        while (!buffer_.empty() && !parse_header())
+        {
+            // A matching prefix is not yet a complete header: wait for more
+            // bytes before choosing a candidate or attempting frame parsing.
+            bool prefix = false;
+            for (const auto &candidate : header_candidates_)
+            {
+                if (header_candidate_fits(candidate) && header_prefix_matches(buffer_, candidate)) { prefix = true; break; }
+            }
+            if (prefix) return false;
+
+            // Keep the longest suffix that could start a header. This also
+            // handles repeated start bytes, e.g. AA AA 55 for header AA 55.
+            buffer_.erase(buffer_.begin());
+            dynamic_total_len_ = 0;
+            invalid_dynamic_length_ = false;
+            matched_header_index_ = -1;
+            header_provisional_ = false;
+            active_header_.clear();
+        }
+        if (buffer_.empty()) return false;
     }
     if (parse_footer() == true) return true;
     if (parse_length() == true) return true;
+    // A length outside the receive buffer can never form a valid frame.
+    // Discard it now so the next header can start a new frame.
+    if (invalid_dynamic_length_ && !header_provisional_) clear();
     return false;
 }
 
@@ -106,27 +148,45 @@ void Parser::clear()
 {
     buffer_.clear();
     dynamic_total_len_ = 0;
+    invalid_dynamic_length_ = false;
     matched_header_index_ = -1;
+    header_provisional_ = false;
     active_header_.clear();
 }
 
 bool Parser::parse_header()
 {
     if (header_candidates_.empty()) return true;
-
-    if (matched_header_index_ >= 0)
-    {
+    if (matched_header_index_ >= 0 && !header_provisional_)
         return this->header_prefix_matches(buffer_, header_candidates_[matched_header_index_]);
-    }
 
+    bool earlier_incomplete = false;
     for (size_t i = 0; i < header_candidates_.size(); i++)
     {
-        if (this->header_prefix_matches(buffer_, header_candidates_[i]))
+        const auto &candidate = header_candidates_[i];
+        if (!header_candidate_fits(candidate) || !this->header_prefix_matches(buffer_, candidate)) continue;
+        if (buffer_.size() < candidate.data.size())
         {
-            matched_header_index_ = (int) i;
-            active_header_ = header_candidates_[i].data;
-            return true;
+            earlier_incomplete = true;
+            continue;
         }
+        if (matched_header_index_ != static_cast<int>(i))
+        {
+            dynamic_total_len_ = 0;
+            invalid_dynamic_length_ = false;
+        }
+        matched_header_index_ = static_cast<int>(i);
+        header_provisional_ = earlier_incomplete;
+        active_header_ = candidate.data;
+        return true;
+    }
+    if (matched_header_index_ >= 0)
+    {
+        matched_header_index_ = -1;
+        header_provisional_ = false;
+        active_header_.clear();
+        dynamic_total_len_ = 0;
+        invalid_dynamic_length_ = false;
     }
     return false;
 }
@@ -151,7 +211,7 @@ bool Parser::parse_footer()
     if (has_data_length_)
     {
         if (!calculate_dynamic_length()) return false;
-        if (buffer_.size() < dynamic_total_len_) return false;
+        if (buffer_.size() != dynamic_total_len_) return false;
     }
 
     return std::equal(buffer_.end() - footer_.size(), buffer_.end(), footer_.begin());
@@ -159,6 +219,14 @@ bool Parser::parse_footer()
 
 bool Parser::parse_length()
 {
+    // A dynamic length defines the frame boundary even when a footer or a
+    // checksum is present. Validation of those fields happens at that boundary.
+    if (has_data_length_)
+    {
+        if (!calculate_dynamic_length()) return false;
+        return buffer_.size() == dynamic_total_len_;
+    }
+
     if (total_len_ > 0)
     {
         if (footer_.size() > 0) return false;
@@ -166,12 +234,7 @@ bool Parser::parse_length()
         if (checksum_len_ > 0) return false;
         return true;
     }
-
-    if (!has_data_length_) return false;
-    if (!calculate_dynamic_length()) return false;
-    if (buffer_.size() < dynamic_total_len_) return false;
-
-    return true;
+    return false;
 }
 
 bool Parser::calculate_dynamic_length()
@@ -199,7 +262,32 @@ bool Parser::calculate_dynamic_length()
             }
         }
 
-        dynamic_total_len_ = active_header_.size() + data_length_offset_ + data_length_size_ + data_len + data_length_adjust_ + checksum_len_ + footer_.size();
+        const int64_t adjusted_payload = static_cast<int64_t>(data_len) + data_length_adjust_;
+        // Subtract each part from the cap before adding, avoiding overflow on
+        // 32-bit targets and rejecting frames that can never fit in the buffer.
+        uint64_t remaining = buffer_len_;
+        const uint64_t parts[] = {active_header_.size(), data_length_offset_, data_length_size_,
+                                  checksum_len_, footer_.size()};
+        if (adjusted_payload < 0)
+        {
+            invalid_dynamic_length_ = true;
+            return false;
+        }
+        for (uint64_t part : parts)
+        {
+            if (part > remaining)
+            {
+                invalid_dynamic_length_ = true;
+                return false;
+            }
+            remaining -= part;
+        }
+        if (static_cast<uint64_t>(adjusted_payload) > remaining)
+        {
+            invalid_dynamic_length_ = true;
+            return false;
+        }
+        dynamic_total_len_ = buffer_len_ - remaining + static_cast<size_t>(adjusted_payload);
     }
 
     return true;
@@ -246,7 +334,7 @@ void Parser::set_buffer_len(size_t len)
     buffer_.reserve(len + 1);
 }
 
-void Parser::set_data_length(uint8_t offset, uint8_t length, bool big_endian, int8_t adjust)
+void Parser::set_data_length(uint8_t offset, uint8_t length, bool big_endian, int16_t adjust)
 {
     has_data_length_ = true;
     data_length_offset_ = offset;

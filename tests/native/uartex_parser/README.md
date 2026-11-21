@@ -49,3 +49,12 @@ g++ -std=c++17 -Wall -Wextra -Werror `
 | Parser 연동 | `compute_checksum`으로 만든 패킷이 `verify_checksum` 통과 |
 
 CI: `.github/workflows/uartex-parser-tests.yml` (`components/uartex`, `tests/components/uartex`, `tests/native/uartex_parser` 변경 시에만 트리거되는 별도 워크플로 — 관련 없는 PR에는 체크 자체가 나타나지 않음).
+
+The native suite also compiles the UARTEx receive path against minimal ESPHome
+stubs. It checks dynamic-length completion and validation, including misleading
+checksum prefixes, footer and checksum failures, and the fixed-length and
+checksum-only paths. The stubs are only for host-side tests, not firmware.
+
+The automation test simulates delayed continuations capturing trigger arguments
+by value; the ESPHome build fixture separately compiles actual delay, condition,
+and repeat actions against the installed framework.

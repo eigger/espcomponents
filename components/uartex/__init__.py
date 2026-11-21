@@ -29,6 +29,7 @@ UARTExWriteAction = uartex_ns.class_('UARTExWriteAction', automation.Action)
 cmd_t = uartex_ns.class_('cmd_t')
 state_t = uartex_ns.class_('state_t')
 state_num_t = uartex_ns.class_('state_num_t')
+automation_data_owner_t = uartex_ns.class_('automation_data_owner_t')
 vector_uint8 = cg.std_vector.template(cg.uint8)
 uint16_const = cg.uint16.operator('const')
 uint8_const = cg.uint8.operator('const')
@@ -373,11 +374,11 @@ async def to_code(config):
 
     for conf in config.get(CONF_ON_WRITE, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
-        await automation.build_automation(trigger, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], conf)
+        await automation.build_automation(trigger, [(uint8_ptr_const, 'data'), (uint16_const, 'len'), (automation_data_owner_t, '_uartex_data_owner')], conf)
 
     for conf in config.get(CONF_ON_READ, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
-        await automation.build_automation(trigger, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], conf)
+        await automation.build_automation(trigger, [(uint8_ptr_const, 'data'), (uint16_const, 'len'), (automation_data_owner_t, '_uartex_data_owner')], conf)
 
     if CONF_RX_LENGTH in config:
         cg.add(var.set_rx_length(config[CONF_RX_LENGTH]))

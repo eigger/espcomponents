@@ -1,0 +1,7 @@
+substitutions:
+  target: esp8266-ard
+  rx_pin: GPIO5
+  tx_pin: GPIO4
+esp8266:
+  board: nodemcuv2
+<<: !include common_numeric.yaml

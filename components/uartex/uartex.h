@@ -28,10 +28,8 @@ struct tx_data_t
 {
     UARTExDevice* device{nullptr};
     const cmd_t* cmd{nullptr};
-    // Optional owner for ad-hoc commands built at runtime (write_command, the
-    // templated write action). Keeps the cmd_t alive from enqueue until the
-    // command is sent so `cmd` never dangles or gets overwritten in place.
-    std::shared_ptr<cmd_t> owned{};
+    // Own snapshots through queueing, transmission, and retries.
+    std::shared_ptr<const cmd_t> owned{};
 };
 
 struct header_t
@@ -45,7 +43,7 @@ struct rx_data_length_t
     uint8_t offset{0};
     uint8_t length{1};
     ENDIAN endian{ENDIAN_BIG};
-    int8_t adjust{0};
+    int16_t adjust{0};
 };
 
 struct rx_reply_t
@@ -97,11 +95,11 @@ public:
     void set_tx_retry_cnt(uint16_t tx_retry_cnt);
     void set_tx_command_queue_size(uint16_t size);
     void set_rx_length(uint16_t rx_length);
-    void set_rx_data_length(uint8_t offset, uint8_t length, ENDIAN endian, int8_t adjust);
+    void set_rx_data_length(uint8_t offset, uint8_t length, ENDIAN endian, int16_t adjust);
     void set_rx_timeout(uint16_t timeout);
     void set_tx_ctrl_pin(InternalGPIOPin *pin);
     void enqueue_tx_data(const tx_data_t data, bool low_priority = false);
-    void enqueue_tx_reply(const tx_data_t data);
+    bool enqueue_tx_reply(const tx_data_t data);
     void write_command(cmd_t cmd);
 protected:
     bool is_tx_cmd_pending();
@@ -153,6 +151,8 @@ protected:
     ERROR error_code_{ERROR_NONE};
     CallbackManager<void(const ERROR)> error_callback_{};
     std::queue<tx_data_t> tx_queue_{};
+    // Bound reply backlog independently of the deprecated command queue setting.
+    static constexpr size_t MAX_QUEUED_REPLIES = 10;
     std::queue<tx_data_t> tx_queue_reply_{};
     std::queue<tx_data_t> tx_queue_low_priority_{};
     tx_data_t current_tx_data_{nullptr, nullptr};

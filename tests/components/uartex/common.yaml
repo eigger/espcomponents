@@ -29,6 +29,21 @@ uartex:
   rx_checksum: add
   tx_checksum: add
 
+  on_read:
+    - delay: 1ms
+    - if:
+        condition:
+          lambda: 'return len > 0 && data[0] != 0;'
+        then:
+          - repeat:
+              count: 2
+              then:
+                - delay: 1ms
+                - lambda: 'if (len > 0) (void) data[0];'
+  on_write:
+    - delay: 1ms
+    - lambda: 'if (len > 0) (void) data[0];'
+
   version:
     disabled: False
   error:

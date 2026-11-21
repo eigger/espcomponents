@@ -61,6 +61,7 @@ void UARTExComponent::setup()
         this->rx_parser_.set_data_length(dl.offset, dl.length, dl.endian == ENDIAN_BIG, dl.adjust);
     }
     this->rx_parser_.set_buffer_len(this->parent_->get_rx_buffer_size());
+    this->rx_parser_.set_min_data_len(1);
     if (this->error_) this->error_->publish_state("None");
     if (this->version_) this->version_->publish_state(this->version_str_);
     ESP_LOGI(TAG, "Initaialize");
@@ -115,8 +116,13 @@ bool UARTExComponent::parse_bytes()
     uint8_t byte = 0x00;
     if (this->read_byte(&byte))
     {
-        if (this->rx_parser_.parse_byte(byte)) return true;
-        if (!this->rx_parser_.has_footer() && validate_data() == ERROR_NONE) return true;
+        if (this->rx_parser_.parse_byte(byte))
+        {
+            // A shorter header is tentative while an earlier longer one still
+            // matches. Commit only a frame that validates under that header.
+            if (!this->rx_parser_.header_provisional() || validate_data() == ERROR_NONE) return true;
+        }
+        if (!this->conf_rx_data_length_.has_value() && !this->rx_parser_.has_footer() && validate_data() == ERROR_NONE) return true;
         this->rx_timer_ = get_time();
     }
     return false;
@@ -130,11 +136,13 @@ void UARTExComponent::publish_to_devices()
     verify_ack();
     process_rx_reply();
     publish_data();
+    this->rx_time_ = get_time();
     if (!this->tx_queue_reply_.empty() && !is_tx_cmd_pending())
     {
-        write_tx_data();
+        // Use the normal bus-gap checks. With tx_delay == 0 this still sends
+        // the reply in the same loop as the received frame.
+        write_to_uart();
     }
-    this->rx_time_ = get_time();
 }
 
 bool UARTExComponent::verify_ack()
@@ -163,10 +171,12 @@ void UARTExComponent::process_rx_reply()
         {
             cmd = entry.command;
         }
-        if (cmd.data.empty()) break;
+        if (cmd.data.empty() || this->tx_queue_reply_.size() >= MAX_QUEUED_REPLIES) break;
         auto owned = std::make_shared<cmd_t>(std::move(cmd));
-        enqueue_tx_reply({nullptr, owned.get(), owned});
-        ESP_LOGD(TAG, "Rx reply: %s", to_hex_string(owned->data).c_str());
+        if (enqueue_tx_reply({nullptr, owned.get(), owned}))
+        {
+            ESP_LOGD(TAG, "Rx reply: %s", to_hex_string(owned->data).c_str());
+        }
         break;
     }
 }
@@ -190,11 +200,11 @@ void UARTExComponent::dequeue_tx_data_from_devices()
 {
     for (UARTExDevice* device : this->devices_)
     {
-        const cmd_t *cmd = device->dequeue_tx_cmd();
-        if (cmd != nullptr) enqueue_tx_data({device, cmd}, false);
+        auto cmd = device->dequeue_tx_cmd();
+        if (cmd != nullptr) enqueue_tx_data({device, cmd.get(), cmd}, false);
         
-        const cmd_t *cmd_low_priority = device->dequeue_tx_cmd_low_priority();
-        if (cmd_low_priority != nullptr) enqueue_tx_data({device, cmd_low_priority}, true);
+        auto cmd_low_priority = device->dequeue_tx_cmd_low_priority();
+        if (cmd_low_priority != nullptr) enqueue_tx_data({device, cmd_low_priority.get(), cmd_low_priority}, true);
     }
 }
 
@@ -292,9 +302,11 @@ void UARTExComponent::enqueue_tx_data(const tx_data_t data, bool low_priority)
     else this->tx_queue_.push(data);
 }
 
-void UARTExComponent::enqueue_tx_reply(const tx_data_t data)
+bool UARTExComponent::enqueue_tx_reply(const tx_data_t data)
 {
+    if (this->tx_queue_reply_.size() >= MAX_QUEUED_REPLIES) return false;
     this->tx_queue_reply_.push(data);
+    return true;
 }
 
 void UARTExComponent::write_command(cmd_t cmd)
@@ -341,7 +353,7 @@ void UARTExComponent::set_rx_length(uint16_t rx_length)
     this->conf_rx_length_ = rx_length;
 }
 
-void UARTExComponent::set_rx_data_length(uint8_t offset, uint8_t length, ENDIAN endian, int8_t adjust)
+void UARTExComponent::set_rx_data_length(uint8_t offset, uint8_t length, ENDIAN endian, int16_t adjust)
 {
     this->conf_rx_data_length_ = rx_data_length_t{offset, length, endian, adjust};
 }
@@ -391,6 +403,10 @@ ERROR UARTExComponent::validate_data()
     {
         return ERROR_SIZE;
     }
+    if (this->conf_rx_data_length_.has_value() && !this->rx_parser_.parse_length())
+    {
+        return ERROR_SIZE;
+    }
     if (!this->rx_headers_.empty() && this->rx_parser_.parse_header() == false)
     {
         return ERROR_HEADER;
@@ -403,7 +419,7 @@ ERROR UARTExComponent::validate_data()
     {
         return ERROR_CHECKSUM;
     }
-    if (!this->rx_footer_.has_value() && this->conf_rx_length_ == 0 && this->rx_checksum_ == CHECKSUM_NONE && this->rx_checksum_2_ == CHECKSUM_NONE)
+    if (!this->rx_footer_.has_value() && this->conf_rx_length_ == 0 && !this->conf_rx_data_length_.has_value() && this->rx_checksum_ == CHECKSUM_NONE && this->rx_checksum_2_ == CHECKSUM_NONE)
     {
         return ERROR_RX_TIMEOUT;
     }
