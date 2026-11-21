@@ -272,8 +272,9 @@ bool start_anim(void *var, lv_anim_exec_xcb_t exec, int32_t from, int32_t to, ui
 // `then`: when a transition finishes, its effect plays on the same target.  The anim's user_data carries the
 // TransitionDef (nullptr = nothing to play).
 void *then_of(const Opt &opt) {
-  return (opt.transition != nullptr && opt.transition->then != nullptr) ? const_cast<TransitionDef *>(opt.transition)
-                                                                        : nullptr;
+  return (opt.transition != nullptr && (opt.transition->then != nullptr || opt.transition->on_end != nullptr))
+             ? const_cast<TransitionDef *>(opt.transition)
+             : nullptr;
 }
 
 // ---- completion records ---------------------------------------------------------------------------------------------
@@ -323,16 +324,24 @@ static const TweenCompletion *find_completion(const void *data) {
   return nullptr;
 }
 
-// What an anim's user_data is: a TransitionDef (`then` only) or a completion record (the registry tells them apart).
+// A transition ends: `on_end` first, then `then`.  Shared by every path (animation completion, instant application,
+// completion records), so the two cannot diverge.
+void finish_transition(lv_obj_t *obj, TransitionRef transition) {
+  if (transition == nullptr) return;
+  if (transition->on_end != nullptr) transition->on_end(obj);
+  play_then(obj, transition->then);
+}
+
+// What an anim's user_data is: a TransitionDef (`on_end` and `then`) or a completion record (the registry tells them apart).
 static void run_then(lv_obj_t *obj, const void *data) {
   if (data == nullptr) return;
   if (const TweenCompletion *completion = find_completion(data)) {
-    if (completion->transition != nullptr) play_then(obj, completion->transition->then);
-    // `then` may have run user code (an on_start hook): read the (possibly disarmed) record again.
+    finish_transition(obj, completion->transition);
+    // `on_end` / `then` may have run user code (an on_start hook): read the (possibly disarmed) record again.
     if (completion->effect != nullptr && completion->target != nullptr) play(completion->target, completion->effect);
     return;
   }
-  play_then(obj, static_cast<TransitionRef>(data)->then);
+  finish_transition(obj, static_cast<TransitionRef>(data));
 }
 
 bool start_transition_anim(void *var, lv_anim_exec_xcb_t exec, int32_t from, int32_t to, const ResolvedTransition &t,

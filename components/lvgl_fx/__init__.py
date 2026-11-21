@@ -44,8 +44,9 @@ SetEnabledAction = lvgl_fx_ns.class_("SetEnabledAction", automation.Action)
 SetReducedMotionAction = lvgl_fx_ns.class_("SetReducedMotionAction", automation.Action)
 TransitionDef = lvgl_fx_ns.struct("TransitionDef")
 EffectDef = lvgl_fx_ns.struct("EffectDef")
-# `on_start:` hooks pass the target widget; in lambdas it is `x`.
+# `on_start:` / `on_end:` hooks pass the target widget; in lambdas it is `x`.
 OnStartTrigger = automation.Trigger.template(lv_obj_t.operator("ptr"))
+OnEndTrigger = automation.Trigger.template(lv_obj_t.operator("ptr"))
 
 CONF_MOTION = "motion"
 CONF_FAST = "fast"
@@ -97,6 +98,7 @@ CONF_DEFER_TIMEOUT = "defer_timeout"
 CONF_COOLDOWN = "cooldown"
 CONF_COOLDOWN_SCOPE = "cooldown_scope"
 CONF_ON_START = "on_start"
+CONF_ON_END = "on_end"
 CONF_POLICY = "policy"
 CONF_REPEAT = "repeat"
 CONF_REPEAT_DELAY = "repeat_delay"
@@ -383,6 +385,7 @@ DEFAULTS_SCHEMA = cv.Schema(_PROP_ENTRIES)
 _ON_START = automation.validate_automation(
     {cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(OnStartTrigger)}
 )
+_ON_END = automation.validate_automation({cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(OnEndTrigger)})
 
 
 def _custom_transition(value):
@@ -393,6 +396,7 @@ def _custom_transition(value):
             cv.Optional(CONF_THEN): _effect_ref,
             cv.Optional(CONF_POLICY): cv.one_of("normal", "always", lower=True),
             cv.Optional(CONF_ON_START): _ON_START,
+            cv.Optional(CONF_ON_END): _ON_END,
         }
     )(value)
     if not any(key in value for key in (*TRANSITION_PROPS, CONF_THEN)):
@@ -543,6 +547,7 @@ def _effect(value):
             cv.Optional(CONF_REPEAT): _repeat,
             cv.Optional(CONF_THEN): _effect_ref,
             cv.Optional(CONF_ON_START): _ON_START,
+            cv.Optional(CONF_ON_END): _ON_END,
             **_OPTIONS,
         }
     )(value)
@@ -561,6 +566,11 @@ def _effect(value):
         raise cv.Invalid(
             "'on_start' cannot be used with 'repeat: infinite': hooks are not supported on loops",
             [CONF_ON_START],
+        )
+    if value.get(CONF_REPEAT) == "infinite" and CONF_ON_END in value:
+        raise cv.Invalid(
+            "'on_end' cannot be used with 'repeat: infinite': a loop never ends, so nothing could follow it",
+            [CONF_ON_END],
         )
     return value
 
@@ -770,21 +780,30 @@ def _use_track(kind):
     cg.add_define(f"USE_LVGL_FX_{kind.upper()}")
 
 
-async def _on_start_to_code(id_, config):
-    """Emit a captureless function that fires the `on_start:` automation; return its name (None without a hook).
+async def _hook_to_code(id_, config, key):
+    """Emit a captureless function that fires the `on_start:` / `on_end:` automation `key`; return its name (None
+    without a hook).
 
     The Trigger is a global pointer, so the function needs no capture and fits the plain pointer in the const table.
-    `on_start:` is a list of automations like any ESPHome trigger; each gets its own Trigger, all fired in order."""
-    if CONF_ON_START not in config:
+    The hook is a list of automations like any ESPHome trigger; each gets its own Trigger, all fired in order."""
+    if key not in config:
         return None
     triggers = []
-    for conf in config[CONF_ON_START]:
+    for conf in config[key]:
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID])
         await automation.build_automation(trigger, [(lv_obj_t.operator("ptr"), "x")], conf)
         triggers.append(f"{conf[CONF_TRIGGER_ID]}->trigger(target);")
-    name = _ident(id_, "on_start")
+    name = _ident(id_, key)
     cg.add_global(RawStatement(f"static void {name}(lv_obj_t *target) {{ {' '.join(triggers)} }}"))
     return name
+
+
+async def _on_start_to_code(id_, config):
+    return await _hook_to_code(id_, config, CONF_ON_START)
+
+
+async def _on_end_to_code(id_, config):
+    return await _hook_to_code(id_, config, CONF_ON_END)
 
 
 async def _effect_to_code(effect):
@@ -806,6 +825,7 @@ async def _effect_to_code(effect):
         ("then", _get(effect, CONF_THEN, _then_cpp)),
         ("cooldown_scope", scope),
         ("on_start", await _on_start_to_code(id_, effect)),
+        ("on_end", await _on_end_to_code(id_, effect)),
     ]
     _declare(id_, EffectDef, _init(fields))
 
@@ -935,6 +955,7 @@ async def to_code(config):
             ("then", _get(transition, CONF_THEN, _then_cpp)),
             ("policy", _get(transition, CONF_POLICY, lambda v: _cpp("EffectPolicy", v))),
             ("on_start", await _on_start_to_code(id_, transition)),
+            ("on_end", await _on_end_to_code(id_, transition)),
         ]
         _declare(id_, TransitionDef, _init(fields))
 

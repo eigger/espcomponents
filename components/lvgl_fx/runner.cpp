@@ -177,7 +177,10 @@ void one_shot_done(lv_anim_t *anim) {
   auto *slot = static_cast<Slot *>(anim->var);
   const auto *def = static_cast<const EffectDef *>(slot->one_shot.def);
   end_one_shot(*slot);
-  if (def != nullptr) detail::play_then(slot->obj, def->then);
+  if (def == nullptr) return;
+  // The runner is consistent: the hook may play / stop on this widget.  Same moment as `then`, before it.
+  if (def->on_end != nullptr) def->on_end(slot->obj);
+  detail::play_then(slot->obj, def->then);
 }
 
 // Replaces whatever one-shot is running: the old offsets drop, the new one starts at time 0.
