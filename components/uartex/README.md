@@ -4,7 +4,7 @@
 
 A custom ESPHome component that extends UART communication to easily integrate various serial protocols with Home Assistant.
 
-[한국어 README](README.ko.md) · [AI 에이전트용 패킷 구성 지침 / Packet configuration guide](PACKET_GUIDE.ko.md) · [Wallpad presets](../../packages/wallpad) · [TCP forwarding](../tcp_server).
+[한국어 README](README.ko.md) · [Packet configuration guide for agents](PACKET_GUIDE.md) · [Wallpad presets](../../packages/wallpad) · [TCP forwarding](../tcp_server).
 
 ## Documentation baseline
 
@@ -496,11 +496,11 @@ binary_sensor:
       data: [0x00]
 ```
 
-| Option | Required | Description |
+| Option | Required by schema | Description |
 |--------|----------|-------------|
 | `state` | No | Base state filter |
-| `state_on` | **Yes** | ON state match |
-| `state_off` | **Yes** | OFF state match |
+| `state_on` | No | ON state match |
+| `state_off` | No | OFF state match |
 | `command_update` | No | Status request command |
 
 ---
@@ -521,9 +521,9 @@ button:
       data: [0x02, 0x03, 0x01]
 ```
 
-| Option | Required | Description |
+| Option | Required by schema | Description |
 |--------|----------|-------------|
-| `command_on` | **Yes** | Press command |
+| `command_on` | No | Press command |
 
 ---
 
@@ -555,12 +555,12 @@ switch:
       ack: [0x01, 0x10]
 ```
 
-| Option | Required | Description |
+| Option | Required by schema | Description |
 |--------|----------|-------------|
-| `state_on` | **Yes** | ON state match |
-| `state_off` | **Yes** | OFF state match |
-| `command_on` | **Yes** | ON command |
-| `command_off` | **Yes** | OFF command |
+| `state_on` | No | ON state match |
+| `state_off` | No | OFF state match |
+| `command_on` | No | ON command |
+| `command_off` | No | OFF command |
 
 ---
 
@@ -572,7 +572,7 @@ RX ON:       [0x02][0x01][0x01][0x01][0x80][chk][0x0D][0x0A]
 RX OFF:      [0x02][0x01][0x01][0x00][0x00][chk][0x0D][0x0A]
              |--header--|------data--------|    |footer|
 Offset:                    0     1     2
-                                      └─ brightness (0x80 = 128)
+                                      └─ brightness (0x80 ≈ 50%)
 ```
 
 ```yaml
@@ -583,24 +583,23 @@ light:
       data: [0x01, 0x01]
     state_off:
       data: [0x01, 0x00]
-    state_brightness:
-      offset: 2
-      length: 1
+    state_brightness: !lambda |-
+      return len > 2 ? data[2] * 100.0f / 255.0f : NAN;
     command_on:
       data: [0x01, 0x01]
     command_off:
       data: [0x01, 0x00]
     command_brightness: !lambda |-
-      return {{0x01, 0x02, (uint8_t)(x * 255)}, {0x01, 0x12}};
+      return {{0x01, 0x02, (uint8_t) lroundf(x * 255.0f / 100.0f)}, {0x01, 0x12}};
 ```
 
-| Option | Required | Description |
+| Option | Required by schema | Description |
 |--------|----------|-------------|
-| `state_on` | **Yes** | ON state match |
-| `state_off` | **Yes** | OFF state match |
-| `state_brightness` | No | Brightness state (0-1.0) |
-| `command_on` | **Yes** | ON command |
-| `command_off` | **Yes** | OFF command |
+| `state_on` | No | ON state match |
+| `state_off` | No | OFF state match |
+| `state_brightness` | No | Brightness in percent (0–100) |
+| `command_on` | No | ON command |
+| `command_off` | No | OFF command |
 | `command_brightness` | No | Brightness command: `cmd_t lambda(float x)` |
 
 ---
@@ -627,11 +626,11 @@ sensor:
       signed: true
 ```
 
-| Option | Required | Description |
+| Option | Required by schema | Description |
 |--------|----------|-------------|
 | `state` | No | Base state filter |
-| `state_number` | No | Numeric value parser |
-| `lambda` | No | Custom parser: `float lambda(uint8_t* data, uint16_t len)` |
+| `state_number` | One of the two | Numeric value parser |
+| `lambda` | One of the two | Custom parser: `float lambda(uint8_t* data, uint16_t len)` |
 
 ---
 
@@ -643,15 +642,16 @@ text_sensor:
     name: "Status"
     state: [0x02, 0x03]
     lambda: |-
+      if (len < 3) return "Unknown";
       if (data[2] == 0x01) return "Running";
       if (data[2] == 0x02) return "Idle";
       return "Unknown";
 ```
 
-| Option | Required | Description |
+| Option | Required by schema | Description |
 |--------|----------|-------------|
 | `state` | No | Base state filter |
-| `lambda` | No | Text parser: `std::string lambda(uint8_t* data, uint16_t len)` |
+| `lambda` | **Yes** | Text parser: `std::string lambda(uint8_t* data, uint16_t len)` |
 
 ---
 
@@ -670,7 +670,7 @@ number:
       return {{0x02, 0x01, (uint8_t)x}, {0x02, 0x11}};
 ```
 
-| Option | Required | Description |
+| Option | Required by schema | Description |
 |--------|----------|-------------|
 | `state_number` | No | Current value parser |
 | `command_number` | No | Set value: `cmd_t lambda(float x)` |
@@ -688,20 +688,21 @@ select:
       - "Manual"
       - "Off"
     state_select: !lambda |-
+      if (len < 3) return "";
       if (data[2] == 0x01) return "Auto";
       if (data[2] == 0x02) return "Manual";
-      return "Off";
+      return data[2] == 0 ? "Off" : "";
     command_select: !lambda |-
       if (str == "Auto") return {{0x02, 0x01}, {}};
       if (str == "Manual") return {{0x02, 0x02}, {}};
       return {{0x02, 0x00}, {}};
 ```
 
-| Option | Required | Description |
+| Option | Required by schema | Description |
 |--------|----------|-------------|
 | `options` | **Yes** | Available options |
 | `state_select` | No | State parser: `std::string lambda(...)` |
-| `command_select` | **Yes** | Selection command: `cmd_t lambda(std::string str)` |
+| `command_select` | No | Selection command: `cmd_t lambda(std::string str)` |
 
 ---
 
@@ -711,13 +712,14 @@ select:
 text:
   - platform: uartex
     name: "Message"
+    mode: text
     command_text: !lambda |-
       std::vector<uint8_t> cmd = {0x10};
       for (char c : str) cmd.push_back(c);
       return {cmd, {}};
 ```
 
-| Option | Required | Description |
+| Option | Required by schema | Description |
 |--------|----------|-------------|
 | `command_text` | **Yes** | Text command: `cmd_t lambda(std::string str)` |
 
@@ -747,6 +749,7 @@ Offset:               0     1     2
 climate:
   - platform: uartex
     name: "Thermostat"
+    id: thermostat
     visual:
       min_temperature: 16
       max_temperature: 30
@@ -762,7 +765,9 @@ climate:
     command_off:
       data: [0x03, 0x00]
     command_heat: !lambda |-
-      return {{0x03, 0x01, (uint8_t)id(thermostat).target_temperature}, {}};
+      float target = id(thermostat).use_command_target_temperature();
+      if (!(target >= 16 && target <= 30)) return {};
+      return {{0x03, 0x01, static_cast<uint8_t>(target)}};
     command_temperature: !lambda |-
       return {{0x03, 0x01, (uint8_t)x}, {}};
 ```
@@ -818,14 +823,14 @@ fan:
       return {{0x04, 0x01, (uint8_t)x}, {}};
 ```
 
-| Option | Required | Description |
+| Option | Required by schema | Description |
 |--------|----------|-------------|
-| `state_on` | **Yes** | ON state |
-| `state_off` | **Yes** | OFF state |
-| `state_speed` | No | Speed level (0-100) |
+| `state_on` | No | ON state |
+| `state_off` | No | OFF state |
+| `state_speed` | **Yes** | Speed level (1 through `speed_cnt` while running) |
 | `state_preset` | No | Preset parser |
-| `command_on` | **Yes** | ON command |
-| `command_off` | **Yes** | OFF command |
+| `command_on` | No | ON command |
+| `command_off` | No | OFF command |
 | `command_speed` | No | Speed command: `cmd_t lambda(float x)` |
 | `preset_modes` | No | Available presets list |
 
@@ -853,6 +858,7 @@ cover:
       data: [0x00]
     state_position:
       offset: 1
+      precision: 2
     command_open:
       data: [0x05, 0x01]
     command_close:
@@ -863,7 +869,7 @@ cover:
       return {{0x05, 0x03, (uint8_t)(x * 100)}, {}};
 ```
 
-| Option | Required | Description |
+| Option | Required by schema | Description |
 |--------|----------|-------------|
 | `state_open` | No | Open state |
 | `state_closed` | No | Closed state |
@@ -901,7 +907,7 @@ lock:
       data: [0x06, 0x00]
 ```
 
-| Option | Required | Description |
+| Option | Required by schema | Description |
 |--------|----------|-------------|
 | `state_locked` | No | Locked state |
 | `state_unlocked` | No | Unlocked state |
@@ -929,7 +935,7 @@ valve:
       data: [0x07, 0x00]
 ```
 
-| Option | Required | Description |
+| Option | Required by schema | Description |
 |--------|----------|-------------|
 | `state_open` | No | Open state |
 | `state_closed` | No | Closed state |
@@ -1020,12 +1026,13 @@ media_player:
       data: [0x00]
     state_volume:
       offset: 1
+      precision: 2
     command_play:
       data: [0x08, 0x01]
     command_pause:
       data: [0x08, 0x02]
     command_volume: !lambda |-
-      return {{0x08, 0x10, (uint8_t)(x * 100)}, {}};
+      return {{0x08, 0x10, (uint8_t) lroundf(x)}, {}};
 ```
 
 <details>
