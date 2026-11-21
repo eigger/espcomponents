@@ -9,7 +9,7 @@ uart:
 external_components:
   - source: github://eigger/espcomponents@latest
     components: [ uartex ]
-    refresh: always  
+    refresh: always
 
 uartex:
   id: uartex_id
@@ -77,7 +77,7 @@ binary_sensor:
     id: door_bell
     name: "Bell Private"
     icon: "mdi:bell-ring"
-    state: 
+    state:
       data: [0x30]
       mask: [0xF0]
     state_on:
@@ -101,7 +101,7 @@ binary_sensor:
     id: door_bell_common
     name: "Bell Public"
     icon: "mdi:bell-ring"
-    state: 
+    state:
       data: [0x30]
       mask: [0xF0]
     state_on:
@@ -131,7 +131,7 @@ button:
     id: door_call
     name: "Call Private"
     icon: "mdi:phone"
-    on_press: 
+    on_press:
       then:
         - globals.set:
             id: door_state
@@ -141,7 +141,7 @@ button:
     id: door_open
     name: "Open Private"
     icon: "mdi:door-sliding-open"
-    on_press: 
+    on_press:
       then:
         - globals.set:
             id: door_state
@@ -151,7 +151,7 @@ button:
     id: door_call_common
     name: "Call Public"
     icon: "mdi:phone"
-    on_press: 
+    on_press:
       then:
         - globals.set:
             id: door_state
@@ -161,7 +161,7 @@ button:
     id: door_open_common
     name: "Open Public"
     icon: "mdi:door-sliding-open"
-    on_press: 
+    on_press:
       then:
         - globals.set:
             id: door_state
@@ -177,7 +177,7 @@ switch:
     on_turn_off:
       then:
         - script.stop: open_door_sequence_common
-        
+
   - platform: template
     id: auto_door_open
     name: "Auto Open Private"

@@ -9,7 +9,7 @@ uart:
 external_components:
   - source: github://eigger/espcomponents@latest
     components: [ uartex ]
-    refresh: always  
+    refresh: always
 
 uartex:
   rx_timeout: 10ms
@@ -56,7 +56,7 @@ button:
   - platform: uartex
     name: "Gas Valve Close"
     icon: "mdi:gas-burner"
-    command_on: 
+    command_on:
       data: [0xAB, 0x78, 0x00]
       ack: [0x78]
 
@@ -79,7 +79,7 @@ light:
     command_off:
       data: [0xAC, 0x7A, 0x01, 0x00]
       ack: [0x7A, 0x01, 0x00]
-      
+
   - platform: uartex
     name: "Light 2"
     state: [0x79, 0x31]
@@ -97,7 +97,7 @@ light:
     command_off:
       data: [0xAC, 0x7A, 0x02, 0x00]
       ack: [0x7A, 0x02, 0x00]
-      
+
   - platform: uartex
     name: "Light 3"
     state: [0x79, 0x31]
@@ -115,7 +115,7 @@ light:
     command_off:
       data: [0xAC, 0x7A, 0x03, 0x00]
       ack: [0x7A, 0x03, 0x00]
-      
+
   - platform: uartex
     name: "Light 4"
     state: [0x79, 0x24]
@@ -133,7 +133,7 @@ light:
     command_off:
       data: [0xAC, 0x7A, 0x04, 0x00]
       ack: [0x7A, 0x04, 0x00]
-      
+
   - platform: uartex
     name: "Light 5"
     state: [0x79, 0x24]
