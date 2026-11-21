@@ -116,7 +116,7 @@ bool UARTExComponent::parse_bytes()
     if (this->read_byte(&byte))
     {
         if (this->rx_parser_.parse_byte(byte)) return true;
-        if (!this->rx_parser_.has_footer() && validate_data() == ERROR_NONE) return true;
+        if (!this->conf_rx_data_length_.has_value() && !this->rx_parser_.has_footer() && validate_data() == ERROR_NONE) return true;
         this->rx_timer_ = get_time();
     }
     return false;
@@ -391,6 +391,10 @@ ERROR UARTExComponent::validate_data()
     {
         return ERROR_SIZE;
     }
+    if (this->conf_rx_data_length_.has_value() && !this->rx_parser_.parse_length())
+    {
+        return ERROR_SIZE;
+    }
     if (!this->rx_headers_.empty() && this->rx_parser_.parse_header() == false)
     {
         return ERROR_HEADER;
@@ -403,7 +407,7 @@ ERROR UARTExComponent::validate_data()
     {
         return ERROR_CHECKSUM;
     }
-    if (!this->rx_footer_.has_value() && this->conf_rx_length_ == 0 && this->rx_checksum_ == CHECKSUM_NONE && this->rx_checksum_2_ == CHECKSUM_NONE)
+    if (!this->rx_footer_.has_value() && this->conf_rx_length_ == 0 && !this->conf_rx_data_length_.has_value() && this->rx_checksum_ == CHECKSUM_NONE && this->rx_checksum_2_ == CHECKSUM_NONE)
     {
         return ERROR_RX_TIMEOUT;
     }

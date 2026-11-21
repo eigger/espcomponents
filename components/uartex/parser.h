@@ -53,4 +53,5 @@ private:
     bool data_length_big_endian_{true};
     int8_t data_length_adjust_{0};
     size_t dynamic_total_len_{0};
+    bool invalid_dynamic_length_{false};
 };

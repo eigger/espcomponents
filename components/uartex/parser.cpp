@@ -72,16 +72,19 @@ bool Parser::parse_byte(const unsigned char byte)
     if ((total_len_ > 0 && buffer_.size() > total_len_) || buffer_.size() > buffer_len_)
     {
         buffer_.erase(buffer_.begin());
+        dynamic_total_len_ = 0;
+        invalid_dynamic_length_ = false;
     }
     if (parse_header() == false)
     {
-        buffer_.clear();
-        matched_header_index_ = -1;
-        active_header_.clear();
+        clear();
         return false;
     }
     if (parse_footer() == true) return true;
     if (parse_length() == true) return true;
+    // A length outside the receive buffer can never form a valid frame.
+    // Discard it now so the next header can start a new frame.
+    if (invalid_dynamic_length_) clear();
     return false;
 }
 
@@ -106,6 +109,7 @@ void Parser::clear()
 {
     buffer_.clear();
     dynamic_total_len_ = 0;
+    invalid_dynamic_length_ = false;
     matched_header_index_ = -1;
     active_header_.clear();
 }
@@ -151,7 +155,7 @@ bool Parser::parse_footer()
     if (has_data_length_)
     {
         if (!calculate_dynamic_length()) return false;
-        if (buffer_.size() < dynamic_total_len_) return false;
+        if (buffer_.size() != dynamic_total_len_) return false;
     }
 
     return std::equal(buffer_.end() - footer_.size(), buffer_.end(), footer_.begin());
@@ -159,6 +163,14 @@ bool Parser::parse_footer()
 
 bool Parser::parse_length()
 {
+    // A dynamic length defines the frame boundary even when a footer or a
+    // checksum is present. Validation of those fields happens at that boundary.
+    if (has_data_length_)
+    {
+        if (!calculate_dynamic_length()) return false;
+        return buffer_.size() == dynamic_total_len_;
+    }
+
     if (total_len_ > 0)
     {
         if (footer_.size() > 0) return false;
@@ -166,12 +178,7 @@ bool Parser::parse_length()
         if (checksum_len_ > 0) return false;
         return true;
     }
-
-    if (!has_data_length_) return false;
-    if (!calculate_dynamic_length()) return false;
-    if (buffer_.size() < dynamic_total_len_) return false;
-
-    return true;
+    return false;
 }
 
 bool Parser::calculate_dynamic_length()
@@ -199,7 +206,32 @@ bool Parser::calculate_dynamic_length()
             }
         }
 
-        dynamic_total_len_ = active_header_.size() + data_length_offset_ + data_length_size_ + data_len + data_length_adjust_ + checksum_len_ + footer_.size();
+        const int64_t adjusted_payload = static_cast<int64_t>(data_len) + data_length_adjust_;
+        // Subtract each part from the cap before adding, avoiding overflow on
+        // 32-bit targets and rejecting frames that can never fit in the buffer.
+        uint64_t remaining = buffer_len_;
+        const uint64_t parts[] = {active_header_.size(), data_length_offset_, data_length_size_,
+                                  checksum_len_, footer_.size()};
+        if (adjusted_payload < 0)
+        {
+            invalid_dynamic_length_ = true;
+            return false;
+        }
+        for (uint64_t part : parts)
+        {
+            if (part > remaining)
+            {
+                invalid_dynamic_length_ = true;
+                return false;
+            }
+            remaining -= part;
+        }
+        if (static_cast<uint64_t>(adjusted_payload) > remaining)
+        {
+            invalid_dynamic_length_ = true;
+            return false;
+        }
+        dynamic_total_len_ = buffer_len_ - remaining + static_cast<size_t>(adjusted_payload);
     }
 
     return true;

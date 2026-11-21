@@ -155,6 +155,84 @@ void test_dynamic_data_length_little_endian()
     require(parser.buffer().size() == 7, "dynamic length LE: total size");
 }
 
+void test_dynamic_length_boundaries()
+{
+    for (bool footer : {false, true})
+    {
+        for (bool checksum : {false, true})
+        {
+            Parser parser;
+            parser.add_header_candidate({0xAA});
+            if (footer) parser.add_footer(0x0D);
+            if (checksum) parser.set_checksum_len(1);
+            parser.set_data_length(0, 1, true, 0);
+            require(!feed(parser, {0xAA, 0x02, 0x0D}), "dynamic boundary: embedded footer does not complete");
+            require(!parser.parse_length(), "dynamic boundary: incomplete frame has not reached length");
+            bool complete = parser.parse_byte(0x11);
+            if (checksum)
+            {
+                require(!complete, "dynamic boundary: waits for checksum");
+                complete = parser.parse_byte(0x20);
+            }
+            if (footer)
+            {
+                require(!complete, "dynamic boundary: waits for footer");
+                complete = parser.parse_byte(0x0D);
+                require(parser.parse_footer(), "dynamic boundary: footer matches at boundary");
+            }
+            require(complete && parser.parse_length(), "dynamic boundary: completes at exact length");
+            if (checksum)
+            {
+                require(parser.verify_checksum({0x20}), "dynamic boundary: checksum accepted");
+                require(!parser.verify_checksum({0x21}), "dynamic boundary: invalid checksum rejected");
+            }
+            parser.parse_byte(0xFF);
+            require(!parser.parse_length(), "dynamic boundary: oversized frame rejected");
+            if (footer) require(!parser.parse_footer(), "dynamic boundary: oversized footer rejected");
+        }
+    }
+
+    Parser invalid_footer;
+    invalid_footer.set_data_length(0, 1, true, 0);
+    invalid_footer.add_footer(0x0D);
+    require(feed(invalid_footer, {0x01, 0x33, 0xFF}), "dynamic boundary: invalid footer completes for validation");
+    require(!invalid_footer.parse_footer(), "dynamic boundary: invalid footer rejected");
+}
+
+void test_dynamic_length_bounds_and_recovery()
+{
+    Parser huge;
+    huge.add_header_candidate({0xA0});
+    huge.set_buffer_len(16);
+    huge.set_data_length(0, 4, true, 1);
+    require(!feed(huge, {0xA0, 0xFF, 0xFF, 0xFF, 0xFF}), "dynamic bounds: 32-bit overflow rejected");
+    require(!huge.available(), "dynamic bounds: oversized frame discarded");
+    require(feed(huge, {0xA0, 0, 0, 0, 1, 0x11, 0x22}), "dynamic bounds: valid header recovers after oversized frame");
+
+    Parser negative;
+    negative.add_header_candidate({0xA1});
+    negative.set_data_length(0, 1, true, -2);
+    require(!feed(negative, {0xA1, 1}), "dynamic bounds: negative adjusted payload rejected");
+    require(!negative.available(), "dynamic bounds: negative frame discarded");
+    require(feed(negative, {0xA1, 2}), "dynamic bounds: zero adjusted payload accepted");
+
+    Parser cap;
+    cap.set_buffer_len(4);
+    cap.set_data_length(0, 1, true, 0);
+    require(feed(cap, {3, 0x11, 0x22, 0x33}), "dynamic bounds: exact buffer capacity accepted");
+    cap.clear();
+    require(!feed(cap, {4}), "dynamic bounds: above buffer capacity rejected");
+    require(!cap.available(), "dynamic bounds: above capacity discarded");
+
+    Parser shifted;
+    shifted.add_header_candidate({0xA2});
+    shifted.set_total_len(3);
+    shifted.set_buffer_len(8);
+    shifted.set_data_length(0, 1, true, 0);
+    require(!feed(shifted, {0xA2, 2, 0x11, 0x22}), "dynamic bounds: fixed cap discards incomplete frame");
+    require(feed(shifted, {0xA2, 1, 0x33}), "dynamic bounds: discarded frame does not retain cached length");
+}
+
 void test_no_footer_no_length_incomplete()
 {
     Parser parser;
@@ -205,6 +283,8 @@ int main()
     test_fixed_length_with_footer();
     test_dynamic_data_length_big_endian();
     test_dynamic_data_length_little_endian();
+    test_dynamic_length_boundaries();
+    test_dynamic_length_bounds_and_recovery();
     test_no_footer_no_length_incomplete();
     test_apply_mask();
     test_clear_resets_state();
