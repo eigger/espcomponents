@@ -1871,7 +1871,7 @@ external_components:
     components:
       - voice_kit
     refresh: 0s
-  - source: github://eigger/espcomponents
+  - source: github://eigger/espcomponents@latest
     components: [ sip_client ]
     refresh: always
 

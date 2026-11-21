@@ -1,7 +1,7 @@
 esphome:
   name: "${name}"
   friendly_name: "${friendly_name}"
-  
+
 # Enable logging
 logger:
   level: WARN
@@ -20,36 +20,18 @@ wifi:
   fast_connect: true
   power_save_mode: none
 
-  # Enable fallback hotspot (captive portal) in case wifi connection fails
-#  ap:
-#    ssid: "${name} Fallback"
-#    password: !secret wifi_password
-
-#captive_portal:
-
 text_sensor:
-#  - platform: version
-#    name: "${name} Version"
   - platform: wifi_info
     ip_address:
       name: "IP"
       id: device_ip_address
       icon: mdi:ip-outline
-#    mac_address:
-#      name: "${name} MAC"
-#      icon: mdi:ethernet
-#    ssid:
-#      name: "${name} SSID"
-#      icon: mdi:wifi-lock
-#    bssid:
-#      name: "${name} BSSID"
-#      icon: mdi:router-wireless
 
 time:
   - platform: sntp
     id: sntp_time
     timezone: Asia/Seoul
-    servers: 
+    servers:
       - 0.pool.ntp.org
       - 1.pool.ntp.org
       - 2.pool.ntp.org
@@ -60,7 +42,7 @@ sensor:
     id: device_uptime
     type: timestamp
     device_class: timestamp
-    
+
   - platform: wifi_signal
     name: "WiFi signal"
     icon: mdi:wifi-arrow-up-down
@@ -87,17 +69,17 @@ sensor:
       if (dBm <= -100) return 0;
       if (dBm >= -50) return 100;
       return round(2 * (dBm + 100));
-      
+
 binary_sensor:
   - platform: status
     name: "Status"
     id: sensor_status
-    
+
 switch:
   - platform: restart
     name: "Restart"
     id: device_restart
-    
+
   - platform: safe_mode
     name: "Restart Safemode"
     id: device_restart_safemode

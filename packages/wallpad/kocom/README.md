@@ -166,9 +166,9 @@ packages:
 CI에 연결되기 전, 아래 **validate** 파일로 `esphome config` 검증을 할 수 있습니다.
 
 ```bash
-py -m esphome config packages/wallpad/kocom/validate_theart.yaml
-py -m esphome config packages/wallpad/kocom/validate_aircon_stub.yaml
-py -m esphome config packages/wallpad/kocom/validate_fan.yaml
+py -m esphome config tests/packages/wallpad/kocom/validate_theart.yaml
+py -m esphome config tests/packages/wallpad/kocom/validate_aircon_stub.yaml
+py -m esphome config tests/packages/wallpad/kocom/validate_fan.yaml
 ```
 
 | 파일 | 검증 대상 |

@@ -11,4 +11,4 @@ esp32:
 
 packages:
   theart: !include
-    file: kocom_theart.yaml
+    file: ../../../../packages/wallpad/kocom/kocom_theart.yaml

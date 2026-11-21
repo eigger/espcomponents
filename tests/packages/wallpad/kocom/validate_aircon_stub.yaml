@@ -6,6 +6,7 @@ esphome:
   devices:
     - id: device_livingroom
       name: "Livingroom"
+      relation: via
 
 esp32:
   board: m5stack-atom
@@ -29,7 +30,7 @@ uartex:
 
 packages:
   room: !include
-    file: fragments/room.yaml
+    file: ../../../../packages/wallpad/kocom/fragments/room.yaml
     vars:
       room_num: 0
       name_prefix: "Livingroom"

@@ -6,6 +6,7 @@ esphome:
   devices:
     - id: device_kitchen
       name: "Kitchen"
+      relation: via
 
 esp32:
   board: m5stack-atom
@@ -36,7 +37,7 @@ uartex:
 
 packages:
   fan: !include
-    file: fragments/fan_package.yaml
+    file: ../../../../packages/wallpad/kocom/fragments/fan_package.yaml
     vars:
       fan_name: "Navien Ventilator"
       device_id: device_kitchen
