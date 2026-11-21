@@ -156,11 +156,29 @@ def validate_rx_header(value):
         return [header_schema(value)]
     return [header_schema(value)]
 
-COMMAND_SCHEMA = cv.Schema({
+CONF_PRESERVE_STATE = "preserve_state"
+
+
+def validate_preserve_state_offset(value):
+    if isinstance(value, bool):
+        raise cv.Invalid("preserve_state offsets must be integers, not booleans")
+    return cv.int_range(min=0, max=65535)(value)
+
+
+def validate_preserve_state_offsets(config):
+    offsets = config.get(CONF_PRESERVE_STATE, [])
+    if len(offsets) != len(set(offsets)):
+        raise cv.Invalid("preserve_state offsets cannot contain duplicates")
+    if any(offset >= len(config[CONF_DATA]) for offset in offsets):
+        raise cv.Invalid("preserve_state offset exceeds command data")
+    return config
+
+COMMAND_SCHEMA = cv.All(cv.Schema({
     cv.Required(CONF_DATA): validate_hex_data,
     cv.Optional(CONF_ACK, default=[]): validate_hex_data,
-    cv.Optional(CONF_MASK, default=[]): validate_hex_data
-})
+    cv.Optional(CONF_MASK, default=[]): validate_hex_data,
+    cv.Optional(CONF_PRESERVE_STATE, default=[]): cv.Schema([validate_preserve_state_offset]),
+}), validate_preserve_state_offsets)
 
 def shorthand_command_hex(value):
     value = validate_hex_data(value)
@@ -181,9 +199,14 @@ RX_DATA_LENGTH_SCHEMA = cv.Schema({
 def rx_data_length_schema(value):
     return RX_DATA_LENGTH_SCHEMA(value)
 
+def reject_reply_copy(config):
+    if config.get(CONF_PRESERVE_STATE):
+        raise cv.Invalid("preserve_state requires an entity command")
+    return config
+
 RX_REPLY_SCHEMA = cv.Schema({
     cv.Required(CONF_STATE): state_schema,
-    cv.Required(CONF_COMMAND): cv.templatable(command_hex_schema),
+    cv.Required(CONF_COMMAND): cv.templatable(lambda value: reject_reply_copy(command_hex_schema(value))),
 })
 
 # UARTEx Schema
@@ -475,6 +498,20 @@ async def to_code(config):
     if CONF_RX_PRIORITY in config:
         cg.add(var.set_rx_priority(config[CONF_RX_PRIORITY]))
 
+def reject_update_copy(config):
+    if config.get(CONF_PRESERVE_STATE):
+        raise cv.Invalid("preserve_state is not supported for command_update")
+    return config
+
+
+def _validate_entity_preserve_state(config):
+    for key, value in config.items():
+        if key.startswith("command_") and isinstance(value, dict) and value.get(CONF_PRESERVE_STATE):
+            if CONF_STATE not in config:
+                raise cv.Invalid("preserve_state requires an entity state filter", [key, CONF_PRESERVE_STATE])
+    return config
+
+
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
 UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_UARTEX_ID): uartex_declare_type,
@@ -483,10 +520,10 @@ UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.Optional(CONF_STATE_OFF): state_schema,
     cv.Optional(CONF_COMMAND_ON): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
-    cv.Optional(CONF_COMMAND_UPDATE): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_UPDATE): cv.templatable(lambda value: reject_update_copy(command_hex_schema(value))),
     cv.Optional(CONF_STATE_RESPONSE): state_schema,
     cv.Optional(CONF_OPTIMISTIC, default=False): cv.boolean,
-}).extend(cv.polling_component_schema('60s'))
+}).extend(cv.polling_component_schema('60s')).add_extra(_validate_entity_preserve_state)
 
 STATE_NUM_SCHEMA = cv.Schema({
     cv.Required(CONF_OFFSET): cv.int_range(min=0, max=128),
@@ -585,7 +622,8 @@ def command_hex_expression(conf):
     data = conf[CONF_DATA]
     ack = conf[CONF_ACK]
     mask = conf[CONF_MASK]
-    return cmd_t(data, ack, mask)
+    offsets = conf.get(CONF_PRESERVE_STATE, [])
+    return cmd_t(data, ack, mask, offsets)
 
 async def command_expression(conf):
     if cg.is_template(conf):

@@ -54,7 +54,25 @@ bool UARTExDevice::parse_data(const std::vector<uint8_t>& data)
     if (verify_state(data, get_state_on())) publish(true);
     publish(data);
     last_state_ = data;
+    preserve_state_ready_ = true;
     return true;
+}
+
+bool UARTExDevice::render_command(const cmd_t &input, cmd_t &output) const
+{
+    if (!input.preserve_state.empty() && (!preserve_state_ready_ || state_map_.find("state") == state_map_.end())) return false;
+    for (const auto offset : input.preserve_state)
+        if (offset >= last_state_.size() || offset >= input.data.size()) return false;
+    output = input;
+    for (const auto offset : input.preserve_state)
+        output.data[offset] = last_state_[offset];
+    return true;
+}
+
+void UARTExDevice::invalidate_matching_state(const std::vector<uint8_t> &data)
+{
+    auto state = state_map_.find("state");
+    if (state != state_map_.end() && verify_state(data, &state->second)) preserve_state_ready_ = false;
 }
 
 std::vector<uint8_t> UARTExDevice::last_state()

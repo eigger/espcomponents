@@ -403,6 +403,32 @@ command:
 
 **Shorthand**: `command_on: [0x01, 0x02, 0x01]`
 
+An entity command can preserve other lights' last received state when changing
+one light in a whole-room command. In this shortened example, bytes 1, 2 and 3
+represent three lights. The command turns on the first light and keeps the
+second and third at their last received values:
+
+```yaml
+state: [0x10]
+command_on:
+  data: [0x30, 0xff, 0x00, 0x00]
+  ack: [0x40]
+  preserve_state: [2, 3]
+```
+
+Each offset identifies one byte at the same position in the RX and TX payloads.
+Offsets are zero-based and exclude UART headers, checksums, and footers. They
+must be unique and fit the command data. The entity must have a `state` filter.
+A command waits until an accepted payload contains every preserved byte; other
+ready commands and update polls can still transmit. After such a command is
+sent, entities whose `state` filters match the source frame wait for another
+matching RX payload before sending their next state-preserving command. If no
+new state arrives those commands remain queued. Retries reuse the first
+transmitted bytes and require another matching state frame afterward.
+`preserve_state` is available on entity commands, except `command_update`; it
+is not available for `rx_reply` or `uartex.write`. Lambda commands retain their
+existing behavior.
+
 #### Command Lambda Types
 
 Commands support lambda expressions for dynamic data. The lambda signature varies by command type:

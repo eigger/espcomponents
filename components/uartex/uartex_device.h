@@ -78,13 +78,15 @@ struct cmd_t
     std::vector<uint8_t> data;
     std::vector<uint8_t> ack;
     std::vector<uint8_t> mask;
+    std::vector<uint16_t> preserve_state;
 
     cmd_t() = default;
     cmd_t(
         std::initializer_list<uint8_t> data, 
         std::initializer_list<uint8_t> ack = {}, 
-        std::initializer_list<uint8_t> mask = {})
-    : data(data), ack(ack), mask(mask) {}
+        std::initializer_list<uint8_t> mask = {},
+        std::initializer_list<uint16_t> preserve_state = {})
+    : data(data), ack(ack), mask(mask), preserve_state(preserve_state) {}
     cmd_t(
         const std::vector<uint8_t>& data,
         const std::vector<uint8_t>& ack = {},
@@ -115,6 +117,8 @@ public:
     std::shared_ptr<const cmd_t> dequeue_tx_cmd();
     std::shared_ptr<const cmd_t> dequeue_tx_cmd_low_priority();
     bool parse_data(const std::vector<uint8_t>& data);
+    bool render_command(const cmd_t &input, cmd_t &output) const;
+    void invalidate_matching_state(const std::vector<uint8_t> &data);
     bool has_last_state() const { return !this->last_state_.empty(); }
     std::vector<uint8_t> last_state();
     uint8_t last_state(const uint16_t index);
@@ -154,6 +158,7 @@ protected:
     std::queue<std::shared_ptr<const cmd_t>> tx_cmd_queue_{};
     std::queue<std::shared_ptr<const cmd_t>> tx_cmd_queue_low_priority_{};
     std::vector<uint8_t> last_state_{};
+    bool preserve_state_ready_{false};
 };
 const char* find_mode(const std::vector<const char*>& modes, const std::string& target);
 template<typename KeyType, typename ValueType>

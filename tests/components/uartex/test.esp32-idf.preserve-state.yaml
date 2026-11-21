@@ -1,0 +1,23 @@
+external_components:
+  - source:
+      type: local
+      path: ../../../components
+    components: [uartex]
+esphome:
+  name: test-uartex-preserve-state
+esp32:
+  board: m5stack-atom
+uart:
+  baud_rate: 9600
+  tx_pin: GPIO19
+  rx_pin: GPIO22
+uartex:
+light:
+  - platform: uartex
+    name: Room light
+    state: [0x10]
+    command_on:
+      data: [0x30, 0xff, 0x00, 0x00, 0x00]
+      ack: [0x40]
+      preserve_state: [2, 4]
+    command_off: [0x30, 0x00, 0x00]
