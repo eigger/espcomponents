@@ -6,6 +6,8 @@ import esphome.config_validation as cv
 from esphome.components import uart, text_sensor
 from esphome.components.text_sensor import register_text_sensor
 from esphome import automation, pins, core
+import esphome.final_validate as fv
+from .packet_validation import validate_packets
 from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, CONF_TRIGGER_ID, \
     CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_OPTIMISTIC, CONF_ICON, CONF_ENTITY_CATEGORY, ICON_NEW_BOX
 from esphome.util import SimpleRegistry
@@ -276,6 +278,11 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
     }),
 }).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA), cv.has_at_most_one_key(CONF_RX_LENGTH, CONF_RX_DATA_LENGTH), cv.has_at_most_one_key(CONF_RX_CHECKSUM, CONF_RX_CHECKSUM_2), cv.has_at_most_one_key(CONF_TX_CHECKSUM, CONF_TX_CHECKSUM_2))
 
+def FINAL_VALIDATE_SCHEMA(config):
+    validate_packets(config, fv.full_config.get().get_config_for_path([]))
+    return config
+
+
 def _git(cwd, *args, timeout=5):
     result = subprocess.run(
         ["git", *args],
@@ -525,10 +532,14 @@ STATE_NUM_SCHEMA = cv.Schema({
     cv.Optional(CONF_SIGNED, default=True): cv.boolean,
     cv.Optional(CONF_ENDIAN, default="big"): validate_endian,
     cv.Optional(CONF_DECODE, default="none"): validate_decode,
+    cv.Optional(CONF_MASK, default=[]): validate_hex_data,
 })
 
 def state_num_schema(value):
-    return STATE_NUM_SCHEMA(value)
+    value = STATE_NUM_SCHEMA(value)
+    if len(value[CONF_MASK]) > value[CONF_LENGTH]:
+        raise cv.Invalid("Numeric mask cannot be longer than length")
+    return value
 
 HEX_SCHEMA_REGISTRY = SimpleRegistry()
 
@@ -593,7 +604,7 @@ def state_num_hex_expression(conf):
     signed = conf[CONF_SIGNED]
     endian = conf[CONF_ENDIAN]
     decode = conf[CONF_DECODE]
-    return state_num_t(offset, length, precision, signed, endian, decode)
+    return state_num_t(offset, length, precision, signed, endian, decode, conf[CONF_MASK])
 
 async def state_num_expression(conf):
     if cg.is_template(conf):

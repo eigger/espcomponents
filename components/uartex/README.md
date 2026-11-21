@@ -117,6 +117,13 @@ uartex:
 > - Use either `rx_length` or `rx_data_length`, not both.
 > - Use either `rx_checksum` or `rx_checksum2`, not both. Same applies to `tx_checksum` and `tx_checksum2`.
 
+ESPHome configuration validation warns about impossible masked header, entity
+state, and ACK values, and entity or `rx_reply` definitions that cannot fit the
+payload of a fixed-length receive frame. Numeric fields that would be truncated
+or missing also produce warnings. These warnings do not prevent configuration
+builds. Payload-size checks are skipped when the receive length is dynamic.
+Nested automation actions are not checked.
+
 #### Receive headers (`rx_header`)
 
 A single header can be a byte list, an ASCII string, or a mapping with `data`
@@ -331,7 +338,13 @@ state_number:
   signed: true       # Signed integer
   endian: big        # Byte order: big, little
   decode: none       # Decode: none, bcd, ascii
+  mask: [0x7F]       # Optional per-byte AND mask
 ```
+
+Mask bytes apply in received order starting at `offset`, before binary, BCD,
+or ASCII conversion. The mask may contain at most `length` bytes; omitted
+mask bytes default to `0xFF`. For signed binary, the masked most significant
+byte determines the sign, using the full configured byte width.
 
 Binary and BCD fields use all configured bytes (up to 16). Binary signed
 values use two's complement; BCD stops at the first byte with an invalid

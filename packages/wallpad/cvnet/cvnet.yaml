@@ -163,9 +163,11 @@ climate:
       data: [0x80]
       mask: [0x80]
     command_off: !lambda |-
+      if (!(id(heater_1).target_temperature >= 6 && id(heater_1).target_temperature <= 30)) return {};
       uint8_t target = id(heater_1).target_temperature;
       return {{0x20, 0x41, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x41, 0x91}};
     command_heat: !lambda |-
+      if (!(id(heater_1).target_temperature >= 6 && id(heater_1).target_temperature <= 30)) return {};
       uint8_t target = id(heater_1).target_temperature + 0x80;
       return {{0x20, 0x41, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x41, 0x91}};
     command_temperature: !lambda |-
@@ -194,9 +196,11 @@ climate:
       data: [0x80]
       mask: [0x80]
     command_off: !lambda |-
+      if (!(id(heater_2).target_temperature >= 6 && id(heater_2).target_temperature <= 30)) return {};
       uint8_t target = id(heater_2).target_temperature;
       return {{0x20, 0x42, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x42, 0x91}};
     command_heat: !lambda |-
+      if (!(id(heater_2).target_temperature >= 6 && id(heater_2).target_temperature <= 30)) return {};
       uint8_t target = id(heater_2).target_temperature + 0x80;
       return {{0x20, 0x42, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x42, 0x91}};
     command_temperature: !lambda |-
@@ -225,9 +229,11 @@ climate:
       data: [0x80]
       mask: [0x80]
     command_off: !lambda |-
+      if (!(id(heater_3).target_temperature >= 6 && id(heater_3).target_temperature <= 30)) return {};
       uint8_t target = id(heater_3).target_temperature;
       return {{0x20, 0x43, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x43, 0x91}};
     command_heat: !lambda |-
+      if (!(id(heater_3).target_temperature >= 6 && id(heater_3).target_temperature <= 30)) return {};
       uint8_t target = id(heater_3).target_temperature + 0x80;
       return {{0x20, 0x43, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x43, 0x91}};
     command_temperature: !lambda |-
@@ -256,10 +262,12 @@ climate:
       data: [0x80]
       mask: [0x80]
     command_off: !lambda |-
-      uint8_t target = id(heater_3).target_temperature;
+      if (!(id(heater_4).target_temperature >= 6 && id(heater_4).target_temperature <= 30)) return {};
+      uint8_t target = id(heater_4).target_temperature;
       return {{0x20, 0x44, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x44, 0x91}};
     command_heat: !lambda |-
-      uint8_t target = id(heater_3).target_temperature + 0x80;
+      if (!(id(heater_4).target_temperature >= 6 && id(heater_4).target_temperature <= 30)) return {};
+      uint8_t target = id(heater_4).target_temperature + 0x80;
       return {{0x20, 0x44, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x44, 0x91}};
     command_temperature: !lambda |-
       uint8_t target = x + 0x80;
@@ -279,9 +287,9 @@ sensor:
     state:
       data: [0x20, 0x01, 0xE1, 0x81]
     state_number:
-      offset: 11
-    filters:
-      - offset: -48
+      offset: 10
+      length: 2
+      decode: ascii
 
 # 0x20, 0x01, 0x81, 0x81, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 # 0x20, 0x01, 0xE1, 0x81, 0x02, 0x00, 0x00, 0x00, 0x00, 0x02, 0x31, 0x30
