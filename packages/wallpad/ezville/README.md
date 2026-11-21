@@ -1,13 +1,12 @@
 # 이지빌 월패드
 
-> [!WARNING]
-> **작성 중 · 실기기 검증 전**입니다. 조명 프레임 등은 YAML 주석을 참고하세요.
+조명 프레임 등 세부 패킷은 YAML 주석을 참고하세요.
 
 ## 파일
 
-| 파일 | 용도 | UART | 상태 |
-| --- | --- | --- | --- |
-| [`ezville.yaml`](ezville.yaml) | 월패드 | 9600 / 8N1 | 작성 중 · 실기기 검증 전 |
+| 파일 | 용도 | UART |
+| --- | --- | --- |
+| [`ezville.yaml`](ezville.yaml) | 월패드 | 9600 / 8N1 |
 
 ## 사용하기
 
@@ -27,3 +26,7 @@ packages:
 ## 참고
 
 - [KS X 4506 홈네트워크 프로토콜](https://standard.go.kr/KSCI/ksNotification/getKsNotificationView.do?ntfcManageNo=2016-00079&menuId=921&topMenuId=502)
+
+## 제보하기
+
+구성이 잘 동작했거나, 구성을 추가했거나, 오류가 발생했다면 [이슈](https://github.com/eigger/espcomponents/issues/new) 또는 [토론](https://github.com/eigger/espcomponents/discussions/new?category=q-a)으로 제보해 주세요. 제조사·단지(모델), 사용한 파일, 가능하면 수신 로그를 함께 적어 주세요.
