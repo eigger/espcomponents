@@ -216,7 +216,7 @@ CONFIG_SCHEMA = cv.All(cv.Schema({
             cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(ReadTrigger),
         }
     ),
-    cv.Optional(CONF_RX_LENGTH): cv.int_range(min=1, max=256),
+    cv.Optional(CONF_RX_LENGTH): cv.templatable(cv.int_range(min=1, max=256)),
     cv.Optional(CONF_RX_DATA_LENGTH): rx_data_length_schema,
     cv.Optional(CONF_TX_CTRL_PIN): pins.gpio_output_pin_schema,
     cv.Optional(CONF_RX_HEADER): validate_rx_header,
@@ -381,7 +381,10 @@ async def to_code(config):
         await automation.build_automation(trigger, [(uint8_ptr_const, 'data'), (uint16_const, 'len'), (automation_data_owner_t, '_uartex_data_owner')], conf)
 
     if CONF_RX_LENGTH in config:
-        cg.add(var.set_rx_length(config[CONF_RX_LENGTH]))
+        length = config[CONF_RX_LENGTH]
+        if cg.is_template(length):
+            length = await cg.templatable(length, [(uint8_ptr_const, 'data'), (uint16_const, 'len')], cg.int16)
+        cg.add(var.set_rx_length(length))
 
     if CONF_RX_DATA_LENGTH in config:
         conf = config[CONF_RX_DATA_LENGTH]

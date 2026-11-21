@@ -25,7 +25,9 @@ uartex:
   tx_delay: 0ms
   tx_timeout: 500ms
   tx_retry_cnt: 3
-  rx_length: 4
+  rx_length: !lambda |-
+    if (len < 2) return 0;
+    return data[0] == 'R' ? 5 : 4;
   rx_header:
     - "RX"
     - [0xA1]
