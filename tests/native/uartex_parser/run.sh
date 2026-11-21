@@ -22,3 +22,9 @@ g++ -std=c++17 -I"$ROOT/tests/native/uartex_parser/stubs" "${INC[@]}" \
   "$ROOT/tests/native/uartex_parser/test_component.cpp" \
   -o "${TMPDIR:-/tmp}/uartex_component_test"
 "${TMPDIR:-/tmp}/uartex_component_test"
+
+g++ -std=c++17 -I"$ROOT/tests/native/uartex_parser/stubs" "${INC[@]}" \
+  "$ROOT/components/uartex/uartex.cpp" "$ROOT/components/uartex/uartex_device.cpp" "${SRC[@]}" \
+  "$ROOT/tests/native/uartex_parser/test_automation.cpp" \
+  -o "${TMPDIR:-/tmp}/uartex_automation_test"
+"${TMPDIR:-/tmp}/uartex_automation_test"

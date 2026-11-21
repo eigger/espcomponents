@@ -233,6 +233,13 @@ as `v261119-3-gabc1234`. `unknown` means git was not available.
 
 #### Event Triggers
 
+In `on_read` and `on_write`, `data` points to `len` bytes for that event.
+The bytes remain valid through the automation's delayed and repeated actions.
+If a lambda stores `data` for use after that automation finishes, it must copy
+the bytes into its own storage. Direct C++ callbacks registered with
+`add_on_read_callback` or `add_on_write_callback` may use the pointer only
+during the callback and must copy it to retain the data.
+
 ```yaml
 uartex:
   on_read:

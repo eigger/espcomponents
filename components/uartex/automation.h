@@ -18,26 +18,30 @@ public:
     }
 };
 
-class WriteTrigger : public Trigger<const uint8_t*, const uint16_t>
+using automation_data_owner_t = std::shared_ptr<const std::vector<uint8_t>>;
+
+class WriteTrigger : public Trigger<const uint8_t*, const uint16_t, automation_data_owner_t>
 {
 public:
     explicit WriteTrigger(UARTExComponent *parent)
     {
         parent->add_on_write_callback([this](const uint8_t *data, const uint16_t len)
         {
-            this->trigger(data, len);
+            auto owner = std::make_shared<const std::vector<uint8_t>>(data, data + len);
+            this->trigger(owner->data(), len, owner);
         });
     }
 };
 
-class ReadTrigger : public Trigger<const uint8_t*, const uint16_t>
+class ReadTrigger : public Trigger<const uint8_t*, const uint16_t, automation_data_owner_t>
 {
 public:
     explicit ReadTrigger(UARTExComponent *parent)
     {
         parent->add_on_read_callback([this](const uint8_t *data, const uint16_t len)
         {
-            this->trigger(data, len);
+            auto owner = std::make_shared<const std::vector<uint8_t>>(data, data + len);
+            this->trigger(owner->data(), len, owner);
         });
     }
 };

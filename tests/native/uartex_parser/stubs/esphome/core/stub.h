@@ -16,7 +16,13 @@ struct EntityBase { struct Name {std::string str() const {return {};}}; Name get
 inline unsigned long millis() {return 0;} inline void delay(int) {}
 struct InternalGPIOPin {void setup() {} void digital_write(bool) {}};
 template<typename T> class CallbackManager;
-template<typename R,typename... A> class CallbackManager<R(A...)> {public: void add(std::function<R(A...)>&&) {} void call(A...) {}};
+template<typename R,typename... A> class CallbackManager<R(A...)> {
+ public:
+  void add(std::function<R(A...)> &&f) { callbacks_.push_back(std::move(f)); }
+  void call(A... args) { for (auto &f : callbacks_) f(args...); }
+ private:
+  std::vector<std::function<R(A...)>> callbacks_;
+};
 }
 #define VERSION_CODE(a,b,c) 1
 #define ESPHOME_VERSION_CODE 0
