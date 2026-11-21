@@ -653,11 +653,11 @@ climate:
     state_preset_away:
       offset: 6
       mask: [0x01]
-      data: [0x04]  # bit3=1 → 외출
+      data: [0x01]  # bit0=1 → 외출
     state_preset_none:
       offset: 6
       mask: [0x01]
-      data: [0x00]  # bit3=0 → 외출 아님
+      data: [0x00]  # bit0=0 → 외출 아님
     command_off:
       data: [0x36, 0x11, 0x43, 0x01, 0x00]
       ack: [0x36, 0x11, 0xc3]
@@ -665,7 +665,7 @@ climate:
       data: [0x36, 0x11, 0x43, 0x01, 0x01]
       ack: [0x36, 0x11, 0xc3]
     command_temperature: !lambda |-
-      uint8_t target = (uint8_t)x + (((uint8_t)(x * 10) % 10) > 0 ? 0x80 : 0x00);
+      uint8_t target = (uint8_t)x + ((x - (uint8_t)x >= 0.5f) ? 0x80 : 0x00);
       return {{0x36, 0x11, 0x44, 0x01, target},{0x36, 0x11, 0xc4}};
     command_preset_away: #Option (외출 켜기)
       data: [0x36, 0x11, 0x45, 0x01, 0x01]
@@ -709,7 +709,7 @@ climate:
       data: [0x36, 0x12, 0x43, 0x01, 0x01]
       ack: [0x36, 0x12, 0xc3]
     command_temperature: !lambda |-
-      uint8_t target = (uint8_t)x + (((uint8_t)(x * 10) % 10) > 0 ? 0x80 : 0x00);
+      uint8_t target = (uint8_t)x + ((x - (uint8_t)x >= 0.5f) ? 0x80 : 0x00);
       return {{0x36, 0x12, 0x44, 0x01, target},{0x36, 0x12, 0xc4}};
     command_preset_away: #Option (외출 켜기)
       data: [0x36, 0x12, 0x45, 0x01, 0x01]
@@ -753,7 +753,7 @@ climate:
       data: [0x36, 0x13, 0x43, 0x01, 0x01]
       ack: [0x36, 0x13, 0xc3]
     command_temperature: !lambda |-
-      uint8_t target = (uint8_t)x + (((uint8_t)(x * 10) % 10) > 0 ? 0x80 : 0x00);
+      uint8_t target = (uint8_t)x + ((x - (uint8_t)x >= 0.5f) ? 0x80 : 0x00);
       return {{0x36, 0x13, 0x44, 0x01, target},{0x36, 0x13, 0xc4}};
     command_preset_away: #Option (외출 켜기)
       data: [0x36, 0x13, 0x45, 0x01, 0x01]
@@ -797,7 +797,7 @@ climate:
       data: [0x36, 0x14, 0x43, 0x01, 0x01]
       ack: [0x36, 0x14, 0xc3]
     command_temperature: !lambda |-
-      uint8_t target = (uint8_t)x + (((uint8_t)(x * 10) % 10) > 0 ? 0x80 : 0x00);
+      uint8_t target = (uint8_t)x + ((x - (uint8_t)x >= 0.5f) ? 0x80 : 0x00);
       return {{0x36, 0x14, 0x44, 0x01, target},{0x36, 0x14, 0xc4}};
     command_preset_away: #Option (외출 켜기)
       data: [0x36, 0x14, 0x45, 0x01, 0x01]
