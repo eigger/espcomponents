@@ -707,6 +707,13 @@ text:
 
 ### Climate
 
+If a mode command also encodes the target temperature, use
+`id(thermostat).use_command_target_temperature()` for that packet field.
+During a combined request it returns the requested temperature. Otherwise it
+returns the current target. Once the combined packet is queued, UARTEx updates
+the target and skips the separate temperature command. Devices with distinct
+mode and temperature packets continue to send both.
+
 **Packet Example**:
 ```
 RX OFF:  [0x02][0x01][0x00][0x18][0x16][chk][0x0D][0x0A]

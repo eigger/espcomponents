@@ -10,6 +10,14 @@ class UARTExClimate : public climate::Climate, public UARTExDevice
 {
 public:
     UARTExClimate() {}
+    // Use this value when the mode packet itself encodes the setpoint.
+    float use_command_target_temperature()
+    {
+        if (this->mode_target_ == nullptr || !this->mode_target_->requested.has_value())
+            return this->target_temperature;
+        this->mode_target_->used = true;
+        return *this->mode_target_->requested;
+    }
     void dump_config() override;
     void setup() override;
     void set_sensor(sensor::Sensor* sensor) { this->sensor_ = sensor; }
@@ -29,6 +37,11 @@ protected:
     climate::ClimateAction mode_to_action(climate::ClimateMode mode);
 protected:
     sensor::Sensor* sensor_{nullptr};
+    struct ModeTarget {
+        optional<float> requested;
+        bool used{false};
+    };
+    ModeTarget *mode_target_{nullptr};
 
     cmd_t* get_command_temperature(const float x) { return get_command("command_temperature", x); }
     cmd_t* get_command_humidity(const float x) { return get_command("command_humidity", x); }

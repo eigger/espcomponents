@@ -167,12 +167,14 @@ climate:
       data: [0x80]
       mask: [0x80]
     command_off: !lambda |-
-      if (!(id(heater_1).target_temperature >= 6 && id(heater_1).target_temperature <= 30)) return {};
-      uint8_t target = id(heater_1).target_temperature;
+      float setpoint = id(heater_1).use_command_target_temperature();
+      if (!(setpoint >= 6 && setpoint <= 30)) return {};
+      uint8_t target = static_cast<uint8_t>(setpoint);
       return {{0x20, 0x41, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x41, 0x91}};
     command_heat: !lambda |-
-      if (!(id(heater_1).target_temperature >= 6 && id(heater_1).target_temperature <= 30)) return {};
-      uint8_t target = id(heater_1).target_temperature + 0x80;
+      float setpoint = id(heater_1).use_command_target_temperature();
+      if (!(setpoint >= 6 && setpoint <= 30)) return {};
+      uint8_t target = static_cast<uint8_t>(setpoint) + 0x80;
       return {{0x20, 0x41, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x41, 0x91}};
     command_temperature: !lambda |-
       uint8_t target = (uint8_t)x | (id(heater_1).mode == climate::CLIMATE_MODE_HEAT ? 0x80 : 0x00);
@@ -201,12 +203,14 @@ climate:
       data: [0x80]
       mask: [0x80]
     command_off: !lambda |-
-      if (!(id(heater_2).target_temperature >= 6 && id(heater_2).target_temperature <= 30)) return {};
-      uint8_t target = id(heater_2).target_temperature;
+      float setpoint = id(heater_2).use_command_target_temperature();
+      if (!(setpoint >= 6 && setpoint <= 30)) return {};
+      uint8_t target = static_cast<uint8_t>(setpoint);
       return {{0x20, 0x42, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x42, 0x91}};
     command_heat: !lambda |-
-      if (!(id(heater_2).target_temperature >= 6 && id(heater_2).target_temperature <= 30)) return {};
-      uint8_t target = id(heater_2).target_temperature + 0x80;
+      float setpoint = id(heater_2).use_command_target_temperature();
+      if (!(setpoint >= 6 && setpoint <= 30)) return {};
+      uint8_t target = static_cast<uint8_t>(setpoint) + 0x80;
       return {{0x20, 0x42, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x42, 0x91}};
     command_temperature: !lambda |-
       uint8_t target = (uint8_t)x | (id(heater_2).mode == climate::CLIMATE_MODE_HEAT ? 0x80 : 0x00);
@@ -235,12 +239,14 @@ climate:
       data: [0x80]
       mask: [0x80]
     command_off: !lambda |-
-      if (!(id(heater_3).target_temperature >= 6 && id(heater_3).target_temperature <= 30)) return {};
-      uint8_t target = id(heater_3).target_temperature;
+      float setpoint = id(heater_3).use_command_target_temperature();
+      if (!(setpoint >= 6 && setpoint <= 30)) return {};
+      uint8_t target = static_cast<uint8_t>(setpoint);
       return {{0x20, 0x43, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x43, 0x91}};
     command_heat: !lambda |-
-      if (!(id(heater_3).target_temperature >= 6 && id(heater_3).target_temperature <= 30)) return {};
-      uint8_t target = id(heater_3).target_temperature + 0x80;
+      float setpoint = id(heater_3).use_command_target_temperature();
+      if (!(setpoint >= 6 && setpoint <= 30)) return {};
+      uint8_t target = static_cast<uint8_t>(setpoint) + 0x80;
       return {{0x20, 0x43, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x43, 0x91}};
     command_temperature: !lambda |-
       uint8_t target = (uint8_t)x | (id(heater_3).mode == climate::CLIMATE_MODE_HEAT ? 0x80 : 0x00);
@@ -269,12 +275,14 @@ climate:
       data: [0x80]
       mask: [0x80]
     command_off: !lambda |-
-      if (!(id(heater_4).target_temperature >= 6 && id(heater_4).target_temperature <= 30)) return {};
-      uint8_t target = id(heater_4).target_temperature;
+      float setpoint = id(heater_4).use_command_target_temperature();
+      if (!(setpoint >= 6 && setpoint <= 30)) return {};
+      uint8_t target = static_cast<uint8_t>(setpoint);
       return {{0x20, 0x44, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x44, 0x91}};
     command_heat: !lambda |-
-      if (!(id(heater_4).target_temperature >= 6 && id(heater_4).target_temperature <= 30)) return {};
-      uint8_t target = id(heater_4).target_temperature + 0x80;
+      float setpoint = id(heater_4).use_command_target_temperature();
+      if (!(setpoint >= 6 && setpoint <= 30)) return {};
+      uint8_t target = static_cast<uint8_t>(setpoint) + 0x80;
       return {{0x20, 0x44, 0x01, 0x11, target, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},{0x20, 0x01, 0x44, 0x91}};
     command_temperature: !lambda |-
       uint8_t target = (uint8_t)x | (id(heater_4).mode == climate::CLIMATE_MODE_HEAT ? 0x80 : 0x00);

@@ -152,11 +152,11 @@ climate:
       offset: 9
       data: [0x00]
     command_off: !lambda |-
-      float target = id(livingroom_heater).target_temperature;
+      float target = id(livingroom_heater).use_command_target_temperature();
       if (!(target >= 5 && target <= 30)) return {};
       return {{0x30, 0xbc, 0x00, 0x36, 0x00, 0x01, 0x00, 0x00, 0x01, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
     command_heat: !lambda |-
-      float target = id(livingroom_heater).target_temperature;
+      float target = id(livingroom_heater).use_command_target_temperature();
       if (!(target >= 5 && target <= 30)) return {};
       return {{0x30, 0xbc, 0x00, 0x36, 0x00, 0x01, 0x00, 0x00, 0x11, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
     command_preset_none: !lambda |-
@@ -208,11 +208,11 @@ climate:
       offset: 9
       data: [0x00]
     command_off: !lambda |-
-      float target = id(room_1_heater).target_temperature;
+      float target = id(room_1_heater).use_command_target_temperature();
       if (!(target >= 5 && target <= 30)) return {};
       return {{0x30, 0xbc, 0x00, 0x36, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
     command_heat: !lambda |-
-      float target = id(room_1_heater).target_temperature;
+      float target = id(room_1_heater).use_command_target_temperature();
       if (!(target >= 5 && target <= 30)) return {};
       return {{0x30, 0xbc, 0x00, 0x36, 0x01, 0x01, 0x00, 0x00, 0x11, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
     command_preset_none: !lambda |-
@@ -260,11 +260,11 @@ climate:
       offset: 9
       data: [0x00]
     command_off: !lambda |-
-      float target = id(room_2_heater).target_temperature;
+      float target = id(room_2_heater).use_command_target_temperature();
       if (!(target >= 5 && target <= 30)) return {};
       return {{0x30, 0xbc, 0x00, 0x36, 0x02, 0x01, 0x00, 0x00, 0x01, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
     command_heat: !lambda |-
-      float target = id(room_2_heater).target_temperature;
+      float target = id(room_2_heater).use_command_target_temperature();
       if (!(target >= 5 && target <= 30)) return {};
       return {{0x30, 0xbc, 0x00, 0x36, 0x02, 0x01, 0x00, 0x00, 0x11, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
     command_preset_none: !lambda |-
@@ -312,11 +312,11 @@ climate:
       offset: 9
       data: [0x00]
     command_off: !lambda |-
-      float target = id(room_3_heater).target_temperature;
+      float target = id(room_3_heater).use_command_target_temperature();
       if (!(target >= 5 && target <= 30)) return {};
       return {{0x30, 0xbc, 0x00, 0x36, 0x03, 0x01, 0x00, 0x00, 0x01, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
     command_heat: !lambda |-
-      float target = id(room_3_heater).target_temperature;
+      float target = id(room_3_heater).use_command_target_temperature();
       if (!(target >= 5 && target <= 30)) return {};
       return {{0x30, 0xbc, 0x00, 0x36, 0x03, 0x01, 0x00, 0x00, 0x11, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
     command_preset_none: !lambda |-
@@ -364,11 +364,11 @@ climate:
       offset: 9
       data: [0x00]
     command_off: !lambda |-
-      float target = id(room_4_heater).target_temperature;
+      float target = id(room_4_heater).use_command_target_temperature();
       if (!(target >= 5 && target <= 30)) return {};
       return {{0x30, 0xbc, 0x00, 0x36, 0x04, 0x01, 0x00, 0x00, 0x01, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
     command_heat: !lambda |-
-      float target = id(room_4_heater).target_temperature;
+      float target = id(room_4_heater).use_command_target_temperature();
       if (!(target >= 5 && target <= 30)) return {};
       return {{0x30, 0xbc, 0x00, 0x36, 0x04, 0x01, 0x00, 0x00, 0x11, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
     command_preset_none: !lambda |-
@@ -420,11 +420,11 @@ climate:
       offset: 9
       data: [0x00]
     command_off: !lambda |-
-      float target = id(room_5_heater).target_temperature;
+      float target = id(room_5_heater).use_command_target_temperature();
       if (!(target >= 5 && target <= 30)) return {};
       return {{0x30, 0xbc, 0x00, 0x36, 0x05, 0x01, 0x00, 0x00, 0x01, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
     command_heat: !lambda |-
-      float target = id(room_5_heater).target_temperature;
+      float target = id(room_5_heater).use_command_target_temperature();
       if (!(target >= 5 && target <= 30)) return {};
       return {{0x30, 0xbc, 0x00, 0x36, 0x05, 0x01, 0x00, 0x00, 0x11, 0x00, (uint8_t)target, 0x00, 0x00, 0x00, 0x00, 0x00},{0x30, 0xdc}};
     command_preset_none: !lambda |-

@@ -124,15 +124,32 @@ int main() {
  heater_1.control(heat);
  assert(heater_1.mode == climate::CLIMATE_MODE_HEAT && heater_1.target_temperature == 22);
  assert(heater_1.dequeue_tx_cmd()->data[4] == 0x96);
- assert(heater_1.dequeue_tx_cmd()->data[4] == 0x96);
+ assert(!heater_1.dequeue_tx_cmd());
  climate::ClimateCall target; target.target_temperature = 23;
  heater_1.control(target); assert(heater_1.dequeue_tx_cmd()->data[4] == 0x97);
  climate::ClimateCall off; off.mode = climate::CLIMATE_MODE_OFF; off.target_temperature = 24;
  heater_1.control(off); assert(heater_1.dequeue_tx_cmd()->data[4] == 24);
- assert(heater_1.dequeue_tx_cmd()->data[4] == 24);
+ assert(!heater_1.dequeue_tx_cmd());
  target.target_temperature = 25; heater_1.control(target);
  assert(heater_1.dequeue_tx_cmd()->data[4] == 25);
  assert(!heater_1.dequeue_tx_cmd());
+
+ // A mode packet with no temperature field must still send a separate command.
+ heater_1.set_command("command_heat", []() -> cmd_t { return {{0x11}}; });
+ heat.target_temperature = 27;
+ heater_1.control(heat);
+ assert(heater_1.dequeue_tx_cmd()->data == std::vector<uint8_t>{0x11});
+ assert(heater_1.dequeue_tx_cmd()->data[4] == 0x9b);
+ assert(heater_1.target_temperature == 27);
+ // Rejecting a mode packet must not publish its requested target.
+ Heater rejected; rejected.setup();
+ rejected.set_command("command_heat", [&]() -> cmd_t {
+   assert(rejected.use_command_target_temperature() == 27);
+   return {};
+ });
+ rejected.control(heat);
+ assert(std::isnan(rejected.target_temperature));
+ assert(!rejected.dequeue_tx_cmd());
 }
 """.replace('@HEAT@', body('heat')).replace('@OFF@', body('off')).replace('@TEMP@', body('temperature'))
         # Substitute markers without altering enum names.

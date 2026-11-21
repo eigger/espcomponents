@@ -406,17 +406,17 @@ void UARTExClimate::control(const climate::ClimateCall& call)
     if (call.get_mode().has_value() && this->mode != *call.get_mode())
     {
         climate::ClimateMode mode = *call.get_mode();
-        // Mode command lambdas may need the target supplied in the same call.
-        // Restore it afterwards so the temperature command is still evaluated.
-        const float previous_target = this->target_temperature;
-        if (call.get_target_temperature().has_value()) this->target_temperature = *call.get_target_temperature();
+        ModeTarget target{call.get_target_temperature()};
+        auto *outer_target = this->mode_target_;
+        this->mode_target_ = &target;
         if (mode == climate::CLIMATE_MODE_OFF) changed = enqueue_tx_cmd(get_command_off());
         else if (mode == climate::CLIMATE_MODE_COOL) changed = enqueue_tx_cmd(get_command_cool());
         else if (mode == climate::CLIMATE_MODE_HEAT) changed = enqueue_tx_cmd(get_command_heat());
         else if (mode == climate::CLIMATE_MODE_FAN_ONLY) changed = enqueue_tx_cmd(get_command_fan_only());
         else if (mode == climate::CLIMATE_MODE_DRY) changed = enqueue_tx_cmd(get_command_dry());
         else if (mode == climate::CLIMATE_MODE_AUTO) changed = enqueue_tx_cmd(get_command_auto());
-        this->target_temperature = previous_target;
+        this->mode_target_ = outer_target;
+        if (changed && target.used) this->target_temperature = *target.requested;
         if (changed || this->optimistic_) 
         {
             this->mode = mode;

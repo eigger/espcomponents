@@ -39,7 +39,7 @@ class WallpadPackets(unittest.TestCase):
         text = package('cvnet/cvnet.yaml')
         for room in range(1, 5):
             block = text.split(f'    name: "Heater {room}"', 1)[1].split('  - platform:', 1)[0]
-            self.assertEqual(block.count(f'id(heater_{room}).target_temperature'), 6)
+            self.assertEqual(block.count(f'id(heater_{room}).use_command_target_temperature()'), 2)
             self.assertEqual(block.count('<= 30)) return {};'), 2)
         self.assertIn('offset: 10\n      length: 2\n      decode: ascii', text)
 
@@ -56,7 +56,7 @@ class WallpadPackets(unittest.TestCase):
     def test_kocom_heater_targets_checked_before_conversion(self):
         for name in ('kocom.yaml', 'kocom_thinks.yaml', 'fragments/heater.yaml'):
             text = package('kocom/' + name)
-            targets = re.findall(r'float target = (?:id\([^\n]+\)\.target_temperature|x);\n(\s+)([^\n]+)', text)
+            targets = re.findall(r'float target = (?:id\([^\n]+\)\.(?:target_temperature|use_command_target_temperature\(\))|x);\n(\s+)([^\n]+)', text)
             self.assertTrue(targets)
             for _, guard in targets:
                 self.assertEqual(guard, 'if (!(target >= 5 && target <= 30)) return {};')
