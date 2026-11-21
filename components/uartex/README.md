@@ -103,7 +103,7 @@ uartex:
 | `tx_retry_cnt` | int | `3` | Retry count on ACK failure (1-10) |
 | `tx_command_queue_size` | int | `10` | Deprecated, no effect (accepted for compatibility) |
 | `tx_ctrl_pin` | pin | - | RS485 direction control pin |
-| `rx_header` | bytes | - | Receive packet header |
+| `rx_header` | bytes, header schema, or list of headers | - | Receive packet header candidates (see below) |
 | `rx_footer` | bytes | - | Receive packet footer |
 | `tx_header` | bytes | - | Transmit packet header |
 | `tx_footer` | bytes | - | Transmit packet footer |
@@ -116,6 +116,26 @@ uartex:
 > **Note**: 
 > - Use either `rx_length` or `rx_data_length`, not both.
 > - Use either `rx_checksum` or `rx_checksum2`, not both. Same applies to `tx_checksum` and `tx_checksum2`.
+
+#### Receive headers (`rx_header`)
+
+A single header can be a byte list, an ASCII string, or a mapping with `data`
+and an optional bit `mask`. To accept multiple headers, provide a list of
+candidates using the same forms:
+
+```yaml
+uartex:
+  rx_header:
+    - [0xA0, 0x01]
+    - data: [0xB0, 0x00]
+      mask: [0xF0, 0xFF]
+    - data: "RX" # ASCII header
+```
+
+A flat list is interpreted as a single byte list. For multiple ASCII headers,
+use `data` mappings so the list is unambiguously a list of candidates. All
+candidates share the configured frame length, footer, and checksum rules.
+For overlapping headers, see the priority rules below.
 
 #### `rx_priority`: `data` vs `loop`
 
