@@ -107,13 +107,13 @@ button:
     id: id_door_open_common
     name: "Door Open Common"
     icon: "mdi:door-sliding-open"
-    command_on: 
+    command_on:
       data: [0x61, 0x00, 0x00]
   - platform: uartex
     id: id_door_open
     name: "Door Open"
     icon: "mdi:door-sliding-open"
-    command_on: 
+    command_on:
       data: [0xB4, 0x00, 0x00]
 
 switch:
@@ -121,9 +121,9 @@ switch:
     id: id_door_call_common
     name: "Door Call Common"
     icon: "mdi:phone"
-    command_on: 
+    command_on:
       data: [0x5F, 0x00, 0x00]
-    command_off: 
+    command_off:
       data: [0x60, 0x00, 0x00]
   - platform: template
     id: id_enable_auto_open_common
@@ -139,9 +139,9 @@ switch:
     id: id_door_call
     name: "Door Call"
     icon: "mdi:phone"
-    command_on: 
+    command_on:
       data: [0xB7, 0x00, 0x00]
-    command_off: 
+    command_off:
       data: [0xB8, 0x00, 0x00]
   - platform: template
     id: id_enable_auto_open

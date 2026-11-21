@@ -9,7 +9,7 @@ uart:
 external_components:
   - source: github://eigger/espcomponents@latest
     components: [ uartex ]
-    refresh: always  
+    refresh: always
 
 uartex:
   rx_timeout: 10ms
@@ -34,7 +34,7 @@ uartex:
 light:
   - platform: uartex
     name: "Room 0 Light 1"
-    state: 
+    state:
       data: [0x20, 0x01, 0x21]
     state_on:
       offset: 4
@@ -42,7 +42,7 @@ light:
     state_off:
       offset: 4
       data: [0x00]
-    command_on: 
+    command_on:
       data: [0x20, 0x21, 0x01, 0x11, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
       ack: [0x20, 0x01, 0x21, 0x9F]
     command_off:
@@ -51,7 +51,7 @@ light:
 
   - platform: uartex
     name: "Room 0 Light 2"
-    state: 
+    state:
       data: [0x20, 0x01, 0x21]
     state_on:
       offset: 5
@@ -59,7 +59,7 @@ light:
     state_off:
       offset: 5
       data: [0x00]
-    command_on: 
+    command_on:
       data: [0x20, 0x21, 0x01, 0x12, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
       ack: [0x20, 0x01, 0x21, 0x9F]
     command_off:
@@ -68,7 +68,7 @@ light:
 
   - platform: uartex
     name: "Room 0 Light 3"
-    state: 
+    state:
       data: [0x20, 0x01, 0x21]
     state_on:
       offset: 6
@@ -76,7 +76,7 @@ light:
     state_off:
       offset: 6
       data: [0x00]
-    command_on: 
+    command_on:
       data: [0x20, 0x21, 0x01, 0x13, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
       ack: [0x20, 0x01, 0x21, 0x9F]
     command_off:
@@ -85,7 +85,7 @@ light:
 
   - platform: uartex
     name: "Room 1 Light 1"
-    state: 
+    state:
       data: [0x20, 0x01, 0x22]
     state_on:
       offset: 4
@@ -93,7 +93,7 @@ light:
     state_off:
       offset: 4
       data: [0x00]
-    command_on: 
+    command_on:
       data: [0x20, 0x22, 0x01, 0x11, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
       ack: [0x20, 0x01, 0x22, 0x9F]
     command_off:
@@ -150,7 +150,7 @@ climate:
       temperature_step: 1 °C
     state:
       data: [0x20, 0x01, 0x4A]
-    state_temperature_current: 
+    state_temperature_current:
       offset: 5
     state_temperature_target: !lambda |-
       return ((uint8_t)data[4] & 0x7F);
@@ -181,7 +181,7 @@ climate:
       temperature_step: 1 °C
     state:
       data: [0x20, 0x01, 0x4A]
-    state_temperature_current: 
+    state_temperature_current:
       offset: 7
     state_temperature_target: !lambda |-
       return ((uint8_t)data[6] & 0x7F);
@@ -212,7 +212,7 @@ climate:
       temperature_step: 1 °C
     state:
       data: [0x20, 0x01, 0x4A]
-    state_temperature_current: 
+    state_temperature_current:
       offset: 9
     state_temperature_target: !lambda |-
       return ((uint8_t)data[8] & 0x7F);
@@ -243,7 +243,7 @@ climate:
       temperature_step: 1 °C
     state:
       data: [0x20, 0x01, 0x4A]
-    state_temperature_current: 
+    state_temperature_current:
       offset: 11
     state_temperature_target: !lambda |-
       return ((uint8_t)data[10] & 0x7F);
@@ -269,16 +269,16 @@ sensor:
   - platform: uartex
     name: "Elevator Floors"
     icon: "mdi:elevator"
-    state: 
+    state:
       data: [0x20, 0x01, 0x22, 0x81]
     state_number:
       offset: 4
   - platform: uartex
     name: "Elevator Current Floors"
     icon: "mdi:elevator"
-    state: 
+    state:
       data: [0x20, 0x01, 0xE1, 0x81]
-    state_number: 
+    state_number:
       offset: 11
     filters:
       - offset: -48
@@ -291,5 +291,5 @@ button:
   - platform: uartex
     name: "Elevator Call"
     icon: "mdi:elevator"
-    command_on: 
+    command_on:
       data: [0x20, 0x01, 0x81, 0x81, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]

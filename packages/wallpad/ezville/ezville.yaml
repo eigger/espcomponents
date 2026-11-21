@@ -9,7 +9,7 @@ uart:
 external_components:
   - source: github://eigger/espcomponents@latest
     components: [ uartex ]
-    refresh: always  
+    refresh: always
 
 uartex:
   rx_timeout: 10ms
@@ -201,7 +201,7 @@ sensor:
     state: [0x30, 0x03, 0x81] # 패킷 매칭
     accuracy_decimals: 2
     unit_of_measurement: "W" # 단위 추가
-    state_number: 
+    state_number:
       offset: 6
       length: 3
       precision: 2
@@ -571,7 +571,7 @@ switch:
     command_off:
       data: [0x39, 0x41, 0x41, 0x01, 0x10]
       ack: [0x39, 0x41, 0xC1]
-      
+
   - platform: uartex
     name: "outlet_4_2"
     id: outlet_4_2
