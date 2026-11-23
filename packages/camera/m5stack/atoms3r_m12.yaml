@@ -102,17 +102,6 @@ esp32_camera:
   pixel_format: JPEG
   jpeg_quality: 10
 
-binary_sensor:
-  - platform: gpio
-    id: atoms3r_m12_button
-    name: "Button"
-    pin:
-      number: GPIO41
-      mode: INPUT_PULLUP
-      inverted: true
-    filters:
-      - delayed_on_off: 20ms
-
 motion:
   - platform: bmi270
     id: atoms3r_m12_imu

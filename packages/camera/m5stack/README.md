@@ -23,11 +23,14 @@ packages:
 | Hardware | Home Assistant |
 | --- | --- |
 | OV3660 | JPEG camera at 640 × 480, with up to 10 fps during streaming and 0.1 fps while idle. |
-| User button (GPIO41) | Debounced binary sensor |
+| Side reset button | Wired to ESP_EN. A short press resets the ESP32. |
 | BMI270 | IMU temperature in Home Assistant. Acceleration and gyroscope axes are internal. |
 | BMM150 | Three internal compensated magnetic field axes in µT via the BMI270 auxiliary bus |
 | IR LED (GPIO47) | ESPHome action `transmit_ir_raw` for 38 kHz raw waveforms |
 | Green download LED | Wired to the separate power/download controller. ESPHome cannot switch it independently. |
+
+The GPIO41 `USER_BUT` net has a pull-up and no switch on the M12 schematic.
+The side switch drives `ESP_EN` directly, so it cannot report a button event to ESPHome.
 
 Use the internal axis sensors in ESPHome automations or lambdas. Their IDs are
 `atoms3r_m12_accel_{x,y,z}`, `atoms3r_m12_gyro_{x,y,z}`, and
