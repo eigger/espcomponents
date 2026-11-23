@@ -13,11 +13,11 @@ ESPHome configuration for a vehicle dashboard based on the M5Stack Core TAB5 (ES
 
 ### Fallout Theme
 <p align="center">
-  <img src="../../../docs/images/packages/display/colorado/dash_fallout.jpg" width="720" alt="Colorado Tab5 dashboard with the Fallout theme installed in the vehicle">
+  <img src="../../../docs/images/packages/display/colorado/dash_fallout_scan.png" width="720" alt="Full Fallout LVGL dashboard with a thin vehicle scan line and lit sensor markers">
 </p>
 
 <p align="center">
-  <img src="../../../docs/images/packages/display/colorado/dash_fallout_scan.png" width="720" alt="Fallout vehicle scan preview with a thin vertical scan line and two lit sensor markers">
+  <img src="../../../docs/images/packages/display/colorado/dash_fallout.gif" width="720" alt="Colorado Tab5 Fallout dashboard animation">
 </p>
 
 During a vehicle scan, a 3-pixel line sweeps across the diagram. Sensors with fresh readings briefly light up on the vehicle, and their result cells stay lit through scan completion. The preview uses sample readings.
