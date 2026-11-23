@@ -1,6 +1,7 @@
 # M5Stack AtomS3R-M12
 
-ESPHome package for the C126-M12 with the OV3660 camera. Use the shared
+ESPHome package for the C126-M12 with the OV3660 camera. Requires ESPHome 2026.11.0 or newer
+for built-in BMM150 support. Use the shared
 [device setup](../../README.md#common-device-setup) for Wi-Fi, API, OTA,
 and diagnostics.
 
@@ -23,8 +24,8 @@ packages:
 | --- | --- |
 | OV3660 | Camera at 2048 × 1536. Periodic idle captures are disabled, and streams are limited to 0.5 fps. |
 | User button (GPIO41) | Debounced binary sensor |
-| BMI270 | Three accelerometer axes, three gyroscope axes, and IMU temperature |
-| BMM150 | Three magnetic field axes via the BMI270 auxiliary bus |
+| BMI270 | Three accelerometer axes in g, three gyroscope axes in °/s, and IMU temperature |
+| BMM150 | Three compensated magnetic field axes in µT via the BMI270 auxiliary bus |
 | IR LED (GPIO47) | ESPHome action `transmit_ir_raw` for 38 kHz raw waveforms |
 | Green download LED | Wired to the separate power/download controller. ESPHome cannot switch it independently. |
 

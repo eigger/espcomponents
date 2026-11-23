@@ -1,4 +1,5 @@
 esphome:
+  min_version: 2026.11.0
   on_boot:
     # ESPHome sets up the I2C bus at priority 1000.
     - priority: 1200
@@ -66,11 +67,6 @@ esp32:
   framework:
     type: esp-idf
 
-external_components:
-  # M5Stack recommends this driver for the BMI270 auxiliary BMM150.
-  - source: github://DennisGaida/m5stack-atoms3r-components@a951dc9a204b023dbd6256e35276297623ef1eb6
-    components: [bmi270_bmm150]
-
 psram:
   mode: octal
   speed: 80MHz
@@ -116,32 +112,56 @@ binary_sensor:
     filters:
       - delayed_on_off: 20ms
 
-sensor:
-  - platform: bmi270_bmm150
+motion:
+  - platform: bmi270
+    id: atoms3r_m12_imu
     i2c_id: atoms3r_m12_imu_i2c
     address: 0x68
+    aux_device: BMM150
     update_interval: 5s
-    acceleration_x:
-      name: "Acceleration X"
-    acceleration_y:
-      name: "Acceleration Y"
-    acceleration_z:
-      name: "Acceleration Z"
-    gyroscope_x:
-      name: "Gyroscope X"
-    gyroscope_y:
-      name: "Gyroscope Y"
-    gyroscope_z:
-      name: "Gyroscope Z"
-    field_strength_x:
-      name: "Magnetic Field X"
-    field_strength_y:
-      name: "Magnetic Field Y"
-    field_strength_z:
-      name: "Magnetic Field Z"
-    temperature:
-      name: "IMU Temperature"
-      entity_category: diagnostic
+
+sensor:
+  - platform: motion
+    motion_id: atoms3r_m12_imu
+    type: acceleration_x
+    name: "Acceleration X"
+  - platform: motion
+    motion_id: atoms3r_m12_imu
+    type: acceleration_y
+    name: "Acceleration Y"
+  - platform: motion
+    motion_id: atoms3r_m12_imu
+    type: acceleration_z
+    name: "Acceleration Z"
+  - platform: motion
+    motion_id: atoms3r_m12_imu
+    type: gyroscope_x
+    name: "Gyroscope X"
+  - platform: motion
+    motion_id: atoms3r_m12_imu
+    type: gyroscope_y
+    name: "Gyroscope Y"
+  - platform: motion
+    motion_id: atoms3r_m12_imu
+    type: gyroscope_z
+    name: "Gyroscope Z"
+  - platform: bmi270
+    bmi270_id: atoms3r_m12_imu
+    type: magnetic_field_x
+    name: "Magnetic Field X"
+  - platform: bmi270
+    bmi270_id: atoms3r_m12_imu
+    type: magnetic_field_y
+    name: "Magnetic Field Y"
+  - platform: bmi270
+    bmi270_id: atoms3r_m12_imu
+    type: magnetic_field_z
+    name: "Magnetic Field Z"
+  - platform: bmi270
+    bmi270_id: atoms3r_m12_imu
+    type: temperature
+    name: "IMU Temperature"
+    entity_category: diagnostic
 
 remote_transmitter:
   id: atoms3r_m12_ir
