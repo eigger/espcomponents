@@ -99,6 +99,7 @@ esp32_camera:
   resolution: 640x480
   max_framerate: 10 fps
   idle_framerate: 0.1 fps
+  pixel_format: JPEG
   jpeg_quality: 10
 
 binary_sensor:

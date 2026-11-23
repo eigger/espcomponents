@@ -22,7 +22,7 @@ packages:
 
 | Hardware | Home Assistant |
 | --- | --- |
-| OV3660 | Camera at 640 × 480, with up to 10 fps during streaming and 0.1 fps while idle. |
+| OV3660 | JPEG camera at 640 × 480, with up to 10 fps during streaming and 0.1 fps while idle. |
 | User button (GPIO41) | Debounced binary sensor |
 | BMI270 | IMU temperature in Home Assistant. Acceleration and gyroscope axes are internal. |
 | BMM150 | Three internal compensated magnetic field axes in µT via the BMI270 auxiliary bus |
