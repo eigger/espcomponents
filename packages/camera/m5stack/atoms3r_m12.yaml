@@ -125,38 +125,56 @@ sensor:
     motion_id: atoms3r_m12_imu
     type: acceleration_x
     name: "Acceleration X"
+    id: atoms3r_m12_accel_x
+    internal: true
   - platform: motion
     motion_id: atoms3r_m12_imu
     type: acceleration_y
     name: "Acceleration Y"
+    id: atoms3r_m12_accel_y
+    internal: true
   - platform: motion
     motion_id: atoms3r_m12_imu
     type: acceleration_z
     name: "Acceleration Z"
+    id: atoms3r_m12_accel_z
+    internal: true
   - platform: motion
     motion_id: atoms3r_m12_imu
     type: gyroscope_x
     name: "Gyroscope X"
+    id: atoms3r_m12_gyro_x
+    internal: true
   - platform: motion
     motion_id: atoms3r_m12_imu
     type: gyroscope_y
     name: "Gyroscope Y"
+    id: atoms3r_m12_gyro_y
+    internal: true
   - platform: motion
     motion_id: atoms3r_m12_imu
     type: gyroscope_z
     name: "Gyroscope Z"
+    id: atoms3r_m12_gyro_z
+    internal: true
   - platform: bmi270
     bmi270_id: atoms3r_m12_imu
     type: magnetic_field_x
     name: "Magnetic Field X"
+    id: atoms3r_m12_mag_x
+    internal: true
   - platform: bmi270
     bmi270_id: atoms3r_m12_imu
     type: magnetic_field_y
     name: "Magnetic Field Y"
+    id: atoms3r_m12_mag_y
+    internal: true
   - platform: bmi270
     bmi270_id: atoms3r_m12_imu
     type: magnetic_field_z
     name: "Magnetic Field Z"
+    id: atoms3r_m12_mag_z
+    internal: true
   - platform: bmi270
     bmi270_id: atoms3r_m12_imu
     type: temperature

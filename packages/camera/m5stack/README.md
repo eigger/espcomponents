@@ -24,10 +24,15 @@ packages:
 | --- | --- |
 | OV3660 | Camera at 640 × 480, with up to 10 fps during streaming and 0.1 fps while idle. |
 | User button (GPIO41) | Debounced binary sensor |
-| BMI270 | Three accelerometer axes in g, three gyroscope axes in °/s, and IMU temperature |
-| BMM150 | Three compensated magnetic field axes in µT via the BMI270 auxiliary bus |
+| BMI270 | IMU temperature in Home Assistant. Acceleration and gyroscope axes are internal. |
+| BMM150 | Three internal compensated magnetic field axes in µT via the BMI270 auxiliary bus |
 | IR LED (GPIO47) | ESPHome action `transmit_ir_raw` for 38 kHz raw waveforms |
 | Green download LED | Wired to the separate power/download controller. ESPHome cannot switch it independently. |
+
+Use the internal axis sensors in ESPHome automations or lambdas. Their IDs are
+`atoms3r_m12_accel_{x,y,z}`, `atoms3r_m12_gyro_{x,y,z}`, and
+`atoms3r_m12_mag_{x,y,z}`. For example, read X-axis acceleration in g with
+`id(atoms3r_m12_accel_x).state`. The nine axes are hidden from Home Assistant.
 
 Override camera settings in your device YAML to use full-resolution snapshots.
 
