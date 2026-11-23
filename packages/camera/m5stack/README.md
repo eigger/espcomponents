@@ -22,12 +22,21 @@ packages:
 
 | Hardware | Home Assistant |
 | --- | --- |
-| OV3660 | Camera at 2048 × 1536. Periodic idle captures are disabled, and streams are limited to 0.5 fps. |
+| OV3660 | Camera at 640 × 480, with up to 10 fps during streaming and 0.1 fps while idle. |
 | User button (GPIO41) | Debounced binary sensor |
 | BMI270 | Three accelerometer axes in g, three gyroscope axes in °/s, and IMU temperature |
 | BMM150 | Three compensated magnetic field axes in µT via the BMI270 auxiliary bus |
 | IR LED (GPIO47) | ESPHome action `transmit_ir_raw` for 38 kHz raw waveforms |
 | Green download LED | Wired to the separate power/download controller. ESPHome cannot switch it independently. |
+
+Override camera settings in your device YAML to use full-resolution snapshots.
+
+```yaml
+esp32_camera:
+  resolution: 2048x1536
+  max_framerate: 0.5 fps
+  idle_framerate: 0 fps
+```
 
 The IR action accepts a list named `timings`. Values are in microseconds.
 Positive values are carrier pulses and negative values are pauses. For example,

@@ -96,9 +96,9 @@ esp32_camera:
   vsync_pin: GPIO10
   href_pin: GPIO14
   pixel_clock_pin: GPIO40
-  resolution: 2048x1536
-  max_framerate: 0.5 fps
-  idle_framerate: 0 fps
+  resolution: 640x480
+  max_framerate: 10 fps
+  idle_framerate: 0.1 fps
   jpeg_quality: 10
 
 binary_sensor:
