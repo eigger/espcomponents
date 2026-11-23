@@ -9,6 +9,7 @@ follow its README for wiring and required substitutions.
 | Air conditioning / 에어컨 | [Samsung NASA](hvac/samsung) |
 | Vehicle dashboard | [Colorado / Tab5](display/colorado) |
 | SIP intercoms | [Voice PE](sip/voice_pe) · [Atom Echo](sip/atom_echo) |
+| Cameras | [M5Stack AtomS3R-M12](camera/m5stack) |
 | Bluetooth proxies | [Wi-Fi and Ethernet variants](bluetooth_proxy) |
 | Presence sensors | [Iotorero](presence/iotorero) |
 | Buttons | [Neimz](button/neimz) |
