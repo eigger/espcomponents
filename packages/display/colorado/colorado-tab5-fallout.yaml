@@ -18,7 +18,7 @@ substitutions:
       update_interval: 50ms
 
   tab5_color_shadow: 0x000000
-  number: "12가 1234"
+  number: "00가 0000"  # Example plate shown at boot.
   splash_title: "COLORADO"
   # Boot identity: badge, trim name and powertrain (ASCII; shown in Share Tech Mono).
   splash_trim_badge: "Z71"
@@ -3845,15 +3845,13 @@ lvgl:
                     - obj:
                         <<: *terminal_panel
                         id: obj_vehicle_scan_beam
-                        x: 94
+                        x: 138
                         y: 27
-                        width: 46
+                        width: 3
                         height: 222
                         hidden: true
-                        bg_opa: 13%
+                        bg_opa: 85%
                         bg_color: "${tab5_color_accent}"
-                        widgets:
-                          - obj: { <<: *terminal_panel, align: right_mid, width: 2, height: 222, bg_opa: 85%, bg_color: "${tab5_color_accent}" }
                     - label: { id: lbl_vehicle_scan_status, align: top_mid, y: 0, hidden: true, clickable: false, text: "[ SCANNING ]", text_font: font_terminal_boot, text_color: "${tab5_color_accent}" }
                     - obj:
                         <<: *terminal_panel
@@ -5527,11 +5525,11 @@ script:
     then:
       - lambda: |-
           auto *beam = id(obj_vehicle_scan_beam);
-          fx::set_x(beam, 94, {.instant = true});
+          fx::set_x(beam, 138, {.instant = true});
           lv_obj_set_hidden(beam, false);
           lv_label_set_text(id(lbl_vehicle_scan_status), "[ SCANNING ]");
           lv_obj_set_hidden(id(lbl_vehicle_scan_status), false);
-          fx::set_x(beam, 694, {.transition = id(fx_vehicle_scan_sweep)});
+          fx::set_x(beam, 738, {.transition = id(fx_vehicle_scan_sweep)});
 
   - id: script_vehicle_scan
     mode: single
@@ -5539,27 +5537,12 @@ script:
       - lambda: id(g_vehicle_scan_started_at) = std::max<uint32_t>(esphome::millis(), 1);
       - script.execute: script_start_vehicle_scan_sweep
       - script.execute: { id: script_vehicle_scan_markers, phase: 0 }
-      # Scale each stage from the original 1250 ms sweep to keep it aligned with the beam.
-      - delay: !lambda return ${vehicle_scan_sweep_ms}u * 170u / 1250u;
-      - lambda: |-
-          fx::play(id(widget_img_scan_coolant), id(fx_scan_pulse));
-          fx::play(id(widget_img_scan_engine), id(fx_scan_pulse));
-          fx::play(id(widget_img_scan_intake), id(fx_scan_pulse));
-      - delay: !lambda return ${vehicle_scan_sweep_ms}u * 280u / 1250u;
-      - lambda: |-
-          fx::play(id(widget_img_scan_transmission), id(fx_scan_pulse));
-          fx::play(id(widget_img_scan_battery), id(fx_scan_pulse));
-      - delay: !lambda return ${vehicle_scan_sweep_ms}u * 310u / 1250u;
+      # Reveal TPMS at the same point in the sweep as before.
+      - delay: !lambda return ${vehicle_scan_sweep_ms}u * 760u / 1250u;
       - lambda: |-
           id(g_vehicle_scan_tpms) = true;
           id(script_render_tpms).execute();
-          fx::play(id(widget_img_scan_cabin), id(fx_scan_pulse));
-          fx::play(id(widget_img_scan_cabin_windows), id(fx_scan_pulse));
-      - delay: !lambda return ${vehicle_scan_sweep_ms}u * 370u / 1250u;
-      - lambda: |-
-          fx::play(id(widget_img_scan_bed), id(fx_scan_pulse));
-          fx::play(id(widget_img_scan_fuel), id(fx_scan_pulse));
-      - delay: !lambda return ${vehicle_scan_sweep_ms}u * 120u / 1250u;
+      - delay: !lambda return ${vehicle_scan_sweep_ms}u - (${vehicle_scan_sweep_ms}u * 760u / 1250u);
       - script.execute: { id: script_vehicle_scan_markers, phase: 2 }
       - lambda: |-
           lv_obj_set_hidden(id(obj_vehicle_scan_beam), true);
@@ -5582,7 +5565,7 @@ script:
 
   - id: script_vehicle_scan_markers
     parameters:
-      phase: int  # 0: start, 1: sweep tick, 2: finish, 3: clear.
+      phase: int  # 0: start, 1: marker tick, 2: finish, 3: clear.
     then:
       - lambda: |-
           auto *overlay = id(obj_vehicle_scan_markers);
@@ -5619,7 +5602,7 @@ script:
             bool crossed = false;
             bool lit = false;
           } indicators[std::size(sensors)];
-          constexpr uint32_t glow_ms = 310;
+          constexpr uint32_t marker_duration_ms = 310;
           if (phase == 0) {
             const auto make_square = [&](int x, int y, int size, bool marker) {
               auto *obj = lv_obj_create(overlay);
@@ -5631,7 +5614,9 @@ script:
               lv_obj_set_size(obj, size, size);
               lv_obj_set_style_bg_color(obj, lv_color_hex(${tab5_color_accent}), LV_PART_MAIN);
               lv_obj_set_style_radius(obj, marker ? 2 : 0, LV_PART_MAIN);
-              if (!marker) {
+              if (marker) {
+                lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, LV_PART_MAIN);
+              } else {
                 lv_obj_set_style_border_width(obj, 1, LV_PART_MAIN);
                 lv_obj_set_style_border_color(obj, lv_color_hex(${tab5_color_text_muted}), LV_PART_MAIN);
               }
@@ -5652,31 +5637,24 @@ script:
 
           const uint32_t now = esphome::millis();
           // Read the animated style position directly, before the next LVGL layout pass.
-          const int beam_edge = lv_obj_get_style_x(id(obj_vehicle_scan_beam), LV_PART_MAIN) + 44;
+          const int beam_x = lv_obj_get_style_x(id(obj_vehicle_scan_beam), LV_PART_MAIN);
           const bool connected = id(obd_client).connected();
           for (size_t i = 0; i < std::size(sensors); ++i) {
             auto &item = indicators[i];
             const auto &source = sensors[i];
-            if (!item.crossed && (phase == 2 || source.x <= beam_edge)) {
+            if (!item.crossed && (phase == 2 || source.x <= beam_x)) {
               item.crossed = true;
               item.lit = (!source.requires_obd || connected) &&
                   std::isfinite(id(fn_sample_live)(source.mode, source.sensor->state, source.max_age));
               if (item.lit) {
                 item.lit_at = now;
                 if (item.cell) lv_obj_set_style_bg_opa(item.cell, LV_OPA_COVER, LV_PART_MAIN);
-                if (item.marker) {
-                  lv_obj_set_style_bg_opa(item.marker, LV_OPA_COVER, LV_PART_MAIN);
-                  lv_obj_set_hidden(item.marker, false);
-                }
+                if (item.marker) lv_obj_set_hidden(item.marker, false);
               }
             }
-            if (!item.lit || !item.marker) continue;
-            const uint32_t age = now - item.lit_at;
-            if (age >= glow_ms) {
-              lv_obj_set_hidden(item.marker, true);
+            if (item.lit && now - item.lit_at >= marker_duration_ms) {
+              if (item.marker) lv_obj_set_hidden(item.marker, true);
               item.lit = false;
-            } else {
-              lv_obj_set_style_bg_opa(item.marker, LV_OPA_COVER * (glow_ms - age) / glow_ms, LV_PART_MAIN);
             }
           }
 
@@ -7824,7 +7802,7 @@ packages:
     esphome:
       project:
         name: "local.esp-colorado-tab5"
-        version: "261123.2"
+        version: "261124.1"
     http_request:
       timeout: 60s
 
