@@ -388,6 +388,16 @@ struct HeadingChoice {
   Source source{Source::NONE};
 };
 
+inline float filter_stationary_heading(float heading, bool bypass, float deadband, float &held) {
+  if (bypass || deadband <= 0.0f || !std::isfinite(heading)) {
+    held = NAN;
+    return heading;
+  }
+  if (!std::isfinite(held) || std::abs(std::remainder(heading - held, 360.0f)) >= deadband)
+    held = heading;
+  return held;
+}
+
 // Live GPS course while moving, else the calibrated magnetic heading, else the heading from just before stopping.
 inline HeadingChoice select_heading(float live_gps, float magnetic, float stopped_gps) {
   if (std::isfinite(live_gps))

@@ -438,6 +438,18 @@ static void test_policy() {
   CHECK(learning_status(true, false, false, false, NAN, 18, false, false) == Status::CALIBRATED);
 }
 
+static void test_stationary_heading_deadband() {
+  float held = NAN;
+  CHECK_NEAR(filter_stationary_heading(359.8f, false, 1.0f, held), 359.8f, 0);
+  CHECK_NEAR(filter_stationary_heading(0.1f, false, 1.0f, held), 359.8f, 0);
+  CHECK_NEAR(filter_stationary_heading(1.0f, false, 1.0f, held), 1.0f, 0);
+  CHECK_NEAR(filter_stationary_heading(1.2f, true, 1.0f, held), 1.2f, 0);
+  CHECK_NEAR(filter_stationary_heading(1.4f, false, 1.0f, held), 1.4f, 0);
+  CHECK(std::isnan(filter_stationary_heading(NAN, false, 1.0f, held)));
+  CHECK_NEAR(filter_stationary_heading(2.0f, false, 1.0f, held), 2.0f, 0);
+  CHECK_NEAR(filter_stationary_heading(2.2f, false, 0.0f, held), 2.2f, 0);
+}
+
 static void test_save_heading_change() {
   Pose pose{};
   CHECK(compute_pose(0.0f, 0.0f, pose));
@@ -494,6 +506,7 @@ int main() {
       {"implausible field", test_heading_rejects_implausible_field},
       {"field filter", test_field_filter},
       {"source and status policy", test_policy},
+      {"stationary heading deadband", test_stationary_heading_deadband},
       {"save heading change", test_save_heading_change},
       {"number parsing", test_parse_number},
   };

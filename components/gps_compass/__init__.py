@@ -39,6 +39,8 @@ CONF_RIGHT_AXIS = "right_axis"
 CONF_PITCH_OFFSET = "pitch_offset"
 CONF_ROLL_OFFSET = "roll_offset"
 CONF_REVERSE = "reverse"
+CONF_VEHICLE_MOVING = "vehicle_moving"
+CONF_STATIONARY_HEADING_DEADBAND = "stationary_heading_deadband"
 CONF_MIN_LEARNING_SPEED = "min_learning_speed"
 CONF_MOVING_SPEED = "moving_speed"
 CONF_STOPPED_SPEED = "stopped_speed"
@@ -68,6 +70,7 @@ CONF_ON_CALIBRATED = "on_calibrated"
 
 _speed = cv.All(cv.float_with_unit("speed", "(km/h|kph)", optional_unit=True), cv.float_range(min=0.0, max=400.0))
 _level_angle = cv.All(cv.angle, cv.float_range(min=-90.0, max=90.0))
+_heading_delta = cv.All(cv.angle, cv.float_range(min=0.0, max=180.0))
 _time = cv.All(cv.positive_time_period_milliseconds, cv.Range(max=cv.TimePeriod(hours=1)))
 
 _AXIS = cv.one_of("X", "+X", "-X", "Y", "+Y", "-Y", "Z", "+Z", "-Z", upper=True)
@@ -110,6 +113,8 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_PITCH_OFFSET, default=0.0): _level_angle,
             cv.Optional(CONF_ROLL_OFFSET, default=0.0): _level_angle,
             cv.Optional(CONF_REVERSE, default=False): cv.templatable(cv.boolean),
+            cv.Optional(CONF_VEHICLE_MOVING, default=False): cv.templatable(cv.boolean),
+            cv.Optional(CONF_STATIONARY_HEADING_DEADBAND, default=0.0): _heading_delta,
             cv.Optional(CONF_MIN_LEARNING_SPEED, default=18.0): _speed,
             cv.Optional(CONF_MOVING_SPEED, default=8.0): _speed,
             cv.Optional(CONF_STOPPED_SPEED, default=3.0): _speed,
@@ -125,9 +130,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_MAX_SECTOR_GAP, default=3): cv.int_range(min=1, max=8),
             cv.Optional(CONF_MIN_NEW_SAMPLES, default=4): cv.int_range(min=0, max=40),
             cv.Optional(CONF_SAVE_ONCE_PER_BOOT, default=False): cv.boolean,
-            cv.Optional(CONF_MIN_SAVE_HEADING_CHANGE, default=0.5): cv.All(
-                cv.angle, cv.float_range(min=0.0, max=180.0)
-            ),
+            cv.Optional(CONF_MIN_SAVE_HEADING_CHANGE, default=0.5): _heading_delta,
             cv.Optional(CONF_HEADING): sensor.sensor_schema(
                 unit_of_measurement=UNIT_DEGREES,
                 icon="mdi:compass",
@@ -195,6 +198,9 @@ async def to_code(config):
     cg.add(var.set_initial_level(config[CONF_PITCH_OFFSET], config[CONF_ROLL_OFFSET]))
     if (reverse := config[CONF_REVERSE]) is not False:
         cg.add(var.set_reverse(await cg.templatable(reverse, [], bool)))
+    if (vehicle_moving := config[CONF_VEHICLE_MOVING]) is not False:
+        cg.add(var.set_vehicle_moving(await cg.templatable(vehicle_moving, [], bool)))
+    cg.add(var.set_stationary_heading_deadband(config[CONF_STATIONARY_HEADING_DEADBAND]))
     cg.add(var.set_min_learning_speed(config[CONF_MIN_LEARNING_SPEED]))
     cg.add(var.set_moving_speed(config[CONF_MOVING_SPEED]))
     cg.add(var.set_stopped_speed(config[CONF_STOPPED_SPEED]))

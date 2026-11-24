@@ -139,9 +139,11 @@ The smoothing (EMA 0.35), the reseed after a 1.5 s gap and the rejection of samp
 | `right_axis` | `+X` | Accelerometer axis along the vehicle's right side. Must differ from `forward_axis` |
 | `pitch_offset` / `roll_offset` | `0` | Initial level in degrees (raw reading that counts as level). A stored level (from `set_level` / `clear_level`) overrides it |
 | `reverse` | `false` | Templatable bool. While true, 180 degrees are added to the GPS heading and learning is paused |
+| `vehicle_moving` | `false` | Templatable bool for a supplemental movement signal such as OBD speed. A true value bypasses the stationary magnetic heading deadband. |
+| `stationary_heading_deadband` | `0°` | Hold magnetic heading while its circular change is below this angle. Zero disables the filter. Live GPS heading bypasses it. |
 | `min_learning_speed` | `18 km/h` | Observations are taken above this speed |
 | `moving_speed` | `8 km/h` | Above this the vehicle is "moving" (live GPS heading) |
-| `stopped_speed` | `3 km/h` | Below this it is "stopped" (last GPS heading is held) |
+| `stopped_speed` | `3 km/h` | GPS speed below this counts as stopped. A valid speed at or above this value bypasses the stationary heading deadband. |
 | `max_hdop` | `3.0` | Observations need `0 < HDOP <= max_hdop` |
 | `min_satellites` | `4` | Fix needs at least this many satellites |
 | `field_filter` | `0.35` | EMA factor of the magnetic heading input (1 = no smoothing) |

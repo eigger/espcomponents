@@ -199,6 +199,7 @@ void GpsCompass::set_level_offsets(optional<float> pitch, optional<float> roll) 
 
 void GpsCompass::level_changed_() {
   this->level_set_ = true;
+  this->held_magnetic_heading_ = NAN;
   this->apply_level_();
   ESP_LOGI(TAG, "Level: pitch %+.2f, roll %+.2f deg%s", this->pitch_offset_, this->roll_offset_,
            this->is_calibrated() ? "" : " (the saved fit does not match; learning again)");
@@ -231,6 +232,8 @@ void GpsCompass::process_(uint32_t now) {
   this->moving_ = this->fixed_ && this->speed_kmh_ >= this->moving_speed_ && this->course_ >= 0.0f &&
                   this->course_ < 360.0f;
   this->stopped_ = this->fixed_ && this->speed_kmh_ >= 0.0f && this->speed_kmh_ < this->stopped_speed_;
+  this->motion_detected_ = (this->fixed_ && this->speed_kmh_ >= this->stopped_speed_) ||
+                           (this->vehicle_moving_.has_value() && this->vehicle_moving_.value());
 
   // Live GPS heading while moving (reversing: the vehicle points 180 degrees away from its course).
   this->gps_heading_ = this->moving_ ? std::fmod(this->course_ + (this->reverse_active_ ? 180.0f : 0.0f), 360.0f) : NAN;
@@ -247,6 +250,9 @@ void GpsCompass::process_(uint32_t now) {
   this->magnetic_heading_ = NAN;
   if (this->field_fresh_ && this->pose_valid_ && this->is_calibrated())
     this->magnetic_heading_ = math::magnetic_heading(this->calibration_, this->field_.field, this->pose_);
+  this->magnetic_heading_ = math::filter_stationary_heading(
+      this->magnetic_heading_, this->motion_detected_ || std::isfinite(this->gps_heading_),
+      this->stationary_heading_deadband_, this->held_magnetic_heading_);
 
   const auto choice = math::select_heading(this->gps_heading_, this->magnetic_heading_, this->stopped_heading_);
   this->heading_ = choice.heading;

@@ -42,6 +42,8 @@ class GpsCompass : public Component, public gps::GPSListener {
   void set_right_axis(uint8_t axis, float sign) { this->right_axis_ = axis, this->right_sign_ = sign; }
   void set_initial_level(float pitch, float roll) { this->pitch_offset_ = pitch, this->roll_offset_ = roll; }
   void set_reverse(TemplatableFn<bool> reverse) { this->reverse_ = reverse; }
+  void set_vehicle_moving(TemplatableFn<bool> moving) { this->vehicle_moving_ = moving; }
+  void set_stationary_heading_deadband(float degrees) { this->stationary_heading_deadband_ = degrees; }
   void set_min_learning_speed(float v) { this->min_learning_speed_ = v; }
   void set_moving_speed(float v) { this->moving_speed_ = v; }
   void set_stopped_speed(float v) { this->stopped_speed_ = v; }
@@ -119,6 +121,8 @@ class GpsCompass : public Component, public gps::GPSListener {
   // ---- State (everything a status line or dial needs) ----
   bool has_fix() const { return this->fixed_; }
   bool is_moving() const { return this->moving_; }
+  /// GPS speed at or above stopped_speed or movement reported by vehicle_moving.
+  bool motion_detected() const { return this->motion_detected_; }
   bool is_stopped() const { return this->stopped_; }
   bool hdop_ok() const { return this->hdop_ok_; }
   bool is_reverse() const { return this->reverse_active_; }
@@ -178,7 +182,8 @@ class GpsCompass : public Component, public gps::GPSListener {
   const char *key_{"gps_compass"};
   uint8_t forward_axis_{1}, right_axis_{0};
   float forward_sign_{1.0f}, right_sign_{1.0f};
-  TemplatableFn<bool> reverse_{};
+  TemplatableFn<bool> reverse_{}, vehicle_moving_{};
+  float stationary_heading_deadband_{0.0f};
   float min_learning_speed_{18.0f}, moving_speed_{8.0f}, stopped_speed_{3.0f};
   float max_hdop_{3.0f};
   uint8_t min_satellites_{4};
@@ -196,6 +201,8 @@ class GpsCompass : public Component, public gps::GPSListener {
 
   // GPS-derived state
   bool fixed_{false}, hdop_ok_{false}, moving_{false}, stopped_{false}, reverse_active_{false}, field_fresh_{false};
+  bool motion_detected_{false};
+  float held_magnetic_heading_{NAN};
   float gps_heading_{NAN}, stopped_heading_{NAN}, last_heading_{NAN}, magnetic_heading_{NAN}, heading_{NAN};
   Source source_{Source::NONE};
   Status status_{Status::WAITING_FOR_FIX};
