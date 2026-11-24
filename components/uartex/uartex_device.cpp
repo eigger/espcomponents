@@ -18,6 +18,7 @@ void UARTExDevice::uartex_dump_config(const char* TAG)
     log_config(TAG, "State On", get_state_on());
     log_config(TAG, "State Off", get_state_off());
     log_config(TAG, "State Response", get_state_response());
+    if (this->state_debounce_ms_ > 0) { ESP_LOGCONFIG(TAG, "State Debounce: %ums", (unsigned) this->state_debounce_ms_); }
     log_config(TAG, "Command On", get_command_on());
     log_config(TAG, "Command Off", get_command_off());
     log_config(TAG, "Command Update", get_command_update());
@@ -50,17 +51,67 @@ bool UARTExDevice::parse_data(const std::vector<uint8_t>& data)
     if (verify_state(data, get_state_response())) this->rx_response_ = true;
     else this->rx_response_ = false;
     if (get_state() != nullptr && !verify_state(data, get_state())) return false;
+    if (this->state_debounce_ms_ == 0 || this->last_state_.empty())
+    {
+        // Debounce disabled, or the first state after boot: nothing to compare with.
+        apply_state_(data);
+        return true;
+    }
+    if (this->bypass_armed_ && static_cast<uint32_t>(millis() - this->bypass_since_) >= this->state_debounce_ms_)
+        this->bypass_armed_ = false;  // window expired without a confirmation
+    if (data == this->last_state_)
+    {
+        // Back to the applied state: the pending change was a glitch. Re-publish
+        // so an entity changed by control()/optimistic is corrected immediately.
+        this->pending_state_.clear();
+        apply_state_(data);
+        return true;
+    }
+    if (this->bypass_armed_)
+    {
+        // First change right after our own command: it is the confirmation, apply it now (one-shot).
+        this->bypass_armed_ = false;
+        this->pending_state_.clear();
+        apply_state_(data);
+        return true;
+    }
+    if (this->pending_state_.empty()) this->pending_since_ = millis();
+    this->pending_state_ = data;
+    return true;
+}
+
+void UARTExDevice::apply_state_(const std::vector<uint8_t>& data)
+{
     if (verify_state(data, get_state_off())) publish(false);
     if (verify_state(data, get_state_on())) publish(true);
     publish(data);
     last_state_ = data;
     preserve_state_ready_ = true;
-    return true;
+}
+
+void UARTExDevice::arm_state_bypass(uint32_t now)
+{
+    if (this->state_debounce_ms_ == 0) return;
+    this->bypass_armed_ = true;
+    this->bypass_since_ = now;
+}
+
+void UARTExDevice::flush_pending_state(uint32_t now)
+{
+    // Disarm an expired bypass here too, so it cannot reappear after millis() wraps.
+    if (this->bypass_armed_ && static_cast<uint32_t>(now - this->bypass_since_) >= this->state_debounce_ms_)
+        this->bypass_armed_ = false;
+    if (this->pending_state_.empty()) return;
+    if (static_cast<uint32_t>(now - this->pending_since_) < this->state_debounce_ms_) return;
+    std::vector<uint8_t> data = std::move(this->pending_state_);
+    this->pending_state_.clear();
+    apply_state_(data);
 }
 
 bool UARTExDevice::render_command(const cmd_t &input, cmd_t &output) const
 {
-    if (!input.preserve_state.empty() && (!preserve_state_ready_ || state_map_.find("state") == state_map_.end())) return false;
+    // While a debounced change is pending, last_state_ is stale: wait for it to settle.
+    if (!input.preserve_state.empty() && (!preserve_state_ready_ || !pending_state_.empty() || state_map_.find("state") == state_map_.end())) return false;
     for (const auto offset : input.preserve_state)
         if (offset >= last_state_.size() || offset >= input.data.size()) return false;
     output = input;

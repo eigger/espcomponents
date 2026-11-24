@@ -19,7 +19,7 @@ from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTE
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
     CONF_COMMAND_UPDATE, CONF_RX_TIMEOUT, CONF_TX_TIMEOUT, CONF_TX_RETRY_CNT, CONF_TX_COMMAND_QUEUE_SIZE, \
     CONF_STATE_RESPONSE, CONF_LENGTH, CONF_PRECISION, CONF_RX_LENGTH, CONF_RX_DATA_LENGTH, CONF_ADJUST, \
-    CONF_TX_CTRL_PIN, CONF_TX_DELAY, CONF_DISABLED, CONF_ASCII, CONF_SIGNED, CONF_ENDIAN, CONF_DECODE
+    CONF_TX_CTRL_PIN, CONF_TX_DELAY, CONF_DISABLED, CONF_ASCII, CONF_SIGNED, CONF_ENDIAN, CONF_DECODE, CONF_STATE_DEBOUNCE
 
 AUTO_LOAD = ["text_sensor"]
 CODEOWNERS = ["@eigger"]
@@ -512,6 +512,12 @@ def _validate_entity_preserve_state(config):
     return config
 
 
+def _validate_entity_state_debounce(config):
+    if config[CONF_STATE_DEBOUNCE].total_milliseconds > 0 and CONF_STATE not in config:
+        raise cv.Invalid("state_debounce requires an entity state filter", [CONF_STATE_DEBOUNCE])
+    return config
+
+
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
 UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_UARTEX_ID): uartex_declare_type,
@@ -523,7 +529,9 @@ UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.Optional(CONF_COMMAND_UPDATE): cv.templatable(lambda value: reject_update_copy(command_hex_schema(value))),
     cv.Optional(CONF_STATE_RESPONSE): state_schema,
     cv.Optional(CONF_OPTIMISTIC, default=False): cv.boolean,
-}).extend(cv.polling_component_schema('60s')).add_extra(_validate_entity_preserve_state)
+    cv.Optional(CONF_STATE_DEBOUNCE, default='0ms'): cv.All(
+        cv.positive_time_period_milliseconds, cv.Range(max=core.TimePeriod(seconds=60))),
+}).extend(cv.polling_component_schema('60s')).add_extra(_validate_entity_preserve_state).add_extra(_validate_entity_state_debounce)
 
 STATE_NUM_SCHEMA = cv.Schema({
     cv.Required(CONF_OFFSET): cv.int_range(min=0, max=128),
@@ -577,6 +585,9 @@ async def register_uartex_device(var, config):
     
     if CONF_OPTIMISTIC in config:
         cg.add(var.set_optimistic(config[CONF_OPTIMISTIC]))
+
+    if config[CONF_STATE_DEBOUNCE].total_milliseconds > 0:
+        cg.add(var.set_state_debounce(config[CONF_STATE_DEBOUNCE].total_milliseconds))
 
 def header_hex_expression(conf):
     if conf is None:
