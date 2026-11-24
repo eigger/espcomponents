@@ -6,11 +6,12 @@
 namespace esphome {
 namespace gps_compass {
 
-// on_calibrated: a fit was accepted.  `first` is true for the first one since boot / level change / reset.
-class CalibratedTrigger : public Trigger<bool, uint32_t> {
+// `first` refers to learning since boot / level change / reset; `saved` confirms flash sync for this fit.
+class CalibratedTrigger : public Trigger<bool, uint32_t, bool> {
  public:
   explicit CalibratedTrigger(GpsCompass *parent) {
-    parent->add_on_calibrated_callback([this](bool first, uint32_t samples) { this->trigger(first, samples); });
+    parent->add_on_calibrated_result_callback(
+        [this](bool first, uint32_t samples, bool saved) { this->trigger(first, samples, saved); });
   }
 };
 

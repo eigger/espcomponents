@@ -189,6 +189,7 @@ inline size_t course_sector(float course_deg) {
 struct Observation {
   Features features{};
   Vec3 field{};
+  Pose pose{};
   bool present{false};
 };
 
@@ -204,8 +205,8 @@ class ObservationGrid {
  public:
   void clear() { this->cells_ = {}; }
   void add(float course_deg, const Pose &pose, const Vec3 &raw_field) {
-    this->cells_[course_sector(course_deg)][slope_class(pose)] = {observation_features(pose, course_deg), raw_field,
-                                                                   true};
+    this->cells_[course_sector(course_deg)][slope_class(pose)] = {
+        observation_features(pose, course_deg), raw_field, pose, true};
   }
   const std::array<std::array<Observation, kSlopes>, kSectors> &cells() const { return this->cells_; }
 
@@ -232,6 +233,25 @@ class ObservationGrid {
  protected:
   std::array<std::array<Observation, kSlopes>, kSectors> cells_{};
 };
+
+// Compare both fits on the same field and pose observations so that the result is in heading degrees.
+inline bool calibration_changed(const Calibration &saved, const Calibration &candidate, const ObservationGrid &grid,
+                                float min_heading_change) {
+  if (!saved.usable_for(candidate.pitch_offset, candidate.roll_offset))
+    return true;
+  for (const auto &row : grid.cells()) {
+    for (const auto &sample : row) {
+      if (!sample.present)
+        continue;
+      const float next = magnetic_heading(candidate, sample.field, sample.pose);
+      const float previous = magnetic_heading(saved, sample.field, sample.pose);
+      if (std::isfinite(next) &&
+          (!std::isfinite(previous) || std::abs(std::remainder(next - previous, 360.0f)) >= min_heading_change))
+        return true;
+    }
+  }
+  return false;
+}
 
 struct FitRules {
   unsigned min_sectors{5};
@@ -367,6 +387,16 @@ struct HeadingChoice {
   float heading{NAN};
   Source source{Source::NONE};
 };
+
+inline float filter_stationary_heading(float heading, bool bypass, float deadband, float &held) {
+  if (bypass || deadband <= 0.0f || !std::isfinite(heading)) {
+    held = NAN;
+    return heading;
+  }
+  if (!std::isfinite(held) || std::abs(std::remainder(heading - held, 360.0f)) >= deadband)
+    held = heading;
+  return held;
+}
 
 // Live GPS course while moving, else the calibrated magnetic heading, else the heading from just before stopping.
 inline HeadingChoice select_heading(float live_gps, float magnetic, float stopped_gps) {

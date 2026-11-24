@@ -199,10 +199,11 @@ void GpsCompass::set_level_offsets(optional<float> pitch, optional<float> roll) 
 
 void GpsCompass::level_changed_() {
   this->level_set_ = true;
+  this->held_magnetic_heading_ = NAN;
   this->apply_level_();
   ESP_LOGI(TAG, "Level: pitch %+.2f, roll %+.2f deg%s", this->pitch_offset_, this->roll_offset_,
            this->is_calibrated() ? "" : " (the saved fit does not match; learning again)");
-  this->save_state_();
+  this->save_state_(this->stored_calibration_);
 }
 
 void GpsCompass::reset_calibration() {
@@ -211,7 +212,8 @@ void GpsCompass::reset_calibration() {
   this->stats_ = {};
   this->fitted_count_ = 0;
   this->done_ = false;
-  this->save_state_();
+  this->stored_calibration_ = {};
+  this->save_state_(this->stored_calibration_);
   ESP_LOGI(TAG, "Calibration reset");
 }
 
@@ -230,6 +232,8 @@ void GpsCompass::process_(uint32_t now) {
   this->moving_ = this->fixed_ && this->speed_kmh_ >= this->moving_speed_ && this->course_ >= 0.0f &&
                   this->course_ < 360.0f;
   this->stopped_ = this->fixed_ && this->speed_kmh_ >= 0.0f && this->speed_kmh_ < this->stopped_speed_;
+  this->motion_detected_ = (this->fixed_ && this->speed_kmh_ >= this->stopped_speed_) ||
+                           (this->vehicle_moving_.has_value() && this->vehicle_moving_.value());
 
   // Live GPS heading while moving (reversing: the vehicle points 180 degrees away from its course).
   this->gps_heading_ = this->moving_ ? std::fmod(this->course_ + (this->reverse_active_ ? 180.0f : 0.0f), 360.0f) : NAN;
@@ -246,6 +250,9 @@ void GpsCompass::process_(uint32_t now) {
   this->magnetic_heading_ = NAN;
   if (this->field_fresh_ && this->pose_valid_ && this->is_calibrated())
     this->magnetic_heading_ = math::magnetic_heading(this->calibration_, this->field_.field, this->pose_);
+  this->magnetic_heading_ = math::filter_stationary_heading(
+      this->magnetic_heading_, this->motion_detected_ || std::isfinite(this->gps_heading_),
+      this->stationary_heading_deadband_, this->held_magnetic_heading_);
 
   const auto choice = math::select_heading(this->gps_heading_, this->magnetic_heading_, this->stopped_heading_);
   this->heading_ = choice.heading;
@@ -281,10 +288,10 @@ void GpsCompass::learn_(uint32_t now, bool rmc_new, float course) {
     return;
   this->last_fit_ = now;
 
-  const bool has_saved_fit = this->is_calibrated();
+  const bool has_current_fit = this->is_calibrated();
   math::Calibration fit;
   const auto result = math::try_fit(this->grid_, this->rules_, this->fitted_count_,
-                                    has_saved_fit ? this->calibration_.samples : 0.0f, this->pitch_offset_,
+                                    has_current_fit ? this->calibration_.samples : 0.0f, this->pitch_offset_,
                                     this->roll_offset_, fit);
   if (result != math::FitResult::ACCEPTED) {
     ESP_LOGV(TAG, "Fit not accepted (%d): %u samples in %u sectors", static_cast<int>(result), this->stats_.samples,
@@ -296,10 +303,20 @@ void GpsCompass::learn_(uint32_t now, bool rmc_new, float course) {
   const bool first = !this->done_;
   this->done_ = true;
   this->status_ = Status::CALIBRATED;
-  this->save_state_();
-  ESP_LOGI(TAG, "Calibration %s: %u samples in %u sectors", first ? "saved" : "improved", this->stats_.samples,
+  bool saved = false;
+  if (this->max_saves_per_boot_ == 0) {
+    if (this->save_state_(fit))
+      this->stored_calibration_ = fit;
+  } else if (this->save_attempts_this_boot_ < this->max_saves_per_boot_ &&
+             math::calibration_changed(this->stored_calibration_, fit, this->grid_, this->min_save_heading_change_)) {
+    ++this->save_attempts_this_boot_;
+    saved = this->save_state_(fit, true);
+    if (saved)
+      this->stored_calibration_ = fit;
+  }
+  ESP_LOGI(TAG, "Calibration %s: %u samples in %u sectors", saved ? "saved" : "accepted", this->stats_.samples,
            this->stats_.sectors);
-  this->calibrated_callbacks_.call(first, this->stats_.samples);
+  this->calibrated_callbacks_.call(first, this->stats_.samples, saved);
 }
 
 // ---- Outputs ----------------------------------------------------------------------------------------------------
@@ -385,17 +402,17 @@ void GpsCompass::load_state_() {
   c.pitch_offset = s.fit[5][0];
   c.roll_offset = s.fit[5][1];
   c.samples = s.fit[5][2];
+  this->stored_calibration_ = c;
   ESP_LOGI(TAG, "Restored level pitch %+.2f roll %+.2f; fit of %.0f samples %s", this->pitch_offset_,
            this->roll_offset_, c.samples, this->is_calibrated() ? "in use" : "not valid for this level");
 }
 
-void GpsCompass::save_state_() {
+bool GpsCompass::save_state_(const math::Calibration &c, bool sync) {
   StoredState s{};
   s.version = kStoreVersion;
   s.level_set = this->level_set_ ? 1 : 0;
   s.pitch_offset = this->pitch_offset_;
   s.roll_offset = this->roll_offset_;
-  const math::Calibration &c = this->calibration_;
   const math::Vec3 *rows[5] = {&c.center, &c.north, &c.east, &c.gravity_forward, &c.gravity_right};
   for (size_t i = 0; i < 5; ++i)
     for (size_t axis = 0; axis < 3; ++axis)
@@ -403,8 +420,20 @@ void GpsCompass::save_state_() {
   s.fit[5][0] = c.pitch_offset;
   s.fit[5][1] = c.roll_offset;
   s.fit[5][2] = c.samples;
-  if (!this->pref_.save(&s))
-    ESP_LOGW(TAG, "Saving the calibration failed");
+  if (!this->pref_.save(&s)) {
+    ESP_LOGW(TAG, "Could not queue the compass state for saving");
+    return false;
+  }
+  if (!sync || global_preferences->sync())
+    return true;
+#ifdef USE_ESP32
+  // ESP32 clears the pending queue on sync, so a read-back can confirm this key even if another key failed.
+  StoredState stored{};
+  if (this->pref_.load(&stored) && std::memcmp(&stored, &s, sizeof(s)) == 0)
+    return true;
+#endif
+  ESP_LOGW(TAG, "Could not confirm the calibration was synced to flash");
+  return false;
 }
 
 }  // namespace gps_compass
