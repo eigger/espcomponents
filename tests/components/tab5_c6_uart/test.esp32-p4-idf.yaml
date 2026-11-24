@@ -1,0 +1,33 @@
+esphome:
+  name: test-tab5-c6-uart
+  min_version: 2026.11.0
+  on_boot:
+    priority: -100
+    then:
+      - delay: 300ms
+      - lambda: id(c6_uart_bridge).enter_download_mode();
+
+esp32:
+  board: esp32-p4-evboard
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: local
+      path: ../../../components
+    components: [tab5_c6_uart]
+
+logger:
+  level: NONE
+  boot_log_level: NONE
+  baud_rate: 0
+
+i2c:
+  sda: GPIO31
+  scl: GPIO32
+  scan: false
+
+tab5_c6_uart:
+  id: c6_uart_bridge
