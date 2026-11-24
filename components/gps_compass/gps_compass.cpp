@@ -202,7 +202,7 @@ void GpsCompass::level_changed_() {
   this->apply_level_();
   ESP_LOGI(TAG, "Level: pitch %+.2f, roll %+.2f deg%s", this->pitch_offset_, this->roll_offset_,
            this->is_calibrated() ? "" : " (the saved fit does not match; learning again)");
-  this->save_state_();
+  this->save_state_(this->stored_calibration_);
 }
 
 void GpsCompass::reset_calibration() {
@@ -211,7 +211,8 @@ void GpsCompass::reset_calibration() {
   this->stats_ = {};
   this->fitted_count_ = 0;
   this->done_ = false;
-  this->save_state_();
+  this->stored_calibration_ = {};
+  this->save_state_(this->stored_calibration_);
   ESP_LOGI(TAG, "Calibration reset");
 }
 
@@ -281,10 +282,10 @@ void GpsCompass::learn_(uint32_t now, bool rmc_new, float course) {
     return;
   this->last_fit_ = now;
 
-  const bool has_saved_fit = this->is_calibrated();
+  const bool has_current_fit = this->is_calibrated();
   math::Calibration fit;
   const auto result = math::try_fit(this->grid_, this->rules_, this->fitted_count_,
-                                    has_saved_fit ? this->calibration_.samples : 0.0f, this->pitch_offset_,
+                                    has_current_fit ? this->calibration_.samples : 0.0f, this->pitch_offset_,
                                     this->roll_offset_, fit);
   if (result != math::FitResult::ACCEPTED) {
     ESP_LOGV(TAG, "Fit not accepted (%d): %u samples in %u sectors", static_cast<int>(result), this->stats_.samples,
@@ -296,10 +297,25 @@ void GpsCompass::learn_(uint32_t now, bool rmc_new, float course) {
   const bool first = !this->done_;
   this->done_ = true;
   this->status_ = Status::CALIBRATED;
-  this->save_state_();
-  ESP_LOGI(TAG, "Calibration %s: %u samples in %u sectors", first ? "saved" : "improved", this->stats_.samples,
+  bool saved = false;
+  if (!this->save_once_per_boot_) {
+    if (this->save_state_(fit))
+      this->stored_calibration_ = fit;
+  } else if (!this->save_attempted_this_boot_ &&
+             math::calibration_changed(this->stored_calibration_, fit, this->grid_, this->min_save_heading_change_)) {
+    // Sync also handles other preferences, so a failure does not imply that this key was unwritten.
+    this->save_attempted_this_boot_ = true;
+    if (this->save_state_(fit)) {
+      saved = global_preferences->sync();
+      if (saved)
+        this->stored_calibration_ = fit;
+      else
+        ESP_LOGW(TAG, "Could not confirm the calibration was synced to flash");
+    }
+  }
+  ESP_LOGI(TAG, "Calibration %s: %u samples in %u sectors", saved ? "saved" : "accepted", this->stats_.samples,
            this->stats_.sectors);
-  this->calibrated_callbacks_.call(first, this->stats_.samples);
+  this->calibrated_callbacks_.call(first, this->stats_.samples, saved);
 }
 
 // ---- Outputs ----------------------------------------------------------------------------------------------------
@@ -385,17 +401,17 @@ void GpsCompass::load_state_() {
   c.pitch_offset = s.fit[5][0];
   c.roll_offset = s.fit[5][1];
   c.samples = s.fit[5][2];
+  this->stored_calibration_ = c;
   ESP_LOGI(TAG, "Restored level pitch %+.2f roll %+.2f; fit of %.0f samples %s", this->pitch_offset_,
            this->roll_offset_, c.samples, this->is_calibrated() ? "in use" : "not valid for this level");
 }
 
-void GpsCompass::save_state_() {
+bool GpsCompass::save_state_(const math::Calibration &c) {
   StoredState s{};
   s.version = kStoreVersion;
   s.level_set = this->level_set_ ? 1 : 0;
   s.pitch_offset = this->pitch_offset_;
   s.roll_offset = this->roll_offset_;
-  const math::Calibration &c = this->calibration_;
   const math::Vec3 *rows[5] = {&c.center, &c.north, &c.east, &c.gravity_forward, &c.gravity_right};
   for (size_t i = 0; i < 5; ++i)
     for (size_t axis = 0; axis < 3; ++axis)
@@ -403,8 +419,10 @@ void GpsCompass::save_state_() {
   s.fit[5][0] = c.pitch_offset;
   s.fit[5][1] = c.roll_offset;
   s.fit[5][2] = c.samples;
-  if (!this->pref_.save(&s))
-    ESP_LOGW(TAG, "Saving the calibration failed");
+  if (this->pref_.save(&s))
+    return true;
+  ESP_LOGW(TAG, "Could not queue the compass state for saving");
+  return false;
 }
 
 }  // namespace gps_compass

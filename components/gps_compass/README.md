@@ -153,6 +153,8 @@ The smoothing (EMA 0.35), the reseed after a 1.5 s gap and the rejection of samp
 | `min_sectors` | `5` | Course sectors (of 8) a fit needs |
 | `max_sector_gap` | `3` | Widest gap, in sectors, between covered sectors |
 | `min_new_samples` | `4` | New samples required over the last fit of this session |
+| `save_once_per_boot` | `false` | With this enabled, the first eligible fit is synced to flash immediately. Later fits update the live calibration in RAM. |
+| `min_save_heading_change` | `0.5°` | When `save_once_per_boot` is enabled, compare the saved and new fit on the same observations. Save when the heading differs by at least this amount or when the previous fit cannot supply a valid heading. |
 
 Fixed (see `compass_math.h`): speed is `RMC knots * 1.852`; an observation needs an RMC younger than 750 ms and a
 magnetometer sample younger than 500 ms; tilt beyond about 60 degrees is refused; ridge 0.006; the acceptance numbers
@@ -188,12 +190,13 @@ else: set_level`.
 ## Triggers
 
 `on_calibrated` fires when a fit is accepted: `first` (bool) is true for the first fit since boot / level change /
-reset, false for later improved fits; `samples` (uint32) is the number of observations in the fit.
+reset, false for later improved fits. `samples` (uint32) is the number of observations in the fit. `saved` (bool)
+confirms an immediate flash sync for this fit when `save_once_per_boot` is enabled.
 
 ```yaml
 gps_compass:
   on_calibrated:
-    - lambda: ESP_LOGI("compass", "fit %s with %u samples", first ? "saved" : "improved", samples);
+    - lambda: ESP_LOGI("compass", "fit %s with %u samples", saved ? "saved" : "accepted", samples);
 ```
 
 ## C++ API (for lambdas)
@@ -226,8 +229,8 @@ The dial / status line of a dashboard needs nothing else: `heading()` + `source(
 3. Drive in **several directions above 18 km/h** (default `min_learning_speed`) with a good fix (HDOP <= 3, at least 4
    satellites): a few turns, a loop around a block is enough. At least 5 of the 8 compass sectors must be covered with no
    gap wider than 3. Reversing and slow driving are ignored. `status` shows `collecting` while it gathers.
-4. When the fit is accepted `status` becomes `calibrated`, `on_calibrated` fires and the fit is saved in flash (written
-   only on an accepted fit or a level change, never per sample). Later drives refine it (more samples, more slopes).
+4. When a fit is accepted, `status` becomes `calibrated` and `on_calibrated` fires. By default, accepted fits are
+   queued for the next preferences sync. Enable `save_once_per_boot` to limit automatic writes during a boot.
 
 Slopes help: the pitch/roll coupling is learned from hills and camber; on flat ground only the level heading is
 corrected, which is what you normally want.

@@ -438,6 +438,30 @@ static void test_policy() {
   CHECK(learning_status(true, false, false, false, NAN, 18, false, false) == Status::CALIBRATED);
 }
 
+static void test_save_heading_change() {
+  Pose pose{};
+  CHECK(compute_pose(0.0f, 0.0f, pose));
+  ObservationGrid grid;
+  grid.add(0.0f, pose, {20.0f, 0.0f, 0.0f});
+
+  const auto fit_at = [](float degrees) {
+    Calibration fit;
+    const float c = 0.05f * std::cos(degrees * kDegToRad);
+    const float s = 0.05f * std::sin(degrees * kDegToRad);
+    fit.north = {c, -s, 0.0f};
+    fit.east = {s, c, 0.0f};
+    fit.samples = 5.0f;
+    return fit;
+  };
+  const auto saved = fit_at(0.0f);
+  CHECK(calibration_changed({}, saved, grid, 0.5f));
+  CHECK(!calibration_changed(saved, fit_at(-0.3f), grid, 0.5f));
+  CHECK(calibration_changed(saved, fit_at(-0.6f), grid, 0.5f));
+  auto leveled = saved;
+  leveled.pitch_offset = 2.0f;
+  CHECK(calibration_changed(saved, leveled, grid, 0.5f));
+}
+
 static void test_parse_number() {
   CHECK(std::isnan(parse_number("")));  // an empty RMC course is "unknown", not 0
   CHECK(std::isnan(parse_number(nullptr)));
@@ -470,6 +494,7 @@ int main() {
       {"implausible field", test_heading_rejects_implausible_field},
       {"field filter", test_field_filter},
       {"source and status policy", test_policy},
+      {"save heading change", test_save_heading_change},
       {"number parsing", test_parse_number},
   };
   for (const auto &t : tests) {

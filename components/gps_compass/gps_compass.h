@@ -56,6 +56,8 @@ class GpsCompass : public Component, public gps::GPSListener {
   void set_min_sectors(uint8_t v) { this->rules_.min_sectors = v; }
   void set_max_sector_gap(uint8_t v) { this->rules_.max_sector_gap = v; }
   void set_min_new_samples(uint8_t v) { this->rules_.min_new_samples = v; }
+  void set_save_once_per_boot(bool v) { this->save_once_per_boot_ = v; }
+  void set_min_save_heading_change(float v) { this->min_save_heading_change_ = v; }
   void set_heading_sensor(sensor::Sensor *s) { this->heading_sensor_ = s; }
   void set_magnetic_heading_sensor(sensor::Sensor *s) { this->magnetic_heading_sensor_ = s; }
   void set_gps_heading_sensor(sensor::Sensor *s) { this->gps_heading_sensor_ = s; }
@@ -65,7 +67,7 @@ class GpsCompass : public Component, public gps::GPSListener {
   void set_source_text_sensor(text_sensor::TextSensor *s) { this->source_sensor_ = s; }
   void set_status_text_sensor(text_sensor::TextSensor *s) { this->status_sensor_ = s; }
   void set_calibrated_binary_sensor(binary_sensor::BinarySensor *s) { this->calibrated_sensor_ = s; }
-  void add_on_calibrated_callback(std::function<void(bool, uint32_t)> &&cb) {
+  void add_on_calibrated_callback(std::function<void(bool, uint32_t, bool)> &&cb) {
     this->calibrated_callbacks_.add(std::move(cb));
   }
 
@@ -154,7 +156,7 @@ class GpsCompass : public Component, public gps::GPSListener {
   void apply_level_();
   void level_changed_();
   void load_state_();
-  void save_state_();
+  bool save_state_(const math::Calibration &calibration);
 
   // Inputs
   std::array<sensor::Sensor *, 3> mag_src_{}, accel_src_{};
@@ -197,6 +199,9 @@ class GpsCompass : public Component, public gps::GPSListener {
   math::ObservationGrid grid_{};
   math::GridStats stats_{};
   math::Calibration calibration_{};
+  math::Calibration stored_calibration_{};
+  float min_save_heading_change_{0.5f};
+  bool save_once_per_boot_{false}, save_attempted_this_boot_{false};
   std::array<float, 2> learn_offsets_{};
   unsigned fitted_count_{0};
   bool done_{false};
@@ -208,7 +213,7 @@ class GpsCompass : public Component, public gps::GPSListener {
   sensor::Sensor *pitch_sensor_{nullptr}, *roll_sensor_{nullptr}, *samples_sensor_{nullptr};
   text_sensor::TextSensor *source_sensor_{nullptr}, *status_sensor_{nullptr};
   binary_sensor::BinarySensor *calibrated_sensor_{nullptr};
-  CallbackManager<void(bool, uint32_t)> calibrated_callbacks_{};
+  CallbackManager<void(bool, uint32_t, bool)> calibrated_callbacks_{};
   int last_heading_pub_{-2}, last_magnetic_pub_{-2}, last_gps_pub_{-2}, last_samples_pub_{-1};
   float last_pitch_pub_{NAN}, last_roll_pub_{NAN};
   bool pitch_pub_valid_{false}, roll_pub_valid_{false};

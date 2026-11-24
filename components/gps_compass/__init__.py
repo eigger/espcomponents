@@ -53,6 +53,8 @@ CONF_FIT_INTERVAL = "fit_interval"
 CONF_MIN_SECTORS = "min_sectors"
 CONF_MAX_SECTOR_GAP = "max_sector_gap"
 CONF_MIN_NEW_SAMPLES = "min_new_samples"
+CONF_SAVE_ONCE_PER_BOOT = "save_once_per_boot"
+CONF_MIN_SAVE_HEADING_CHANGE = "min_save_heading_change"
 CONF_HEADING = "heading"
 CONF_MAGNETIC_HEADING = "magnetic_heading"
 CONF_GPS_HEADING = "gps_heading"
@@ -122,6 +124,10 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_MIN_SECTORS, default=5): cv.int_range(min=1, max=8),
             cv.Optional(CONF_MAX_SECTOR_GAP, default=3): cv.int_range(min=1, max=8),
             cv.Optional(CONF_MIN_NEW_SAMPLES, default=4): cv.int_range(min=0, max=40),
+            cv.Optional(CONF_SAVE_ONCE_PER_BOOT, default=False): cv.boolean,
+            cv.Optional(CONF_MIN_SAVE_HEADING_CHANGE, default=0.5): cv.All(
+                cv.angle, cv.float_range(min=0.0, max=180.0)
+            ),
             cv.Optional(CONF_HEADING): sensor.sensor_schema(
                 unit_of_measurement=UNIT_DEGREES,
                 icon="mdi:compass",
@@ -203,6 +209,8 @@ async def to_code(config):
     cg.add(var.set_min_sectors(config[CONF_MIN_SECTORS]))
     cg.add(var.set_max_sector_gap(config[CONF_MAX_SECTOR_GAP]))
     cg.add(var.set_min_new_samples(config[CONF_MIN_NEW_SAMPLES]))
+    cg.add(var.set_save_once_per_boot(config[CONF_SAVE_ONCE_PER_BOOT]))
+    cg.add(var.set_min_save_heading_change(config[CONF_MIN_SAVE_HEADING_CHANGE]))
 
     for key, setter in (
         (CONF_HEADING, "set_heading_sensor"),
@@ -222,7 +230,9 @@ async def to_code(config):
 
     for conf in config.get(CONF_ON_CALIBRATED, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
-        await automation.build_automation(trigger, [(cg.bool_, "first"), (cg.uint32, "samples")], conf)
+        await automation.build_automation(
+            trigger, [(cg.bool_, "first"), (cg.uint32, "samples"), (cg.bool_, "saved")], conf
+        )
 
 
 _PARENT = {cv.GenerateID(): cv.use_id(GpsCompass)}
