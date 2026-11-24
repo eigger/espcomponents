@@ -114,6 +114,7 @@ public:
     void set_command(std::string name, std::function<cmd_t(const std::string& str)> &&f) { this->command_str_func_map_[name] = f; }
     void set_optimistic(bool optimistic) { this->optimistic_ = optimistic; }
     void set_state_debounce(uint32_t ms) { this->state_debounce_ms_ = ms; }
+    void set_state_debounce_mask(uint16_t offset, std::vector<uint8_t> mask) { this->debounce_offset_ = offset; this->debounce_mask_ = std::move(mask); }
     bool enqueue_tx_cmd(const cmd_t* cmd, bool low_priority = false);
     std::shared_ptr<const cmd_t> dequeue_tx_cmd();
     std::shared_ptr<const cmd_t> dequeue_tx_cmd_low_priority();
@@ -130,6 +131,7 @@ protected:
     virtual void publish(const std::vector<uint8_t>& data) {}
     virtual void publish(const bool state) {}
     void apply_state_(const std::vector<uint8_t>& data);
+    bool debounce_equal_(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b) const;
     cmd_t* get_command(const std::string& name, const std::string& str);
     cmd_t* get_command(const std::string& name, const float x);
     cmd_t* get_command(const std::string& name);
@@ -164,6 +166,8 @@ protected:
     std::vector<uint8_t> last_state_{};
     bool preserve_state_ready_{false};
     uint32_t state_debounce_ms_{0};
+    uint16_t debounce_offset_{0};
+    std::vector<uint8_t> debounce_mask_{};
     std::vector<uint8_t> pending_state_{};
     uint32_t pending_since_{0};
     bool bypass_armed_{false};

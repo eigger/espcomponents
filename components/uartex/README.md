@@ -1087,9 +1087,9 @@ These options are available for all UARTEx platforms:
 
 Some wallpads emit transient state packets (for example a climate flipping `off` -> `heat` for a second or two). `state_debounce` filters such glitches:
 
-- `state` is required. The whole matched packet is compared and held, so a packet whose other bytes keep changing (for example a current temperature in the same packet) is delayed too, and every value in it is applied up to the debounce time later.
+- `state` is required. By default the whole matched packet is compared, so a packet whose other bytes keep changing (for example a current temperature in the same packet) is delayed too, and every value in it is applied up to the debounce time later. To avoid that, compare only selected bytes with the `offset` / `mask` form below.
 - Matched state packets are held and published only after the debounce time has elapsed since the change started. The latest packet received during that time wins.
-- A packet identical to the last applied one cancels the pending change (the glitch reverted) and is re-published immediately.
+- A packet identical to the last applied one (or equal in the masked bytes when `mask` is set) cancels the pending change (the glitch reverted) and is re-published immediately.
 - The first matched packet after boot is applied immediately.
 - The first state change received right after the entity's own command (within the debounce time of the transmission) is applied immediately, so command results are not delayed even without `optimistic`. Polling (`command_update`) does not trigger this, and a packet identical to the last applied state does not consume it. Only the first state change after the entity's latest transmitted command is immediate: when several commands from one entity go out back-to-back without `ack`, later results are debounced normally. The bypass is armed by commands from the entity's normal command queue (control actions), so a user lambda that periodically calls `enqueue_tx_cmd` would keep it armed.
 - `state_response` handling is not delayed.
@@ -1105,6 +1105,21 @@ climate:
       data: [0x02, 0x03]
     state_debounce: 2s
 ```
+
+Start with just the time. If other values in the same packet (for example the current temperature) are being delayed, add a `mask` so that only the bytes that matter for the glitch are compared:
+
+```yaml
+    state_debounce:
+      delay: 2s
+      offset: 3              # optional, default 0
+      mask: [0xFF, 0x0F]     # only these bits/bytes are compared
+```
+
+`offset` and `mask` mean the same as in `state`: the mask is applied to the bytes starting at `offset`. `mask` is required (non-empty) in this form, and `delay` is limited to `60s` as before. `delay: 0s` with a mask is ignored (debounce stays disabled). With a mask:
+
+- A packet whose masked part equals the last applied packet is applied immediately (this also cancels a pending change), so unmasked bytes such as the current temperature update without delay.
+- When the masked part changes, the change is held for `delay` as described above, and the whole latest packet is applied after the delay.
+- If a byte inside the mask range exists in only one of the two packets they are treated as different; if both packets lack it, it counts as equal.
 
 ---
 

@@ -80,6 +80,24 @@ def _state(state, label, lengths):
                             label, effect, needed, lengths)
 
 
+def _debounce(debounce, label, lengths):
+    if not isinstance(debounce, dict):
+        return
+    mask = debounce.get("mask", [])
+    delay = debounce.get("delay")
+    if not mask or not lengths or not getattr(delay, "total_milliseconds", 0):
+        return
+    offset = debounce.get("offset", 0)
+    needed = offset + len(mask)
+    if not any(size >= needed for size in lengths):
+        if all(size <= offset for size in lengths):
+            effect = "entirely outside the payload: all packets would compare equal and debounce would be ineffective"
+        else:
+            effect = "partly outside the payload: those bytes count as equal"
+        _LOGGER.warning("UARTEx %s mask is %s; it ends at payload offset %d, but fixed-frame payload lengths are %s; check offset, mask and framing",
+                        label, effect, needed, lengths)
+
+
 def _command(command, label, lengths):
     if not isinstance(command, dict):
         return
@@ -112,7 +130,9 @@ def validate_packets(hub, config):
             name = entity.get("name") or str(entity.get("id", domain))
             for key, value in entity.items():
                 label = f"{hub_id}.{name}.{key}"
-                if key == "state" or key.startswith("state_"):
+                if key == "state_debounce":
+                    _debounce(value, label, lengths)
+                elif key == "state" or key.startswith("state_"):
                     _state(value, label, lengths)
                 elif key == "command" or key.startswith("command_"):
                     _command(value, label, lengths)
