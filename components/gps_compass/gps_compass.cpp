@@ -304,12 +304,12 @@ void GpsCompass::learn_(uint32_t now, bool rmc_new, float course) {
   this->done_ = true;
   this->status_ = Status::CALIBRATED;
   bool saved = false;
-  if (!this->save_once_per_boot_) {
+  if (this->max_saves_per_boot_ == 0) {
     if (this->save_state_(fit))
       this->stored_calibration_ = fit;
-  } else if (!this->save_attempted_this_boot_ &&
+  } else if (this->save_attempts_this_boot_ < this->max_saves_per_boot_ &&
              math::calibration_changed(this->stored_calibration_, fit, this->grid_, this->min_save_heading_change_)) {
-    this->save_attempted_this_boot_ = true;
+    ++this->save_attempts_this_boot_;
     saved = this->save_state_(fit, true);
     if (saved)
       this->stored_calibration_ = fit;

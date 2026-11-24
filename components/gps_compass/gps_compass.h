@@ -58,7 +58,8 @@ class GpsCompass : public Component, public gps::GPSListener {
   void set_min_sectors(uint8_t v) { this->rules_.min_sectors = v; }
   void set_max_sector_gap(uint8_t v) { this->rules_.max_sector_gap = v; }
   void set_min_new_samples(uint8_t v) { this->rules_.min_new_samples = v; }
-  void set_save_once_per_boot(bool v) { this->save_once_per_boot_ = v; }
+  void set_max_saves_per_boot(uint32_t v) { this->max_saves_per_boot_ = v; }
+  void set_save_once_per_boot(bool v) { this->set_max_saves_per_boot(v ? 1 : 0); }
   void set_min_save_heading_change(float v) { this->min_save_heading_change_ = v; }
   void set_heading_sensor(sensor::Sensor *s) { this->heading_sensor_ = s; }
   void set_magnetic_heading_sensor(sensor::Sensor *s) { this->magnetic_heading_sensor_ = s; }
@@ -213,7 +214,7 @@ class GpsCompass : public Component, public gps::GPSListener {
   math::Calibration calibration_{};
   math::Calibration stored_calibration_{};
   float min_save_heading_change_{0.5f};
-  bool save_once_per_boot_{false}, save_attempted_this_boot_{false};
+  uint32_t max_saves_per_boot_{0}, save_attempts_this_boot_{0};
   std::array<float, 2> learn_offsets_{};
   unsigned fitted_count_{0};
   bool done_{false};

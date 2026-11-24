@@ -57,6 +57,12 @@ CONF_MAX_SECTOR_GAP = "max_sector_gap"
 CONF_MIN_NEW_SAMPLES = "min_new_samples"
 CONF_SAVE_ONCE_PER_BOOT = "save_once_per_boot"
 CONF_MIN_SAVE_HEADING_CHANGE = "min_save_heading_change"
+CONF_SAVE = "save"
+CONF_MAX_PER_BOOT = "max_per_boot"
+CONF_MIN_CHANGE = "min_change"
+CONF_STATIONARY = "stationary"
+CONF_DEADBAND = "deadband"
+CONF_MOVING_SIGNAL = "moving_signal"
 CONF_HEADING = "heading"
 CONF_MAGNETIC_HEADING = "magnetic_heading"
 CONF_GPS_HEADING = "gps_heading"
@@ -83,6 +89,19 @@ _XYZ_SCHEMA = cv.Schema(
     }
 )
 
+_SAVE_SCHEMA = cv.Schema(
+    {
+        cv.Optional(CONF_MAX_PER_BOOT): cv.uint32_t,
+        cv.Optional(CONF_MIN_CHANGE): _heading_delta,
+    }
+)
+_STATIONARY_SCHEMA = cv.Schema(
+    {
+        cv.Optional(CONF_DEADBAND): _heading_delta,
+        cv.Optional(CONF_MOVING_SIGNAL): cv.templatable(cv.boolean),
+    }
+)
+
 
 def _split_axis(text):
     """'-Z' -> (2, -1.0); 'x' -> (0, 1.0)."""
@@ -98,6 +117,18 @@ def _validate(config):
     if config[CONF_MIN_LEARNING_SPEED] < config[CONF_MOVING_SPEED]:
         # Observations need the vehicle to count as moving, so a lower value could never apply.
         raise cv.Invalid(f"'{CONF_MIN_LEARNING_SPEED}' must not be below '{CONF_MOVING_SPEED}'")
+    if CONF_SAVE_ONCE_PER_BOOT in config:
+        config[CONF_SAVE_ONCE_PER_BOOT] = int(config[CONF_SAVE_ONCE_PER_BOOT])
+    for section, key, legacy, default in (
+        (CONF_SAVE, CONF_MAX_PER_BOOT, CONF_SAVE_ONCE_PER_BOOT, 0),
+        (CONF_SAVE, CONF_MIN_CHANGE, CONF_MIN_SAVE_HEADING_CHANGE, 0.5),
+        (CONF_STATIONARY, CONF_DEADBAND, CONF_STATIONARY_HEADING_DEADBAND, 0.0),
+        (CONF_STATIONARY, CONF_MOVING_SIGNAL, CONF_VEHICLE_MOVING, False),
+    ):
+        options = config[section]
+        if legacy in config and key in options:
+            raise cv.Invalid(f"Use either '{legacy}' or '{section}.{key}'", path=[legacy])
+        options.setdefault(key, config.pop(legacy, default))
     return config
 
 
@@ -113,8 +144,9 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_PITCH_OFFSET, default=0.0): _level_angle,
             cv.Optional(CONF_ROLL_OFFSET, default=0.0): _level_angle,
             cv.Optional(CONF_REVERSE, default=False): cv.templatable(cv.boolean),
-            cv.Optional(CONF_VEHICLE_MOVING, default=False): cv.templatable(cv.boolean),
-            cv.Optional(CONF_STATIONARY_HEADING_DEADBAND, default=0.0): _heading_delta,
+            cv.Optional(CONF_STATIONARY, default={}): _STATIONARY_SCHEMA,
+            cv.Optional(CONF_VEHICLE_MOVING): cv.templatable(cv.boolean),
+            cv.Optional(CONF_STATIONARY_HEADING_DEADBAND): _heading_delta,
             cv.Optional(CONF_MIN_LEARNING_SPEED, default=18.0): _speed,
             cv.Optional(CONF_MOVING_SPEED, default=8.0): _speed,
             cv.Optional(CONF_STOPPED_SPEED, default=3.0): _speed,
@@ -129,8 +161,9 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_MIN_SECTORS, default=5): cv.int_range(min=1, max=8),
             cv.Optional(CONF_MAX_SECTOR_GAP, default=3): cv.int_range(min=1, max=8),
             cv.Optional(CONF_MIN_NEW_SAMPLES, default=4): cv.int_range(min=0, max=40),
-            cv.Optional(CONF_SAVE_ONCE_PER_BOOT, default=False): cv.boolean,
-            cv.Optional(CONF_MIN_SAVE_HEADING_CHANGE, default=0.5): _heading_delta,
+            cv.Optional(CONF_SAVE, default={}): _SAVE_SCHEMA,
+            cv.Optional(CONF_SAVE_ONCE_PER_BOOT): cv.boolean,
+            cv.Optional(CONF_MIN_SAVE_HEADING_CHANGE): _heading_delta,
             cv.Optional(CONF_HEADING): sensor.sensor_schema(
                 unit_of_measurement=UNIT_DEGREES,
                 icon="mdi:compass",
@@ -198,9 +231,10 @@ async def to_code(config):
     cg.add(var.set_initial_level(config[CONF_PITCH_OFFSET], config[CONF_ROLL_OFFSET]))
     if (reverse := config[CONF_REVERSE]) is not False:
         cg.add(var.set_reverse(await cg.templatable(reverse, [], bool)))
-    if (vehicle_moving := config[CONF_VEHICLE_MOVING]) is not False:
+    stationary = config[CONF_STATIONARY]
+    if (vehicle_moving := stationary[CONF_MOVING_SIGNAL]) is not False:
         cg.add(var.set_vehicle_moving(await cg.templatable(vehicle_moving, [], bool)))
-    cg.add(var.set_stationary_heading_deadband(config[CONF_STATIONARY_HEADING_DEADBAND]))
+    cg.add(var.set_stationary_heading_deadband(stationary[CONF_DEADBAND]))
     cg.add(var.set_min_learning_speed(config[CONF_MIN_LEARNING_SPEED]))
     cg.add(var.set_moving_speed(config[CONF_MOVING_SPEED]))
     cg.add(var.set_stopped_speed(config[CONF_STOPPED_SPEED]))
@@ -215,8 +249,9 @@ async def to_code(config):
     cg.add(var.set_min_sectors(config[CONF_MIN_SECTORS]))
     cg.add(var.set_max_sector_gap(config[CONF_MAX_SECTOR_GAP]))
     cg.add(var.set_min_new_samples(config[CONF_MIN_NEW_SAMPLES]))
-    cg.add(var.set_save_once_per_boot(config[CONF_SAVE_ONCE_PER_BOOT]))
-    cg.add(var.set_min_save_heading_change(config[CONF_MIN_SAVE_HEADING_CHANGE]))
+    save = config[CONF_SAVE]
+    cg.add(var.set_max_saves_per_boot(save[CONF_MAX_PER_BOOT]))
+    cg.add(var.set_min_save_heading_change(save[CONF_MIN_CHANGE]))
 
     for key, setter in (
         (CONF_HEADING, "set_heading_sensor"),

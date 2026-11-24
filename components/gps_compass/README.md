@@ -139,8 +139,8 @@ The smoothing (EMA 0.35), the reseed after a 1.5 s gap and the rejection of samp
 | `right_axis` | `+X` | Accelerometer axis along the vehicle's right side. Must differ from `forward_axis` |
 | `pitch_offset` / `roll_offset` | `0` | Initial level in degrees (raw reading that counts as level). A stored level (from `set_level` / `clear_level`) overrides it |
 | `reverse` | `false` | Templatable bool. While true, 180 degrees are added to the GPS heading and learning is paused |
-| `vehicle_moving` | `false` | Templatable bool for a supplemental movement signal such as OBD speed. A true value bypasses the stationary magnetic heading deadband. |
-| `stationary_heading_deadband` | `0°` | Hold magnetic heading while its circular change is below this angle. Zero disables the filter. Live GPS heading bypasses it. |
+| `stationary.moving_signal` | `false` | Templatable bool for a supplemental movement signal such as OBD speed. A true value bypasses the stationary magnetic heading deadband. |
+| `stationary.deadband` | `0°` | Hold magnetic heading while its circular change is below this angle. Zero disables the filter. Live GPS heading bypasses it. |
 | `min_learning_speed` | `18 km/h` | Observations are taken above this speed |
 | `moving_speed` | `8 km/h` | Above this the vehicle is "moving" (live GPS heading) |
 | `stopped_speed` | `3 km/h` | GPS speed below this counts as stopped. A valid speed at or above this value bypasses the stationary heading deadband. |
@@ -155,8 +155,18 @@ The smoothing (EMA 0.35), the reseed after a 1.5 s gap and the rejection of samp
 | `min_sectors` | `5` | Course sectors (of 8) a fit needs |
 | `max_sector_gap` | `3` | Widest gap, in sectors, between covered sectors |
 | `min_new_samples` | `4` | New samples required over the last fit of this session |
-| `save_once_per_boot` | `false` | With this enabled, the first eligible fit is synced to flash immediately. Later fits update the live calibration in RAM. |
-| `min_save_heading_change` | `0.5°` | When `save_once_per_boot` is enabled, compare the saved and new fit on the same observations. Save when the heading differs by at least this amount or when the previous fit cannot supply a valid heading. |
+| `save.max_per_boot` | `0` | Maximum automatic flash save attempts per boot. Positive limits sync eligible fits immediately. Zero uses the regular preferences sync without a per-boot limit. |
+| `save.min_change` | `0.5°` | With a positive save limit, compare the saved and new fit on the same observations. Save when the heading differs by at least this angle or when the previous fit cannot supply a valid heading. |
+
+```yaml
+gps_compass:
+  gps_id: id_gps
+  save:
+    max_per_boot: 1
+    min_change: 0.5 deg
+  stationary:
+    deadband: 1 deg
+```
 
 Fixed (see `compass_math.h`): speed is `RMC knots * 1.852`; an observation needs an RMC younger than 750 ms and a
 magnetometer sample younger than 500 ms; tilt beyond about 60 degrees is refused; ridge 0.006; the acceptance numbers
@@ -193,7 +203,7 @@ else: set_level`.
 
 `on_calibrated` fires when a fit is accepted: `first` (bool) is true for the first fit since boot / level change /
 reset, false for later improved fits. `samples` (uint32) is the number of observations in the fit. `saved` (bool)
-confirms an immediate flash sync for this fit when `save_once_per_boot` is enabled.
+confirms an immediate flash sync for this fit when `save.max_per_boot` is positive.
 
 ```yaml
 gps_compass:
@@ -232,7 +242,7 @@ The dial / status line of a dashboard needs nothing else: `heading()` + `source(
    satellites): a few turns, a loop around a block is enough. At least 5 of the 8 compass sectors must be covered with no
    gap wider than 3. Reversing and slow driving are ignored. `status` shows `collecting` while it gathers.
 4. When a fit is accepted, `status` becomes `calibrated` and `on_calibrated` fires. By default, accepted fits are
-   queued for the next preferences sync. Enable `save_once_per_boot` to limit automatic writes during a boot.
+   queued for the next preferences sync. Set `save.max_per_boot` to limit automatic writes during a boot.
 
 Slopes help: the pitch/roll coupling is learned from hills and camber; on flat ground only the level heading is
 corrected, which is what you normally want.
