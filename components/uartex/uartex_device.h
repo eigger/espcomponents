@@ -113,10 +113,12 @@ public:
     void set_command(std::string name, std::function<cmd_t(const float x)> &&f) { this->command_float_func_map_[name] = f; }
     void set_command(std::string name, std::function<cmd_t(const std::string& str)> &&f) { this->command_str_func_map_[name] = f; }
     void set_optimistic(bool optimistic) { this->optimistic_ = optimistic; }
+    void set_state_debounce(uint32_t ms) { this->state_debounce_ms_ = ms; }
     bool enqueue_tx_cmd(const cmd_t* cmd, bool low_priority = false);
     std::shared_ptr<const cmd_t> dequeue_tx_cmd();
     std::shared_ptr<const cmd_t> dequeue_tx_cmd_low_priority();
     bool parse_data(const std::vector<uint8_t>& data);
+    void flush_pending_state(uint32_t now);
     bool render_command(const cmd_t &input, cmd_t &output) const;
     void invalidate_matching_state(const std::vector<uint8_t> &data);
     bool has_last_state() const { return !this->last_state_.empty(); }
@@ -126,6 +128,7 @@ protected:
     float get_setup_priority() const override { return setup_priority::DATA; }
     virtual void publish(const std::vector<uint8_t>& data) {}
     virtual void publish(const bool state) {}
+    void apply_state_(const std::vector<uint8_t>& data);
     cmd_t* get_command(const std::string& name, const std::string& str);
     cmd_t* get_command(const std::string& name, const float x);
     cmd_t* get_command(const std::string& name);
@@ -159,6 +162,9 @@ protected:
     std::queue<std::shared_ptr<const cmd_t>> tx_cmd_queue_low_priority_{};
     std::vector<uint8_t> last_state_{};
     bool preserve_state_ready_{false};
+    uint32_t state_debounce_ms_{0};
+    std::vector<uint8_t> pending_state_{};
+    uint32_t pending_since_{0};
 };
 const char* find_mode(const std::vector<const char*>& modes, const std::string& target);
 template<typename KeyType, typename ValueType>

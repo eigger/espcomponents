@@ -114,6 +114,7 @@ climate:
   - platform: uartex
     name: "Room 0 Heater"
     id: room_0_heater
+    state_debounce: 2s
     visual:
       min_temperature: 5 °C
       max_temperature: 30 °C

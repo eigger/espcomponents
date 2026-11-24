@@ -70,6 +70,8 @@ void UARTExComponent::setup()
 
 void UARTExComponent::loop()
 {
+    const uint32_t now = millis();
+    for (UARTExDevice* device : this->devices_) device->flush_pending_state(now);
     if (read_from_uart()) publish_to_devices();
     else if(!this->rx_processing_) write_to_uart();
 }
