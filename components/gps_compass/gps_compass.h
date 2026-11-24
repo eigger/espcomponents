@@ -67,7 +67,12 @@ class GpsCompass : public Component, public gps::GPSListener {
   void set_source_text_sensor(text_sensor::TextSensor *s) { this->source_sensor_ = s; }
   void set_status_text_sensor(text_sensor::TextSensor *s) { this->status_sensor_ = s; }
   void set_calibrated_binary_sensor(binary_sensor::BinarySensor *s) { this->calibrated_sensor_ = s; }
-  void add_on_calibrated_callback(std::function<void(bool, uint32_t, bool)> &&cb) {
+  void add_on_calibrated_callback(std::function<void(bool, uint32_t)> &&cb) {
+    this->calibrated_callbacks_.add([callback = std::move(cb)](bool first, uint32_t samples, bool) {
+      callback(first, samples);
+    });
+  }
+  void add_on_calibrated_result_callback(std::function<void(bool, uint32_t, bool)> &&cb) {
     this->calibrated_callbacks_.add(std::move(cb));
   }
 
@@ -156,7 +161,7 @@ class GpsCompass : public Component, public gps::GPSListener {
   void apply_level_();
   void level_changed_();
   void load_state_();
-  bool save_state_(const math::Calibration &calibration);
+  bool save_state_(const math::Calibration &calibration, bool sync = false);
 
   // Inputs
   std::array<sensor::Sensor *, 3> mag_src_{}, accel_src_{};

@@ -303,15 +303,10 @@ void GpsCompass::learn_(uint32_t now, bool rmc_new, float course) {
       this->stored_calibration_ = fit;
   } else if (!this->save_attempted_this_boot_ &&
              math::calibration_changed(this->stored_calibration_, fit, this->grid_, this->min_save_heading_change_)) {
-    // Sync also handles other preferences, so a failure does not imply that this key was unwritten.
     this->save_attempted_this_boot_ = true;
-    if (this->save_state_(fit)) {
-      saved = global_preferences->sync();
-      if (saved)
-        this->stored_calibration_ = fit;
-      else
-        ESP_LOGW(TAG, "Could not confirm the calibration was synced to flash");
-    }
+    saved = this->save_state_(fit, true);
+    if (saved)
+      this->stored_calibration_ = fit;
   }
   ESP_LOGI(TAG, "Calibration %s: %u samples in %u sectors", saved ? "saved" : "accepted", this->stats_.samples,
            this->stats_.sectors);
@@ -406,7 +401,7 @@ void GpsCompass::load_state_() {
            this->roll_offset_, c.samples, this->is_calibrated() ? "in use" : "not valid for this level");
 }
 
-bool GpsCompass::save_state_(const math::Calibration &c) {
+bool GpsCompass::save_state_(const math::Calibration &c, bool sync) {
   StoredState s{};
   s.version = kStoreVersion;
   s.level_set = this->level_set_ ? 1 : 0;
@@ -419,9 +414,19 @@ bool GpsCompass::save_state_(const math::Calibration &c) {
   s.fit[5][0] = c.pitch_offset;
   s.fit[5][1] = c.roll_offset;
   s.fit[5][2] = c.samples;
-  if (this->pref_.save(&s))
+  if (!this->pref_.save(&s)) {
+    ESP_LOGW(TAG, "Could not queue the compass state for saving");
+    return false;
+  }
+  if (!sync || global_preferences->sync())
     return true;
-  ESP_LOGW(TAG, "Could not queue the compass state for saving");
+#ifdef USE_ESP32
+  // ESP32 clears the pending queue on sync, so a read-back can confirm this key even if another key failed.
+  StoredState stored{};
+  if (this->pref_.load(&stored) && std::memcmp(&stored, &s, sizeof(s)) == 0)
+    return true;
+#endif
+  ESP_LOGW(TAG, "Could not confirm the calibration was synced to flash");
   return false;
 }
 

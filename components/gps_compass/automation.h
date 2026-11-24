@@ -10,7 +10,7 @@ namespace gps_compass {
 class CalibratedTrigger : public Trigger<bool, uint32_t, bool> {
  public:
   explicit CalibratedTrigger(GpsCompass *parent) {
-    parent->add_on_calibrated_callback(
+    parent->add_on_calibrated_result_callback(
         [this](bool first, uint32_t samples, bool saved) { this->trigger(first, samples, saved); });
   }
 };
