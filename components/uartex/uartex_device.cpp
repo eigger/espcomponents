@@ -18,7 +18,14 @@ void UARTExDevice::uartex_dump_config(const char* TAG)
     log_config(TAG, "State On", get_state_on());
     log_config(TAG, "State Off", get_state_off());
     log_config(TAG, "State Response", get_state_response());
-    if (this->state_debounce_ms_ > 0) { ESP_LOGCONFIG(TAG, "State Debounce: %ums", (unsigned) this->state_debounce_ms_); }
+    if (this->state_debounce_ms_ > 0)
+    {
+        ESP_LOGCONFIG(TAG, "State Debounce: %ums", (unsigned) this->state_debounce_ms_);
+        if (!this->debounce_mask_.empty())
+        {
+            ESP_LOGCONFIG(TAG, "State Debounce mask: %s, offset: %d", to_hex_string(this->debounce_mask_).c_str(), this->debounce_offset_);
+        }
+    }
     log_config(TAG, "Command On", get_command_on());
     log_config(TAG, "Command Off", get_command_off());
     log_config(TAG, "Command Update", get_command_update());
@@ -59,7 +66,7 @@ bool UARTExDevice::parse_data(const std::vector<uint8_t>& data)
     }
     if (this->bypass_armed_ && static_cast<uint32_t>(millis() - this->bypass_since_) >= this->state_debounce_ms_)
         this->bypass_armed_ = false;  // window expired without a confirmation
-    if (data == this->last_state_)
+    if (debounce_equal_(data, this->last_state_))
     {
         // Back to the applied state: the pending change was a glitch. Re-publish
         // so an entity changed by control()/optimistic is corrected immediately.
@@ -77,6 +84,23 @@ bool UARTExDevice::parse_data(const std::vector<uint8_t>& data)
     }
     if (this->pending_state_.empty()) this->pending_since_ = millis();
     this->pending_state_ = data;
+    return true;
+}
+
+// No mask: whole packets are compared. With a mask only the masked bits of
+// bytes [offset, offset + mask.size()) are compared; a byte missing from both
+// packets counts as equal, a byte present in only one of them as different.
+bool UARTExDevice::debounce_equal_(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b) const
+{
+    if (this->debounce_mask_.empty()) return a == b;
+    for (size_t i = 0; i < this->debounce_mask_.size(); i++)
+    {
+        const size_t index = this->debounce_offset_ + i;
+        const bool in_a = index < a.size(), in_b = index < b.size();
+        if (in_a != in_b) return false;
+        if (!in_a) continue;
+        if ((a[index] & this->debounce_mask_[i]) != (b[index] & this->debounce_mask_[i])) return false;
+    }
     return true;
 }
 

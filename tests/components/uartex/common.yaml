@@ -343,6 +343,10 @@ sensor:
 switch:
   - platform: uartex
     name: "Switch1"
+    state_debounce:
+      delay: 2s
+      offset: 2
+      mask: [0x0F]
     state: 
       data: [0x02, 0x03]
       mask: [0xff, 0x0f]
