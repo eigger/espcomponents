@@ -90,6 +90,7 @@ CASES = [
     ("grouped stationary deadband negative", "  stationary: {deadband: -1 deg}", NOOP, "deadband"),
     ("save limit negative", "  save: {max_per_boot: -1}", NOOP, "max_per_boot"),
     ("save limit fractional", "  save: {max_per_boot: 1.5}", NOOP, "max_per_boot"),
+    ("save limit boolean", "  save: {max_per_boot: false}", NOOP, "Expected a numeric save limit"),
     ("save limit alias conflict", "  save: {max_per_boot: 2}\n  save_once_per_boot: true", NOOP, "save.max_per_boot"),
     ("deadband alias conflict", "  stationary: {deadband: 1}\n  stationary_heading_deadband: 2", NOOP, "stationary.deadband"),
     ("negative speed", "  min_learning_speed: -1", NOOP, "min_learning_speed"),

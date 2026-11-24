@@ -89,9 +89,15 @@ _XYZ_SCHEMA = cv.Schema(
     }
 )
 
+def _save_limit(value):
+    if isinstance(value, bool):
+        raise cv.Invalid("Expected a numeric save limit")
+    return cv.uint32_t(value)
+
+
 _SAVE_SCHEMA = cv.Schema(
     {
-        cv.Optional(CONF_MAX_PER_BOOT): cv.uint32_t,
+        cv.Optional(CONF_MAX_PER_BOOT): _save_limit,
         cv.Optional(CONF_MIN_CHANGE): _heading_delta,
     }
 )
