@@ -33,6 +33,10 @@ substitutions:
   vehicle_scan_cooldown_ms: "600000"
   boot_vehicle_scan_max_ms: "30000"  # Time after splash to start another sweep; 0 disables the waiting animation.
   vehicle_scan_sweep_ms: "2500"  # Duration of one sweep for both scan modes.
+  vehicle_scan_start_x: "80"
+  vehicle_scan_end_x: "760"
+  vehicle_scan_body_trail_px: "30"
+  vehicle_scan_outline_fade_ms: "420"
   trip_soundtrack_notes: "12"
   trip_soundtrack_note_ms: "220"
   trip_soundtrack_rate: "48000"
@@ -110,7 +114,7 @@ substitutions:
 
   ui_ascii: ' !"#$%&''()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
   # Shared by the warning popup and the log. Add characters from external parking text here.
-  ui_alert_hangul: "가감경고과급기낮높능데동력료리미발방배버변부상새속스시압업엔연열오요위유음의이일장전족졸주진충치터트필하험환타어저앞뒤왼른쪽"
+  ui_alert_hangul: "가감경고과급기낮높능데동력료리미발방배버변부상새속스시압업엔연열오요위유음의이일장전족졸주진충치터트필하험환타어저앞뒤왼른쪽정복귀해제온도확인"
   ui_extra_glyphs: "패응답지연결사운드음량소거켜짐꺼재생테스트본체무선"
   ui_trip_glyphs: "된포종출평균범환습저적함약랙–"
 
@@ -124,11 +128,6 @@ substitutions:
     bg_color: "${tab5_color_button_bg}"
     pressed:
       bg_color: "${tab5_color_button_pressed}"
-  danger_button: &danger_button
-    <<: *button_shape
-    bg_color: "${tab5_color_status_hot}"
-    pressed:
-      bg_color: "${tab5_color_danger_pressed}"
 
 esphome:
   name: "${name}"
@@ -159,6 +158,20 @@ esphome:
     # Sound player and LVGL objects must exist before applying restored settings.
     - priority: -100
       then:
+        - lambda: |-
+            constexpr int width = 608;
+            constexpr int height = 64;
+            static constexpr auto pixels = [] {
+              constexpr int stride = width / 8;
+              std::array<uint8_t, stride * height> mask{};
+              for (int row = 0; row < height; row += 4)
+                std::fill_n(mask.begin() + row * stride, stride, 0xFF);
+              return mask;
+            }();
+            static image::Image scanlines(pixels.data(), width, height, image::IMAGE_TYPE_BINARY,
+                                         image::TRANSPARENCY_OPAQUE);
+            for (auto *panel : {id(obj_restart_popup), id(obj_jaalee_panel)})
+              lv_obj_set_style_bg_image_src(panel, scanlines.get_lv_image_dsc(), LV_PART_MAIN);
         - lambda: |-
             id(gnss_imu).add_magnetometer_listener([](const bmi270::bmm150::BMM150Data &data) {
               id(g_compass_field) = {data.x, data.y, data.z};
@@ -772,7 +785,6 @@ lvgl_fx:
 
     bindings:
       - { id: obj_splash, visible: fx_splash_out }
-      - { id: popup_alert, visible: fx_show_185 }
       - { id: obj_restart_backdrop, visible: fx_show_185 }
       - { id: obj_restart_popup, visible: fx_show_185 }
       - { id: obj_log, visible: fx_show_175 }
@@ -1023,6 +1035,13 @@ gps_compass:
   gps_id: id_gps
   min_learning_speed: ${compass_learning_speed_kmh} km/h
   min_sectors: ${compass_learning_min_sectors}
+  save:
+    max_per_boot: 1
+    min_change: 0.5 deg
+  stationary:
+    deadband: 1 deg
+    moving_signal: !lambda |-
+      return id(fn_sample_live)(10, id(car_speed).state, 5000) > 0.0f;
   accelerometer: { x: id_bmi270_accel_x, y: id_bmi270_accel_y, z: id_bmi270_accel_z }
   # With the default directions (pitch -1, roll +1) this is forward +Z, right +Y: pitch = atan2(-dir * az, ...) and
   # roll = atan2(-dir * ay, ...), so flipping a direction substitution flips the matching axis.
@@ -1061,7 +1080,9 @@ gps_compass:
         - script.execute: script_render_pose
   on_calibrated:
     - lambda: |-
-        if (!first) return;
+        static bool notified = false;
+        if (!saved || notified) return;
+        notified = true;
         id(g_compass_gps_notice_pending) = true;
         id(script_logs).execute("Compass GPS / pitch-roll calibration saved");
 
@@ -1280,12 +1301,98 @@ globals:
   - id: g_vehicle_scan_tpms
     type: bool
     initial_value: 'false'
-  - id: g_vehicle_scan_markers_active
-    type: bool
-    initial_value: 'false'
   - id: g_vehicle_scan_started_at
     type: uint32_t
     initial_value: '0'
+  - id: g_vehicle_scan_outlines
+    type: 'std::array<std::pair<lv_obj_t *, int>, 11>'
+  - id: g_vehicle_scan_body_x
+    type: int
+    initial_value: '-1'
+  - id: fn_draw_vehicle_scan_body_glow
+    type: 'void (*)(int, lv_layer_t *)'
+    initial_value: |-
+      +[](int beam_x, lv_layer_t *layer) {
+        auto *outline = line_vehicle_scan_body->obj;
+        auto *overlay = obj_vehicle_scan_outlines;
+        const auto *points = lv_line_get_points(outline);
+        const auto count = lv_line_get_point_count(outline);
+        if (!points || count < 2) return;
+        lv_area_t overlay_area;
+        lv_obj_get_coords(overlay, &overlay_area);
+        const int offset_x = overlay_area.x1 + lv_obj_get_style_x(outline, LV_PART_MAIN);
+        const int offset_y = overlay_area.y1 + lv_obj_get_style_y(outline, LV_PART_MAIN);
+        const int beam = overlay_area.x1 + beam_x;
+        constexpr int trail = ${vehicle_scan_body_trail_px}, ahead = 7, padding = 6;
+        lv_area_t dirty[2] = {
+          {LV_COORD_MAX, LV_COORD_MAX, LV_COORD_MIN, LV_COORD_MIN},
+          {LV_COORD_MAX, LV_COORD_MAX, LV_COORD_MIN, LV_COORD_MIN},
+        };
+        const struct { int left, right, width; lv_opa_t opacity; } bands[] = {
+          {-trail, -18, 4, LV_OPA_20}, {-18, -7, 5, LV_OPA_50},
+          {-7, ahead, 9, LV_OPA_40}, {-7, ahead, 5, LV_OPA_COVER},
+        };
+        lv_draw_line_dsc_t stroke;
+        if (layer) {
+          lv_draw_line_dsc_init(&stroke);
+          stroke.color = lv_color_hex(0xF1FFED);
+        }
+        for (uint32_t i = 1; i < count; ++i) {
+          const auto &a = points[i - 1];
+          const auto &b = points[i];
+          const auto &first = a.x <= b.x ? a : b;
+          const auto &last = a.x <= b.x ? b : a;
+          const int x1 = offset_x + first.x, x2 = offset_x + last.x;
+          if (x2 < beam - trail || x1 > beam + ahead) continue;
+          const int y1 = offset_y + first.y, y2 = offset_y + last.y;
+          const auto clip_y = [&](int x) { return y1 + (y2 - y1) * (x - x1) / (x2 - x1); };
+          if (layer) {
+            for (const auto &band : bands) {
+              const int left = std::max(x1, beam + band.left);
+              const int right = std::min(x2, beam + band.right);
+              if (left > right || (left == right && (x1 != x2 || x1 == beam + band.right))) continue;
+              const int top = x1 == x2 ? y1 : clip_y(left);
+              const int bottom = x1 == x2 ? y2 : clip_y(right);
+              // This is the active clip while LV_EVENT_DRAW_MAIN submits draw tasks.
+              const auto &clip = layer->_clip_area;
+              if (right + band.width < clip.x1 || left - band.width > clip.x2 ||
+                  std::max(top, bottom) + band.width < clip.y1 || std::min(top, bottom) - band.width > clip.y2) continue;
+              stroke.p1.x = left;
+              stroke.p1.y = top;
+              stroke.p2.x = right;
+              stroke.p2.y = bottom;
+              stroke.width = band.width;
+              stroke.opa = band.opacity;
+              lv_draw_line(layer, &stroke);
+            }
+          } else {
+            // Invalidate the affected upper and lower strokes separately.
+            auto &area = dirty[a.y + b.y > 2 * points[0].y];
+            const int32_t left = std::max(x1, beam - trail), right = std::min(x2, beam + ahead);
+            const int32_t top = x1 == x2 ? y1 : clip_y(left);
+            const int32_t bottom = x1 == x2 ? y2 : clip_y(right);
+            area.x1 = std::min(area.x1, left - padding);
+            area.y1 = std::min(area.y1, std::min(top, bottom) - padding);
+            area.x2 = std::max(area.x2, right + padding);
+            area.y2 = std::max(area.y2, std::max(top, bottom) + padding);
+          }
+        }
+        if (!layer) {
+          for (const auto &area : dirty) {
+            if (area.x1 <= area.x2) lv_obj_invalidate_area(overlay, &area);
+          }
+        }
+      }
+  - id: fn_set_vehicle_scan_body_x
+    type: 'void (*)(int)'
+    initial_value: |-
+      +[](int x) {
+        auto &previous = id(g_vehicle_scan_body_x);
+        if (x == previous) return;
+        if (previous >= 0) id(fn_draw_vehicle_scan_body_glow)(previous, nullptr);
+        previous = x;
+        if (x >= 0) id(fn_draw_vehicle_scan_body_glow)(x, nullptr);
+      }
   # Which accent a readout icon earns when its color changes is decided here; lvgl_fx plays it.
   # Returns true when an accent started (the readout text then skips its own fade).
   - id: fn_icon_accent
@@ -1527,6 +1634,9 @@ globals:
     type: bool
     initial_value: 'false'
   - id: g_tpms_low_tires
+    type: uint8_t
+    initial_value: '0'
+  - id: g_tpms_valid_tires
     type: uint8_t
     initial_value: '0'
   # ── 발전기 저전압 지속시간 추적 (RVC 연비모드 오탐 방지: 순간전압이 아닌 지속시간으로 실고장 판정)
@@ -2485,9 +2595,9 @@ interval:
       - script.execute: { id: script_trip_replay, request: 0 }
       - if:
           condition:
-            lambda: 'return id(g_vehicle_scan_markers_active);'
+            lambda: 'return !lv_obj_is_hidden(id(obj_vehicle_scan_beam));'
           then:
-            - script.execute: { id: script_vehicle_scan_markers, phase: 1 }
+            - script.execute: { id: script_vehicle_scan_outlines, reset: false }
   - interval: 250ms
     then:
       - script.execute: script_sound_links
@@ -2514,6 +2624,7 @@ interval:
           const uint32_t sound_now = esphome::millis();
           id(fn_sound_alert)("begin", 0, 0, 0);
           int popup_rank = -1;
+          int popup_key = -1;
           bool popup_acknowledged = false;
           const auto set_alert = [&](unsigned key, const std::string &text, uint32_t color) {
             id(fn_sound_alert)("observe", key, color == danger ? 2 : 1, sound_now);
@@ -2526,6 +2637,7 @@ interval:
               msg = text;
               color_hex = color;
               popup_rank = rank;
+              popup_key = key;
               popup_acknowledged = acked;
             }
           };
@@ -2576,7 +2688,7 @@ interval:
 
           // Preserve the existing tire-warning priority among warnings only.
           if (low_tires) {
-            const char *positions[] = {"앞왼쪽", "앞오른쪽", "뒤왼쪽", "뒤오른쪽"};
+            const char *positions[] = {"FL", "FR", "RL", "RR"};
             std::string tire_msg = "타이어 저압";
             for (size_t i = 0; i < id(g_tpms_samples).size(); ++i) {
               if (low_tires & (1u << i)) {
@@ -2693,7 +2805,7 @@ interval:
             // 차량 경고가 없을 때만 독립된 플래그(g_update_alert_dismissed)로 업데이트 알림 검사
             if (id(g_update_available) && !id(g_update_alert_dismissed)) {
               if (!id(g_latest_version).empty()) {
-                msg = "새 버전 " + id(g_latest_version) + " 업데이트 가능!";
+                msg = "업데이트 가능  " + id(g_latest_version);
               } else {
                 msg = "새 업데이트 가능!";
               }
@@ -2706,14 +2818,16 @@ interval:
           if (pending_sound >= 0) {
             id(script_sound_play).execute(id(fn_sound_alert)("severity", pending_sound, 0, 0) >= 2 ? 6 : 5);
           }
-          id(g_alert_is_update) = !car_alert && !msg.empty();
           const bool dismissed = car_alert ? id(alert_dismissed) : id(g_update_alert_dismissed);
           // Confirmed conditions never re-appear on their own, even after another alert
           // re-showed the popup; only new or escalated conditions (unconfirmed) are shown.
           const bool show_popup = !msg.empty() && !dismissed && !(car_alert && popup_acknowledged) &&
               (car_alert || id(fn_service_allowed)());
           const bool urgent = show_popup && car_alert && color_hex != notice;
+          id(g_alert_is_update) = show_popup && !car_alert;
           id(g_notice_active) = urgent;
+          if (urgent && !lv_obj_is_hidden(id(obj_jaalee_detail)))
+            fx::set_visible(id(obj_jaalee_detail), false);
           const char *level = color_hex == danger ? "경고" : color_hex == notice ? "안내" : "주의";
 
           static uint32_t compass_notice_started = 0;
@@ -2739,23 +2853,79 @@ interval:
           }
 
           auto *popup = id(popup_alert);
+          static int shown_key = -1;
+          static uint32_t shown_color = 0;
+          static uint8_t shown_low_tires = 0;
+          static std::string shown_msg;
           if (!show_popup) {
-            fx::set_visible(popup, false);
+            if (lv_obj_is_hidden(popup) || !lv_obj_is_clickable(popup)) return;
+            const char *recovery = nullptr;
+            if (!car_alert && shown_key >= 0) {
+              // A disappeared message can also mean stale telemetry, a mode change or a notice timeout.
+              bool recovered = false;
+              switch (shown_key) {
+                case 0:
+                  recovered = shown_low_tires != 0 &&
+                      (shown_low_tires & id(g_tpms_valid_tires)) == shown_low_tires;
+                  break;
+                case 1:
+                  recovered = connected && std::isfinite(coolant);
+                  if (recovered) recovery = "엔진 온도 정상 복귀";
+                  break;
+                case 2: recovered = connected && std::isfinite(transmission); break;
+                case 3: recovered = connected && engine_on && std::isfinite(oil); break;
+                case 4: recovered = connected && std::isfinite(speed); break;
+                case 6: recovered = std::isfinite(co2); break;
+                case 8: recovered = std::isfinite(tvoc); break;
+                case 10:
+                case 11: recovered = connected && std::isfinite(acceleration); break;
+                case 12: recovered = connected && std::isfinite(load); break;
+                case 13: recovered = std::isfinite(id(id_tab5_internal_temperature).state); break;
+                case 14:
+                case 15: recovered = connected && bat_valid && engine_on; break;
+                case 16: recovered = connected && bat_valid && !engine_on; break;
+                case 17: recovered = connected && bat_valid && !engine_on && id(fn_battery_rested)(); break;
+                case 21:
+                case 22: recovered = connected && engine_on && fuel >= (shown_key == 22 ? 8 : 15); break;
+              }
+              if (recovered && !recovery) recovery = "경고 해제";
+            }
+            if (recovery) {
+              id(script_alert_style).execute(${tab5_color_accent});
+              lv_obj_set_hidden(id(lbl_alert_title), true);
+              lv_obj_set_style_x(id(lbl_alert_msg), 16, LV_PART_MAIN);
+              lv_obj_set_width(id(lbl_alert_msg), 574);
+              lv_label_set_text(id(lbl_alert_msg), recovery);
+              lv_obj_set_hidden(id(lbl_alert_action), true);
+            }
+            id(script_alert_close).execute(recovery ? 640 : 0, 160);
             return;
           }
 
-          const bool reopening = lv_obj_is_hidden(popup);
-          const auto color = lv_color_hex(color_hex);
-          if (!reopening && msg == lv_label_get_text(id(lbl_alert_msg)) &&
-              std::strcmp(level, lv_label_get_text(id(lbl_alert_title))) == 0 &&
-              lv_color_eq(color, lv_obj_get_style_bg_color(popup, LV_PART_MAIN))) return;
+          const bool reopening = lv_obj_is_hidden(popup) || !lv_obj_is_clickable(popup);
+          if (!reopening && popup_key == shown_key && color_hex == shown_color && msg == shown_msg) return;
+          shown_key = popup_key;
+          shown_color = color_hex;
+          shown_low_tires = low_tires;
+          shown_msg = msg;
 
-          lv_label_set_text(id(lbl_alert_title), level);
+          id(script_alert_close).stop();
+          lv_anim_delete(popup, nullptr);
+          lv_obj_set_style_opa(popup, LV_OPA_COVER, LV_PART_MAIN);
+          lv_label_set_text_static(id(lbl_alert_title), level);
+          lv_obj_set_hidden(id(lbl_alert_title), false);
+          lv_obj_set_style_x(id(lbl_alert_msg), 80, LV_PART_MAIN);
+          lv_obj_set_width(id(lbl_alert_msg), 450);
           lv_label_set_text(id(lbl_alert_msg), msg.c_str());
-          lv_obj_set_style_bg_color(popup, color, LV_PART_MAIN);
-          // An urgent popup appears at once; a notice fades in.
-          fx::set_visible(popup, true, {.instant = urgent});
+          lv_label_set_text_static(id(lbl_alert_action), id(g_alert_is_update) ? "열기" : "확인");
+          lv_obj_set_hidden(id(lbl_alert_action), false);
+          id(script_alert_style).execute(color_hex == danger ? ${tab5_color_status_hot}
+              : color_hex == warning ? ${tab5_color_status_warm} : ${tab5_color_accent});
+          lv_obj_set_clickable(popup, true);
+          lv_obj_set_hidden(popup, false);
+          if (!urgent && reopening && fx::is_ready() && !id(g_logs_visible)) lv_obj_fade_in(popup, 185, 0);
       - script.execute: script_update_trip_report
+      - script.execute: script_render_jaalee_detail
 
 text_sensor:
   - platform: wifi_info
@@ -2936,41 +3106,60 @@ lvgl:
 
       # ── 재시작 팝업 모달 ──
       - obj:
-          <<: &modal_card
+          <<: &terminal_modal
+            <<: &terminal_scanlines
+              bg_color: "${tab5_color_background}"
+              bg_opa: COVER
+              bg_image_tiled: true
+              bg_image_opa: 4%
+              bg_image_recolor: "${tab5_color_accent}"
+              bg_image_recolor_opa: COVER
             align: center
-            width: 520
-            height: 310
-            bg_color: "${tab5_color_card_bg}"
+            width: 608
+            radius: 2
             border_width: 1
-            border_color: "${tab5_color_card_border}"
-            radius: 16
-            pad_all: 20
-            shadow_width: 30
-            shadow_color: "${tab5_color_shadow}"
-            shadow_opa: 50%
+            border_color: "${tab5_color_accent}"
+            pad_all: 0
+            scrollable: false
           id: obj_restart_popup
           hidden: true
+          height: 244
           widgets:
+            - obj: { <<: &terminal_modal_rail { align: top_left, width: 3, radius: 0, border_width: 0, bg_color: "${tab5_color_accent}", bg_opa: COVER, clickable: false, scrollable: false }, height: 242 }
             - label:
                 text: "시스템 재시작"
-                align: top_mid
-                y: 10
+                align: top_left
+                x: 28
+                y: 18
                 text_color: "${tab5_color_accent}"
                 text_font: notosans35
+                clickable: false
+            - line: { <<: *ota_rule, x: 28, y: 76, points: ["0, 0", "550, 0"] }
             - label:
-                text: "시스템을 재시작하시겠습니까?"
-                align: center
-                y: -10
+                text: "Tab5를 재시작할까요?"
+                align: top_left
+                x: 28
+                y: 94
                 text_color: "${tab5_color_text_primary}"
                 text_font: notosans30
+                clickable: false
             - button:
+                <<: &terminal_modal_button
+                  width: 263
+                  height: 62
+                  radius: 0
+                  border_width: 1
+                  pad_all: 0
+                  shadow_width: 0
+                  outline_width: 0
+                  scrollable: false
                 id: btn_restart_yes
                 align: bottom_left
-                x: 30
-                y: -10
-                width: 190
-                height: 65
-                <<: *danger_button
+                x: 28
+                y: -24
+                bg_color: "${tab5_color_background}"
+                border_color: "${tab5_color_status_hot}"
+                pressed: { bg_color: "${tab5_color_danger_pressed}" }
                 on_click:
                   then:
                     - if:
@@ -2980,18 +3169,20 @@ lvgl:
                           - switch.turn_on: sw_restart
                 widgets:
                   - label:
-                      text: "예"
+                      text: "[ 재시작 ]"
                       align: center
-                      text_color: "${tab5_color_text_primary}"
+                      text_color: "${tab5_color_status_hot}"
                       text_font: notosans30
+                      clickable: false
             - button:
+                <<: *terminal_modal_button
                 id: btn_restart_no
                 align: bottom_right
-                x: -30
-                y: -10
-                width: 190
-                height: 65
-                <<: *neutral_button
+                x: -28
+                y: -24
+                bg_color: "${tab5_color_button_bg}"
+                border_color: "${tab5_color_card_border}"
+                pressed: { bg_color: "${tab5_color_button_pressed}" }
                 on_click:
                   then:
                     - lambda: |-
@@ -2999,10 +3190,45 @@ lvgl:
                         fx::set_visible(id(obj_restart_popup), false);
                 widgets:
                   - label:
-                      text: "아니오"
+                      text: "[ 취소 ]"
                       align: center
                       text_color: "${tab5_color_text_primary}"
                       text_font: notosans30
+                      clickable: false
+
+      - obj:
+          <<: *modal_backdrop
+          id: obj_jaalee_detail
+          widgets:
+            - obj:
+                <<: *terminal_modal
+                id: obj_jaalee_panel
+                height: 308
+                widgets:
+                  - obj: { <<: *terminal_modal_rail, height: 306 }
+                  - label: { id: lbl_jaalee_name, text: "실내 센서", align: top_left, x: 28, y: 18, text_color: "${tab5_color_accent}", text_font: notosans35, clickable: false }
+                  - line: { <<: *ota_rule, x: 28, y: 76, points: ["0, 0", "550, 0"] }
+                  - label: { <<: &jaalee_caption { align: top_left, y: 94, text_color: "${tab5_color_text_muted}", text_font: notosans20, clickable: false }, x: 28, text: "온도" }
+                  - label: { <<: *jaalee_caption, x: 210, text: "습도" }
+                  - label: { <<: *jaalee_caption, x: 392, text: "배터리" }
+                  - label: { <<: &jaalee_value { align: top_left, y: 122, width: 170, long_mode: DOT, text_color: "${tab5_color_text_primary}", text_font: notosans35, clickable: false }, id: lbl_jaalee_temperature, x: 28, text: "-- °C" }
+                  - label: { <<: *jaalee_value, id: lbl_jaalee_humidity, x: 210, text: "-- %" }
+                  - label: { <<: *jaalee_value, id: lbl_jaalee_battery, x: 392, text: "--%" }
+                  - line: { <<: *ota_rule, x: 28, y: 189, points: ["0, 0", "550, 0"] }
+                  - label: { id: lbl_jaalee_age, text: "수신 기록 없음", align: bottom_left, x: 28, y: -40, width: 360, long_mode: DOT, text_color: "${tab5_color_text_secondary}", text_font: notosans20, clickable: false }
+                  - button:
+                      <<: *terminal_modal_button
+                      align: bottom_right
+                      x: -28
+                      y: -24
+                      width: 170
+                      bg_color: "${tab5_color_button_bg}"
+                      border_color: "${tab5_color_card_border}"
+                      pressed: { bg_color: "${tab5_color_button_pressed}" }
+                      on_click:
+                        - lambda: fx::set_visible(id(obj_jaalee_detail), false);
+                      widgets:
+                        - label: { text: "[ 닫기 ]", align: center, text_color: "${tab5_color_text_primary}", text_font: notosans30, clickable: false }
 
       - obj:
           <<: *modal_backdrop
@@ -3062,7 +3288,7 @@ lvgl:
                             id(g_auto_ota_handled_versions).push_back(id(g_auto_ota_popup_version));
                             if (id(g_update_available) && id(g_latest_version) == id(g_auto_ota_popup_version)) {
                               id(g_update_alert_dismissed) = true;
-                              if (id(g_alert_is_update)) fx::set_visible(id(popup_alert), false);
+                              if (id(g_alert_is_update)) id(script_alert_close).execute(0, 0);
                             }
                             lv_obj_set_hidden(id(obj_auto_ota_popup), true);
                       widgets:
@@ -3236,26 +3462,22 @@ lvgl:
             - button:
                 id: popup_alert
                 hidden: true
-                align: center
-                width: SIZE_CONTENT
-                min_width: 480
-                height: 72
-                bg_color: "${tab5_color_alert_danger}"
+                bg_color: "${tab5_color_background}"
                 bg_opa: COVER
-                radius: 14
-                border_width: 0
-                pad_all: 8
-                shadow_width: 8
-                shadow_offset_x: 0
-                shadow_offset_y: 3
-                shadow_spread: 0
-                shadow_color: "${tab5_color_shadow}"
-                shadow_opa: 24%
+                align: center
+                # Center the panel between the GPS icon and the full Korean date.
+                x: -36
+                width: 608
+                height: 64
+                radius: 2
+                border_width: 1
+                border_color: "${tab5_color_status_hot}"
+                pad_all: 0
+                shadow_width: 0
                 outline_width: 0
-                outline_opa: 0%
+                scrollable: false
                 pressed:
-                  shadow_width: 4
-                  shadow_offset_y: 2
+                  bg_color: "${tab5_color_panel_pressed}"
                 on_click:
                   then:
                     - lambda: |-
@@ -3270,31 +3492,22 @@ lvgl:
                         }
                         id(script_logs).execute("ALERT: Dismissed");
                         id(g_notice_active) = false;
-                        fx::set_visible(id(popup_alert), false);
+                        id(script_alert_close).execute(0, 120);
                 widgets:
-                  - image:
-                      id: widget_img_alert
-                      src: img_alert
-                      align: left_mid
-                      x: 8
-                      image_recolor: "${tab5_color_text_primary}"
-                      image_recolor_opa: 100%
-                  - label:
-                      id: lbl_alert_title
-                      text: ""
-                      align: left_mid
-                      x: 56
-                      y: 0
-                      text_color: "${tab5_color_text_primary}"
-                      text_font: font_alert_title
+                  - label: { id: lbl_alert_title, text: "", align: left_mid, x: 16, y: 6, text_font: font_alert_title, clickable: false }
                   - label:
                       id: lbl_alert_msg
                       text: ""
                       align: left_mid
-                      x: 140
-                      y: 0
+                      x: 80
+                      y: 8
+                      width: 450
+                      height: 43  # Single line in font_alert_msg.
+                      long_mode: DOT
                       text_color: "${tab5_color_text_primary}"
                       text_font: font_alert_msg
+                      clickable: false
+                  - label: { id: lbl_alert_action, text: "", align: right_mid, x: -16, text_font: notosans20, text_color: "${tab5_color_text_secondary}", clickable: false }
 
       # Terminal boot screen. script_boot_typing types the text in time with the boot WAV.
       # Only small label areas change per frame, so the effect stays smooth at full resolution.
@@ -3477,73 +3690,72 @@ lvgl:
             widgets:
               - label:
                   <<: &terminal_heading { align: top_left, text_color: "${tab5_color_text_muted}", text_font: notosans20 }
-                  id: lbl_vehicle_heading
-                  text: "---°"
-                  x: 61
-                  y: -3
-                  text_font: font_compass_heading
-                  text_color: "${tab5_color_text_primary}"
-                  clickable: false
-              - label:
-                  <<: *terminal_heading
                   id: lbl_compass_source
-                  text: ""
-                  x: 61
-                  y: 38
-                  text_font: notosans16
+                  text: "수신 대기"
+                  y: 59
+                  text_font: font_compass_source
                   clickable: false
               - obj:
                   <<: *terminal_panel
-                  id: obj_compass_dial
                   align: top_left
-                  width: 48
-                  height: 49
+                  width: 62
+                  height: 62
                   widgets:
-                    - obj:
-                        <<: *terminal_panel
-                        align: top_left
+                    - line:
+                        <<: &compass_rule { align: top_left, line_color: "${tab5_color_text_inactive}", line_width: 1, clickable: false }
+                        x: 1
                         y: 1
-                        width: 46
-                        height: 46
-                        radius: 23
-                        border_width: 1
-                        border_color: "${tab5_color_card_border}"
+                        points: ["17, 0", "43, 0", "60, 17", "60, 43", "43, 60", "17, 60", "0, 43", "0, 17", "17, 0"]
+                    - line: { <<: *compass_rule, x: 1, y: 1, points: ["30, 7", "30, 53"] }
+                    - line: { <<: *compass_rule, x: 1, y: 1, points: ["7, 30", "53, 30"] }
                     - line:
                         id: line_compass_dial_needle
                         align: top_left
-                        x: 3
-                        y: 4
-                        points: ["20, 33", "20, 2", "11, 14", "20, 2", "29, 14"]
+                        x: 9
+                        y: 9
+                        points: ["22, 41", "22, 4", "12, 19", "22, 4", "32, 19"]
                         line_color: "${tab5_color_accent}"
                         line_width: 3
-                        transform_pivot_x: 20
-                        transform_pivot_y: 20
+                        transform_pivot_x: 22
+                        transform_pivot_y: 22
                         clickable: false
                         hidden: true
               - obj:
                   <<: *terminal_panel
                   id: obj_compass_tape
                   align: top_left
-                  x: 140
-                  width: 160
-                  height: 41
+                  x: 80
+                  width: 220
+                  height: 58
                   widgets:
-                    - line:
-                        y: 40
-                        points: ["0, 0", "159, 0"]
-                        line_color: "${tab5_color_text_inactive}"
-                        line_width: 1
-                        clickable: false
+                    - line: { <<: *compass_rule, y: 46, points: ["0, 0", "219, 0"] }
+              # Fade the clipped text at the fixed edges without covering the ticks.
               - obj:
-                  <<: *terminal_panel
-                  id: obj_compass_pointer
-                  align: top_left
-                  x: 219
-                  y: 33
-                  width: 2
-                  height: 12
-                  bg_opa: COVER
-                  bg_color: "${tab5_color_accent}"
+                  <<: &compass_edge_fade
+                    <<: *terminal_panel
+                    align: top_left
+                    width: 18
+                    height: 37
+                    bg_color: "${tab5_color_background}"
+                    bg_grad_color: "${tab5_color_background}"
+                    bg_opa: COVER
+                    bg_grad_dir: HOR
+                  x: 80
+                  bg_main_opa: COVER
+                  bg_grad_opa: TRANSP
+              - obj:
+                  <<: *compass_edge_fade
+                  x: 282
+                  bg_main_opa: TRANSP
+                  bg_grad_opa: COVER
+              - line:
+                  <<: *compass_rule
+                  id: line_compass_pointer
+                  x: 183
+                  y: 48
+                  points: ["0, 7", "7, 0", "14, 7", "7, 0", "7, 13"]
+                  line_color: "${tab5_color_accent}"
+                  line_width: 2
                   hidden: true
               - label: { id: lbl_speed, text: "--", align: top_left, y: 50, width: 300, text_align: RIGHT, text_color: "${tab5_color_text_muted}", text_font: font_terminal_speed }
               - label: { <<: *terminal_heading, text: "km/h", y: 221, width: 300, text_align: RIGHT }
@@ -3661,13 +3873,13 @@ lvgl:
                     - obj:
                         <<: &sensor_heading_row { <<: *terminal_panel, align: top_left, width: 145, height: 32, layout: { type: flex, flex_flow: ROW, flex_align_main: CENTER, flex_align_cross: CENTER, pad_column: 4 } }
                         widgets:
-                          - image: { <<: *terminal_icon, id: widget_img_coolant, src: img_coolant }
-                          - label: { <<: &sensor_heading { text_font: font_dashboard_label, text_color: "${tab5_color_text_muted}" }, text: "냉각수" }
+                          - image: { <<: *terminal_icon, id: widget_img_intake, src: img_thermometer_lines }
+                          - label: { <<: &sensor_heading { text_font: font_dashboard_label, text_color: "${tab5_color_text_muted}" }, text: "흡기온도" }
                     - obj:
                         # Reserve the full 40px font line height; short rows clipped digits and units.
                         <<: &sensor_value_row { <<: *sensor_heading_row, y: 20, height: 60, layout: { type: flex, flex_flow: ROW, flex_align_main: CENTER, flex_align_cross: CENTER, pad_column: 3 } }
                         widgets:
-                          - label: { <<: &sensor_value { text: "--", text_font: font_terminal_trip, text_color: "${tab5_color_text_muted}" }, id: lbl_engine_coolant_temperature }
+                          - label: { <<: &sensor_value { text: "--", text_font: font_terminal_trip, text_color: "${tab5_color_text_muted}" }, id: lbl_intake_temp_display }
                           - label: { <<: &sensor_unit { text_font: notosans20, text_color: "${tab5_color_text_muted}", translate_y: 8 }, text: "°C" }
               - obj:
                   <<: *terminal_panel
@@ -3760,19 +3972,18 @@ lvgl:
                           - label: { <<: *sensor_value, id: lbl_bed_temperature }
                           - label: { <<: *sensor_unit, text: "°C" }
               # Solid leaders preserve their orthogonal routes and stop before entering each part.
-              # Routed leaders show sensor status. Scan markers use a separate overlay.
-              - line: { <<: &scan_leader { <<: *terminal_line, line_color: "${tab5_color_text_inactive}", line_width: 2, line_opa: 100%, hidden: true }, id: line_scan_coolant_leader, x: 81, y: 77, points: ["0, 0", "0, 144", "60, 144"] }
+              - line: { <<: &scan_leader { <<: *terminal_line, line_color: "${tab5_color_text_inactive}", line_width: 2, line_opa: 100%, hidden: true }, id: line_scan_intake_leader, x: 81, y: 77, points: ["0, 0", "0, 82", "103, 82"] }
               - line: { <<: *scan_leader, id: line_scan_oil_temperature_leader, x: 226, y: 77, points: ["0, 0", "0, 23", "30, 23", "30, 137", "25, 137"] }
-              - line: { <<: *scan_leader, id: line_scan_oil_pressure_leader, x: 213, y: 242, points: ["158, 137", "158, 107", "47, 107", "47, 13", "0, 13", "0, 0"] }
-              - line: { <<: *scan_leader, id: line_scan_cabin_temp_leader, x: 516, y: 77, points: ["0, 0", "0, 13", "26, 13", "26, 110", "11, 110"] }
-              - line: { <<: *scan_leader, id: line_scan_cabin_humidity_leader, x: 516, y: 257, points: ["0, 122", "0, 108", "26, 108", "26, 0", "11, 0"] }
+              - line: { <<: *scan_leader, id: line_scan_oil_pressure_leader, x: 213, y: 242, points: ["158, 129", "158, 107", "47, 107", "47, 13", "0, 13", "0, 0"] }
+              - line: { <<: *scan_leader, id: line_scan_cabin_temp_leader, x: 449, y: 77, points: ["67, 0", "67, 13", "0, 13", "0, 77"] }
+              - line: { <<: *scan_leader, id: line_scan_cabin_humidity_leader, x: 449, y: 288, points: ["67, 83", "67, 77", "0, 77", "0, 0"] }
               - line: { <<: *scan_leader, id: line_scan_bed_temp_leader, x: 753, y: 77, points: ["53, 0", "53, 118", "0, 118"] }
-              - line: { <<: *scan_leader, id: line_scan_intake_leader, x: 98, y: 159, points: ["0, 220", "0, 0", "86, 0"] }
+              - line: { <<: *scan_leader, id: line_scan_coolant_leader, x: 81, y: 221, points: ["0, 150", "0, 0", "60, 0"] }
               - line: { <<: *scan_leader, id: line_scan_transmission_leader, x: 299, y: 77, points: ["72, 0", "72, 23", "0, 23", "0, 128"] }
-              - line: { <<: *scan_leader, id: line_scan_voltage_leader, x: 192, y: 289, points: ["34, 90", "34, 10", "0, 10", "0, 0"] }
+              - line: { <<: *scan_leader, id: line_scan_voltage_leader, x: 192, y: 289, points: ["34, 82", "34, 10", "0, 10", "0, 0"] }
               - line: { <<: *scan_leader, id: line_scan_co2_leader, x: 484, y: 77, points: ["177, 0", "177, 19", "0, 19", "0, 46"] }
-              - line: { <<: *scan_leader, id: line_scan_tvoc_leader, x: 484, y: 318, points: ["177, 61", "177, 32", "0, 32", "0, 0"] }
-              - line: { <<: *scan_leader, id: line_scan_bed_humidity_leader, x: 753, y: 247, points: ["53, 132", "53, 0", "0, 0"] }
+              - line: { <<: *scan_leader, id: line_scan_tvoc_leader, x: 484, y: 318, points: ["177, 53", "177, 32", "0, 32", "0, 0"] }
+              - line: { <<: *scan_leader, id: line_scan_bed_humidity_leader, x: 753, y: 247, points: ["53, 124", "53, 0", "0, 0"] }
 
               - obj:
                   id: obj_vehicle_scan
@@ -3816,7 +4027,7 @@ lvgl:
                     - obj: { <<: *scan_tire, id: obj_tire_rear_right, x: 577, y: 11 }
                     - obj: { <<: *scan_tire, id: obj_tire_rear_left, x: 577, y: 247 }
                     # GM 1/T2M43 crew-cab top view, simplified to the body and visible trim.
-                    - line: { <<: &truck_outline { <<: *terminal_line, line_color: "${tab5_color_accent}", line_width: 3 }, x: 98, y: 27, points: ["2, 111", "4, 78", "10, 49", "20, 30", "36, 13", "50, 6", "76, 2", "164, 2", "184, 9", "416, 9", "432, 4", "456, 2", "536, 2", "584, 6", "617, 12", "632, 20", "640, 38", "642, 65", "642, 111", "642, 157", "640, 184", "632, 202", "617, 210", "584, 216", "536, 220", "456, 220", "432, 218", "416, 213", "184, 213", "164, 220", "76, 220", "50, 216", "36, 209", "20, 192", "10, 173", "4, 144", "2, 111"] }
+                    - line: { <<: &truck_outline { <<: *terminal_line, line_color: "${tab5_color_accent}", line_width: 3 }, id: line_vehicle_scan_body, x: 98, y: 27, points: ["2, 111", "4, 78", "10, 49", "20, 30", "36, 13", "50, 6", "76, 2", "164, 2", "184, 9", "416, 9", "432, 4", "456, 2", "536, 2", "584, 6", "617, 12", "632, 20", "640, 38", "642, 65", "642, 111", "642, 157", "640, 184", "632, 202", "617, 210", "584, 216", "536, 220", "456, 220", "432, 218", "416, 213", "184, 213", "164, 220", "76, 220", "50, 216", "36, 209", "20, 192", "10, 173", "4, 144", "2, 111"] }
                     # Headlamps, hood contour, windshield and mirrors.
                     - line: { <<: *truck_outline, x: 110, y: 40, points: ["2, 42", "16, 20", "29, 7", "50, 2", "54, 9", "35, 16"] }
                     - line: { <<: *truck_outline, x: 110, y: 192, points: ["2, 2", "16, 24", "29, 37", "50, 42", "54, 35", "35, 28"] }
@@ -3844,21 +4055,21 @@ lvgl:
                     - image: { <<: *scan_part, id: widget_img_scan_bed, x: 534, y: 49 }
                     - obj:
                         <<: *terminal_panel
+                        id: obj_vehicle_scan_outlines
+                        align: top_left
+                        width: 842
+                        height: 277
+                    - obj:
+                        <<: *terminal_panel
                         id: obj_vehicle_scan_beam
-                        x: 138
-                        y: 27
+                        x: ${vehicle_scan_start_x}
+                        y: 11
                         width: 3
-                        height: 222
+                        height: 254
                         hidden: true
                         bg_opa: 85%
                         bg_color: "${tab5_color_accent}"
                     - label: { id: lbl_vehicle_scan_status, align: top_mid, y: 0, hidden: true, clickable: false, text: "[ SCANNING ]", text_font: font_terminal_boot, text_color: "${tab5_color_accent}" }
-                    - obj:
-                        <<: *terminal_panel
-                        id: obj_vehicle_scan_markers
-                        width: 842
-                        height: 277
-                        hidden: true
               - obj:
                   <<: *terminal_panel
                   align: top_left
@@ -3870,12 +4081,12 @@ lvgl:
                     - obj:
                         <<: *sensor_heading_row
                         widgets:
-                          - image: { <<: *terminal_icon, id: widget_img_intake, src: img_thermometer_lines }
-                          - label: { <<: *sensor_heading, text: "흡기온도" }
+                          - image: { <<: *terminal_icon, id: widget_img_coolant, src: img_coolant }
+                          - label: { <<: *sensor_heading, text: "냉각수" }
                     - obj:
                         <<: *sensor_value_row
                         widgets:
-                          - label: { <<: *sensor_value, id: lbl_intake_temp_display }
+                          - label: { <<: *sensor_value, id: lbl_engine_coolant_temperature }
                           - label: { <<: *sensor_unit, text: "°C" }
               - obj:
                   <<: *terminal_panel
@@ -4181,48 +4392,6 @@ lvgl:
                     - label: { <<: *tilt_value, id: lbl_roll_value }
                     - label: { <<: *tilt_badge, id: lbl_roll_calibrated, text: "보정" }
                     - label: { <<: *tilt_badge, id: lbl_roll_range, x: 74, width: 54, text: ">25°", text_color: "${tab5_color_status_hot}" }
-
-        - obj:
-            <<: *terminal_panel
-            id: obj_jaalee_detail
-            align: top_right
-            x: -30
-            y: 178
-            width: 270
-            height: 76
-            hidden: true
-            clickable: true
-            bg_color: "${tab5_color_panel_bg}"
-            bg_opa: COVER
-            border_width: 1
-            border_color: "${tab5_color_card_border}"
-            radius: 8
-            on_click:
-              - script.stop: script_jaalee_detail
-              - lambda: fx::set_visible(id(obj_jaalee_detail), false);
-            widgets:
-              - label:
-                  id: lbl_jaalee_name
-                  x: 12
-                  y: 8
-                  text: "Jaalee"
-                  text_font: notosans20
-                  text_color: "${tab5_color_accent}"
-              - label:
-                  id: lbl_jaalee_battery
-                  align: top_right
-                  x: -12
-                  y: 8
-                  text: "배터리 --"
-                  text_font: notosans20
-                  text_color: "${tab5_color_text_secondary}"
-              - label:
-                  id: lbl_jaalee_age
-                  x: 12
-                  y: 39
-                  text: "수신 기록 없음"
-                  text_font: notosans20
-                  text_color: "${tab5_color_text_primary}"
 
         # Service content: shared 28px margins, 592px columns and 40px gutter.
         - obj:
@@ -4793,14 +4962,14 @@ font:
     size: 180
     glyphs: "-0123456789"
   - file: "gfonts://Noto+Sans+KR"
-    id: font_compass_heading
+    id: font_compass_source
     bpp: 4
-    size: 32
-    glyphs: "-0123456789°"
+    size: 18
+    glyphs: " GPS최근자기센서수신대값"
   - file: "gfonts://Noto+Sans+KR"
-    id: font_compass_tape
+    id: font_compass_direction
     bpp: 4
-    size: 28
+    size: 38
     glyphs: "북동남서"
   - file: "gfonts://Noto+Sans+KR"
     id: font_terminal_trip
@@ -4809,13 +4978,13 @@ font:
   - file: "gfonts://Gothic+A1"
     id: font_alert_title
     bpp: 4
-    size: 28
+    size: 23
     glyphs: "경고주의안내"
   - file: "gfonts://Gothic+A1"
     id: font_alert_msg
     bpp: 4
     size: 34
-    glyphs: ${ (ui_ascii + ui_alert_hangul + ui_extra_glyphs + '°') | unique(case_sensitive=true) | join }
+    glyphs: ${ (ui_ascii + ui_alert_hangul + ui_extra_glyphs + '°차층구역번둥') | unique(case_sensitive=true) | join }
   - file: "gfonts://Noto+Sans+KR"
     id: notosans16
     bpp: 4
@@ -4835,12 +5004,12 @@ font:
     id: notosans30
     bpp: 4
     size: 30
-    glyphs: [ "${ui_ascii}", "°", "각거겠기까냉니도량력료리미부션수스습시아압엔연예오온운율을일작잔재전진충템하행흡로그설정새버초후치합닙됩건너뛰가다" ]
+    glyphs: [ "${ui_ascii}", "°", "각거겠기까냉니도량력료리미부션수스습시아압엔연예오온운율을일작잔재전진충템하행흡로그설정새버초후치합닙됩건너뛰가다를할요취소닫" ]
   - file: "gfonts://Noto+Sans+KR"
     id: notosans35
     bpp: 4
     size: 35
-    glyphs: [ "${ui_ascii}", "°", "금목수스시월일작재템토화본체자동업데이트" ]
+    glyphs: [ "${ui_ascii}", "°", "금목수스시월일작재템토화본체자동업데이트실내센서적함" ]
   - file: "gfonts://Noto+Sans+KR"
     id: notosans45
     size: 45
@@ -4884,11 +5053,6 @@ image:
     file: mdi:counter
     id: img_odometer
     resize: 28x28
-    type: binary
-  - platform: file
-    file: mdi:alert-circle
-    id: img_alert
-    resize: 34x34
     type: binary
   - platform: file
     file: mdi:wifi
@@ -4988,6 +5152,30 @@ image:
     type: binary
 
 script:
+  - id: script_alert_style
+    parameters:
+      accent: uint32_t
+    then:
+      - lambda: |-
+          const auto color = lv_color_hex(accent);
+          lv_obj_set_style_border_color(id(popup_alert), color, LV_PART_MAIN);
+          lv_obj_set_style_text_color(id(lbl_alert_title), color, LV_PART_MAIN);
+
+  - id: script_alert_close
+    mode: restart
+    parameters:
+      hold_ms: int
+      fade_ms: int
+    then:
+      - lambda: |-
+          auto *popup = id(popup_alert);
+          lv_obj_set_clickable(popup, false);
+          lv_anim_delete(popup, nullptr);
+          if (fade_ms > 0) lv_obj_fade_out(popup, fade_ms, hold_ms);
+          else lv_obj_set_hidden(popup, true);
+      - delay: !lambda return hold_ms + fade_ms;
+      - lambda: lv_obj_set_hidden(id(popup_alert), true);
+
   # Cue IDs: boot/open/close/click/success/warning/danger/failure/notice.
   - id: script_sound_stop
     then:
@@ -5418,6 +5606,7 @@ script:
           };
           const uint8_t previous_low_tires = id(g_tpms_low_tires);
           uint8_t low_tires = 0;
+          uint8_t valid_tires = 0;
           for (size_t i = 0; i < id(g_tpms_samples).size(); ++i) {
             const auto &tire = tires[i];
             const uint32_t sampled_at = id(g_tpms_samples)[i];
@@ -5426,6 +5615,7 @@ script:
             const bool valid = connected && sampled_at != 0 && now - sampled_at < 75000 &&
                 tire.pressure >= 0.0f && tire.pressure <= 600.0f;
             const bool low = valid && tire.pressure < low_kpa + (was_low ? 10.0f : 0.0f);
+            if (valid) valid_tires |= bit;
             if (low) low_tires |= bit;
             const bool show = low || id(g_tpms_show_all) || id(g_vehicle_scan_tpms);
             if (show) {
@@ -5445,6 +5635,7 @@ script:
             }
           }
           id(g_tpms_low_tires) = low_tires;
+          id(g_tpms_valid_tires) = valid_tires;
 
   - id: script_boot_vehicle_scan
     mode: single
@@ -5468,7 +5659,7 @@ script:
                           return id(g_notice_active) || id(g_logs_visible) || id(g_ota_ui_active) ||
                               id(g_updating) || !lv_obj_is_hidden(id(obj_jaalee_detail));
                       then:
-                        - script.execute: script_clear_vehicle_scan
+                        - script.execute: { id: script_clear_vehicle_scan, cancel_body_glow: true }
                         - wait_until:
                             condition:
                               lambda: 'return id(g_boot_obd_received);'
@@ -5480,7 +5671,8 @@ script:
                         - script.execute: script_start_vehicle_scan_sweep
                         # Recheck the first sample and timeout after the visible sweep finishes.
                         - delay: !lambda return ${vehicle_scan_sweep_ms}u;
-            - script.execute: script_clear_vehicle_scan
+                        - script.execute: script_finish_vehicle_scan_sweep
+            - script.execute: { id: script_clear_vehicle_scan, cancel_body_glow: false }
             - lambda: |-
                 ESP_LOGD("vehicle_scan", "%s after %u ms",
                          id(g_boot_obd_received) ? "First OBD sample received" : "OBD wait timed out",
@@ -5494,7 +5686,7 @@ script:
           static float stopped_selector = NAN;
           const float speed = id(fn_sample_live)(10, id(car_speed).state, 5000);
           if (id(obd_client).connected() && speed > 0.0f) moved_since_stop = true;
-          // Once started, let the scan finish its sweep and completion display.
+          // Once started, let the scan finish its sweep and TPMS display.
           if (id(script_vehicle_scan).is_running()) {
             moved_since_stop = false;
             stopped_at = 0;
@@ -5523,140 +5715,110 @@ script:
 
   - id: script_start_vehicle_scan_sweep
     then:
+      - script.execute: { id: script_vehicle_scan_outlines, reset: true }
       - lambda: |-
           auto *beam = id(obj_vehicle_scan_beam);
-          fx::set_x(beam, 138, {.instant = true});
+          lv_anim_delete(&id(g_vehicle_scan_body_x), nullptr);
+          id(fn_set_vehicle_scan_body_x)(-1);
+          fx::set_x(beam, ${vehicle_scan_start_x}, {.instant = true});
           lv_obj_set_hidden(beam, false);
-          lv_label_set_text(id(lbl_vehicle_scan_status), "[ SCANNING ]");
+          id(fn_set_vehicle_scan_body_x)(${vehicle_scan_start_x});
           lv_obj_set_hidden(id(lbl_vehicle_scan_status), false);
-          fx::set_x(beam, 738, {.transition = id(fx_vehicle_scan_sweep)});
+          fx::set_x(beam, ${vehicle_scan_end_x}, {.transition = id(fx_vehicle_scan_sweep)});
+
+  - id: script_finish_vehicle_scan_sweep
+    then:
+      - lambda: |-
+          lv_obj_set_hidden(id(obj_vehicle_scan_beam), true);
+          lv_obj_set_hidden(id(lbl_vehicle_scan_status), true);
+          if (id(g_vehicle_scan_body_x) < 0) return;
+          auto *outline = id(line_vehicle_scan_body)->obj;
+          const auto *points = lv_line_get_points(outline);
+          const auto count = lv_line_get_point_count(outline);
+          if (!points || count < 2) {
+            id(fn_set_vehicle_scan_body_x)(-1);
+            return;
+          }
+          int rightmost = static_cast<int>(points[0].x);
+          for (uint32_t i = 1; i < count; ++i) rightmost = std::max(rightmost, static_cast<int>(points[i].x));
+          const int end = lv_obj_get_style_x(outline, LV_PART_MAIN) + rightmost + ${vehicle_scan_body_trail_px} + 1;
+          const int start = std::max(id(g_vehicle_scan_body_x), ${vehicle_scan_end_x});
+          if (start >= end) {
+            id(fn_set_vehicle_scan_body_x)(-1);
+            return;
+          }
+          // Keep the last sliver travelling at the sweep speed after the beam disappears.
+          lv_anim_t tail;
+          lv_anim_init(&tail);
+          lv_anim_set_var(&tail, &id(g_vehicle_scan_body_x));
+          lv_anim_set_values(&tail, start, end);
+          lv_anim_set_duration(&tail, std::max(1, (end - start) * ${vehicle_scan_sweep_ms} /
+                                                 (${vehicle_scan_end_x} - ${vehicle_scan_start_x})));
+          lv_anim_set_exec_cb(&tail, +[](void *, int32_t x) { id(fn_set_vehicle_scan_body_x)(x); });
+          lv_anim_set_completed_cb(&tail, +[](lv_anim_t *) { id(fn_set_vehicle_scan_body_x)(-1); });
+          if (!lv_anim_start(&tail)) id(fn_set_vehicle_scan_body_x)(-1);
 
   - id: script_vehicle_scan
     mode: single
     then:
       - lambda: id(g_vehicle_scan_started_at) = std::max<uint32_t>(esphome::millis(), 1);
       - script.execute: script_start_vehicle_scan_sweep
-      - script.execute: { id: script_vehicle_scan_markers, phase: 0 }
       # Reveal TPMS at the same point in the sweep as before.
       - delay: !lambda return ${vehicle_scan_sweep_ms}u * 760u / 1250u;
       - lambda: |-
           id(g_vehicle_scan_tpms) = true;
           id(script_render_tpms).execute();
       - delay: !lambda return ${vehicle_scan_sweep_ms}u - (${vehicle_scan_sweep_ms}u * 760u / 1250u);
-      - script.execute: { id: script_vehicle_scan_markers, phase: 2 }
-      - lambda: |-
-          lv_obj_set_hidden(id(obj_vehicle_scan_beam), true);
-          lv_label_set_text(id(lbl_vehicle_scan_status), "[ SCAN COMPLETE ]");
+      - script.execute: script_finish_vehicle_scan_sweep
       - script.execute: { id: script_sound_play, cue: 3 }
       - delay: 820ms
-      - script.execute: script_clear_vehicle_scan
+      - script.execute: { id: script_clear_vehicle_scan, cancel_body_glow: true }
 
   - id: script_clear_vehicle_scan
+    parameters:
+      cancel_body_glow: bool
     then:
-      - script.execute: { id: script_vehicle_scan_markers, phase: 3 }
+      - script.execute: { id: script_vehicle_scan_outlines, reset: true }
       - lambda: |-
           fx::stop(id(obj_vehicle_scan_beam));
           lv_obj_set_hidden(id(obj_vehicle_scan_beam), true);
+          if (cancel_body_glow) {
+            lv_anim_delete(&id(g_vehicle_scan_body_x), nullptr);
+            id(fn_set_vehicle_scan_body_x)(-1);
+          }
           lv_obj_set_hidden(id(lbl_vehicle_scan_status), true);
           if (id(g_vehicle_scan_tpms)) {
             id(g_vehicle_scan_tpms) = false;
             id(script_render_tpms).execute();
           }
 
-  - id: script_vehicle_scan_markers
+  - id: script_vehicle_scan_outlines
     parameters:
-      phase: int  # 0: start, 1: marker tick, 2: finish, 3: clear.
+      reset: bool
     then:
       - lambda: |-
-          auto *overlay = id(obj_vehicle_scan_markers);
-          if (phase == 3) {
-            id(g_vehicle_scan_markers_active) = false;
-            lv_obj_set_hidden(overlay, true);
-            return;
-          }
-          // Body-side endpoints of the leader routes, relative to obj_vehicle_scan.
-          // Order the result cells by the position where the beam reaches each endpoint.
-          const struct {
-            int x, y, mode;
-            sensor::Sensor *sensor;
-            uint32_t max_age;
-            bool requires_obd;
-          } sensors[] = {
-            {119, 138, 5, id(engine_coolant_temperature), 35000, true},
-            {162, 76, 17, id(intake_air_temperature), 35000, true},
-            {170, 206, 7, id(car_battery), 35000, true},
-            {191, 159, 14, id(engine_oil_pressure), 10000, true},
-            {229, 131, 26, id(engine_oil_temperature), 35000, true},
-            {277, 122, 18, id(transmission_temperature), 35000, true},
-            {462, 40, 13, id(id_scd40_co2), 15000, false},
-            {462, 235, 12, id(id_sgp30_tvoc), 8000, false},
-            {505, 104, 2, id(id_cabin_temperature), 300000, false},
-            {505, 174, 3, id(id_cabin_humidity), 300000, false},
-            {731, 112, 15, id(id_bed_temperature), 300000, false},
-            {731, 164, 16, id(id_bed_humidity), 300000, false},
-          };
-          static struct Indicator {
-            lv_obj_t *marker = nullptr;
-            lv_obj_t *cell = nullptr;
-            uint32_t lit_at = 0;
-            bool crossed = false;
-            bool lit = false;
-          } indicators[std::size(sensors)];
-          constexpr uint32_t marker_duration_ms = 310;
-          if (phase == 0) {
-            const auto make_square = [&](int x, int y, int size, bool marker) {
-              auto *obj = lv_obj_create(overlay);
-              if (!obj) return obj;
-              lv_obj_remove_style_all(obj);
-              lv_obj_set_clickable(obj, false);
-              lv_obj_set_scrollable(obj, false);
-              lv_obj_set_pos(obj, x, y);
-              lv_obj_set_size(obj, size, size);
-              lv_obj_set_style_bg_color(obj, lv_color_hex(${tab5_color_accent}), LV_PART_MAIN);
-              lv_obj_set_style_radius(obj, marker ? 2 : 0, LV_PART_MAIN);
-              if (marker) {
-                lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, LV_PART_MAIN);
-              } else {
-                lv_obj_set_style_border_width(obj, 1, LV_PART_MAIN);
-                lv_obj_set_style_border_color(obj, lv_color_hex(${tab5_color_text_muted}), LV_PART_MAIN);
-              }
-              return obj;
-            };
-            for (size_t i = 0; i < std::size(sensors); ++i) {
-              auto &item = indicators[i];
-              const auto &source = sensors[i];
-              if (!item.marker) item.marker = make_square(source.x - 4, source.y - 4, 9, true);
-              if (!item.cell) item.cell = make_square(574 + i * 11, 3, 8, false);
-              item.crossed = item.lit = false;
-              if (item.marker) lv_obj_set_hidden(item.marker, true);
-              if (item.cell) lv_obj_set_style_bg_opa(item.cell, LV_OPA_TRANSP, LV_PART_MAIN);
-            }
-            lv_obj_set_hidden(overlay, false);
-            id(g_vehicle_scan_markers_active) = true;
-          }
-
-          const uint32_t now = esphome::millis();
-          // Read the animated style position directly, before the next LVGL layout pass.
-          const int beam_x = lv_obj_get_style_x(id(obj_vehicle_scan_beam), LV_PART_MAIN);
-          const bool connected = id(obd_client).connected();
-          for (size_t i = 0; i < std::size(sensors); ++i) {
-            auto &item = indicators[i];
-            const auto &source = sensors[i];
-            if (!item.crossed && (phase == 2 || source.x <= beam_x)) {
-              item.crossed = true;
-              item.lit = (!source.requires_obd || connected) &&
-                  std::isfinite(id(fn_sample_live)(source.mode, source.sensor->state, source.max_age));
-              if (item.lit) {
-                item.lit_at = now;
-                if (item.cell) lv_obj_set_style_bg_opa(item.cell, LV_OPA_COVER, LV_PART_MAIN);
-                if (item.marker) lv_obj_set_hidden(item.marker, false);
-              }
-            }
-            if (item.lit && now - item.lit_at >= marker_duration_ms) {
-              if (item.marker) lv_obj_set_hidden(item.marker, true);
-              item.lit = false;
+          static int previous_x = -1;
+          // Read the animated style coordinate before the next LVGL layout pass.
+          const int beam_x = reset ? -1 : lv_obj_get_style_x(id(obj_vehicle_scan_beam), LV_PART_MAIN);
+          if (!reset && beam_x <= previous_x) return;
+          for (const auto &[outline, center_x] : id(g_vehicle_scan_outlines)) {
+            if (!outline) continue;
+            if (reset) {
+              lv_anim_delete(outline, nullptr);
+              lv_obj_set_style_image_opa(outline, LV_OPA_TRANSP, LV_PART_MAIN);
+            } else if (previous_x < center_x && center_x <= beam_x) {
+              lv_anim_t fade;
+              lv_anim_init(&fade);
+              lv_anim_set_var(&fade, outline);
+              lv_anim_set_values(&fade, LV_OPA_COVER, LV_OPA_TRANSP);
+              lv_anim_set_duration(&fade, ${vehicle_scan_outline_fade_ms});
+              lv_anim_set_exec_cb(&fade, +[](void *image, int32_t opacity) {
+                lv_obj_set_style_image_opa(static_cast<lv_obj_t *>(image), opacity, LV_PART_MAIN);
+              });
+              lv_anim_start(&fade);
             }
           }
+          previous_x = beam_x;
 
   - id: script_render_prnd
     parameters:
@@ -5735,18 +5897,25 @@ script:
           if (std::strcmp(lv_label_get_text(id(lbl_setup_attitude)), posture) != 0) {
             lv_label_set_text(id(lbl_setup_attitude), posture);
           }
-          static uint8_t levels[2]{};
+          static struct PoseState {
+            uint8_t level = 0;
+            bool valid = false;
+            bool initialized = false;
+          } states[std::size(axes)];
           size_t axis_index = 0;
           for (const auto &axis : axes) {
-            auto &level = levels[axis_index++];
+            auto &state = states[axis_index++];
+            auto &level = state.level;
+            const auto previous_level = level;
             const bool valid = std::isfinite(axis.angle);
             const int32_t target = valid ? std::lround(std::clamp(axis.angle, -25.0f, 25.0f) * 10.0f) : 0;
-            lv_obj_set_style_opa(axis.shape, valid ? LV_OPA_COVER : LV_OPA_30, LV_PART_MAIN);
+            const bool validity_changed = !state.initialized || valid != state.valid;
+            if (validity_changed) lv_obj_set_style_opa(axis.shape, valid ? LV_OPA_COVER : LV_OPA_30, LV_PART_MAIN);
             const float magnitude = std::abs(axis.angle);
-            if (std::abs(axis.offset) > 0.0001f) lv_obj_set_hidden(axis.calibrated, false);
-            else lv_obj_set_hidden(axis.calibrated, true);
-            if (valid && magnitude > 25.0f) lv_obj_set_hidden(axis.range, false);
-            else lv_obj_set_hidden(axis.range, true);
+            const bool hide_calibrated = !(std::abs(axis.offset) > 0.0001f);
+            const bool hide_range = !valid || magnitude <= 25.0f;
+            if (lv_obj_is_hidden(axis.calibrated) != hide_calibrated) lv_obj_set_hidden(axis.calibrated, hide_calibrated);
+            if (lv_obj_is_hidden(axis.range) != hide_range) lv_obj_set_hidden(axis.range, hide_range);
             // Enter each band at its configured angle; recover 1 degree below it.
             if (!valid) level = 0;
             else if (magnitude >= ${tab5_tilt_hot_deg}) level = 2;
@@ -5754,31 +5923,33 @@ script:
             else if (magnitude >= ${tab5_tilt_warm_deg}) level = 1;
             else if (level >= 1 && magnitude >= ${tab5_tilt_warm_deg} - 1.0f) level = 1;
             else level = 0;
-            const auto color = lv_color_hex(!valid ? ${tab5_color_text_muted}
-                : level == 2 ? ${tab5_color_status_hot}
-                : level == 1 ? ${tab5_color_status_warm}
-                : ${tab5_color_accent});
-            lv_obj_set_style_text_color(axis.value, color, LV_PART_MAIN);
-            const bool tinted = valid && level > 0;
-            for (uint32_t i = 0; i < lv_obj_get_child_count(axis.shape); ++i) {
-              auto *part = lv_obj_get_child(axis.shape, i);
-              // Preserve the quieter trim at small angles; tint the whole vehicle when inclined.
-              if (lv_obj_check_type(part, &lv_line_class)) {
-                const bool detail = lv_obj_get_style_line_width(part, LV_PART_MAIN) == 1;
-                lv_obj_set_style_line_color(part, !tinted && detail
-                    ? lv_color_hex(${tab5_color_text_inactive}) : color, LV_PART_MAIN);
-              } else if (lv_obj_get_style_border_width(part, LV_PART_MAIN) > 0) {
-                const bool hub = lv_obj_get_style_border_width(part, LV_PART_MAIN) == 1;
-                lv_obj_set_style_border_color(part, !tinted && hub
-                    ? lv_color_hex(${tab5_color_text_inactive}) : color, LV_PART_MAIN);
+            if (validity_changed || previous_level != level) {
+              const auto color = lv_color_hex(!valid ? ${tab5_color_text_muted}
+                  : level == 2 ? ${tab5_color_status_hot}
+                  : level == 1 ? ${tab5_color_status_warm}
+                  : ${tab5_color_accent});
+              lv_obj_set_style_text_color(axis.value, color, LV_PART_MAIN);
+              const bool tinted = valid && level > 0;
+              for (uint32_t i = 0; i < lv_obj_get_child_count(axis.shape); ++i) {
+                auto *part = lv_obj_get_child(axis.shape, i);
+                // Preserve the quieter trim at small angles; tint the whole vehicle when inclined.
+                if (lv_obj_check_type(part, &lv_line_class)) {
+                  const bool detail = lv_obj_get_style_line_width(part, LV_PART_MAIN) == 1;
+                  lv_obj_set_style_line_color(part, !tinted && detail
+                      ? lv_color_hex(${tab5_color_text_inactive}) : color, LV_PART_MAIN);
+                } else if (lv_obj_get_style_border_width(part, LV_PART_MAIN) > 0) {
+                  const bool hub = lv_obj_get_style_border_width(part, LV_PART_MAIN) == 1;
+                  lv_obj_set_style_border_color(part, !tinted && hub
+                      ? lv_color_hex(${tab5_color_text_inactive}) : color, LV_PART_MAIN);
+                }
               }
             }
             // An unreadable angle levels at once; a readable one glides.
-            if (valid) {
-              fx::set_rotation(axis.shape, target / 10.0f);
-            } else {
-              fx::set_rotation(axis.shape, 0, {.instant = true});
+            if (valid || validity_changed) {
+              fx::set_rotation(axis.shape, target / 10.0f, {.instant = !valid});
             }
+            state.valid = valid;
+            state.initialized = true;
           }
 
   - id: script_speed_expire
@@ -5864,18 +6035,14 @@ script:
               const auto mode = static_cast<int>(reinterpret_cast<intptr_t>(lv_event_get_user_data(event)));
               id(script_render_scan_status).execute(mode, lv_color_t{}, nullptr, true);
               const bool bed = mode == 15 || mode == 16;
-              if ((!bed && mode != 2 && mode != 3) || !id(fn_service_allowed)()) return;
-              auto *detail = id(obj_jaalee_detail);
-              if (!lv_obj_is_hidden(detail) && id(g_jaalee_detail_bed) == bed) {
-                id(script_jaalee_detail).stop();
-                fx::set_visible(detail, false);
-                return;
-              }
-              id(script_jaalee_detail).execute(bed);
+              if (bed || mode == 2 || mode == 3) id(script_jaalee_detail).execute(bed);
             };
             for (const auto &readout : readouts) {
               if (readout.mode == 19) continue;
               auto *card = lv_obj_get_parent(readout.label);
+              // The Jaalee heading and value both open the same sensor detail.
+              if (readout.mode == 2 || readout.mode == 3 || readout.mode == 15 || readout.mode == 16)
+                card = lv_obj_get_parent(card);
               lv_obj_set_clickable(card, true);
               lv_obj_add_event_cb(card, focus, LV_EVENT_CLICKED,
                                   reinterpret_cast<void *>(static_cast<intptr_t>(readout.mode)));
@@ -6231,6 +6398,86 @@ script:
                                     image::IMAGE_TYPE_BINARY, image::TRANSPARENCY_OPAQUE);
           lv_image_set_src(id(widget_img_scan_bed), bed.get_lv_image_dsc());
 
+          // Draw one-pixel contours on separate images so the status fills keep their own colors.
+          // Split the masks in the gaps between rows. Each row's seats and windows flash together.
+          constexpr int seat_split_x = 86;
+          constexpr int window_split_x = 101;
+          const int cabin_x = lv_obj_get_style_x(id(widget_img_scan_cabin), LV_PART_MAIN);
+          const int front_x = cabin_x + seat_split_x / 2;
+          const int rear_x = cabin_x + (seat_split_x + cabin.get_width()) / 2;
+          struct PartRegion {
+            lv_obj_t *image;
+            int left = 0;
+            int right = 0;  // Zero uses the full remaining width.
+            int trigger_x = -1;  // The default is the center of the region.
+          };
+          const std::array<PartRegion, 11> parts{{
+            {id(widget_img_scan_coolant)}, {id(widget_img_scan_engine)}, {id(widget_img_scan_intake)},
+            {id(widget_img_scan_battery)}, {id(widget_img_scan_transmission)},
+            {id(widget_img_scan_cabin), 0, seat_split_x, front_x},
+            {id(widget_img_scan_cabin_windows), 0, window_split_x, front_x},
+            {id(widget_img_scan_cabin), seat_split_x, 0, rear_x},
+            {id(widget_img_scan_cabin_windows), window_split_x, 0, rear_x},
+            {id(widget_img_scan_fuel)}, {id(widget_img_scan_bed)},
+          }};
+          static std::array<lv_image_dsc_t, parts.size()> contours{};
+          auto &outlines = id(g_vehicle_scan_outlines);
+          for (size_t i = 0; i < parts.size(); ++i) {
+            if (outlines[i].first) continue;
+            const auto &region = parts[i];
+            auto *part = region.image;
+            const auto *source = static_cast<const lv_image_dsc_t *>(lv_image_get_src(part));
+            if (!source || source->header.cf != LV_COLOR_FORMAT_A1) continue;
+            const int right = region.right > 0 ? region.right : source->header.w;
+            const int width = right - region.left;
+            const int height = source->header.h;
+            const int stride = (width + 7) / 8;
+            const size_t size = stride * height;
+            auto *pixels = RAMAllocator<uint8_t>().allocate(size);
+            if (!pixels) continue;
+            std::fill_n(pixels, size, 0);
+            const auto filled = [&](int x, int y) {
+              return x >= 0 && x < source->header.w && y >= 0 && y < height &&
+                  (source->data[y * source->header.stride + x / 8] & (0x80 >> (x % 8)));
+            };
+            for (int y = 0; y < height; ++y) {
+              for (int x = 0; x < width; ++x) {
+                const int source_x = region.left + x;
+                if (filled(source_x, y) && !(filled(source_x - 1, y) && filled(source_x + 1, y) &&
+                                            filled(source_x, y - 1) && filled(source_x, y + 1))) {
+                  pixels[y * stride + x / 8] |= 0x80 >> (x % 8);
+                }
+              }
+            }
+            contours[i] = *source;
+            contours[i].header.w = width;
+            contours[i].header.stride = stride;
+            contours[i].data_size = size;
+            contours[i].data = pixels;
+            auto *outline = lv_image_create(id(obj_vehicle_scan_outlines));
+            if (!outline) {
+              RAMAllocator<uint8_t>().deallocate(pixels, size);
+              continue;
+            }
+            lv_obj_set_style_image_opa(outline, LV_OPA_TRANSP, LV_PART_MAIN);
+            lv_obj_set_clickable(outline, false);
+            lv_obj_set_scrollable(outline, false);
+            lv_obj_set_style_image_recolor(outline, lv_color_hex(${tab5_color_accent}), LV_PART_MAIN);
+            lv_obj_set_style_image_recolor_opa(outline, LV_OPA_COVER, LV_PART_MAIN);
+            lv_image_set_src(outline, &contours[i]);
+            const int x = lv_obj_get_style_x(part, LV_PART_MAIN) + region.left;
+            lv_obj_set_pos(outline, x, lv_obj_get_style_y(part, LV_PART_MAIN));
+            outlines[i] = {outline, region.trigger_x >= 0 ? region.trigger_x : x + width / 2};
+          }
+          lv_obj_add_event_cb(id(obj_vehicle_scan_outlines), +[](lv_event_t *event) {
+            const int x = id(g_vehicle_scan_body_x);
+            if (x >= 0) id(fn_draw_vehicle_scan_body_glow)(x, lv_event_get_layer(event));
+          }, LV_EVENT_DRAW_MAIN, nullptr);
+          lv_obj_add_event_cb(id(obj_vehicle_scan_beam), +[](lv_event_t *event) {
+            auto *beam = lv_event_get_target_obj(event);
+            if (!lv_obj_is_hidden(beam)) id(fn_set_vehicle_scan_body_x)(lv_obj_get_style_x(beam, LV_PART_MAIN));
+          }, LV_EVENT_STYLE_CHANGED, nullptr);
+
   - id: script_render_scan_status
     parameters:
       color_mode: int
@@ -6529,7 +6776,8 @@ script:
           }
           const char *source = compass_source == Source::GPS ? (live ? "GPS" : "최근 GPS")
               : compass_source == Source::MAGNETIC ? (live ? "자기센서" : "최근 자기센서")
-              : compass_source == Source::LAST_GPS ? "최근 GPS" : "";
+              : compass_source == Source::LAST_GPS ? "최근 GPS"
+              : std::isfinite(heading) ? "최근값" : "수신 대기";
           const auto &field = id(g_compass_field);
           const uint32_t field_at = id(g_compass_field_at);
           const bool sample_recent = field_at != 0 && esphome::millis() - field_at <= 1500;
@@ -6577,8 +6825,7 @@ script:
             best_check = LearningCheck::NONE;
             last_level = level;
           }
-          const bool observing_motion = (compass->has_fix() && compass->speed_kmh() >= 3.0f) ||
-              id(fn_sample_live)(10, id(car_speed).state, 5000) > 0.0f;
+          const bool observing_motion = compass->motion_detected();
           if (observing_motion) {
             LearningCheck check = LearningCheck::READY;
             if (!compass->has_fix() || !std::isfinite(compass->speed_kmh())) check = LearningCheck::NO_FIX;
@@ -6635,59 +6882,74 @@ script:
             lv_label_set_text(status_label, calibration_status);
           const int bearing = std::isfinite(heading) ? (std::lround(heading) + 360) % 360 : -1;
           static int previous_bearing = -2;
+          static bool previous_live = false;
           auto *source_label = id(lbl_compass_source);
           if (std::strcmp(lv_label_get_text(source_label), source) != 0) lv_label_set_text_static(source_label, source);
-          if (bearing == previous_bearing) return;
+          if (bearing == previous_bearing && live == previous_live) return;
           previous_bearing = bearing;
+          previous_live = live;
 
           const bool has_bearing = bearing >= 0;
+          const auto direction_color = lv_color_hex(live ? ${tab5_color_text_primary} : ${tab5_color_link_search});
+          const auto indicator_color = lv_color_hex(!has_bearing ? ${tab5_color_text_muted}
+              : live ? ${tab5_color_accent} : ${tab5_color_link_search});
+          const auto tick_color = lv_color_hex(has_bearing ? ${tab5_color_text_muted} : ${tab5_color_text_inactive});
           auto *needle = id(line_compass_dial_needle)->obj;
-          lv_obj_set_hidden(id(obj_compass_pointer), !has_bearing);
+          auto *pointer = id(line_compass_pointer)->obj;
+          lv_obj_set_style_text_color(source_label, indicator_color, LV_PART_MAIN);
+          lv_obj_set_style_line_color(needle, indicator_color, LV_PART_MAIN);
+          lv_obj_set_style_line_color(pointer, indicator_color, LV_PART_MAIN);
           lv_obj_set_hidden(needle, !has_bearing);
-          if (has_bearing) {
-            lv_label_set_text_fmt(id(lbl_vehicle_heading), "%03d°", bearing);
-            lv_obj_set_style_transform_rotation(needle, bearing * 10, LV_PART_MAIN);
-          } else {
-            lv_label_set_text_static(id(lbl_vehicle_heading), "---°");
-          }
+          lv_obj_set_hidden(pointer, !has_bearing);
+          if (has_bearing) lv_obj_set_style_transform_rotation(needle, bearing * 10, LV_PART_MAIN);
+
+          // Use unwrapped tick indices so the tape scrolls continuously across north.
           constexpr const char *directions[] = {"북", "북동", "동", "남동", "남", "남서", "서", "북서"};
-          struct TapeMark {
-            lv_obj_t *label;
-            lv_obj_t *tick;
-          };
-          // Keep labels beyond both edges so the tape clips the glyphs as they scroll.
-          static std::array<TapeMark, 9> marks{};
+          static std::array<lv_obj_t *, 21> ticks{};
+          static std::array<lv_obj_t *, 3> labels{};
           auto *tape = id(obj_compass_tape);
-          const int tape_center = has_bearing ? bearing : 0;
-          const int nearest_tick = (tape_center + 7) / 15;
-          for (int index = 0; index < static_cast<int>(marks.size()); ++index) {
-            auto &[label, notch] = marks[index];
+          const int center = has_bearing ? bearing : 0;
+          const auto tape_x = [center](int degrees) { return 110 + (degrees - center) * 24 / 10; };
+          const int nearest_tick = (center + 2) / 5;
+          for (int index = 0; index < static_cast<int>(ticks.size()); ++index) {
+            auto *&tick = ticks[index];
+            if (tick == nullptr) {
+              tick = lv_obj_create(tape);
+              lv_obj_remove_style_all(tick);
+              lv_obj_set_clickable(tick, false);
+              lv_obj_set_scrollable(tick, false);
+              lv_obj_set_style_bg_opa(tick, LV_OPA_COVER, LV_PART_MAIN);
+            }
+            const int degrees = (nearest_tick + index - static_cast<int>(ticks.size() / 2)) * 5;
+            const bool major = degrees % 45 == 0;
+            const int height = major ? 9 : degrees % 15 == 0 ? 6 : 3;
+            const int width = major ? 2 : 1;
+            lv_obj_set_style_bg_color(tick, major && has_bearing ? direction_color : tick_color, LV_PART_MAIN);
+            lv_obj_set_size(tick, width, height);
+            lv_obj_set_pos(tick, tape_x(degrees) - width / 2, 46 - height);
+          }
+
+          constexpr int label_width = 80;
+          constexpr int tape_width = 220;
+          const int nearest_direction = (center + 22) / 45;
+          for (int index = 0; index < static_cast<int>(labels.size()); ++index) {
+            auto *&label = labels[index];
             if (label == nullptr) {
               label = lv_label_create(tape);
-              lv_obj_set_style_text_font(label, id(font_compass_tape).get_lv_font(), LV_PART_MAIN);
+              lv_obj_set_style_text_font(label, id(font_compass_direction).get_lv_font(), LV_PART_MAIN);
               lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-              lv_obj_set_style_text_color(label, lv_color_hex(${tab5_color_text_primary}), LV_PART_MAIN);
-              lv_obj_set_width(label, 56);
-              notch = lv_obj_create(tape);
-              lv_obj_remove_style_all(notch);
-              lv_obj_set_clickable(notch, false);
-              lv_obj_set_scrollable(notch, false);
-              lv_obj_set_style_bg_color(notch, lv_color_hex(${tab5_color_text_muted}), LV_PART_MAIN);
-              lv_obj_set_style_bg_opa(notch, LV_OPA_COVER, LV_PART_MAIN);
+              lv_obj_set_width(label, label_width);
             }
-            const int tick = nearest_tick + index - static_cast<int>(marks.size() / 2);
-            const int wrapped_tick = (tick + 24) % 24;
-            const bool major = wrapped_tick % 3 == 0;
-            const int x = 80 + (tick * 15 - tape_center) * 11 / 5;
-            const int height = major ? 8 : 4;
-            const int width = major ? 2 : 1;
-            lv_obj_set_size(notch, width, height);
-            lv_obj_set_pos(notch, x - width / 2, 40 - height);
-            lv_obj_set_hidden(label, !has_bearing || !major);
-            if (!has_bearing || !major) continue;
-            const char *text = directions[wrapped_tick / 3];
+            const int direction = nearest_direction + index - 1;
+            const int x = tape_x(direction * 45) - label_width / 2;
+            const bool visible = has_bearing && x < tape_width && x + label_width > 0;
+            lv_obj_set_hidden(label, !visible);
+            if (!visible) continue;
+
+            const char *text = directions[(direction + 8) % 8];
             if (std::strcmp(lv_label_get_text(label), text) != 0) lv_label_set_text_static(label, text);
-            lv_obj_set_pos(label, x - 28, -3);
+            lv_obj_set_style_text_color(label, direction_color, LV_PART_MAIN);
+            lv_obj_set_pos(label, x, -10);
           }
 
   - id: script_calibrate_tilt
@@ -7312,37 +7574,57 @@ script:
           } else {
             lv_obj_add_state(menu, LV_STATE_DISABLED);
             if (id(g_logs_visible)) id(script_set_service_visible).execute(false, 0);
-            if (id(g_alert_is_update)) fx::set_visible(id(popup_alert), false);
+            if (id(g_alert_is_update)) id(script_alert_close).execute(0, 0);
             fx::set_visible(id(obj_jaalee_detail), false);
           }
 
           lv_obj_set_hidden(id(lbl_update_badge), id(g_logs_visible) || !id(g_update_available));
 
   - id: script_jaalee_detail
-    mode: restart
     parameters:
       bed: bool
     then:
       - lambda: |-
+          if (!id(fn_service_allowed)() || id(g_notice_active) || id(g_logs_visible) ||
+              id(g_ota_ui_active) || id(g_updating) ||
+              !lv_obj_is_hidden(id(obj_auto_ota_popup)) || !lv_obj_is_hidden(id(obj_restart_popup))) return;
           id(g_jaalee_detail_bed) = bed;
+          lv_label_set_text(id(lbl_jaalee_name), bed ? "적재함 센서" : "실내 센서");
+          auto *detail = id(obj_jaalee_detail);
+          lv_obj_move_foreground(detail);
+          fx::set_visible(detail, true);
+          id(script_render_jaalee_detail).execute();
+
+  - id: script_render_jaalee_detail
+    then:
+      - lambda: |-
+          if (lv_obj_is_hidden(id(obj_jaalee_detail))) return;
+          const bool bed = id(g_jaalee_detail_bed);
+          const auto render = [](lv_obj_t *label, const std::string &text) {
+            if (text != lv_label_get_text(label)) lv_label_set_text(label, text.c_str());
+          };
+          const auto reading = [](int mode, float value, const char *unit) {
+            const bool sampled = id(g_dashboard_samples)[mode] != 0;
+            return id(fn_readout_text)(sampled ? value : NAN, 1) + unit;
+          };
+          render(id(lbl_jaalee_temperature), reading(bed ? 15 : 2,
+              bed ? id(id_bed_temperature).state : id(id_cabin_temperature).state, " °C"));
+          render(id(lbl_jaalee_humidity), reading(bed ? 16 : 3,
+              bed ? id(id_bed_humidity).state : id(id_cabin_humidity).state, " %"));
+
           const uint32_t last = id(g_jaalee_last_seen)[bed ? 1 : 0];
           const float battery = bed ? id(id_bed_battery_level).state : id(id_cabin_battery_level).state;
-          lv_label_set_text(id(lbl_jaalee_name), bed ? "적재함 Jaalee" : "실내 Jaalee");
-          if (battery >= 0.0f && battery <= 100.0f) {
-            lv_label_set_text_fmt(id(lbl_jaalee_battery), "배터리 %u%%", static_cast<unsigned>(std::lround(battery)));
-          } else {
-            lv_label_set_text(id(lbl_jaalee_battery), "배터리 --");
-          }
+          render(id(lbl_jaalee_battery), id(fn_readout_text)(battery >= 0.0f && battery <= 100.0f
+              ? battery : NAN, 0) + "%");
           if (last == 0) {
-            lv_label_set_text(id(lbl_jaalee_age), "수신 기록 없음");
+            render(id(lbl_jaalee_age), "수신 기록 없음");
           } else {
             const uint32_t seconds = (esphome::millis() - last) / 1000;
-            lv_label_set_text_fmt(id(lbl_jaalee_age), seconds < 60 ? "마지막 수신 %u초 전" : "마지막 수신 %u분 전",
-                                  static_cast<unsigned>(seconds < 60 ? seconds : seconds / 60));
+            char age[48];
+            snprintf(age, sizeof(age), seconds < 60 ? "마지막 수신 %u초 전" : "마지막 수신 %u분 전",
+                     static_cast<unsigned>(seconds < 60 ? seconds : seconds / 60));
+            render(id(lbl_jaalee_age), age);
           }
-          fx::set_visible(id(obj_jaalee_detail), true);
-      - delay: 4s
-      - lambda: fx::set_visible(id(obj_jaalee_detail), false);
 
   - id: script_logs
     parameters:
@@ -7531,6 +7813,7 @@ script:
             lv_label_set_text_fmt(id(lbl_auto_ota_version), "새 버전 %s", version.c_str());
             lv_label_set_text_fmt(id(lbl_auto_ota_countdown), "%u", seconds_shown);
             lv_bar_set_value(id(bar_auto_ota_countdown), 100, LV_ANIM_OFF);
+            fx::set_visible(id(obj_jaalee_detail), false);
             lv_obj_move_foreground(popup);
             lv_obj_set_hidden(popup, false);
             lv_refr_now(nullptr);
@@ -7572,6 +7855,7 @@ script:
     then:
       - lambda: |-
           lv_obj_set_hidden(id(obj_auto_ota_popup), true);
+          fx::set_visible(id(obj_jaalee_detail), false);
           if (!id(g_ota_ui_active)) {
             id(g_ota_backlight_was_on) = id(backlight).remote_values.is_on();
             id(g_ota_backlight_brightness) = id(backlight).remote_values.get_brightness();
@@ -7802,7 +8086,7 @@ packages:
     esphome:
       project:
         name: "local.esp-colorado-tab5"
-        version: "261124.1"
+        version: "261124.2"
     http_request:
       timeout: 60s
 
