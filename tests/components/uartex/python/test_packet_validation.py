@@ -126,5 +126,33 @@ class PacketValidationTests(unittest.TestCase):
         self.no_warnings(hub)
 
 
+class DebounceMaskValidationTests(unittest.TestCase):
+    logger = "packet_validation_test.packet_validation"
+
+    @staticmethod
+    def debounce(ms, offset, mask):
+        return {"delay": types.SimpleNamespace(total_milliseconds=ms), "offset": offset, "mask": mask}
+
+    def warn(self, debounce):
+        with self.assertLogs(self.logger, logging.WARNING) as output:
+            validation._debounce(debounce, "x", [4])
+        return "\n".join(output.output)
+
+    def silent(self, debounce):
+        with self.assertNoLogs(self.logger, logging.WARNING):
+            validation._debounce(debounce, "x", [4])
+
+    def test_mask_entirely_outside_payload(self):
+        self.assertIn("entirely outside", self.warn(self.debounce(2000, 4, [0x01])))
+
+    def test_mask_partly_outside_payload(self):
+        self.assertIn("partly outside", self.warn(self.debounce(2000, 3, [0x01, 0x01])))
+
+    def test_mask_in_range_or_ignored_is_silent(self):
+        self.silent(self.debounce(2000, 2, [0x01, 0x01]))
+        self.silent(self.debounce(2000, 0, []))
+        self.silent(self.debounce(0, 4, [0x01]))
+
+
 if __name__ == "__main__":
     unittest.main()

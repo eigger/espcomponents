@@ -84,12 +84,18 @@ def _debounce(debounce, label, lengths):
     if not isinstance(debounce, dict):
         return
     mask = debounce.get("mask", [])
-    if not mask or not lengths:
+    delay = debounce.get("delay")
+    if not mask or not lengths or not getattr(delay, "total_milliseconds", 0):
         return
-    needed = debounce.get("offset", 0) + len(mask)
+    offset = debounce.get("offset", 0)
+    needed = offset + len(mask)
     if not any(size >= needed for size in lengths):
-        _LOGGER.warning("UARTEx %s mask ends at payload offset %d, but fixed-frame payload lengths are %s; all packets would compare equal and debounce would be ineffective; check offset, mask and framing",
-                        label, needed, lengths)
+        if all(size <= offset for size in lengths):
+            effect = "entirely outside the payload: all packets would compare equal and debounce would be ineffective"
+        else:
+            effect = "partly outside the payload: those bytes count as equal"
+        _LOGGER.warning("UARTEx %s mask is %s; it ends at payload offset %d, but fixed-frame payload lengths are %s; check offset, mask and framing",
+                        label, effect, needed, lengths)
 
 
 def _command(command, label, lengths):
