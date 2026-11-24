@@ -89,6 +89,73 @@ int main() {
   fake_millis = 1200; bus.loop();
   assert(w.published.size() == 2 && w.published.back() == heat);
 
+  // Bypass for the confirmation right after the entity's own command.
+  struct TxBus : UARTExComponent { void poll() { write_to_uart(); } };
+  {
+    TxBus tx; Dev e, other;
+    e.set_state("state", state_t({0x10})); other.set_state("state", state_t({0x10}));
+    e.set_state_debounce(1000); other.set_state_debounce(1000);
+    tx.register_device(&e); tx.register_device(&other);
+    tx.set_tx_delay(0); tx.set_tx_timeout(10); tx.set_tx_retry_cnt(0);
+    const cmd_t on({0x30, 0x01}), poll_cmd({0x31});
+    fake_millis = 100; e.parse_data(off); other.parse_data(off);
+    // Polling (low priority) does not arm the bypass.
+    e.enqueue_tx_cmd(&poll_cmd, true);
+    fake_millis = 200; tx.poll();
+    fake_millis = 300; e.parse_data(heat);
+    assert(e.published.size() == 1);
+    fake_millis = 1300; e.flush_pending_state(1300);
+    assert(e.published.size() == 2 && e.last_state() == heat);
+    // Own command arms it; a stale equal packet does not consume it.
+    e.enqueue_tx_cmd(&on);
+    fake_millis = 2000; tx.poll();
+    fake_millis = 2100; e.parse_data(heat);               // stale, equal to last: re-publish only
+    assert(e.published.size() == 3);
+    fake_millis = 2200; e.parse_data(cool);               // confirmation: immediate
+    assert(e.published.size() == 4 && e.last_state() == cool);
+    // One-shot: the next differing packet is debounced again.
+    fake_millis = 2300; e.parse_data(off);
+    assert(e.published.size() == 4);
+    fake_millis = 3300; e.flush_pending_state(3300);
+    assert(e.published.size() == 5 && e.last_state() == off);
+    // A device that did not send anything is not affected by the other's command.
+    fake_millis = 3400; other.parse_data(heat);
+    assert(other.published.size() == 1);
+    // Window expiry: back to normal debounce.
+    e.enqueue_tx_cmd(&on);
+    fake_millis = 4000; tx.poll();
+    fake_millis = 5001; e.parse_data(cool);
+    assert(e.published.size() == 5);
+    fake_millis = 6001; e.flush_pending_state(6001);
+    assert(e.published.size() == 6 && e.last_state() == cool);
+  }
+
+  // Retry re-arms the window; write_command / rx replies never arm it.
+  {
+    TxBus tx; Dev e;
+    e.set_state("state", state_t({0x10}));
+    e.set_state_debounce(1000);
+    tx.register_device(&e);
+    tx.set_tx_delay(0); tx.set_tx_timeout(600); tx.set_tx_retry_cnt(1);
+    const cmd_t on({0x30, 0x01}, {0x99});
+    fake_millis = 100; e.parse_data(off);
+    e.enqueue_tx_cmd(&on);
+    fake_millis = 2000; tx.poll();           // first transmission arms until 3000
+    fake_millis = 2600; tx.poll();           // retry re-arms until 3600
+    fake_millis = 3300; e.parse_data(heat);  // after the first window, inside the retry window
+    assert(e.published.size() == 2 && e.last_state() == heat);
+
+    tx.write_command(cmd_t({0x40}));
+    auto reply = std::make_shared<const cmd_t>(cmd_t({0x41}));
+    assert(tx.enqueue_tx_reply({&e, reply.get(), reply}));
+    fake_millis = 10000; tx.poll();
+    fake_millis = 10100; tx.poll();
+    fake_millis = 10200; e.parse_data(cool);
+    assert(e.published.size() == 2);         // still debounced: nothing armed
+    fake_millis = 11200; e.flush_pending_state(11200);
+    assert(e.published.size() == 3 && e.last_state() == cool);
+  }
+
   // preserve_state: waits while a change is pending, recovers after an equal packet.
   Dev p;
   p.set_state("state", state_t({0x10}));

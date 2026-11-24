@@ -1091,6 +1091,7 @@ Some wallpads emit transient state packets (for example a climate flipping `off`
 - Matched state packets are held and published only after the debounce time has elapsed since the change started. The latest packet received during that time wins.
 - A packet identical to the last applied one cancels the pending change (the glitch reverted) and is re-published immediately.
 - The first matched packet after boot is applied immediately.
+- The first state change received right after the entity's own command (within the debounce time of the transmission) is applied immediately, so command results are not delayed even without `optimistic`. Polling (`command_update`) does not trigger this, and a packet identical to the last applied state does not consume it. Only the first state change after the entity's latest transmitted command is immediate: when several commands from one entity go out back-to-back without `ack`, later results are debounced normally. The bypass is armed by commands from the entity's normal command queue (control actions), so a user lambda that periodically calls `enqueue_tx_cmd` would keep it armed.
 - `state_response` handling is not delayed.
 - Commands from Home Assistant are still reflected immediately through `control` / `optimistic`; only changes observed on the bus are delayed, by up to the debounce time.
 - A command with `preserve_state` waits while a change is pending (typically up to the debounce time; longer if bytes in the packet keep changing), because the stored state is not yet settled.

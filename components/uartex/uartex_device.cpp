@@ -57,10 +57,20 @@ bool UARTExDevice::parse_data(const std::vector<uint8_t>& data)
         apply_state_(data);
         return true;
     }
+    if (this->bypass_armed_ && static_cast<uint32_t>(millis() - this->bypass_since_) >= this->state_debounce_ms_)
+        this->bypass_armed_ = false;  // window expired without a confirmation
     if (data == this->last_state_)
     {
         // Back to the applied state: the pending change was a glitch. Re-publish
         // so an entity changed by control()/optimistic is corrected immediately.
+        this->pending_state_.clear();
+        apply_state_(data);
+        return true;
+    }
+    if (this->bypass_armed_)
+    {
+        // First change right after our own command: it is the confirmation, apply it now (one-shot).
+        this->bypass_armed_ = false;
         this->pending_state_.clear();
         apply_state_(data);
         return true;
@@ -79,8 +89,18 @@ void UARTExDevice::apply_state_(const std::vector<uint8_t>& data)
     preserve_state_ready_ = true;
 }
 
+void UARTExDevice::arm_state_bypass(uint32_t now)
+{
+    if (this->state_debounce_ms_ == 0) return;
+    this->bypass_armed_ = true;
+    this->bypass_since_ = now;
+}
+
 void UARTExDevice::flush_pending_state(uint32_t now)
 {
+    // Disarm an expired bypass here too, so it cannot reappear after millis() wraps.
+    if (this->bypass_armed_ && static_cast<uint32_t>(now - this->bypass_since_) >= this->state_debounce_ms_)
+        this->bypass_armed_ = false;
     if (this->pending_state_.empty()) return;
     if (static_cast<uint32_t>(now - this->pending_since_) < this->state_debounce_ms_) return;
     std::vector<uint8_t> data = std::move(this->pending_state_);

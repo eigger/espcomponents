@@ -250,7 +250,12 @@ void UARTExComponent::dequeue_tx_data_from_devices()
     for (UARTExDevice* device : this->devices_)
     {
         auto cmd = device->dequeue_tx_cmd();
-        if (cmd != nullptr) enqueue_tx_data({device, cmd.get(), cmd}, false);
+        if (cmd != nullptr)
+        {
+            tx_data_t data{device, cmd.get(), cmd};
+            data.control = true;  // in-tree callers use the low priority queue only for polling (command_update)
+            enqueue_tx_data(std::move(data), false);
+        }
         
         auto cmd_low_priority = device->dequeue_tx_cmd_low_priority();
         if (cmd_low_priority != nullptr) enqueue_tx_data({device, cmd_low_priority.get(), cmd_low_priority}, true);
@@ -332,6 +337,8 @@ void UARTExComponent::write_tx_cmd()
     if (!this->current_tx_data_.copy_source.empty())
         for (auto *device : devices_) device->invalidate_matching_state(this->current_tx_data_.copy_source);
     const auto frame = transmit_frame(current_tx_cmd()->data);
+    if (this->current_tx_data_.control && this->current_tx_data_.device)
+        this->current_tx_data_.device->arm_state_bypass(this->tx_time_);
     this->tx_command_time_ = this->tx_time_;
     if (current_tx_cmd()->ack.empty()) tx_cmd_result(true);
     publish_tx_frame(frame);
@@ -479,6 +486,7 @@ void UARTExComponent::clear_tx_data()
     this->current_tx_data_.cmd = nullptr;
     this->current_tx_data_.owned.reset();
     this->current_tx_data_.copy_source.clear();
+    this->current_tx_data_.control = false;
     this->tx_retry_cnt_ = 0;
 }
 
