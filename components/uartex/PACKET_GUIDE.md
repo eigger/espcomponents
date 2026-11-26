@@ -16,7 +16,7 @@ Use this guide to turn a device specification or a labelled UART capture into ES
 |---|---|---|
 | Contact or motion report | `binary_sensor` | Filter by device and opcode with `state`; compare `state_on/off` at the absolute payload offset. |
 | One-shot call | `button` | `command_on` runs when pressed. This platform rejects `state` and `command_update`. |
-| Relay with feedback | `switch` | Map ON/OFF commands and reports separately. Use `optimistic` when publishing the requested state immediately is appropriate. |
+| Relay with feedback | `switch` | Map ON/OFF commands and reports separately. `optimistic` (default `true`, controllable platforms only) publishes the requested state immediately; set `optimistic: false` to wait for feedback. |
 | Dimmable light | `light` | RX brightness and TX lambda input use 0–100. For a wire byte 0–255, decode as byte × 100 / 255 and encode as round(x × 255 / 100). |
 | Measurement or writable setpoint | `sensor`, `number` | A sensor requires exactly one of `state_number` and `lambda`. For a writable number, also define the input range, step and `command_number`. Verify signedness, byte order and decimal scaling against displayed values. |
 | Device status or display text | `text_sensor`, `text` | A text sensor requires a string-returning lambda. Writable text requires `command_text`, which receives `str`. Confirm encoding, terminator and maximum wire length from the device. |

@@ -55,7 +55,7 @@ CONFIG_SCHEMA = cv.All(climate.climate_schema(UARTExClimate).extend({
     cv.Optional(CONF_SENSOR): cv.use_id(sensor.Sensor),
     cv.Optional(CONF_CUSTOM_FAN_MODE): validate_custom_modes,
     cv.Optional(CONF_CUSTOM_PRESET): validate_custom_modes,
-}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
+}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend(uartex.UARTEX_OPTIMISTIC_SCHEMA).extend({
     cv.Optional(CONF_STATE_TEMPERATURE_CURRENT): cv.templatable(state_num_schema),
     cv.Optional(CONF_STATE_TEMPERATURE_TARGET): cv.templatable(state_num_schema),
     cv.Optional(CONF_STATE_HUMIDITY_CURRENT): cv.templatable(state_num_schema),

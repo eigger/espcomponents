@@ -160,7 +160,7 @@ protected:
     std::unordered_map<std::string, std::function<cmd_t(const std::string& str)>> command_str_func_map_{};
     
     bool rx_response_{false};
-    bool optimistic_{false};
+    bool optimistic_{true};
     std::queue<std::shared_ptr<const cmd_t>> tx_cmd_queue_{};
     std::queue<std::shared_ptr<const cmd_t>> tx_cmd_queue_low_priority_{};
     std::vector<uint8_t> last_state_{};

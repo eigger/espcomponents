@@ -16,7 +16,7 @@ CONFIG_SCHEMA = cv.All(number.number_schema(UARTExNumber).extend({
     cv.Optional(CONF_MAX_VALUE, default=10): cv.float_,
     cv.Optional(CONF_STEP, default=1): cv.float_,
     cv.Optional(CONF_RESTORE_VALUE): cv.boolean,
-}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
+}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend(uartex.UARTEX_OPTIMISTIC_SCHEMA).extend({
     cv.Optional(CONF_STATE_NUMBER): cv.templatable(state_num_schema),
     cv.Optional(CONF_COMMAND_NUMBER): cv.templatable(command_hex_schema),
     cv.Optional(CONF_STATE_INCREMENT): state_schema,

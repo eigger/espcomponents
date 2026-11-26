@@ -1072,14 +1072,14 @@ on_...:
 
 ## Common Device Options
 
-These options are available for all UARTEx platforms:
+These options are available for all UARTEx platforms (except `optimistic`, which only applies to the controllable platforms noted below):
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `state` | state | - | Base state filter |
 | `state_response` | state | - | Response state match |
 | `command_update` | command | - | Polling command |
-| `optimistic` | bool | `false` | For switches, publish the requested state immediately when enabled. Otherwise, publish on matching `state_on` or `state_off` feedback. Enable this for switches that have no state feedback. |
+| `optimistic` (controllable platforms only) | bool | `true` | For controllable entities, reflect a command from Home Assistant immediately, whether or not the entity has a command to send. Set `false` to send the command but wait for matching state feedback before the state changes, so a stale packet cannot make the state bounce. Keep `true` for entities that have no state feedback. `optimistic` is accepted only by the controllable platforms `switch`, `climate`, `cover`, `fan`, `lock`, `media_player`, `number`, `select`, `text`, `valve` and `water_heater`. `light` reflects requests immediately through ESPHome's light state and does not support it; `sensor`, `binary_sensor`, `text_sensor` and `button` do not accept it either, so configs that set `optimistic` on those platforms now fail validation (remove the key). Entities without a command (or whose command lambda returned no data) used to ignore the request; with the default they now reflect it without sending anything, so set `optimistic: false` to keep the old behavior. Before this default changed, a switch waited for feedback unless `optimistic: true` was set; use `optimistic: false` for that behavior. |
 | `state_debounce` | time | `0` | Hold matched state packets and publish only after this time (see below). `0` disables. |
 | `update_interval` | time | `60s` | Polling interval |
 
@@ -1091,9 +1091,9 @@ Some wallpads emit transient state packets (for example a climate flipping `off`
 - Matched state packets are held and published only after the debounce time has elapsed since the change started. The latest packet received during that time wins.
 - A packet identical to the last applied one (or equal in the masked bytes when `mask` is set) cancels the pending change (the glitch reverted) and is re-published immediately.
 - The first matched packet after boot is applied immediately.
-- The first state change received right after the entity's own command (within the debounce time of the transmission) is applied immediately, so command results are not delayed even without `optimistic`. Polling (`command_update`) does not trigger this, and a packet identical to the last applied state does not consume it. Only the first state change after the entity's latest transmitted command is immediate: when several commands from one entity go out back-to-back without `ack`, later results are debounced normally. The bypass is armed by commands from the entity's normal command queue (control actions), so a user lambda that periodically calls `enqueue_tx_cmd` would keep it armed.
+- The first state change received right after the entity's own command (within the debounce time of the transmission) is applied immediately, so command results are not delayed even with `optimistic: false`. Polling (`command_update`) does not trigger this, and a packet identical to the last applied state does not consume it. Only the first state change after the entity's latest transmitted command is immediate: when several commands from one entity go out back-to-back without `ack`, later results are debounced normally. The bypass is armed by commands from the entity's normal command queue (control actions), so a user lambda that periodically calls `enqueue_tx_cmd` would keep it armed.
 - `state_response` handling is not delayed.
-- Commands from Home Assistant are still reflected immediately through `control` / `optimistic`; only changes observed on the bus are delayed, by up to the debounce time.
+- With `optimistic: true` (default), commands from Home Assistant are still reflected immediately through `control`; with `optimistic: false` they are reflected only when state feedback arrives. Changes observed on the bus are delayed by up to the debounce time.
 - A command with `preserve_state` waits while a change is pending (typically up to the debounce time; longer if bytes in the packet keep changing), because the stored state is not yet settled.
 - `0` (default) disables debouncing; the maximum is `60s`.
 

@@ -58,21 +58,17 @@ void UARTExLightOutput::write_state(light::LightState* state)
     state->current_values_as_binary(&binary);
     if (binary != this->state_)
     {
-        if (enqueue_tx_cmd(binary ? get_command_on() : get_command_off()) || this->optimistic_)
-        {
-            this->state_ = binary;
-        }
-        
+        // optimistic is not configurable for lights: LightState already holds the request, so always mirror it.
+        enqueue_tx_cmd(binary ? get_command_on() : get_command_off());
+        this->state_ = binary;
     }
     float brightness = 0;
     state->current_values_as_brightness(&brightness);
     brightness *= 100;
     if ((int)brightness != this->brightness_ && brightness > 0)
     {
-        if (enqueue_tx_cmd(get_command_brightness(brightness)) || this->optimistic_)
-        {
-            this->brightness_ = (int)brightness;
-        }
+        enqueue_tx_cmd(get_command_brightness(brightness));
+        this->brightness_ = (int)brightness;
     }
     this->light_state_ = state;
 }

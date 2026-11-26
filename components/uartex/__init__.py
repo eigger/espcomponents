@@ -542,9 +542,13 @@ UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.Optional(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_UPDATE): cv.templatable(lambda value: reject_update_copy(command_hex_schema(value))),
     cv.Optional(CONF_STATE_RESPONSE): state_schema,
-    cv.Optional(CONF_OPTIMISTIC, default=False): cv.boolean,
     cv.Optional(CONF_STATE_DEBOUNCE, default='0ms'): state_debounce_schema,
 }).extend(cv.polling_component_schema('60s')).add_extra(_validate_entity_preserve_state).add_extra(_validate_entity_state_debounce)
+
+# Extend this only in controllable platforms where optimistic has an effect.
+UARTEX_OPTIMISTIC_SCHEMA = cv.Schema({
+    cv.Optional(CONF_OPTIMISTIC, default=True): cv.boolean,
+})
 
 STATE_NUM_SCHEMA = cv.Schema({
     cv.Required(CONF_OFFSET): cv.int_range(min=0, max=128),

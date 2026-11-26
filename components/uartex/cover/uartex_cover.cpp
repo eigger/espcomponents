@@ -68,21 +68,24 @@ void UARTExCover::control(const cover::CoverCall &call)
         auto pos = *call.get_position();
         if (pos == cover::COVER_OPEN)
         {
-            if (enqueue_tx_cmd(get_command_open()) || this->optimistic_)
+            enqueue_tx_cmd(get_command_open());
+            if (this->optimistic_)
             {
                 this->position = pos;
             }
         }
         else if (pos == cover::COVER_CLOSED)
         {
-            if (enqueue_tx_cmd(get_command_close()) || this->optimistic_)
+            enqueue_tx_cmd(get_command_close());
+            if (this->optimistic_)
             {
                 this->position = pos;
             }
         }
         else
         {
-            if (enqueue_tx_cmd(get_command_position(pos)) || this->optimistic_)
+            enqueue_tx_cmd(get_command_position(pos));
+            if (this->optimistic_)
             {
                 this->position = pos;
             }
@@ -91,7 +94,8 @@ void UARTExCover::control(const cover::CoverCall &call)
     if (call.get_tilt().has_value())
     {
         auto tilt = *call.get_tilt();
-        if (enqueue_tx_cmd(get_command_tilt(tilt)) || this->optimistic_)
+        enqueue_tx_cmd(get_command_tilt(tilt));
+        if (this->optimistic_)
         {
             this->tilt = tilt;
         }
