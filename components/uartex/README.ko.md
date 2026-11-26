@@ -313,7 +313,7 @@ lock:
 
 ### 밸브 (`valve`)
 
-예제 장치는 열기와 닫기를 모두 지원합니다. 닫기만 가능한 가스 밸브라면 `state_open`·`state_closed`와 확인된 `command_close`만 설정합니다. 현재 밸브 스키마에는 중간 위치를 지시하는 `command_position`이 없습니다.
+예제 장치는 열기와 닫기를 모두 지원합니다. 닫기만 가능한 가스 밸브라면 `state_open`·`state_closed`와 확인된 `command_close`만 설정합니다. 중간 위치(0.0과 1.0 사이)는 `command_position: !lambda` (`x`는 0.0~1.0)로 전달하며, 0.0과 1.0은 `command_close`·`command_open`을 사용하며, 해당 명령이 없으면 `command_position`으로 전달합니다. `command_position` 또는 `state_position`이 있으면 위치 제어가 활성화됩니다.
 
 ```yaml
 valve:
@@ -327,7 +327,7 @@ valve:
 
 ### 온수기 (`water_heater`)
 
-RX 페이로드 `06 28 32`는 가스 모드, 목표 40°C, 현재 50°C입니다. 운전 모드와 목표 온도는 별도 명령으로 설정하며, 외출을 지원하면 `state_away_on/off`와 `command_away_on/off`에 해당하는 개별 키를 사용합니다.
+RX 페이로드 `06 28 32`는 가스 모드, 목표 40°C, 현재 50°C입니다. 운전 모드와 목표 온도는 별도 명령으로 설정하며, 외출을 지원하면 `state_away_on/off`와 `command_away_on/off`에 해당하는 개별 키를 사용합니다. `optimistic: true`이면 설정되지 않은 외출 명령은 전송 없이 상태만 반영됩니다. 켜기/끄기 제어는 `command_on` 또는 `state_on`이 있을 때만 제공되며, 끄기는 `off` 모드(`command_off`/`state_off`)로 항상 가능합니다.
 
 ```yaml
 water_heater:

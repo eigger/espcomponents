@@ -12,6 +12,7 @@ from ..const import CONF_STATE_TEMPERATURE_CURRENT, CONF_STATE_TEMPERATURE_TARGE
     CONF_COMMAND_AWAY_ON, CONF_COMMAND_AWAY_OFF
 
 DEPENDENCIES = ['uartex']
+AUTO_LOAD = ['sensor']
 UARTExWaterHeater = uartex_ns.class_('UARTExWaterHeater', water_heater.WaterHeater, UARTExDevice)
 
 CONFIG_SCHEMA = cv.All(water_heater.water_heater_schema(UARTExWaterHeater).extend({

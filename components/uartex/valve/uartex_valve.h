@@ -20,7 +20,9 @@ protected:
     cmd_t* get_command_open() { return get_command("command_open"); }
     cmd_t* get_command_close() { return get_command("command_close"); }
     cmd_t* get_command_stop() { return get_command("command_stop"); }
+    cmd_t* get_command_position(const float x) { return get_command("command_position", x); }
     optional<float> get_state_position(const std::vector<uint8_t>& data) { return get_state_float("state_position", data); }
+    bool has_command_position() { return has_named_command("command_position"); }
     bool has_state_position() { return has_named_state("state_position"); } 
 protected:
 
