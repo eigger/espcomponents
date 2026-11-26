@@ -61,16 +61,14 @@ void UARTExValve::control(const valve::ValveCall& call)
     {
         if (*call.get_position() >= valve::VALVE_OPEN)
         {
-            enqueue_tx_cmd(get_command_open());
-            if (this->optimistic_)
+            if (enqueue_and_reflect(get_command_open()))
             {
                 this->position = *call.get_position();
             }
         }
         else if (*call.get_position() <= valve::VALVE_CLOSED)
         {
-            enqueue_tx_cmd(get_command_close());
-            if (this->optimistic_)
+            if (enqueue_and_reflect(get_command_close()))
             {
                 this->position = *call.get_position();
             }

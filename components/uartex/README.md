@@ -730,9 +730,14 @@ text:
 If a mode command also encodes the target temperature, use
 `id(thermostat).use_command_target_temperature()` for that packet field.
 During a combined request it returns the requested temperature. Otherwise it
-returns the current target. Once the combined packet is queued, UARTEx updates
-the target and skips the separate temperature command. Devices with distinct
-mode and temperature packets continue to send both.
+returns the current target. If the mode command reads the target through this call, UARTEx never sends a
+separate temperature command for that request. When the packet is queued and
+`optimistic` is true, the target is reflected immediately. A lambda that
+returns no data rejects both the mode and the target. Devices with distinct
+mode and temperature packets continue to send both. With `optimistic: false`,
+lambdas that read the entity's own current state (for example
+`id(thermostat).mode` in `command_temperature` or `command_preset`) see the last
+confirmed state, not the value requested in the same call.
 
 **Packet Example**:
 ```
@@ -1079,7 +1084,7 @@ These options are available for all UARTEx platforms (except `optimistic`, which
 | `state` | state | - | Base state filter |
 | `state_response` | state | - | Response state match |
 | `command_update` | command | - | Polling command |
-| `optimistic` (controllable platforms only) | bool | `true` | For controllable entities, reflect a command from Home Assistant immediately, whether or not the entity has a command to send. Set `false` to send the command but wait for matching state feedback before the state changes, so a stale packet cannot make the state bounce. Keep `true` for entities that have no state feedback. `optimistic` is accepted only by the controllable platforms `switch`, `climate`, `cover`, `fan`, `lock`, `media_player`, `number`, `select`, `text`, `valve` and `water_heater`. `light` reflects requests immediately through ESPHome's light state and does not support it; `sensor`, `binary_sensor`, `text_sensor` and `button` do not accept it either, so configs that set `optimistic` on those platforms now fail validation (remove the key). Entities without a command (or whose command lambda returned no data) used to ignore the request; with the default they now reflect it without sending anything, so set `optimistic: false` to keep the old behavior. Before this default changed, a switch waited for feedback unless `optimistic: true` was set; use `optimistic: false` for that behavior. |
+| `optimistic` (controllable platforms only) | bool | `true` | For controllable entities, reflect a command from Home Assistant immediately, whether or not the entity has a command to send. Set `false` to send the command but wait for matching state feedback before the state changes, so a stale packet cannot make the state bounce. Keep `true` for entities that have no state feedback. `optimistic` is accepted only by the controllable platforms `switch`, `climate`, `cover`, `fan`, `lock`, `media_player`, `number`, `select`, `text`, `valve` and `water_heater`. `light` reflects requests immediately through ESPHome's light state and does not support it; `sensor`, `binary_sensor`, `text_sensor` and `button` do not accept it either, so configs that set `optimistic` on those platforms now fail validation (remove the key). Entities with no command configured used to ignore the request; with the default they now reflect it without sending anything, so set `optimistic: false` to keep the old behavior. A command lambda that returns no data is still treated as an explicit rejection: nothing is sent and the requested state is never reflected, even with `optimistic: true`. Before this default changed, a switch waited for feedback unless `optimistic: true` was set; use `optimistic: false` for that behavior. |
 | `state_debounce` | time | `0` | Hold matched state packets and publish only after this time (see below). `0` disables. |
 | `update_interval` | time | `60s` | Polling interval |
 

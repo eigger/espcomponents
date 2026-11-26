@@ -57,8 +57,7 @@ void UARTExSelect::control(size_t index)
 {
     if (this->active_index().has_value() && active_index().value() == index) return;
     optional<std::string> val = this->at(index);
-    enqueue_tx_cmd(get_command_select(val.has_value() ? val.value() : ""));
-    if (this->optimistic_)
+    if (enqueue_and_reflect(get_command_select(val.has_value() ? val.value() : "")))
     {
         this->publish_state(index);
         if (this->restore_value_) this->pref_.save(&index);

@@ -67,4 +67,10 @@ int main() {
   assert(!waiting.state && waiting.dequeue_tx_cmd()->data[0] == 1);
   waiting.parse_data({0x11});
   assert(waiting.state);
+
+  // A configured command lambda that returns no data is a rejection: nothing is queued and the state is not reflected.
+  UARTExSwitch rejected;
+  rejected.set_command("command_on", [&]() -> cmd_t { return {}; });
+  rejected.control(true);
+  assert(!rejected.state && !rejected.dequeue_tx_cmd());
 }
