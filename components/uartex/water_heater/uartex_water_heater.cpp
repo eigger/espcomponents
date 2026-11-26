@@ -184,21 +184,20 @@ void UARTExWaterHeater::publish(const std::vector<uint8_t>& data)
 
 void UARTExWaterHeater::control(const water_heater::WaterHeaterCall& call)
 {
-    bool changed = false;
-    
     // Set mode
     if (call.get_mode().has_value() && this->get_mode() != *call.get_mode())
     {
         water_heater::WaterHeaterMode mode = *call.get_mode();
-        if (mode == water_heater::WATER_HEATER_MODE_OFF) changed = enqueue_tx_cmd(get_command_off());
-        else if (mode == water_heater::WATER_HEATER_MODE_ECO) changed = enqueue_tx_cmd(get_command_eco());
-        else if (mode == water_heater::WATER_HEATER_MODE_ELECTRIC) changed = enqueue_tx_cmd(get_command_electric());
-        else if (mode == water_heater::WATER_HEATER_MODE_PERFORMANCE) changed = enqueue_tx_cmd(get_command_performance());
-        else if (mode == water_heater::WATER_HEATER_MODE_HIGH_DEMAND) changed = enqueue_tx_cmd(get_command_high_demand());
-        else if (mode == water_heater::WATER_HEATER_MODE_HEAT_PUMP) changed = enqueue_tx_cmd(get_command_heat_pump());
-        else if (mode == water_heater::WATER_HEATER_MODE_GAS) changed = enqueue_tx_cmd(get_command_gas());
+        const cmd_t* cmd = nullptr;
+        if (mode == water_heater::WATER_HEATER_MODE_OFF) cmd = get_command_off();
+        else if (mode == water_heater::WATER_HEATER_MODE_ECO) cmd = get_command_eco();
+        else if (mode == water_heater::WATER_HEATER_MODE_ELECTRIC) cmd = get_command_electric();
+        else if (mode == water_heater::WATER_HEATER_MODE_PERFORMANCE) cmd = get_command_performance();
+        else if (mode == water_heater::WATER_HEATER_MODE_HIGH_DEMAND) cmd = get_command_high_demand();
+        else if (mode == water_heater::WATER_HEATER_MODE_HEAT_PUMP) cmd = get_command_heat_pump();
+        else if (mode == water_heater::WATER_HEATER_MODE_GAS) cmd = get_command_gas();
         
-        if (changed || this->optimistic_)
+        if (enqueue_and_reflect(cmd))
         {
             this->set_mode_(mode);
             if (mode == water_heater::WATER_HEATER_MODE_OFF) this->set_state_flag_(water_heater::WATER_HEATER_STATE_ON, false);
@@ -209,7 +208,7 @@ void UARTExWaterHeater::control(const water_heater::WaterHeaterCall& call)
     if (!std::isnan(call.get_target_temperature()) && this->get_target_temperature() != call.get_target_temperature())
     {
         float temperature = call.get_target_temperature();
-        if (enqueue_tx_cmd(get_command_temperature(temperature)) || this->optimistic_)
+        if (enqueue_and_reflect(get_command_temperature(temperature)))
         {
             this->set_target_temperature_(temperature);
         }
@@ -220,7 +219,7 @@ void UARTExWaterHeater::control(const water_heater::WaterHeaterCall& call)
     {
         if (!this->is_away())
         {
-            if (enqueue_tx_cmd(get_command_away_on()) || this->optimistic_)
+            if (enqueue_and_reflect(get_command_away_on()))
             {
                 this->set_state_flag_(water_heater::WATER_HEATER_STATE_AWAY, true);
             }
@@ -228,7 +227,7 @@ void UARTExWaterHeater::control(const water_heater::WaterHeaterCall& call)
     }
     else if (get_command_away_off() != nullptr && this->is_away())
     {
-        if (enqueue_tx_cmd(get_command_away_off()) || this->optimistic_)
+        if (enqueue_and_reflect(get_command_away_off()))
         {
             this->set_state_flag_(water_heater::WATER_HEATER_STATE_AWAY, false);
         }
@@ -239,7 +238,7 @@ void UARTExWaterHeater::control(const water_heater::WaterHeaterCall& call)
     {
         if (!this->is_on() && get_command_away_on() != nullptr)
         {
-            if (enqueue_tx_cmd(get_command_on()) || this->optimistic_)
+            if (enqueue_and_reflect(get_command_on()))
             {
                 this->set_state_flag_(water_heater::WATER_HEATER_STATE_ON, true);
             }

@@ -10,7 +10,7 @@ from ..const import CONF_COMMAND_SELECT, CONF_COMMAND_ON, CONF_COMMAND_OFF, CONF
 DEPENDENCIES = ['uartex']
 UARTExSelect = uartex_ns.class_('UARTExSelect', select.Select, UARTExDevice)
 
-CONFIG_SCHEMA = cv.All(select.select_schema(UARTExSelect).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
+CONFIG_SCHEMA = cv.All(select.select_schema(UARTExSelect).extend(uartex.UARTEX_DEVICE_SCHEMA).extend(uartex.UARTEX_OPTIMISTIC_SCHEMA).extend({
     cv.Required(CONF_OPTIONS): cv.All(
         cv.ensure_list(cv.string_strict), cv.Length(min=1)
     ),

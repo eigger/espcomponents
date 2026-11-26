@@ -171,6 +171,12 @@ bool UARTExDevice::enqueue_tx_cmd(const cmd_t* cmd, bool low_priority)
     return true;
 }
 
+bool UARTExDevice::enqueue_and_reflect(const cmd_t* cmd)
+{
+    this->enqueue_tx_cmd(cmd);
+    return this->optimistic_ && (cmd == nullptr || !cmd->data.empty());
+}
+
 cmd_t* UARTExDevice::get_command(const std::string& name, const std::string& str)
 {
     if (contains(this->command_str_func_map_, name))

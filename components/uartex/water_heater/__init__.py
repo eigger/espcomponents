@@ -16,7 +16,7 @@ UARTExWaterHeater = uartex_ns.class_('UARTExWaterHeater', water_heater.WaterHeat
 
 CONFIG_SCHEMA = cv.All(water_heater.water_heater_schema(UARTExWaterHeater).extend({
     cv.Optional(CONF_SENSOR): cv.use_id(sensor.Sensor),
-}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
+}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend(uartex.UARTEX_OPTIMISTIC_SCHEMA).extend({
     cv.Optional(CONF_STATE_TEMPERATURE_CURRENT): cv.templatable(state_num_schema),
     cv.Optional(CONF_STATE_TEMPERATURE_TARGET): cv.templatable(state_num_schema),
     cv.Optional(CONF_STATE_ECO): state_schema,

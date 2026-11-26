@@ -401,7 +401,7 @@ climate::ClimateAction UARTExClimate::mode_to_action(climate::ClimateMode mode)
 
 void UARTExClimate::control(const climate::ClimateCall& call)
 {
-    bool changed = false;
+    bool skip_temperature = false;
     // Set mode
     if (call.get_mode().has_value() && this->mode != *call.get_mode())
     {
@@ -409,15 +409,23 @@ void UARTExClimate::control(const climate::ClimateCall& call)
         ModeTarget target{call.get_target_temperature()};
         auto *outer_target = this->mode_target_;
         this->mode_target_ = &target;
-        if (mode == climate::CLIMATE_MODE_OFF) changed = enqueue_tx_cmd(get_command_off());
-        else if (mode == climate::CLIMATE_MODE_COOL) changed = enqueue_tx_cmd(get_command_cool());
-        else if (mode == climate::CLIMATE_MODE_HEAT) changed = enqueue_tx_cmd(get_command_heat());
-        else if (mode == climate::CLIMATE_MODE_FAN_ONLY) changed = enqueue_tx_cmd(get_command_fan_only());
-        else if (mode == climate::CLIMATE_MODE_DRY) changed = enqueue_tx_cmd(get_command_dry());
-        else if (mode == climate::CLIMATE_MODE_AUTO) changed = enqueue_tx_cmd(get_command_auto());
+        const cmd_t* cmd = nullptr;
+        if (mode == climate::CLIMATE_MODE_OFF) cmd = get_command_off();
+        else if (mode == climate::CLIMATE_MODE_COOL) cmd = get_command_cool();
+        else if (mode == climate::CLIMATE_MODE_HEAT) cmd = get_command_heat();
+        else if (mode == climate::CLIMATE_MODE_FAN_ONLY) cmd = get_command_fan_only();
+        else if (mode == climate::CLIMATE_MODE_DRY) cmd = get_command_dry();
+        else if (mode == climate::CLIMATE_MODE_AUTO) cmd = get_command_auto();
         this->mode_target_ = outer_target;
-        if (changed && target.used) this->target_temperature = *target.requested;
-        if (changed || this->optimistic_) 
+        // A configured mode command that returned no data is a rejection: neither the mode nor the target it
+        // carried may be reflected, and the target must not be re-sent as a separate temperature command.
+        const bool reflect = enqueue_and_reflect(cmd);
+        if (target.used)
+        {
+            skip_temperature = true;
+            if (reflect) this->target_temperature = *target.requested;
+        }
+        if (reflect)
         {
             this->mode = mode;
             this->action = mode_to_action(mode);
@@ -425,89 +433,77 @@ void UARTExClimate::control(const climate::ClimateCall& call)
     }
 
     // Set target temperature
-    if (call.get_target_temperature().has_value() && this->target_temperature != *call.get_target_temperature())
+    if (!skip_temperature && call.get_target_temperature().has_value() && this->target_temperature != *call.get_target_temperature())
     {
         float temperature = *call.get_target_temperature();
-        if (enqueue_tx_cmd(get_command_temperature(temperature)) || this->optimistic_)
-        {
-            this->target_temperature = temperature;
-        }
+        if (enqueue_and_reflect(get_command_temperature(temperature))) this->target_temperature = temperature;
     }
 
     // Set target humidity
     if (call.get_target_humidity().has_value() && this->target_humidity != *call.get_target_humidity())
     {
         float humidity = *call.get_target_humidity();
-        if (enqueue_tx_cmd(get_command_humidity(humidity)) || this->optimistic_)
-        {
-            this->target_humidity = humidity;
-        }
+        if (enqueue_and_reflect(get_command_humidity(humidity))) this->target_humidity = humidity;
     }
 
     // Set swing mode
     if (call.get_swing_mode().has_value() && this->swing_mode != *call.get_swing_mode())
     {
-        changed = false;
         climate::ClimateSwingMode swing_mode = *call.get_swing_mode();
-        if (swing_mode == climate::CLIMATE_SWING_OFF) changed = enqueue_tx_cmd(get_command_swing_off());
-        else if (swing_mode == climate::CLIMATE_SWING_BOTH) changed = enqueue_tx_cmd(get_command_swing_both());
-        else if (swing_mode == climate::CLIMATE_SWING_VERTICAL) changed = enqueue_tx_cmd(get_command_swing_vertical());
-        else if (swing_mode == climate::CLIMATE_SWING_HORIZONTAL) changed = enqueue_tx_cmd(get_command_swing_horizontal());
-        if (changed || this->optimistic_) this->swing_mode = swing_mode;
+        const cmd_t* cmd = nullptr;
+        if (swing_mode == climate::CLIMATE_SWING_OFF) cmd = get_command_swing_off();
+        else if (swing_mode == climate::CLIMATE_SWING_BOTH) cmd = get_command_swing_both();
+        else if (swing_mode == climate::CLIMATE_SWING_VERTICAL) cmd = get_command_swing_vertical();
+        else if (swing_mode == climate::CLIMATE_SWING_HORIZONTAL) cmd = get_command_swing_horizontal();
+        if (enqueue_and_reflect(cmd)) this->swing_mode = swing_mode;
     }
 
     // Set fan mode
     if (call.get_fan_mode().has_value() && this->fan_mode != *call.get_fan_mode())
     {
-        changed = false;
         optional<climate::ClimateFanMode> fan_mode = *call.get_fan_mode();
-        if (fan_mode.value() == climate::CLIMATE_FAN_ON) changed = enqueue_tx_cmd(get_command_fan_on());
-        else if (fan_mode.value() == climate::CLIMATE_FAN_OFF) changed = enqueue_tx_cmd(get_command_fan_off());
-        else if (fan_mode.value() == climate::CLIMATE_FAN_AUTO) changed = enqueue_tx_cmd(get_command_fan_auto());
-        else if (fan_mode.value() == climate::CLIMATE_FAN_LOW) changed = enqueue_tx_cmd(get_command_fan_low());
-        else if (fan_mode.value() == climate::CLIMATE_FAN_MEDIUM) changed = enqueue_tx_cmd(get_command_fan_medium());
-        else if (fan_mode.value() == climate::CLIMATE_FAN_HIGH) changed = enqueue_tx_cmd(get_command_fan_high());
-        else if (fan_mode.value() == climate::CLIMATE_FAN_MIDDLE) changed = enqueue_tx_cmd(get_command_fan_middle());
-        else if (fan_mode.value() == climate::CLIMATE_FAN_FOCUS) changed = enqueue_tx_cmd(get_command_fan_focus());
-        else if (fan_mode.value() == climate::CLIMATE_FAN_DIFFUSE) changed = enqueue_tx_cmd(get_command_fan_diffuse());
-        else if (fan_mode.value() == climate::CLIMATE_FAN_QUIET) changed = enqueue_tx_cmd(get_command_fan_quiet());
-        if (changed || this->optimistic_) this->fan_mode = fan_mode;
+        const cmd_t* cmd = nullptr;
+        if (fan_mode.value() == climate::CLIMATE_FAN_ON) cmd = get_command_fan_on();
+        else if (fan_mode.value() == climate::CLIMATE_FAN_OFF) cmd = get_command_fan_off();
+        else if (fan_mode.value() == climate::CLIMATE_FAN_AUTO) cmd = get_command_fan_auto();
+        else if (fan_mode.value() == climate::CLIMATE_FAN_LOW) cmd = get_command_fan_low();
+        else if (fan_mode.value() == climate::CLIMATE_FAN_MEDIUM) cmd = get_command_fan_medium();
+        else if (fan_mode.value() == climate::CLIMATE_FAN_HIGH) cmd = get_command_fan_high();
+        else if (fan_mode.value() == climate::CLIMATE_FAN_MIDDLE) cmd = get_command_fan_middle();
+        else if (fan_mode.value() == climate::CLIMATE_FAN_FOCUS) cmd = get_command_fan_focus();
+        else if (fan_mode.value() == climate::CLIMATE_FAN_DIFFUSE) cmd = get_command_fan_diffuse();
+        else if (fan_mode.value() == climate::CLIMATE_FAN_QUIET) cmd = get_command_fan_quiet();
+        if (enqueue_and_reflect(cmd)) this->fan_mode = fan_mode;
     }
 
     // Set preset
     if (call.get_preset().has_value() && this->preset != *call.get_preset())
     {
-        changed = false;
         optional<climate::ClimatePreset> preset = *call.get_preset();
-        if (preset.value() == climate::CLIMATE_PRESET_NONE) changed = enqueue_tx_cmd(get_command_preset_none());
-        else if (preset.value() == climate::CLIMATE_PRESET_HOME) changed = enqueue_tx_cmd(get_command_preset_home());
-        else if (preset.value() == climate::CLIMATE_PRESET_AWAY) changed = enqueue_tx_cmd(get_command_preset_away());
-        else if (preset.value() == climate::CLIMATE_PRESET_BOOST) changed = enqueue_tx_cmd(get_command_preset_boost());
-        else if (preset.value() == climate::CLIMATE_PRESET_COMFORT) changed = enqueue_tx_cmd(get_command_preset_comfort());
-        else if (preset.value() == climate::CLIMATE_PRESET_ECO) changed = enqueue_tx_cmd(get_command_preset_eco());
-        else if (preset.value() == climate::CLIMATE_PRESET_SLEEP) changed = enqueue_tx_cmd(get_command_preset_sleep());
-        else if (preset.value() == climate::CLIMATE_PRESET_ACTIVITY) changed = enqueue_tx_cmd(get_command_preset_activity());
-        if (changed || this->optimistic_) this->preset = preset;
+        const cmd_t* cmd = nullptr;
+        if (preset.value() == climate::CLIMATE_PRESET_NONE) cmd = get_command_preset_none();
+        else if (preset.value() == climate::CLIMATE_PRESET_HOME) cmd = get_command_preset_home();
+        else if (preset.value() == climate::CLIMATE_PRESET_AWAY) cmd = get_command_preset_away();
+        else if (preset.value() == climate::CLIMATE_PRESET_BOOST) cmd = get_command_preset_boost();
+        else if (preset.value() == climate::CLIMATE_PRESET_COMFORT) cmd = get_command_preset_comfort();
+        else if (preset.value() == climate::CLIMATE_PRESET_ECO) cmd = get_command_preset_eco();
+        else if (preset.value() == climate::CLIMATE_PRESET_SLEEP) cmd = get_command_preset_sleep();
+        else if (preset.value() == climate::CLIMATE_PRESET_ACTIVITY) cmd = get_command_preset_activity();
+        if (enqueue_and_reflect(cmd)) this->preset = preset;
     }
 
     // custom fan
     if (call.has_custom_fan_mode() && (this->get_custom_fan_mode() != call.get_custom_fan_mode()))
     {
         StringRef custom_fan_mode = call.get_custom_fan_mode();
-        if (enqueue_tx_cmd(get_command_custom_fan(custom_fan_mode.str())) || this->optimistic_)
-        {
-            this->set_custom_fan_mode_(custom_fan_mode.c_str());
-        }
+        if (enqueue_and_reflect(get_command_custom_fan(custom_fan_mode.str()))) this->set_custom_fan_mode_(custom_fan_mode.c_str());
     }
 
     // custom preset
     if (call.has_custom_preset() && (this->get_custom_preset() != call.get_custom_preset()))
     {
         StringRef custom_preset = call.get_custom_preset();
-        if (enqueue_tx_cmd(get_command_custom_preset(custom_preset.str())) || this->optimistic_)
-        {
-            this->set_custom_preset_(custom_preset.c_str());
-        }
+        if (enqueue_and_reflect(get_command_custom_preset(custom_preset.str()))) this->set_custom_preset_(custom_preset.c_str());
     }
 
     publish_state();

@@ -12,7 +12,7 @@ UARTExText = uartex_ns.class_('UARTExText', text.Text, UARTExDevice)
 
 CONFIG_SCHEMA = cv.All(text.text_schema(UARTExText).extend({
     cv.Optional(CONF_LAMBDA): cv.returning_lambda,
-}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
+}).extend(uartex.UARTEX_DEVICE_SCHEMA).extend(uartex.UARTEX_OPTIMISTIC_SCHEMA).extend({
     cv.Required(CONF_COMMAND_TEXT): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Text do not support command_on!"),
     cv.Optional(CONF_COMMAND_OFF): cv.invalid("UARTEx Text do not support command_off!"),

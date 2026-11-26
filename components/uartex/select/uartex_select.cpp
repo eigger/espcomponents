@@ -46,7 +46,9 @@ void UARTExSelect::publish(const std::vector<uint8_t>& data)
         auto idx = this->index_of(val.value());
         if (idx.has_value())
         {
-            this->publish_state(idx.value());
+            size_t index = idx.value();
+            this->publish_state(index);
+            if (this->restore_value_) this->pref_.save(&index);
         }
     }
 }
@@ -55,11 +57,11 @@ void UARTExSelect::control(size_t index)
 {
     if (this->active_index().has_value() && active_index().value() == index) return;
     optional<std::string> val = this->at(index);
-    if (enqueue_tx_cmd(get_command_select(val.has_value() ? val.value() : "")) || this->optimistic_)
+    if (enqueue_and_reflect(get_command_select(val.has_value() ? val.value() : "")))
     {
         this->publish_state(index);
+        if (this->restore_value_) this->pref_.save(&index);
     }
-    if (this->restore_value_) this->pref_.save(&index);
 }
 
 }  // namespace uartex
