@@ -62,7 +62,7 @@ water_heater::WaterHeaterTraits UARTExWaterHeater::traits()
     }
     
     // On/Off support
-    if (get_command_on() || get_command_off() || get_state_on() || get_state_off())
+    if (get_command_on() || get_state_on())
     {
         traits.add_feature_flags(water_heater::WATER_HEATER_SUPPORTS_ON_OFF);
     }
@@ -92,8 +92,7 @@ void UARTExWaterHeater::publish(const std::vector<uint8_t>& data)
 {
     bool changed = false;
     
-    // Mode detection (a non-OFF mode implies ON unless state_on/state_off are configured explicitly)
-    const bool implicit_on = get_state_on() == nullptr && get_state_off() == nullptr;
+    // Mode detection (a non-OFF mode implies ON; state_off clears it, an explicit state_on is applied after)
     if (verify_state(data, get_state_off()))
     {
         this->set_mode_(water_heater::WATER_HEATER_MODE_OFF);
@@ -103,37 +102,37 @@ void UARTExWaterHeater::publish(const std::vector<uint8_t>& data)
     else if (verify_state(data, get_state_eco()))
     {
         this->set_mode_(water_heater::WATER_HEATER_MODE_ECO);
-        if (implicit_on) this->set_state_flag_(water_heater::WATER_HEATER_STATE_ON, true);
+        this->set_state_flag_(water_heater::WATER_HEATER_STATE_ON, true);
         changed = true;
     }
     else if (verify_state(data, get_state_electric()))
     {
         this->set_mode_(water_heater::WATER_HEATER_MODE_ELECTRIC);
-        if (implicit_on) this->set_state_flag_(water_heater::WATER_HEATER_STATE_ON, true);
+        this->set_state_flag_(water_heater::WATER_HEATER_STATE_ON, true);
         changed = true;
     }
     else if (verify_state(data, get_state_performance()))
     {
         this->set_mode_(water_heater::WATER_HEATER_MODE_PERFORMANCE);
-        if (implicit_on) this->set_state_flag_(water_heater::WATER_HEATER_STATE_ON, true);
+        this->set_state_flag_(water_heater::WATER_HEATER_STATE_ON, true);
         changed = true;
     }
     else if (verify_state(data, get_state_high_demand()))
     {
         this->set_mode_(water_heater::WATER_HEATER_MODE_HIGH_DEMAND);
-        if (implicit_on) this->set_state_flag_(water_heater::WATER_HEATER_STATE_ON, true);
+        this->set_state_flag_(water_heater::WATER_HEATER_STATE_ON, true);
         changed = true;
     }
     else if (verify_state(data, get_state_heat_pump()))
     {
         this->set_mode_(water_heater::WATER_HEATER_MODE_HEAT_PUMP);
-        if (implicit_on) this->set_state_flag_(water_heater::WATER_HEATER_STATE_ON, true);
+        this->set_state_flag_(water_heater::WATER_HEATER_STATE_ON, true);
         changed = true;
     }
     else if (verify_state(data, get_state_gas()))
     {
         this->set_mode_(water_heater::WATER_HEATER_MODE_GAS);
-        if (implicit_on) this->set_state_flag_(water_heater::WATER_HEATER_STATE_ON, true);
+        this->set_state_flag_(water_heater::WATER_HEATER_STATE_ON, true);
         changed = true;
     }
     

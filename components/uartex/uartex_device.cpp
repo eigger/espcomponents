@@ -236,6 +236,15 @@ optional<std::string> UARTExDevice::get_state_str(const std::string& name, const
     return optional<std::string>();
 }
 
+bool UARTExDevice::has_named_command(const std::string& name)
+{
+    if (contains(this->command_func_map_, name)) return true;
+    if (contains(this->command_float_func_map_, name)) return true;
+    if (contains(this->command_str_func_map_, name)) return true;
+    if (contains(this->command_map_, name)) return true;
+    return false;
+}
+
 bool UARTExDevice::has_named_state(const std::string& name)
 {
     if (contains(this->state_float_func_map_, name)) return true;

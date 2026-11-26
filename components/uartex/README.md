@@ -948,6 +948,7 @@ valve:
 | `command_open` | No | Open command |
 | `command_close` | No | Close command |
 | `command_stop` | No | Stop command |
+| `command_position` | No | Position command, `cmd_t lambda(float x)` with `x` from 0.0 to 1.0. Used for positions between closed and open (0.0 and 1.0 still use `command_close` and `command_open`). If `command_open` or `command_close` is not configured, 1.0 or 0.0 is sent through this command instead. Either this or `state_position` enables position support |
 
 ---
 
@@ -1009,7 +1010,9 @@ water_heater:
 
 **Temperature**: `state_temperature_current`, `state_temperature_target`, `command_temperature`
 
-**Away Mode**: `state_away_on`, `state_away_off`, `command_away_on`, `command_away_off`
+**Away Mode**: `state_away_on`, `state_away_off`, `command_away_on`, `command_away_off`. With `optimistic: true`, an away request whose command is not configured is reflected without sending anything.
+
+**On/Off**: Home Assistant's on/off control is offered only when `command_on` or `state_on` is configured. Turning off is always available through the `off` mode (`command_off`/`state_off`). A mode packet other than OFF sets the on flag, `state_off` clears it, and an explicit `state_on` match sets it.
 
 **Commands**: `command_off`, `command_on`, `command_eco`, `command_electric`, `command_performance`, `command_high_demand`, `command_heat_pump`, `command_gas`
 
