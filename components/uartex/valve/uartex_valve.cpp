@@ -57,7 +57,7 @@ valve::ValveTraits UARTExValve::get_traits()
 void UARTExValve::control(const valve::ValveCall& call)
 {
     if (call.get_stop()) enqueue_tx_cmd(get_command_stop());
-    if (this->position != *call.get_position())
+    if (call.get_position().has_value() && this->position != *call.get_position())
     {
         if (*call.get_position() >= valve::VALVE_OPEN)
         {
