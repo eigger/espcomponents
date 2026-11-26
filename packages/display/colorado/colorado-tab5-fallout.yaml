@@ -1,3 +1,5 @@
+# Public Fallout dashboard. Requires hass-esphome-ota and its locally managed package.
+# Keep Wi-Fi, Home Assistant, and generated OTA secrets in local secrets.yaml.
 substitutions:
   name: "esp-colorado-tab5"
   friendly_name: "ESP Colorado TAB5"
@@ -52,7 +54,7 @@ substitutions:
   tab5_color_text_secondary: 0xB9F3AE
   tab5_color_text_muted: 0x9DC598
   tab5_color_text_inactive: 0x608D63
-  tab5_color_link_off: 0x68746C
+  tab5_color_link_off: 0x788B7E
   tab5_color_link_search: 0xD4C480
   tab5_color_accent: 0xAEF799
   tab5_color_status_cold: 0x9BB5DB
@@ -64,6 +66,8 @@ substitutions:
   tab5_color_humidity_humid: 0x83BEB0
   tab5_color_humidity_very_humid: 0x70E4C2
   tab5_color_status_ok: 0x83CC72
+  tab5_color_chart_oil: 0x8ECAE6
+  tab5_color_chart_trans: 0xE2D98F
   tab5_color_alert_warning: 0x643B0D
   tab5_color_alert_danger: 0x792A25
   tab5_color_alert_notice: 0x254E31
@@ -71,6 +75,7 @@ substitutions:
   tab5_color_button_pressed: 0x31573B
   tab5_color_danger_pressed: 0x792A25
   tab5_color_panel_pressed: 0x1D3525
+  # Replace these example addresses with local BLE device addresses.
   mac_vlinker: "02:00:00:00:00:01"
   mac_cabin_jht: "02:00:00:00:00:02"
   mac_bed_jht: "02:00:00:00:00:03"
@@ -114,7 +119,7 @@ substitutions:
 
   ui_ascii: ' !"#$%&''()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
   # Shared by the warning popup and the log. Add characters from external parking text here.
-  ui_alert_hangul: "가감경고과급기낮높능데동력료리미발방배버변부상새속스시압업엔연열오요위유음의이일장전족졸주진충치터트필하험환타어저앞뒤왼른쪽정복귀해제온도확인"
+  ui_alert_hangul: "가감경고과급기낮높능데동력료리미발방배버변부상새속스시압업엔연열오요위유음의이일장전족졸주진충치터트필하험환타어저앞뒤왼른쪽정복귀해제온도확인좌우"
   ui_extra_glyphs: "패응답지연결사운드음량소거켜짐꺼재생테스트본체무선"
   ui_trip_glyphs: "된포종출평균범환습저적함약랙–"
 
@@ -170,13 +175,57 @@ esphome:
             }();
             static image::Image scanlines(pixels.data(), width, height, image::IMAGE_TYPE_BINARY,
                                          image::TRANSPARENCY_OPAQUE);
-            for (auto *panel : {id(obj_restart_popup), id(obj_jaalee_panel)})
+            for (auto *panel : {id(obj_restart_popup), id(obj_jaalee_panel), id(obj_auto_ota_panel)})
               lv_obj_set_style_bg_image_src(panel, scanlines.get_lv_image_dsc(), LV_PART_MAIN);
+            lv_obj_set_ext_click_area(id(slider_backlight), 14);
+            lv_obj_set_ext_click_area(id(slider_sound_volume), 14);
+            lv_obj_set_ext_click_area(id(btn_backlight_night), 6);
+            lv_obj_set_ext_click_area(id(btn_backlight_day), 6);
         - lambda: |-
             id(gnss_imu).add_magnetometer_listener([](const bmi270::bmm150::BMM150Data &data) {
-              id(g_compass_field) = {data.x, data.y, data.z};
-              id(g_compass_field_at) = esphome::millis();
-              id(id_compass).update_field(data.x, data.y, data.z);
+              using Field = std::array<float, 3>;
+              constexpr size_t window_size = 5;
+              static std::array<Field, window_size> samples{};
+              static size_t sample_count = 0;
+              static size_t next_sample = 0;
+              static uint32_t last_valid_at = 0;
+              const Field raw{data.x, data.y, data.z};
+              const uint32_t now = esphome::millis();
+              id(g_compass_field) = raw;
+              id(g_compass_field_at) = now;
+
+              auto *compass = id(id_compass);
+              const auto send_field = [&](const Field &field) {
+                id(g_compass_input_field) = field;
+                id(g_compass_input_at) = now;
+                compass->update_field(field[0], field[1], field[2]);
+              };
+              if (compass->motion_detected()) {
+                sample_count = 0;
+                send_field(raw);
+                return;
+              }
+
+              // The BMM150 is read every 200 ms. Refill the window after a gap.
+              if (now - last_valid_at > 600) sample_count = 0;
+              const float strength_sq = data.x * data.x + data.y * data.y + data.z * data.z;
+              if (!std::isfinite(strength_sq) || strength_sq < 4.0f) return;
+              last_valid_at = now;
+              samples[next_sample] = raw;
+              next_sample = (next_sample + 1) % samples.size();
+              if (sample_count < samples.size()) ++sample_count;
+              if (sample_count < samples.size()) return;
+
+              // Reject up to two outlier readings in the window before the field EMA.
+              Field filtered;
+              for (size_t axis = 0; axis < filtered.size(); ++axis) {
+                std::array<float, window_size> axis_samples;
+                for (size_t i = 0; i < samples.size(); ++i) axis_samples[i] = samples[i][axis];
+                const auto middle = axis_samples.begin() + axis_samples.size() / 2;
+                std::nth_element(axis_samples.begin(), middle, axis_samples.end());
+                filtered[axis] = *middle;
+              }
+              send_field(filtered);
             });
         - script.execute:
             id: script_logs
@@ -449,7 +498,9 @@ light:
     output: backlight_pwm
     name: "Display Backlight"
     id: backlight
-    restore_mode: RESTORE_DEFAULT_ON
+    # Brightness is never saved: every boot starts at 40%.
+    restore_state: none
+    initial_state: { state: on, brightness: 40% }
     default_transition_length: 250ms
     internal: true
 
@@ -1039,7 +1090,6 @@ gps_compass:
     max_per_boot: 1
     min_change: 0.5 deg
   stationary:
-    deadband: 1 deg
     moving_signal: !lambda |-
       return id(fn_sample_live)(10, id(car_speed).state, 5000) > 0.0f;
   accelerometer: { x: id_bmi270_accel_x, y: id_bmi270_accel_y, z: id_bmi270_accel_z }
@@ -1112,6 +1162,12 @@ globals:
   - id: g_compass_field_at
     type: uint32_t
     initial_value: '0'
+  - id: g_compass_input_field
+    type: std::array<float, 3>
+    initial_value: "{0.0f, 0.0f, 0.0f}"
+  - id: g_compass_input_at
+    type: uint32_t
+    initial_value: '0'
   - id: g_compass_init_error
     type: const char *
     initial_value: 'nullptr'
@@ -1123,6 +1179,9 @@ globals:
     type: bool
     restore_value: yes
     initial_value: 'false'
+  - id: g_log_clear_armed_at
+    type: uint32_t
+    initial_value: '0'
   - id: g_sound_ready
     type: bool
     initial_value: 'false'
@@ -1298,9 +1357,9 @@ globals:
   - id: g_boot_obd_received
     type: bool
     initial_value: 'false'
-  - id: g_vehicle_scan_tpms
-    type: bool
-    initial_value: 'false'
+  - id: g_vehicle_scan_tpms_mask
+    type: uint8_t
+    initial_value: '0'
   - id: g_vehicle_scan_started_at
     type: uint32_t
     initial_value: '0'
@@ -1310,9 +1369,9 @@ globals:
     type: int
     initial_value: '-1'
   - id: fn_draw_vehicle_scan_body_glow
-    type: 'void (*)(int, lv_layer_t *)'
+    type: 'void (*)(int, lv_layer_t *, int)'
     initial_value: |-
-      +[](int beam_x, lv_layer_t *layer) {
+      +[](int beam_x, lv_layer_t *layer, int previous_x) {
         auto *outline = line_vehicle_scan_body->obj;
         auto *overlay = obj_vehicle_scan_outlines;
         const auto *points = lv_line_get_points(outline);
@@ -1323,11 +1382,10 @@ globals:
         const int offset_x = overlay_area.x1 + lv_obj_get_style_x(outline, LV_PART_MAIN);
         const int offset_y = overlay_area.y1 + lv_obj_get_style_y(outline, LV_PART_MAIN);
         const int beam = overlay_area.x1 + beam_x;
+        const int previous_beam = overlay_area.x1 + previous_x;
         constexpr int trail = ${vehicle_scan_body_trail_px}, ahead = 7, padding = 6;
-        lv_area_t dirty[2] = {
-          {LV_COORD_MAX, LV_COORD_MAX, LV_COORD_MIN, LV_COORD_MIN},
-          {LV_COORD_MAX, LV_COORD_MAX, LV_COORD_MIN, LV_COORD_MIN},
-        };
+        constexpr lv_area_t empty{LV_COORD_MAX, LV_COORD_MAX, LV_COORD_MIN, LV_COORD_MIN};
+        lv_area_t dirty[2][2] = {{empty, empty}, {empty, empty}};
         const struct { int left, right, width; lv_opa_t opacity; } bands[] = {
           {-trail, -18, 4, LV_OPA_20}, {-18, -7, 5, LV_OPA_50},
           {-7, ahead, 9, LV_OPA_40}, {-7, ahead, 5, LV_OPA_COVER},
@@ -1343,7 +1401,9 @@ globals:
           const auto &first = a.x <= b.x ? a : b;
           const auto &last = a.x <= b.x ? b : a;
           const int x1 = offset_x + first.x, x2 = offset_x + last.x;
-          if (x2 < beam - trail || x1 > beam + ahead) continue;
+          const bool current_overlap = beam_x >= 0 && x2 >= beam - trail && x1 <= beam + ahead;
+          const bool previous_overlap = previous_x >= 0 && x2 >= previous_beam - trail && x1 <= previous_beam + ahead;
+          if (!current_overlap && !previous_overlap) continue;
           const int y1 = offset_y + first.y, y2 = offset_y + last.y;
           const auto clip_y = [&](int x) { return y1 + (y2 - y1) * (x - x1) / (x2 - x1); };
           if (layer) {
@@ -1366,32 +1426,36 @@ globals:
               lv_draw_line(layer, &stroke);
             }
           } else {
-            // Invalidate the affected upper and lower strokes separately.
-            auto &area = dirty[a.y + b.y > 2 * points[0].y];
-            const int32_t left = std::max(x1, beam - trail), right = std::min(x2, beam + ahead);
-            const int32_t top = x1 == x2 ? y1 : clip_y(left);
-            const int32_t bottom = x1 == x2 ? y2 : clip_y(right);
-            area.x1 = std::min(area.x1, left - padding);
-            area.y1 = std::min(area.y1, std::min(top, bottom) - padding);
-            area.x2 = std::max(area.x2, right + padding);
-            area.y2 = std::max(area.y2, std::max(top, bottom) + padding);
+            // Keep both positions and both halves separate so jumps do not dirty the space between them.
+            const size_t half = a.y + b.y > 2 * points[0].y;
+            const auto extend_dirty = [&](int center, lv_area_t &area) {
+              const int32_t left = std::max(x1, center - trail), right = std::min(x2, center + ahead);
+              const int32_t top = x1 == x2 ? y1 : clip_y(left);
+              const int32_t bottom = x1 == x2 ? y2 : clip_y(right);
+              area.x1 = std::min(area.x1, left - padding);
+              area.y1 = std::min(area.y1, std::min(top, bottom) - padding);
+              area.x2 = std::max(area.x2, right + padding);
+              area.y2 = std::max(area.y2, std::max(top, bottom) + padding);
+            };
+            if (previous_overlap) extend_dirty(previous_beam, dirty[0][half]);
+            if (current_overlap) extend_dirty(beam, dirty[1][half]);
           }
         }
         if (!layer) {
-          for (const auto &area : dirty) {
-            if (area.x1 <= area.x2) lv_obj_invalidate_area(overlay, &area);
-          }
+          for (const auto &position : dirty)
+            for (const auto &area : position)
+              if (area.x1 <= area.x2) lv_obj_invalidate_area(overlay, &area);
         }
       }
   - id: fn_set_vehicle_scan_body_x
     type: 'void (*)(int)'
     initial_value: |-
       +[](int x) {
-        auto &previous = id(g_vehicle_scan_body_x);
-        if (x == previous) return;
-        if (previous >= 0) id(fn_draw_vehicle_scan_body_glow)(previous, nullptr);
-        previous = x;
-        if (x >= 0) id(fn_draw_vehicle_scan_body_glow)(x, nullptr);
+        auto &current = id(g_vehicle_scan_body_x);
+        if (x == current) return;
+        const int previous = current;
+        current = x;
+        id(fn_draw_vehicle_scan_body_glow)(x, nullptr, previous);
       }
   # Which accent a readout icon earns when its color changes is decided here; lvgl_fx plays it.
   # Returns true when an accent started (the readout text then skips its own fade).
@@ -2688,13 +2752,17 @@ interval:
 
           // Preserve the existing tire-warning priority among warnings only.
           if (low_tires) {
-            const char *positions[] = {"FL", "FR", "RL", "RR"};
+            const char *sides[] = {"", "좌", "우", "좌우"};
+            const uint8_t front = low_tires & 0x03;
+            const uint8_t rear = (low_tires >> 2) & 0x03;
             std::string tire_msg = "타이어 저압";
-            for (size_t i = 0; i < id(g_tpms_samples).size(); ++i) {
-              if (low_tires & (1u << i)) {
-                tire_msg += " ";
-                tire_msg += positions[i];
-              }
+            if (front) {
+              tire_msg += " 앞:";
+              tire_msg += sides[front];
+            }
+            if (rear) {
+              tire_msg += " 뒤:";
+              tire_msg += sides[rear];
             }
             set_alert(0, tire_msg, warning);
           }
@@ -2894,7 +2962,7 @@ interval:
               id(script_alert_style).execute(${tab5_color_accent});
               lv_obj_set_hidden(id(lbl_alert_title), true);
               lv_obj_set_style_x(id(lbl_alert_msg), 16, LV_PART_MAIN);
-              lv_obj_set_width(id(lbl_alert_msg), 574);
+              lv_obj_set_width(id(lbl_alert_msg), 546);
               lv_label_set_text(id(lbl_alert_msg), recovery);
               lv_obj_set_hidden(id(lbl_alert_action), true);
             }
@@ -2915,17 +2983,22 @@ interval:
           lv_label_set_text_static(id(lbl_alert_title), level);
           lv_obj_set_hidden(id(lbl_alert_title), false);
           lv_obj_set_style_x(id(lbl_alert_msg), 80, LV_PART_MAIN);
-          lv_obj_set_width(id(lbl_alert_msg), 450);
+          lv_obj_set_width(id(lbl_alert_msg), 396);
           lv_label_set_text(id(lbl_alert_msg), msg.c_str());
-          lv_label_set_text_static(id(lbl_alert_action), id(g_alert_is_update) ? "열기" : "확인");
+          lv_label_set_text_static(id(lbl_alert_action), id(g_alert_is_update) ? "[ 열기 ]" : "[ 확인 ]");
           lv_obj_set_hidden(id(lbl_alert_action), false);
           id(script_alert_style).execute(color_hex == danger ? ${tab5_color_status_hot}
               : color_hex == warning ? ${tab5_color_status_warm} : ${tab5_color_accent});
           lv_obj_set_clickable(popup, true);
           lv_obj_set_hidden(popup, false);
+          lv_obj_set_hidden(id(btn_update_badge), true);
           if (!urgent && reopening && fx::is_ready() && !id(g_logs_visible)) lv_obj_fade_in(popup, 185, 0);
       - script.execute: script_update_trip_report
       - script.execute: script_render_jaalee_detail
+      - lambda: |-
+          if (id(g_log_clear_armed_at) != 0 && esphome::millis() - id(g_log_clear_armed_at) > 3000) {
+            id(script_reset_log_clear_arm).execute();
+          }
 
 text_sensor:
   - platform: wifi_info
@@ -3047,10 +3120,10 @@ lvgl:
                 clickable: false
                 scrollable: false
                 widgets:
-                  - label: { x: 32, y: 18, width: 896, text: "COLORADO // SERVICE TERMINAL", text_letter_space: 2, text_font: font_terminal_boot, text_color: "${tab5_color_accent}", clickable: false }
+                  - label: { x: 32, y: 20, width: 896, text: "COLORADO // 서비스 터미널", text_font: font_service_text, text_color: "${tab5_color_accent}", clickable: false }
                   - line: { <<: &ota_rule { align: top_left, line_color: "${tab5_color_card_border}", line_width: 1, clickable: false }, x: 32, y: 60, points: ["0, 0", "895, 0"] }
-                  - label: { id: lbl_ota_title, x: 32, y: 82, width: 700, text: "FIRMWARE UPDATE", text_font: notosans35, text_color: "${tab5_color_accent}", clickable: false }
-                  - label: { id: lbl_ota_phase, x: 32, y: 148, width: 700, text: "INITIALIZING LINK...", text_font: font_terminal_boot, text_color: "${tab5_color_text_secondary}", clickable: false }
+                  - label: { id: lbl_ota_title, x: 32, y: 82, width: 700, text: "펌웨어 업데이트", text_font: notosans35, text_color: "${tab5_color_accent}", clickable: false }
+                  - label: { id: lbl_ota_phase, x: 32, y: 148, width: 700, text: "연결 초기화 중...", text_font: font_service_text, text_color: "${tab5_color_text_secondary}", clickable: false }
                   - label: { id: lbl_ota_percent, x: 760, y: 92, width: 160, text_align: RIGHT, text: "0%", text_font: notosans45, text_color: "${tab5_color_text_primary}", clickable: false }
                   - bar:
                       id: bar_ota_progress
@@ -3071,7 +3144,7 @@ lvgl:
                       indicator: { bg_color: "${tab5_color_accent}", radius: 0 }
                   # Mask narrow gaps into the real progress bar for terminal-style segments.
                   - line: { <<: *ota_rule, x: 32, y: 233, line_color: "${tab5_color_panel_bg}", line_width: 18, line_dash_width: 3, line_dash_gap: 25, points: ["0, 0", "895, 0"] }
-                  - label: { id: lbl_ota_hint, x: 32, y: 282, width: 896, text: "DO NOT INTERRUPT POWER.", text_font: font_terminal_boot, text_color: "${tab5_color_text_muted}", clickable: false }
+                  - label: { id: lbl_ota_hint, x: 32, y: 282, width: 896, text: "업데이트 중 전원을 끄지 마세요.", text_font: font_service_text, text_color: "${tab5_color_text_muted}", clickable: false }
                   - line: { <<: *ota_rule, x: 32, y: 336, points: ["0, 0", "895, 0"] }
                   - label: { x: 32, y: 366, text: "COLORADO // OTA", text_font: font_terminal_boot, text_color: "${tab5_color_text_inactive}", clickable: false }
                   - button:
@@ -3087,7 +3160,7 @@ lvgl:
                       on_click:
                         - script.execute: script_ota_close
                       widgets:
-                        - label: { align: center, text: "[ BACK ]", text_font: font_terminal_boot, text_color: "${tab5_color_text_primary}", clickable: false }
+                        - label: { align: center, text: "[ 돌아가기 ]", text_font: font_service_text, text_color: "${tab5_color_text_primary}", clickable: false }
       # ── 재시작 팝업 백드롭 ──
       - obj:
           <<: &modal_backdrop
@@ -3103,6 +3176,10 @@ lvgl:
             scrollable: false
             pad_all: 0
           id: obj_restart_backdrop
+          on_click:
+            - lambda: |-
+                fx::set_visible(id(obj_restart_backdrop), false);
+                fx::set_visible(id(obj_restart_popup), false);
 
       # ── 재시작 팝업 모달 ──
       - obj:
@@ -3199,10 +3276,13 @@ lvgl:
       - obj:
           <<: *modal_backdrop
           id: obj_jaalee_detail
+          on_click:
+            - lambda: fx::set_visible(id(obj_jaalee_detail), false);
           widgets:
             - obj:
                 <<: *terminal_modal
                 id: obj_jaalee_panel
+                clickable: true
                 height: 308
                 widgets:
                   - obj: { <<: *terminal_modal_rail, height: 306 }
@@ -3233,33 +3313,27 @@ lvgl:
       - obj:
           <<: *modal_backdrop
           id: obj_auto_ota_popup
-          bg_opa: 65%
           widgets:
             - obj:
-                align: center
-                width: 624
+                <<: *terminal_modal
+                id: obj_auto_ota_panel
+                width: 608
                 height: 300
-                bg_color: "${tab5_color_panel_bg}"
-                bg_opa: COVER
-                border_width: 1
-                border_color: "${tab5_color_card_border}"
-                radius: 0
-                pad_all: 0
-                scrollable: false
                 widgets:
-                  - line: { <<: *ota_rule, x: 27, y: 52, points: ["0, 0", "568, 0"] }
+                  - obj: { <<: *terminal_modal_rail, height: 298 }
+                  - line: { <<: *ota_rule, x: 28, y: 52, points: ["0, 0", "551, 0"] }
                   - label: { x: 28, y: 17, text: "FIRMWARE / P4", text_font: font_terminal_boot, text_color: "${tab5_color_accent}" }
-                  - label: { x: 28, y: 68, text: "본체 자동 업데이트", text_font: notosans35, text_color: "${tab5_color_text_primary}" }
-                  - label: { x: 28, y: 121, width: 400, long_mode: DOT, id: lbl_auto_ota_version, text_font: notosans30, text_color: "${tab5_color_accent}" }
-                  - label: { x: 28, y: 166, text: "설치 후 기기 재시작", text_font: font_service_text, text_color: "${tab5_color_text_muted}" }
-                  - line: { <<: *ota_rule, x: 443, y: 71, points: ["0, 0", "0, 120"] }
-                  - label: { x: 458, y: 74, width: 137, text_align: CENTER, id: lbl_auto_ota_countdown, text_font: font_ota_countdown, text_color: "${tab5_color_accent}", text: "5" }
-                  - label: { x: 458, y: 164, width: 137, text_align: CENTER, text: "초 후 설치", text_font: font_service_text, text_color: "${tab5_color_text_secondary}" }
+                  - label: { x: 28, y: 66, text: "본체 자동 업데이트", text_font: notosans35, text_color: "${tab5_color_text_primary}" }
+                  - label: { x: 28, y: 118, width: 386, long_mode: DOT, id: lbl_auto_ota_version, text_font: notosans30, text_color: "${tab5_color_accent}" }
+                  - label: { x: 28, y: 162, text: "설치 후 기기 재시작", text_font: font_service_text, text_color: "${tab5_color_text_muted}" }
+                  - line: { <<: *ota_rule, x: 430, y: 71, points: ["0, 0", "0, 116"] }
+                  - label: { x: 444, y: 72, width: 136, text_align: CENTER, id: lbl_auto_ota_countdown, text_font: font_ota_countdown, text_color: "${tab5_color_accent}", text: "5" }
+                  - label: { x: 444, y: 162, width: 136, text_align: CENTER, text: "초 후 설치", text_font: font_service_text, text_color: "${tab5_color_text_secondary}" }
                   - bar:
                       id: bar_auto_ota_countdown
                       x: 28
-                      y: 215
-                      width: 568
+                      y: 204
+                      width: 552
                       height: 4
                       min_value: 0
                       max_value: 100
@@ -3273,16 +3347,14 @@ lvgl:
                       clickable: false
                       indicator: { bg_color: "${tab5_color_accent}", radius: 0 }
                   - button:
-                      <<: *neutral_button
-                      x: 412
-                      y: 234
-                      width: 184
-                      height: 48
-                      radius: 0
-                      border_width: 1
+                      <<: *terminal_modal_button
+                      align: bottom_right
+                      x: -28
+                      y: -20
+                      width: 220
+                      bg_color: "${tab5_color_button_bg}"
                       border_color: "${tab5_color_card_border}"
-                      shadow_width: 0
-                      pad_all: 0
+                      pressed: { bg_color: "${tab5_color_button_pressed}" }
                       on_press:
                         - lambda: |-
                             id(g_auto_ota_handled_versions).push_back(id(g_auto_ota_popup_version));
@@ -3292,7 +3364,7 @@ lvgl:
                             }
                             lv_obj_set_hidden(id(obj_auto_ota_popup), true);
                       widgets:
-                        - label: { align: center, text: "건너뛰기", text_font: notosans30, text_color: "${tab5_color_text_primary}", clickable: false }
+                        - label: { align: center, text: "[ 건너뛰기 ]", text_font: notosans30, text_color: "${tab5_color_text_primary}", clickable: false }
 
       # ── 상단 헤더 (경고는 헤더 내부 최상단 레이어) ──
       - obj:
@@ -3409,18 +3481,34 @@ lvgl:
                       id(script_sound_play).execute(3);
                 widgets:
                   - label: { id: lbl_service_log_tab, align: center, text: "LOG", text_font: font_terminal_boot, text_color: "${tab5_color_accent}" }
-            - label:
-                id: lbl_update_badge
-                clickable: true
+            - button:
+                <<: *neutral_button
+                id: btn_update_badge
+                align: left_mid
+                x: 292
+                y: 0
+                width: 152
+                height: 48
+                radius: 2
+                border_width: 1
+                border_color: "${tab5_color_accent}"
+                shadow_width: 0
+                outline_width: 0
+                pad_all: 0
+                hidden: true
+                disabled:
+                  bg_opa: TRANSP
+                  border_color: "${tab5_color_gauge_track}"
                 on_click:
                   - script.execute: script_open_update_menu
-                align: left_mid
-                x: 280
-                y: 13
-                hidden: true
-                text: "새 버전 있음"
-                text_font: notosans20
-                text_color: "${tab5_color_accent}"
+                widgets:
+                  - label:
+                      id: lbl_update_badge
+                      align: center
+                      text: "새 버전 있음"
+                      text_font: notosans20
+                      text_color: "${tab5_color_accent}"
+                      clickable: false
             - label:
                 id: lbl_date
                 hidden: true
@@ -3466,8 +3554,8 @@ lvgl:
                 bg_opa: COVER
                 align: center
                 # Center the panel between the GPS icon and the full Korean date.
-                x: -36
-                width: 608
+                x: -44
+                width: 584
                 height: 64
                 radius: 2
                 border_width: 1
@@ -3494,15 +3582,16 @@ lvgl:
                         id(g_notice_active) = false;
                         id(script_alert_close).execute(0, 120);
                 widgets:
-                  - label: { id: lbl_alert_title, text: "", align: left_mid, x: 16, y: 6, text_font: font_alert_title, clickable: false }
+                  - obj: { id: obj_alert_rail, align: top_left, width: 4, height: 62, radius: 0, border_width: 0, bg_color: "${tab5_color_status_hot}", bg_opa: COVER, clickable: false, scrollable: false }
+                  - label: { id: lbl_alert_title, text: "", align: left_mid, x: 16, y: 0, text_font: font_alert_title, clickable: false }
                   - label:
                       id: lbl_alert_msg
                       text: ""
                       align: left_mid
                       x: 80
-                      y: 8
-                      width: 450
-                      height: 43  # Single line in font_alert_msg.
+                      y: 0
+                      width: 396
+                      height: 50  # Full Noto Sans KR 34px line height without clipping.
                       long_mode: DOT
                       text_color: "${tab5_color_text_primary}"
                       text_font: font_alert_msg
@@ -3578,7 +3667,7 @@ lvgl:
                             border_width: 0
                             radius: 0
                             clickable: false
-                        - line: { <<: *boot_rule, x: 32, y: 518, line_color: "${tab5_color_panel_bg}", line_width: 12, line_dash_width: 3, line_dash_gap: 107, points: ["0, 0", "1099, 0"] }
+                        - line: { <<: *boot_rule, x: 32, y: 519, line_color: "${tab5_color_panel_bg}", line_width: 12, line_dash_width: 3, line_dash_gap: 107, points: ["0, 0", "1099, 0"] }
 
                   # Typed and decoded text. Labels start empty; script_boot_typing fills them.
                   - label: { <<: *boot_text, id: lbl_boot_header, x: 33, y: 26, text: "", text_letter_space: 2 }
@@ -3692,7 +3781,9 @@ lvgl:
                   <<: &terminal_heading { align: top_left, text_color: "${tab5_color_text_muted}", text_font: notosans20 }
                   id: lbl_compass_source
                   text: "수신 대기"
-                  y: 59
+                  y: 64
+                  width: 140
+                  long_mode: DOT
                   text_font: font_compass_source
                   clickable: false
               - obj:
@@ -3757,8 +3848,8 @@ lvgl:
                   line_color: "${tab5_color_accent}"
                   line_width: 2
                   hidden: true
-              - label: { id: lbl_speed, text: "--", align: top_left, y: 50, width: 300, text_align: RIGHT, text_color: "${tab5_color_text_muted}", text_font: font_terminal_speed }
-              - label: { <<: *terminal_heading, text: "km/h", y: 221, width: 300, text_align: RIGHT }
+              - label: { id: lbl_speed, text: "--", align: top_left, y: 66, width: 300, text_align: RIGHT, text_color: "${tab5_color_text_muted}", text_font: font_terminal_speed }
+              - label: { <<: *terminal_heading, text: "km/h", y: 222, width: 300, text_align: RIGHT }
               - bar:
                   id: bar_speed
                   align: top_left
@@ -3776,23 +3867,24 @@ lvgl:
                     pad_all: 0
                     clickable: false
                     indicator: { bg_color: "${tab5_color_accent}", radius: 0 }
+              - line: { <<: &terminal_line { align: top_left, line_color: "${tab5_color_card_border}", line_width: 1, clickable: false }, line_color: "${tab5_color_background}", line_width: 8, line_dash_width: 2, line_dash_gap: 17, x: 0, y: 259, points: ["0, 0", "299, 0"] }
               - obj:
                   <<: *terminal_panel
                   align: top_left
                   y: 280
-                  width: 216
+                  width: 192
                   height: 44
                   widgets:
-                    - label: { <<: &shift_letter { align: top_left, width: 40, y: -7, text_align: CENTER, text_color: "${tab5_color_text_muted}", text_font: notosans35 }, text: "P" }
-                    - label: { <<: *shift_letter, text: "R", x: 43 }
-                    - label: { <<: *shift_letter, text: "N", x: 86 }
-                    - label: { <<: *shift_letter, text: "D", x: 129 }
-                    - label: { <<: *shift_letter, text: "L", x: 172 }
+                    - label: { <<: &shift_letter { align: top_left, width: 36, y: -7, text_align: CENTER, text_color: "${tab5_color_text_muted}", text_font: notosans35 }, text: "P" }
+                    - label: { <<: *shift_letter, text: "R", x: 38 }
+                    - label: { <<: *shift_letter, text: "N", x: 76 }
+                    - label: { <<: *shift_letter, text: "D", x: 114 }
+                    - label: { <<: *shift_letter, text: "L", x: 152 }
                     - obj:
                         id: obj_prnd_selection
                         <<: *terminal_panel
                         align: top_left
-                        width: 40
+                        width: 36
                         height: 42
                         hidden: true
                         bg_color: "${tab5_color_accent}"
@@ -3804,23 +3896,23 @@ lvgl:
                               <<: *terminal_panel
                               align: top_mid
                               y: 37
-                              width: 28
+                              width: 24
                               height: 3
                               # Same fill as the selection (invisible at rest); fx_prnd_bar flashes it dark.
                               bg_color: "${tab5_color_accent}"
                               bg_opa: COVER
-              - label: { <<: *terminal_heading, text: "GEAR", x: 213, y: 291, text_font: notosans16 }
+              - label: { <<: *terminal_heading, text: "GEAR", x: 204, y: 291, text_font: notosans16 }
               - obj:
                   <<: *terminal_panel
                   align: top_left
-                  x: 254
+                  x: 252
                   # Optical alignment with the smaller PRNDL letters.
                   y: 256
                   width: 50
                   height: 82
                   widgets:
                     - label: { id: lbl_gear, text: "-", align: center, text_color: "${tab5_color_text_primary}", text_font: notosans45 }
-              - line: { <<: &terminal_line { align: top_left, line_color: "${tab5_color_card_border}", line_width: 1, clickable: false }, y: 346, points: ["0, 0", "300, 0"] }
+              - line: { <<: *terminal_line, y: 346, points: ["0, 0", "300, 0"] }
               - obj:
                   <<: *terminal_panel
                   align: top_left
@@ -3972,18 +4064,18 @@ lvgl:
                           - label: { <<: *sensor_value, id: lbl_bed_temperature }
                           - label: { <<: *sensor_unit, text: "°C" }
               # Solid leaders preserve their orthogonal routes and stop before entering each part.
-              - line: { <<: &scan_leader { <<: *terminal_line, line_color: "${tab5_color_text_inactive}", line_width: 2, line_opa: 100%, hidden: true }, id: line_scan_intake_leader, x: 81, y: 77, points: ["0, 0", "0, 82", "103, 82"] }
-              - line: { <<: *scan_leader, id: line_scan_oil_temperature_leader, x: 226, y: 77, points: ["0, 0", "0, 23", "30, 23", "30, 137", "25, 137"] }
-              - line: { <<: *scan_leader, id: line_scan_oil_pressure_leader, x: 213, y: 242, points: ["158, 129", "158, 107", "47, 107", "47, 13", "0, 13", "0, 0"] }
-              - line: { <<: *scan_leader, id: line_scan_cabin_temp_leader, x: 449, y: 77, points: ["67, 0", "67, 13", "0, 13", "0, 77"] }
-              - line: { <<: *scan_leader, id: line_scan_cabin_humidity_leader, x: 449, y: 288, points: ["67, 83", "67, 77", "0, 77", "0, 0"] }
-              - line: { <<: *scan_leader, id: line_scan_bed_temp_leader, x: 753, y: 77, points: ["53, 0", "53, 118", "0, 118"] }
-              - line: { <<: *scan_leader, id: line_scan_coolant_leader, x: 81, y: 221, points: ["0, 150", "0, 0", "60, 0"] }
-              - line: { <<: *scan_leader, id: line_scan_transmission_leader, x: 299, y: 77, points: ["72, 0", "72, 23", "0, 23", "0, 128"] }
-              - line: { <<: *scan_leader, id: line_scan_voltage_leader, x: 192, y: 289, points: ["34, 82", "34, 10", "0, 10", "0, 0"] }
-              - line: { <<: *scan_leader, id: line_scan_co2_leader, x: 484, y: 77, points: ["177, 0", "177, 19", "0, 19", "0, 46"] }
-              - line: { <<: *scan_leader, id: line_scan_tvoc_leader, x: 484, y: 318, points: ["177, 53", "177, 32", "0, 32", "0, 0"] }
-              - line: { <<: *scan_leader, id: line_scan_bed_humidity_leader, x: 753, y: 247, points: ["53, 124", "53, 0", "0, 0"] }
+              - line: { <<: &scan_leader { <<: *terminal_line, line_color: "${tab5_color_text_inactive}", line_width: 2, line_opa: 100%, hidden: true }, id: line_scan_intake_leader, x: 85, y: 78, points: ["0, 0", "0, 81", "99, 81"] }
+              - line: { <<: *scan_leader, id: line_scan_oil_temperature_leader, x: 231, y: 78, points: ["0, 0", "0, 18", "27, 18", "27, 136", "20, 136"] }
+              - line: { <<: *scan_leader, id: line_scan_oil_pressure_leader, x: 213, y: 242, points: ["163, 123", "163, 114", "47, 114", "47, 13", "0, 13", "0, 0"] }
+              - line: { <<: *scan_leader, id: line_scan_cabin_temp_leader, x: 449, y: 78, points: ["72, 0", "72, 13", "0, 13", "0, 76"] }
+              - line: { <<: *scan_leader, id: line_scan_cabin_humidity_leader, x: 449, y: 288, points: ["72, 77", "72, 68", "0, 68", "0, 0"] }
+              - line: { <<: *scan_leader, id: line_scan_bed_temp_leader, x: 753, y: 78, points: ["58, 0", "58, 117", "0, 117"] }
+              - line: { <<: *scan_leader, id: line_scan_coolant_leader, x: 85, y: 221, points: ["0, 144", "0, 0", "56, 0"] }
+              - line: { <<: *scan_leader, id: line_scan_transmission_leader, x: 299, y: 78, points: ["77, 0", "77, 3", "0, 3", "0, 127"] }
+              - line: { <<: *scan_leader, id: line_scan_voltage_leader, x: 192, y: 289, points: ["39, 76", "39, 67", "60, 67", "60, 10", "0, 10", "0, 0"] }
+              - line: { <<: *scan_leader, id: line_scan_co2_leader, x: 539, y: 78, points: ["127, 0", "127, 14", "0, 14", "0, 47"] }
+              - line: { <<: *scan_leader, id: line_scan_tvoc_leader, x: 530, y: 318, points: ["136, 47", "136, 38", "0, 38", "0, 0"] }
+              - line: { <<: *scan_leader, id: line_scan_bed_humidity_leader, x: 753, y: 247, points: ["58, 118", "58, 0", "0, 0"] }
 
               - obj:
                   id: obj_vehicle_scan
@@ -4069,7 +4161,8 @@ lvgl:
                         hidden: true
                         bg_opa: 85%
                         bg_color: "${tab5_color_accent}"
-                    - label: { id: lbl_vehicle_scan_status, align: top_mid, y: 0, hidden: true, clickable: false, text: "[ SCANNING ]", text_font: font_terminal_boot, text_color: "${tab5_color_accent}" }
+                    - label: { id: lbl_vehicle_scan_status, align: top_mid, y: 2, hidden: true, clickable: false, text: "[ SCANNING ]", text_font: font_terminal_boot, text_color: "${tab5_color_accent}", bg_color: "${tab5_color_background}", bg_opa: COVER, pad_left: 4, pad_right: 4 }
+                    - label: { id: lbl_tpms_hint, align: top_left, x: 360, y: 245, clickable: false, text: "TPMS", text_font: notosans16, text_color: "${tab5_color_text_inactive}" }
               - obj:
                   <<: *terminal_panel
                   align: top_left
@@ -4310,8 +4403,10 @@ lvgl:
                     shadow_width: 0
                     pressed: { bg_opa: COVER, bg_color: "${tab5_color_panel_pressed}" }
                   y: 14
-                  on_click:
-                    - lambda: id(script_calibrate_tilt).execute(id(btn_pitch), "Pitch");
+                  on_short_click:
+                    - lambda: id(script_calibrate_tilt).execute(id(btn_pitch), "Pitch", false);
+                  on_long_press:
+                    - lambda: id(script_calibrate_tilt).execute(id(btn_pitch), "Pitch", true);
                   widgets:
                     - line: { <<: &tilt_reference { <<: *terminal_line, line_color: "${tab5_color_text_inactive}", line_dash_width: 4, line_dash_gap: 4 }, x: 12, y: 53, points: ["0, 0", "108, 0"] }
                     - obj:
@@ -4353,8 +4448,10 @@ lvgl:
                   <<: *scan_tilt
                   x: 1120
                   y: 14
-                  on_click:
-                    - lambda: id(script_calibrate_tilt).execute(id(btn_roll), "Roll");
+                  on_short_click:
+                    - lambda: id(script_calibrate_tilt).execute(id(btn_roll), "Roll", false);
+                  on_long_press:
+                    - lambda: id(script_calibrate_tilt).execute(id(btn_roll), "Roll", true);
                   widgets:
                     - line: { <<: *tilt_reference, x: 12, y: 53, points: ["0, 0", "108, 0"] }
                     - obj:
@@ -4418,7 +4515,12 @@ lvgl:
                   width: 174
                   height: 50
                   pad_all: 0
+                  border_width: 1
+                  border_color: "${tab5_color_card_border}"
                   hidden: true
+                  disabled:
+                    bg_opa: TRANSP
+                    border_color: "${tab5_color_gauge_track}"
                   on_click:
                     - script.execute: { id: script_trip_replay, request: 2 }
                   widgets:
@@ -4432,9 +4534,12 @@ lvgl:
                   width: 224
                   height: 50
                   pad_all: 0
+                  border_width: 1
+                  border_color: "${tab5_color_card_border}"
                   hidden: true
                   disabled:
                     bg_opa: TRANSP
+                    border_color: "${tab5_color_gauge_track}"
                   on_click:
                     - script.execute: script_toggle_trip_soundtrack
                   widgets:
@@ -4450,9 +4555,9 @@ lvgl:
                   hidden: true
                   widgets:
                     - label: { <<: &log_column { <<: *terminal_heading, y: 0, text_font: font_service_text }, x: 12, text: "SEQ" }
-                    - label: { <<: *log_column, x: 67, text: "TIME" }
-                    - label: { <<: *log_column, x: 188, text: "TYPE" }
-                    - label: { <<: *log_column, x: 265, text: "EVENT / MESSAGE" }
+                    - label: { <<: *log_column, x: 59, text: "TIME" }
+                    - label: { <<: *log_column, x: 149, text: "TYPE" }
+                    - label: { <<: *log_column, x: 216, text: "EVENT / MESSAGE" }
                     - line: { <<: *terminal_line, y: 32, points: ["0, 0", "1223, 0"] }
                     - obj:
                         <<: *terminal_panel
@@ -4547,48 +4652,94 @@ lvgl:
                         width: 180
                         on_click:
                           - lambda: |-
+                              const uint32_t now = esphome::millis();
+                              if (id(g_log_clear_armed_at) == 0 || now - id(g_log_clear_armed_at) > 3000) {
+                                id(g_log_clear_armed_at) = std::max<uint32_t>(now, 1);
+                                lv_label_set_text_static(id(lbl_clear_logs), "[ 삭제 확인 ]");
+                                lv_obj_set_style_text_color(id(lbl_clear_logs), lv_color_hex(${tab5_color_status_hot}), LV_PART_MAIN);
+                                lv_obj_set_style_border_color(id(btn_clear_logs), lv_color_hex(${tab5_color_status_hot}), LV_PART_MAIN);
+                                id(script_sound_play).execute(3);
+                                return;
+                              }
+                              id(script_reset_log_clear_arm).execute();
                               id(script_sound_play).execute(3);
                               id(g_logs).clear();
                               id(script_logs).execute("Logs cleared");
                               id(script_refresh_logs).execute(true, false);
                         widgets:
-                          - label: { <<: *menu_button_label, y: -4, text: "> 로그 지우기" }
+                          - label: { <<: *menu_button_label, id: lbl_clear_logs, y: -4, text: "> 로그 지우기" }
               - obj:
                   <<: *terminal_panel
                   id: obj_service_setup
                   x: 28
                   y: 136
                   width: 1224
-                  height: 448
+                  height: 460
                   widgets:
                     - obj:
-                        <<: &setup_cell { <<: *terminal_panel, width: 592, height: 136 }
+                        <<: &setup_cell { <<: *terminal_panel, width: 592, height: 144 }
                         x: 0
                         y: 0
                         widgets:
                           - label: { <<: &setup_kicker { <<: *service_kicker, text_color: "${tab5_color_accent}" }, text: "01 / DISPLAY" }
-                          - label: { <<: &setup_heading { <<: *terminal_heading, y: 28, text_font: notosans25, text_color: "${tab5_color_text_primary}" }, text: "화면 밝기" }
+                          - label: { <<: &setup_heading { <<: *terminal_heading, y: 26, text_font: notosans25, text_color: "${tab5_color_text_primary}" }, text: "화면 밝기" }
+                          - button:
+                              <<: &menu_button_ref { <<: *neutral_button, align: top_left, height: 34, pad_all: 0, radius: 0, shadow_width: 0, scrollable: false, border_width: 1, border_color: "${tab5_color_card_border}", bg_opa: TRANSP }
+                              id: btn_backlight_night
+                              x: 148
+                              y: 28
+                              width: 112
+                              on_click:
+                                - lambda: |-
+                                    if (!id(fn_service_allowed)()) return;
+                                    auto call = id(backlight).turn_on();
+                                    call.set_brightness(0.25f);
+                                    call.perform();
+                                    lv_slider_set_value(id(slider_backlight), 25, LV_ANIM_OFF);
+                                    lv_label_set_text_static(id(lbl_backlight_value), "25%");
+                                    id(script_sound_play).execute(3);
+                              widgets:
+                                - label: { align: center, y: -2, text: "야간 25%", text_font: notosans20, text_color: "${tab5_color_accent}", clickable: false }
+                          - button:
+                              <<: *menu_button_ref
+                              id: btn_backlight_day
+                              x: 270
+                              y: 28
+                              width: 112
+                              on_click:
+                                - lambda: |-
+                                    if (!id(fn_service_allowed)()) return;
+                                    auto call = id(backlight).turn_on();
+                                    call.set_brightness(0.85f);
+                                    call.perform();
+                                    lv_slider_set_value(id(slider_backlight), 85, LV_ANIM_OFF);
+                                    lv_label_set_text_static(id(lbl_backlight_value), "85%");
+                                    id(script_sound_play).execute(3);
+                              widgets:
+                                - label: { align: center, y: -2, text: "주간 85%", text_font: notosans20, text_color: "${tab5_color_accent}", clickable: false }
                           - label: { <<: *setup_heading, id: lbl_backlight_value, align: top_right, y: 22, text: "40%", text_font: notosans35, text_color: "${tab5_color_accent}" }
                           - slider:
                               id: slider_backlight
                               x: 10
                               y: 78
                               width: 572
-                              height: 16
+                              height: 20
                               min_value: 10
                               max_value: 100
                               value: 40
                               bg_color: "${tab5_color_gauge_track}"
                               bg_opa: COVER
                               indicator: { bg_color: "${tab5_color_accent}", radius: 0 }
-                              knob: { bg_color: "${tab5_color_text_primary}", bg_opa: COVER, pad_all: 5 }
+                              knob: { bg_color: "${tab5_color_text_primary}", bg_opa: COVER, pad_all: 9 }
                               on_value:
                                 then:
                                   - lvgl.label.update: { id: lbl_backlight_value, text: !lambda 'return std::to_string(static_cast<int>(x)) + "%";' }
                                   - light.control: { id: backlight, brightness: !lambda 'return x / 100.0f;' }
+                              on_release:
+                                - script.execute: { id: script_sound_play, cue: 3 }
                           - label: { <<: &setup_note { <<: *terminal_heading, y: 104, text_font: font_service_text }, text: "10 / DIM" }
                           - label: { <<: *setup_note, align: top_right, text: "100 / BRIGHT" }
-                          - line: { <<: &setup_rule { <<: *terminal_line, y: 135, points: ["0, 0", "591, 0"] } }
+                          - line: { <<: &setup_rule { <<: *terminal_line, y: 143, points: ["0, 0", "591, 0"] } }
                     - obj:
                         <<: *setup_cell
                         x: 632
@@ -4602,14 +4753,14 @@ lvgl:
                               x: 10
                               y: 78
                               width: 572
-                              height: 16
+                              height: 20
                               min_value: 0
                               max_value: 100
                               value: 40
                               bg_color: "${tab5_color_gauge_track}"
                               bg_opa: COVER
                               indicator: { bg_color: "${tab5_color_accent}", radius: 0 }
-                              knob: { bg_color: "${tab5_color_text_primary}", bg_opa: COVER, pad_all: 5 }
+                              knob: { bg_color: "${tab5_color_text_primary}", bg_opa: COVER, pad_all: 9 }
                               on_value:
                                 - lambda: |-
                                     id(g_sound_volume) = std::clamp(x / 100.0f, 0.0f, 1.0f);
@@ -4622,14 +4773,15 @@ lvgl:
                     - obj:
                         <<: *setup_cell
                         x: 0
-                        y: 156
+                        y: 158
                         widgets:
                           - label: { <<: *setup_kicker, text: "03 / CALIBRATION" }
                           - label: { <<: *setup_heading, text: "자세 보정" }
+                          - label: { <<: *setup_note, id: lbl_setup_calibration_status, y: 56, width: 592, long_mode: DOT, text: "기본 수평 (미보정)" }
                           - button:
-                              <<: &setup_action_button { <<: *menu_button, y: 90, width: 592, height: 42 }
+                              <<: &setup_action_button { <<: *menu_button, y: 88, width: 592, height: 44 }
                               id: btn_reset_calibration
-                              width: 268
+                              width: 286
                               on_click:
                                 - lambda: |-
                                     if (!id(fn_service_allowed)()) return;
@@ -4640,15 +4792,35 @@ lvgl:
                                     id(script_sound_play).execute(4);
                               widgets:
                                 - label: { <<: &setup_action_label { <<: *menu_button_label, text_font: notosans20, text_align: CENTER, y: -2, clickable: false }, text: "> 기울기 보정 초기화" }
+                          - button:
+                              <<: *setup_action_button
+                              id: btn_apply_calibration
+                              x: 306
+                              width: 286
+                              on_click:
+                                - lambda: |-
+                                    if (!id(fn_service_allowed)()) return;
+                                    auto *compass = id(id_compass);
+                                    if (!std::isfinite(compass->pitch()) || !std::isfinite(compass->roll())) return;
+                                    compass->clear_level();
+                                    const float p = compass->pitch();
+                                    const float r = compass->roll();
+                                    if (!std::isfinite(p) || !std::isfinite(r)) return;
+                                    compass->set_level_offsets(p, r);
+                                    id(script_render_pose).execute();
+                                    id(script_logs).execute("Pitch/Roll calibrated to current level");
+                                    id(script_sound_play).execute(4);
+                              widgets:
+                                - label: { <<: *setup_action_label, text: "> 현재 수평 보정" }
                           - line: { <<: *setup_rule }
                     - obj:
                         <<: *setup_cell
                         x: 632
-                        y: 156
+                        y: 158
                         widgets:
                           - label: { <<: *setup_kicker, text: "04 / SOUND CONTROL" }
                           - label: { <<: *setup_heading, text: "사운드 설정" }
-                          - label: { <<: *setup_note, id: lbl_sound_status, y: 60, text: "ALL SOUNDS / ENABLED" }
+                          - label: { <<: *setup_note, id: lbl_sound_status, y: 56, text: "ALL SOUNDS / ENABLED" }
                           - button:
                               <<: &setup_paired_action { <<: *setup_action_button, width: 286 }
                               id: btn_sound_mute
@@ -4673,14 +4845,14 @@ lvgl:
                     - obj:
                         <<: *setup_cell
                         x: 0
-                        y: 312
+                        y: 316
                         widgets:
                           - label: { <<: *setup_kicker, text: "05 / FIRMWARE" }
                           - checkbox:
                               id: chk_auto_ota
                               align: top_right
-                              x: -4
-                              y: 1
+                              x: -2
+                              y: 0
                               text: "본체 자동 업데이트"
                               text_font: font_service_text
                               text_color: "${tab5_color_text_primary}"
@@ -4698,9 +4870,9 @@ lvgl:
                                     id(g_auto_ota_enabled) = x;
                                     g_auto_ota_enabled->update();
                                     global_preferences->sync();
-                          - label: { <<: &firmware_board { <<: *setup_note, y: 22, text_color: "${tab5_color_text_primary}" }, text: "본체 (P4)" }
+                          - label: { <<: &firmware_board { <<: *setup_note, y: 30, text_color: "${tab5_color_text_primary}" }, text: "본체 (P4)" }
                           - label:
-                              <<: &firmware_version { <<: *setup_note, y: 54, width: 286, long_mode: DOT, text_color: "${tab5_color_text_secondary}" }
+                              <<: &firmware_version { <<: *setup_note, y: 56, width: 286, long_mode: DOT, text_color: "${tab5_color_text_secondary}" }
                               id: lbl_menu_curr_ver
                               text: !lambda 'return std::string("현재 ") + ESPHOME_PROJECT_VERSION;'
                           - button:
@@ -4738,9 +4910,11 @@ lvgl:
                     - obj:
                         <<: *setup_cell
                         x: 632
-                        y: 312
+                        y: 316
                         widgets:
                           - label: { <<: *setup_kicker, text: "06 / SYSTEM" }
+                          - label: { <<: *setup_heading, text: "시스템 제어" }
+                          - label: { <<: *setup_note, y: 56, text: "재시작 시 현재 운행 기록이 초기화됩니다." }
                           - button:
                               <<: *setup_action_button
                               id: btn_log_restart
@@ -4763,7 +4937,7 @@ lvgl:
                   x: 28
                   y: 136
                   width: 1224
-                  height: 448
+                  height: 460
                   hidden: true
                   widgets:
                     - obj:
@@ -4772,13 +4946,13 @@ lvgl:
                         y: 0
                         widgets:
                           - label: { <<: *setup_kicker, text: "01 / VEHICLE & DEVICE" }
-                          - label: { <<: &info_heading { <<: *setup_heading, y: 18 }, text: "COLORADO" }
-                          - label: { <<: &info_caption { <<: *setup_note, y: 52, width: 126 }, text: "차량 번호" }
-                          - label: { <<: &info_value { <<: *setup_note, x: 138, y: 52, width: 454, long_mode: DOT, text_color: "${tab5_color_text_secondary}" }, text: "${number}" }
-                          - label: { <<: *info_caption, y: 78, text: "모델" }
-                          - label: { <<: *info_value, y: 78, text: "${splash_title} ${splash_trim_badge} ${splash_trim} ${splash_powertrain}" }
-                          - label: { <<: *info_caption, y: 104, text: "기기" }
-                          - label: { <<: *info_value, y: 104, text: "${ tab5_display_models[tab5_panel | lower] }" }
+                          - label: { <<: &info_heading { <<: *setup_heading, y: 22 }, text: "COLORADO" }
+                          - label: { <<: &info_caption { <<: *setup_note, y: 56, width: 126 }, text: "차량 번호" }
+                          - label: { <<: &info_value { <<: *setup_note, x: 138, y: 56, width: 454, long_mode: DOT, text_color: "${tab5_color_text_secondary}" }, text: "${number}" }
+                          - label: { <<: *info_caption, y: 82, text: "모델" }
+                          - label: { <<: *info_value, y: 82, text: "${splash_title} ${splash_trim_badge} ${splash_trim} ${splash_powertrain}" }
+                          - label: { <<: *info_caption, y: 108, text: "기기" }
+                          - label: { <<: *info_value, y: 108, text: "${ tab5_display_models[tab5_panel | lower] }" }
                           - line: { <<: *setup_rule }
                     - obj:
                         <<: *setup_cell
@@ -4787,51 +4961,53 @@ lvgl:
                         widgets:
                           - label: { <<: *setup_kicker, text: "02 / GNSS" }
                           - label: { <<: *info_heading, text: "GPS" }
-                          - label: { <<: &info_line { <<: *setup_note, y: 52, width: 592, long_mode: DOT, text_color: "${tab5_color_text_secondary}" }, id: lbl_info_gps_quality, text: "GPS 위치 대기 / 위성 -- / HDOP --" }
-                          - label: { <<: *info_line, id: lbl_info_gps_speed, y: 78, text: "GPS 속도 -- km/h" }
-                          - label: { <<: *info_line, id: lbl_compass_gps_status, y: 104, text: "GPS 자동 보정 대기" }
+                          - label: { <<: &info_line { <<: *setup_note, y: 56, width: 592, long_mode: DOT, text_color: "${tab5_color_text_secondary}" }, id: lbl_info_gps_quality, text: "GPS 위치 대기 / 위성 -- / HDOP --" }
+                          - label: { <<: *info_line, id: lbl_info_gps_speed, y: 82, text: "GPS -- / OBD -- km/h / MOTION --" }
+                          - label: { <<: *info_line, id: lbl_compass_gps_status, y: 108, text: "GPS 자동 보정 대기" }
                           - line: { <<: *setup_rule }
                     - obj:
                         <<: *setup_cell
                         x: 0
-                        y: 156
+                        y: 158
                         widgets:
                           - label: { <<: *setup_kicker, text: "03 / MOTION" }
                           - label: { <<: *info_heading, text: "자세계" }
                           - label: { <<: *info_line, id: lbl_info_attitude_status, text: "BMI270 수신 대기" }
-                          - label: { <<: *info_line, id: lbl_setup_attitude, y: 78, text: "P -- / R --" }
-                          - label: { <<: *info_line, id: lbl_info_accel, y: 104, text: "X -- / Y -- / Z -- g" }
+                          - label: { <<: *info_line, id: lbl_setup_attitude, y: 82, text: "P -- / R --" }
+                          - label: { <<: *info_line, id: lbl_info_accel, y: 108, text: "X -- / Y -- / Z -- g" }
                           - line: { <<: *setup_rule }
                     - obj:
                         <<: *setup_cell
                         x: 632
-                        y: 156
+                        y: 158
                         widgets:
                           - label: { <<: *setup_kicker, text: "04 / COMPASS" }
                           - label: { <<: *info_heading, text: "BMM150" }
-                          - label: { <<: *info_line, id: lbl_compass_sensor_status, text: "BMM150 수신 대기" }
-                          - label: { <<: *info_line, id: lbl_compass_field, y: 78, text: "X -- / Y -- / Z -- uT" }
+                          - label: { <<: *info_line, id: lbl_compass_sensor_status, x: 136, y: 27, width: 456, text: "BMM150 수신 대기" }
+                          - label: { <<: *info_line, id: lbl_compass_diagnostic_heading, text: "MAG -- / GPS -- / DISP -- / SRC --" }
+                          - label: { <<: *info_line, id: lbl_compass_field, y: 82, text: "RAW X -- / Y -- / Z -- uT" }
+                          - label: { <<: *info_line, id: lbl_compass_input_field, y: 108, text: "IN X -- / Y -- / Z -- uT" }
                           - line: { <<: *setup_rule }
                     - obj:
                         <<: *setup_cell
                         x: 0
-                        y: 312
+                        y: 316
                         widgets:
                           - label: { <<: *setup_kicker, text: "05 / VEHICLE LINK" }
                           - label: { <<: *info_heading, text: "OBD" }
                           - label: { <<: *info_line, id: lbl_info_obd_status, text: "BLE 연결 대기" }
-                          - label: { <<: *info_line, id: lbl_info_obd_counts, y: 78, text: "TIMEOUT -- / NO DATA -- / ERROR --" }
+                          - label: { <<: *info_line, id: lbl_info_obd_counts, y: 82, text: "TIMEOUT -- / NO DATA -- / ERROR --" }
                           - line: { <<: *setup_rule }
                     - obj:
                         <<: *setup_cell
                         x: 632
-                        y: 312
+                        y: 316
                         widgets:
                           - label: { <<: *setup_kicker, text: "06 / NETWORK" }
                           - label: { <<: *info_heading, text: "Wi-Fi" }
                           - label: { <<: *info_line, id: lbl_info_wifi_status, text: "Wi-Fi 연결 대기" }
-                          - label: { <<: *info_line, id: lbl_info_wifi_address, y: 78, text: "IP -- / RSSI --" }
-                          - label: { <<: *info_line, id: lbl_info_wifi_error, y: 104, text: "최근 오류 기록 없음" }
+                          - label: { <<: *info_line, id: lbl_info_wifi_address, y: 82, text: "IP -- / RSSI --" }
+                          - label: { <<: *info_line, id: lbl_info_wifi_error, y: 108, text: "최근 오류 기록 없음" }
                           - line: { <<: *setup_rule }
               - obj:
                   <<: *terminal_panel
@@ -4858,7 +5034,7 @@ lvgl:
                               height: 294
                               widgets:
                                 - label: { <<: &trip_heading { <<: *terminal_heading, x: 24, text_font: font_trip_label }, y: 12, text: "운행거리" }
-                                - label: { <<: &trip_reading { <<: *trip_heading, text_font: notosans25 }, id: lbl_report_average_speed, y: 78, text: "평균속도 -- km/h" }
+                                - label: { <<: &trip_reading { <<: *trip_heading, text_font: notosans25 }, id: lbl_report_average_speed, y: 78, text_font: font_service_text, text: "평균속도 -- km/h" }
                                 - label: { <<: &trip_value { <<: *terminal_heading, x: 24, text_font: notosans35, text_color: "${tab5_color_accent}" }, id: lbl_report_distance, y: 36, text: "-- km" }
                                 - line: { <<: &trip_summary_rule { <<: *terminal_line, x: 24, points: ["0, 0", "290, 0"] }, y: 113 }
                                 - label: { <<: *trip_heading, y: 124, text: "운행시간" }
@@ -4874,7 +5050,7 @@ lvgl:
                               height: 294
                               widgets:
                                 - label: { <<: *trip_heading, y: 12, text: "냉각수 / 오일 온도" }
-                                - label: { <<: *terminal_heading, id: lbl_trip_replay_reading, x: 248, y: 16, text: "", text_font: font_service_text, hidden: true }
+                                - label: { <<: *terminal_heading, id: lbl_trip_replay_reading, x: 248, y: 16, width: 580, long_mode: DOT, text: "", text_font: font_service_text, hidden: true }
                                 - label: { <<: *trip_heading, id: lbl_trip_chart_empty, y: 108, text: "온도 기록이 없습니다." }
                                 - obj:
                                     <<: *terminal_panel
@@ -4893,8 +5069,8 @@ lvgl:
                                       - obj: { <<: *terminal_panel, id: obj_trip_chart_cursor, x: 80, y: 5, width: 2, height: 128, bg_color: "${tab5_color_text_primary}", bg_opa: 75%, hidden: true }
                                 - line: { <<: *terminal_line, x: 24, y: 232, points: ["0, 0", "802, 0"] }
                                 - label: { <<: *trip_reading, id: lbl_report_coolant, y: 244, text_color: "${tab5_color_accent}", text: "냉각수 최고 --" }
-                                - label: { <<: *trip_reading, id: lbl_report_engine_oil, x: 286, y: 244, text_color: "${tab5_color_status_cold}", text: "엔진오일 최고 --" }
-                                - label: { <<: *trip_reading, id: lbl_report_transmission, x: 552, y: 244, text_color: "${tab5_color_status_warm}", text: "미션오일 최고 --" }
+                                - label: { <<: *trip_reading, id: lbl_report_engine_oil, x: 286, y: 244, text_color: "${tab5_color_chart_oil}", text: "엔진오일 최고 --" }
+                                - label: { <<: *trip_reading, id: lbl_report_transmission, x: 552, y: 244, text_color: "${tab5_color_chart_trans}", text: "미션오일 최고 --" }
                           - label: { <<: *trip_heading, x: 0, y: 312, text_color: "${tab5_color_text_primary}", text: "환경 요약" }
                           - label: { <<: *trip_heading, align: top_right, x: 0, y: 312, text: "운행 중 최저–최고" }
                           - obj:
@@ -4902,8 +5078,8 @@ lvgl:
                               x: 0
                               widgets:
                                 - label: { <<: &trip_env_label { <<: *trip_heading, x: 12 }, y: 7, text: "온도" }
-                                - label: { <<: &trip_env_cabin { <<: *trip_reading, x: 12, y: 34, text_color: "${tab5_color_accent}" }, id: lbl_trip_cabin_temp, text: "실내 --" }
-                                - label: { <<: &trip_env_bed { <<: *trip_reading, x: 12, y: 64, text_color: "${tab5_color_status_cold}" }, id: lbl_trip_bed_temp, text: "적재함 --" }
+                                - label: { <<: &trip_env_cabin { <<: *trip_reading, x: 12, y: 34, width: 270, long_mode: DOT, text_color: "${tab5_color_accent}" }, id: lbl_trip_cabin_temp, text: "실내 --" }
+                                - label: { <<: &trip_env_bed { <<: *trip_reading, x: 12, y: 64, width: 270, long_mode: DOT, text_color: "${tab5_color_status_cold}" }, id: lbl_trip_bed_temp, text: "적재함 --" }
                                 - obj: { <<: &trip_env_plot { <<: *terminal_panel, x: 12, y: 103, width: 268, height: 38 }, id: obj_trip_env_temp }
                           - obj:
                               <<: *trip_env_card
@@ -4918,7 +5094,7 @@ lvgl:
                               x: 620
                               widgets:
                                 - label: { <<: *trip_env_label, y: 7, text: "실내 CO2" }
-                                - label: { <<: &trip_gas_reading { <<: *trip_reading, x: 12, y: 47 }, id: lbl_trip_co2, text_color: "${tab5_color_accent}", text: "-- ppm" }
+                                - label: { <<: &trip_gas_reading { <<: *trip_reading, x: 12, y: 47, width: 270, long_mode: DOT }, id: lbl_trip_co2, text_color: "${tab5_color_accent}", text: "-- ppm" }
                                 - obj: { <<: *trip_env_plot, id: obj_trip_env_co2 }
                           - obj:
                               <<: *trip_env_card
@@ -4948,6 +5124,7 @@ font:
     glyphs: "RPM엔진부하TC SLI배터리충전율잔량연료"
   - file: "gfonts://Share+Tech+Mono"
     id: font_service_title
+    bpp: 4
     size: 40
     glyphs: "${ui_ascii}"
   # Use one font's metrics for both Hangul and ASCII; mixed extras used the
@@ -4956,10 +5133,11 @@ font:
     id: font_service_text
     bpp: 4
     size: 20
-    glyphs: ${ (ui_ascii + ui_alert_hangul + ui_extra_glyphs + ui_trip_glyphs + '°자완료대값각간거기내냉도량력료리미부션수습신실압엔연오온운율있일잔재적전진충최태하함행현흡그록로아직없습니확근다보우울으인작정중지초템화끊김무응답마막분세면밝울초펌웨어설정최근으로새로그지우기아직기록이없습니다현재버전업데이트미확인화면밝기기울기보정초기화차량번호모델수집센서향호상태실패전원리셋칩읽불치공장동샘플효드족속달위품질후표방본유주결계됨류선성스시음체' + number) | unique(case_sensitive=true) | join }
+    glyphs: ${ (ui_ascii + ui_alert_hangul + ui_extra_glyphs + ui_trip_glyphs + '°자완료대값각간거기내냉도량력료리미부션수습신실압엔연오온운율있일잔재적전진충최태하함행현흡그록로아직없습니확근다보우울으인작정중지초템화끊김무응답마막분세면밝울초펌웨어설정최근으로새로그지우기아직기록이없습니다현재버전업데이트미확인화면밝기기울기보정초기화차량번호모델수집센서향호상태실패전원리셋칩읽불치공장동샘플효드족속달위품질후표방본유주결계됨류선성스시음체야간주기본수평적용제어삭제터미널끄마세요돌아가서다모듈다운로드및무결성검증로그를가가않았중단비을되었됩층구역번둥' + number) | unique(case_sensitive=true) | join }
   - file: "gfonts://Share+Tech+Mono"
     id: font_terminal_speed
-    size: 180
+    bpp: 4
+    size: 164
     glyphs: "-0123456789"
   - file: "gfonts://Noto+Sans+KR"
     id: font_compass_source
@@ -4973,14 +5151,15 @@ font:
     glyphs: "북동남서"
   - file: "gfonts://Noto+Sans+KR"
     id: font_terminal_trip
+    bpp: 4
     size: 40
     glyphs: "-+.:0123456789"
-  - file: "gfonts://Gothic+A1"
+  - file: "gfonts://Noto+Sans+KR"
     id: font_alert_title
     bpp: 4
     size: 23
     glyphs: "경고주의안내"
-  - file: "gfonts://Gothic+A1"
+  - file: "gfonts://Noto+Sans+KR"
     id: font_alert_msg
     bpp: 4
     size: 34
@@ -4994,12 +5173,12 @@ font:
     id: notosans20
     bpp: 4
     size: 20
-    glyphs: ${ (ui_ascii + ui_alert_hangul + ui_extra_glyphs + '°세계부변경방위자북동남서센대취실패차후완료쪽향호준각간거기내냉도량력료리미부션수습신실압엔연오온운율있일잔재적전진충최태하함행현흡그록로아직없습니확근다보우울으인작정중지초템화끊김무응답마막분버가능') | unique(case_sensitive=true) | join }
+    glyphs: ${ (ui_ascii + ui_alert_hangul + ui_extra_glyphs + '°세계부변경방위자북동남서센대취실패차후완료쪽향호준각간거기내냉도량력료리미부션수습신실압엔연오온운율있일잔재적전진충최태하함행현흡그록로아직없습니확근다보우울으인작정중지초템화끊김무응답마막분버가능야간주기본수평적용제어삭제') | unique(case_sensitive=true) | join }
   - file: "gfonts://Noto+Sans+KR"
     id: notosans25
     bpp: 4
     size: 25
-    glyphs: [ "${ui_ascii}", "°그기내데도로록면밝보상스습시신실업온우울이인작재적정중지초최태템트함행화확자세계펌웨어사운드설음량방위각–평균속냉수고엔진오일미션" ]
+    glyphs: [ "${ui_ascii}", "°그기내데도로록면밝보상스습시신실업온우울이인작재적정중지초최태템트함행화확자세계펌웨어사운드설음량방위각–평균속냉수고엔진오일미션제" ]
   - file: "gfonts://Noto+Sans+KR"
     id: notosans30
     bpp: 4
@@ -5009,21 +5188,25 @@ font:
     id: notosans35
     bpp: 4
     size: 35
-    glyphs: [ "${ui_ascii}", "°", "금목수스시월일작재템토화본체자동업데이트실내센서적함" ]
+    glyphs: [ "${ui_ascii}", "°", "금목수스시월일작재템토화본체자동업데이트실내센서적함펌웨어패무선모듈" ]
   - file: "gfonts://Noto+Sans+KR"
     id: notosans45
+    bpp: 4
     size: 45
     glyphs: ["${ui_ascii}", "°"]
   - file: "gfonts://Share+Tech+Mono"
     id: font_terminal_boot
+    bpp: 4
     size: 24
     glyphs: "${ui_ascii}"
   - file: "gfonts://Share+Tech+Mono"
     id: font_ota_countdown
+    bpp: 4
     size: 76
     glyphs: "0123456789"
   - file: "gfonts://Share+Tech+Mono"
     id: font_terminal_title
+    bpp: 4
     size: 94
     # Title letters plus the symbols the boot decode effect cycles through.
     glyphs: ${ (splash_title + '#%&*+<>/=0123456789') | unique(case_sensitive=true) | join }
@@ -5160,6 +5343,7 @@ script:
           const auto color = lv_color_hex(accent);
           lv_obj_set_style_border_color(id(popup_alert), color, LV_PART_MAIN);
           lv_obj_set_style_text_color(id(lbl_alert_title), color, LV_PART_MAIN);
+          lv_obj_set_style_bg_color(id(obj_alert_rail), color, LV_PART_MAIN);
 
   - id: script_alert_close
     mode: restart
@@ -5174,7 +5358,9 @@ script:
           if (fade_ms > 0) lv_obj_fade_out(popup, fade_ms, hold_ms);
           else lv_obj_set_hidden(popup, true);
       - delay: !lambda return hold_ms + fade_ms;
-      - lambda: lv_obj_set_hidden(id(popup_alert), true);
+      - lambda: |-
+          lv_obj_set_hidden(id(popup_alert), true);
+          id(script_sync_service_ui).execute();
 
   # Cue IDs: boot/open/close/click/success/warning/danger/failure/notice.
   - id: script_sound_stop
@@ -5307,6 +5493,8 @@ script:
               id(g_trip_soundtrack_playing) ? "사운드트랙 정지" : "사운드트랙 재생";
           auto *label = id(lbl_trip_soundtrack);
           if (std::strcmp(lv_label_get_text(label), text) != 0) lv_label_set_text(label, text);
+          lv_obj_set_style_text_color(label,
+              lv_color_hex(disabled ? ${tab5_color_text_inactive} : ${tab5_color_accent}), LV_PART_MAIN);
 
   - id: script_toggle_trip_soundtrack
     then:
@@ -5386,6 +5574,8 @@ script:
             if (allowed) lv_obj_remove_state(button, LV_STATE_DISABLED);
             else lv_obj_add_state(button, LV_STATE_DISABLED);
           }
+          lv_obj_set_style_text_color(id(lbl_trip_replay),
+              lv_color_hex(allowed ? ${tab5_color_accent} : ${tab5_color_text_inactive}), LV_PART_MAIN);
           const auto finish = [&](bool interrupted) {
             const bool was_playing = phase == Phase::PLAY;
             phase = Phase::IDLE;
@@ -5617,17 +5807,17 @@ script:
             const bool low = valid && tire.pressure < low_kpa + (was_low ? 10.0f : 0.0f);
             if (valid) valid_tires |= bit;
             if (low) low_tires |= bit;
-            const bool show = low || id(g_tpms_show_all) || id(g_vehicle_scan_tpms);
+            const bool show = low || id(g_tpms_show_all) || (id(g_vehicle_scan_tpms_mask) & bit);
             if (show) {
               char text[16] = "-- kPa";
               if (valid) snprintf(text, sizeof(text), "%.0f kPa", tire.pressure);
-              lv_label_set_text(tire.label, text);
-              lv_obj_set_style_text_color(tire.label, lv_color_hex(low
-                  ? ${tab5_color_status_warm} : ${tab5_color_text_muted}), LV_PART_MAIN);
-              lv_obj_set_hidden(tire.label, false);
-            } else {
-              lv_obj_set_hidden(tire.label, true);
+              if (std::strcmp(lv_label_get_text(tire.label), text) != 0)
+                lv_label_set_text(tire.label, text);
+              const auto color = lv_color_hex(low ? ${tab5_color_status_warm} : ${tab5_color_text_muted});
+              if (!lv_color_eq(lv_obj_get_style_text_color(tire.label, LV_PART_MAIN), color))
+                lv_obj_set_style_text_color(tire.label, color, LV_PART_MAIN);
             }
+            if (lv_obj_is_hidden(tire.label) == show) lv_obj_set_hidden(tire.label, !show);
             if (low != was_low) {
               lv_obj_set_style_bg_color(tire.marker, lv_color_hex(low
                   ? ${tab5_color_status_warm} : ${tab5_color_text_inactive}), LV_PART_MAIN);
@@ -5636,6 +5826,9 @@ script:
           }
           id(g_tpms_low_tires) = low_tires;
           id(g_tpms_valid_tires) = valid_tires;
+          lv_obj_set_style_text_color(id(lbl_tpms_hint),
+              lv_color_hex(id(g_tpms_show_all) ? ${tab5_color_accent} : ${tab5_color_text_inactive}),
+              LV_PART_MAIN);
 
   - id: script_boot_vehicle_scan
     mode: single
@@ -5763,15 +5956,17 @@ script:
     then:
       - lambda: id(g_vehicle_scan_started_at) = std::max<uint32_t>(esphome::millis(), 1);
       - script.execute: script_start_vehicle_scan_sweep
-      # Reveal TPMS at the same point in the sweep as before.
-      - delay: !lambda return ${vehicle_scan_sweep_ms}u * 760u / 1250u;
       - lambda: |-
-          id(g_vehicle_scan_tpms) = true;
+          id(g_vehicle_scan_tpms_mask) = 0b0011;  // Front left and right.
           id(script_render_tpms).execute();
-      - delay: !lambda return ${vehicle_scan_sweep_ms}u - (${vehicle_scan_sweep_ms}u * 760u / 1250u);
+      - delay: !lambda return ${vehicle_scan_sweep_ms}u;
       - script.execute: script_finish_vehicle_scan_sweep
+      - lambda: |-
+          id(g_vehicle_scan_tpms_mask) = 0b1111;  // Add the two rear tires.
+          id(script_render_tpms).execute();
+      - delay: 64ms  # Leave time for the rear TPMS refresh and the ~40 ms glow tail.
       - script.execute: { id: script_sound_play, cue: 3 }
-      - delay: 820ms
+      - delay: 756ms
       - script.execute: { id: script_clear_vehicle_scan, cancel_body_glow: true }
 
   - id: script_clear_vehicle_scan
@@ -5787,8 +5982,8 @@ script:
             id(fn_set_vehicle_scan_body_x)(-1);
           }
           lv_obj_set_hidden(id(lbl_vehicle_scan_status), true);
-          if (id(g_vehicle_scan_tpms)) {
-            id(g_vehicle_scan_tpms) = false;
+          if (id(g_vehicle_scan_tpms_mask)) {
+            id(g_vehicle_scan_tpms_mask) = 0;
             id(script_render_tpms).execute();
           }
 
@@ -5836,7 +6031,7 @@ script:
           if (slot) {
             // Hidden means the first selection: it appears in place (fx moves visible widgets only).
             const bool appearing = lv_obj_is_hidden(selection);
-            fx::set_x(selection, 43 * (slot - positions));
+            fx::set_x(selection, 38 * (slot - positions));
             lv_obj_set_hidden(selection, false);
             // The dark bar flashes once the move has ended (its effect starts after the move time).
             if (!appearing) fx::play(id(obj_prnd_confirm), id(fx_prnd_bar));
@@ -5896,6 +6091,17 @@ script:
           }
           if (std::strcmp(lv_label_get_text(id(lbl_setup_attitude)), posture) != 0) {
             lv_label_set_text(id(lbl_setup_attitude), posture);
+          }
+          char cal_status[64];
+          const bool any_cal = std::abs(axes[0].offset) > 0.0001f || std::abs(axes[1].offset) > 0.0001f;
+          if (any_cal) {
+            snprintf(cal_status, sizeof(cal_status), "보정 적용 중 (P %+.1f° / R %+.1f°)",
+                     axes[0].offset * axes[0].direction + 0.0f, axes[1].offset * axes[1].direction + 0.0f);
+          } else {
+            snprintf(cal_status, sizeof(cal_status), "기본 수평 (미보정)");
+          }
+          if (std::strcmp(lv_label_get_text(id(lbl_setup_calibration_status)), cal_status) != 0) {
+            lv_label_set_text(id(lbl_setup_calibration_status), cal_status);
           }
           static struct PoseState {
             uint8_t level = 0;
@@ -6015,7 +6221,7 @@ script:
                 if (state == update::UPDATE_STATE_NO_UPDATE && !id(c6_update).status_has_error()) {
                   id(script_c6_ota_done).execute();
                 } else {
-                  id(script_ota_failed).execute("C6 update failed. Check log.");
+                  id(script_ota_failed).execute("무선(C6) 업데이트 실패. 로그를 확인하세요.");
                 }
               }
               last = state;
@@ -6035,15 +6241,18 @@ script:
               const auto mode = static_cast<int>(reinterpret_cast<intptr_t>(lv_event_get_user_data(event)));
               id(script_render_scan_status).execute(mode, lv_color_t{}, nullptr, true);
               const bool bed = mode == 15 || mode == 16;
-              if (bed || mode == 2 || mode == 3) id(script_jaalee_detail).execute(bed);
+              if (bed || mode == 2 || mode == 3) {
+                id(script_sound_play).execute(3);
+                id(script_jaalee_detail).execute(bed);
+              }
             };
             for (const auto &readout : readouts) {
               if (readout.mode == 19) continue;
-              auto *card = lv_obj_get_parent(readout.label);
-              // The Jaalee heading and value both open the same sensor detail.
-              if (readout.mode == 2 || readout.mode == 3 || readout.mode == 15 || readout.mode == 16)
-                card = lv_obj_get_parent(card);
+              auto *card = lv_obj_get_parent(lv_obj_get_parent(readout.label));
               lv_obj_set_clickable(card, true);
+              lv_obj_set_style_bg_color(card, lv_color_hex(${tab5_color_panel_pressed}), LV_STATE_PRESSED);
+              lv_obj_set_style_bg_opa(card, LV_OPA_COVER, LV_STATE_PRESSED);
+              lv_obj_set_style_radius(card, 4, LV_STATE_PRESSED);
               lv_obj_add_event_cb(card, focus, LV_EVENT_CLICKED,
                                   reinterpret_cast<void *>(static_cast<intptr_t>(readout.mode)));
             }
@@ -6471,7 +6680,7 @@ script:
           }
           lv_obj_add_event_cb(id(obj_vehicle_scan_outlines), +[](lv_event_t *event) {
             const int x = id(g_vehicle_scan_body_x);
-            if (x >= 0) id(fn_draw_vehicle_scan_body_glow)(x, lv_event_get_layer(event));
+            if (x >= 0) id(fn_draw_vehicle_scan_body_glow)(x, lv_event_get_layer(event), -1);
           }, LV_EVENT_DRAW_MAIN, nullptr);
           lv_obj_add_event_cb(id(obj_vehicle_scan_beam), +[](lv_event_t *event) {
             auto *beam = lv_event_get_target_obj(event);
@@ -6762,10 +6971,38 @@ script:
           auto *compass = id(id_compass);
           static float last_heading = NAN;
           static Source last_source = Source::NONE;
+          static bool was_stationary_magnetic = false;
+          static int pending_heading = -1;
+          static uint32_t pending_at = 0;
           float heading = compass->heading();
           Source compass_source = compass->source();
           const bool live = std::isfinite(heading) &&
               (compass_source == Source::GPS || compass_source == Source::MAGNETIC);
+          const bool observing_motion = compass->motion_detected();
+          const bool stationary_magnetic = live && compass_source == Source::MAGNETIC && !observing_motion;
+          if (stationary_magnetic) {
+            constexpr int step = 3;
+            constexpr float release_angle = 3.0f;
+            constexpr uint32_t settle_ms = 1250;
+            const int snapped = (static_cast<int>(std::lround(heading / step)) * step) % 360;
+            if (!was_stationary_magnetic) {
+              heading = snapped;
+            } else if (std::abs(std::remainder(heading - last_heading, 360.0f)) < release_angle) {
+              // Stay on the current tick until the measured heading reaches the next tick.
+              pending_heading = -1;
+              heading = last_heading;
+            } else {
+              const uint32_t now = esphome::millis();
+              if (snapped != pending_heading) {
+                pending_heading = snapped;
+                pending_at = now;
+              }
+              heading = now - pending_at >= settle_ms ? snapped : last_heading;
+            }
+          } else {
+            pending_heading = -1;
+          }
+          was_stationary_magnetic = stationary_magnetic;
           if (live || (!std::isfinite(last_heading) && std::isfinite(heading))) {
             last_heading = heading;
             last_source = compass_source;
@@ -6778,40 +7015,74 @@ script:
               : compass_source == Source::MAGNETIC ? (live ? "자기센서" : "최근 자기센서")
               : compass_source == Source::LAST_GPS ? "최근 GPS"
               : std::isfinite(heading) ? "최근값" : "수신 대기";
-          const auto &field = id(g_compass_field);
-          const uint32_t field_at = id(g_compass_field_at);
-          const bool sample_recent = field_at != 0 && esphome::millis() - field_at <= 1500;
-          const bool sample_finite = std::isfinite(field[0]) && std::isfinite(field[1]) && std::isfinite(field[2]);
-          const char *sensor_status = "BMM150 값 수신";
-          if (id(gnss_imu).is_failed()) {
-            sensor_status = "BMI270 0x69 초기화 실패";
-          } else if (id(g_compass_init_error) != nullptr) {
-            sensor_status = id(g_compass_init_error);
-          } else if (field_at == 0) {
-            sensor_status = "BMM150 샘플 미수신";
-          } else if (!sample_recent) {
-            sensor_status = "BMM150 수신 끊김";
-          } else if (!sample_finite) {
-            sensor_status = "BMM150 무효 샘플";
-          } else if (!compass->field_fresh()) {
-            sensor_status = "BMM150 보정 신호 부족";
-          }
-          auto *sensor_label = id(lbl_compass_sensor_status);
-          if (std::strcmp(lv_label_get_text(sensor_label), sensor_status) != 0)
-            lv_label_set_text_static(sensor_label, sensor_status);
-
-          char field_text[64] = "X -- / Y -- / Z -- uT";
-          if (sample_recent) {
-            char axis_text[3][16] = {"--", "--", "--"};
-            for (size_t axis = 0; axis < field.size(); ++axis) {
-              if (std::isfinite(field[axis]))
-                snprintf(axis_text[axis], sizeof(axis_text[axis]), "%+.0f", field[axis]);
+          const int bearing = std::isfinite(heading) ? (std::lround(heading) + 360) % 360 : -1;
+          const bool show_details = id(g_logs_visible) && id(g_service_tab) == 3;
+          if (show_details) {
+            const uint32_t now = esphome::millis();
+            const auto recent = [now](uint32_t at) { return at != 0 && now - at <= 1500; };
+            const auto set_text = [](lv_obj_t *label, const char *text) {
+              if (std::strcmp(lv_label_get_text(label), text) != 0) lv_label_set_text(label, text);
+            };
+            const auto &field = id(g_compass_field);
+            const uint32_t field_at = id(g_compass_field_at);
+            const bool sample_recent = recent(field_at);
+            const bool sample_finite = std::isfinite(field[0]) && std::isfinite(field[1]) && std::isfinite(field[2]);
+            const char *sensor_status = "BMM150 값 수신";
+            if (id(gnss_imu).is_failed()) {
+              sensor_status = "BMI270 0x69 초기화 실패";
+            } else if (id(g_compass_init_error) != nullptr) {
+              sensor_status = id(g_compass_init_error);
+            } else if (field_at == 0) {
+              sensor_status = "BMM150 샘플 미수신";
+            } else if (!sample_recent) {
+              sensor_status = "BMM150 수신 끊김";
+            } else if (!sample_finite) {
+              sensor_status = "BMM150 무효 샘플";
+            } else if (!compass->field_fresh()) {
+              sensor_status = "BMM150 보정 신호 부족";
             }
-            snprintf(field_text, sizeof(field_text), "X %s / Y %s / Z %s uT", axis_text[0], axis_text[1], axis_text[2]);
+            auto *sensor_label = id(lbl_compass_sensor_status);
+            if (std::strcmp(lv_label_get_text(sensor_label), sensor_status) != 0)
+              lv_label_set_text_static(sensor_label, sensor_status);
+
+            const auto show_field = [&](lv_obj_t *label, const char *kind, const std::array<float, 3> &sample,
+                                        bool fresh) {
+              char axis_text[3][16] = {"--", "--", "--"};
+              if (fresh) {
+                for (size_t axis = 0; axis < sample.size(); ++axis) {
+                  if (std::isfinite(sample[axis]))
+                    snprintf(axis_text[axis], sizeof(axis_text[axis]), "%+.1f", sample[axis]);
+                }
+              }
+              char text[80];
+              snprintf(text, sizeof(text), "%s X %s / Y %s / Z %s uT", kind, axis_text[0], axis_text[1], axis_text[2]);
+              set_text(label, text);
+            };
+            show_field(id(lbl_compass_field), "RAW", field, sample_recent);
+            show_field(id(lbl_compass_input_field), "IN", id(g_compass_input_field), recent(id(g_compass_input_at)));
+
+            char text[100];
+            char magnetic[16] = "--", gps[16] = "--", display[16] = "--";
+            if (std::isfinite(compass->magnetic_heading()))
+              snprintf(magnetic, sizeof(magnetic), "%.1f°", compass->magnetic_heading());
+            if (std::isfinite(compass->gps_heading()))
+              snprintf(gps, sizeof(gps), "%.1f°", compass->gps_heading());
+            if (bearing >= 0) snprintf(display, sizeof(display), "%d°", bearing);
+            const char *input_source = live ? (compass_source == Source::GPS ? "GPS" : "MAG")
+                : bearing >= 0 ? (compass_source == Source::MAGNETIC ? "HOLD MAG" : "HOLD GPS") : "--";
+            snprintf(text, sizeof(text), "MAG %s / GPS %s / DISP %s / SRC %s", magnetic, gps, display, input_source);
+            set_text(id(lbl_compass_diagnostic_heading), text);
+
+            char gps_speed[16] = "--", obd_speed[16] = "--";
+            if (compass->has_fix() && std::isfinite(compass->speed_kmh()))
+              snprintf(gps_speed, sizeof(gps_speed), "%.1f", compass->speed_kmh());
+            const float speed = id(fn_sample_live)(10, id(car_speed).state, 5000);
+            if (id(obd_client).connected() && std::isfinite(speed))
+              snprintf(obd_speed, sizeof(obd_speed), "%.1f", speed);
+            snprintf(text, sizeof(text), "GPS %s / OBD %s km/h / MOTION %s", gps_speed, obd_speed,
+                     observing_motion ? "MOVE" : "STOP");
+            set_text(id(lbl_info_gps_speed), text);
           }
-          auto *field_label = id(lbl_compass_field);
-          if (std::strcmp(lv_label_get_text(field_label), field_text) != 0)
-            lv_label_set_text(field_label, field_text);
 
           // Retain the furthest learning condition reached during motion, across stops.
           // The compass keeps its observations until reboot or a change in level offsets.
@@ -6825,7 +7096,6 @@ script:
             best_check = LearningCheck::NONE;
             last_level = level;
           }
-          const bool observing_motion = compass->motion_detected();
           if (observing_motion) {
             LearningCheck check = LearningCheck::READY;
             if (!compass->has_fix() || !std::isfinite(compass->speed_kmh())) check = LearningCheck::NO_FIX;
@@ -6838,70 +7108,80 @@ script:
             best_check = std::max(best_check, check);
           }
 
-          char progress[64];
-          const char *calibration_status = "GPS 자동 보정 대기";
-          const Status status = compass->status();
-          const auto sectors = static_cast<unsigned>(compass->sector_count());
-          const auto samples = static_cast<unsigned long>(compass->sample_count());
-          if (!observing_motion && !compass->is_calibrated() && samples > 0) {
-            const char *reason = sectors < ${compass_learning_min_sectors} ? "GPS 방향 부족" : "GPS 보정값 미확정";
-            snprintf(progress, sizeof(progress), "%s %u/8 (%lu)", reason, sectors, samples);
-            calibration_status = progress;
-          } else if (!observing_motion && !compass->is_calibrated() && best_check != LearningCheck::NONE) {
-            switch (best_check) {
-              case LearningCheck::NONE: break;
-              case LearningCheck::NO_FIX: calibration_status = "주행 중 GPS 신호 부족"; break;
-              case LearningCheck::BELOW_SPEED: calibration_status = "GPS 속도 미달 (${compass_learning_speed_kmh} km/h)"; break;
-              case LearningCheck::POOR_RECEPTION: calibration_status = "GPS 수신 품질 부족"; break;
-              case LearningCheck::NO_COURSE: calibration_status = "GPS 방향 신호 미확인"; break;
-              case LearningCheck::REVERSE: calibration_status = "후진 중 보정 대기"; break;
-              case LearningCheck::NO_FIELD: calibration_status = "주행 중 자기센서 신호 부족"; break;
-              case LearningCheck::NO_POSE: calibration_status = "주행 중 자세 신호 부족"; break;
-              case LearningCheck::READY: calibration_status = "GPS 보정 표본 미수집"; break;
-            }
-          } else if (!compass->field_fresh()) {
-            calibration_status = "GPS 보정 대기 / 자기센서";
-          } else if (!compass->pose_valid()) {
-            calibration_status = "자세 신호 대기";
-          } else switch (status) {
-            case Status::WAITING_FOR_FIX: calibration_status = "GPS 신호 대기"; break;
-            case Status::WAITING_FOR_MOTION:
-            case Status::COLLECTING:
-              snprintf(progress, sizeof(progress), "%s %u/8 (%lu)",
-                       status == Status::COLLECTING ? "GPS 방향 수집" : "GPS 주행 대기",
-                       sectors, samples);
+          if (show_details) {
+            char progress[64];
+            const char *calibration_status = "GPS 자동 보정 대기";
+            const Status status = compass->status();
+            const auto sectors = static_cast<unsigned>(compass->sector_count());
+            const auto samples = static_cast<unsigned long>(compass->sample_count());
+            if (!observing_motion && !compass->is_calibrated() && samples > 0) {
+              const char *reason = sectors < ${compass_learning_min_sectors} ? "GPS 방향 부족" : "GPS 보정값 미확정";
+              snprintf(progress, sizeof(progress), "%s %u/8 (%lu)", reason, sectors, samples);
               calibration_status = progress;
-              break;
-            case Status::CHECK_RECEPTION: calibration_status = "GPS 수신 상태 확인"; break;
-            case Status::WAITING_FOR_MAGNETOMETER: calibration_status = "자기센서 신호 대기"; break;
-            case Status::SAVED_FIT: calibration_status = "GPS 보정값 유지"; break;
-            case Status::CALIBRATED: calibration_status = "GPS 자동 보정 완료"; break;
+            } else if (!observing_motion && !compass->is_calibrated() && best_check != LearningCheck::NONE) {
+              switch (best_check) {
+                case LearningCheck::NONE: break;
+                case LearningCheck::NO_FIX: calibration_status = "주행 중 GPS 신호 부족"; break;
+                case LearningCheck::BELOW_SPEED: calibration_status = "GPS 속도 미달 (${compass_learning_speed_kmh} km/h)"; break;
+                case LearningCheck::POOR_RECEPTION: calibration_status = "GPS 수신 품질 부족"; break;
+                case LearningCheck::NO_COURSE: calibration_status = "GPS 방향 신호 미확인"; break;
+                case LearningCheck::REVERSE: calibration_status = "후진 중 보정 대기"; break;
+                case LearningCheck::NO_FIELD: calibration_status = "주행 중 자기센서 신호 부족"; break;
+                case LearningCheck::NO_POSE: calibration_status = "주행 중 자세 신호 부족"; break;
+                case LearningCheck::READY: calibration_status = "GPS 보정 표본 미수집"; break;
+              }
+            } else if (!compass->field_fresh()) {
+              calibration_status = "GPS 보정 대기 / 자기센서";
+            } else if (!compass->pose_valid()) {
+              calibration_status = "자세 신호 대기";
+            } else switch (status) {
+              case Status::WAITING_FOR_FIX: calibration_status = "GPS 신호 대기"; break;
+              case Status::WAITING_FOR_MOTION:
+              case Status::COLLECTING:
+                snprintf(progress, sizeof(progress), "%s %u/8 (%lu)",
+                         status == Status::COLLECTING ? "GPS 방향 수집" : "GPS 주행 대기",
+                         sectors, samples);
+                calibration_status = progress;
+                break;
+              case Status::CHECK_RECEPTION: calibration_status = "GPS 수신 상태 확인"; break;
+              case Status::WAITING_FOR_MAGNETOMETER: calibration_status = "자기센서 신호 대기"; break;
+              case Status::SAVED_FIT: calibration_status = "GPS 보정값 유지"; break;
+              case Status::CALIBRATED: calibration_status = "GPS 자동 보정 완료"; break;
+            }
+            auto *status_label = id(lbl_compass_gps_status);
+            if (std::strcmp(lv_label_get_text(status_label), calibration_status) != 0)
+              lv_label_set_text(status_label, calibration_status);
           }
-          auto *status_label = id(lbl_compass_gps_status);
-          if (std::strcmp(lv_label_get_text(status_label), calibration_status) != 0)
-            lv_label_set_text(status_label, calibration_status);
-          const int bearing = std::isfinite(heading) ? (std::lround(heading) + 360) % 360 : -1;
           static int previous_bearing = -2;
           static bool previous_live = false;
           auto *source_label = id(lbl_compass_source);
           if (std::strcmp(lv_label_get_text(source_label), source) != 0) lv_label_set_text_static(source_label, source);
           if (bearing == previous_bearing && live == previous_live) return;
+          const bool first_render = previous_bearing == -2;
+          const bool bearing_changed = bearing != previous_bearing;
+          const bool has_bearing = bearing >= 0;
+          const bool previously_had_bearing = previous_bearing >= 0;
+          const bool palette_changed = first_render || has_bearing != previously_had_bearing || live != previous_live;
+          const int previous_center = previously_had_bearing ? previous_bearing : 0;
           previous_bearing = bearing;
           previous_live = live;
 
-          const bool has_bearing = bearing >= 0;
           const auto direction_color = lv_color_hex(live ? ${tab5_color_text_primary} : ${tab5_color_link_search});
           const auto indicator_color = lv_color_hex(!has_bearing ? ${tab5_color_text_muted}
               : live ? ${tab5_color_accent} : ${tab5_color_link_search});
           const auto tick_color = lv_color_hex(has_bearing ? ${tab5_color_text_muted} : ${tab5_color_text_inactive});
           auto *needle = id(line_compass_dial_needle)->obj;
           auto *pointer = id(line_compass_pointer)->obj;
-          lv_obj_set_style_text_color(source_label, indicator_color, LV_PART_MAIN);
-          lv_obj_set_style_line_color(needle, indicator_color, LV_PART_MAIN);
-          lv_obj_set_style_line_color(pointer, indicator_color, LV_PART_MAIN);
-          lv_obj_set_hidden(needle, !has_bearing);
-          lv_obj_set_hidden(pointer, !has_bearing);
-          if (has_bearing) lv_obj_set_style_transform_rotation(needle, bearing * 10, LV_PART_MAIN);
+          if (palette_changed) {
+            lv_obj_set_style_text_color(source_label, indicator_color, LV_PART_MAIN);
+            lv_obj_set_style_line_color(needle, indicator_color, LV_PART_MAIN);
+            lv_obj_set_style_line_color(pointer, indicator_color, LV_PART_MAIN);
+          }
+          if (first_render || has_bearing != previously_had_bearing) {
+            lv_obj_set_hidden(needle, !has_bearing);
+            lv_obj_set_hidden(pointer, !has_bearing);
+          }
+          if (has_bearing && bearing_changed) lv_obj_set_style_transform_rotation(needle, bearing * 10, LV_PART_MAIN);
 
           // Use unwrapped tick indices so the tape scrolls continuously across north.
           constexpr const char *directions[] = {"북", "북동", "동", "남동", "남", "남서", "서", "북서"};
@@ -6911,6 +7191,8 @@ script:
           const int center = has_bearing ? bearing : 0;
           const auto tape_x = [center](int degrees) { return 110 + (degrees - center) * 24 / 10; };
           const int nearest_tick = (center + 2) / 5;
+          const int previous_tick = (previous_center + 2) / 5;
+          const auto tick_height = [](int degrees) { return degrees % 45 == 0 ? 9 : degrees % 15 == 0 ? 6 : 3; };
           for (int index = 0; index < static_cast<int>(ticks.size()); ++index) {
             auto *&tick = ticks[index];
             if (tick == nullptr) {
@@ -6920,13 +7202,19 @@ script:
               lv_obj_set_scrollable(tick, false);
               lv_obj_set_style_bg_opa(tick, LV_OPA_COVER, LV_PART_MAIN);
             }
-            const int degrees = (nearest_tick + index - static_cast<int>(ticks.size() / 2)) * 5;
-            const bool major = degrees % 45 == 0;
-            const int height = major ? 9 : degrees % 15 == 0 ? 6 : 3;
+            const int offset = index - static_cast<int>(ticks.size() / 2);
+            const int degrees = (nearest_tick + offset) * 5;
+            const int height = tick_height(degrees);
+            const int previous_height = tick_height((previous_tick + offset) * 5);
+            const bool major = height == 9;
             const int width = major ? 2 : 1;
-            lv_obj_set_style_bg_color(tick, major && has_bearing ? direction_color : tick_color, LV_PART_MAIN);
-            lv_obj_set_size(tick, width, height);
-            lv_obj_set_pos(tick, tape_x(degrees) - width / 2, 46 - height);
+            if (palette_changed || major != (previous_height == 9))
+              lv_obj_set_style_bg_color(tick, major && has_bearing ? direction_color : tick_color, LV_PART_MAIN);
+            if (first_render || height != previous_height) {
+              lv_obj_set_size(tick, width, height);
+              lv_obj_set_y(tick, 46 - height);
+            }
+            if (first_render || center != previous_center) lv_obj_set_x(tick, tape_x(degrees) - width / 2);
           }
 
           constexpr int label_width = 80;
@@ -6943,19 +7231,21 @@ script:
             const int direction = nearest_direction + index - 1;
             const int x = tape_x(direction * 45) - label_width / 2;
             const bool visible = has_bearing && x < tape_width && x + label_width > 0;
-            lv_obj_set_hidden(label, !visible);
+            const bool was_hidden = lv_obj_is_hidden(label);
+            if (visible == was_hidden) lv_obj_set_hidden(label, !visible);
             if (!visible) continue;
 
             const char *text = directions[(direction + 8) % 8];
             if (std::strcmp(lv_label_get_text(label), text) != 0) lv_label_set_text_static(label, text);
-            lv_obj_set_style_text_color(label, direction_color, LV_PART_MAIN);
-            lv_obj_set_pos(label, x, -10);
+            if (palette_changed || was_hidden) lv_obj_set_style_text_color(label, direction_color, LV_PART_MAIN);
+            if (first_render || was_hidden || center != previous_center) lv_obj_set_pos(label, x, -10);
           }
 
   - id: script_calibrate_tilt
     parameters:
       button: lv_obj_t*
       axis: string
+      allow_clear: bool
     then:
       - lambda: |-
           auto *compass = id(id_compass);
@@ -6963,6 +7253,11 @@ script:
           const float direction = pitch ? ${tab5_pitch_direction} : ${tab5_roll_direction};
           const esphome::optional<float> keep{};
           if (std::abs(pitch ? compass->pitch_offset() : compass->roll_offset()) > 0.0001f) {
+            if (!allow_clear) {
+              fx::play(button, id(fx_glow_205));
+              id(script_sound_play).execute(3);
+              return;
+            }
             id(script_confirm_tilt_zero).stop();
             if (pitch) compass->set_level_offsets(0.0f, keep);
             else compass->set_level_offsets(keep, 0.0f);
@@ -7278,7 +7573,7 @@ script:
             bool powertrain;
             std::array<uint32_t, 3> colors;
           } plots[] = {
-            {id(obj_trip_chart), 0, 3, true, {${tab5_color_accent}, ${tab5_color_status_warm}, ${tab5_color_status_cold}}},
+            {id(obj_trip_chart), 0, 3, true, {${tab5_color_accent}, ${tab5_color_chart_trans}, ${tab5_color_chart_oil}}},
             {id(obj_trip_env_temp), 3, 2, false, {${tab5_color_accent}, ${tab5_color_status_cold}}},
             {id(obj_trip_env_humidity), 5, 2, false, {${tab5_color_accent}, ${tab5_color_status_cold}}},
             {id(obj_trip_env_co2), 7, 1, false, {${tab5_color_accent}}},
@@ -7435,12 +7730,6 @@ script:
           snprintf(text, sizeof(text), "%s / 위성 %s / HDOP %s",
                    gps_fix ? "GPS 위치 수신" : "GPS 위치 대기", satellites, hdop);
           set_text(id(lbl_info_gps_quality), text);
-          if (compass->has_fix() && std::isfinite(compass->speed_kmh())) {
-            snprintf(text, sizeof(text), "GPS 속도 %.1f km/h", compass->speed_kmh());
-            set_text(id(lbl_info_gps_speed), text);
-          } else {
-            set_text(id(lbl_info_gps_speed), "GPS 속도 -- km/h");
-          }
 
           const bool ecu_recent = std::isfinite(id(fn_sample_live)(8, id(engine_rpm).state, 5000)) ||
               std::isfinite(id(fn_sample_live)(10, id(car_speed).state, 5000));
@@ -7527,9 +7816,16 @@ script:
           lv_obj_set_y(id(lbl_service_title), trip ? 18 : 52);
           lv_obj_set_y(id(lbl_service_subtitle), trip ? 30 : 64);
           lv_obj_set_y(id(line_service_heading)->obj, trip ? 75 : 118);
+          lv_obj_update_layout(id(lbl_service_title));
+          lv_obj_set_x(id(lbl_service_subtitle),
+              lv_obj_get_x(id(lbl_service_title)) + lv_obj_get_width(id(lbl_service_title)) + 20);
+          if (tab != 1) id(script_reset_log_clear_arm).execute();
           if (tab == 1) id(script_refresh_logs).execute(true, false);
           else if (tab == 2) id(script_render_trip_report).execute();
-          else if (tab == 3) id(script_render_service_info).execute();
+          else if (tab == 3) {
+            id(script_render_service_info).execute();
+            id(script_render_compass).execute();
+          }
           else {
             lv_label_set_text_fmt(id(lbl_backlight_value), "%d%%",
                 static_cast<int>(std::lround(id(backlight).remote_values.get_brightness() * 100.0f)));
@@ -7559,26 +7855,32 @@ script:
             fx::set_visible(id(obj_jaalee_detail), false);
             id(script_select_service_tab).execute(tab);
           } else {
+            id(script_reset_log_clear_arm).execute();
             fx::set_visible(id(obj_restart_backdrop), false);
             fx::set_visible(id(obj_restart_popup), false);
             id(script_sync_trip_soundtrack).execute();
           }
+          lv_obj_set_hidden(id(btn_update_badge), show || !id(g_update_available) || !lv_obj_is_hidden(id(popup_alert)));
 
   - id: script_sync_service_ui
     then:
       - lambda: |-
           const bool allowed = id(fn_service_allowed)();
           auto *menu = id(btn_logs_toggle);
+          auto *badge = id(btn_update_badge);
           if (allowed) {
             lv_obj_remove_state(menu, LV_STATE_DISABLED);
+            lv_obj_remove_state(badge, LV_STATE_DISABLED);
           } else {
             lv_obj_add_state(menu, LV_STATE_DISABLED);
+            lv_obj_add_state(badge, LV_STATE_DISABLED);
             if (id(g_logs_visible)) id(script_set_service_visible).execute(false, 0);
             if (id(g_alert_is_update)) id(script_alert_close).execute(0, 0);
             fx::set_visible(id(obj_jaalee_detail), false);
           }
-
-          lv_obj_set_hidden(id(lbl_update_badge), id(g_logs_visible) || !id(g_update_available));
+          lv_obj_set_style_text_color(id(lbl_update_badge),
+              lv_color_hex(allowed ? ${tab5_color_accent} : ${tab5_color_text_inactive}), LV_PART_MAIN);
+          lv_obj_set_hidden(badge, id(g_logs_visible) || !id(g_update_available) || !lv_obj_is_hidden(id(popup_alert)));
 
   - id: script_jaalee_detail
     parameters:
@@ -7625,6 +7927,15 @@ script:
                      static_cast<unsigned>(seconds < 60 ? seconds : seconds / 60));
             render(id(lbl_jaalee_age), age);
           }
+
+  - id: script_reset_log_clear_arm
+    then:
+      - lambda: |-
+          if (id(g_log_clear_armed_at) == 0) return;
+          id(g_log_clear_armed_at) = 0;
+          lv_label_set_text_static(id(lbl_clear_logs), "> 로그 지우기");
+          lv_obj_set_style_text_color(id(lbl_clear_logs), lv_color_hex(${tab5_color_accent}), LV_PART_MAIN);
+          lv_obj_set_style_border_color(id(btn_clear_logs), lv_color_hex(${tab5_color_card_border}), LV_PART_MAIN);
 
   - id: script_logs
     parameters:
@@ -7870,11 +8181,11 @@ script:
               ? std::max(id(g_ota_backlight_brightness), 0.1f) : 0.4f);
           light.set_transition_length(0);
           light.perform();
-          lv_label_set_text(id(lbl_ota_title), "FIRMWARE UPDATE");
+          lv_label_set_text(id(lbl_ota_title), "펌웨어 업데이트");
           lv_obj_set_style_text_color(id(lbl_ota_title), lv_color_hex(${tab5_color_accent}), LV_PART_MAIN);
-          lv_label_set_text(id(lbl_ota_phase), "INITIALIZING LINK...");
+          lv_label_set_text(id(lbl_ota_phase), "연결 초기화 중...");
           lv_label_set_text(id(lbl_ota_percent), "0%");
-          lv_label_set_text(id(lbl_ota_hint), "DO NOT INTERRUPT POWER.");
+          lv_label_set_text(id(lbl_ota_hint), "업데이트 중 전원을 끄지 마세요.");
           lv_bar_set_value(id(bar_ota_progress), 0, LV_ANIM_OFF);
           lv_obj_set_style_bg_color(id(bar_ota_progress), lv_color_hex(${tab5_color_accent}), LV_PART_INDICATOR);
           lv_obj_set_hidden(id(btn_ota_close), true);
@@ -7892,10 +8203,10 @@ script:
           id(g_updating) = false;
           id(script_sound_play).execute(7);
           id(script_logs).execute(reason);
-          lv_label_set_text(id(lbl_ota_title), "UPDATE FAILED");
+          lv_label_set_text(id(lbl_ota_title), "업데이트 실패");
           lv_obj_set_style_text_color(id(lbl_ota_title), lv_color_hex(${tab5_color_status_hot}), LV_PART_MAIN);
           lv_label_set_text(id(lbl_ota_phase), reason.c_str());
-          lv_label_set_text(id(lbl_ota_hint), "LINK ERROR // RETURN AND RETRY");
+          lv_label_set_text(id(lbl_ota_hint), "연결 오류 // 돌아가서 다시 시도하세요.");
           lv_obj_set_style_bg_color(id(bar_ota_progress), lv_color_hex(${tab5_color_status_hot}), LV_PART_INDICATOR);
           lv_obj_set_hidden(id(btn_ota_close), false);
           auto light = id(backlight).turn_on();
@@ -7982,10 +8293,10 @@ script:
     then:
       - script.execute: script_ota_prepare
       - lambda: |-
-          lv_label_set_text(id(lbl_ota_title), "CO-PROCESSOR UPDATE");
-          lv_label_set_text(id(lbl_ota_phase), "DOWNLOADING + WRITING ESP32-C6...");
+          lv_label_set_text(id(lbl_ota_title), "무선 모듈(C6) 업데이트");
+          lv_label_set_text(id(lbl_ota_phase), "ESP32-C6 다운로드 및 기록 중...");
           lv_label_set_text(id(lbl_ota_percent), "C6");
-          lv_label_set_text(id(lbl_ota_hint), "WI-FI / BLE PAUSED. DO NOT INTERRUPT POWER.");
+          lv_label_set_text(id(lbl_ota_hint), "Wi-Fi / BLE 일시 중단. 전원을 끄지 마세요.");
           // No progress is reported during the install; show a full dim bar instead.
           lv_bar_set_value(id(bar_ota_progress), 100, LV_ANIM_OFF);
           lv_obj_set_style_bg_color(id(bar_ota_progress), lv_color_hex(${tab5_color_gauge_track}), LV_PART_INDICATOR);
@@ -7997,8 +8308,8 @@ script:
       - lambda: |-
           lv_obj_set_style_bg_color(id(bar_ota_progress), lv_color_hex(${tab5_color_accent}), LV_PART_INDICATOR);
           lv_label_set_text(id(lbl_ota_percent), "100%");
-          lv_label_set_text(id(lbl_ota_phase), "C6 COMPLETE // RESTARTING...");
-          lv_label_set_text(id(lbl_ota_hint), "SYSTEM RESTART IN PROGRESS...");
+          lv_label_set_text(id(lbl_ota_phase), "C6 업데이트 완료 // 재시작 중...");
+          lv_label_set_text(id(lbl_ota_hint), "시스템 재시작 진행 중...");
           id(script_logs).execute("C6 update complete; restarting");
       - script.execute: script_ota_refresh
 
@@ -8028,7 +8339,7 @@ script:
                 then:
                   - script.execute:
                       id: script_ota_failed
-                      reason: "OTA did not complete. Retry."
+                      reason: "OTA가 완료되지 않았습니다. 다시 시도하세요."
           else:
             - lambda: id(script_logs).execute("OTA update is no longer available");
             - script.execute:
@@ -8043,7 +8354,7 @@ ota:
     on_begin:
       then:
         - script.execute: script_ota_prepare
-        - lambda: lv_label_set_text(id(lbl_ota_phase), "CONNECTING TO UPDATE HOST...");
+        - lambda: lv_label_set_text(id(lbl_ota_phase), "업데이트 서버 연결 중...");
         - script.execute: script_ota_refresh
     on_progress:
       then:
@@ -8053,7 +8364,7 @@ ota:
             lv_bar_set_value(id(bar_ota_progress), progress, LV_ANIM_OFF);
             lv_label_set_text_fmt(id(lbl_ota_percent), "%d%%", progress);
             // 100% transferred still needs checksum/finalization; it is not success yet.
-            lv_label_set_text(id(lbl_ota_phase), progress < 100 ? "WRITING FIRMWARE..." : "VERIFYING INTEGRITY...");
+            lv_label_set_text(id(lbl_ota_phase), progress < 100 ? "펌웨어 기록 중..." : "무결성 검증 중...");
         - script.execute: script_ota_refresh
     on_end:
       then:
@@ -8061,21 +8372,21 @@ ota:
         - lambda: |-
             lv_bar_set_value(id(bar_ota_progress), 100, LV_ANIM_OFF);
             lv_label_set_text(id(lbl_ota_percent), "100%");
-            lv_label_set_text(id(lbl_ota_phase), "COMPLETE // RESTARTING...");
-            lv_label_set_text(id(lbl_ota_hint), "SYSTEM RESTART IN PROGRESS...");
+            lv_label_set_text(id(lbl_ota_phase), "완료 // 재시작 중...");
+            lv_label_set_text(id(lbl_ota_hint), "시스템 재시작 진행 중...");
             id(script_logs).execute("OTA update complete; restarting");
         - script.execute: script_ota_refresh
     on_error:
       then:
         - lambda: |-
             char reason[48];
-            snprintf(reason, sizeof(reason), "OTA failed (0x%02X)", static_cast<unsigned>(x));
+            snprintf(reason, sizeof(reason), "업데이트 실패 (0x%02X)", static_cast<unsigned>(x));
             id(script_ota_failed).execute(reason);
     on_abort:
       then:
         - script.execute:
             id: script_ota_failed
-            reason: "OTA update aborted"
+            reason: "업데이트가 중단되었습니다."
 
 
 packages:
@@ -8085,8 +8396,8 @@ packages:
       ota_slug: !secret esphome_ota_cfg_example_device
     esphome:
       project:
-        name: "local.esp-colorado-tab5"
-        version: "261124.2"
+        name: "eigger.esp-colorado-tab5-fallout"
+        version: "261126.1"
     http_request:
       timeout: 60s
 
