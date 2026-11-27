@@ -8,7 +8,7 @@ from esphome.components.text_sensor import register_text_sensor
 from esphome import automation, pins, core
 import esphome.final_validate as fv
 from .packet_validation import validate_packets
-from esphome.const import CONF_ID, CONF_OFFSET, CONF_DATA, CONF_TRIGGER_ID, \
+from esphome.const import CONF_DELAY, CONF_ID, CONF_OFFSET, CONF_DATA, CONF_TRIGGER_ID, \
     CONF_INVERTED, CONF_VERSION, CONF_NAME, CONF_OPTIMISTIC, CONF_ICON, CONF_ENTITY_CATEGORY, ICON_NEW_BOX
 from esphome.util import SimpleRegistry
 from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTER, \
@@ -19,7 +19,7 @@ from .const import CONF_RX_HEADER, CONF_RX_FOOTER, CONF_TX_HEADER, CONF_TX_FOOTE
     CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_ON, CONF_COMMAND_OFF, \
     CONF_COMMAND_UPDATE, CONF_RX_TIMEOUT, CONF_TX_TIMEOUT, CONF_TX_RETRY_CNT, CONF_TX_COMMAND_QUEUE_SIZE, \
     CONF_STATE_RESPONSE, CONF_LENGTH, CONF_PRECISION, CONF_RX_LENGTH, CONF_RX_DATA_LENGTH, CONF_ADJUST, \
-    CONF_TX_CTRL_PIN, CONF_TX_DELAY, CONF_DISABLED, CONF_ASCII, CONF_SIGNED, CONF_ENDIAN, CONF_DECODE
+    CONF_TX_CTRL_PIN, CONF_TX_DELAY, CONF_DISABLED, CONF_ASCII, CONF_SIGNED, CONF_ENDIAN, CONF_DECODE, CONF_STATE_DEBOUNCE
 
 AUTO_LOAD = ["text_sensor"]
 CODEOWNERS = ["@eigger"]
@@ -512,6 +512,26 @@ def _validate_entity_preserve_state(config):
     return config
 
 
+_DEBOUNCE_DELAY = cv.All(cv.positive_time_period_milliseconds, cv.Range(max=core.TimePeriod(seconds=60)))
+
+STATE_DEBOUNCE_SCHEMA = cv.Schema({
+    cv.Required(CONF_DELAY): _DEBOUNCE_DELAY,
+    cv.Optional(CONF_OFFSET, default=0): cv.int_range(min=0, max=128),
+    cv.Required(CONF_MASK): cv.All(validate_hex_data, cv.Length(min=1)),
+})
+
+def state_debounce_schema(value):
+    # Plain time: compare the whole packet. Dict: compare only the masked bytes.
+    if isinstance(value, dict):
+        return STATE_DEBOUNCE_SCHEMA(value)
+    return {CONF_DELAY: _DEBOUNCE_DELAY(value), CONF_OFFSET: 0, CONF_MASK: []}
+
+def _validate_entity_state_debounce(config):
+    if config[CONF_STATE_DEBOUNCE][CONF_DELAY].total_milliseconds > 0 and CONF_STATE not in config:
+        raise cv.Invalid("state_debounce requires an entity state filter", [CONF_STATE_DEBOUNCE])
+    return config
+
+
 # A schema to use for all UARTEx devices, all UARTEx integrations must extend this!
 UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_UARTEX_ID): uartex_declare_type,
@@ -522,8 +542,13 @@ UARTEX_DEVICE_SCHEMA = cv.Schema({
     cv.Optional(CONF_COMMAND_OFF): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_UPDATE): cv.templatable(lambda value: reject_update_copy(command_hex_schema(value))),
     cv.Optional(CONF_STATE_RESPONSE): state_schema,
-    cv.Optional(CONF_OPTIMISTIC, default=False): cv.boolean,
-}).extend(cv.polling_component_schema('60s')).add_extra(_validate_entity_preserve_state)
+    cv.Optional(CONF_STATE_DEBOUNCE, default='0ms'): state_debounce_schema,
+}).extend(cv.polling_component_schema('60s')).add_extra(_validate_entity_preserve_state).add_extra(_validate_entity_state_debounce)
+
+# Extend this only in controllable platforms where optimistic has an effect.
+UARTEX_OPTIMISTIC_SCHEMA = cv.Schema({
+    cv.Optional(CONF_OPTIMISTIC, default=True): cv.boolean,
+})
 
 STATE_NUM_SCHEMA = cv.Schema({
     cv.Required(CONF_OFFSET): cv.int_range(min=0, max=128),
@@ -577,6 +602,12 @@ async def register_uartex_device(var, config):
     
     if CONF_OPTIMISTIC in config:
         cg.add(var.set_optimistic(config[CONF_OPTIMISTIC]))
+
+    debounce = config[CONF_STATE_DEBOUNCE]
+    if debounce[CONF_DELAY].total_milliseconds > 0:
+        cg.add(var.set_state_debounce(debounce[CONF_DELAY].total_milliseconds))
+        if debounce[CONF_MASK]:
+            cg.add(var.set_state_debounce_mask(debounce[CONF_OFFSET], debounce[CONF_MASK]))
 
 def header_hex_expression(conf):
     if conf is None:

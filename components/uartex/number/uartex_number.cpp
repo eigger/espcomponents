@@ -74,7 +74,7 @@ void UARTExNumber::publish(const std::vector<uint8_t>& data)
 void UARTExNumber::control(float value)
 {
     if (this->state == value) return;
-    if (enqueue_tx_cmd(get_command_number(value)) || this->optimistic_)
+    if (enqueue_and_reflect(get_command_number(value)))
     {
         this->state = value;
         if (this->restore_value_) this->pref_.save(&value);

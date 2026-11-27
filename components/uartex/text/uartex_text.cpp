@@ -26,7 +26,7 @@ void UARTExText::publish(const std::vector<uint8_t>& data)
 void UARTExText::control(const std::string& value)
 {
     if (this->state == value) return;
-    if (enqueue_tx_cmd(get_command_text(value)) || this->optimistic_)
+    if (enqueue_and_reflect(get_command_text(value)))
     {
         this->state = value;
     }

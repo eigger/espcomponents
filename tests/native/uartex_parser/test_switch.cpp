@@ -5,6 +5,7 @@ using namespace esphome::uartex;
 
 int main() {
   UARTExSwitch device;
+  device.set_optimistic(false);  // wait for state feedback
   device.set_command("command_on", cmd_t({1}, {0xA1}));
   device.set_command("command_off", cmd_t({0}, {0xA0}));
   device.set_state("state_on", state_t({0x11}));
@@ -47,4 +48,29 @@ int main() {
   assert(!inverted.dequeue_tx_cmd());
   inverted.control(true);
   assert(inverted.state && inverted.dequeue_tx_cmd()->data[0] == 0);
+
+  // optimistic defaults to true: the requested state is reflected at once, with or without a command.
+  UARTExSwitch dflt;
+  dflt.set_command("command_on", cmd_t({1}));
+  dflt.control(true);
+  assert(dflt.state && dflt.dequeue_tx_cmd()->data[0] == 1);
+  UARTExSwitch no_cmd;
+  no_cmd.control(true);
+  assert(no_cmd.state && !no_cmd.dequeue_tx_cmd());
+
+  // optimistic false: the command is queued but the state only follows feedback.
+  UARTExSwitch waiting;
+  waiting.set_optimistic(false);
+  waiting.set_command("command_on", cmd_t({1}));
+  waiting.set_state("state_on", state_t({0x11}));
+  waiting.control(true);
+  assert(!waiting.state && waiting.dequeue_tx_cmd()->data[0] == 1);
+  waiting.parse_data({0x11});
+  assert(waiting.state);
+
+  // A configured command lambda that returns no data is a rejection: nothing is queued and the state is not reflected.
+  UARTExSwitch rejected;
+  rejected.set_command("command_on", [&]() -> cmd_t { return {}; });
+  rejected.control(true);
+  assert(!rejected.state && !rejected.dequeue_tx_cmd());
 }

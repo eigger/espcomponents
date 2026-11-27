@@ -99,8 +99,29 @@ sensor:
 | 명령에 ACK 지정 | 예를 들어 `command_on: {data: [0x01, 0x01], ack: [0x01, 0x11]}`로 송신 바이트와 예상 응답 접두사를 지정합니다. 명령의 `mask`는 수신 ACK에 적용됩니다. |
 | 다른 채널 값 유지 | 엔티티 명령의 `preserve_state`에 복사할 오프셋을 지정합니다. RX와 TX에서 같은 위치여야 하며 엔티티에 `state`가 필요합니다. 필요한 바이트를 모두 수신할 때까지 명령이 대기합니다. 전송 후에는 다음 일치 상태를 기다립니다. [상태 보존 예제](README.md#command-schema) |
 | 수신 직후 송신 허용 | 장치가 정해진 프레임 뒤에만 송신할 수 있으면 `state_response`로 그 프레임을 지정합니다. 가장 최근 수신값이 일치해야 엔티티 큐에서 명령 하나를 꺼낼 수 있습니다. 이미 보낸 명령의 확인 응답은 해당 명령의 `ack`에 지정합니다. |
-| 상태 조회 | `command_update`로 조회 패킷을 보내고 `update_interval`로 주기를 정합니다(기본 60초). 피드백이 없는 스위치는 `optimistic: true`로 요청한 상태를 즉시 게시할 수 있습니다. |
+| 상태 조회 | `command_update`로 조회 패킷을 보내고 `update_interval`로 주기를 정합니다(기본 60초). `optimistic`(기본 `true`)이 켜져 있으면 HA에서 내린 명령의 요청 상태를 즉시 반영하며, `false`로 지정하면 명령은 보내되 상태 피드백이 올 때까지 상태를 바꾸지 않습니다. 이전에는 스위치가 기본적으로 피드백을 기다렸으므로 그 동작이 필요하면 `optimistic: false`를 지정하세요. 명령이 설정되지 않은 엔티티는 예전에는 요청을 무시했지만, 기본값에서는 아무것도 보내지 않고 요청을 반영하므로 이전 동작이 필요하면 `optimistic: false`를 지정하세요. 명령 람다가 데이터를 반환하지 않으면 명시적인 거부로 취급되어, `optimistic: true`여도 아무것도 보내지 않고 요청 상태도 반영하지 않습니다. `optimistic`은 제어 가능한 플랫폼(`switch`, `climate`, `cover`, `fan`, `lock`, `media_player`, `number`, `select`, `text`, `valve`, `water_heater`)에서만 사용할 수 있습니다. `light`는 ESPHome 조명 상태가 요청을 즉시 반영하므로 이 옵션을 지원하지 않고, `sensor`, `binary_sensor`, `text_sensor`, `button`도 받지 않습니다. 해당 플랫폼에 `optimistic`을 지정한 설정은 이제 검증에 실패하므로 키를 제거하세요. |
+| 상태 깜빡임 필터 | 월패드가 `off`↔`heat`처럼 1~2초짜리 일시 상태를 보낼 때 `state_debounce`(기본 `0`, 비활성, 최대 `60s`)를 지정합니다. 엔티티에 `state`가 필요합니다. 기본은 일치한 패킷 전체를 비교하므로 같은 패킷 안의 다른 바이트(예: 현재 온도)가 계속 바뀌면 그 패킷도 지연되고, 패킷 안의 모든 값이 최대 지정 시간만큼 늦게 반영됩니다. 이를 피하려면 아래의 `offset`/`mask` 형식으로 일부 바이트만 비교합니다. 일치한 상태 패킷을 보류했다가 변화가 시작된 시점부터 지정 시간이 지나면 게시하며, 그동안 마지막으로 받은 패킷이 적용됩니다. 마지막으로 적용된 상태와 같은(`mask`를 쓰면 마스크 영역이 같은) 패킷이 오면 보류를 취소하고 즉시 다시 게시합니다. 부팅 후 첫 패킷과, 엔티티 자신의 명령 전송 직후(지정 시간 이내) 처음 수신한 상태 변화는 즉시 적용하므로 `optimistic: false`여도 명령 결과가 지연되지 않습니다(`command_update` 폴링은 해당하지 않고, 마지막 적용 상태와 같은 패킷은 이를 소모하지 않음). 엔티티가 마지막으로 전송한 명령 이후의 첫 상태 변화만 즉시 적용되므로, `ack` 없이 같은 엔티티의 명령이 연달아 나가면 뒤의 결과는 일반 디바운스를 따릅니다. 이 우회는 엔티티의 일반 명령 큐(제어 동작)로 나간 명령이 켜므로, 사용자 람다가 `enqueue_tx_cmd`를 주기적으로 호출하면 계속 켜져 있게 됩니다. `state_response`는 지연하지 않습니다. `optimistic: true`(기본)이면 HA에서 내린 명령은 `control`로 즉시 반영되고, `optimistic: false`이면 상태 피드백이 올 때만 반영됩니다. 버스에서 관찰한 변화는 최대 지정 시간만큼 늦어집니다. 변화가 보류 중이면 `preserve_state` 명령도 안정될 때까지(보통 지정 시간 이내, 패킷의 일부 바이트가 계속 바뀌면 더 길어질 수 있음) 대기합니다. |
 | 동적 명령 | `!lambda`에서 페이로드, 필요하면 ACK와 마스크를 반환합니다. 숫자를 받는 명령은 `x`, 문자열을 받는 명령은 `str`를 사용합니다. [람다 예제](README.md#command-lambda-types) |
+
+```yaml
+climate:
+  - platform: uartex
+    name: "거실 난방"
+    state:
+      data: [0x02, 0x03]
+    state_debounce: 2s
+```
+
+먼저 시간만 지정해 보고, 같은 패킷의 다른 값(예: 현재 온도)이 지연되면 `mask`를 추가해 글리치 판단에 필요한 바이트만 비교하세요.
+
+```yaml
+    state_debounce:
+      delay: 2s
+      offset: 3              # 선택, 기본 0
+      mask: [0xFF, 0x0F]     # 이 비트/바이트만 비교
+```
+
+`offset`과 `mask`의 의미는 `state`와 같습니다(`offset`부터 마스크 적용). 이 형식에서 `mask`는 필수(비어 있으면 안 됨)이며 `delay`는 최대 `60s`입니다. `delay: 0s`와 `mask`를 함께 쓰면 마스크는 무시됩니다(디바운스 비활성). 마스크를 쓰면 마스크 영역이 마지막으로 적용된 패킷과 같을 때(대기 중인 변화 취소 포함) 패킷을 즉시 적용하므로 현재 온도 같은 비교 제외 바이트는 지연 없이 갱신됩니다. 마스크 영역이 바뀌면 `delay` 동안 보류한 뒤 마지막으로 받은 패킷 전체를 적용합니다. 마스크 범위의 바이트가 한쪽 패킷에만 있으면 다른 값으로, 양쪽 모두 없으면 같은 값으로 취급합니다.
 
 ## 플랫폼별 설정 예제
 
@@ -208,7 +229,7 @@ text:
 
 ### 냉난방기 (`climate`)
 
-RX 페이로드 `01 18 16`은 난방, 목표 24°C, 현재 22°C입니다. 모드와 목표 온도를 한 패킷으로 보내는 장치는 모드 명령에서 `use_command_target_temperature()`로 이번 요청의 목표값을 읽습니다. 모드와 온도 명령이 독립적인 장치는 각 명령을 따로 정의합니다. 현재 동작(가열·대기)은 `state_action_heating`·`state_action_idle`, 풍향은 `state_swing_*`, 습도는 `state_humidity_current`·`state_humidity_target`으로 표현합니다.
+RX 페이로드 `01 18 16`은 난방, 목표 24°C, 현재 22°C입니다. 모드와 목표 온도를 한 패킷으로 보내는 장치는 모드 명령에서 `use_command_target_temperature()`로 이번 요청의 목표값을 읽습니다. 모드 명령이 이번 호출에서 목표값을 읽으면 그 요청에 대해 별도의 온도 명령은 절대 보내지 않으며, 패킷이 큐에 들어가고 `optimistic`이 true이면 목표값도 즉시 반영합니다. 람다가 데이터를 반환하지 않으면 모드와 목표값을 모두 거부합니다. `optimistic: false`이면 `command_temperature`나 `command_preset`에서 `id(thermostat).mode`처럼 엔티티 자신의 현재 상태를 읽는 람다는 같은 호출에서 요청한 값이 아니라 마지막으로 확인된 상태를 봅니다. 모드와 온도 명령이 독립적인 장치는 각 명령을 따로 정의합니다. 현재 동작(가열·대기)은 `state_action_heating`·`state_action_idle`, 풍향은 `state_swing_*`, 습도는 `state_humidity_current`·`state_humidity_target`으로 표현합니다.
 
 ```yaml
 climate:
@@ -292,7 +313,7 @@ lock:
 
 ### 밸브 (`valve`)
 
-예제 장치는 열기와 닫기를 모두 지원합니다. 닫기만 가능한 가스 밸브라면 `state_open`·`state_closed`와 확인된 `command_close`만 설정합니다. 현재 밸브 스키마에는 중간 위치를 지시하는 `command_position`이 없습니다.
+예제 장치는 열기와 닫기를 모두 지원합니다. 닫기만 가능한 가스 밸브라면 `state_open`·`state_closed`와 확인된 `command_close`만 설정합니다. 중간 위치(0.0과 1.0 사이)는 `command_position: !lambda` (`x`는 0.0~1.0)로 전달하며, 0.0과 1.0은 `command_close`·`command_open`을 사용하며, 해당 명령이 없으면 `command_position`으로 전달합니다. `command_position` 또는 `state_position`이 있으면 위치 제어가 활성화됩니다.
 
 ```yaml
 valve:
@@ -306,7 +327,7 @@ valve:
 
 ### 온수기 (`water_heater`)
 
-RX 페이로드 `06 28 32`는 가스 모드, 목표 40°C, 현재 50°C입니다. 운전 모드와 목표 온도는 별도 명령으로 설정하며, 외출을 지원하면 `state_away_on/off`와 `command_away_on/off`에 해당하는 개별 키를 사용합니다.
+RX 페이로드 `06 28 32`는 가스 모드, 목표 40°C, 현재 50°C입니다. 운전 모드와 목표 온도는 별도 명령으로 설정하며, 외출을 지원하면 `state_away_on/off`와 `command_away_on/off`에 해당하는 개별 키를 사용합니다. `optimistic: true`이면 설정되지 않은 외출 명령은 전송 없이 상태만 반영됩니다. 켜기/끄기 제어는 `command_on` 또는 `state_on`이 있을 때만 제공되며, 끄기는 `off` 모드(`command_off`/`state_off`)로 항상 가능합니다.
 
 ```yaml
 water_heater:

@@ -4,20 +4,21 @@ from esphome.components import valve, uartex
 from esphome.const import CONF_ID
 from .. import uartex_ns, UARTExDevice, \
     state_schema, state_num_schema, state_hex_expression, state_num_expression, \
-    command_hex_schema, command_expression
+    command_hex_schema, command_expression, command_float_expression
 from ..const import CONF_COMMAND_OPEN, CONF_COMMAND_CLOSE, CONF_COMMAND_STOP, CONF_STATE_OPEN, CONF_STATE_CLOSED, CONF_STATE_POSITION, \
-    CONF_COMMAND_ON, CONF_COMMAND_OFF, CONF_STATE_ON, CONF_STATE_OFF
+    CONF_COMMAND_ON, CONF_COMMAND_OFF, CONF_STATE_ON, CONF_STATE_OFF, CONF_COMMAND_POSITION
 
 DEPENDENCIES = ['uartex']
 UARTExValve = uartex_ns.class_('UARTExValve', valve.Valve, UARTExDevice)
 
-CONFIG_SCHEMA = cv.All(valve.valve_schema(UARTExValve).extend(uartex.UARTEX_DEVICE_SCHEMA).extend({
+CONFIG_SCHEMA = cv.All(valve.valve_schema(UARTExValve).extend(uartex.UARTEX_DEVICE_SCHEMA).extend(uartex.UARTEX_OPTIMISTIC_SCHEMA).extend({
     cv.Optional(CONF_STATE_OPEN): state_schema,
     cv.Optional(CONF_STATE_CLOSED): state_schema,
     cv.Optional(CONF_STATE_POSITION): cv.templatable(state_num_schema),
     cv.Optional(CONF_COMMAND_OPEN): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_CLOSE): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_STOP): cv.templatable(command_hex_schema),
+    cv.Optional(CONF_COMMAND_POSITION): cv.templatable(command_hex_schema),
     cv.Optional(CONF_COMMAND_ON): cv.invalid("UARTEx Valve do not support command_on!"),
     cv.Optional(CONF_COMMAND_OFF): cv.invalid("UARTEx Valve do not support command_off!"),
     cv.Optional(CONF_STATE_ON): cv.invalid("UARTEx Valve do not support state_on!"),
@@ -52,3 +53,7 @@ async def to_code(config):
     if CONF_COMMAND_STOP in config:
         command = await command_expression(config[CONF_COMMAND_STOP])
         cg.add(var.set_command(CONF_COMMAND_STOP, command))
+
+    if CONF_COMMAND_POSITION in config:
+        command = await command_float_expression(config[CONF_COMMAND_POSITION])
+        cg.add(var.set_command(CONF_COMMAND_POSITION, command))

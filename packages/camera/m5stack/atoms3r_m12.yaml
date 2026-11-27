@@ -1,0 +1,188 @@
+esphome:
+  min_version: 2026.11.0
+  on_boot:
+    # ESPHome sets up the I2C bus at priority 1000.
+    - priority: 1200
+      then:
+        - lambda: |-
+            gpio_set_direction(GPIO_NUM_9, GPIO_MODE_INPUT);
+            gpio_set_pull_mode(GPIO_NUM_9, GPIO_FLOATING);
+            gpio_set_direction(GPIO_NUM_12, GPIO_MODE_INPUT);
+            gpio_set_pull_mode(GPIO_NUM_12, GPIO_FLOATING);
+            gpio_set_level(GPIO_NUM_18, 0);
+            gpio_set_direction(GPIO_NUM_18, GPIO_MODE_OUTPUT);
+
+            const uint32_t started = millis();
+            while (!gpio_get_level(GPIO_NUM_9) || !gpio_get_level(GPIO_NUM_12)) {
+              if (millis() - started >= 500) {
+                ESP_LOGW("camera_boot", "SCCB lines did not go high within 500 ms");
+                return;
+              }
+              vTaskDelay(pdMS_TO_TICKS(5));
+            }
+            ESP_LOGI("camera_boot", "SCCB lines ready after %u ms",
+                     static_cast<unsigned>(millis() - started));
+
+    # Enable the same XCLK the camera driver will use, then verify the sensor ID.
+    - priority: 900
+      then:
+        - lambda: |-
+            ledc_timer_config_t timer{};
+            timer.speed_mode = LEDC_LOW_SPEED_MODE;
+            timer.duty_resolution = LEDC_TIMER_1_BIT;
+            timer.timer_num = LEDC_TIMER_0;
+            timer.freq_hz = 20000000;
+            timer.clk_cfg = LEDC_AUTO_CLK;
+
+            ledc_channel_config_t clock{};
+            clock.gpio_num = GPIO_NUM_21;
+            clock.speed_mode = LEDC_LOW_SPEED_MODE;
+            clock.channel = LEDC_CHANNEL_0;
+            clock.timer_sel = LEDC_TIMER_0;
+            clock.duty = 1;
+            if (ledc_timer_config(&timer) != ESP_OK || ledc_channel_config(&clock) != ESP_OK) {
+              ESP_LOGW("camera_boot", "Could not start XCLK for the sensor check");
+              return;
+            }
+
+            constexpr uint8_t pid_high_register[] = {0x30, 0x0A};
+            constexpr uint8_t pid_low_register[] = {0x30, 0x0B};
+            const uint32_t started = millis();
+            while (millis() - started < 1500) {
+              uint8_t high = 0;
+              uint8_t low = 0;
+              if (id(camera_i2c).write_readv(OV3660_SCCB_ADDR, pid_high_register, 2, &high, 1) == i2c::ERROR_OK &&
+                  id(camera_i2c).write_readv(OV3660_SCCB_ADDR, pid_low_register, 2, &low, 1) == i2c::ERROR_OK &&
+                  ((static_cast<uint16_t>(high) << 8) | low) == OV3660_PID) {
+                ESP_LOGI("camera_boot", "OV3660 PID 0x3660 confirmed after %u ms",
+                         static_cast<unsigned>(millis() - started));
+                return;
+              }
+              vTaskDelay(pdMS_TO_TICKS(10));
+            }
+            ESP_LOGW("camera_boot", "OV3660 did not respond with the expected PID within 1500 ms");
+
+esp32:
+  variant: esp32s3
+  framework:
+    type: esp-idf
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+i2c:
+  - id: camera_i2c
+    sda: GPIO12
+    scl: GPIO9
+    frequency: 100kHz
+    timeout: 10ms
+    scan: false
+  - id: atoms3r_m12_imu_i2c
+    sda: GPIO45
+    scl:
+      number: GPIO0
+      ignore_strapping_warning: true
+    frequency: 100kHz
+    scan: false
+
+esp32_camera:
+  name: "Camera"
+  external_clock:
+    pin: GPIO21
+    frequency: 20MHz
+  i2c_id: camera_i2c
+  data_pins: [GPIO3, GPIO42, GPIO46, GPIO48, GPIO4, GPIO17, GPIO11, GPIO13]
+  vsync_pin: GPIO10
+  href_pin: GPIO14
+  pixel_clock_pin: GPIO40
+  resolution: 640x480
+  max_framerate: 10 fps
+  idle_framerate: 0.1 fps
+  pixel_format: JPEG
+  jpeg_quality: 10
+
+motion:
+  - platform: bmi270
+    id: atoms3r_m12_imu
+    i2c_id: atoms3r_m12_imu_i2c
+    address: 0x68
+    aux_device: BMM150
+    update_interval: 5s
+
+sensor:
+  - platform: motion
+    motion_id: atoms3r_m12_imu
+    type: acceleration_x
+    name: "Acceleration X"
+    id: atoms3r_m12_accel_x
+    internal: true
+  - platform: motion
+    motion_id: atoms3r_m12_imu
+    type: acceleration_y
+    name: "Acceleration Y"
+    id: atoms3r_m12_accel_y
+    internal: true
+  - platform: motion
+    motion_id: atoms3r_m12_imu
+    type: acceleration_z
+    name: "Acceleration Z"
+    id: atoms3r_m12_accel_z
+    internal: true
+  - platform: motion
+    motion_id: atoms3r_m12_imu
+    type: gyroscope_x
+    name: "Gyroscope X"
+    id: atoms3r_m12_gyro_x
+    internal: true
+  - platform: motion
+    motion_id: atoms3r_m12_imu
+    type: gyroscope_y
+    name: "Gyroscope Y"
+    id: atoms3r_m12_gyro_y
+    internal: true
+  - platform: motion
+    motion_id: atoms3r_m12_imu
+    type: gyroscope_z
+    name: "Gyroscope Z"
+    id: atoms3r_m12_gyro_z
+    internal: true
+  - platform: bmi270
+    bmi270_id: atoms3r_m12_imu
+    type: magnetic_field_x
+    name: "Magnetic Field X"
+    id: atoms3r_m12_mag_x
+    internal: true
+  - platform: bmi270
+    bmi270_id: atoms3r_m12_imu
+    type: magnetic_field_y
+    name: "Magnetic Field Y"
+    id: atoms3r_m12_mag_y
+    internal: true
+  - platform: bmi270
+    bmi270_id: atoms3r_m12_imu
+    type: magnetic_field_z
+    name: "Magnetic Field Z"
+    id: atoms3r_m12_mag_z
+    internal: true
+  - platform: bmi270
+    bmi270_id: atoms3r_m12_imu
+    type: temperature
+    name: "IMU Temperature"
+    entity_category: diagnostic
+
+remote_transmitter:
+  id: atoms3r_m12_ir
+  pin: GPIO47
+  carrier_duty_percent: 50%
+
+api:
+  actions:
+    - action: transmit_ir_raw
+      variables:
+        timings: int[]
+      then:
+        - remote_transmitter.transmit_raw:
+            transmitter_id: atoms3r_m12_ir
+            code: !lambda return timings;
+            carrier_frequency: 38kHz

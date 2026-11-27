@@ -114,6 +114,7 @@ climate:
   - platform: uartex
     name: "Room 0 Heater"
     id: room_0_heater
+    state_debounce: 2s
     visual:
       min_temperature: 5 °C
       max_temperature: 30 °C
@@ -342,6 +343,10 @@ sensor:
 switch:
   - platform: uartex
     name: "Switch1"
+    state_debounce:
+      delay: 2s
+      offset: 2
+      mask: [0x0F]
     state: 
       data: [0x02, 0x03]
       mask: [0xff, 0x0f]
@@ -421,12 +426,89 @@ valve:
     command_close:
       data: [0x02, 0x03, 0x00]
       ack: [0x02, 0x13, 0x00]
+    command_stop:
+      data: [0x02, 0x03, 0x02]
+    state_position: !lambda |-
+      return data[3] / 100.0f;
+    command_position: !lambda |-
+      return {{0x02, 0x03, 0x03, (uint8_t)(x * 100)}, {0x02, 0x13, 0x03}};
+
+water_heater:
+  - platform: uartex
+    name: "WaterHeater1"
+    state:
+      data: [0x02, 0x04]
+      mask: [0xff, 0x0f]
+    state_temperature_current:
+      offset: 2
+      length: 1
+      precision: 0
+    state_temperature_target:
+      offset: 3
+      length: 1
+      precision: 0
+    state_on:
+      offset: 4
+      data: [0x01]
+    state_off:
+      offset: 4
+      data: [0x00]
+    state_eco:
+      offset: 4
+      data: [0x02]
+    state_performance:
+      offset: 4
+      data: [0x03]
+    state_away_on:
+      offset: 5
+      data: [0x01]
+    state_away_off:
+      offset: 5
+      data: [0x00]
+    command_on:
+      data: [0x02, 0x04, 0x01]
+      ack: [0x02, 0x14, 0x01]
+    command_off:
+      data: [0x02, 0x04, 0x00]
+      ack: [0x02, 0x14, 0x00]
+    command_eco:
+      data: [0x02, 0x04, 0x02]
+    command_performance:
+      data: [0x02, 0x04, 0x03]
+    command_away_on:
+      data: [0x02, 0x04, 0x11]
+    command_away_off:
+      data: [0x02, 0x04, 0x10]
+    command_temperature: !lambda |-
+      float target = x;
+      return {{0x02, 0x04, 0x20, (uint8_t)target}, {0x02, 0x14, 0x20}};
 
 #packet play) 0x02 0x01 0x02 0x03 0x01 (add)checksum 0x0D 0x0A
 #offset) head head 0    1    2    3
 #packet play ack) 0x02 0x01 0x02 0x13 0x01 (add)checksum 0x0D 0x0A
 #packet pause) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
 #packet pause ack) 0x02 0x01 0x02 0x03 0x00 (add)checksum 0x0D 0x0A
+cover:
+  - platform: uartex
+    name: "Cover1"
+    state:
+      data: [0x02, 0x03]
+      mask: [0xff, 0x0f]
+    state_open:
+      offset: 2
+      data: [0x01]
+    state_closed:
+      offset: 2
+      data: [0x00]
+    command_open:
+      data: [0x02, 0x03, 0x01]
+      ack: [0x02, 0x13, 0x01]
+    command_close:
+      data: [0x02, 0x03, 0x00]
+      ack: [0x02, 0x13, 0x00]
+    command_stop:
+      data: [0x02, 0x03, 0x02]
+
 media_player:
   - platform: uartex
     name: "Player1"

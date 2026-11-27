@@ -32,6 +32,8 @@ struct tx_data_t
     // Own snapshots through queueing, transmission, and retries.
     std::shared_ptr<const cmd_t> owned{};
     std::vector<uint8_t> copy_source{};
+    // Queued by an entity control path (not polling): its transmission arms the state debounce bypass.
+    bool control{false};
 };
 
 struct header_t
