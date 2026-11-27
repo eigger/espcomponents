@@ -4,6 +4,7 @@
 #include "esphome/core/helpers.h"
 #include <cinttypes>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <numbers>
 
@@ -313,7 +314,11 @@ bool BMM150Component::calibration_matches_config_(const BMM150Calibration &c) co
 void BMM150Component::load_calibration_() {
   // Component is not an EntityBase, so get_object_id_hash() is unavailable.
   // Version is in the key so older blobs are not decoded as this struct.
-  uint32_t hash = fnv1_hash(str_sprintf("bmm150_cal_v%u_%02X", CALIB_VERSION, this->address_));
+  // str_sprintf() is no longer reachable via helpers.h in ESPHome 2026.11 (moved to alloc_helpers.h);
+  // snprintf keeps the same key string (and hash) and works on all versions.
+  char key[24];
+  snprintf(key, sizeof(key), "bmm150_cal_v%u_%02X", (unsigned) CALIB_VERSION, (unsigned) this->address_);
+  uint32_t hash = fnv1_hash(key);
   this->pref_ = global_preferences->make_preference<BMM150Calibration>(hash, true);
   this->reset_calibration_();
   BMM150Calibration loaded{};
